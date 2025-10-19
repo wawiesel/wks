@@ -24,7 +24,8 @@ class WKSFileMonitor(FileSystemEventHandler):
         self,
         state_file: Path,
         on_change: Optional[Callable[[str, str], None]] = None,
-        ignore_patterns: Set[str] = None
+        ignore_patterns: Set[str] = None,
+        ignore_dirs: Set[str] = None
     ):
         """
         Initialize the file monitor.
@@ -33,11 +34,13 @@ class WKSFileMonitor(FileSystemEventHandler):
             state_file: Path to JSON file for tracking state
             on_change: Callback function(event_type, file_path) when files change
             ignore_patterns: Set of patterns to ignore (e.g., {'.git', 'venv'})
+            ignore_dirs: Set of directory names to completely ignore
         """
         super().__init__()
         self.state_file = Path(state_file)
         self.on_change = on_change
-        self.ignore_patterns = ignore_patterns or {'.git', '__pycache__', '.DS_Store', 'venv', '.venv'}
+        self.ignore_patterns = ignore_patterns or {'.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'}
+        self.ignore_dirs = ignore_dirs or {'Library', 'Applications', '.Trash', '.cache', 'Cache'}
         self.state = self._load_state()
 
     def _load_state(self) -> Dict:
@@ -66,11 +69,21 @@ class WKSFileMonitor(FileSystemEventHandler):
     def _should_ignore(self, path: str) -> bool:
         """Check if path should be ignored based on patterns."""
         path_obj = Path(path)
+
+        # Check if any parent directory should be ignored
+        for part in path_obj.parts:
+            if part in self.ignore_dirs:
+                return True
+            if part.startswith('.') and part not in {'.wks'}:  # Allow .wks directory
+                return True
+
+        # Check patterns
         for pattern in self.ignore_patterns:
             if pattern in path_obj.parts:
                 return True
-            if path_obj.name.startswith('.'):
+            if path_obj.name.startswith('.') and path_obj.name not in {'.wks'}:
                 return True
+
         return False
 
     def _track_change(self, event_type: str, path: str):
@@ -176,7 +189,8 @@ class WKSFileMonitor(FileSystemEventHandler):
 def start_monitoring(
     directories: list[Path],
     state_file: Path,
-    on_change: Optional[Callable] = None
+    on_change: Optional[Callable] = None,
+    ignore_dirs: Optional[Set[str]] = None
 ) -> Observer:
     """
     Start monitoring directories for changes.
@@ -185,11 +199,16 @@ def start_monitoring(
         directories: List of directories to monitor
         state_file: Path to state tracking file
         on_change: Optional callback for changes
+        ignore_dirs: Optional set of directory names to ignore
 
     Returns:
         Observer instance (call .stop() to stop monitoring)
     """
-    event_handler = WKSFileMonitor(state_file=state_file, on_change=on_change)
+    event_handler = WKSFileMonitor(
+        state_file=state_file,
+        on_change=on_change,
+        ignore_dirs=ignore_dirs
+    )
     observer = Observer()
 
     for directory in directories:
