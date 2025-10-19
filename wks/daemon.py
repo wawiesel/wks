@@ -72,10 +72,27 @@ class WKSDaemon:
         """Start monitoring."""
         self.vault.ensure_structure()
 
+        # Ignore common large directories
+        ignore_dirs = {
+            'Library',
+            'Applications',
+            '.Trash',
+            '.cache',
+            'Cache',
+            'Caches',
+            'node_modules',
+            'venv',
+            '.venv',
+            '__pycache__',
+            'build',
+            'dist',
+        }
+
         self.observer = start_monitoring(
             directories=self.monitor_paths,
             state_file=self.state_file,
-            on_change=self.on_file_change
+            on_change=self.on_file_change,
+            ignore_dirs=ignore_dirs
         )
 
         print(f"WKS daemon started, monitoring: {[str(p) for p in self.monitor_paths]}")
