@@ -10,13 +10,13 @@ Handles:
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict
-from datetime import datetime
+from datetime import datetime, date
 
 
 class ObsidianVault:
     """Interface to an Obsidian vault for WKS."""
 
-    def __init__(self, vault_path: Path):
+    def __init__(self, vault_path: Path, *, weekly_logs: bool = False, logs_dirname: str = "Logs", log_max_entries: int = 500, active_files_max_rows: int = 50, source_max_chars: int = 40, destination_max_chars: int = 40, base_dir: Optional[str] = None):
         """
         Initialize vault interface.
 
@@ -24,18 +24,139 @@ class ObsidianVault:
             vault_path: Path to Obsidian vault (e.g., ~/obsidian)
         """
         self.vault_path = Path(vault_path)
-        self.links_dir = self.vault_path / "links"
-        self.projects_dir = self.vault_path / "Projects"
-        self.people_dir = self.vault_path / "People"
-        self.topics_dir = self.vault_path / "Topics"
-        self.ideas_dir = self.vault_path / "Ideas"
-        self.orgs_dir = self.vault_path / "Organizations"
-        self.records_dir = self.vault_path / "Records"
-        self.file_log_path = self.vault_path / "FileOperations.md"
-        self.activity_log_path = self.vault_path / "ActiveFiles.md"
+        # Base directory under the vault for all WKS-managed content (optional)
+        self.base_dir = base_dir.strip("/") if base_dir else None
+        self._recompute_paths()
+        # Logging configuration
+        self.weekly_logs = weekly_logs
+        # logs_dir is relative to the base path
+        self.logs_dirname = logs_dirname
+        self.logs_dir = self._base_path() / logs_dirname
+        # Default file log path (used when weekly_logs is False)
+        self.file_log_path = self._base_path() / "FileOperations.md"
+        self.activity_log_path = self._base_path() / "ActiveFiles.md"
+        self.log_max_entries = int(log_max_entries)
+        self.active_files_max_rows = int(active_files_max_rows)
+        # Table width controls for path columns
+        self.source_max_chars = int(source_max_chars)
+        self.destination_max_chars = int(destination_max_chars)
+
+    def configure_logging(self, *, weekly_logs: Optional[bool] = None, logs_dirname: Optional[str] = None, max_entries: Optional[int] = None, active_max_rows: Optional[int] = None, source_max_chars: Optional[int] = None, destination_max_chars: Optional[int] = None):
+        """Configure logging behavior (weekly logs and directory)."""
+        if weekly_logs is not None:
+            self.weekly_logs = weekly_logs
+        if logs_dirname is not None:
+            self.logs_dirname = logs_dirname
+            self.logs_dir = self._base_path() / logs_dirname
+        if max_entries is not None:
+            self.log_max_entries = int(max_entries)
+        if active_max_rows is not None:
+            self.active_files_max_rows = int(active_max_rows)
+        if source_max_chars is not None:
+            self.source_max_chars = int(source_max_chars)
+        if destination_max_chars is not None:
+            self.destination_max_chars = int(destination_max_chars)
+
+    def _shorten_path(self, p: Path, max_chars: int) -> str:
+        """Return a compact string for a path, using ~ for home and mid-ellipsis if too long."""
+        try:
+            rel = p.relative_to(Path.home())
+            s = f"~/{rel}"
+        except ValueError:
+            s = str(p)
+        if len(s) <= max_chars:
+            return s
+        if max_chars <= 3:
+            return s[-max_chars:]
+        head = max_chars // 2 - 1
+        tail = max_chars - head - 1
+        return s[:head] + "…" + s[-tail:]
+
+    def _week_label(self) -> str:
+        iso = date.today().isocalendar()
+        return f"{iso.year}-W{iso.week:02d}"
+
+    def _base_path(self) -> Path:
+        return (self.vault_path / self.base_dir) if self.base_dir else self.vault_path
+
+    def _recompute_paths(self):
+        base = self._base_path() if hasattr(self, 'base_dir') else self.vault_path
+        self.links_dir = base / "links"
+        self.projects_dir = base / "Projects"
+        self.people_dir = base / "People"
+        self.topics_dir = base / "Topics"
+        self.ideas_dir = base / "Ideas"
+        self.orgs_dir = base / "Organizations"
+        self.records_dir = base / "Records"
+
+    def set_base_dir(self, base_dir: Optional[str]):
+        """Set or clear the base subdirectory under the vault for WKS-managed content."""
+        self.base_dir = base_dir.strip("/") if base_dir else None
+        self._recompute_paths()
+        # Update log paths to follow the new base path
+        self.logs_dir = self._base_path() / self.logs_dirname
+        self.file_log_path = self._base_path() / "FileOperations.md"
+        self.activity_log_path = self._base_path() / "ActiveFiles.md"
+
+    def _get_file_log_path(self) -> Path:
+        if not self.weekly_logs:
+            return self.file_log_path
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        return self.logs_dir / f"FileOperations-{self._week_label()}.md"
+
+    def _cap_log_entries(self, file_path: Path):
+        """Limit the number of table rows to log_max_entries, preserving header."""
+        try:
+            if not file_path.exists() or self.log_max_entries <= 0:
+                return
+            lines = file_path.read_text().splitlines()
+            if not lines:
+                return
+            # Find header start (table header line)
+            header_idx = None
+            sep_idx = None
+            for i, line in enumerate(lines):
+                if line.strip().startswith('| Date/Time | Operation'):
+                    header_idx = i
+                    # The separator is expected next or soon after
+                    # Search up to next few lines for separator row starting with "|-"
+                    for j in range(i+1, min(i+5, len(lines))):
+                        if lines[j].strip().startswith('|-'):
+                            sep_idx = j
+                            break
+                    break
+            if header_idx is None or sep_idx is None:
+                return
+            head = lines[:sep_idx+1]
+            body = lines[sep_idx+1:]
+            out = head[:]
+            kept = 0
+            idx = 0
+            while idx < len(body) and kept < self.log_max_entries:
+                line = body[idx]
+                if line.strip().startswith('|'):
+                    # This is a table row -> count and keep
+                    out.append(line)
+                    kept += 1
+                    # Also keep any immediate detail quote lines that follow
+                    k = idx + 1
+                    while k < len(body) and body[k].strip().startswith('>'):
+                        out.append(body[k])
+                        k += 1
+                    idx = k
+                else:
+                    # Non-row line between entries (e.g., blank) -> keep if within entries area
+                    out.append(line)
+                    idx += 1
+            file_path.write_text('\n'.join(out) + '\n')
+        except Exception:
+            # Best-effort; don't break logging on parse errors
+            pass
 
     def ensure_structure(self):
         """Create vault folder structure if it doesn't exist."""
+        # Ensure base path exists
+        self._base_path().mkdir(parents=True, exist_ok=True)
         for directory in [
             self.links_dir,
             self.projects_dir,
@@ -44,8 +165,10 @@ class ObsidianVault:
             self.ideas_dir,
             self.orgs_dir,
             self.records_dir,
+            self.logs_dir if self.weekly_logs else None,
         ]:
-            directory.mkdir(parents=True, exist_ok=True)
+            if directory is not None:
+                directory.mkdir(parents=True, exist_ok=True)
 
     def create_project_note(
         self,
@@ -72,6 +195,7 @@ class ObsidianVault:
         year = parts[0] if len(parts) > 0 else ""
         name = parts[1] if len(parts) > 1 else project_name
 
+        base_prefix = (self.base_dir + "/") if self.base_dir else ""
         content = f"""# {project_name}
 
 **Status:** {status}
@@ -84,7 +208,7 @@ class ObsidianVault:
 
 ## Links
 
-- Project directory: [[links/{project_name}]]
+- Project directory: [[{base_prefix}links/{project_name}]]
 - Related topics:
 
 ## Notes
@@ -234,7 +358,8 @@ class ObsidianVault:
         operation: str,
         path: Path,
         destination: Optional[Path] = None,
-        details: Optional[str] = None
+        details: Optional[str] = None,
+        tracked_files_count: Optional[int] = None
     ):
         """
         Log a file operation to FileOperations.md in reverse chronological order.
@@ -245,45 +370,105 @@ class ObsidianVault:
             destination: Destination path (for moves/renames)
             details: Optional additional details
         """
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # Use non-breaking space + inline code to avoid column wrapping in Obsidian tables
+        timestamp_raw = datetime.now().strftime('%Y-%m-%d\u00A0%H:%M:%S')
+        timestamp_cell = f"`{timestamp_raw}`"
+        timestamp_plain = timestamp_raw.replace('\u00A0', ' ')
 
         # Get checksums
         source_checksum = self._get_file_checksum(path)
         dest_checksum = self._get_file_checksum(destination) if destination else None
 
         # Build log entry in table format
+        src_disp = f"`{self._shorten_path(path, self.source_max_chars)}`"
+        dest_disp = f"`{self._shorten_path(destination, self.destination_max_chars)}`" if destination else "—"
         if operation == "moved" and destination:
-            entry = f"| {timestamp} | `MOVED` | `{path}` | `{destination}` | {source_checksum or 'N/A'} |"
+            checksum = dest_checksum or source_checksum or 'N/A'
+            entry = f"| {timestamp_cell} | `MOVED` | {src_disp} | {dest_disp} | {checksum} |"
         elif operation == "renamed" and destination:
-            entry = f"| {timestamp} | `RENAMED` | `{path}` | `{destination}` | {source_checksum or 'N/A'} |"
+            checksum = dest_checksum or source_checksum or 'N/A'
+            entry = f"| {timestamp_cell} | `RENAMED` | {src_disp} | {dest_disp} | {checksum} |"
         elif operation == "created":
             checksum = source_checksum or 'N/A'
-            entry = f"| {timestamp} | `CREATED` | `{path}` | — | {checksum} |"
+            entry = f"| {timestamp_cell} | `CREATED` | {src_disp} | — | {checksum} |"
         elif operation == "deleted":
-            entry = f"| {timestamp} | `DELETED` | `{path}` | — | N/A |"
+            entry = f"| {timestamp_cell} | `DELETED` | {src_disp} | — | N/A |"
         elif operation == "modified":
             checksum = source_checksum or 'N/A'
-            entry = f"| {timestamp} | `MODIFIED` | `{path}` | — | {checksum} |"
+            entry = f"| {timestamp_cell} | `MODIFIED` | {src_disp} | — | {checksum} |"
         else:
-            entry = f"| {timestamp} | `{operation.upper()}` | `{path}` | — | N/A |"
+            entry = f"| {timestamp_cell} | `{operation.upper()}` | {src_disp} | — | N/A |"
 
         if details:
             entry += f"\n> {details}"
 
         entry += "\n"
 
+        file_path = self._get_file_log_path()
+
         # Initialize file if it doesn't exist
-        if not self.file_log_path.exists():
-            self.file_log_path.write_text(f"""# File Operations Log
-
-Reverse chronological log of all file operations tracked by WKS.
-
-| Date/Time | Operation | Source | Destination | Checksum |
-|-----------|-----------|--------|-------------|----------|
-{entry}""")
+        if not file_path.exists():
+            tracked_line = f"Tracking: {tracked_files_count} files (as of {timestamp_plain})\n" if tracked_files_count is not None else ""
+            cfg_path = (Path.home() / ".wks" / "config.json").expanduser()
+            cfg_url = f"file://{cfg_path}"
+            intro = (
+                "Reverse chronological log of file operations tracked by WKS.\n\n"
+                f"Config: [~/.wks/config.json]({cfg_url})\n"
+                f"Monitors include_paths (or ~ by default) minus exclude_paths and ignores.\n"
+                f"Shows up to {self.log_max_entries} recent entries; older rows are trimmed.\n"
+                f"Checksum is first 12 chars of SHA-256. Moves show destination checksum.\n\n"
+            )
+            file_path.write_text(
+                f"# File Operations Log ({self._week_label()})\n\n"
+                + intro
+                + tracked_line
+                + "| Date/Time | Operation | Source | Destination | Checksum |\n"
+                + "|-----------|-----------|--------|-------------|----------|\n"
+                + f"{entry}"
+            )
         else:
             # Read existing content
-            content = self.file_log_path.read_text()
+            content = file_path.read_text()
+
+            # Optionally update tracking line near the top before the table
+            if tracked_files_count is not None:
+                lines = content.split('\n')
+                updated = False
+                table_header_idx = None
+                for i, line in enumerate(lines[:100]):
+                    if line.strip().startswith('| Date/Time | Operation'):
+                        table_header_idx = i
+                        break
+                # Search for existing Tracking line before table
+                search_upto = table_header_idx if table_header_idx is not None else min(len(lines), 100)
+                for i in range(search_upto):
+                    if lines[i].strip().startswith('Tracking:'):
+                        lines[i] = f"Tracking: {tracked_files_count} files (as of {timestamp_plain})"
+                        updated = True
+                        break
+                if not updated:
+                    insert_idx = 3 if len(lines) >= 3 else len(lines)
+                    lines.insert(insert_idx, f"Tracking: {tracked_files_count} files (as of {timestamp})")
+                content = '\n'.join(lines)
+
+            # Ensure config link and a short explanation exist near the top
+            if "Config: [~/.wks/config.json]" not in content:
+                cfg_path = (Path.home() / ".wks" / "config.json").expanduser()
+                cfg_url = f"file://{cfg_path}"
+                info = (
+                    f"Config: [~/.wks/config.json]({cfg_url})\n"
+                    f"Monitors include_paths (or ~ by default) minus exclude_paths and ignores.\n"
+                    f"Shows up to {self.log_max_entries} recent entries; older rows are trimmed.\n"
+                    f"Checksum is first 12 chars of SHA-256. Moves show destination checksum.\n\n"
+                )
+                if content.startswith('# '):
+                    first_nl = content.find('\n')
+                    if first_nl != -1:
+                        content = content[:first_nl+1] + info + content[first_nl+1:]
+                    else:
+                        content = content + '\n' + info
+                else:
+                    content = info + content
 
             # Find the table header
             if "| Date/Time | Operation |" in content:
@@ -298,7 +483,9 @@ Reverse chronological log of all file operations tracked by WKS.
                 # Fallback if table not found
                 new_content = content + "\n" + entry
 
-            self.file_log_path.write_text(new_content)
+            file_path.write_text(new_content)
+            # Enforce max entries
+            self._cap_log_entries(file_path)
 
     def get_recent_operations(self, limit: int = 50) -> str:
         """
@@ -339,7 +526,7 @@ Files with recent activity, sorted by attention angle.
 |------|----------|-------|---|----------|
 """
 
-        for path_str, angle, delta in active_files:
+        for path_str, angle, delta in (active_files[: self.active_files_max_rows] if isinstance(active_files, list) else active_files):
             path = Path(path_str)
 
             # Just show filename

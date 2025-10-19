@@ -21,7 +21,8 @@ class SimilarityDB:
         self,
         database_name: str = "wks_similarity",
         collection_name: str = "file_embeddings",
-        mongo_uri: str = "mongodb://localhost:27017/"
+        mongo_uri: str = "mongodb://localhost:27017/",
+        model_name: str = 'all-MiniLM-L6-v2',
     ):
         """
         Initialize similarity database.
@@ -37,7 +38,7 @@ class SimilarityDB:
 
         # Load sentence transformer model
         # Using a small, fast model suitable for semantic search
-        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.model = SentenceTransformer(model_name)
 
         # Create indexes
         self._ensure_indexes()
@@ -198,6 +199,32 @@ class SimilarityDB:
         """Remove a file from the database."""
         path_str = str(path.resolve())
         self.collection.delete_one({"path": path_str})
+
+    def rename_file(self, old_path: Path, new_path: Path):
+        """
+        Update the stored document when a file is moved/renamed.
+
+        If the old record doesn't exist, falls back to add_file(new_path).
+        """
+        old_str = str(old_path.resolve())
+        new_str = str(new_path.resolve())
+        doc = self.collection.find_one({"path": old_str})
+        if not doc:
+            # No previous record; create a new one
+            self.add_file(new_path)
+            return
+
+        self.collection.update_one(
+            {"path": old_str},
+            {
+                "$set": {
+                    "path": new_str,
+                    "filename": new_path.name,
+                    "parent": str(new_path.parent),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            }
+        )
 
     def get_stats(self) -> dict:
         """Get database statistics."""

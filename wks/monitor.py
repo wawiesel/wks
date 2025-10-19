@@ -6,8 +6,9 @@ Monitors directories and tracks file changes without external dependencies.
 import time
 import json
 from pathlib import Path
+import fnmatch
 from datetime import datetime
-from typing import Dict, Set, Callable, Optional
+from typing import Dict, Set, Callable, Optional, List
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
@@ -24,8 +25,11 @@ class WKSFileMonitor(FileSystemEventHandler):
         self,
         state_file: Path,
         on_change: Optional[Callable[[str, str], None]] = None,
-        ignore_patterns: Set[str] = None,
-        ignore_dirs: Set[str] = None
+        ignore_patterns: Optional[Set[str]] = None,
+        ignore_dirs: Optional[Set[str]] = None,
+        include_paths: Optional[List[Path]] = None,
+        exclude_paths: Optional[List[Path]] = None,
+        ignore_globs: Optional[List[str]] = None,
     ):
         """
         Initialize the file monitor.
@@ -41,6 +45,13 @@ class WKSFileMonitor(FileSystemEventHandler):
         self.on_change = on_change
         self.ignore_patterns = ignore_patterns or {'.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'}
         self.ignore_dirs = ignore_dirs or {'Library', 'Applications', '.Trash', '.cache', 'Cache'}
+        # Paths to explicitly include/exclude (resolved)
+        self.include_paths = [Path(p).expanduser().resolve() for p in include_paths] if include_paths else []
+        self.exclude_paths = [Path(p).expanduser().resolve() for p in exclude_paths] if exclude_paths else []
+        # Glob patterns (Unix shell-style) to ignore
+        self.ignore_globs = ignore_globs or []
+        # Dot-path whitelist that should never be ignored by default rules
+        self._dot_whitelist = {'.wks'}
         self.state = self._load_state()
 
     def _load_state(self) -> Dict:
@@ -66,23 +77,55 @@ class WKSFileMonitor(FileSystemEventHandler):
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f, indent=2)
 
+    def _is_within(self, path: Path, base: Path) -> bool:
+        """Return True if path is within base (or equal)."""
+        try:
+            path.resolve().relative_to(base.resolve())
+            return True
+        except ValueError:
+            return False
+
     def _should_ignore(self, path: str) -> bool:
         """Check if path should be ignored based on patterns."""
-        path_obj = Path(path)
+        path_obj = Path(path).resolve()
+
+        # Exclude by explicit exclude paths
+        for ex in self.exclude_paths:
+            if self._is_within(path_obj, ex):
+                return True
+
+        # If include paths are provided, ignore anything outside them
+        if self.include_paths:
+            if not any(self._is_within(path_obj, inc) for inc in self.include_paths):
+                return True
 
         # Check if any parent directory should be ignored
         for part in path_obj.parts:
             if part in self.ignore_dirs:
                 return True
-            if part.startswith('.') and part not in {'.wks'}:  # Allow .wks directory
+            if part.startswith('.') and part not in self._dot_whitelist:  # Allow dot-whitelist (e.g., .wks)
                 return True
 
         # Check patterns
         for pattern in self.ignore_patterns:
             if pattern in path_obj.parts:
                 return True
-            if path_obj.name.startswith('.') and path_obj.name not in {'.wks'}:
+            if path_obj.name.startswith('.') and path_obj.name not in self._dot_whitelist:
                 return True
+
+        # Glob-based ignores against full path and basename
+        path_str = path_obj.as_posix()
+        basename = path_obj.name
+        for g in self.ignore_globs:
+            try:
+                if fnmatch.fnmatchcase(path_str, g) or fnmatch.fnmatchcase(basename, g):
+                    # Preserve whitelist
+                    if basename in self._dot_whitelist:
+                        continue
+                    return True
+            except Exception:
+                # Ignore malformed globs
+                continue
 
         return False
 
@@ -190,7 +233,11 @@ def start_monitoring(
     directories: list[Path],
     state_file: Path,
     on_change: Optional[Callable] = None,
-    ignore_dirs: Optional[Set[str]] = None
+    ignore_dirs: Optional[Set[str]] = None,
+    ignore_patterns: Optional[Set[str]] = None,
+    include_paths: Optional[List[Path]] = None,
+    exclude_paths: Optional[List[Path]] = None,
+    ignore_globs: Optional[List[str]] = None,
 ) -> Observer:
     """
     Start monitoring directories for changes.
@@ -207,7 +254,11 @@ def start_monitoring(
     event_handler = WKSFileMonitor(
         state_file=state_file,
         on_change=on_change,
-        ignore_dirs=ignore_dirs
+        ignore_dirs=ignore_dirs,
+        ignore_patterns=ignore_patterns,
+        include_paths=include_paths or directories,
+        exclude_paths=exclude_paths,
+        ignore_globs=ignore_globs,
     )
     observer = Observer()
 
