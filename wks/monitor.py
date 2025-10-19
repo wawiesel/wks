@@ -105,8 +105,37 @@ class WKSFileMonitor(FileSystemEventHandler):
     def on_moved(self, event: FileSystemEvent):
         """Handle file/directory move."""
         if not event.is_directory:
-            self._track_change("moved_from", event.src_path)
-            self._track_change("moved_to", event.dest_path)
+            # Track the move with both paths
+            if self._should_ignore(event.src_path) or self._should_ignore(event.dest_path):
+                return
+
+            src_str = str(Path(event.src_path).resolve())
+            dest_str = str(Path(event.dest_path).resolve())
+
+            # Track move event
+            if dest_str not in self.state["files"]:
+                self.state["files"][dest_str] = {
+                    "created": datetime.now().isoformat(),
+                    "modifications": []
+                }
+
+            self.state["files"][dest_str]["modifications"].append({
+                "type": "moved",
+                "from": src_str,
+                "to": dest_str,
+                "timestamp": datetime.now().isoformat()
+            })
+
+            # Keep only last 10 modifications
+            if len(self.state["files"][dest_str]["modifications"]) > 10:
+                self.state["files"][dest_str]["modifications"] = \
+                    self.state["files"][dest_str]["modifications"][-10:]
+
+            self._save_state()
+
+            if self.on_change:
+                # Pass both paths as a tuple for moves
+                self.on_change("moved", (src_str, dest_str))
 
     def on_deleted(self, event: FileSystemEvent):
         """Handle file/directory deletion."""
