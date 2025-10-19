@@ -3,11 +3,21 @@
 
 WKS_DIR="$HOME/2025-WKS"
 VENV="$WKS_DIR/venv"
-PID_FILE="$HOME/.wks/daemon.pid"
+PID_FILE="$HOME/.wks/daemon.pid"   # legacy, may not be present
+LOCK_FILE="$HOME/.wks/daemon.lock" # preferred single-instance marker
 LOG_FILE="$HOME/.wks/daemon.log"
 
 case "$1" in
     start)
+        # Check lock first
+        if [ -f "$LOCK_FILE" ]; then
+            PID=$(head -n1 "$LOCK_FILE" 2>/dev/null || echo "")
+            if [ -n "$PID" ] && ps -p $PID > /dev/null 2>&1; then
+                echo "WKS daemon is already running (PID: $PID)"
+                exit 1
+            fi
+        fi
+        # Fallback PID file check
         if [ -f "$PID_FILE" ]; then
             PID=$(cat "$PID_FILE")
             if ps -p $PID > /dev/null 2>&1; then
@@ -21,22 +31,30 @@ case "$1" in
         cd "$WKS_DIR"
         source "$VENV/bin/activate"
         nohup python -m wks.daemon > "$LOG_FILE" 2>&1 &
-        echo $! > "$PID_FILE"
-        echo "WKS daemon started (PID: $(cat $PID_FILE))"
+        DAEMON_PID=$!
+        echo $DAEMON_PID > "$PID_FILE" 2>/dev/null || true
+        echo "WKS daemon started (PID: $DAEMON_PID)"
         echo "Log: $LOG_FILE"
         ;;
 
     stop)
-        if [ ! -f "$PID_FILE" ]; then
+        # Prefer lock
+        if [ -f "$LOCK_FILE" ]; then
+            PID=$(head -n1 "$LOCK_FILE" 2>/dev/null || echo "")
+            if [ -n "$PID" ]; then
+                echo "Stopping WKS daemon (PID: $PID)..."
+                kill $PID 2>/dev/null || true
+            fi
+        elif [ -f "$PID_FILE" ]; then
+            PID=$(cat "$PID_FILE")
+            echo "Stopping WKS daemon (PID: $PID)..."
+            kill $PID 2>/dev/null || true
+        else
             echo "WKS daemon is not running"
             exit 1
         fi
-
-        PID=$(cat "$PID_FILE")
-        echo "Stopping WKS daemon (PID: $PID)..."
-        kill $PID
-        rm "$PID_FILE"
-        echo "WKS daemon stopped"
+        rm -f "$PID_FILE" "$LOCK_FILE"
+        echo "WKS daemon stop signaled"
         ;;
 
     restart)
@@ -46,7 +64,16 @@ case "$1" in
         ;;
 
     status)
-        if [ -f "$PID_FILE" ]; then
+        if [ -f "$LOCK_FILE" ]; then
+            PID=$(head -n1 "$LOCK_FILE" 2>/dev/null || echo "")
+            if [ -n "$PID" ] && ps -p $PID > /dev/null 2>&1; then
+                echo "WKS daemon is running (PID: $PID)"
+                exit 0
+            else
+                echo "WKS daemon is not running (stale lock)"
+                exit 1
+            fi
+        elif [ -f "$PID_FILE" ]; then
             PID=$(cat "$PID_FILE")
             if ps -p $PID > /dev/null 2>&1; then
                 echo "WKS daemon is running (PID: $PID)"
