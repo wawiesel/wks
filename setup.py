@@ -8,8 +8,10 @@ setup(
     packages=find_packages(),
     python_requires=">=3.8",
     install_requires=[
-        "watchdog",  # File system monitoring
-        "rich",      # Terminal formatting
+        "watchdog",           # File system monitoring
+        "rich",               # Terminal formatting
+        "pymongo",            # MongoDB
+        "sentence-transformers",  # Embeddings
         # Add more as needed
     ],
     entry_points={
