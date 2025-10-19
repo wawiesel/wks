@@ -30,6 +30,7 @@ class ObsidianVault:
         self.ideas_dir = self.vault_path / "Ideas"
         self.orgs_dir = self.vault_path / "Organizations"
         self.records_dir = self.vault_path / "Records"
+        self.file_log_path = self.vault_path / "FileOperations.md"
 
     def ensure_structure(self):
         """Create vault folder structure if it doesn't exist."""
@@ -204,6 +205,88 @@ class ObsidianVault:
         for link in broken:
             link.unlink()
         return len(broken)
+
+    def log_file_operation(
+        self,
+        operation: str,
+        path: Path,
+        destination: Optional[Path] = None,
+        details: Optional[str] = None
+    ):
+        """
+        Log a file operation to FileOperations.md in reverse chronological order.
+
+        Args:
+            operation: Type of operation (created, modified, moved, deleted, renamed)
+            path: Source path
+            destination: Destination path (for moves/renames)
+            details: Optional additional details
+        """
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # Build log entry
+        if operation == "moved" and destination:
+            entry = f"- **{timestamp}** - `MOVED` {path} → {destination}"
+        elif operation == "renamed" and destination:
+            entry = f"- **{timestamp}** - `RENAMED` {path.name} → {destination.name} (in {path.parent})"
+        elif operation == "created":
+            entry = f"- **{timestamp}** - `CREATED` {path}"
+        elif operation == "deleted":
+            entry = f"- **{timestamp}** - `DELETED` {path}"
+        elif operation == "modified":
+            entry = f"- **{timestamp}** - `MODIFIED` {path}"
+        else:
+            entry = f"- **{timestamp}** - `{operation.upper()}` {path}"
+
+        if details:
+            entry += f"\n  > {details}"
+
+        entry += "\n"
+
+        # Initialize file if it doesn't exist
+        if not self.file_log_path.exists():
+            self.file_log_path.write_text(f"""# File Operations Log
+
+Reverse chronological log of all file operations tracked by WKS.
+
+---
+
+{entry}""")
+        else:
+            # Read existing content
+            content = self.file_log_path.read_text()
+
+            # Find the separator
+            if "---" in content:
+                header, log_entries = content.split("---", 1)
+                # Insert new entry at the top of the log
+                new_content = f"{header}---\n\n{entry}{log_entries}"
+            else:
+                # Fallback if separator not found
+                new_content = f"{content}\n{entry}"
+
+            self.file_log_path.write_text(new_content)
+
+    def get_recent_operations(self, limit: int = 50) -> str:
+        """
+        Get the most recent file operations.
+
+        Args:
+            limit: Maximum number of entries to return
+
+        Returns:
+            String containing recent operations
+        """
+        if not self.file_log_path.exists():
+            return "No operations logged yet."
+
+        content = self.file_log_path.read_text()
+        lines = content.split('\n')
+
+        # Find entries (lines starting with '- **')
+        entries = [line for line in lines if line.strip().startswith('- **')]
+
+        return '\n'.join(entries[:limit])
 
 
 if __name__ == "__main__":
