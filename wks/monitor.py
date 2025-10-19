@@ -43,8 +43,17 @@ class WKSFileMonitor(FileSystemEventHandler):
     def _load_state(self) -> Dict:
         """Load state from JSON file."""
         if self.state_file.exists():
-            with open(self.state_file, 'r') as f:
-                return json.load(f)
+            try:
+                with open(self.state_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                # State file corrupted, back it up and start fresh
+                backup_file = self.state_file.with_suffix('.json.backup')
+                try:
+                    self.state_file.rename(backup_file)
+                    print(f"Warning: Corrupted state file backed up to {backup_file}")
+                except OSError:
+                    pass
         return {"files": {}, "last_update": None}
 
     def _save_state(self):
