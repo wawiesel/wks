@@ -7,6 +7,7 @@ Handles:
 - Updating links when files move
 """
 
+import hashlib
 from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
@@ -31,6 +32,7 @@ class ObsidianVault:
         self.orgs_dir = self.vault_path / "Organizations"
         self.records_dir = self.vault_path / "Records"
         self.file_log_path = self.vault_path / "FileOperations.md"
+        self.activity_log_path = self.vault_path / "ActiveFiles.md"
 
     def ensure_structure(self):
         """Create vault folder structure if it doesn't exist."""
@@ -206,6 +208,27 @@ class ObsidianVault:
             link.unlink()
         return len(broken)
 
+    def _get_file_checksum(self, path: Path) -> Optional[str]:
+        """
+        Calculate SHA256 checksum of a file.
+
+        Args:
+            path: Path to file
+
+        Returns:
+            Hex digest of checksum, or None if file doesn't exist/can't be read
+        """
+        try:
+            if path.exists() and path.is_file():
+                sha256 = hashlib.sha256()
+                with open(path, 'rb') as f:
+                    for block in iter(lambda: f.read(4096), b''):
+                        sha256.update(block)
+                return sha256.hexdigest()[:12]  # First 12 chars for brevity
+        except (OSError, PermissionError):
+            pass
+        return None
+
     def log_file_operation(
         self,
         operation: str,
@@ -224,22 +247,28 @@ class ObsidianVault:
         """
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # Build log entry
+        # Get checksums
+        source_checksum = self._get_file_checksum(path)
+        dest_checksum = self._get_file_checksum(destination) if destination else None
+
+        # Build log entry in table format
         if operation == "moved" and destination:
-            entry = f"- **{timestamp}** - `MOVED` {path} → {destination}"
+            entry = f"| {timestamp} | `MOVED` | `{path}` | `{destination}` | {source_checksum or 'N/A'} |"
         elif operation == "renamed" and destination:
-            entry = f"- **{timestamp}** - `RENAMED` {path.name} → {destination.name} (in {path.parent})"
+            entry = f"| {timestamp} | `RENAMED` | `{path}` | `{destination}` | {source_checksum or 'N/A'} |"
         elif operation == "created":
-            entry = f"- **{timestamp}** - `CREATED` {path}"
+            checksum = source_checksum or 'N/A'
+            entry = f"| {timestamp} | `CREATED` | `{path}` | — | {checksum} |"
         elif operation == "deleted":
-            entry = f"- **{timestamp}** - `DELETED` {path}"
+            entry = f"| {timestamp} | `DELETED` | `{path}` | — | N/A |"
         elif operation == "modified":
-            entry = f"- **{timestamp}** - `MODIFIED` {path}"
+            checksum = source_checksum or 'N/A'
+            entry = f"| {timestamp} | `MODIFIED` | `{path}` | — | {checksum} |"
         else:
-            entry = f"- **{timestamp}** - `{operation.upper()}` {path}"
+            entry = f"| {timestamp} | `{operation.upper()}` | `{path}` | — | N/A |"
 
         if details:
-            entry += f"\n  > {details}"
+            entry += f"\n> {details}"
 
         entry += "\n"
 
@@ -249,21 +278,25 @@ class ObsidianVault:
 
 Reverse chronological log of all file operations tracked by WKS.
 
----
-
+| Date/Time | Operation | Source | Destination | Checksum |
+|-----------|-----------|--------|-------------|----------|
 {entry}""")
         else:
             # Read existing content
             content = self.file_log_path.read_text()
 
-            # Find the separator
-            if "---" in content:
-                header, log_entries = content.split("---", 1)
-                # Insert new entry at the top of the log
-                new_content = f"{header}---\n\n{entry}{log_entries}"
+            # Find the table header
+            if "| Date/Time | Operation |" in content:
+                parts = content.split("|-", 1)
+                if len(parts) == 2:
+                    header_part = parts[0] + "|-" + parts[1].split("\n", 1)[0] + "\n"
+                    # Insert new entry right after header
+                    new_content = header_part + entry + parts[1].split("\n", 1)[1] if len(parts[1].split("\n", 1)) > 1 else header_part + entry
+                else:
+                    new_content = content + "\n" + entry
             else:
-                # Fallback if separator not found
-                new_content = f"{content}\n{entry}"
+                # Fallback if table not found
+                new_content = content + "\n" + entry
 
             self.file_log_path.write_text(new_content)
 
@@ -287,6 +320,49 @@ Reverse chronological log of all file operations tracked by WKS.
         entries = [line for line in lines if line.strip().startswith('- **')]
 
         return '\n'.join(entries[:limit])
+
+    def update_active_files(self, active_files: list[tuple[str, float, float]]):
+        """
+        Update the ActiveFiles.md view with recently changed files and angles.
+
+        Args:
+            active_files: List of (path, angle, delta_angle) tuples
+        """
+        content = """# Active Files
+
+Files with recent activity, sorted by attention angle.
+
+**Angle**: Measure of recent activity (higher = more active)
+**Delta**: Change in angle (positive = increasing activity)
+
+| File | Angle | Delta | Last Modified |
+|------|-------|-------|---------------|
+"""
+
+        for path_str, angle, delta in active_files:
+            path = Path(path_str)
+            # Get relative path from home for readability
+            try:
+                rel_path = path.relative_to(Path.home())
+                display_path = f"`~/{rel_path}`"
+            except ValueError:
+                display_path = f"`{path}`"
+
+            # Format last modified
+            if path.exists():
+                mod_time = datetime.fromtimestamp(path.stat().st_mtime)
+                time_str = mod_time.strftime('%Y-%m-%d %H:%M')
+            else:
+                time_str = "—"
+
+            # Color code delta
+            delta_str = f"{delta:+.2f}"
+
+            content += f"| {display_path} | {angle:.2f} | {delta_str} | {time_str} |\n"
+
+        content += f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n"
+
+        self.activity_log_path.write_text(content)
 
 
 if __name__ == "__main__":
