@@ -1,0 +1,78 @@
+#!/bin/bash
+# Install WKS as a macOS LaunchAgent service
+
+set -e
+
+PLIST_FILE="$HOME/Library/LaunchAgents/com.wieselquist.wks.plist"
+WKS_DIR="$HOME/2025-WKS"
+VENV_PYTHON="$WKS_DIR/venv/bin/python"
+LOG_DIR="$HOME/.wks"
+
+echo "Installing WKS as a macOS LaunchAgent..."
+
+# Create log directory
+mkdir -p "$LOG_DIR"
+
+# Check if venv exists
+if [ ! -f "$VENV_PYTHON" ]; then
+    echo "Error: Virtual environment not found at $VENV_PYTHON"
+    echo "Please run: cd ~/2025-WKS && python3 -m venv venv && source venv/bin/activate && pip install -e ."
+    exit 1
+fi
+
+# Create the plist file
+cat > "$PLIST_FILE" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.wieselquist.wks</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$VENV_PYTHON</string>
+        <string>-m</string>
+        <string>wks.daemon</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$WKS_DIR</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$LOG_DIR/daemon.log</string>
+    <key>StandardErrorPath</key>
+    <string>$LOG_DIR/daemon.error.log</string>
+</dict>
+</plist>
+EOF
+
+echo "✓ Created plist file at $PLIST_FILE"
+
+# Unload if already loaded (ignore errors)
+launchctl unload "$PLIST_FILE" 2>/dev/null || true
+
+# Load the service
+launchctl load "$PLIST_FILE"
+
+echo "✓ Service loaded"
+
+# Start the service
+launchctl start com.wieselquist.wks
+
+echo "✓ Service started"
+echo ""
+echo "WKS daemon is now running as a system service!"
+echo ""
+echo "Manage the service with:"
+echo "  launchctl stop com.wieselquist.wks      # Stop"
+echo "  launchctl start com.wieselquist.wks     # Start"
+echo "  launchctl list | grep wks                # Check status"
+echo ""
+echo "View logs:"
+echo "  tail -f $LOG_DIR/daemon.log"
+echo "  tail -f $LOG_DIR/daemon.error.log"
+echo ""
+echo "To uninstall:"
+echo "  ~/2025-WKS/bin/uninstall-service"

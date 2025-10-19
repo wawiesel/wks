@@ -1,0 +1,29 @@
+#!/bin/bash
+# Uninstall WKS LaunchAgent service
+
+set -e
+
+PLIST_FILE="$HOME/Library/LaunchAgents/com.wieselquist.wks.plist"
+
+if [ ! -f "$PLIST_FILE" ]; then
+    echo "WKS service is not installed (plist file not found)"
+    exit 1
+fi
+
+echo "Uninstalling WKS LaunchAgent service..."
+
+# Stop and unload the service
+launchctl stop com.wieselquist.wks 2>/dev/null || true
+launchctl unload "$PLIST_FILE"
+
+echo "✓ Service stopped and unloaded"
+
+# Remove the plist file
+rm "$PLIST_FILE"
+
+echo "✓ Removed plist file"
+echo ""
+echo "WKS service has been uninstalled."
+echo ""
+echo "Logs are preserved at ~/.wks/daemon.log"
+echo "To reinstall: ~/2025-WKS/bin/install-service"
