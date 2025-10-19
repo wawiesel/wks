@@ -116,6 +116,42 @@ launchctl list | grep wks
 - Auto-creates project notes for new `YYYY-ProjectName` directories
 - Adds a summary line in `FileOperations.md` showing how many unique files are being tracked (based on the monitor state)
 
+## Archive Structure
+
+WKS follows a hierarchical archiving pattern where old content is moved to `_old/YYYY/` subdirectories:
+
+### Home Directory Archives
+
+Inactive or completed projects from a given year are archived in `~/_old/YYYY/`:
+
+```
+~/_old/
+├── 2024/
+│   └── 2024-OldProjectName/
+└── 2025/
+    └── 2025-CompletedProject/
+```
+
+**Key principles:**
+- **No loose files:** Everything must be in a directory, even in `_old/`
+- **Year retention:** Archived directories keep their `YYYY-` prefix (e.g., `_old/2025/2025-ProjectName/`)
+- **Test/demo code:** Experimental or test directories go to `_old/YYYY/` when no longer needed
+- **Delete when appropriate:** Not everything needs to be archived. If content has no future value, delete it rather than cluttering `_old/`
+
+### Project-Level Archives
+
+Active projects can have their own `_old/` subdirectories for versioned content:
+
+```
+~/2025-ActiveProject/
+├── [current work]
+└── _old/
+    ├── 2024/          # Content from 2024
+    └── 2023/          # Content from 2023
+```
+
+This keeps the project workspace focused on current work while preserving historical context.
+
 ## Configuration
 
 WKS reads settings from `~/.wks/config.json` if present. This controls which directories are monitored and what is ignored.
@@ -214,6 +250,43 @@ Start/stop/status:
 Notes:
 - Requires `mongod` in PATH (install MongoDB Community, e.g., via Homebrew on macOS).
 - The default `similarity.mongo_uri` is `mongodb://localhost:27027/` to match the script.
+
+## Workspace Organizer Agent
+
+WKS includes a Claude Code agent that can automatically organize files according to the rules in this README.
+
+### Using the Agent
+
+The `workspace-organizer` agent can be triggered by asking Claude to organize your workspace:
+
+```
+"Can you organize my downloads according to workspace rules?"
+"I've created some new files - please organize them properly"
+"My workspace is getting cluttered, can you clean it up?"
+```
+
+The agent will:
+1. Read this README.md to understand current organizational rules
+2. Analyze the files/directories that need organization
+3. Ask for clarification on ambiguous cases
+4. Execute organization following WKS principles:
+   - Proper `YYYY-ProjectName` naming
+   - No loose files (everything in directories)
+   - Appropriate use of `_old/YYYY/` archiving
+   - Correct placement in `~/`, `~/Documents/`, or `~/deadlines/`
+
+### Agent Behavior
+
+The agent is **conservative by design**:
+- ✓ Asks questions when rules are ambiguous
+- ✓ Never deletes files without explicit authorization
+- ✓ Provides detailed summaries of changes
+- ✓ Verifies organization correctness after completion
+- ✓ Respects .gitignore and symlinks
+
+### Configuration
+
+The agent is defined in `~/.claude/agents/workspace-organizer.md` and automatically references this README as its source of truth for organizational rules.
 
 ## Documentation
 
