@@ -31,35 +31,38 @@ class WKSDaemon:
         self.state_file = state_file or Path.home() / ".wks" / "monitor_state.json"
         self.observer = None
 
-    def on_file_change(self, event_type: str, path_str: str):
+    def on_file_change(self, event_type: str, path_info):
         """
         Callback when a file changes.
 
         Args:
-            event_type: Type of event (created, modified, moved_to, moved_from, deleted)
-            path_str: Path that changed
+            event_type: Type of event (created, modified, moved, deleted)
+            path_info: Path string for most events, or (src, dest) tuple for moves
         """
-        path = Path(path_str)
+        # Handle move events specially
+        if event_type == "moved":
+            src_path, dest_path = path_info
+            self.vault.log_file_operation("moved", Path(src_path), Path(dest_path))
+            return
+
+        # Regular events
+        path = Path(path_info)
 
         # Log to Obsidian
-        if event_type == "moved_to":
-            # For moves, we'd need the source path - for now just log as created
-            self.vault.log_file_operation("created", path)
-        elif event_type == "moved_from":
-            self.vault.log_file_operation("deleted", path)
-        elif event_type in ["created", "modified", "deleted"]:
+        if event_type in ["created", "modified", "deleted"]:
             self.vault.log_file_operation(event_type, path)
 
-        # Handle specific cases
-        if event_type == "created" and path.is_dir():
+        # Handle specific cases for non-move events
+        if event_type == "created" and path_info and Path(path_info).is_dir():
             # New directory - check if it's a project
-            if path.parent == Path.home() and path.name.startswith("20"):
+            p = Path(path_info)
+            if p.parent == Path.home() and p.name.startswith("20"):
                 # Looks like a project folder (YYYY-Name pattern)
                 try:
-                    self.vault.create_project_note(path, status="New")
+                    self.vault.create_project_note(p, status="New")
                     self.vault.log_file_operation(
                         "created",
-                        path,
+                        p,
                         details="Auto-created project note in Obsidian"
                     )
                 except Exception as e:

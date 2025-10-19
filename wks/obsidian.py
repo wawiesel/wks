@@ -333,34 +333,42 @@ Reverse chronological log of all file operations tracked by WKS.
 Files with recent activity, sorted by attention angle.
 
 **Angle**: Measure of recent activity (higher = more active)
-**Delta**: Change in angle (positive = increasing activity)
+**Δ**: Change in angle (positive = increasing activity)
 
-| File | Angle | Delta | Last Modified |
-|------|-------|-------|---------------|
+| File | Location | Angle | Δ | Modified |
+|------|----------|-------|---|----------|
 """
 
         for path_str, angle, delta in active_files:
             path = Path(path_str)
-            # Get relative path from home for readability
+
+            # Just show filename
+            filename = path.name
+
+            # Show parent directory compactly
             try:
                 rel_path = path.relative_to(Path.home())
-                display_path = f"`~/{rel_path}`"
+                parent = str(rel_path.parent)
+                if parent == '.':
+                    location = '~'
+                else:
+                    location = f"~/{parent}"
             except ValueError:
-                display_path = f"`{path}`"
+                location = str(path.parent)
 
             # Format last modified
             if path.exists():
                 mod_time = datetime.fromtimestamp(path.stat().st_mtime)
-                time_str = mod_time.strftime('%Y-%m-%d %H:%M')
+                time_str = mod_time.strftime('%m/%d %H:%M')
             else:
                 time_str = "—"
 
-            # Color code delta
-            delta_str = f"{delta:+.2f}"
+            # Format delta compactly
+            delta_str = f"{delta:+.1f}"
 
-            content += f"| {display_path} | {angle:.2f} | {delta_str} | {time_str} |\n"
+            content += f"| `{filename}` | {location} | {angle:.1f} | {delta_str} | {time_str} |\n"
 
-        content += f"\n*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n"
+        content += f"\n*Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n"
 
         self.activity_log_path.write_text(content)
 
