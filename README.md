@@ -291,3 +291,17 @@ The agent is defined in `~/.claude/agents/workspace-organizer.md` and automatica
 ## Documentation
 
 See [SPEC.md](SPEC.md) for complete system documentation.
+
+## CLI
+
+Install as editable: `pip install -e .` then use `wks`.
+
+- `wks daemon start|stop|status` — manage the background daemon
+- `wks config print` — print effective configuration
+- `wks mongo start|stop|status|log` — local MongoDB at `~/.wks/mongodb` (port 27027)
+- `wks sim index <paths...>` — index files/directories (recursive) for similarity
+- `wks sim query --path <file> [--top N --min M --json]` — find nearest files to a file
+- `wks sim query --text "..." [--top N --min M --json]` — find nearest files to text
+- `wks sim stats` — show similarity DB stats
+
+Similarity reads settings from `~/.wks/config.json` under the `similarity` key. If MongoDB is not running and your URI is the default `mongodb://localhost:27027/`, `wks` will attempt to start a local `mongod` under `~/.wks/mongodb`.
