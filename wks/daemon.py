@@ -362,6 +362,13 @@ if __name__ == "__main__":
 
     # Configure vault logging (weekly file logs)
     obsidian_cfg = config.get("obsidian", {})
+    # Apply base_dir if provided so all files live under ~/obsidian/<base_dir>
+    base_dir = obsidian_cfg.get("base_dir")
+    if base_dir:
+        try:
+            daemon.vault.set_base_dir(base_dir)
+        except Exception as e:
+            print(f"Warning: failed to set Obsidian base_dir '{base_dir}': {e}")
     logs_cfg = obsidian_cfg.get("logs", {})
     weekly_logs = logs_cfg.get("weekly", False)
     logs_dirname = logs_cfg.get("dir", "Logs")
