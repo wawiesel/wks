@@ -65,9 +65,8 @@ if __name__ == "__main__":
             mongo_uri = sim_cfg.get("mongo_uri", 'mongodb://localhost:27027/')
             database = sim_cfg.get("database", 'wks_similarity')
             collection = sim_cfg.get("collection", 'file_embeddings')
-            include_exts = set([e.lower() for e in sim_cfg.get("include_extensions", [
-                ".md", ".txt", ".py", ".ipynb", ".tex"
-            ])])
+            # If include_extensions omitted or empty, index any file with readable text
+            include_exts = set([e.lower() for e in sim_cfg.get("include_extensions", [])])
             min_chars = int(sim_cfg.get("min_chars", 10))
             def _init_simdb():
                 return SimilarityDB(database_name=database, collection_name=collection, mongo_uri=mongo_uri, model_name=model)
