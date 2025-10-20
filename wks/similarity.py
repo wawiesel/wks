@@ -1,9 +1,15 @@
 """
 Semantic similarity using MongoDB and sentence-transformers.
-Replaces A_GIS dependency with direct MongoDB integration.
+Includes lightweight text extractors for common binary formats.
 """
 
 import hashlib
+import shutil
+import subprocess
+import tempfile
+import zipfile
+import io
+import re
 from pathlib import Path
 from typing import List, Tuple, Optional
 from datetime import datetime
@@ -64,13 +70,100 @@ class SimilarityDB:
         Returns:
             Text content or None if can't read
         """
+        suffix = path.suffix.lower()
+        # Direct text read for common text-like files
+        if suffix in {'.txt', '.md', '.py', '.json', '.yaml', '.yml', '.toml', '.tex', '.rst'}:
+            try:
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    return f.read(max_chars)
+            except Exception:
+                return None
+
+        # Office Open XML formats
+        if suffix == '.docx':
+            return self._extract_docx_text(path, max_chars)
+        if suffix == '.pptx':
+            return self._extract_pptx_text(path, max_chars)
+
+        # PDFs (best-effort using system tools)
+        if suffix == '.pdf':
+            return self._extract_pdf_text(path, max_chars)
+
+        # Fallback: try to read as text anyway
         try:
-            # Try to read as text
             with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                text = f.read(max_chars)
-            return text
+                return f.read(max_chars)
         except Exception:
             return None
+
+    def _extract_docx_text(self, path: Path, max_chars: int) -> Optional[str]:
+        try:
+            with zipfile.ZipFile(path) as z:
+                # Main document
+                with z.open('word/document.xml') as f:
+                    xml_bytes = f.read()
+            # Parse XML and extract w:t nodes
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(xml_bytes)
+            # Namespaces
+            ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            texts = []
+            for t in root.findall('.//w:t', ns):
+                if t.text:
+                    texts.append(t.text)
+            text = '\n'.join(texts)
+            return text[:max_chars]
+        except Exception:
+            return None
+
+    def _extract_pptx_text(self, path: Path, max_chars: int) -> Optional[str]:
+        try:
+            with zipfile.ZipFile(path) as z:
+                slide_names = [n for n in z.namelist() if n.startswith('ppt/slides/slide') and n.endswith('.xml')]
+                texts = []
+                import xml.etree.ElementTree as ET
+                ns = {'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
+                for name in sorted(slide_names):
+                    try:
+                        with z.open(name) as f:
+                            xml_bytes = f.read()
+                        root = ET.fromstring(xml_bytes)
+                        for t in root.findall('.//a:t', ns):
+                            if t.text:
+                                texts.append(t.text)
+                    except Exception:
+                        continue
+            text = '\n'.join(texts)
+            return text[:max_chars]
+        except Exception:
+            return None
+
+    def _extract_pdf_text(self, path: Path, max_chars: int) -> Optional[str]:
+        # Prefer pdftotext if available
+        try:
+            if shutil.which('pdftotext'):
+                with tempfile.NamedTemporaryFile(suffix='.txt', delete=True) as tmp:
+                    # -layout to preserve roughly reading order
+                    subprocess.run(['pdftotext', '-layout', str(path), tmp.name], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    try:
+                        txt = Path(tmp.name).read_text(encoding='utf-8', errors='ignore')
+                        if txt and txt.strip():
+                            return txt[:max_chars]
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        # Fallback to 'strings' to extract ASCII snippets
+        try:
+            if shutil.which('strings'):
+                out = subprocess.check_output(['strings', '-n', '4', str(path)], stderr=subprocess.DEVNULL)
+                txt = out.decode('utf-8', errors='ignore')
+                # Collapse excessive whitespace
+                txt = re.sub(r"\s+", " ", txt)
+                return txt[:max_chars]
+        except Exception:
+            pass
+        return None
 
     def add_file(self, path: Path) -> bool:
         """

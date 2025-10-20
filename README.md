@@ -208,7 +208,7 @@ Example:
     "database": "wks_similarity",
     "collection": "file_embeddings",
     "model": "all-MiniLM-L6-v2",
-    "include_extensions": [".md", ".txt", ".py", ".ipynb", ".tex"],
+    "include_extensions": [],
     "min_chars": 10
   }
 }
@@ -231,9 +231,14 @@ Notes:
 
 ### Similarity (optional)
 - Controlled by the `similarity` section. Enabled by default.
-- When enabled, the daemon indexes text content of created/modified files (by extension) into MongoDB and updates paths on moves. Deleted files are removed from the index.
+- When enabled, the daemon indexes text content of created/modified files into MongoDB and updates paths on moves. Deleted files are removed from the index.
 - Requirements: running MongoDB and first-time model download for `sentence-transformers`.
-- Configure `include_extensions` and `min_chars` to scope indexing and avoid tiny/non-text files.
+- `include_extensions`: leave empty (default) to index any file with readable text; set a list (e.g., [".md", ".txt"]) to restrict. `min_chars` skips tiny files.
+- Extractors: WKS includes lightweight extractors for `.docx`, `.pptx`, and `.pdf`.
+  - `.docx`: parses the OOXML document to extract text.
+  - `.pptx`: extracts text from all slides.
+  - `.pdf`: uses `pdftotext` if available (recommended, via Poppler); otherwise falls back to `strings` for best-effort ASCII.
+  - Other files are read as UTF‑8 text with errors ignored.
 
 ### Local MongoDB under ~/.wks
 - A helper script is provided to run a local MongoDB for WKS using a dbpath in `~/.wks/mongodb` and port `27027`.
