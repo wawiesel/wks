@@ -310,5 +310,6 @@ Install as editable: `pip install -e .` then use `wks`.
 - `wks sim query --text "..." [--top N --min M --mode file|chunk --json]` — find nearest files to text
 - `wks sim stats` — show similarity DB stats
 - `wks sim route --path <file> [--top N --min M --mode file|chunk --max-targets K --evidence E --json]` — suggest target folders based on the top similar files; aggregates by project root (~/YYYY-Name), Documents subfolder, or deadlines subfolder. Does not move files.
+- `wks sim backfill [roots...] [--limit N --json]` — index existing files under the configured include paths (or specified roots), honoring exclude/ignore rules from the config. Useful to build the initial index.
 
 Similarity reads settings from `~/.wks/config.json` under the `similarity` key. If MongoDB is not running and your URI is the default `mongodb://localhost:27027/`, `wks` will attempt to start a local `mongod` under `~/.wks/mongodb`.
