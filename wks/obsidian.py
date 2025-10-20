@@ -24,8 +24,20 @@ class ObsidianVault:
             vault_path: Path to Obsidian vault (e.g., ~/obsidian)
         """
         self.vault_path = Path(vault_path)
+        # Determine base_dir: prefer explicit arg, else config value, else 'WKS' if present
+        cfg_base: Optional[str] = None
+        if base_dir is None:
+            try:
+                import json as _json
+                cfg = _json.load(open(Path.home() / ".wks" / "config.json", "r"))
+                cfg_base = (cfg.get("obsidian") or {}).get("base_dir")
+            except Exception:
+                cfg_base = None
+        selected = base_dir or cfg_base
+        if selected is None and (self.vault_path / "WKS").exists():
+            selected = "WKS"
         # Base directory under the vault for all WKS-managed content (optional)
-        self.base_dir = base_dir.strip("/") if base_dir else None
+        self.base_dir = selected.strip("/") if selected else None
         self._recompute_paths()
         # Logging configuration
         self.weekly_logs = weekly_logs
