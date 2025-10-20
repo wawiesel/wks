@@ -303,5 +303,6 @@ Install as editable: `pip install -e .` then use `wks`.
 - `wks sim query --path <file> [--top N --min M --json]` — find nearest files to a file
 - `wks sim query --text "..." [--top N --min M --json]` — find nearest files to text
 - `wks sim stats` — show similarity DB stats
+- `wks sim route --path <file> [--top N --min M --max-targets K --evidence E --json]` — suggest target folders based on the top similar files; aggregates by project root (~/YYYY-Name), Documents subfolder, or deadlines subfolder. Does not move files.
 
 Similarity reads settings from `~/.wks/config.json` under the `similarity` key. If MongoDB is not running and your URI is the default `mongodb://localhost:27027/`, `wks` will attempt to start a local `mongod` under `~/.wks/mongodb`.
