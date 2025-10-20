@@ -209,7 +209,8 @@ Example:
     "collection": "file_embeddings",
     "model": "all-MiniLM-L6-v2",
     "include_extensions": [],
-    "min_chars": 10
+    "min_chars": 10,
+    "max_chars": 5000
   }
 }
 ```
@@ -233,7 +234,7 @@ Notes:
 - Controlled by the `similarity` section. Enabled by default.
 - When enabled, the daemon indexes text content of created/modified files into MongoDB and updates paths on moves. Deleted files are removed from the index.
 - Requirements: running MongoDB and first-time model download for `sentence-transformers`.
-- `include_extensions`: leave empty (default) to index any file with readable text; set a list (e.g., [".md", ".txt"]) to restrict. `min_chars` skips tiny files.
+- `include_extensions`: leave empty (default) to index any file with readable text; set a list (e.g., [".md", ".txt"]) to restrict. `min_chars` skips tiny files. `max_chars` caps the amount of text read per file for a single embedding.
 - Extractors: WKS includes lightweight extractors for `.docx`, `.pptx`, and `.pdf`.
   - `.docx`: parses the OOXML document to extract text.
   - `.pptx`: extracts text from all slides.
@@ -305,9 +306,9 @@ Install as editable: `pip install -e .` then use `wks`.
 - `wks config print` — print effective configuration
 - `wks mongo start|stop|status|log` — local MongoDB at `~/.wks/mongodb` (port 27027)
 - `wks sim index <paths...>` — index files/directories (recursive) for similarity
-- `wks sim query --path <file> [--top N --min M --json]` — find nearest files to a file
-- `wks sim query --text "..." [--top N --min M --json]` — find nearest files to text
+- `wks sim query --path <file> [--top N --min M --mode file|chunk --json]` — find nearest files to a file
+- `wks sim query --text "..." [--top N --min M --mode file|chunk --json]` — find nearest files to text
 - `wks sim stats` — show similarity DB stats
-- `wks sim route --path <file> [--top N --min M --max-targets K --evidence E --json]` — suggest target folders based on the top similar files; aggregates by project root (~/YYYY-Name), Documents subfolder, or deadlines subfolder. Does not move files.
+- `wks sim route --path <file> [--top N --min M --mode file|chunk --max-targets K --evidence E --json]` — suggest target folders based on the top similar files; aggregates by project root (~/YYYY-Name), Documents subfolder, or deadlines subfolder. Does not move files.
 
 Similarity reads settings from `~/.wks/config.json` under the `similarity` key. If MongoDB is not running and your URI is the default `mongodb://localhost:27027/`, `wks` will attempt to start a local `mongod` under `~/.wks/mongodb`.

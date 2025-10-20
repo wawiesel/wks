@@ -2,25 +2,53 @@
 
 This document preserves organizational decisions and context across sessions.
 
-Last updated: 2025-10-19
+Last updated: 2025-10-19 (evening session)
 
-## Current Organization Session
+## Current Organization Session (2025-10-19 Evening)
 
 ### Scope
 Organizing files in ~/Desktop and ~/Downloads according to WKS principles.
 
-### Key Decisions
+### Key Decisions Made This Session
 
-1. **Desktop/stacks**: Needs reorganization into proper WKS locations (previous session had detailed context - to be restored)
+1. **Status reports are completed outputs, NOT works in progress**
+   - DNCSH monthly status reports (to DOE) → `~/Documents/2025-DNCSH-Status/`
+   - These are finished deliverables, not active work
 
-2. **Project Structure** (based on Downloads content analysis):
-   - **2025-DNCSH**: Monthly progress reports (1.03.01.02 format), DNCSH updates, quarterly PMPs
-   - **2025-NRC**: NRC program reviews, technical reports, SOWs, budget documents
-   - **2025-SCALE**: SCALE development, validation, quality initiatives, AI/ML applications
+2. **No loose files in Documents - everything must be in a directory**
+   - Each presentation/file gets its own dated directory in Documents
+   - Pattern: `~/Documents/YYYY_MM-EventName/` (even for single files)
 
-3. **Archival Policy**: 2024-dated files should be moved to ~/_old/2024/ unless actively being used
+3. **EPRI presentations are separate from status reports**
+   - Created: `~/Documents/2025_02-EPRI_Presentation/` for EPRI presentations
+   - These are distinct from DNCSH status reports
 
-4. **Presentation Organization**: DNCSH presentations go to 2025-DNCSH, others to relevant projects
+4. **Archive by project completion year, not discovery year**
+   - NSED ModSim (2017-2018 meetings, last in Sept 2018) → `~/_old/2018/`
+   - Rule: Archive based on when the project ended, not when you're organizing it
+
+5. **Desktop/stacks migration philosophy**
+   - Goal: Move FROM stacks organization TO WKS organization
+   - Stacks is the old system being replaced
+
+6. **Temporary file cleanup**
+   - ChatGPT-generated images: Delete (generic AI illustrations)
+   - Receipt photos (IMG-*, PXL-*, dated JPGs): Move to `~/Documents/2025-Trip-Receipts/`
+
+### Completed Actions
+
+1. ✓ Moved DNCSH FY25 status reports (Oct, Dec, Jan, Feb, Mar, Apr, Jun, Jul, Aug) to `~/Documents/2025-DNCSH-Status/`
+2. ✓ Moved EPRI presentations (4 revisions) to `~/Documents/2025_02-EPRI_Presentation/`
+3. ✓ Deleted Desktop screenshot (ChatGPT screen recording instructions)
+4. ✓ Deleted ChatGPT-generated images from Downloads (8 files)
+5. ✓ Created and moved trip receipt photos to `~/Documents/2025-Trip-Receipts/` (12 photos)
+6. ✓ Archived NSED ModSim Strategic Plan to `~/_old/2018/NSED-ModSim-Strategic-Plan/`
+
+### Project Structure (from previous session)
+
+- **2025-DNCSH**: Monthly progress reports (1.03.01.02 format), DNCSH updates, quarterly PMPs
+- **2025-NRC**: NRC program reviews, technical reports, SOWs, budget documents
+- **2025-SCALE**: SCALE development, validation, quality initiatives, AI/ML applications
 
 ### File Categories Identified
 
