@@ -104,6 +104,27 @@ class ObsidianVault:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         return self.logs_dir / f"FileOperations-{self._week_label()}.md"
 
+    def migrate_legacy_root_logs(self):
+        """If base_dir is set, move legacy root-level logs into the base path.
+
+        - Moves ~/obsidian/FileOperations.md -> ~/obsidian/<base_dir>/FileOperations.md if target missing
+        - Moves ~/obsidian/ActiveFiles.md -> ~/obsidian/<base_dir>/ActiveFiles.md if target missing
+        """
+        if not self.base_dir:
+            return
+        root_file_ops = self.vault_path / "FileOperations.md"
+        root_active = self.vault_path / "ActiveFiles.md"
+        # Only move if target does not already exist
+        try:
+            if root_file_ops.exists() and not self.file_log_path.exists():
+                self.file_log_path.parent.mkdir(parents=True, exist_ok=True)
+                root_file_ops.replace(self.file_log_path)
+            if root_active.exists() and not self.activity_log_path.exists():
+                self.activity_log_path.parent.mkdir(parents=True, exist_ok=True)
+                root_active.replace(self.activity_log_path)
+        except Exception:
+            pass
+
     def _cap_log_entries(self, file_path: Path):
         """Limit the number of table rows to log_max_entries, preserving header."""
         try:

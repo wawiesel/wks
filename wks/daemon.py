@@ -181,6 +181,11 @@ class WKSDaemon:
         # Acquire single-instance lock
         self._acquire_lock()
         self.vault.ensure_structure()
+        # Migrate legacy root-level logs into base_dir if configured
+        try:
+            self.vault.migrate_legacy_root_logs()
+        except Exception:
+            pass
 
         self.observer = start_monitoring(
             directories=self.monitor_paths,
