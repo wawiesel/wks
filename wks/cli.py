@@ -259,9 +259,9 @@ def sim_query_cmd(args: argparse.Namespace) -> int:
     minsim = float(args.min)
     try:
         if args.path:
-            results = db.find_similar(query_path=Path(args.path).expanduser(), limit=limit, min_similarity=minsim)
+            results = db.find_similar(query_path=Path(args.path).expanduser(), limit=limit, min_similarity=minsim, mode=args.mode)
         elif args.text:
-            results = db.find_similar(query_text=args.text, limit=limit, min_similarity=minsim)
+            results = db.find_similar(query_text=args.text, limit=limit, min_similarity=minsim, mode=args.mode)
         else:
             print("Provide --path or --text")
             return 2
@@ -338,7 +338,7 @@ def sim_route_cmd(args: argparse.Namespace) -> int:
     top = int(args.top)
     minsim = float(args.min)
     try:
-        results = db.find_similar(query_path=qpath, limit=top, min_similarity=minsim)
+        results = db.find_similar(query_path=qpath, limit=top, min_similarity=minsim, mode=args.mode)
     except Exception as e:
         print(f"Route failed: {e}")
         return 1
@@ -415,6 +415,7 @@ def main(argv: list[str] | None = None) -> int:
     sim_q.add_argument("--text", help="Raw text to query")
     sim_q.add_argument("--top", default=10, help="Max results (default 10)")
     sim_q.add_argument("--min", default=0.0, help="Minimum similarity threshold")
+    sim_q.add_argument("--mode", choices=["file","chunk"], default="file", help="Comparison mode: file (aggregated) or chunk (max of chunks)")
     sim_q.add_argument("--json", action="store_true", help="Output JSON (path, score)")
     sim_q.set_defaults(func=sim_query_cmd)
 
@@ -427,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     sim_route.add_argument("--min", default=0.0, help="Minimum similarity threshold")
     sim_route.add_argument("--max-targets", dest="max_targets", default=5, type=int, help="Max suggestions to return")
     sim_route.add_argument("--evidence", default=5, type=int, help="Include up to N evidence hits per suggestion")
+    sim_route.add_argument("--mode", choices=["file","chunk"], default="chunk", help="Use chunk mode for better matching on long files")
     sim_route.add_argument("--json", action="store_true", help="Output JSON with suggestions and evidence")
     sim_route.set_defaults(func=sim_route_cmd)
 

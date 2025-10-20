@@ -69,7 +69,18 @@ if __name__ == "__main__":
             include_exts = set([e.lower() for e in sim_cfg.get("include_extensions", [])])
             min_chars = int(sim_cfg.get("min_chars", 10))
             def _init_simdb():
-                return SimilarityDB(database_name=database, collection_name=collection, mongo_uri=mongo_uri, model_name=model)
+                max_chars = int(sim_cfg.get("max_chars", 200000))
+                chunk_chars = int(sim_cfg.get("chunk_chars", 1500))
+                chunk_overlap = int(sim_cfg.get("chunk_overlap", 200))
+                return SimilarityDB(
+                    database_name=database,
+                    collection_name=collection,
+                    mongo_uri=mongo_uri,
+                    model_name=model,
+                    max_chars=max_chars,
+                    chunk_chars=chunk_chars,
+                    chunk_overlap=chunk_overlap,
+                )
             try:
                 simdb = _init_simdb()
             except Exception as e:
