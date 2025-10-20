@@ -13,7 +13,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import shutil
 
 
@@ -288,6 +288,98 @@ def sim_stats_cmd(_: argparse.Namespace) -> int:
     return 0
 
 
+def _project_root_for(p: Path) -> Tuple[str, Path]:
+    """Classify and return the project/document/deadline root for a path.
+
+    Returns: (kind, root_path) where kind in {project, documents, deadlines, other}
+    """
+    home = Path.home()
+    kind = 'other'
+    root = p
+    try:
+        rel = p.resolve().relative_to(home)
+        parts = list(rel.parts)
+        if parts:
+            first = parts[0]
+            # Project like ~/YYYY-Name
+            import re as _re
+            if _re.match(r"^\d{4}-[^/]+$", first):
+                kind = 'project'
+                root = home / first
+            elif first == 'Documents' and len(parts) >= 2:
+                kind = 'documents'
+                root = home / 'Documents' / parts[1]
+            elif first == 'deadlines' and len(parts) >= 2:
+                kind = 'deadlines'
+                root = home / 'deadlines' / parts[1]
+            else:
+                kind = 'other'
+                # Use first-level dir (if any) as root
+                root = home / first
+    except Exception:
+        kind = 'other'
+        root = p
+    return kind, root
+
+
+def _short(p: Path) -> str:
+    try:
+        rel = p.resolve().relative_to(Path.home())
+        return f"~/{rel}"
+    except Exception:
+        return str(p)
+
+
+def sim_route_cmd(args: argparse.Namespace) -> int:
+    db = _load_similarity_db()
+    if not db:
+        return 1
+    qpath = Path(args.path).expanduser()
+    top = int(args.top)
+    minsim = float(args.min)
+    try:
+        results = db.find_similar(query_path=qpath, limit=top, min_similarity=minsim)
+    except Exception as e:
+        print(f"Route failed: {e}")
+        return 1
+    if not results:
+        print("No similar files found; consider indexing more content with 'wks sim index'")
+        return 0
+    # Aggregate by project/document/deadline root
+    agg: Dict[Path, Dict[str, Any]] = {}
+    for path_str, score in results:
+        pp = Path(path_str)
+        kind, root = _project_root_for(pp)
+        rec = agg.setdefault(root, {"score": 0.0, "kind": kind, "hits": []})
+        rec["score"] += float(score)
+        rec["hits"].append({"path": path_str, "score": float(score)})
+
+    # Rank by aggregate score
+    ranked = sorted(((root, data) for root, data in agg.items()), key=lambda x: x[1]["score"], reverse=True)
+    suggestions = []
+    for root, data in ranked[: args.max_targets]:
+        suggestions.append({
+            "target": _short(root),
+            "kind": data["kind"],
+            "score": round(float(data["score"]), 6),
+            "hits": data["hits"][: args.evidence],
+        })
+
+    if args.json:
+        import json as _json
+        print(_json.dumps({
+            "query": _short(qpath),
+            "suggestions": suggestions
+        }, indent=2))
+    else:
+        print(f"Query: {_short(qpath)}\n")
+        for s in suggestions:
+            print(f"{s['score']:0.3f}  [{s['kind']}]  {s['target']}")
+            for h in s["hits"]:
+                print(f"    {h['score']:0.3f}  {h['path']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="wks", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
@@ -328,6 +420,15 @@ def main(argv: list[str] | None = None) -> int:
 
     sim_stats = sim_sub.add_parser("stats", help="Similarity database stats")
     sim_stats.set_defaults(func=sim_stats_cmd)
+
+    sim_route = sim_sub.add_parser("route", help="Suggest target folders for a file based on similarity")
+    sim_route.add_argument("--path", required=True, help="Path of the file to route")
+    sim_route.add_argument("--top", default=20, help="Consider top-N similar files (default 20)")
+    sim_route.add_argument("--min", default=0.0, help="Minimum similarity threshold")
+    sim_route.add_argument("--max-targets", dest="max_targets", default=5, type=int, help="Max suggestions to return")
+    sim_route.add_argument("--evidence", default=5, type=int, help="Include up to N evidence hits per suggestion")
+    sim_route.add_argument("--json", action="store_true", help="Output JSON with suggestions and evidence")
+    sim_route.set_defaults(func=sim_route_cmd)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
