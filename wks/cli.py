@@ -14,6 +14,9 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import os
+import fnmatch
+import time
 import shutil
 
 
@@ -380,6 +383,111 @@ def sim_route_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+def _is_within(path: Path, base: Path) -> bool:
+    try:
+        path.resolve().relative_to(base.resolve())
+        return True
+    except Exception:
+        return False
+
+
+def _should_skip_dir(dirpath: Path, ignore_dirnames: List[str]) -> bool:
+    parts = dirpath.parts
+    for part in parts:
+        if part in ignore_dirnames:
+            return True
+        if part.startswith('.') and part != '.wks':
+            return True
+    return False
+
+
+def _should_skip_file(path: Path, ignore_patterns: List[str], ignore_globs: List[str]) -> bool:
+    # Dotfiles except .wks
+    if path.name.startswith('.') and path.name != '.wks':
+        return True
+    # Pattern tokens match any segment exactly
+    for tok in ignore_patterns:
+        if tok in path.parts:
+            return True
+    # Glob matches against full path and basename
+    pstr = path.as_posix()
+    for g in ignore_globs:
+        if fnmatch.fnmatchcase(pstr, g) or fnmatch.fnmatchcase(path.name, g):
+            return True
+    return False
+
+
+def sim_backfill_cmd(args: argparse.Namespace) -> int:
+    db = _load_similarity_db()
+    if not db:
+        return 1
+    cfg = load_config()
+    mon = cfg.get('monitor', {})
+    roots = [Path(p).expanduser() for p in (args.paths or mon.get('include_paths') or [str(Path.home())])]
+    exclude_roots = [Path(p).expanduser() for p in (mon.get('exclude_paths') or [])]
+    ignore_dirnames = list(mon.get('ignore_dirnames') or [])
+    ignore_patterns = list(mon.get('ignore_patterns') or [])
+    ignore_globs = list(mon.get('ignore_globs') or [])
+    include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
+
+    start = time.time()
+    considered = 0
+    indexed = 0
+    skipped = 0
+    for root in roots:
+        if any(_is_within(root, ex) for ex in exclude_roots):
+            continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            dpath = Path(dirpath)
+            # Prune excluded/ignored directories in-place
+            # Remove any dirnames that should be skipped
+            pruned = []
+            for i in list(dirnames):
+                sub = dpath / i
+                if any(_is_within(sub, ex) for ex in exclude_roots) or _should_skip_dir(sub, ignore_dirnames):
+                    pruned.append(i)
+            for name in pruned:
+                try:
+                    dirnames.remove(name)
+                except ValueError:
+                    pass
+            # Process files
+            for fname in filenames:
+                p = dpath / fname
+                if _should_skip_file(p, ignore_patterns, ignore_globs):
+                    continue
+                if include_exts and p.suffix.lower() not in include_exts:
+                    continue
+                considered += 1
+                try:
+                    if db.add_file(p):
+                        indexed += 1
+                    else:
+                        skipped += 1
+                except Exception:
+                    skipped += 1
+            # Optional limit
+            if args.limit and considered >= args.limit:
+                break
+        if args.limit and considered >= args.limit:
+            break
+    elapsed = time.time() - start
+    summary = {
+        "roots": [r.as_posix() for r in roots],
+        "considered": considered,
+        "indexed": indexed,
+        "skipped": skipped,
+        "seconds": round(elapsed, 3),
+    }
+    if args.json:
+        import json as _json
+        print(_json.dumps(summary, indent=2))
+    else:
+        print(f"Roots: {', '.join(summary['roots'])}")
+        print(f"Considered: {considered}  Indexed: {indexed}  Skipped: {skipped}  Time: {elapsed:0.2f}s")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="wks", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
@@ -431,6 +539,12 @@ def main(argv: list[str] | None = None) -> int:
     sim_route.add_argument("--mode", choices=["file","chunk"], default="chunk", help="Use chunk mode for better matching on long files")
     sim_route.add_argument("--json", action="store_true", help="Output JSON with suggestions and evidence")
     sim_route.set_defaults(func=sim_route_cmd)
+
+    sim_back = sim_sub.add_parser("backfill", help="Index existing files under include_paths (or given roots) using config excludes/ignores")
+    sim_back.add_argument("paths", nargs='*', help="Optional roots to scan; defaults to monitor.include_paths or ~")
+    sim_back.add_argument("--limit", type=int, help="Stop after indexing N files (for testing)")
+    sim_back.add_argument("--json", action="store_true", help="Output JSON summary")
+    sim_back.set_defaults(func=sim_backfill_cmd)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
