@@ -161,6 +161,13 @@ class WKSFileMonitor(FileSystemEventHandler):
         """Handle file/directory creation."""
         if not event.is_directory:
             self._track_change("created", event.src_path)
+        else:
+            # Emit callback for directory creation so higher layers can react (e.g., project notes)
+            if self.on_change and not self._should_ignore(event.src_path):
+                try:
+                    self.on_change("created", event.src_path)
+                except Exception:
+                    pass
 
     def on_modified(self, event: FileSystemEvent):
         """Handle file/directory modification."""
@@ -169,15 +176,14 @@ class WKSFileMonitor(FileSystemEventHandler):
 
     def on_moved(self, event: FileSystemEvent):
         """Handle file/directory move."""
+        # Track the move with both paths for files; emit callback for all
+        if self._should_ignore(event.src_path) or self._should_ignore(event.dest_path):
+            return
+
+        src_str = str(Path(event.src_path).resolve())
+        dest_str = str(Path(event.dest_path).resolve())
+
         if not event.is_directory:
-            # Track the move with both paths
-            if self._should_ignore(event.src_path) or self._should_ignore(event.dest_path):
-                return
-
-            src_str = str(Path(event.src_path).resolve())
-            dest_str = str(Path(event.dest_path).resolve())
-
-            # Track move event
             if dest_str not in self.state["files"]:
                 self.state["files"][dest_str] = {
                     "created": datetime.now().isoformat(),
@@ -198,14 +204,23 @@ class WKSFileMonitor(FileSystemEventHandler):
 
             self._save_state()
 
-            if self.on_change:
-                # Pass both paths as a tuple for moves
+        if self.on_change:
+            # Pass both paths as a tuple for moves
+            try:
                 self.on_change("moved", (src_str, dest_str))
+            except Exception:
+                pass
 
     def on_deleted(self, event: FileSystemEvent):
         """Handle file/directory deletion."""
         if not event.is_directory:
             self._track_change("deleted", event.src_path)
+        else:
+            if self.on_change and not self._should_ignore(event.src_path):
+                try:
+                    self.on_change("deleted", event.src_path)
+                except Exception:
+                    pass
 
     def get_recent_changes(self, hours: int = 24) -> Dict[str, Dict]:
         """
