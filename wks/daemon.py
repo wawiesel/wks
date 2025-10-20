@@ -331,7 +331,7 @@ if __name__ == "__main__":
     ]
     ignore_dirnames = set(monitor_cfg.get("ignore_dirnames", [
         'Applications', '.Trash', '.cache', 'Cache', 'Caches',
-        'node_modules', 'venv', '.venv', '__pycache__', 'build', 'dist'
+        'node_modules', 'venv', '.venv', '__pycache__', 'build', '_build', 'dist'
     ]))
     ignore_patterns = set(monitor_cfg.get("ignore_patterns", [
         '.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'

@@ -44,7 +44,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         self.state_file = Path(state_file)
         self.on_change = on_change
         self.ignore_patterns = ignore_patterns or {'.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'}
-        self.ignore_dirs = ignore_dirs or {'Library', 'Applications', '.Trash', '.cache', 'Cache'}
+        self.ignore_dirs = ignore_dirs or {'Library', 'Applications', '.Trash', '.cache', 'Cache', '_build'}
         # Paths to explicitly include/exclude (resolved)
         self.include_paths = [Path(p).expanduser().resolve() for p in include_paths] if include_paths else []
         self.exclude_paths = [Path(p).expanduser().resolve() for p in exclude_paths] if exclude_paths else []
