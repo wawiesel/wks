@@ -29,6 +29,11 @@ class WKSDaemon:
     def __init__(
         self,
         vault_path: Path,
+        base_dir: str,
+        obsidian_log_max_entries: int,
+        obsidian_active_files_max_rows: int,
+        obsidian_source_max_chars: int,
+        obsidian_destination_max_chars: int,
         monitor_paths: list[Path],
         state_file: Optional[Path] = None,
         ignore_dirnames: Optional[Set[str]] = None,
@@ -47,7 +52,14 @@ class WKSDaemon:
             monitor_paths: List of paths to monitor
             state_file: Path to monitoring state file
         """
-        self.vault = ObsidianVault(vault_path)
+        self.vault = ObsidianVault(
+            vault_path,
+            base_dir=base_dir,
+            log_max_entries=obsidian_log_max_entries,
+            active_files_max_rows=obsidian_active_files_max_rows,
+            source_max_chars=obsidian_source_max_chars,
+            destination_max_chars=obsidian_destination_max_chars,
+        )
         self.monitor_paths = monitor_paths
         self.state_file = state_file or Path.home() / ".wks" / "monitor_state.json"
         self.ignore_dirnames = ignore_dirnames or set()
@@ -181,11 +193,6 @@ class WKSDaemon:
         # Acquire single-instance lock
         self._acquire_lock()
         self.vault.ensure_structure()
-        # Migrate legacy root-level logs into base_dir if configured
-        try:
-            self.vault.migrate_legacy_root_logs()
-        except Exception:
-            pass
 
         self.observer = start_monitoring(
             directories=self.monitor_paths,

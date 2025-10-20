@@ -1,22 +1,19 @@
 """
 Obsidian vault integration for WKS.
 
-Handles:
-- Creating and updating project notes
-- Managing symlinks in links/ directory
-- Updating links when files move
+Simple, single-file logs under a required base_dir (default: "WKS").
 """
 
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict
-from datetime import datetime, date
+from datetime import datetime
 
 
 class ObsidianVault:
     """Interface to an Obsidian vault for WKS."""
 
-    def __init__(self, vault_path: Path, *, weekly_logs: bool = False, logs_dirname: str = "Logs", log_max_entries: int = 500, active_files_max_rows: int = 50, source_max_chars: int = 40, destination_max_chars: int = 40, base_dir: Optional[str] = None):
+    def __init__(self, vault_path: Path, *, base_dir: str, log_max_entries: int, active_files_max_rows: int, source_max_chars: int, destination_max_chars: int):
         """
         Initialize vault interface.
 
@@ -24,27 +21,12 @@ class ObsidianVault:
             vault_path: Path to Obsidian vault (e.g., ~/obsidian)
         """
         self.vault_path = Path(vault_path)
-        # Determine base_dir: prefer explicit arg, else config value, else 'WKS' if present
-        cfg_base: Optional[str] = None
-        if base_dir is None:
-            try:
-                import json as _json
-                cfg = _json.load(open(Path.home() / ".wks" / "config.json", "r"))
-                cfg_base = (cfg.get("obsidian") or {}).get("base_dir")
-            except Exception:
-                cfg_base = None
-        selected = base_dir or cfg_base
-        if selected is None and (self.vault_path / "WKS").exists():
-            selected = "WKS"
-        # Base directory under the vault for all WKS-managed content (optional)
-        self.base_dir = selected.strip("/") if selected else None
+        # Required base directory under the vault for WKS-managed logs and docs
+        if not base_dir or not str(base_dir).strip():
+            raise ValueError("obsidian.base_dir is required in configuration")
+        self.base_dir = str(base_dir).strip("/")
         self._recompute_paths()
-        # Logging configuration
-        self.weekly_logs = weekly_logs
-        # logs_dir is relative to the base path
-        self.logs_dirname = logs_dirname
-        self.logs_dir = self._base_path() / logs_dirname
-        # Default file log path (used when weekly_logs is False)
+        # File log paths (single-file mode)
         self.file_log_path = self._base_path() / "FileOperations.md"
         self.activity_log_path = self._base_path() / "ActiveFiles.md"
         self.log_max_entries = int(log_max_entries)
@@ -52,22 +34,6 @@ class ObsidianVault:
         # Table width controls for path columns
         self.source_max_chars = int(source_max_chars)
         self.destination_max_chars = int(destination_max_chars)
-
-    def configure_logging(self, *, weekly_logs: Optional[bool] = None, logs_dirname: Optional[str] = None, max_entries: Optional[int] = None, active_max_rows: Optional[int] = None, source_max_chars: Optional[int] = None, destination_max_chars: Optional[int] = None):
-        """Configure logging behavior (weekly logs and directory)."""
-        if weekly_logs is not None:
-            self.weekly_logs = weekly_logs
-        if logs_dirname is not None:
-            self.logs_dirname = logs_dirname
-            self.logs_dir = self._base_path() / logs_dirname
-        if max_entries is not None:
-            self.log_max_entries = int(max_entries)
-        if active_max_rows is not None:
-            self.active_files_max_rows = int(active_max_rows)
-        if source_max_chars is not None:
-            self.source_max_chars = int(source_max_chars)
-        if destination_max_chars is not None:
-            self.destination_max_chars = int(destination_max_chars)
 
     def _shorten_path(self, p: Path, max_chars: int) -> str:
         """Return a compact string for a path, using ~ for home and mid-ellipsis if too long."""
@@ -84,58 +50,28 @@ class ObsidianVault:
         tail = max_chars - head - 1
         return s[:head] + "…" + s[-tail:]
 
-    def _week_label(self) -> str:
-        iso = date.today().isocalendar()
-        return f"{iso.year}-W{iso.week:02d}"
-
     def _base_path(self) -> Path:
-        return (self.vault_path / self.base_dir) if self.base_dir else self.vault_path
+        return self.vault_path / self.base_dir
 
     def _recompute_paths(self):
-        base = self._base_path() if hasattr(self, 'base_dir') else self.vault_path
-        self.links_dir = base / "links"
-        self.projects_dir = base / "Projects"
-        self.people_dir = base / "People"
-        self.topics_dir = base / "Topics"
-        self.ideas_dir = base / "Ideas"
-        self.orgs_dir = base / "Organizations"
-        self.records_dir = base / "Records"
+        # Category folders always live at vault root
+        self.links_dir = self.vault_path / "links"
+        self.projects_dir = self.vault_path / "Projects"
+        self.people_dir = self.vault_path / "People"
+        self.topics_dir = self.vault_path / "Topics"
+        self.ideas_dir = self.vault_path / "Ideas"
+        self.orgs_dir = self.vault_path / "Organizations"
+        self.records_dir = self.vault_path / "Records"
 
-    def set_base_dir(self, base_dir: Optional[str]):
-        """Set or clear the base subdirectory under the vault for WKS-managed content."""
-        self.base_dir = base_dir.strip("/") if base_dir else None
+    def set_base_dir(self, base_dir: str):
+        """Set the base subdirectory under the vault for WKS-managed content."""
+        self.base_dir = base_dir.strip("/")
         self._recompute_paths()
-        # Update log paths to follow the new base path
-        self.logs_dir = self._base_path() / self.logs_dirname
         self.file_log_path = self._base_path() / "FileOperations.md"
         self.activity_log_path = self._base_path() / "ActiveFiles.md"
 
     def _get_file_log_path(self) -> Path:
-        if not self.weekly_logs:
-            return self.file_log_path
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
-        return self.logs_dir / f"FileOperations-{self._week_label()}.md"
-
-    def migrate_legacy_root_logs(self):
-        """If base_dir is set, move legacy root-level logs into the base path.
-
-        - Moves ~/obsidian/FileOperations.md -> ~/obsidian/<base_dir>/FileOperations.md if target missing
-        - Moves ~/obsidian/ActiveFiles.md -> ~/obsidian/<base_dir>/ActiveFiles.md if target missing
-        """
-        if not self.base_dir:
-            return
-        root_file_ops = self.vault_path / "FileOperations.md"
-        root_active = self.vault_path / "ActiveFiles.md"
-        # Only move if target does not already exist
-        try:
-            if root_file_ops.exists() and not self.file_log_path.exists():
-                self.file_log_path.parent.mkdir(parents=True, exist_ok=True)
-                root_file_ops.replace(self.file_log_path)
-            if root_active.exists() and not self.activity_log_path.exists():
-                self.activity_log_path.parent.mkdir(parents=True, exist_ok=True)
-                root_active.replace(self.activity_log_path)
-        except Exception:
-            pass
+        return self.file_log_path
 
     def _cap_log_entries(self, file_path: Path):
         """Limit the number of table rows to log_max_entries, preserving header."""
@@ -188,8 +124,9 @@ class ObsidianVault:
 
     def ensure_structure(self):
         """Create vault folder structure if it doesn't exist."""
-        # Ensure base path exists
+        # Ensure base path (for logs) exists
         self._base_path().mkdir(parents=True, exist_ok=True)
+        # Ensure root-level category folders exist
         for directory in [
             self.links_dir,
             self.projects_dir,
@@ -202,6 +139,7 @@ class ObsidianVault:
         ]:
             if directory is not None:
                 directory.mkdir(parents=True, exist_ok=True)
+
 
     def create_project_note(
         self,
@@ -228,7 +166,6 @@ class ObsidianVault:
         year = parts[0] if len(parts) > 0 else ""
         name = parts[1] if len(parts) > 1 else project_name
 
-        base_prefix = (self.base_dir + "/") if self.base_dir else ""
         content = f"""# {project_name}
 
 **Status:** {status}
@@ -241,7 +178,7 @@ class ObsidianVault:
 
 ## Links
 
-- Project directory: [[{base_prefix}links/{project_name}]]
+- Project directory: [[links/{project_name}]]
 - Related topics:
 
 ## Notes
@@ -452,7 +389,7 @@ class ObsidianVault:
                 f"Checksum is first 12 chars of SHA-256. Moves show destination checksum.\n\n"
             )
             file_path.write_text(
-                f"# File Operations Log ({self._week_label()})\n\n"
+                f"# File Operations Log\n\n"
                 + intro
                 + tracked_line
                 + "| Date/Time | Operation | Source | Destination | Checksum |\n"
@@ -481,7 +418,7 @@ class ObsidianVault:
                         break
                 if not updated:
                     insert_idx = 3 if len(lines) >= 3 else len(lines)
-                    lines.insert(insert_idx, f"Tracking: {tracked_files_count} files (as of {timestamp})")
+                    lines.insert(insert_idx, f"Tracking: {tracked_files_count} files (as of {timestamp_plain})")
                 content = '\n'.join(lines)
 
             # Ensure config link and a short explanation exist near the top

@@ -492,17 +492,28 @@ def sim_backfill_cmd(args: argparse.Namespace) -> int:
 def _load_vault() -> Any:
     from .obsidian import ObsidianVault  # lazy import
     cfg = load_config()
-    vault_path = Path(cfg.get('vault_path', str(Path.home()/ 'obsidian'))).expanduser()
+    vault_path = cfg.get('vault_path')
+    if not vault_path:
+        print("Fatal: 'vault_path' is required in ~/.wks/config.json")
+        raise SystemExit(2)
     obs = cfg.get('obsidian', {})
     base_dir = obs.get('base_dir')
-    logs_cfg = obs.get('logs', {})
-    weekly = logs_cfg.get('weekly', False)
-    logs_dir = logs_cfg.get('dir', 'Logs')
-    max_entries = logs_cfg.get('max_entries', 500)
-    source_max = logs_cfg.get('source_max', 40)
-    dest_max = logs_cfg.get('destination_max', 40)
-    active_rows = (obs.get('active') or {}).get('max_rows', 50)
-    vault = ObsidianVault(vault_path, weekly_logs=weekly, logs_dirname=logs_dir, log_max_entries=max_entries, active_files_max_rows=active_rows, source_max_chars=source_max, destination_max_chars=dest_max, base_dir=base_dir)
+    if not base_dir:
+        print("Fatal: 'obsidian.base_dir' is required in ~/.wks/config.json (e.g., 'WKS')")
+        raise SystemExit(2)
+    # Require explicit logging caps/widths
+    for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars"]:
+        if k not in obs:
+            print(f"Fatal: missing required config key: obsidian.{k}")
+            raise SystemExit(2)
+    vault = ObsidianVault(
+        Path(vault_path).expanduser(),
+        base_dir=base_dir,
+        log_max_entries=int(obs["log_max_entries"]),
+        active_files_max_rows=int(obs["active_files_max_rows"]),
+        source_max_chars=int(obs["source_max_chars"]),
+        destination_max_chars=int(obs["destination_max_chars"]),
+    )
     return vault
 
 
@@ -526,6 +537,123 @@ def obs_connect_cmd(args: argparse.Namespace) -> int:
         }, indent=2))
     else:
         print(f"Connected: {project_path}\n  Note: {note}\n  Links: {len(links)}")
+    return 0
+
+
+def debug_match_cmd(args: argparse.Namespace) -> int:
+    cfg = load_config()
+    mon = cfg.get('monitor', {})
+    include_paths = [Path(p).expanduser().resolve() for p in (mon.get('include_paths') or [str(Path.home())])]
+    exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
+    ignore_dirnames = list(mon.get('ignore_dirnames') or [])
+    ignore_globs = list(mon.get('ignore_globs') or [])
+    p = Path(args.path).expanduser().resolve()
+
+    def is_within(path: Path, base: Path) -> bool:
+        try:
+            path.relative_to(base)
+            return True
+        except Exception:
+            return False
+
+    reason = None
+    decision = 'include'
+
+    # Absolute excludes
+    for ex in exclude_paths:
+        if is_within(p, ex):
+            decision = 'ignore'
+            reason = f'exclude_paths: {ex}'
+            break
+
+    # Outside include_paths
+    if reason is None and include_paths:
+        if not any(is_within(p, inc) for inc in include_paths):
+            decision = 'ignore'
+            reason = 'outside include_paths'
+
+    # Dotfile segments (except .wks)
+    if reason is None:
+        for part in p.parts:
+            if part.startswith('.') and part != '.wks':
+                decision = 'ignore'
+                reason = f'dot-segment: {part}'
+                break
+
+    # Name-based dir ignores
+    if reason is None:
+        for part in p.parts:
+            if part in ignore_dirnames:
+                decision = 'ignore'
+                reason = f'ignore_dirnames: {part}'
+                break
+
+    # Glob ignores
+    if reason is None:
+        pstr = p.as_posix()
+        for g in ignore_globs:
+            if fnmatch.fnmatchcase(pstr, g) or fnmatch.fnmatchcase(p.name, g):
+                decision = 'ignore'
+                reason = f'ignore_globs: {g}'
+                break
+
+    out = {
+        'path': p.as_posix(),
+        'decision': decision,
+        'reason': reason or 'included',
+        'include_paths': [x.as_posix() for x in include_paths],
+        'exclude_paths': [x.as_posix() for x in exclude_paths],
+        'ignore_dirnames': ignore_dirnames,
+        'ignore_globs': ignore_globs,
+    }
+    if args.json:
+        import json as _json
+        print(_json.dumps(out, indent=2))
+    else:
+        print(f"Path: {out['path']}")
+        print(f"Decision: {out['decision']} ({out['reason']})")
+    return 0
+
+
+def obs_init_logs_cmd(args: argparse.Namespace) -> int:
+    # Ensure Obsidian structure and initialize logs with a first entry and ActiveFiles snapshot
+    vault = _load_vault()
+    vault.ensure_structure()
+    # No legacy migrations; keep simple
+
+    # Determine tracked files count from monitor state
+    cfg = load_config()
+    state_path = Path((cfg.get('monitor') or {}).get('state_file', str(Path.home()/'.wks'/'monitor_state.json'))).expanduser()
+    tracked = 0
+    try:
+        if state_path.exists():
+            import json as _json
+            data = _json.load(open(state_path, 'r'))
+            tracked = len(data.get('files') or {})
+    except Exception:
+        tracked = 0
+
+    # Write an initialization entry to FileOperations
+    home = Path.home()
+    vault.log_file_operation('initialized', home, details='Initialized Obsidian logs via wks obs init-logs', tracked_files_count=tracked)
+
+    # Update ActiveFiles from current tracker (if present)
+    try:
+        from .activity import ActivityTracker
+        act_cfg = cfg.get('activity', {})
+        act_state = Path(act_cfg.get('state_file', str(Path.home()/'.wks'/'activity_state.json'))).expanduser()
+        tracker = ActivityTracker(act_state)
+        top = tracker.get_top_active_files(limit=getattr(vault, 'active_files_max_rows', 50))
+        vault.update_active_files(top)
+    except Exception:
+        # Create a minimal header if tracker missing
+        vault.update_active_files([])
+
+    if args.json:
+        import json as _json
+        print(_json.dumps({'file_operations': str(vault.file_log_path), 'active_files': str(vault.activity_log_path), 'tracked': tracked}, indent=2))
+    else:
+        print(f"Initialized logs:\n  {vault.file_log_path}\n  {vault.activity_log_path}\n  Tracked files: {tracked}")
     return 0
 
 
@@ -595,6 +723,21 @@ def main(argv: list[str] | None = None) -> int:
     obs_connect.add_argument("--description", help="Optional note description")
     obs_connect.add_argument("--json", action="store_true", help="JSON output")
     obs_connect.set_defaults(func=obs_connect_cmd)
+
+    dbg = sub.add_parser("debug", help="Debug utilities")
+    dbg_sub = dbg.add_subparsers(dest="dbg_cmd")
+    dbg_match = dbg_sub.add_parser("match", help="Explain how a path is matched by include/exclude/ignore rules")
+    dbg_match.add_argument("path", help="Path to test")
+    dbg_match.add_argument("--json", action="store_true", help="JSON output")
+    dbg_match.set_defaults(func=debug_match_cmd)
+
+    obs_init = obs_sub.add_parser("init-logs", help="Initialize Obsidian logs (alias of reset-logs)")
+    obs_init.add_argument("--json", action="store_true", help="JSON output")
+    obs_init.set_defaults(func=obs_init_logs_cmd)
+
+    obs_reset = obs_sub.add_parser("reset-logs", help="Reset Obsidian logs to a clean state (recreate headers)")
+    obs_reset.add_argument("--json", action="store_true", help="JSON output")
+    obs_reset.set_defaults(func=obs_init_logs_cmd)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):

@@ -20,99 +20,31 @@ pip install -e .
 
 ## Running the Daemon
 
-### Manual Start (Foreground)
-
-Start the daemon to monitor file changes and update Obsidian:
+Preferred (macOS service):
 
 ```bash
-cd ~/2025-WKS
-source venv/bin/activate
+~/2025-WKS/bin/wks-service install   # writes LaunchAgent, enables, starts
+~/2025-WKS/bin/wks-service status    # detailed status via launchctl
+~/2025-WKS/bin/wks-service log       # tail daemon log
+~/2025-WKS/bin/wks-service restart   # restart the service
+~/2025-WKS/bin/wks-service uninstall # stop and remove LaunchAgent
+```
+
+Manual (foreground) for quick tests:
+
+```bash
+cd ~/2025-WKS && source venv/bin/activate
 python -m wks.daemon
 ```
 
-Press `Ctrl+C` to stop.
-
-Single instance: The daemon enforces a single running instance via a lock at `~/.wks/daemon.lock`. If another process is running, a new start will exit immediately.
-
-### Background Process
-
-Run the daemon in the background:
-
-```bash
-cd ~/2025-WKS
-source venv/bin/activate
-nohup python -m wks.daemon > ~/.wks/daemon.log 2>&1 &
-echo $! > ~/.wks/daemon.pid
-```
-
-To stop the background daemon:
-
-```bash
-kill $(cat ~/.wks/daemon.pid)
-rm ~/.wks/daemon.pid
-```
-
-### System Service (macOS with launchd)
-
-Create a LaunchAgent to run WKS automatically on login:
-
-1. Create the plist file at `~/Library/LaunchAgents/com.wieselquist.wks.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.wieselquist.wks</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/Users/ww5/2025-WKS/venv/bin/python</string>
-        <string>-m</string>
-        <string>wks.daemon</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>/Users/ww5/2025-WKS</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/Users/ww5/.wks/daemon.log</string>
-    <key>StandardErrorPath</key>
-    <string>/Users/ww5/.wks/daemon.error.log</string>
-</dict>
-</plist>
-```
-
-2. Load the service:
-
-```bash
-launchctl load ~/Library/LaunchAgents/com.wieselquist.wks.plist
-```
-
-3. Manage the service:
-
-```bash
-# Start
-launchctl start com.wieselquist.wks
-
-# Stop
-launchctl stop com.wieselquist.wks
-
-# Unload (disable)
-launchctl unload ~/Library/LaunchAgents/com.wieselquist.wks.plist
-
-# Check status
-launchctl list | grep wks
-```
+Single instance: enforced via `~/.wks/daemon.lock`.
 
 ## What the Daemon Does
 
 - Monitors home directory for file changes
 - Tracks moves, renames, creates, modifications, and deletions
-- Updates `~/obsidian/FileOperations.md` with reverse chronological log
-- Updates `~/obsidian/ActiveFiles.md` with activity metrics
+- Updates `~/obsidian/WKS/FileOperations.md` with a reverse chronological log
+- Updates `~/obsidian/WKS/ActiveFiles.md` with a concise activity snapshot
 - Auto-creates project notes for new `YYYY-ProjectName` directories
 - Adds a summary line in `FileOperations.md` showing how many unique files are being tracked (based on the monitor state)
 
@@ -175,9 +107,6 @@ Example:
       "Applications", ".Trash", ".cache", "Cache", "Caches",
       "node_modules", "venv", ".venv", "__pycache__", "build", "_build", "dist"
     ],
-    "ignore_patterns": [
-      ".git", "__pycache__", ".DS_Store", "venv", ".venv", "node_modules"
-    ],
     "ignore_globs": [
       ".*", "*.swp", "*.tmp"
     ],
@@ -190,16 +119,10 @@ Example:
   },
   "obsidian": {
     "base_dir": "WKS",
-    "logs": {
-      "weekly": false,
-      "dir": "Logs",            
-      "max_entries": 500,
-      "source_max": 40,
-      "destination_max": 40
-    },
-    "active": {
-      "max_rows": 50
-    }
+    "log_max_entries": 500,
+    "active_files_max_rows": 50,
+    "source_max_chars": 40,
+    "destination_max_chars": 40
   }
   ,
   "similarity": {
@@ -215,17 +138,17 @@ Example:
 }
 ```
 
-Notes:
-- Inclusion-first: only paths under `include_paths` are monitored. If omitted, defaults to your home directory.
-- Exclusions: anything under `exclude_paths` is ignored. By default, `~/Library` and `~/obsidian` are excluded.
-- Name-based ignores (`ignore_dirnames`) apply to any matching directory name anywhere under monitored roots.
-- Pattern ignores (`ignore_patterns`) skip files/paths containing these tokens (simple contains match, not full globbing).
-- Glob ignores (`ignore_globs`) use shell-style globs applied to both the full path and the basename (e.g., `.*` to ignore dotfiles). The `.wks` directory is always allowed.
+Notes (explicit config):
+- All keys shown above are required — the daemon and CLI fail fast if any are missing or empty. No defaults are applied internally.
+- Inclusion-first: only paths under `monitor.include_paths` are monitored.
+- Exclusions: everything under `monitor.exclude_paths` is ignored.
+- Name-based ignores (`monitor.ignore_dirnames`) apply anywhere in the tree.
+- Glob ignores (`monitor.ignore_globs`) use shell-style globs. Dotfiles are ignored globally except `.wks`.
+- `ignore_patterns` is deprecated — use `ignore_dirnames` and `ignore_globs` only.
 - Weekly rollover:
   - Monitor and activity state files are suffixed with the ISO week label (e.g., `monitor_state-2025-W42.json`) when `state_rollover` is `weekly`.
   - You can alternatively embed `{week}` in the path (e.g., `"~/.wks/monitor-{week}.json"`).
-  - Obsidian file operations default to a single `FileOperations.md` file. If you prefer weekly files, set `obsidian.logs.weekly` to true; otherwise a cap of `max_entries` keeps the table short.
-  - ActiveFiles.md is a single snapshot. Use `obsidian.active.max_rows` to limit rows shown.
+  - Obsidian logs are always single-file under `~/obsidian/WKS/`.
 - Table width control: `obsidian.logs.source_max` and `destination_max` set the max characters shown for Source/Destination (middle-ellipsized). Defaults aim to fit near 120 columns overall.
  - Vault subdirectory: set `obsidian.base_dir` (e.g., `"WKS"`) to store all WKS-managed notes, links, and logs under a subfolder within the Obsidian vault (e.g., `~/obsidian/WKS/...`). Internal links (like project links to `links/`) are automatically prefixed.
  - FileOperations.md includes a line like `Tracking: N files (as of YYYY-MM-DD HH:MM:SS)` near the top. This count comes from the monitor's state and updates as events are processed.
@@ -241,7 +164,7 @@ Notes:
   - `.pdf`: uses `pdftotext` if available (recommended, via Poppler); otherwise falls back to `strings` for best-effort ASCII.
   - Other files are read as UTF‑8 text with errors ignored.
 
-### Local MongoDB under ~/.wks
+### Local MongoDB under ~/.wks (optional)
 - A helper script is provided to run a local MongoDB for WKS using a dbpath in `~/.wks/mongodb` and port `27027`.
 
 Start/stop/status:
@@ -257,42 +180,7 @@ Notes:
 - Requires `mongod` in PATH (install MongoDB Community, e.g., via Homebrew on macOS).
 - The default `similarity.mongo_uri` is `mongodb://localhost:27027/` to match the script.
 
-## Workspace Organizer Agent
-
-WKS includes a Claude Code agent that can automatically organize files according to the rules in this README.
-
-### Using the Agent
-
-The `workspace-organizer` agent can be triggered by asking Claude to organize your workspace:
-
-```
-"Can you organize my downloads according to workspace rules?"
-"I've created some new files - please organize them properly"
-"My workspace is getting cluttered, can you clean it up?"
-```
-
-The agent will:
-1. Read this README.md to understand current organizational rules
-2. Analyze the files/directories that need organization
-3. Ask for clarification on ambiguous cases
-4. Execute organization following WKS principles:
-   - Proper `YYYY-ProjectName` naming
-   - No loose files (everything in directories)
-   - Appropriate use of `_old/YYYY/` archiving
-   - Correct placement in `~/`, `~/Documents/`, or `~/deadlines/`
-
-### Agent Behavior
-
-The agent is **conservative by design**:
-- ✓ Asks questions when rules are ambiguous
-- ✓ Never deletes files without explicit authorization
-- ✓ Provides detailed summaries of changes
-- ✓ Verifies organization correctness after completion
-- ✓ Respects .gitignore and symlinks
-
-### Configuration
-
-The agent is defined in `~/.claude/agents/workspace-organizer.md` and automatically references this README as its source of truth for organizational rules.
+<!-- Removed organizer agent docs to keep scope focused and simple. -->
 
 ## Documentation
 
@@ -312,4 +200,14 @@ Install as editable: `pip install -e .` then use `wks`.
 - `wks sim route --path <file> [--top N --min M --mode file|chunk --max-targets K --evidence E --json]` — suggest target folders based on the top similar files; aggregates by project root (~/YYYY-Name), Documents subfolder, or deadlines subfolder. Does not move files.
 - `wks sim backfill [roots...] [--limit N --json]` — index existing files under the configured include paths (or specified roots), honoring exclude/ignore rules from the config. Useful to build the initial index.
 
-Similarity reads settings from `~/.wks/config.json` under the `similarity` key. If MongoDB is not running and your URI is the default `mongodb://localhost:27027/`, `wks` will attempt to start a local `mongod` under `~/.wks/mongodb`.
+Similarity reads settings from `~/.wks/config.json` under the `similarity` key. All similarity keys are required when `similarity.enabled` is true. No implicit defaults are used.
+
+### Reset logs if corrupted
+
+To reset Obsidian logs (FileOperations.md and ActiveFiles.md) to a clean state:
+
+```
+wks obs reset-logs
+```
+
+This recreates headers under `~/obsidian/WKS/` and writes an initialization entry. It does not touch any root-level files.
