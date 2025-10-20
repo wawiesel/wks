@@ -488,6 +488,47 @@ def sim_backfill_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
+# ----------------------------- Obsidian helpers ---------------------------- #
+def _load_vault() -> Any:
+    from .obsidian import ObsidianVault  # lazy import
+    cfg = load_config()
+    vault_path = Path(cfg.get('vault_path', str(Path.home()/ 'obsidian'))).expanduser()
+    obs = cfg.get('obsidian', {})
+    base_dir = obs.get('base_dir')
+    logs_cfg = obs.get('logs', {})
+    weekly = logs_cfg.get('weekly', False)
+    logs_dir = logs_cfg.get('dir', 'Logs')
+    max_entries = logs_cfg.get('max_entries', 500)
+    source_max = logs_cfg.get('source_max', 40)
+    dest_max = logs_cfg.get('destination_max', 40)
+    active_rows = (obs.get('active') or {}).get('max_rows', 50)
+    vault = ObsidianVault(vault_path, weekly_logs=weekly, logs_dirname=logs_dir, log_max_entries=max_entries, active_files_max_rows=active_rows, source_max_chars=source_max, destination_max_chars=dest_max, base_dir=base_dir)
+    return vault
+
+
+def obs_connect_cmd(args: argparse.Namespace) -> int:
+    vault = _load_vault()
+    vault.ensure_structure()
+    project_path = Path(args.path).expanduser()
+    if not project_path.exists() or not project_path.is_dir():
+        print(f"Not a directory: {project_path}")
+        return 2
+    # Create/update project note
+    note = vault.create_project_note(project_path, status=args.status or 'Active', description=args.description)
+    links = vault.link_project(project_path)
+    vault.log_file_operation('created', project_path, details='Connected project to Obsidian (note + links).')
+    if args.json:
+        import json as _json
+        print(_json.dumps({
+            "project": project_path.as_posix(),
+            "note": note.as_posix(),
+            "links": [p.as_posix() for p in links]
+        }, indent=2))
+    else:
+        print(f"Connected: {project_path}\n  Note: {note}\n  Links: {len(links)}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="wks", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
@@ -545,6 +586,15 @@ def main(argv: list[str] | None = None) -> int:
     sim_back.add_argument("--limit", type=int, help="Stop after indexing N files (for testing)")
     sim_back.add_argument("--json", action="store_true", help="Output JSON summary")
     sim_back.set_defaults(func=sim_backfill_cmd)
+
+    obs = sub.add_parser("obs", help="Obsidian helpers")
+    obs_sub = obs.add_subparsers(dest="obs_cmd")
+    obs_connect = obs_sub.add_parser("connect", help="Connect a project directory to the vault (create note + links)")
+    obs_connect.add_argument("--path", required=True, help="Project directory (e.g., ~/2025-MyProject)")
+    obs_connect.add_argument("--status", help="Project status (default Active)")
+    obs_connect.add_argument("--description", help="Optional note description")
+    obs_connect.add_argument("--json", action="store_true", help="JSON output")
+    obs_connect.set_defaults(func=obs_connect_cmd)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
