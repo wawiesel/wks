@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# Unified service manager for WKS (macOS launchd)
+# Usage:
+#   wks-service install|uninstall|start|stop|restart|status|log|plist
+
+set -euo pipefail
+
+LABEL="com.wieselquist.wks"
+UUID="gui/$(id -u)"
+AGENTS_DIR="$HOME/Library/LaunchAgents"
+PLIST_FILE="$AGENTS_DIR/${LABEL}.plist"
+WKS_DIR="${WKS_DIR:-$HOME/2025-WKS}"
+VENV_PYTHON="$WKS_DIR/venv/bin/python"
+LOG_DIR="$HOME/.wks"
+
+die() { echo "Error: $*" >&2; exit 1; }
+info() { echo "[*] $*"; }
+
+ensure_macos() {
+  [[ "$(uname -s)" == "Darwin" ]] || die "This tool supports macOS (launchd) only."
+}
+
+write_plist() {
+  mkdir -p "$AGENTS_DIR" "$LOG_DIR"
+  [[ -x "$VENV_PYTHON" ]] || die "venv python not found at $VENV_PYTHON. Create venv and pip install -e ."
+  cat > "$PLIST_FILE" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$VENV_PYTHON</string>
+    <string>-m</string>
+    <string>wks.daemon</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>$WKS_DIR</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$LOG_DIR/daemon.log</string>
+  <key>StandardErrorPath</key>
+  <string>$LOG_DIR/daemon.error.log</string>
+</dict>
+</plist>
+EOF
+}
+
+is_loaded() {
+  launchctl print "$UUID/$LABEL" >/dev/null 2>&1
+}
+
+cmd_install() {
+  ensure_macos
+  write_plist
+  info "Booting service..."
+  launchctl bootout "$UUID" "$PLIST_FILE" 2>/dev/null || true
+  launchctl bootstrap "$UUID" "$PLIST_FILE"
+  launchctl enable "$UUID/$LABEL"
+  launchctl kickstart -k "$UUID/$LABEL"
+  info "Installed and started. Use 'wks-service status' to view."
+}
+
+cmd_uninstall() {
+  ensure_macos
+  if [[ -f "$PLIST_FILE" ]]; then
+    launchctl bootout "$UUID" "$PLIST_FILE" 2>/dev/null || true
+    rm -f "$PLIST_FILE"
+    info "Uninstalled."
+  else
+    info "Plist not found; nothing to uninstall."
+  fi
+}
+
+cmd_start() {
+  ensure_macos
+  if [[ ! -f "$PLIST_FILE" ]]; then
+    info "Plist missing; installing first..."; cmd_install; return 0
+  fi
+  if ! is_loaded; then
+    launchctl bootstrap "$UUID" "$PLIST_FILE"
+    launchctl enable "$UUID/$LABEL"
+  fi
+  launchctl kickstart -k "$UUID/$LABEL"
+  info "Started."
+}
+
+cmd_stop() {
+  ensure_macos
+  if [[ -f "$PLIST_FILE" ]]; then
+    launchctl bootout "$UUID" "$PLIST_FILE" 2>/dev/null || true
+    info "Stopped."
+  else
+    info "Plist not found; nothing to stop."
+  fi
+}
+
+cmd_restart() {
+  ensure_macos
+  if [[ ! -f "$PLIST_FILE" ]]; then
+    info "Plist missing; installing first..."; cmd_install; return 0
+  fi
+  launchctl bootout "$UUID" "$PLIST_FILE" 2>/dev/null || true
+  launchctl bootstrap "$UUID" "$PLIST_FILE"
+  launchctl enable "$UUID/$LABEL"
+  launchctl kickstart -k "$UUID/$LABEL"
+  info "Restarted."
+}
+
+cmd_status() {
+  ensure_macos
+  if is_loaded; then
+    launchctl print "$UUID/$LABEL" | sed -n '1,120p'
+  else
+    echo "Not loaded. Use: $0 install"
+  fi
+}
+
+cmd_log() {
+  mkdir -p "$LOG_DIR"
+  if [[ -f "$LOG_DIR/daemon.log" ]]; then
+    tail -f "$LOG_DIR/daemon.log"
+  else
+    echo "No log yet at $LOG_DIR/daemon.log"
+  fi
+}
+
+cmd_plist() {
+  if [[ -f "$PLIST_FILE" ]]; then
+    cat "$PLIST_FILE"
+  else
+    echo "Plist not found at $PLIST_FILE"
+  fi
+}
+
+case "${1:-}" in
+  install)   cmd_install ;;
+  uninstall) cmd_uninstall ;;
+  start)     cmd_start ;;
+  stop)      cmd_stop ;;
+  restart)   cmd_restart ;;
+  status)    cmd_status ;;
+  log)       cmd_log ;;
+  plist)     cmd_plist ;;
+  *)
+    echo "Usage: $0 {install|uninstall|start|stop|restart|status|log|plist}"
+    exit 2
+    ;;
+esac
+

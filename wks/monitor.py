@@ -43,13 +43,20 @@ class WKSFileMonitor(FileSystemEventHandler):
         super().__init__()
         self.state_file = Path(state_file)
         self.on_change = on_change
+        # Deprecated: ignore_patterns. We'll fold these into glob rules for consistency.
         self.ignore_patterns = ignore_patterns or {'.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'}
         self.ignore_dirs = ignore_dirs or {'Library', 'Applications', '.Trash', '.cache', 'Cache', '_build'}
         # Paths to explicitly include/exclude (resolved)
         self.include_paths = [Path(p).expanduser().resolve() for p in include_paths] if include_paths else []
         self.exclude_paths = [Path(p).expanduser().resolve() for p in exclude_paths] if exclude_paths else []
-        # Glob patterns (Unix shell-style) to ignore
-        self.ignore_globs = ignore_globs or []
+        # Glob patterns (Unix shell-style) to ignore. Fold legacy ignore_patterns into globs.
+        _globs = list(ignore_globs or [])
+        if self.ignore_patterns:
+            for tok in self.ignore_patterns:
+                # Ignore a directory named tok anywhere, and files named tok
+                _globs.append(f"**/{tok}/**")
+                _globs.append(f"**/{tok}")
+        self.ignore_globs = _globs
         # Dot-path whitelist that should never be ignored by default rules
         self._dot_whitelist = {'.wks'}
         self.state = self._load_state()
@@ -106,12 +113,7 @@ class WKSFileMonitor(FileSystemEventHandler):
             if part.startswith('.') and part not in self._dot_whitelist:  # Allow dot-whitelist (e.g., .wks)
                 return True
 
-        # Check patterns
-        for pattern in self.ignore_patterns:
-            if pattern in path_obj.parts:
-                return True
-            if path_obj.name.startswith('.') and path_obj.name not in self._dot_whitelist:
-                return True
+        # No separate ignore_patterns check: patterns are folded into glob rules.
 
         # Glob-based ignores against full path and basename
         path_str = path_obj.as_posix()

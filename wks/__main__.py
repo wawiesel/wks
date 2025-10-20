@@ -28,27 +28,58 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Warning: failed to load config {config_path}: {e}")
 
-    vault_path = _expand(config.get("vault_path", "~/obsidian"))
+    if "vault_path" not in config:
+        print("Fatal: 'vault_path' is required in ~/.wks/config.json")
+        raise SystemExit(2)
+    vault_path = _expand(config.get("vault_path"))
 
     monitor_cfg = config.get("monitor", {})
-    include_paths = [
-        _expand(p) for p in monitor_cfg.get("include_paths", [str(Path.home())])
-    ]
-    exclude_paths = [
-        _expand(p) for p in monitor_cfg.get("exclude_paths", ["~/Library", "~/obsidian", "~/.wks"])
-    ]
-    ignore_dirnames = set(monitor_cfg.get("ignore_dirnames", [
-        'Applications', '.Trash', '.cache', 'Cache', 'Caches',
-        'node_modules', 'venv', '.venv', '__pycache__', 'build', '_build', 'dist'
-    ]))
-    ignore_patterns = set(monitor_cfg.get("ignore_patterns", [
-        '.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'
-    ]))
-    ignore_globs = list(monitor_cfg.get("ignore_globs", []))
-    state_file = _expand(monitor_cfg.get("state_file", str(Path.home() / ".wks" / "monitor_state.json")))
+    # Require explicit monitor.*
+    missing = []
+    for key in ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "state_file"]:
+        if key not in monitor_cfg:
+            missing.append(f"monitor.{key}")
+    if missing:
+        print("Fatal: missing required config keys: " + ", ".join(missing))
+        raise SystemExit(2)
+
+    include_paths = [_expand(p) for p in monitor_cfg.get("include_paths")]
+    exclude_paths = [_expand(p) for p in monitor_cfg.get("exclude_paths")]
+    ignore_dirnames = set(monitor_cfg.get("ignore_dirnames"))
+    ignore_patterns = set()  # deprecated
+    ignore_globs = list(monitor_cfg.get("ignore_globs"))
+    state_file = _expand(monitor_cfg.get("state_file"))
+
+    # Require obsidian.base_dir
+    obsidian_cfg = config.get("obsidian", {})
+    base_dir = obsidian_cfg.get("base_dir")
+    if not base_dir:
+        print("Fatal: 'obsidian.base_dir' is required in ~/.wks/config.json (e.g., 'WKS')")
+        raise SystemExit(2)
+
+    # Require obsidian.base_dir and explicit logging caps/widths
+    obsidian_cfg = config.get("obsidian", {})
+    base_dir = obsidian_cfg.get("base_dir")
+    if not base_dir:
+        print("Fatal: 'obsidian.base_dir' is required in ~/.wks/config.json (e.g., 'WKS')")
+        raise SystemExit(2)
+    # Explicit obsidian logging settings
+    for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars"]:
+        if k not in obsidian_cfg:
+            print(f"Fatal: missing required config key: obsidian.{k}")
+            raise SystemExit(2)
+    log_max_entries = int(obsidian_cfg["log_max_entries"])
+    active_rows = int(obsidian_cfg["active_files_max_rows"])
+    src_max = int(obsidian_cfg["source_max_chars"])
+    dst_max = int(obsidian_cfg["destination_max_chars"])
 
     daemon = WKSDaemon(
         vault_path=vault_path,
+        base_dir=base_dir,
+        obsidian_log_max_entries=log_max_entries,
+        obsidian_active_files_max_rows=active_rows,
+        obsidian_source_max_chars=src_max,
+        obsidian_destination_max_chars=dst_max,
         monitor_paths=include_paths,
         state_file=state_file,
         ignore_dirnames=ignore_dirnames,
@@ -57,85 +88,44 @@ if __name__ == "__main__":
         ignore_globs=ignore_globs,
     )
 
-    # Similarity (optional)
-    sim_cfg = config.get("similarity", {})
-    if sim_cfg.get("enabled", True) and SimilarityDB is not None:
-        try:
-            model = sim_cfg.get("model", 'all-MiniLM-L6-v2')
-            mongo_uri = sim_cfg.get("mongo_uri", 'mongodb://localhost:27027/')
-            database = sim_cfg.get("database", 'wks_similarity')
-            collection = sim_cfg.get("collection", 'file_embeddings')
-            # If include_extensions omitted or empty, index any file with readable text
-            include_exts = set([e.lower() for e in sim_cfg.get("include_extensions", [])])
-            min_chars = int(sim_cfg.get("min_chars", 10))
-            def _init_simdb():
-                max_chars = int(sim_cfg.get("max_chars", 200000))
-                chunk_chars = int(sim_cfg.get("chunk_chars", 1500))
-                chunk_overlap = int(sim_cfg.get("chunk_overlap", 200))
-                return SimilarityDB(
-                    database_name=database,
-                    collection_name=collection,
-                    mongo_uri=mongo_uri,
-                    model_name=model,
-                    max_chars=max_chars,
-                    chunk_chars=chunk_chars,
-                    chunk_overlap=chunk_overlap,
-                )
-            try:
-                simdb = _init_simdb()
-            except Exception as e:
-                # Attempt to auto-start local mongod if URI matches our local default
-                if mongo_uri.startswith("mongodb://localhost:27027") and shutil.which("mongod"):
-                    dbroot = Path.home() / ".wks" / "mongodb"
-                    dbpath = dbroot / "db"
-                    logfile = dbroot / "mongod.log"
-                    dbpath.mkdir(parents=True, exist_ok=True)
-                    try:
-                        subprocess.check_call([
-                            "mongod", "--dbpath", str(dbpath), "--logpath", str(logfile),
-                            "--fork", "--bind_ip", "127.0.0.1", "--port", "27027"
-                        ])
-                        time.sleep(0.5)
-                        simdb = _init_simdb()
-                        print("Auto-started local mongod for similarity indexing.")
-                    except Exception as e2:
-                        raise RuntimeError(f"Auto-start mongod failed: {e2}")
-                else:
-                    raise
-            daemon.similarity = simdb
-            daemon.similarity_extensions = include_exts
-            daemon.similarity_min_chars = min_chars
-            print("Similarity indexing enabled.")
-        except Exception as e:
-            print(f"Warning: failed to initialize similarity DB: {e}")
-
-    # Configure Obsidian: base subdirectory and logging
-    obsidian_cfg = config.get("obsidian", {})
-    base_dir = obsidian_cfg.get("base_dir")
-    if base_dir:
-        try:
-            daemon.vault.set_base_dir(base_dir)
-        except Exception as e:
-            print(f"Warning: failed to set Obsidian base_dir '{base_dir}': {e}")
-    logs_cfg = obsidian_cfg.get("logs", {})
-    weekly_logs = logs_cfg.get("weekly", False)
-    logs_dirname = logs_cfg.get("dir", "Logs")
-    max_entries = logs_cfg.get("max_entries", 500)
-    source_max = logs_cfg.get("source_max", 40)
-    dest_max = logs_cfg.get("destination_max", 40)
-    active_cfg = obsidian_cfg.get("active", {})
-    active_max_rows = active_cfg.get("max_rows", 50)
-    try:
-        daemon.vault.configure_logging(
-            weekly_logs=weekly_logs,
-            logs_dirname=logs_dirname,
-            max_entries=max_entries,
-            active_max_rows=active_max_rows,
-            source_max_chars=source_max,
-            destination_max_chars=dest_max,
+    # Similarity (explicit)
+    sim_cfg = config.get("similarity")
+    if sim_cfg is None or "enabled" not in sim_cfg:
+        print("Fatal: 'similarity.enabled' is required (true/false) in ~/.wks/config.json")
+        raise SystemExit(2)
+    if sim_cfg.get("enabled"):
+        if SimilarityDB is None:
+            print("Fatal: similarity enabled but SimilarityDB not available")
+            raise SystemExit(2)
+        required = ["mongo_uri", "database", "collection", "model", "include_extensions", "min_chars", "max_chars", "chunk_chars", "chunk_overlap"]
+        missing = [k for k in required if k not in sim_cfg]
+        if missing:
+            print("Fatal: missing required similarity keys: " + ", ".join([f"similarity.{k}" for k in missing]))
+            raise SystemExit(2)
+        model = sim_cfg["model"]
+        mongo_uri = sim_cfg["mongo_uri"]
+        database = sim_cfg["database"]
+        collection = sim_cfg["collection"]
+        include_exts = set([e.lower() for e in sim_cfg["include_extensions"]])
+        min_chars = int(sim_cfg["min_chars"])
+        max_chars = int(sim_cfg["max_chars"])
+        chunk_chars = int(sim_cfg["chunk_chars"])
+        chunk_overlap = int(sim_cfg["chunk_overlap"])
+        simdb = SimilarityDB(
+            database_name=database,
+            collection_name=collection,
+            mongo_uri=mongo_uri,
+            model_name=model,
+            max_chars=max_chars,
+            chunk_chars=chunk_chars,
+            chunk_overlap=chunk_overlap,
         )
-    except Exception as e:
-        print(f"Warning: failed to configure Obsidian logging: {e}")
+        daemon.similarity = simdb
+        daemon.similarity_extensions = include_exts
+        daemon.similarity_min_chars = min_chars
+        print("Similarity indexing enabled.")
+
+    # base_dir is set via constructor; no defaults applied
 
     print("Starting WKS daemon...")
     print("Press Ctrl+C to stop")
