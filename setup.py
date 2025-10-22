@@ -12,6 +12,7 @@ setup(
         "rich",               # Terminal formatting
         "pymongo",            # MongoDB
         "sentence-transformers",  # Embeddings
+        "unstructured",       # General-purpose file-to-text extraction (optional engine)
         # Add more as needed
     ],
     entry_points={

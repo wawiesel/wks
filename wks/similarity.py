@@ -11,6 +11,7 @@ import zipfile
 import io
 import re
 from pathlib import Path
+import os
 from typing import List, Tuple, Optional, Dict, Any
 from datetime import datetime
 
@@ -29,10 +30,15 @@ class SimilarityDB:
         collection_name: str = "file_embeddings",
         mongo_uri: str = "mongodb://localhost:27017/",
         model_name: str = 'all-MiniLM-L6-v2',
+        model_path: Optional[str] = None,
+        offline: bool = False,
         max_chars: int = 200000,
         chunks_collection: str = "file_chunks",
         chunk_chars: int = 1500,
         chunk_overlap: int = 200,
+        extract_engine: str = 'builtin',
+        extract_ocr: bool = False,
+        extract_timeout_secs: int = 30,
     ):
         """
         Initialize similarity database.
@@ -49,7 +55,13 @@ class SimilarityDB:
 
         # Load sentence transformer model
         # Using a small, fast model suitable for semantic search
-        self.model = SentenceTransformer(model_name)
+        self.model_name = model_name
+        # Offline hints to avoid network access
+        if offline:
+            os.environ.setdefault('HF_HUB_OFFLINE', '1')
+            os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
+        target = (model_path or model_name).strip()
+        self.model = SentenceTransformer(target)
 
         # Create indexes
         self._ensure_indexes()
@@ -57,6 +69,11 @@ class SimilarityDB:
         self.max_chars = int(max_chars)
         self.chunk_chars = int(chunk_chars)
         self.chunk_overlap = int(chunk_overlap)
+        self.extract_engine = extract_engine
+        self.extract_ocr = bool(extract_ocr)
+        self.extract_timeout_secs = int(extract_timeout_secs)
+        # Track last add result for downstream consumers
+        self._last_add_result = None
 
     def _ensure_indexes(self):
         """Create necessary indexes."""
@@ -82,6 +99,42 @@ class SimilarityDB:
             Text content or None if can't read
         """
         eff_max = self.max_chars if max_chars is None else int(max_chars)
+        if self.extract_engine == 'docling':
+            try:
+                from docling.document_converter import DocumentConverter
+            except Exception as e:
+                raise RuntimeError("extract.engine 'docling' requested but package not available") from e
+            try:
+                converter = DocumentConverter()
+                result = converter.convert(str(path))
+                txt = None
+                # Common docling result accessors
+                txt = getattr(result, 'text', None)
+                if not txt:
+                    doc = getattr(result, 'document', None)
+                    if doc and hasattr(doc, 'export_to_markdown'):
+                        try:
+                            txt = doc.export_to_markdown()
+                        except Exception:
+                            txt = None
+                if not txt:
+                    txt = str(result)
+                return txt[:eff_max]
+            except Exception:
+                return None
+        if self.extract_engine == 'unstructured':
+            try:
+                from unstructured.partition.auto import partition
+            except Exception as e:
+                raise RuntimeError("extract.engine 'unstructured' requested but package not available") from e
+            try:
+                elements = partition(filename=str(path))
+                # Join element texts
+                texts = [getattr(el, 'text', '') for el in elements if getattr(el, 'text', None)]
+                txt = "\n".join(texts)
+                return txt[:eff_max]
+            except Exception:
+                return None
         suffix = path.suffix.lower()
         # Direct text read for common text-like files
         if suffix in {'.txt', '.md', '.py', '.json', '.yaml', '.yml', '.toml', '.tex', '.rst'}:
@@ -193,7 +246,7 @@ class SimilarityDB:
             i = j - ov
         return chunks
 
-    def add_file(self, path: Path) -> bool:
+    def add_file(self, path: Path, force: bool = False) -> bool:
         """
         Add or update a file's embedding in the database.
 
@@ -218,8 +271,14 @@ class SimilarityDB:
 
         # Check if already exists with same hash
         existing = self.collection.find_one({"path": path_str})
-        if existing and existing.get("content_hash") == content_hash:
+        if (existing and existing.get("content_hash") == content_hash) and not force:
             # Content hasn't changed, skip
+            self._last_add_result = {
+                "updated": False,
+                "path": path_str,
+                "content_hash": content_hash,
+                "text": text,
+            }
             return False
 
         # Chunk text and generate per-chunk and aggregated embeddings
@@ -261,6 +320,7 @@ class SimilarityDB:
                     "embedding": embedding,
                     "text_preview": text[:500],  # Store preview
                     "timestamp": datetime.now().isoformat(),
+                    "model": self.model_name,
                     "num_chunks": len(chunk_docs),
                     "chunk_chars": self.chunk_chars,
                     "chunk_overlap": self.chunk_overlap,
@@ -279,7 +339,17 @@ class SimilarityDB:
             except Exception:
                 pass
 
+        self._last_add_result = {
+            "updated": True,
+            "path": path_str,
+            "content_hash": content_hash,
+            "text": text,
+        }
         return True
+
+    def get_last_add_result(self):
+        """Return metadata for the last add_file call."""
+        return self._last_add_result
 
     def find_similar(
         self,
