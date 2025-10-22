@@ -94,6 +94,17 @@ class WKSDaemon:
             return False
         return True
 
+    def _is_probably_file(self, p: Path) -> bool:
+        """Heuristic: log only file events; for deleted (nonexistent), use suffix-based guess."""
+        try:
+            if p.exists():
+                return p.is_file()
+        except Exception:
+            pass
+        name = p.name
+        # Treat names with an extension as files (e.g., README.md); skip obvious directories
+        return ('.' in name and not name.endswith('.') and name not in {'', '.', '..'})
+
     def on_file_change(self, event_type: str, path_info):
         """
         Callback when a file changes.
@@ -107,7 +118,12 @@ class WKSDaemon:
             src_path, dest_path = path_info
             src = Path(src_path)
             dest = Path(dest_path)
-            self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
+            # Only log file moves; skip pure directory moves to reduce noise
+            try:
+                if self._is_probably_file(src) or self._is_probably_file(dest):
+                    self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
+            except Exception:
+                pass
             # Update symlink target if tracked
             try:
                 self.vault.update_link_on_move(src, dest)
@@ -142,8 +158,10 @@ class WKSDaemon:
         # Regular events
         path = Path(path_info)
 
-        # Log to Obsidian
-        if event_type in ["created", "modified", "deleted"]:
+        # Log to Obsidian (files only)
+        if event_type in ["created", "modified"] and path.exists() and path.is_file():
+            self.vault.log_file_operation(event_type, path, tracked_files_count=self._get_tracked_files_count())
+        elif event_type == "deleted" and self._is_probably_file(path):
             self.vault.log_file_operation(event_type, path, tracked_files_count=self._get_tracked_files_count())
             # Track activity for created/modified (files only)
             if event_type in ["created", "modified"] and path.exists() and path.is_file():
