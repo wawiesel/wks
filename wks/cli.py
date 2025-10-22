@@ -62,7 +62,8 @@ def _is_macos() -> bool:
 
 def _launchctl(*args: str) -> int:
     try:
-        return subprocess.call(["launchctl", *args])
+        # Suppress noisy stderr/stdout from launchctl; we use return codes
+        return subprocess.call(["launchctl", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
         return 2
 
@@ -74,6 +75,12 @@ def _agent_installed() -> bool:
 def _daemon_start_launchd():
     uid = os.getuid()
     pl = str(_agent_plist_path())
+    # Prefer kickstart for already-bootstrapped agents
+    rc = _launchctl("kickstart", "-k", f"gui/{uid}/{_agent_label()}")
+    if rc == 0:
+        return
+    # If kickstart failed, try bootstrapping fresh
+    _launchctl("bootout", f"gui/{uid}", pl)
     _launchctl("bootstrap", f"gui/{uid}", pl)
     _launchctl("enable", f"gui/{uid}/{_agent_label()}")
     _launchctl("kickstart", "-k", f"gui/{uid}/{_agent_label()}")
@@ -86,7 +93,10 @@ def _daemon_stop_launchd():
 
 def _daemon_status_launchd() -> int:
     uid = os.getuid()
-    return subprocess.call(["launchctl", "print", f"gui/{uid}/{_agent_label()}"])
+    try:
+        return subprocess.call(["launchctl", "print", f"gui/{uid}/{_agent_label()}"])
+    except Exception:
+        return 3
 
 
 def daemon_status(_: argparse.Namespace) -> int:
@@ -1174,6 +1184,8 @@ def main(argv: list[str] | None = None) -> int:
 <dict>
   <key>Label</key>
   <string>com.wieselquist.wks</string>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
   <key>ProgramArguments</key>
   <array>
     <string>{python}</string>

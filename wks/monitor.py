@@ -10,6 +10,18 @@ import fnmatch
 from datetime import datetime
 from typing import Dict, Set, Callable, Optional, List
 from watchdog.observers import Observer
+try:
+    from watchdog.observers.fsevents import FSEventsObserver  # macOS
+except Exception:  # pragma: no cover
+    FSEventsObserver = None  # type: ignore
+try:
+    from watchdog.observers.kqueue import KqueueObserver  # BSD/macOS
+except Exception:  # pragma: no cover
+    KqueueObserver = None  # type: ignore
+try:
+    from watchdog.observers.polling import PollingObserver  # cross-platform
+except Exception:  # pragma: no cover
+    PollingObserver = None  # type: ignore
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
 
@@ -277,13 +289,36 @@ def start_monitoring(
         exclude_paths=exclude_paths,
         ignore_globs=ignore_globs,
     )
-    observer = Observer()
+    # Try observers in order of preference with fallback on start failures
+    candidates: list[type] = []
+    if FSEventsObserver is not None:
+        candidates.append(FSEventsObserver)  # type: ignore
+    if KqueueObserver is not None:
+        candidates.append(KqueueObserver)  # type: ignore
+    # Always include generic polling as last resort
+    if PollingObserver is not None:
+        candidates.append(PollingObserver)  # type: ignore
+    # Default to base Observer if none of the above
+    if not candidates:
+        candidates = [Observer]  # type: ignore
 
-    for directory in directories:
-        observer.schedule(event_handler, str(directory), recursive=True)
-
-    observer.start()
-    return observer
+    last_error: Exception | None = None
+    for Obs in candidates:
+        try:
+            observer = Obs()  # type: ignore
+            for directory in directories:
+                observer.schedule(event_handler, str(directory), recursive=True)
+            observer.start()
+            return observer
+        except Exception as e:  # pragma: no cover
+            last_error = e
+            try:
+                observer.stop()
+            except Exception:
+                pass
+            continue
+    # If we get here, all observers failed
+    raise RuntimeError(f"Failed to start file observer: {last_error}")
 
 
 if __name__ == "__main__":
