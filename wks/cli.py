@@ -240,18 +240,68 @@ def _load_similarity_db() -> Any:
         return None
 
 
-def _iter_files(paths: List[str], include_exts: List[str]) -> List[Path]:
-    files: List[Path] = []
+def _iter_files(paths: List[str], include_exts: List[str], cfg: Dict[str, Any]) -> List[Path]:
+    """Yield files under paths; optionally respect monitor ignores.
+
+    By default, only extension filtering is applied (no implicit directory skips).
+    If similarity.respect_monitor_ignores is true, uses monitor.exclude_paths,
+    monitor.ignore_dirnames, and monitor.ignore_globs from config.
+    """
+    sim = cfg.get('similarity', {})
+    respect = bool(sim.get('respect_monitor_ignores', False))
+    mon = cfg.get('monitor', {}) if respect else {}
+    exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
+    ignore_dirnames = set(mon.get('ignore_dirnames') or [])
+    ignore_globs = list(mon.get('ignore_globs') or [])
+
+    def _is_within(child: Path, base: Path) -> bool:
+        try:
+            child.resolve().relative_to(base.resolve())
+            return True
+        except Exception:
+            return False
+
+    def _skip(p: Path) -> bool:
+        if not respect:
+            return False
+        # Exclude explicit paths
+        for ex in exclude_paths:
+            if _is_within(p, ex):
+                return True
+        # Ignore if any directory segment is in ignore_dirnames
+        for part in p.resolve().parts:
+            if part in ignore_dirnames:
+                return True
+        # Glob-based ignores
+        pstr = p.as_posix()
+        base = p.name
+        from fnmatch import fnmatchcase as _fn
+        for g in ignore_globs:
+            try:
+                if _fn(pstr, g) or _fn(base, g):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    out: List[Path] = []
     for p in paths:
         pp = Path(p).expanduser()
+        if not pp.exists():
+            continue
         if pp.is_file():
-            if not include_exts or pp.suffix.lower() in include_exts:
-                files.append(pp)
-        elif pp.is_dir():
+            if (not include_exts or pp.suffix.lower() in include_exts) and not _skip(pp):
+                out.append(pp)
+        else:
             for x in pp.rglob('*'):
-                if x.is_file() and (not include_exts or x.suffix.lower() in include_exts):
-                    files.append(x)
-    return files
+                if not x.is_file():
+                    continue
+                if include_exts and x.suffix.lower() not in include_exts:
+                    continue
+                if _skip(x):
+                    continue
+                out.append(x)
+    return out
 
 
 def sim_index_cmd(args: argparse.Namespace) -> int:
@@ -259,7 +309,7 @@ def sim_index_cmd(args: argparse.Namespace) -> int:
     db, _ = _load_similarity_required()
     cfg = load_config()
     include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
-    files = _iter_files(args.paths, include_exts)
+    files = _iter_files(args.paths, include_exts, cfg)
     if not files:
         print("No files to index (check paths/extensions)")
         return 0
@@ -1410,6 +1460,83 @@ def main(argv: list[str] | None = None) -> int:
     obs_reset.add_argument("--json", action="store_true", help="JSON output")
     obs_reset.set_defaults(func=obs_init_logs_cmd)
 
+    # Prune WKS/Docs entries that reference unwanted paths (e.g., venv, site-packages)
+    obs_prune = obs_sub.add_parser("prune-docs", help="Remove WKS/Docs entries containing path substrings (e.g., '/venv/', 'site-packages')")
+    obs_prune.add_argument("--contains", nargs="+", help="One or more substrings to match in the source path header", default=["/venv/", "site-packages"])
+    def _obs_prune_docs_cmd(args: argparse.Namespace) -> int:
+        cfg = load_config()
+        obs = cfg.get('obsidian') or {}
+        vault_root = Path(cfg.get('vault_path', '~/obsidian')).expanduser()
+        base = obs.get('base_dir') or 'WKS'
+        docs_dir = vault_root / base / 'Docs'
+        if not docs_dir.exists():
+            print(f"Docs dir not found: {docs_dir}")
+            return 0
+        pats = [str(s) for s in (args.contains or [])]
+        removed = 0
+        scanned = 0
+        for md in docs_dir.glob('*.md'):
+            try:
+                head = md.read_text(encoding='utf-8', errors='ignore').splitlines()[:50]
+            except Exception:
+                continue
+            scanned += 1
+            blob = "\n".join(head)
+            # The header includes a backticked source path like `~/path/to/file`
+            if any(p in blob for p in pats):
+                try:
+                    md.unlink()
+                    removed += 1
+                except Exception:
+                    pass
+        print(f"Scanned {scanned} doc(s); removed {removed} containing: {', '.join(pats)}")
+        return 0
+    obs_prune.set_defaults(func=_obs_prune_docs_cmd)
+
+    # Tidy FileOperations.md by removing rows that match substrings (noise reducers)
+    obs_tidy = obs_sub.add_parser("tidy-ops", help="Remove rows from FileOperations.md that match substrings (e.g., '/_build/', 'site_libs')")
+    obs_tidy.add_argument("--contains", nargs="+", default=["/_build/", "/site_libs/", "/node_modules/", "/venv/", "/.venv/", "/__pycache__/"], help="Substrings to match in Source/Destination cells")
+    def _obs_tidy_ops_cmd(args: argparse.Namespace) -> int:
+        cfg = load_config()
+        obs = cfg.get('obsidian') or {}
+        vault_root = Path(cfg.get('vault_path', '~/obsidian')).expanduser()
+        base = obs.get('base_dir') or 'WKS'
+        ops_path = vault_root / base / 'FileOperations.md'
+        if not ops_path.exists():
+            print(f"FileOperations not found: {ops_path}")
+            return 0
+        pats = [str(s) for s in (args.contains or [])]
+        lines = ops_path.read_text(encoding='utf-8', errors='ignore').splitlines()
+        out = []
+        i = 0
+        removed = 0
+        while i < len(lines):
+            line = lines[i]
+            if line.startswith('| '):
+                row = line
+                blob = row
+                # Extract immediate detail lines (start with '>')
+                j = i + 1
+                detail = []
+                while j < len(lines) and lines[j].startswith('>'):
+                    detail.append(lines[j])
+                    j += 1
+                blob_all = row + "\n" + "\n".join(detail)
+                if any(p in blob_all for p in pats):
+                    removed += 1
+                    i = j
+                    continue
+                out.append(row)
+                out.extend(detail)
+                i = j
+            else:
+                out.append(line)
+                i += 1
+        ops_path.write_text("\n".join(out) + "\n", encoding='utf-8')
+        print(f"Removed {removed} row(s) containing: {', '.join(pats)}")
+        return 0
+    obs_tidy.set_defaults(func=_obs_tidy_ops_cmd)
+
     # Links commands
     from . import links as _links
     lnk = sub.add_parser("links", help="Link organization tools")
@@ -1436,3 +1563,28 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+    sim_prune = sim_sub.add_parser("prune", help="Remove similarity DB entries by path substring (and related chunks)")
+    sim_prune.add_argument("--contains", required=True, help="Substring to match in stored file paths (e.g., '/venv/' or 'site-packages')")
+    def _sim_prune_cmd(args: argparse.Namespace) -> int:
+        db, _ = _load_similarity_required()
+        sub = str(args.contains)
+        # Build regex pattern safely (case-insensitive)
+        import re as _re
+        pat = _re.compile(_re.escape(sub), _re.I)
+        # Find matching paths first for chunk cleanup
+        paths = [doc.get('path') for doc in db.collection.find({}) if doc.get('path') and pat.search(doc['path'])]
+        if not paths:
+            print("No matching entries.")
+            return 0
+        # Delete file-level docs
+        from pymongo import DeleteMany
+        ops = [DeleteMany({'path': p}) for p in paths]
+        if ops:
+            db.collection.bulk_write(ops, ordered=False)
+        # Delete chunk-level docs
+        ops2 = [DeleteMany({'file_path': p}) for p in paths]
+        if ops2:
+            db.chunks.bulk_write(ops2, ordered=False)
+        print(f"Pruned {len(paths)} file(s) and related chunks containing: {sub}")
+        return 0
+    sim_prune.set_defaults(func=_sim_prune_cmd)
