@@ -64,7 +64,7 @@ if __name__ == "__main__":
         print("Fatal: 'obsidian.base_dir' is required in ~/.wks/config.json (e.g., 'WKS')")
         raise SystemExit(2)
     # Explicit obsidian logging settings
-    for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars"]:
+    for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars", "docs_keep"]:
         if k not in obsidian_cfg:
             print(f"Fatal: missing required config key: obsidian.{k}")
             raise SystemExit(2)
@@ -72,6 +72,7 @@ if __name__ == "__main__":
     active_rows = int(obsidian_cfg["active_files_max_rows"])
     src_max = int(obsidian_cfg["source_max_chars"])
     dst_max = int(obsidian_cfg["destination_max_chars"])
+    docs_keep = int(obsidian_cfg["docs_keep"])
 
     daemon = WKSDaemon(
         vault_path=vault_path,
@@ -80,6 +81,7 @@ if __name__ == "__main__":
         obsidian_active_files_max_rows=active_rows,
         obsidian_source_max_chars=src_max,
         obsidian_destination_max_chars=dst_max,
+        obsidian_docs_keep=docs_keep,
         monitor_paths=include_paths,
         state_file=state_file,
         ignore_dirnames=ignore_dirnames,
@@ -111,6 +113,11 @@ if __name__ == "__main__":
         max_chars = int(sim_cfg["max_chars"])
         chunk_chars = int(sim_cfg["chunk_chars"])
         chunk_overlap = int(sim_cfg["chunk_overlap"])
+        # Extraction config (explicit)
+        extract_cfg = config.get("extract")
+        if extract_cfg is None or 'engine' not in extract_cfg or 'ocr' not in extract_cfg or 'timeout_secs' not in extract_cfg:
+            print("Fatal: 'extract.engine', 'extract.ocr', and 'extract.timeout_secs' are required in config")
+            raise SystemExit(2)
         simdb = SimilarityDB(
             database_name=database,
             collection_name=collection,
@@ -119,6 +126,9 @@ if __name__ == "__main__":
             max_chars=max_chars,
             chunk_chars=chunk_chars,
             chunk_overlap=chunk_overlap,
+            extract_engine=extract_cfg['engine'],
+            extract_ocr=bool(extract_cfg['ocr']),
+            extract_timeout_secs=int(extract_cfg['timeout_secs']),
         )
         daemon.similarity = simdb
         daemon.similarity_extensions = include_exts

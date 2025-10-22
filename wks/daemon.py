@@ -11,7 +11,6 @@ try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
     fcntl = None
-from datetime import date
 from pathlib import Path
 from typing import Optional, Set, List, Dict, Any
 from .monitor import start_monitoring
@@ -34,6 +33,8 @@ class WKSDaemon:
         obsidian_active_files_max_rows: int,
         obsidian_source_max_chars: int,
         obsidian_destination_max_chars: int,
+        obsidian_docs_keep: int,
+        auto_project_notes: bool = False,
         monitor_paths: list[Path],
         state_file: Optional[Path] = None,
         ignore_dirnames: Optional[Set[str]] = None,
@@ -60,12 +61,14 @@ class WKSDaemon:
             source_max_chars=obsidian_source_max_chars,
             destination_max_chars=obsidian_destination_max_chars,
         )
+        self.docs_keep = int(obsidian_docs_keep)
         self.monitor_paths = monitor_paths
         self.state_file = state_file or Path.home() / ".wks" / "monitor_state.json"
         self.ignore_dirnames = ignore_dirnames or set()
         self.exclude_paths = [Path(p).expanduser() for p in (exclude_paths or [])]
         self.ignore_patterns = ignore_patterns or set()
         self.observer = None
+        self.auto_project_notes = bool(auto_project_notes)
         # Activity tracking for ActiveFiles.md
         self.activity = ActivityTracker(Path.home() / ".wks" / "activity_state.json")
         self._last_active_update = 0.0
@@ -110,6 +113,11 @@ class WKSDaemon:
                 self.vault.update_link_on_move(src, dest)
             except Exception:
                 pass
+            # Update wiki links inside vault
+            try:
+                self.vault.update_vault_links_on_move(src, dest)
+            except Exception:
+                pass
             # Update similarity index
             try:
                 if self.similarity:
@@ -147,7 +155,16 @@ class WKSDaemon:
                 # Similarity indexing
                 try:
                     if self._should_index_for_similarity(path):
-                        self.similarity.add_file(path)
+                        updated = self.similarity.add_file(path)
+                        if updated:
+                            rec = self.similarity.get_last_add_result() or {}
+                            ch = rec.get('content_hash')
+                            txt = rec.get('text')
+                            if ch and txt is not None:
+                                try:
+                                    self.vault.write_doc_text(ch, path, txt, keep=self.docs_keep)
+                                except Exception:
+                                    pass
                 except Exception:
                     pass
             elif event_type == "deleted":
@@ -156,12 +173,16 @@ class WKSDaemon:
                         self.similarity.remove_file(path)
                 except Exception:
                     pass
+                try:
+                    self.vault.mark_reference_deleted(path)
+                except Exception:
+                    pass
 
         # Handle specific cases for non-move events
         if event_type == "created" and path_info and Path(path_info).is_dir():
             # New directory - check if it's a project
             p = Path(path_info)
-            if p.parent == Path.home() and p.name.startswith("20"):
+            if self.auto_project_notes and p.parent == Path.home() and p.name.startswith("20"):
                 # Looks like a project folder (YYYY-Name pattern)
                 try:
                     self.vault.create_project_note(p, status="New")
@@ -302,20 +323,7 @@ if __name__ == "__main__":
     def _expand(p: str) -> Path:
         return Path(p).expanduser()
 
-    def _week_label() -> str:
-        iso = date.today().isocalendar()
-        return f"{iso.year}-W{iso.week:02d}"
-
-    def _add_week_suffix(p: Path) -> Path:
-        s = str(p)
-        if '{week}' in s:
-            return Path(s.replace('{week}', _week_label())).expanduser()
-        if '.' in p.name:
-            stem = p.stem
-            suffix = ''.join(p.suffixes)
-            return p.with_name(f"{stem}-{_week_label()}{suffix}")
-        else:
-            return p.with_name(f"{p.name}-{_week_label()}")
+    # Weekly log filename helpers removed (feature deprecated)
 
     # Load config from ~/.wks/config.json
     config_path = Path.home() / ".wks" / "config.json"
@@ -326,39 +334,50 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Warning: failed to load config {config_path}: {e}")
 
-    vault_path = _expand(config.get("vault_path", "~/obsidian"))
+    # Require vault_path
+    if "vault_path" not in config or not str(config.get("vault_path")).strip():
+        print("Fatal: 'vault_path' is required in ~/.wks/config.json")
+        raise SystemExit(2)
+    vault_path = _expand(config.get("vault_path"))
 
     monitor_cfg = config.get("monitor", {})
+    missing_mon = []
+    for key in ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "state_file"]:
+        if key not in monitor_cfg:
+            missing_mon.append(f"monitor.{key}")
+    if missing_mon:
+        print("Fatal: missing required config keys: " + ", ".join(missing_mon))
+        raise SystemExit(2)
 
-    include_paths = [
-        _expand(p) for p in monitor_cfg.get("include_paths", [str(Path.home())])
-    ]
-    exclude_paths = [
-        _expand(p) for p in monitor_cfg.get("exclude_paths", ["~/Library", "~/obsidian", "~/.wks"])
-    ]
-    ignore_dirnames = set(monitor_cfg.get("ignore_dirnames", [
-        'Applications', '.Trash', '.cache', 'Cache', 'Caches',
-        'node_modules', 'venv', '.venv', '__pycache__', 'build', '_build', 'dist'
-    ]))
-    ignore_patterns = set(monitor_cfg.get("ignore_patterns", [
-        '.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'
-    ]))
-    ignore_globs = list(monitor_cfg.get("ignore_globs", []))
+    include_paths = [_expand(p) for p in monitor_cfg.get("include_paths")]
+    exclude_paths = [_expand(p) for p in monitor_cfg.get("exclude_paths")]
+    ignore_dirnames = set(monitor_cfg.get("ignore_dirnames"))
+    ignore_patterns = set()  # deprecated
+    ignore_globs = list(monitor_cfg.get("ignore_globs"))
+    state_file = _expand(monitor_cfg.get("state_file"))
 
-    state_file = _expand(monitor_cfg.get("state_file", str(Path.home() / ".wks" / "monitor_state.json")))
-    state_rollover = monitor_cfg.get("state_rollover", "weekly")  # weekly|none
-    if state_rollover == "weekly":
-        state_file = _add_week_suffix(state_file)
-
-    # Activity tracker config
+    # Activity tracker config (optional but recommended)
     activity_cfg = config.get("activity", {})
     activity_state_file = _expand(activity_cfg.get("state_file", str(Path.home() / ".wks" / "activity_state.json")))
-    activity_rollover = activity_cfg.get("state_rollover", "weekly")
-    if activity_rollover == "weekly":
-        activity_state_file = _add_week_suffix(activity_state_file)
+
+    # Obsidian config (explicit)
+    obsidian_cfg = config.get("obsidian", {})
+    base_dir = obsidian_cfg.get("base_dir")
+    required_obs = ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars"]
+    missing_obs = [f"obsidian.{k}" for k in ["base_dir"] if not base_dir] + [f"obsidian.{k}" for k in required_obs if k not in obsidian_cfg]
+    if missing_obs:
+        print("Fatal: missing required config keys: " + ", ".join(missing_obs))
+        raise SystemExit(2)
 
     daemon = WKSDaemon(
         vault_path=vault_path,
+        base_dir=base_dir,
+        obsidian_log_max_entries=int(obsidian_cfg["log_max_entries"]),
+        obsidian_active_files_max_rows=int(obsidian_cfg["active_files_max_rows"]),
+        obsidian_source_max_chars=int(obsidian_cfg["source_max_chars"]),
+        obsidian_destination_max_chars=int(obsidian_cfg["destination_max_chars"]),
+        obsidian_docs_keep=int(obsidian_cfg.get("docs_keep", 99)),
+        auto_project_notes=bool(obsidian_cfg.get("auto_project_notes", False)),
         monitor_paths=include_paths,
         state_file=state_file,
         ignore_dirnames=ignore_dirnames,
@@ -367,35 +386,50 @@ if __name__ == "__main__":
         ignore_globs=ignore_globs,
     )
 
-    # Configure vault logging (weekly file logs)
-    obsidian_cfg = config.get("obsidian", {})
-    # Apply base_dir if provided so all files live under ~/obsidian/<base_dir>
-    base_dir = obsidian_cfg.get("base_dir")
-    if base_dir:
-        try:
-            daemon.vault.set_base_dir(base_dir)
-        except Exception as e:
-            print(f"Warning: failed to set Obsidian base_dir '{base_dir}': {e}")
-    logs_cfg = obsidian_cfg.get("logs", {})
-    weekly_logs = logs_cfg.get("weekly", False)
-    logs_dirname = logs_cfg.get("dir", "Logs")
-    max_entries = logs_cfg.get("max_entries", 500)
-    active_cfg = obsidian_cfg.get("active", {})
-    active_max_rows = active_cfg.get("max_rows", 50)
-    # Optional path column widths
-    source_max_chars = logs_cfg.get("source_max", 40)
-    destination_max_chars = logs_cfg.get("destination_max", 40)
-    daemon.vault.configure_logging(
-        weekly_logs=weekly_logs,
-        logs_dirname=logs_dirname,
-        max_entries=max_entries,
-        active_max_rows=active_max_rows,
-        source_max_chars=source_max_chars,
-        destination_max_chars=destination_max_chars,
-    )
-
     # Recreate activity tracker with configured file (after daemon constructed)
     daemon.activity = ActivityTracker(activity_state_file)
+
+    # Similarity (explicit)
+    sim_cfg = config.get("similarity")
+    if sim_cfg is None or "enabled" not in sim_cfg:
+        print("Fatal: 'similarity.enabled' is required (true/false) in ~/.wks/config.json")
+        raise SystemExit(2)
+    if sim_cfg.get("enabled"):
+        if SimilarityDB is None:
+            print("Fatal: similarity enabled but SimilarityDB not available")
+            raise SystemExit(2)
+        required = ["mongo_uri", "database", "collection", "model", "include_extensions", "min_chars", "max_chars", "chunk_chars", "chunk_overlap"]
+        missing = [k for k in required if k not in sim_cfg]
+        if missing:
+            print("Fatal: missing required similarity keys: " + ", ".join([f"similarity.{k}" for k in missing]))
+            raise SystemExit(2)
+        # Extraction config (explicit)
+        extract_cfg = config.get("extract")
+        if extract_cfg is None or 'engine' not in extract_cfg or 'ocr' not in extract_cfg or 'timeout_secs' not in extract_cfg:
+            print("Fatal: 'extract.engine', 'extract.ocr', and 'extract.timeout_secs' are required in config")
+            raise SystemExit(2)
+        # Offline hint to avoid network
+        if bool(sim_cfg.get('offline', False)):
+            import os as _os
+            _os.environ.setdefault('HF_HUB_OFFLINE', '1')
+            _os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
+        from .similarity import SimilarityDB as _S
+        daemon.similarity = _S(
+            database_name=sim_cfg["database"],
+            collection_name=sim_cfg["collection"],
+            mongo_uri=sim_cfg["mongo_uri"],
+            model_name=sim_cfg["model"],
+            model_path=sim_cfg.get("model_path"),
+            offline=bool(sim_cfg.get("offline", False)),
+            max_chars=int(sim_cfg["max_chars"]),
+            chunk_chars=int(sim_cfg["chunk_chars"]),
+            chunk_overlap=int(sim_cfg["chunk_overlap"]),
+            extract_engine=extract_cfg['engine'],
+            extract_ocr=bool(extract_cfg['ocr']),
+            extract_timeout_secs=int(extract_cfg['timeout_secs']),
+        )
+        daemon.similarity_extensions = set([e.lower() for e in sim_cfg["include_extensions"]])
+        daemon.similarity_min_chars = int(sim_cfg["min_chars"])
 
     print("Starting WKS daemon...")
     print("Press Ctrl+C to stop")

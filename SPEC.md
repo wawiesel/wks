@@ -8,12 +8,39 @@
 
 The Wieselquist Knowledge System (WKS) is an AI-assisted file organization and knowledge management system that uses Obsidian as an intelligent layer for maintaining connections and organization across a structured file system.
 
+## Table of Contents
+
+- Overview
+- Core Principles
+- File System Structure
+- Naming Conventions
+  - Date String Formats
+- Directory Types and Purposes
+  - Projects (~/YYYY-projectname/)
+  - Deadlines (~/deadlines/YYYY_MM_DD-deadlinename/)
+  - Documents (~/Documents/YYYY_MM-documentname/)
+  - Obsidian Vault (~/obsidian/)
+- Archive Pattern
+- Obsidian Structure and Organization
+  - Folder Organization
+  - Linking Strategy
+  - Index.md Structure
+- Desktop Workflow
+- AI Agent Responsibilities
+  - Filesystem → Obsidian Updates
+  - Obsidian → Filesystem Actions
+  - Organization Maintenance
+  - Knowledge Discovery
+- Migration from Stacks
+- Future Enhancements
+- Change Log
+
 ## Core Principles
 
 1. **Date-based naming** encodes temporal scope and relevance
 2. **Hierarchical archiving** (`_old/YYYY/`) keeps workspaces clean
 3. **Obsidian as intelligent layer** maintains connections as files move
-4. **Desktop as focus workspace** - curated weekly via symlinks
+4. **Desktop as focus workspace** - curated via symlinks
 5. **AI agent maintains coherence** between filesystem and knowledge graph
 
 ## File System Structure
@@ -43,7 +70,7 @@ The Wieselquist Knowledge System (WKS) is an AI-assisted file organization and k
 │   ├── Organizations/              # ORNL, NRC, etc.
 │   └── Index.md                    # Main dashboard
 │
-├── Desktop/                        # Weekly focus (symlinks only)
+├── Desktop/                        # Focus (symlinks only)
 │
 └── Downloads/                      # Temporary staging area
 ```
@@ -113,7 +140,7 @@ Knowledge graph and organizational layer containing:
 
 **Key capability:** Maintains coherence as filesystem evolves
 
-**Symlink structure:** The `~/obsidian/links/` directory mirrors the home directory structure, containing symlinks to selected files from projects. This allows embedding external files while preserving original names and paths.
+**Symlink structure:** The `~/obsidian/_links/` directory mirrors the home directory structure, containing symlinks to selected files from projects. This area is internal to the vault and exists to manage embedded content while preserving original names and paths.
 
 **Note on refreshing:** When external tools or agents modify symlinked files, Obsidian may require a manual refresh (Cmd+R) to update embedded views. Edits made within Obsidian automatically refresh.
 
@@ -166,17 +193,17 @@ Main dashboard showing:
 
 ## Desktop Workflow
 
-**Purpose:** Weekly focus workspace with curated symlinks
+**Purpose:** Focus workspace with curated symlinks
 
 **Setup:**
-1. Each week (or as needed), refresh Desktop with:
+1. Refresh Desktop as needed with:
    - Symlinks to 3-5 active projects
    - Symlinks to imminent deadlines
    - Critical files needing attention
 
 2. Desktop should be **ephemeral** - not permanent storage
 
-3. At end of week/task:
+3. At end of task:
    - Remove symlinks that are no longer focus areas
    - Clean up any loose files to proper homes
 
@@ -242,40 +269,6 @@ The previous "stacks" system used hierarchical markdown files (`_trunk.node.md`,
    - Document original intent
    - Evaluate for integration into new system
 
-## Desktop and Downloads Cleanup
-
-**Current state:** Loose files need organization
-
-**Process:**
-1. Identify file purpose and project association
-2. Route to appropriate location:
-   - Working files → relevant `~/YYYY-projectname/`
-   - Reference docs → `~/Documents/YYYY_MM-documentname/`
-   - Time-sensitive → `~/deadlines/YYYY_MM_DD-deadlinename/`
-   - Obsolete → `_old/YYYY/` or delete
-
-3. Create Obsidian notes as needed for tracking
-
-## System Maintenance
-
-### Weekly Review
-- Update Desktop symlinks to current focus
-- Process Downloads folder
-- Update Obsidian Index.md
-- Archive completed work
-
-### Monthly Review
-- Evaluate project status
-- Archive stale content to `_old/`
-- Update knowledge connections
-- Review and update WKS spec
-
-### Annual Review
-- Move completed projects to `_old/`
-- Archive old deadlines
-- Consolidate Documents
-- System cleanup and optimization
-
 ## Future Enhancements
 
 Potential future capabilities:
@@ -286,27 +279,9 @@ Potential future capabilities:
 - Integration with external systems (git, calendar, email)
 - Multi-user collaboration patterns
 
-## Implementation Notes
+## Roadmap Reference
 
-**Phase 1: Foundation**
-- Create directory structure
-- Establish Obsidian vault organization
-- Document specification (this file)
-
-**Phase 2: Migration**
-- Extract content from stacks
-- Organize Desktop and Downloads
-- Initial Obsidian population
-
-**Phase 3: Agent Development**
-- Define agent workflows
-- Implement monitoring and maintenance
-- Test and refine automation
-
-**Phase 4: Iteration**
-- Use system in practice
-- Identify pain points
-- Refine based on actual usage
+See `ROADMAP.md` for phase planning and milestones.
 
 ---
 

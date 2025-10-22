@@ -55,7 +55,8 @@ class ObsidianVault:
 
     def _recompute_paths(self):
         # Category folders always live at vault root
-        self.links_dir = self.vault_path / "links"
+        # Use internal _links directory for embedded content management
+        self.links_dir = self.vault_path / "_links"
         self.projects_dir = self.vault_path / "Projects"
         self.people_dir = self.vault_path / "People"
         self.topics_dir = self.vault_path / "Topics"
@@ -135,7 +136,6 @@ class ObsidianVault:
             self.ideas_dir,
             self.orgs_dir,
             self.records_dir,
-            self.logs_dir if self.weekly_logs else None,
         ]:
             if directory is not None:
                 directory.mkdir(parents=True, exist_ok=True)
@@ -178,7 +178,7 @@ class ObsidianVault:
 
 ## Links
 
-- Project directory: [[links/{project_name}]]
+- Project directory: [[_links/{project_name}]]
 - Related topics:
 
 ## Notes
@@ -190,7 +190,7 @@ class ObsidianVault:
 
     def link_file(self, source_file: Path, preserve_structure: bool = True) -> Optional[Path]:
         """
-        Create a symlink to a file in the links/ directory.
+        Create a symlink to a file in the _links/ directory.
 
         Args:
             source_file: File to link to
@@ -222,6 +222,130 @@ class ObsidianVault:
             link_path.symlink_to(source_file)
 
         return link_path
+
+    def _link_rel_for_source(self, source_file: Path, preserve_structure: bool = True) -> str:
+        """Compute the vault-internal wiki link target (relative) for a source file.
+
+        Returns a path like '_links/<...>' suitable for use inside [[...]] links.
+        """
+        if preserve_structure:
+            home = Path.home()
+            try:
+                relative = source_file.resolve().relative_to(home)
+                return f"_links/{relative.as_posix()}"
+            except Exception:
+                return f"_links/{source_file.name}"
+        else:
+            return f"_links/{source_file.name}"
+
+    def _iter_vault_markdown(self):
+        for md in self.vault_path.rglob("*.md"):
+            try:
+                # Skip our log files
+                if md.resolve() == self.file_log_path.resolve() or md.resolve() == self.activity_log_path.resolve():
+                    continue
+            except Exception:
+                pass
+            yield md
+
+    def update_vault_links_on_move(self, old_path: Path, new_path: Path):
+        """Update wiki links inside the vault when a file moves.
+
+        Rewrites [[_links/<old>]] (and alias forms). Also updates legacy [[links/…]] to the new [[_links/…]] path.
+        """
+        old_rel = self._link_rel_for_source(old_path)
+        new_rel = self._link_rel_for_source(new_path)
+        if old_rel == new_rel:
+            return
+        # Prepare replacements for both _links and legacy links paths
+        old_rel_legacy = old_rel.replace("_links/", "links/")
+        new_rel_legacy = new_rel.replace("_links/", "links/")
+        patterns = [
+            (f"[[{old_rel}]]", f"[[{new_rel}]]"),
+            (f"[[{old_rel}|", f"[[{new_rel}|"),
+            (f"`{old_rel}`", f"`{new_rel}`"),
+            (f"[[{old_rel_legacy}]]", f"[[{new_rel}]]"),
+            (f"[[{old_rel_legacy}|", f"[[{new_rel}|"),
+            (f"`{old_rel_legacy}`", f"`{new_rel}`"),
+        ]
+        for md in self._iter_vault_markdown():
+            try:
+                content = md.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            original = content
+            for a, b in patterns:
+                if a in content:
+                    content = content.replace(a, b)
+            if content != original:
+                try:
+                    md.write_text(content, encoding="utf-8")
+                except Exception:
+                    pass
+
+    def mark_reference_deleted(self, path: Path):
+        """Annotate vault notes that reference a deleted file with a callout.
+
+        Adds a line '> 🗑️ deleted: [[_links/...]]' near the top if not already present (supports legacy [[links/...]] references).
+        """
+        rel = self._link_rel_for_source(path)
+        marker = f"🗑️ deleted: [[{rel}]]"
+        legacy_rel = rel.replace("_links/", "links/")
+        for md in self._iter_vault_markdown():
+            try:
+                content = md.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            if (
+                f"[[{rel}]]" not in content and f"[[{rel}|" not in content and
+                f"[[{legacy_rel}]]" not in content and f"[[{legacy_rel}|" not in content
+            ):
+                continue
+            if marker in content:
+                continue
+            # Insert marker after first header or at top
+            lines = content.splitlines()
+            insert_idx = 0
+            if lines and lines[0].startswith("# "):
+                insert_idx = 1
+            lines.insert(insert_idx, f"> {marker}")
+            try:
+                md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            except Exception:
+                pass
+
+    def write_doc_text(self, content_hash: str, source_path: Path, text: str, keep: int = 99):
+        """Write raw extracted text to WKS/Docs/<checksum>.md and keep only last N.
+
+        Args:
+            content_hash: SHA256 hex of file content
+            source_path: Original file path
+            text: Extracted raw text
+            keep: Max number of docs to keep (delete oldest beyond this)
+        """
+        docs_dir = self._base_path() / 'Docs'
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        doc_path = docs_dir / f"{content_hash}.md"
+        header = (
+            f"# {source_path.name}\n\n"
+            f"`{source_path}`\n\n"
+            f"*Checksum:* `{content_hash}`  *Updated:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            "---\n\n"
+        )
+        try:
+            doc_path.write_text(header + text, encoding='utf-8')
+        except Exception:
+            return
+        # Rotate: keep only last N by mtime
+        try:
+            entries = sorted(docs_dir.glob('*.md'), key=lambda p: p.stat().st_mtime, reverse=True)
+            for old in entries[keep:]:
+                try:
+                    old.unlink()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def link_project(self, project_path: Path) -> list[Path]:
         """
