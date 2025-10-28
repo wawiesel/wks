@@ -49,7 +49,8 @@ def _pid_running(pid: int) -> bool:
 
 
 def _agent_label() -> str:
-    return "com.wieselquist.wks"
+    # Unique launchd label bound to the new CLI name
+    return "com.wieselquist.wkso"
 
 
 def _agent_plist_path() -> Path:
@@ -300,314 +301,7 @@ def _iter_files(paths: List[str], include_exts: List[str], cfg: Dict[str, Any]) 
                 out.append(x)
     return out
 
-
-def sim_index_cmd(args: argparse.Namespace) -> int:
-    # Use required loader so extract engine is configured
-    db, _ = _load_similarity_required()
-    cfg = load_config()
-    include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
-    files = _iter_files(args.paths, include_exts, cfg)
-    if not files:
-        print("No files to index (check paths/extensions)")
-        return 0
-    # Prepare vault for writing docs
-    vault = _load_vault()
-    docs_keep = int((cfg.get('obsidian') or {}).get('docs_keep', 99))
-    added = 0
-    skipped = 0
-    for f in files:
-        try:
-            updated = db.add_file(f)
-            if updated:
-                added += 1
-                rec = db.get_last_add_result() or {}
-                ch = rec.get('content_hash')
-                txt = rec.get('text')
-                if ch and txt is not None:
-                    try:
-                        vault.write_doc_text(ch, f, txt, keep=docs_keep)
-                    except Exception:
-                        pass
-            else:
-                skipped += 1
-        except Exception as e:
-            print(f"Failed to index {f}: {e}")
-    print(f"Indexed {added} file(s), skipped {skipped} (unchanged or not text)")
-    stats = db.get_stats()
-    print(f"DB: {stats['database']}.{stats['collection']} total_files={stats['total_files']}")
-    return 0
-
-
-def sim_query_cmd(args: argparse.Namespace) -> int:
-    db = _load_similarity_db()
-    if not db:
-        return 1
-    limit = int(args.top)
-    minsim = float(args.min)
-    try:
-        if args.path:
-            results = db.find_similar(query_path=Path(args.path).expanduser(), limit=limit, min_similarity=minsim, mode=args.mode)
-        elif args.text:
-            results = db.find_similar(query_text=args.text, limit=limit, min_similarity=minsim, mode=args.mode)
-        else:
-            print("Provide --path or --text")
-            return 2
-    except Exception as e:
-        print(f"Query failed: {e}")
-        return 1
-    if args.json:
-        import json as _json
-        print(_json.dumps([{"path": p, "score": s} for p, s in results], indent=2))
-    else:
-        for p, s in results:
-            print(f"{s:0.3f}  {p}")
-    return 0
-
-
-# sim_stats_cmd removed (not exposed)
-
-
-def _project_root_for(p: Path) -> Tuple[str, Path]:
-    """Classify and return the project/document/deadline root for a path.
-
-    Returns: (kind, root_path) where kind in {project, documents, deadlines, other}
-    """
-    home = Path.home()
-    kind = 'other'
-    root = p
-    try:
-        rel = p.resolve().relative_to(home)
-        parts = list(rel.parts)
-        if parts:
-            first = parts[0]
-            # Project like ~/YYYY-Name
-            import re as _re
-            if _re.match(r"^\d{4}-[^/]+$", first):
-                kind = 'project'
-                root = home / first
-            elif first == 'Documents' and len(parts) >= 2:
-                kind = 'documents'
-                root = home / 'Documents' / parts[1]
-            elif first == 'deadlines' and len(parts) >= 2:
-                kind = 'deadlines'
-                root = home / 'deadlines' / parts[1]
-            else:
-                kind = 'other'
-                # Use first-level dir (if any) as root
-                root = home / first
-    except Exception:
-        kind = 'other'
-        root = p
-    return kind, root
-
-
-def _short(p: Path) -> str:
-    try:
-        rel = p.resolve().relative_to(Path.home())
-        return f"~/{rel}"
-    except Exception:
-        return str(p)
-
-
-def sim_route_cmd(args: argparse.Namespace) -> int:
-    db = _load_similarity_db()
-    if not db:
-        return 1
-    qpath = Path(args.path).expanduser()
-    top = int(args.top)
-    minsim = float(args.min)
-    try:
-        results = db.find_similar(query_path=qpath, limit=top, min_similarity=minsim, mode=args.mode)
-    except Exception as e:
-        print(f"Route failed: {e}")
-        return 1
-    if not results:
-        print("No similar files found; consider indexing more content with 'wks sim index'")
-        return 0
-    # Aggregate by project/document/deadline root
-    agg: Dict[Path, Dict[str, Any]] = {}
-    for path_str, score in results:
-        pp = Path(path_str)
-        kind, root = _project_root_for(pp)
-        rec = agg.setdefault(root, {"score": 0.0, "kind": kind, "hits": []})
-        rec["score"] += float(score)
-        rec["hits"].append({"path": path_str, "score": float(score)})
-
-    # Rank by aggregate score
-    ranked = sorted(((root, data) for root, data in agg.items()), key=lambda x: x[1]["score"], reverse=True)
-    suggestions = []
-    for root, data in ranked[: args.max_targets]:
-        suggestions.append({
-            "target": _short(root),
-            "kind": data["kind"],
-            "score": round(float(data["score"]), 6),
-            "hits": data["hits"][: args.evidence],
-        })
-
-    if args.json:
-        import json as _json
-        print(_json.dumps({
-            "query": _short(qpath),
-            "suggestions": suggestions
-        }, indent=2))
-    else:
-        print(f"Query: {_short(qpath)}\n")
-        for s in suggestions:
-            print(f"{s['score']:0.3f}  [{s['kind']}]  {s['target']}")
-            for h in s["hits"]:
-                print(f"    {h['score']:0.3f}  {h['path']}")
-    return 0
-
-
-# sim_extract_cmd removed (superseded by analyze dump)
-
-
-# _collect_md_paths removed
-
-
-# sim_dump_docs_cmd removed
-
-
-# ----------------------------- LLM helpers --------------------------------- #
-def _llm_model_from_config() -> str:
-    cfg = load_config()
-    llm = cfg.get('llm', {}) or {}
-    return str(llm.get('model', 'gpt-oss:20b'))
-
-
-def _ollama_chat(system_prompt: str, user_prompt: str, model: str) -> str:
-    try:
-        import ollama  # type: ignore
-    except Exception as e:
-        return f"[LLM unavailable: install 'pip install ollama' and run 'ollama serve']\n{user_prompt}"
-    try:
-        res = ollama.chat(model=model, messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ])
-        return res.get('message', {}).get('content', '').strip() or ''
-    except Exception as e:
-        return f"[LLM error: {e}]"
-
-
-def analyze_dump_cmd(args: argparse.Namespace) -> int:
-    db, _ = _load_similarity_required()
-    vault = _load_vault()
-    p = Path(args.path).expanduser()
-    if not p.exists():
-        print(f"No such file: {p}")
-        return 2
-    try:
-        txt = db._read_file_text(p, max_chars=db.max_chars) or ''
-    except Exception as e:
-        print(f"Extract failed: {e}")
-        return 1
-    ch = db._compute_hash(txt)
-    vault.write_doc_text(ch, p, txt, keep=int((load_config().get('obsidian') or {}).get('docs_keep', 99)))
-    out = {"doc": (Path(load_config().get('vault_path', '~/obsidian')).expanduser() / (load_config().get('obsidian') or {}).get('base_dir','WKS') / 'Docs' / f"{ch}.md").as_posix(), "checksum": ch}
-    if args.json:
-        import json as _json
-        print(_json.dumps(out, indent=2))
-    else:
-        print(f"Doc: {out['doc']}\nChecksum: {out['checksum']}")
-    return 0
-
-
-def analyze_name_cmd(args: argparse.Namespace) -> int:
-    path = Path(args.path).expanduser()
-    if not path.exists() or not path.is_dir():
-        print(f"Not a directory: {path}")
-        return 2
-    # Rule-based suggestion
-    try:
-        date = _date_for_scope('project', path)
-    except Exception:
-        from datetime import datetime as _dt
-        date = _dt.now().strftime('%Y')
-    name_sanitized = _sanitize_name(path.name.split('-',1)[-1])
-    rule_name = f"{date}-{name_sanitized}"
-    # LLM-based refinement from contents (filenames only to keep quick)
-    files = []
-    try:
-        for p in path.iterdir():
-            if p.is_file():
-                files.append(p.name)
-    except Exception:
-        pass
-    model = _llm_model_from_config()
-    sys_prompt = "You propose concise PascalCase NAMEs for project folders. Only output the NAME token; no date. 1-3 words max."
-    user_prompt = f"Based on these file names: {', '.join(files[:40])}\nSuggest a NAME token for folder {path.name}."
-    llm_raw = _ollama_chat(sys_prompt, user_prompt, model=model).splitlines()[0].strip()
-    if llm_raw.startswith('['):
-        llm_name_clean = name_sanitized
-    else:
-        llm_name_clean = _sanitize_name(llm_raw).replace('_','') or name_sanitized
-    final = f"{date}-{llm_name_clean}"
-    if args.json:
-        import json as _json
-        print(_json.dumps({"rule": rule_name, "llm": final, "model": model}, indent=2))
-    else:
-        print(final)
-    return 0
-
-
-def analyze_dir_cmd(args: argparse.Namespace) -> int:
-    path = Path(args.path).expanduser()
-    if not path.exists() or not path.is_dir():
-        print(f"Not a directory: {path}")
-        return 2
-    # Respect monitor ignores
-    cfg = load_config()
-    mon = cfg.get('monitor', {})
-    exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
-    ignore_dirnames = set(mon.get('ignore_dirnames') or [])
-    ignore_globs = list(mon.get('ignore_globs') or [])
-    def _is_within(child: Path, base: Path) -> bool:
-        try:
-            child.resolve().relative_to(base)
-            return True
-        except Exception:
-            return False
-    def _skip(d: Path) -> bool:
-        if any(_is_within(d, ex) for ex in exclude_paths):
-            return True
-        if any(part.startswith('.') and part != '.wks' for part in d.parts):
-            return True
-        if any(part in ignore_dirnames for part in d.parts):
-            return True
-        from fnmatch import fnmatchcase
-        pstr = d.as_posix()
-        if any(fnmatchcase(pstr, g) for g in ignore_globs):
-            return True
-        return False
-    texts = []
-    for p in path.rglob('*'):
-        try:
-            if p.is_dir():
-                if _skip(p):
-                    continue
-                continue
-            if p.suffix.lower() not in {'.md', '.txt', '.py', '.tex'}:
-                continue
-            s = p.read_text(encoding='utf-8', errors='ignore')
-            if s and s.strip():
-                texts.append(f"# {p.name}\n\n" + s[:1500])
-            if len(texts) >= 12:
-                break
-        except Exception:
-            continue
-    doc = "\n\n".join(texts) if texts else f"Directory: {path.name} (no readable text files)"
-    model = _llm_model_from_config()
-    sys_prompt = "Summarize the directory and suggest next steps. Keep it concise and actionable."
-    user_prompt = f"Directory: {path}\n\nContent samples:\n\n{doc}"
-    out = _ollama_chat(sys_prompt, user_prompt, model=model)
-    if args.json:
-        import json as _json
-        print(_json.dumps({"model": model, "summary": out}, indent=2))
-    else:
-        print(out)
-    return 0
-
+# ----------------------------- LLM helpers --------------------------------- # (removed)
 
 # ----------------------------- Naming utilities ---------------------------- #
 _DATE_RE = re.compile(r"^\d{4}(?:_\d{2})?(?:_\d{2})?$")
@@ -661,63 +355,9 @@ def _date_for_scope(scope: str, path: Path) -> str:
 
 
 def names_check_cmd(args: argparse.Namespace) -> int:
-    cfg = load_config()
-    mon = cfg.get('monitor', {})
-    include_paths = [Path(p).expanduser().resolve() for p in (mon.get('include_paths') or [])]
-    exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
-    ignore_dirnames = set(mon.get('ignore_dirnames') or [])
-    ignore_globs = list(mon.get('ignore_globs') or [])
-    roots = [Path(p).expanduser().resolve() for p in (args.roots or include_paths)]
-
-    def is_within(p: Path, base: Path) -> bool:
-        try:
-            p.relative_to(base)
-            return True
-        except Exception:
-            return False
-
-    problems = []
-    for root in roots:
-        if not root.exists() or not root.is_dir():
-            continue
-        # Only scan immediate children of root
-        for entry in root.iterdir():
-            if not entry.is_dir():
-                continue
-            rp = entry.resolve()
-            # Apply excludes/ignores
-            if any(is_within(rp, ex) for ex in exclude_paths):
-                continue
-            if any(part.startswith('.') and part != '.wks' for part in rp.parts):
-                continue
-            if any(part in ignore_dirnames for part in rp.parts):
-                continue
-            from fnmatch import fnmatchcase
-            pstr = rp.as_posix()
-            if any(fnmatchcase(pstr, g) for g in ignore_globs):
-                continue
-            name = entry.name
-            m = _FOLDER_RE.match(name)
-            if not m:
-                problems.append((str(entry), 'does not match DATE-NAME rule'))
-                continue
-            date, nm = m.groups()
-            if not _DATE_RE.match(date):
-                problems.append((str(entry), f'invalid DATE: {date}'))
-            if '-' in nm:
-                problems.append((str(entry), 'NAME contains hyphens'))
-    if args.json:
-        import json as _json
-        print(_json.dumps([
-            {'path': p, 'problem': why} for p, why in problems
-        ], indent=2))
-    else:
-        if not problems:
-            print('No naming problems found.')
-        else:
-            for p, why in problems:
-                print(f"{p}: {why}")
-    return 0
+    # Removed: analyze helpers are not part of the minimal CLI
+    print("names check is not available in this build")
+    return 2
 
 
 def _pascalize_token(tok: str) -> str:
@@ -866,8 +506,80 @@ def _load_vault() -> Any:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(prog="wks", description="WKS management CLI")
+    parser = argparse.ArgumentParser(prog="wkso", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
+    # Global display mode
+    parser.add_argument(
+        "--display",
+        choices=["auto", "rich", "basic"],
+        default="rich",
+        help="Progress display: rich (interactive), basic (line-by-line), or auto",
+    )
+
+    # Lightweight progress helpers
+    def _make_progress(total: int, display: str):
+        from contextlib import contextmanager
+        import sys, time
+
+        def _hms(secs: float) -> str:
+            secs = max(0, int(secs))
+            h = secs // 3600; m = (secs % 3600) // 60; s = secs % 60
+            return f"{h:02d}:{m:02d}:{s:02d}"
+
+        use_rich = False
+        if display in (None, "auto"):
+            # Auto: prefer rich if available and isatty
+            try:
+                use_rich = sys.stdout.isatty()
+            except Exception:
+                use_rich = False
+        elif display == "rich":
+            use_rich = True
+        else:
+            use_rich = False
+
+        if use_rich:
+            try:
+                from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn
+
+                @contextmanager
+                def _rp():
+                    with Progress(
+                        SpinnerColumn(),
+                        TextColumn("[bold blue]Working"),
+                        BarColumn(bar_width=None),
+                        TextColumn("{task.completed}/{task.total}"),
+                        TimeRemainingColumn(),
+                        TextColumn("• {task.fields[current]}"),
+                    ) as progress:
+                        task = progress.add_task("task", total=total, current="")
+                        class R:
+                            def update(self, filename: str, advance: int = 1):
+                                progress.update(task, advance=advance, current=filename)
+                            def close(self):
+                                pass
+                        yield R()
+                return _rp()
+            except Exception:
+                pass
+
+        # Basic, line-by-line
+        @contextmanager
+        def _bp():
+            start = time.time()
+            done = {"n": 0}
+            class B:
+                def update(self, filename: str, advance: int = 1):
+                    done["n"] += advance
+                    n = done["n"]
+                    pct = (n/total*100.0) if total else 100.0
+                    elapsed = time.time()-start
+                    eta = _hms((elapsed/n)*(total-n)) if n>0 and total>n else _hms(0)
+                    print(f"[{n}/{total}] {pct:5.1f}% ETA {eta}  {filename}")
+                def close(self):
+                    pass
+            yield B()
+        return _bp()
 
     cfg = sub.add_parser("config", help="Config commands")
     cfg_sub = cfg.add_subparsers(dest="cfg_cmd")
@@ -879,17 +591,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     
 
     # Optional install/uninstall on macOS (hide behind help)
-    def _launchctl(*args: str) -> int:
+    def _launchctl_quiet(*args: str) -> int:
         try:
-            return subprocess.call(["launchctl", *args])
+            return subprocess.call(["launchctl", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except FileNotFoundError:
             print("launchctl not found; macOS only")
             return 2
 
     def _plist_path() -> Path:
-        return Path.home()/"Library"/"LaunchAgents"/"com.wieselquist.wks.plist"
+        return Path.home()/"Library"/"LaunchAgents"/"com.wieselquist.wkso.plist"
 
-    def daemon_install(_: argparse.Namespace):
+    def daemon_install(args: argparse.Namespace):
         if platform.system() != "Darwin":
             print("install is macOS-only (launchd)")
             return
@@ -897,6 +609,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         pl.parent.mkdir(parents=True, exist_ok=True)
         log_dir = Path.home()/".wks"
         log_dir.mkdir(exist_ok=True)
+        # Use the current interpreter (works for system Python, venv, and pipx)
         python = sys.executable
         proj_root = Path(__file__).resolve().parents[1]
         xml = f"""
@@ -905,7 +618,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.wieselquist.wks</string>
+  <string>com.wieselquist.wkso</string>
   <key>LimitLoadToSessionType</key>
   <string>Aqua</string>
   <key>ProgramArguments</key>
@@ -935,22 +648,46 @@ def main(argv: Optional[List[str]] = None) -> int:
 </plist>
 """.strip()
         pl.write_text(xml)
-        _launchctl("bootout", f"gui/{os.getuid()}", str(pl))
-        _launchctl("bootstrap", f"gui/{os.getuid()}", str(pl))
-        _launchctl("enable", f"gui/{os.getuid()}/com.wieselquist.wks")
-        _launchctl("kickstart", "-k", f"gui/{os.getuid()}/com.wieselquist.wks")
+        uid = os.getuid()
+        with _make_progress(total=5, display=getattr(args, 'display', 'auto')) as prog:
+            prog.update("bootout legacy")
+            for old in [
+                "com.wieselquist.wkso",
+                "com.wieselquist.wksctl",
+                "com.wieselquist.wks",
+                "com.wieselquist.wks.db",
+            ]:
+                try:
+                    _launchctl_quiet("bootout", f"gui/{uid}", str(Path.home()/"Library"/"LaunchAgents"/(old+".plist")))
+                except Exception:
+                    pass
+            prog.update("bootstrap")
+            _launchctl_quiet("bootstrap", f"gui/{uid}", str(pl))
+            prog.update("enable")
+            _launchctl_quiet("enable", f"gui/{uid}/com.wieselquist.wkso")
+            prog.update("kickstart")
+            _launchctl_quiet("kickstart", "-k", f"gui/{uid}/com.wieselquist.wkso")
+            prog.update("done")
         print(f"Installed and started: {pl}")
 
-    def daemon_uninstall(_: argparse.Namespace):
+    def daemon_uninstall(args: argparse.Namespace):
         if platform.system() != "Darwin":
             print("uninstall is macOS-only (launchd)")
             return
         pl = _plist_path()
-        _launchctl("bootout", f"gui/{os.getuid()}", str(pl))
-        try:
-            pl.unlink()
-        except Exception:
-            pass
+        uid = os.getuid()
+        with _make_progress(total=4, display=getattr(args, 'display', 'auto')) as prog:
+            for label in ["com.wieselquist.wkso", "com.wieselquist.wksctl", "com.wieselquist.wks", "com.wieselquist.wks.db"]:
+                prog.update(f"bootout {label}")
+                try:
+                    _launchctl_quiet("bootout", f"gui/{uid}", str(Path.home()/"Library"/"LaunchAgents"/(label+".plist")))
+                except Exception:
+                    pass
+                prog.update(f"remove {label}.plist")
+                try:
+                    (Path.home()/"Library"/"LaunchAgents"/(label+".plist")).unlink()
+                except Exception:
+                    pass
         print("Uninstalled.")
 
     # install/uninstall bound under service group below
@@ -971,98 +708,191 @@ def main(argv: Optional[List[str]] = None) -> int:
     svcrestart2 = svcsub.add_parser("restart", help="Restart daemon")
     svcrestart2.set_defaults(func=daemon_restart)
 
-    # Analyze tools (agent helpers)
-    analyze = sub.add_parser("analyze", help="Agent helpers: similarity, dump, name, review, check")
-    sim_sub = analyze.add_subparsers(dest="an_cmd")
+    # (analyze group was removed)
 
-    sim_idx = sim_sub.add_parser("index", help="Index files or directories (recursive) into similarity DB")
-    sim_idx.add_argument("paths", nargs="+", help="Files or directories to index")
-    sim_idx.set_defaults(func=sim_index_cmd)
-
-    sim_q = sim_sub.add_parser("query", help="Find files similar to a path or text")
-    sim_q.add_argument("--path", help="Path to query file")
-    sim_q.add_argument("--text", help="Raw text to query")
-    sim_q.add_argument("--top", default=10, help="Max results (default 10)")
-    sim_q.add_argument("--min", default=0.0, help="Minimum similarity threshold")
-    sim_q.add_argument("--mode", choices=["file","chunk"], default="file", help="Comparison mode: file (aggregated) or chunk (max of chunks)")
-    sim_q.add_argument("--json", action="store_true", help="Output JSON (path, score)")
-    sim_q.set_defaults(func=sim_query_cmd)
-
-    # (stats removed for simplicity)
-
-    sim_route = sim_sub.add_parser("route", help="Suggest target folders for a file based on similarity")
-    sim_route.add_argument("--path", required=True, help="Path of the file to route")
-    sim_route.add_argument("--top", default=20, help="Consider top-N similar files (default 20)")
-    sim_route.add_argument("--min", default=0.0, help="Minimum similarity threshold")
-    sim_route.add_argument("--max-targets", dest="max_targets", default=5, type=int, help="Max suggestions to return")
-    sim_route.add_argument("--evidence", default=5, type=int, help="Include up to N evidence hits per suggestion")
-    sim_route.add_argument("--mode", choices=["file","chunk"], default="chunk", help="Use chunk mode for better matching on long files")
-    sim_route.add_argument("--json", action="store_true", help="Output JSON with suggestions and evidence")
-    sim_route.set_defaults(func=sim_route_cmd)
-
-    # (backfill removed for simplicity)
-
-    # (migrate removed for simplicity)
-
-    # (extract removed for simplicity)
-
-    # (dump-docs superseded by analyze dump)
-
-    # prune removed; daemon prunes continuously based on config
-
-    # Add non-similarity analyze helpers
-    az_dump = sim_sub.add_parser("dump", help="Extract and write a file's text to Obsidian WKS/Docs and print checksum")
-    az_dump.add_argument("--path", required=True, help="Path to the file")
-    az_dump.add_argument("--json", action="store_true")
-    az_dump.set_defaults(func=analyze_dump_cmd)
-
-    az_name = sim_sub.add_parser("name", help="Recommend a better DATE-NAME for a project directory (uses rules + local LLM)")
-    az_name.add_argument("--path", required=True)
-    az_name.add_argument("--json", action="store_true")
-    az_name.set_defaults(func=analyze_name_cmd)
-
-    az_dir = sim_sub.add_parser("review", help="Analyze/summarize a directory using local LLM (ollama)")
-    az_dir.add_argument("--path", required=True)
-    az_dir.add_argument("--json", action="store_true")
-    az_dir.set_defaults(func=analyze_dir_cmd)
-
-    az_check = sim_sub.add_parser("check", help="Check directory names under monitor.include_paths for DATE-NAME compliance")
-    az_check.add_argument("roots", nargs='*')
-    az_check.add_argument("--json", action="store_true")
-    az_check.set_defaults(func=names_check_cmd)
-
-    # Health status
-    az_health = sim_sub.add_parser("health", help="Show daemon health status")
-    az_health.add_argument("--update", action="store_true", help="Also rebuild the Health.md landing page")
-    def _health_cmd(args: argparse.Namespace) -> int:
-        path = Path.home()/'.wks'/'health.json'
-        import json as _json
-        if not path.exists():
-            print("Health file not found (daemon may not be running yet)")
-            return 1
+    # Top-level index command (moved out of analyze)
+    idx = sub.add_parser("index", help="Index files or directories (recursive) into similarity DB with progress")
+    idx.add_argument("paths", nargs="+", help="Files or directories to index")
+    def _index_cmd(args: argparse.Namespace) -> int:
+        db, _ = _load_similarity_required()
+        cfg = load_config()
+        include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
+        files = _iter_files(args.paths, include_exts, cfg)
+        if not files:
+            print("No files to index (check paths/extensions)")
+            return 0
+        vault = _load_vault()
+        docs_keep = int((cfg.get('obsidian') or {}).get('docs_keep', 99))
+        added = 0
+        skipped = 0
+        errors = 0
+        with _make_progress(total=len(files), display=getattr(args, 'display', 'auto')) as prog:
+            for f in files:
+                prog.update(f.name, advance=0)
+                try:
+                    updated = db.add_file(f)
+                    if updated:
+                        added += 1
+                        rec = db.get_last_add_result() or {}
+                        ch = rec.get('content_hash')
+                        txt = rec.get('text')
+                        if ch and txt is not None:
+                            try:
+                                vault.write_doc_text(ch, f, txt, keep=docs_keep)
+                            except Exception:
+                                pass
+                    else:
+                        skipped += 1
+                except Exception:
+                    errors += 1
+                finally:
+                    prog.update(f.name, advance=1)
+        print(f"Indexed {added} file(s), skipped {skipped}, errors {errors}")
         try:
-            data = _json.load(open(path, 'r'))
-        except Exception as e:
-            print(f"Failed to read health.json: {e}")
-            return 2
-        print(_json.dumps(data, indent=2))
-        if args.update:
-            try:
-                cfg = load_config(); obs = cfg.get('obsidian') or {}
-                vault = _load_vault()
-                # state file from config
-                mon = cfg.get('monitor', {})
-                state_file = Path(mon.get('state_file', str(Path.home()/'.wks'/'monitor_state.json'))).expanduser()
-                vault.write_health_page(state_file=state_file)
-                base_dir = obs.get('base_dir') or 'WKS'
-                dest = Path(cfg.get('vault_path','~/obsidian')).expanduser()/base_dir/'Health.md'
-                print(f"Updated: {dest}")
-            except Exception as e:
-                print(f"Failed to update Health.md: {e}")
+            stats = db.get_stats()
+            print(f"DB: {stats['database']}.{stats['collection']} total_files={stats['total_files']}")
+        except Exception:
+            pass
         return 0
-    az_health.set_defaults(func=_health_cmd)
+    idx.set_defaults(func=_index_cmd)
 
-    # Simplified CLI — no extra top-level groups beyond config/service/analyze
+    # DB command: simple query passthrough and stats
+    dbp = sub.add_parser("db", help="Database helpers: query and stats")
+    dbsub = dbp.add_subparsers(dest="db_cmd")
+    dbq = dbsub.add_parser("query", help="Run a JSON query against the selected DB space")
+    # Choose logical DB space: --space (embeddings) or --time (snapshots)
+    scope = dbq.add_mutually_exclusive_group(required=True)
+    scope.add_argument("--space", action="store_true", help="Query the space DB (embeddings)")
+    scope.add_argument("--time", action="store_true", help="Query the time DB (snapshots)")
+    dbq.add_argument("--filter", default="{}", help="JSON filter, e.g. '{"path": {"$regex": "2025-WKS"}}'")
+    dbq.add_argument("--projection", default=None, help="JSON projection, e.g. '{"path":1,"timestamp":1}'")
+    dbq.add_argument("--limit", type=int, default=20)
+    dbq.add_argument("--sort", default=None, help="Sort spec 'field:asc|desc' (optional)")
+    def _db_query(args: argparse.Namespace) -> int:
+        db, sim = _load_similarity_required()
+        try:
+            import json as _json
+            filt = _json.loads(args.filter or "{}")
+            proj = _json.loads(args.projection) if args.projection else None
+        except Exception as e:
+            print(f"Invalid JSON: {e}")
+            return 2
+        # Decide target collection by logical DB
+        if args.space:
+            coll = db.collection  # space.files (embeddings)
+            coll_name = 'file_embeddings'
+            scope_label = 'space'
+        else:
+            coll = db.db['file_snapshots']  # time.snapshots
+            coll_name = 'file_snapshots'
+            scope_label = 'time'
+        cur = coll.find(filt, proj)
+        if args.sort:
+            try:
+                fld, dirspec = args.sort.split(':',1)
+                direction = 1 if dirspec.lower().startswith('asc') else -1
+                cur = cur.sort(fld, direction)
+            except Exception:
+                pass
+        if args.limit:
+            cur = cur.limit(int(args.limit))
+        # Output formatting per display
+        dis = getattr(args, 'display', 'rich')
+        use_rich = (dis == 'rich') or (dis == 'auto')
+        try:
+            from rich.console import Console
+            from rich.table import Table
+            if use_rich:
+                title = f"[{scope_label}] {coll_name} query"
+                t = Table(title=title)
+                t.add_column("#", justify="right")
+                t.add_column("doc")
+                for i, doc in enumerate(cur, 1):
+                    t.add_row(str(i), str(doc))
+                Console().print(t)
+                return 0
+        except Exception:
+            pass
+        # basic
+        for i, doc in enumerate(cur, 1):
+            print(f"[{i}] {doc}")
+        return 0
+    dbq.set_defaults(func=_db_query)
+
+    dbs = dbsub.add_parser("stats", help="Print basic DB stats and optionally list latest files")
+    scope2 = dbs.add_mutually_exclusive_group()
+    scope2.add_argument("--space", action="store_true", help="Stats for the space DB")
+    scope2.add_argument("--time", action="store_true", help="Stats for the time DB")
+    dbs.add_argument("-n", "--latest", type=int, default=0, help="Show the most recent N records")
+    def _db_stats(args: argparse.Namespace) -> int:
+        if args.time:
+            # Time DB (snapshots) uses direct handle; provide basic counts if available
+            try:
+                db, _ = _load_similarity_required()
+                coll = db.db["file_snapshots"]
+                total = coll.count_documents({})
+                print({"database": db.db.name, "collection": "file_snapshots", "total_docs": total})
+                n = int(getattr(args, 'latest', 0) or 0)
+                if n > 0:
+                    cur = coll.find({}, {"path": 1, "t_new": 1}).sort("t_new_epoch", -1).limit(n)
+                    dis = getattr(args, 'display', 'rich')
+                    use_rich = (dis == 'rich') or (dis == 'auto')
+                    try:
+                        from rich.console import Console
+                        from rich.table import Table
+                        if use_rich:
+                            t = Table(title=f"[time] latest {n} snapshots")
+                            t.add_column("#", justify="right")
+                            t.add_column("t_new")
+                            t.add_column("path")
+                            for i, doc in enumerate(cur, 1):
+                                t.add_row(str(i), str(doc.get('t_new','')), str(doc.get('path','')))
+                            Console().print(t)
+                        else:
+                            for i, doc in enumerate(cur, 1):
+                                print(f"[{i}] {doc.get('t_new','')}  {doc.get('path','')}")
+                    except Exception:
+                        for i, doc in enumerate(cur, 1):
+                            print(f"[{i}] {doc.get('t_new','')}  {doc.get('path','')}")
+                return 0
+            except Exception as e:
+                print(f"Failed to get time DB stats: {e}")
+                return 1
+        else:
+            # Space DB (embeddings)
+            db, _ = _load_similarity_required()
+            try:
+                s = db.get_stats()
+                print(s)
+                n = int(getattr(args, 'latest', 0) or 0)
+                if n > 0:
+                    cur = db.collection.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(n)
+                    dis = getattr(args, 'display', 'rich')
+                    use_rich = (dis == 'rich') or (dis == 'auto')
+                    try:
+                        from rich.console import Console
+                        from rich.table import Table
+                        if use_rich:
+                            t = Table(title=f"[space] latest {n} files")
+                            t.add_column("#", justify="right")
+                            t.add_column("timestamp")
+                            t.add_column("path")
+                            for i, doc in enumerate(cur, 1):
+                                t.add_row(str(i), str(doc.get('timestamp','')), str(doc.get('path','')))
+                            Console().print(t)
+                        else:
+                            for i, doc in enumerate(cur, 1):
+                                print(f"[{i}] {doc.get('timestamp','')}  {doc.get('path','')}")
+                    except Exception:
+                        for i, doc in enumerate(cur, 1):
+                            print(f"[{i}] {doc.get('timestamp','')}  {doc.get('path','')}")
+                return 0
+            except Exception as e:
+                print(f"Failed to get stats: {e}")
+                return 1
+    dbs.set_defaults(func=_db_stats)
+
+    # Simplified CLI — top-level groups: config/service/index/db
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):

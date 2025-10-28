@@ -158,14 +158,25 @@ class WKSDaemon:
             # Update similarity index
             try:
                 if self.similarity:
-                    # Prefer rename to preserve embedding
-                    if hasattr(self.similarity, 'rename_file'):
-                        self.similarity.rename_file(src, dest)
+                    # Robust handling for directory moves
+                    if src.is_dir() and dest.is_dir() and hasattr(self.similarity, 'rename_folder'):
+                        try:
+                            self.similarity.rename_folder(src, dest)
+                        except Exception:
+                            pass
                     else:
-                        # Fallback: re-add and remove old
-                        if self._should_index_for_similarity(dest):
-                            self.similarity.add_file(dest)
-                        self.similarity.remove_file(src)
+                        # Prefer rename to preserve embedding and history
+                        if hasattr(self.similarity, 'rename_file'):
+                            ok = self.similarity.rename_file(src, dest)
+                            if not ok:
+                                # Fallback: re-add and remove old
+                                if self._should_index_for_similarity(dest):
+                                    self.similarity.add_file(dest)
+                                self.similarity.remove_file(src)
+                        else:
+                            if self._should_index_for_similarity(dest):
+                                self.similarity.add_file(dest)
+                            self.similarity.remove_file(src)
             except Exception:
                 pass
             # Record activity on destination file
