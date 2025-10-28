@@ -1,23 +1,19 @@
 # WKS (Wieselquist Knowledge System)
 
-- Spec: `SPEC.md`
-- Tasks: `TASKS.md`
-- Roadmap: `ROADMAP.md`
+## Install
 
-Start here: open `SPEC.md`.
 
-## Install (pipx)
+```
+source venv/bin/activate
+pip install -e .
+pipx install --force .
+```
 
-- Ensure pipx is on your PATH: `pipx ensurepath` (open a new shell if needed)
-- From the repo root: `pipx install .` (Docling is installed as a dependency)
 
-Verify installation
-- `wkso -h`
-- `wkso config print`
-- Optional macOS service: `wkso service install`
-For AI assistants: read `SPEC.md` first, then `~/CLAUDE.md`.
+## Documentation
 
-## Contributing
-
-See `CONTRIBUTING.md` for guidelines.
-test
+- Instructions for the CODEX developer: `AGENTS.md`
+- How to develop `CONTRIBUTING.md`
+- Development plan `ROADMAP.md`
+- Specification `SPEC.md`
+- Changes `CHANGELOG.md`
