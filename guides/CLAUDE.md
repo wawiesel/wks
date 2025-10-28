@@ -318,3 +318,4 @@ Large files may exceed Read tool limits (256KB):
 ---
 
 *Operational guidelines for AI assistants working with the Wieselquist Knowledge System*
+- any files named ~/Downloads/extractXX.txt where XX is a number I want you to read and add in the proper places in ~/obsidian

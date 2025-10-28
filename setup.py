@@ -13,11 +13,13 @@ setup(
         "pymongo",            # MongoDB
         "sentence-transformers",  # Embeddings
         "unstructured",       # General-purpose file-to-text extraction (optional engine)
+        "bsdiff4",            # Binary diff size for change snapshots
         # Add more as needed
     ],
     entry_points={
         "console_scripts": [
-            "wks=wks.cli:main",
+            # Primary CLI name (short, avoids conflicts)
+            "wkso=wks.cli:main",
         ],
     },
 )

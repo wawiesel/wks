@@ -62,6 +62,7 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 - Offline‑first: avoid network; prefer local models and tools.
 - Minimal churn: coalesce events, throttle writes (ActiveFiles/Health are throttled in code).
 - Traceability: all FS ops recorded to `~/.wks/file_ops.jsonl` → `WKS/FileOperations.md` rebuilt from ledger.
+- Forward-only rule: We only move forward. We write new code and toss the old. Every git commit should be a DRY masterpiece.
 
 ## Monitored Roots (edit for your setup)
 - Prioritized include paths: <add explicit directories>
@@ -121,6 +122,14 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 
 ## Scratchpad
 - Notes to self, temp rules, experimental toggles.
+
+## Commit Quality Checklist
+- DRY: No duplication; extract helpers where appropriate.
+- Minimal diff: Change only what the task requires.
+- Clear scope: One focused concern per commit.
+- Tests or verification: Run the pertinent command(s) to validate behavior.
+- Docs touched: Update AGENTS.md/CONTRIBUTING.md only if behavior or usage changed.
+- Reversible: Avoid destructive migrations without clear rationale and path back.
 
 ## Obsidian Conventions (imported)
 - Pages link knowledge and provide personal context; avoid documenting directory scaffolding or implementation details in the vault.

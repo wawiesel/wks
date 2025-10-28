@@ -87,6 +87,66 @@ class SimilarityDB:
         # Changes: query by file and time
         self.changes.create_index([("file_path", 1), ("t_new_epoch", 1)])
 
+    # --- Convenience API ---------------------------------------------------- #
+    def get_file_embedding(self, path: Path) -> Optional[list]:
+        try:
+            doc = self.collection.find_one({"path": str(path)})
+            return doc.get("embedding") if doc else None
+        except Exception:
+            return None
+
+    def rename_file(self, src: Path, dest: Path) -> bool:
+        """Rename a file's path across collections without recomputing embeddings.
+
+        Updates file-level doc, chunk docs, and change history to new path.
+        """
+        try:
+            srcs = str(src)
+            dsts = str(dest)
+            self.collection.update_one({"path": srcs}, {"$set": {"path": dsts, "filename": dest.name, "parent": str(dest.parent)}})
+            try:
+                self.chunks.update_many({"file_path": srcs}, {"$set": {"file_path": dsts}})
+            except Exception:
+                pass
+            try:
+                self.changes.update_many({"file_path": srcs}, {"$set": {"file_path": dsts}})
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
+
+    def _empty_embed(self) -> list:
+        """Return the embedding vector for the empty string (cached)."""
+        try:
+            if hasattr(self, "__empty_emb") and self.__empty_emb is not None:
+                return self.__empty_emb  # type: ignore[attr-defined]
+            vec = self.model.encode("").tolist()
+            self.__empty_emb = vec  # type: ignore[attr-defined]
+            return vec
+        except Exception:
+            return []
+
+    @staticmethod
+    def _angle_deg(a: list, b: list) -> Optional[float]:
+        try:
+            import numpy as _np, math as _math
+            va = _np.array(a, dtype=float); vb = _np.array(b, dtype=float)
+            denom = (_np.linalg.norm(va) * _np.linalg.norm(vb))
+            if denom <= 0:
+                return None
+            cosv = float(_np.dot(va, vb) / denom)
+            cosv = max(-1.0, min(1.0, cosv))
+            return float(_math.degrees(_math.acos(cosv)))
+        except Exception:
+            return None
+
+    def angle_from_empty(self, embedding: list) -> Optional[float]:
+        base = self._empty_embed()
+        if not base or not embedding:
+            return None
+        return self._angle_deg(base, embedding)
+
     def _compute_hash(self, text: str) -> str:
         """Compute SHA256 hash of text."""
         return hashlib.sha256(text.encode()).hexdigest()
@@ -285,6 +345,40 @@ class SimilarityDB:
             }
             return False
 
+        # Rename detection: if no record at this path, but another record exists with same content_hash,
+        # treat this as a rename (update path in-place) rather than creating a new document.
+        if not existing:
+            try:
+                other = self.collection.find_one({"content_hash": content_hash})
+            except Exception:
+                other = None
+            if other and other.get("path") != path_str:
+                old_path = Path(other.get("path"))
+                # If old path no longer exists or differs from new path, update references
+                try:
+                    if (not old_path.exists()):
+                        self.rename_file(old_path, path)
+                        # Update basic metadata on the file doc
+                        from datetime import datetime as _dt
+                        now_iso = _dt.now().isoformat()
+                        self.collection.update_one({"path": path_str}, {"$set": {
+                            "filename": path.name,
+                            "parent": str(path.parent),
+                            "timestamp": now_iso,
+                            "model": self.model_name,
+                        }})
+                        self._last_add_result = {
+                            "updated": True,
+                            "renamed": True,
+                            "from": str(old_path),
+                            "path": path_str,
+                            "content_hash": content_hash,
+                            "text": text,
+                        }
+                        return True
+                except Exception:
+                    pass
+
         # Chunk text and generate per-chunk and aggregated embeddings
         chunks = self._chunk_text(text)
         import numpy as np
@@ -371,15 +465,16 @@ class SimilarityDB:
         except Exception:
             pass
 
-        # Upsert chunk-level documents
-        # Remove old chunks first (simpler than diff)
-        self.chunks.delete_many({"file_path": path_str})
-        if chunk_docs:
-            try:
-                # Bulk insert
-                self.chunks.insert_many(chunk_docs, ordered=False)
-            except Exception:
-                pass
+        # Upsert chunk-level documents (optional legacy; safe no-op if unused)
+        try:
+            self.chunks.delete_many({"file_path": path_str})
+            if chunk_docs:
+                try:
+                    self.chunks.insert_many(chunk_docs, ordered=False)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         self._last_add_result = {
             "updated": True,
@@ -504,6 +599,43 @@ class SimilarityDB:
                 }
             }
         )
+
+    def rename_folder(self, old_dir: Path, new_dir: Path) -> int:
+        """Rename all documents under a moved/renamed folder.
+
+        Updates path, filename, parent in file-level docs and file_path in chunk/change docs.
+        Returns the number of updated file-level documents.
+        """
+        try:
+            import re as _re
+            oldp = str(old_dir.resolve()).rstrip('/')
+            newp = str(new_dir.resolve()).rstrip('/')
+            # Match paths starting with oldp + '/'
+            pattern = f"^{_re.escape(oldp)}/"
+            cursor = self.collection.find({"path": {"$regex": pattern}})
+            updated = 0
+            for doc in cursor:
+                pold = doc.get('path') or ''
+                pnew = pold.replace(oldp + '/', newp + '/', 1)
+                np = Path(pnew)
+                self.collection.update_one({"_id": doc["_id"]}, {"$set": {
+                    "path": pnew,
+                    "filename": np.name,
+                    "parent": str(np.parent),
+                    "timestamp": datetime.now().isoformat(),
+                }})
+                try:
+                    self.chunks.update_many({"file_path": pold}, {"$set": {"file_path": pnew}})
+                except Exception:
+                    pass
+                try:
+                    self.changes.update_many({"file_path": pold}, {"$set": {"file_path": pnew}})
+                except Exception:
+                    pass
+                updated += 1
+            return updated
+        except Exception:
+            return 0
 
     def get_stats(self) -> dict:
         """Get database statistics."""

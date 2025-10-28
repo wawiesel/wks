@@ -141,8 +141,8 @@ class ObsidianVault:
         header = [
             f"Reverse chronological log of last {self.log_max_entries} file operations tracked by WKS. [config]({cfg_url})",
             "",
-            "| Action | Time | Checksum | Path |",
-            "|:--|:--|--:|:--|",
+            "| Action | Time | Checksum | Size | Modified | θ₀ | Path |",
+            "|:--|:--|--:|--:|:--|--:|:--|",
         ]
         rows = []
         def _icon_for(op:str) -> str:
@@ -208,6 +208,41 @@ class ObsidianVault:
                 pass
             return False
 
+        # Helpers for size and modified
+        def _hsize(n: int) -> str:
+            try:
+                units = ['B','KB','MB','GB','TB']
+                i = 0; f = float(n)
+                while f >= 1024.0 and i < len(units)-1:
+                    f /= 1024.0; i += 1
+                return f"{f:0.1f} {units[i]}"
+            except Exception:
+                return "-"
+
+        # Optional similarity for angle-from-empty
+        simdb = None
+        try:
+            from .similarity import SimilarityDB as _S
+            from .cli import load_config as _load
+            cfg = _load(); sim = cfg.get('similarity') or {}; ext = cfg.get('extract') or {}
+            if sim.get('enabled'):
+                simdb = _S(
+                    database_name=sim.get('database','wks_similarity'),
+                    collection_name=sim.get('collection','file_embeddings'),
+                    mongo_uri=sim.get('mongo_uri','mongodb://localhost:27027/'),
+                    model_name=sim.get('model','all-MiniLM-L6-v2'),
+                    model_path=sim.get('model_path'),
+                    offline=bool(sim.get('offline', False)),
+                    max_chars=int(sim.get('max_chars',200000)),
+                    chunk_chars=int(sim.get('chunk_chars',1500)),
+                    chunk_overlap=int(sim.get('chunk_overlap',200)),
+                    extract_engine=ext.get('engine','builtin'),
+                    extract_ocr=bool(ext.get('ocr', False)),
+                    extract_timeout_secs=int(ext.get('timeout_secs', 30)),
+                )
+        except Exception:
+            simdb = None
+
         for rec in ops:
             ts = rec.get('timestamp','')
             op = (str(rec.get('operation','')).upper() or 'OP')
@@ -231,30 +266,57 @@ class ObsidianVault:
                 pad = max(0, 14 - len(raw))
                 return f"`{raw}{_fig*pad}`"
             time_cell = f"`{ts}{_fig*2}`"
+            def _cells_for(p: Path) -> tuple[str,str,str]:
+                # size, modified, angle0
+                s_cell = "-"; m_cell = "-"; a0_cell = "-"
+                try:
+                    st = p.stat()
+                    s_cell = _hsize(getattr(st,'st_size',0))
+                    from datetime import datetime as _dt
+                    m_cell = _dt.fromtimestamp(st.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    pass
+                if simdb is not None:
+                    try:
+                        emb = simdb.get_file_embedding(p)
+                        ang = simdb.angle_from_empty(emb) if emb else None
+                        if ang is not None:
+                            a0_cell = f"{ang:0.2f}°"
+                    except Exception:
+                        pass
+                return s_cell, m_cell, a0_cell
+
             if op == 'MOVED' and a_path and b_path:
                 if _skip_ops_path(a_path) or _skip_ops_path(b_path):
                     continue
+                s_cell, m_cell, a0_cell = _cells_for(a_path)
                 from_cell = f"[{_disp(a_path)}]({a})"
+                rows.append(f"| {make_action_cell('MOVE_FROM')} | {time_cell} | `{checksum}` | `{s_cell}` | `{m_cell}` | `{a0_cell}` | {from_cell} |")
+                s_cell, m_cell, a0_cell = _cells_for(b_path)
                 to_cell = f"[{_disp(b_path)}]({b})"
-                rows.append(f"| {make_action_cell('MOVE_FROM')} | {time_cell} | `{checksum}` | {from_cell} |")
-                rows.append(f"| {make_action_cell('MOVE_TO')} | {time_cell} | `{checksum}` | {to_cell} |")
+                rows.append(f"| {make_action_cell('MOVE_TO')} | {time_cell} | `{checksum}` | `{s_cell}` | `{m_cell}` | `{a0_cell}` | {to_cell} |")
             else:
                 if a_path and b_path:
                     if _skip_ops_path(a_path) and _skip_ops_path(b_path):
                         continue
+                    # Prefer destination for stats, but keep arrow for context
+                    s_cell, m_cell, a0_cell = _cells_for(b_path)
                     path_cell = f"[{_disp(a_path)}]({a}) → [{_disp(b_path)}]({b})"
                 elif a_path:
                     if _skip_ops_path(a_path):
                         continue
+                    s_cell, m_cell, a0_cell = _cells_for(a_path)
                     path_cell = f"[{_disp(a_path)}]({a})"
                 elif b_path:
                     if _skip_ops_path(b_path):
                         continue
+                    s_cell, m_cell, a0_cell = _cells_for(b_path)
                     path_cell = f"[{_disp(b_path)}]({b})"
                 else:
+                    s_cell, m_cell, a0_cell = ("-","-","-")
                     path_cell = ""
                 action_cell = make_action_cell(op)
-                rows.append(f"| {action_cell} | {time_cell} | `{checksum}` | {path_cell} |")
+                rows.append(f"| {action_cell} | {time_cell} | `{checksum}` | `{s_cell}` | `{m_cell}` | `{a0_cell}` | {path_cell} |")
         # Do not filter out blank lines; keep a true blank line before the table
         out = "\n".join(header) + ("\n" + "\n".join(rows) + "\n" if rows else "\n")
         self._atomic_write(file_path, out)
