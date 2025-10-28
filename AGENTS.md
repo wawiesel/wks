@@ -131,6 +131,27 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 - Docs touched: Update AGENTS.md/CONTRIBUTING.md only if behavior or usage changed.
 - Reversible: Avoid destructive migrations without clear rationale and path back.
 
+## Testing Responsibility (Non‑Negotiable)
+- The developer is responsible for end‑to‑end verification before hand‑off. The user’s tests must be a SUPER SIMPLE RERUN of tests we already executed locally.
+- Always test with Docling and Mongo running. No “optional” branches. The service is a watcher; core ops must work via CLI alone.
+- Global flags precede subcommands (argparse): place `--display rich|basic` before `config|service|index|db`.
+
+## Required Smoke Tests (Space DB)
+- Index new file: `wkso --display rich index ~/test/file.txt` → `wkso --display rich db stats -n 5` shows it.
+- Re‑index unchanged file: reports skipped; totals stable.
+- File move (daemon running): move file → totals unchanged; single logical entry remains (path updated in place).
+- Directory move (daemon running): move folder with files → totals unchanged; descendants updated in place.
+- Query/stats ergonomics: `wkso --display rich db query --space --filter '{}' --limit 5` and `wkso --display rich db stats -n 5` succeed.
+
+## Foreground Daemon for Local Testing (No Install)
+- Start in one terminal:
+  - `export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"`
+  - `python -m wks.daemon` (Ctrl+C to stop)
+- In another terminal, run the smoke tests above; confirm behavior matches.
+
+## Hand‑Off Rule
+- Do not ship changes unless the smoke tests above pass locally. If tests require specific setup (Docling/Mongo), state it explicitly and provide copy‑paste commands.
+
 ## Obsidian Conventions (imported)
 - Pages link knowledge and provide personal context; avoid documenting directory scaffolding or implementation details in the vault.
 - Organize around responsibilities, deliverables, organizations, people, and presentations.

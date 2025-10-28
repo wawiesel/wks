@@ -16,6 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
+from dataclasses import dataclass
 import os
 import fnmatch
 import time
@@ -100,10 +101,195 @@ def _daemon_status_launchd() -> int:
         return 3
 
 
-def daemon_status(_: argparse.Namespace) -> int:
+def daemon_status(args: argparse.Namespace) -> int:
+    # Collect launchd status and parse key fields for redisplay
+    launch_text = ""
+    @dataclass
+    class LaunchAgentStatus:
+        state: str = ""
+        active_count: str = ""
+        path: str = ""
+        type: str = ""
+        program: str = ""
+        arguments: str = ""
+        working_dir: str = ""
+        stdout: str = ""
+        stderr: str = ""
+        runs: str = ""
+        last_exit: str = ""
+        pid: str = ""
+
+    launch_info: Optional[LaunchAgentStatus] = None
     if _is_macos() and _agent_installed():
-        rc = _daemon_status_launchd()
-        return 0 if rc == 0 else 3
+        try:
+            uid = os.getuid()
+            out = subprocess.check_output(["launchctl", "print", f"gui/{uid}/{_agent_label()}"], stderr=subprocess.STDOUT)
+            launch_text = out.decode('utf-8', errors='ignore')
+            # Parse a few important fields for dashboard (KISS)
+            import re as _re
+            def _find(pattern, default=""):
+                m = _re.search(pattern, launch_text)
+                return (m.group(1).strip() if m else default)
+            launch_info = LaunchAgentStatus(
+                active_count=_find(r"active count =\s*(\d+)"),
+                path=_find(r"\n\s*path =\s*(.*)"),
+                type=_find(r"\n\s*type =\s*(.*)"),
+                state=_find(r"\n\s*state =\s*(.*)"),
+                program=_find(r"\n\s*program =\s*(.*)"),
+                working_dir=_find(r"\n\s*working directory =\s*(.*)"),
+                stdout=_find(r"\n\s*stdout path =\s*(.*)"),
+                stderr=_find(r"\n\s*stderr path =\s*(.*)"),
+                pid=_find(r"\n\s*pid =\s*(\d+)"),
+                runs=_find(r"\n\s*runs =\s*(\d+)"),
+                last_exit=_find(r"\n\s*last exit code =\s*(\d+)"),
+            )
+            # Parse arguments block (first block only)
+            try:
+                args_block = _re.search(r"arguments = \{([^}]*)\}", launch_text, _re.DOTALL)
+                if args_block:
+                    lines = [ln.strip() for ln in args_block.group(1).splitlines() if ln.strip()]
+                    if launch_info:
+                        launch_info.arguments = " ".join(lines)
+            except Exception:
+                pass
+        except Exception as e:
+            launch_text = f"(launchctl print unavailable: {e})\n"
+    # Try to read health
+    health_path = Path.home()/'.wks'/'health.json'
+    health = {}
+    try:
+        if health_path.exists():
+            import json as _json
+            health = _json.load(open(health_path, 'r'))
+    except Exception:
+        health = {}
+    dis = getattr(args, 'display', 'rich')
+    use_rich = (dis == 'rich') or (dis == 'auto')
+    # Fallback simple status text
+    if not health:
+        out = []
+        if LOCK_FILE.exists():
+            try:
+                pid = int(LOCK_FILE.read_text().strip().splitlines()[0])
+                out.append(f"WKS daemon: running (PID {pid})")
+            except Exception:
+                out.append("WKS daemon: lock present (unknown PID)")
+        else:
+            out.append("WKS daemon: not running")
+        print("\n".join(out))
+        return 0 if LOCK_FILE.exists() else 3
+    # Pretty dashboard
+    try:
+        from rich.console import Console
+        from rich.table import Table
+        from rich.panel import Panel
+        from rich.columns import Columns
+        from rich.text import Text
+        if use_rich:
+            # Metrics panel
+            t = Table(show_header=True, header_style="bold cyan")
+            t.add_column("Metric", style="bold")
+            t.add_column("Value")
+            ok_flag = 'true' if not health.get('last_error') else 'false'
+            rows = [
+                ("Heartbeat", health.get('heartbeat_iso','')),
+                ("Uptime", health.get('uptime_hms','')),
+                ("PID", str(health.get('pid',''))),
+                ("Beats/min", str(health.get('avg_beats_per_min',''))),
+                ("Pending deletes", str(health.get('pending_deletes',''))),
+                ("Pending mods", str(health.get('pending_mods',''))),
+                ("OK", ok_flag),
+                ("Lock", str(health.get('lock_present')).lower()),
+            ]
+            for k, v in rows:
+                t.add_row(k, v)
+
+            panels = [Panel(t, title="WKS Service", border_style="green" if ok_flag=='true' else "red")]
+
+            # Launchd parsed panel (structured summary)
+            if launch_info is not None:
+                tl = Table(show_header=True, header_style="bold blue")
+                tl.add_column("Key", style="bold")
+                tl.add_column("Value")
+                for key, val in [
+                    ('State', launch_info.state),
+                    ('Active Count', launch_info.active_count),
+                    ('PID', launch_info.pid),
+                    ('Program', launch_info.program),
+                    ('Arguments', launch_info.arguments),
+                    ('Working Dir', launch_info.working_dir),
+                    ('Stdout', launch_info.stdout),
+                    ('Stderr', launch_info.stderr),
+                    ('Runs', launch_info.runs),
+                    ('Last Exit', launch_info.last_exit),
+                    ('Path', launch_info.path),
+                    ('Type', launch_info.type),
+                ]:
+                    if val:
+                        tl.add_row(key, val)
+                panels.append(Panel(tl, title="Launch Agent", border_style="blue"))
+
+            # DB stats panel (best-effort)
+            try:
+                # Fast, non-blocking DB ping (avoid auto-start or long delays)
+                from pymongo import MongoClient as _MC
+                cfg = load_config(); sim = cfg.get('similarity') or {}
+                uri = sim.get('mongo_uri','mongodb://localhost:27027/')
+                name = sim.get('database','wks_similarity')
+                coll = sim.get('collection','file_embeddings')
+                client = _MC(uri, serverSelectionTimeoutMS=500, connectTimeoutMS=500)
+                client.admin.command('ping')
+                total = client[name][coll].count_documents({})
+                s = {"database": name, "collection": coll, "total_files": total}
+                tdb = Table(show_header=True, header_style="bold magenta")
+                tdb.add_column("Key", style="bold")
+                tdb.add_column("Value")
+                for k in ["database","collection","total_files"]:
+                    tdb.add_row(k, str(s.get(k,'')))
+                panels.append(Panel(tdb, title="Space DB", border_style="magenta"))
+            except SystemExit:
+                pass
+            except Exception:
+                pass
+
+            # Last error panel if any
+            if health.get('last_error'):
+                err = str(health.get('last_error'))
+                panels.append(Panel(Text(err, style="red"), title="Last Error", border_style="red"))
+
+            Console().print(Columns(panels))
+            return 0
+    except Exception:
+        pass
+    # Basic text dashboard
+    # Basic text dashboard
+    if launch_info is not None:
+        print("Launch Agent:")
+        for key, val in [
+            ('state', launch_info.state),
+            ('active_count', launch_info.active_count),
+            ('pid', launch_info.pid),
+            ('program', launch_info.program),
+            ('arguments', launch_info.arguments),
+            ('working_dir', launch_info.working_dir),
+            ('stdout', launch_info.stdout),
+            ('stderr', launch_info.stderr),
+            ('runs', launch_info.runs),
+            ('last_exit', launch_info.last_exit),
+            ('path', launch_info.path),
+            ('type', launch_info.type),
+        ]:
+            if val:
+                print(f"  {key}: {val}")
+    print(f"Heartbeat: {health.get('heartbeat_iso','')}")
+    print(f"Uptime:    {health.get('uptime_hms','')}")
+    print(f"PID:       {health.get('pid','')}")
+    print(f"Beats/min: {health.get('avg_beats_per_min','')}")
+    print(f"Pending:   deletes={health.get('pending_deletes',0)} mods={health.get('pending_mods',0)}")
+    ok = 'true' if not health.get('last_error') else 'false'
+    print(f"OK:        {ok}")
+    print(f"Lock:      {str(health.get('lock_present')).lower()}")
+    return 0
     if LOCK_FILE.exists():
         try:
             pid_line = LOCK_FILE.read_text().strip().splitlines()[0]
@@ -411,26 +597,53 @@ def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
     if missing:
         print("Fatal: missing similarity keys: " + ", ".join([f"similarity.{k}" for k in missing]))
         raise SystemExit(2)
-    # Extraction config (explicit)
+    # Extraction config (docling required)
     ext = cfg.get('extract')
     if ext is None or 'engine' not in ext or 'ocr' not in ext or 'timeout_secs' not in ext:
         print("Fatal: 'extract.engine', 'extract.ocr', and 'extract.timeout_secs' are required in config")
         raise SystemExit(2)
-    db = SimilarityDB(
-        database_name=sim['database'],
-        collection_name=sim['collection'],
-        mongo_uri=sim['mongo_uri'],
-        model_name=sim['model'],
-        model_path=sim.get('model_path'),
-        offline=bool(sim.get('offline', False)),
-        max_chars=int(sim['max_chars']),
-        chunk_chars=int(sim['chunk_chars']),
-        chunk_overlap=int(sim['chunk_overlap']),
-        extract_engine=ext['engine'],
-        extract_ocr=bool(ext['ocr']),
-        extract_timeout_secs=int(ext['timeout_secs']),
-    )
-    return db, sim
+    if str(ext.get('engine')).lower() != 'docling':
+        print("Fatal: extract.engine must be 'docling'")
+        raise SystemExit(2)
+    def _make():
+        return SimilarityDB(
+            database_name=sim['database'],
+            collection_name=sim['collection'],
+            mongo_uri=sim['mongo_uri'],
+            model_name=sim['model'],
+            model_path=sim.get('model_path'),
+            offline=bool(sim.get('offline', False)),
+            max_chars=int(sim['max_chars']),
+            chunk_chars=int(sim['chunk_chars']),
+            chunk_overlap=int(sim['chunk_overlap']),
+            extract_engine='docling',
+            extract_ocr=bool(ext['ocr']),
+            extract_timeout_secs=int(ext['timeout_secs']),
+        )
+    try:
+        db = _make()
+        return db, sim
+    except Exception as e:
+        # Auto-start local mongod if URI is localhost:27027 and mongod exists
+        try:
+            import shutil as _sh, subprocess as _sp, time as _t
+            uri = str(sim.get('mongo_uri',''))
+            if uri.startswith('mongodb://localhost:27027') and _sh.which('mongod'):
+                dbroot = Path.home() / '.wks' / 'mongodb'
+                dbpath = dbroot / 'db'
+                logfile = dbroot / 'mongod.log'
+                dbpath.mkdir(parents=True, exist_ok=True)
+                _sp.check_call([
+                    'mongod', '--dbpath', str(dbpath), '--logpath', str(logfile),
+                    '--fork', '--bind_ip', '127.0.0.1', '--port', '27027'
+                ])
+                _t.sleep(0.2)
+                db = _make()
+                return db, sim
+        except Exception:
+            pass
+        print(f"Fatal: failed to initialize similarity DB: {e}")
+        raise SystemExit(2)
 
 
 # migration removed
@@ -708,12 +921,64 @@ def main(argv: Optional[List[str]] = None) -> int:
     svcrestart2 = svcsub.add_parser("restart", help="Restart daemon")
     svcrestart2.set_defaults(func=daemon_restart)
 
+    # Service reset: stop agent, reset DB and local state, restart agent
+    svcreset = svcsub.add_parser("reset", help="Stop service, reset databases/state, and start service cleanly")
+    def _service_reset(args: argparse.Namespace) -> int:
+        # Stop current agent (quiet if not running)
+        try:
+            if platform.system() == "Darwin":
+                _launchctl_quiet("bootout", f"gui/{os.getuid()}", str(_plist_path()))
+            else:
+                daemon_stop(args)
+        except Exception:
+            pass
+        # Reuse DB reset steps
+        _db_reset(args)
+        # Clear local agent state (keep config.json)
+        try:
+            home = Path.home()
+            for name in [
+                'file_ops.jsonl','monitor_state.json','activity_state.json','health.json',
+                'daemon.lock','daemon.log','daemon.error.log'
+            ]:
+                p = home/'.wks'/name
+                try:
+                    if p.exists():
+                        p.unlink()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Start service again
+        try:
+            if platform.system() == "Darwin":
+                pl = _plist_path()
+                _launchctl_quiet("bootstrap", f"gui/{os.getuid()}", str(pl))
+                _launchctl_quiet("enable", f"gui/{os.getuid()}/com.wieselquist.wkso")
+                _launchctl_quiet("kickstart", "-k", f"gui/{os.getuid()}/com.wieselquist.wkso")
+            else:
+                daemon_start(args)
+        except Exception:
+            pass
+        # Show status and space stats
+        try:
+            daemon_status(args)
+        except Exception:
+            pass
+        try:
+            _db_stats(argparse.Namespace(space=True, time=False, latest=5, display=getattr(args,'display','rich')))
+        except Exception:
+            pass
+        return 0
+    svcreset.set_defaults(func=_service_reset)
+
     # (analyze group was removed)
 
     # Top-level index command (moved out of analyze)
     idx = sub.add_parser("index", help="Index files or directories (recursive) into similarity DB with progress")
     idx.add_argument("paths", nargs="+", help="Files or directories to index")
     def _index_cmd(args: argparse.Namespace) -> int:
+        print("Connecting to DB…")
         db, _ = _load_similarity_required()
         cfg = load_config()
         include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
@@ -764,8 +1029,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     scope = dbq.add_mutually_exclusive_group(required=True)
     scope.add_argument("--space", action="store_true", help="Query the space DB (embeddings)")
     scope.add_argument("--time", action="store_true", help="Query the time DB (snapshots)")
-    dbq.add_argument("--filter", default="{}", help="JSON filter, e.g. '{"path": {"$regex": "2025-WKS"}}'")
-    dbq.add_argument("--projection", default=None, help="JSON projection, e.g. '{"path":1,"timestamp":1}'")
+    dbq.add_argument('--filter', default='{}', help='JSON filter, e.g. {"path": {"$regex": "2025-WKS"}}')
+    dbq.add_argument('--projection', default=None, help='JSON projection, e.g. {"path":1,"timestamp":1}')
     dbq.add_argument("--limit", type=int, default=20)
     dbq.add_argument("--sort", default=None, help="Sort spec 'field:asc|desc' (optional)")
     def _db_query(args: argparse.Namespace) -> int:
@@ -825,77 +1090,127 @@ def main(argv: Optional[List[str]] = None) -> int:
     scope2.add_argument("--time", action="store_true", help="Stats for the time DB")
     dbs.add_argument("-n", "--latest", type=int, default=0, help="Show the most recent N records")
     def _db_stats(args: argparse.Namespace) -> int:
+        # Use a lightweight, fast Mongo client for stats (no model/docling startup)
+        from pymongo import MongoClient as _MC
+        cfg = load_config(); sim = cfg.get('similarity') or {}
+        uri = sim.get('mongo_uri','mongodb://localhost:27027/')
+        name = sim.get('database','wks_similarity')
+        coll_space = sim.get('collection','file_embeddings')
+        client = _MC(uri, serverSelectionTimeoutMS=300, connectTimeoutMS=300)
+        try:
+            client.admin.command('ping')
+        except Exception as e:
+            print(f"DB unreachable: {e}")
+            return 1
         if args.time:
-            # Time DB (snapshots) uses direct handle; provide basic counts if available
-            try:
-                db, _ = _load_similarity_required()
-                coll = db.db["file_snapshots"]
-                total = coll.count_documents({})
-                print({"database": db.db.name, "collection": "file_snapshots", "total_docs": total})
-                n = int(getattr(args, 'latest', 0) or 0)
-                if n > 0:
-                    cur = coll.find({}, {"path": 1, "t_new": 1}).sort("t_new_epoch", -1).limit(n)
-                    dis = getattr(args, 'display', 'rich')
-                    use_rich = (dis == 'rich') or (dis == 'auto')
-                    try:
-                        from rich.console import Console
-                        from rich.table import Table
-                        if use_rich:
-                            t = Table(title=f"[time] latest {n} snapshots")
-                            t.add_column("#", justify="right")
-                            t.add_column("t_new")
-                            t.add_column("path")
-                            for i, doc in enumerate(cur, 1):
-                                t.add_row(str(i), str(doc.get('t_new','')), str(doc.get('path','')))
-                            Console().print(t)
-                        else:
-                            for i, doc in enumerate(cur, 1):
-                                print(f"[{i}] {doc.get('t_new','')}  {doc.get('path','')}")
-                    except Exception:
+            coll = client[name]['file_snapshots']
+            total = coll.count_documents({})
+            print({"database": name, "collection": "file_snapshots", "total_docs": total})
+            n = int(getattr(args, 'latest', 0) or 0)
+            if n > 0:
+                cur = coll.find({}, {"path": 1, "t_new": 1}).sort("t_new_epoch", -1).limit(n)
+                dis = getattr(args, 'display', 'rich')
+                use_rich = (dis == 'rich') or (dis == 'auto')
+                try:
+                    from rich.console import Console
+                    from rich.table import Table
+                    if use_rich:
+                        t = Table(title=f"[time] latest {n} snapshots")
+                        t.add_column("#", justify="right")
+                        t.add_column("t_new")
+                        t.add_column("path")
+                        for i, doc in enumerate(cur, 1):
+                            t.add_row(str(i), str(doc.get('t_new','')), str(doc.get('path','')))
+                        Console().print(t)
+                    else:
                         for i, doc in enumerate(cur, 1):
                             print(f"[{i}] {doc.get('t_new','')}  {doc.get('path','')}")
-                return 0
-            except Exception as e:
-                print(f"Failed to get time DB stats: {e}")
-                return 1
+                except Exception:
+                    for i, doc in enumerate(cur, 1):
+                        print(f"[{i}] {doc.get('t_new','')}  {doc.get('path','')}")
+            return 0
         else:
-            # Space DB (embeddings)
-            db, _ = _load_similarity_required()
-            try:
-                s = db.get_stats()
-                print(s)
-                n = int(getattr(args, 'latest', 0) or 0)
-                if n > 0:
-                    cur = db.collection.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(n)
-                    dis = getattr(args, 'display', 'rich')
-                    use_rich = (dis == 'rich') or (dis == 'auto')
-                    try:
-                        from rich.console import Console
-                        from rich.table import Table
-                        if use_rich:
-                            t = Table(title=f"[space] latest {n} files")
-                            t.add_column("#", justify="right")
-                            t.add_column("timestamp")
-                            t.add_column("path")
-                            for i, doc in enumerate(cur, 1):
-                                t.add_row(str(i), str(doc.get('timestamp','')), str(doc.get('path','')))
-                            Console().print(t)
-                        else:
-                            for i, doc in enumerate(cur, 1):
-                                print(f"[{i}] {doc.get('timestamp','')}  {doc.get('path','')}")
-                    except Exception:
+            coll = client[name][coll_space]
+            total = coll.count_documents({})
+            print({"total_files": total, "database": name, "collection": coll_space})
+            n = int(getattr(args, 'latest', 0) or 0)
+            if n > 0:
+                cur = coll.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(n)
+                dis = getattr(args, 'display', 'rich')
+                use_rich = (dis == 'rich') or (dis == 'auto')
+                try:
+                    from rich.console import Console
+                    from rich.table import Table
+                    if use_rich:
+                        t = Table(title=f"[space] latest {n} files")
+                        t.add_column("#", justify="right")
+                        t.add_column("timestamp")
+                        t.add_column("path")
+                        for i, doc in enumerate(cur, 1):
+                            t.add_row(str(i), str(doc.get('timestamp','')), str(doc.get('path','')))
+                        Console().print(t)
+                    else:
                         for i, doc in enumerate(cur, 1):
                             print(f"[{i}] {doc.get('timestamp','')}  {doc.get('path','')}")
-                return 0
-            except Exception as e:
-                print(f"Failed to get stats: {e}")
-                return 1
+                except Exception:
+                    for i, doc in enumerate(cur, 1):
+                        print(f"[{i}] {doc.get('timestamp','')}  {doc.get('path','')}")
+            return 0
     dbs.set_defaults(func=_db_stats)
+
+    # DB reset: drop Mongo database and remove local mongod files (if any)
+    dbr = dbsub.add_parser("reset", help="Drop WKS Mongo databases and local DB files (space/time)")
+    def _db_reset(args: argparse.Namespace) -> int:
+        cfg = load_config()
+        sim = cfg.get('similarity') or {}
+        uri = str(sim.get('mongo_uri','mongodb://localhost:27027/'))
+        dbname = sim.get('database','wks_similarity')
+        # Try to drop DB via pymongo
+        try:
+            from pymongo import MongoClient as _MC
+            client = _MC(uri, serverSelectionTimeoutMS=3000)
+            try:
+                client.admin.command('ping')
+                client.drop_database(dbname)
+                print(f"Dropped database: {dbname}")
+            except Exception as e:
+                print(f"DB drop skipped (unreachable or error): {e}")
+        except Exception as e:
+            print(f"Mongo client unavailable: {e}")
+        # Stop local mongod on 27027 (best-effort)
+        try:
+            import shutil as _sh, subprocess as _sp
+            if _sh.which('pkill'):
+                _sp.run(['pkill','-f','mongod.*27027'], check=False)
+        except Exception:
+            pass
+        # Remove local DB files
+        try:
+            import shutil as _sh
+            dbroot = Path.home()/'.wks'/'mongodb'
+            if dbroot.exists():
+                _sh.rmtree(dbroot, ignore_errors=True)
+                print(f"Removed local DB files: {dbroot}")
+        except Exception:
+            pass
+        return 0
+    dbr.set_defaults(func=_db_reset)
 
     # Simplified CLI — top-level groups: config/service/index/db
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
+        # If a group was selected without subcommand, show that group's help
+        try:
+            cmd = getattr(args, 'cmd', None)
+            if cmd == 'service':
+                svc.print_help()
+                return 2
+            if cmd == 'db':
+                dbp.print_help()
+                return 2
+        except Exception:
+            pass
         parser.print_help()
         return 2
     res = args.func(args)

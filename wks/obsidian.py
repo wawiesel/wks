@@ -236,7 +236,7 @@ class ObsidianVault:
                     max_chars=int(sim.get('max_chars',200000)),
                     chunk_chars=int(sim.get('chunk_chars',1500)),
                     chunk_overlap=int(sim.get('chunk_overlap',200)),
-                    extract_engine=ext.get('engine','builtin'),
+                    extract_engine='docling',
                     extract_ocr=bool(ext.get('ocr', False)),
                     extract_timeout_secs=int(ext.get('timeout_secs', 30)),
                 )
