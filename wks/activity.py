@@ -26,10 +26,19 @@ class ActivityTracker:
         self.state = self._load_state()
 
     def _load_state(self) -> Dict:
-        """Load state from JSON."""
+        """Load state from JSON, backing up if corrupted."""
         if self.state_file.exists():
-            with open(self.state_file, 'r') as f:
-                return json.load(f)
+            try:
+                with open(self.state_file, 'r') as f:
+                    return json.load(f)
+            except Exception:
+                # Corrupted state; back up and start fresh
+                try:
+                    b = self.state_file.with_suffix('.json.backup')
+                    self.state_file.rename(b)
+                    print(f"Warning: Corrupted activity state backed up to {b}")
+                except Exception:
+                    pass
         return {}
 
     def _save_state(self):
@@ -103,6 +112,45 @@ class ActivityTracker:
         # Keep last 100 angle measurements
         if len(self.state[path_str]["angles"]) > 100:
             self.state[path_str]["angles"] = self.state[path_str]["angles"][-100:]
+
+    def _compute_angle_now(self, path_str: str) -> float:
+        """Compute angle for a path at the current moment without recording an event."""
+        data = self.state.get(path_str) or {}
+        events = data.get("events") or []
+        if not events:
+            return 0.0
+        now = datetime.now()
+        import math as _math
+        angle = 0.0
+        for ev in events:
+            try:
+                et = datetime.fromisoformat(ev.get("timestamp"))
+            except Exception:
+                continue
+            hours_ago = (now - et).total_seconds() / 3600.0
+            weight = _math.exp(-hours_ago / 24.0)
+            angle += weight
+        return float(angle)
+
+    def refresh_angles_all(self):
+        """Append a current angle snapshot for all tracked files to enable positive/negative slopes.
+
+        Keeps last 100 samples; saves state.
+        """
+        changed = False
+        now_iso = datetime.now().isoformat()
+        for path_str, data in list(self.state.items()):
+            try:
+                angle = self._compute_angle_now(path_str)
+                arr = data.setdefault("angles", [])
+                arr.append({"value": angle, "timestamp": now_iso})
+                if len(arr) > 100:
+                    data["angles"] = arr[-100:]
+                changed = True
+            except Exception:
+                continue
+        if changed:
+            self._save_state()
 
     def get_angle(self, file_path: Path) -> float:
         """
@@ -178,6 +226,44 @@ class ActivityTracker:
         if path_str in self.state and self.state[path_str]["events"]:
             return self.state[path_str]["events"][-1]["timestamp"]
         return "Never"
+
+    def get_angle_rate_per_minute(self, file_path: Path, window_minutes: int = 60) -> float:
+        """Return angle change per minute over the last window (approx).
+
+        Uses stored angle samples; if not enough data in the window, falls back
+        to using the earliest available sample vs latest. Returns 0.0 on error.
+        """
+        try:
+            path_str = str(file_path.resolve())
+            series = (self.state.get(path_str) or {}).get("angles") or []
+            if len(series) < 2:
+                return 0.0
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            cutoff = now - timedelta(minutes=max(1, int(window_minutes)))
+            # Find first sample within window; if none, use first overall
+            first_idx = None
+            for i, s in enumerate(series):
+                try:
+                    ts = datetime.fromisoformat(s.get("timestamp"))
+                except Exception:
+                    continue
+                if ts >= cutoff:
+                    first_idx = i
+                    break
+            if first_idx is None:
+                first_idx = 0
+            first = series[first_idx]
+            last = series[-1]
+            try:
+                t0 = datetime.fromisoformat(first.get("timestamp"))
+                t1 = datetime.fromisoformat(last.get("timestamp"))
+            except Exception:
+                return 0.0
+            minutes = max(1.0, (t1 - t0).total_seconds() / 60.0)
+            return float((last.get("value", 0.0) - first.get("value", 0.0)) / minutes)
+        except Exception:
+            return 0.0
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 import os
 import fnmatch
 import time
@@ -192,9 +192,6 @@ def daemon_restart(_: argparse.Namespace):
     daemon_start(argparse.Namespace())
 
 
-def mongo_cmd(args: argparse.Namespace):
-    print("MongoDB is managed by the service (wks-service). Manual control removed for simplicity.")
-    return 0
 
 
 # ----------------------------- Similarity CLI ------------------------------ #
@@ -367,15 +364,7 @@ def sim_query_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
-def sim_stats_cmd(_: argparse.Namespace) -> int:
-    db = _load_similarity_db()
-    if not db:
-        return 1
-    stats = db.get_stats()
-    print(f"database: {stats['database']}")
-    print(f"collection: {stats['collection']}")
-    print(f"total_files: {stats['total_files']}")
-    return 0
+# sim_stats_cmd removed (not exposed)
 
 
 def _project_root_for(p: Path) -> Tuple[str, Path]:
@@ -470,94 +459,153 @@ def sim_route_cmd(args: argparse.Namespace) -> int:
     return 0
 
 
-def sim_extract_cmd(args: argparse.Namespace) -> int:
-    db, sim = _load_similarity_required()
+# sim_extract_cmd removed (superseded by analyze dump)
+
+
+# _collect_md_paths removed
+
+
+# sim_dump_docs_cmd removed
+
+
+# ----------------------------- LLM helpers --------------------------------- #
+def _llm_model_from_config() -> str:
+    cfg = load_config()
+    llm = cfg.get('llm', {}) or {}
+    return str(llm.get('model', 'gpt-oss:20b'))
+
+
+def _ollama_chat(system_prompt: str, user_prompt: str, model: str) -> str:
+    try:
+        import ollama  # type: ignore
+    except Exception as e:
+        return f"[LLM unavailable: install 'pip install ollama' and run 'ollama serve']\n{user_prompt}"
+    try:
+        res = ollama.chat(model=model, messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ])
+        return res.get('message', {}).get('content', '').strip() or ''
+    except Exception as e:
+        return f"[LLM error: {e}]"
+
+
+def analyze_dump_cmd(args: argparse.Namespace) -> int:
+    db, _ = _load_similarity_required()
+    vault = _load_vault()
     p = Path(args.path).expanduser()
     if not p.exists():
         print(f"No such file: {p}")
         return 2
     try:
-        text = db._read_file_text(p, max_chars=db.max_chars)
+        txt = db._read_file_text(p, max_chars=db.max_chars) or ''
     except Exception as e:
-        print(f"Extraction failed: {e}")
+        print(f"Extract failed: {e}")
         return 1
-    out = {
-        "path": str(p),
-        "engine": db.extract_engine,
-        "chars": len(text or "") if text else 0,
-        "preview": (text or "")[:500]
-    }
+    ch = db._compute_hash(txt)
+    vault.write_doc_text(ch, p, txt, keep=int((load_config().get('obsidian') or {}).get('docs_keep', 99)))
+    out = {"doc": (Path(load_config().get('vault_path', '~/obsidian')).expanduser() / (load_config().get('obsidian') or {}).get('base_dir','WKS') / 'Docs' / f"{ch}.md").as_posix(), "checksum": ch}
     if args.json:
         import json as _json
         print(_json.dumps(out, indent=2))
     else:
-        print(f"Engine: {out['engine']}  Chars: {out['chars']}\nPreview:\n{out['preview']}")
+        print(f"Doc: {out['doc']}\nChecksum: {out['checksum']}")
     return 0
 
 
-def _collect_md_paths(paths: List[str]) -> List[Path]:
+def analyze_name_cmd(args: argparse.Namespace) -> int:
+    path = Path(args.path).expanduser()
+    if not path.exists() or not path.is_dir():
+        print(f"Not a directory: {path}")
+        return 2
+    # Rule-based suggestion
+    try:
+        date = _date_for_scope('project', path)
+    except Exception:
+        from datetime import datetime as _dt
+        date = _dt.now().strftime('%Y')
+    name_sanitized = _sanitize_name(path.name.split('-',1)[-1])
+    rule_name = f"{date}-{name_sanitized}"
+    # LLM-based refinement from contents (filenames only to keep quick)
+    files = []
+    try:
+        for p in path.iterdir():
+            if p.is_file():
+                files.append(p.name)
+    except Exception:
+        pass
+    model = _llm_model_from_config()
+    sys_prompt = "You propose concise PascalCase NAMEs for project folders. Only output the NAME token; no date. 1-3 words max."
+    user_prompt = f"Based on these file names: {', '.join(files[:40])}\nSuggest a NAME token for folder {path.name}."
+    llm_raw = _ollama_chat(sys_prompt, user_prompt, model=model).splitlines()[0].strip()
+    if llm_raw.startswith('['):
+        llm_name_clean = name_sanitized
+    else:
+        llm_name_clean = _sanitize_name(llm_raw).replace('_','') or name_sanitized
+    final = f"{date}-{llm_name_clean}"
+    if args.json:
+        import json as _json
+        print(_json.dumps({"rule": rule_name, "llm": final, "model": model}, indent=2))
+    else:
+        print(final)
+    return 0
+
+
+def analyze_dir_cmd(args: argparse.Namespace) -> int:
+    path = Path(args.path).expanduser()
+    if not path.exists() or not path.is_dir():
+        print(f"Not a directory: {path}")
+        return 2
+    # Respect monitor ignores
     cfg = load_config()
     mon = cfg.get('monitor', {})
-    include_paths = [Path(p).expanduser() for p in (mon.get('include_paths') or [])]
-    exclude_paths = [Path(p).expanduser() for p in (mon.get('exclude_paths') or [])]
+    exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
     ignore_dirnames = set(mon.get('ignore_dirnames') or [])
-    def is_within(p: Path, base: Path) -> bool:
+    ignore_globs = list(mon.get('ignore_globs') or [])
+    def _is_within(child: Path, base: Path) -> bool:
         try:
-            p.resolve().relative_to(base.resolve())
+            child.resolve().relative_to(base)
             return True
         except Exception:
             return False
-    def skip_dir(p: Path) -> bool:
-        for part in p.parts:
-            if part.startswith('.') and part != '.wks':
-                return True
-            if part in ignore_dirnames:
-                return True
+    def _skip(d: Path) -> bool:
+        if any(_is_within(d, ex) for ex in exclude_paths):
+            return True
+        if any(part.startswith('.') and part != '.wks' for part in d.parts):
+            return True
+        if any(part in ignore_dirnames for part in d.parts):
+            return True
+        from fnmatch import fnmatchcase
+        pstr = d.as_posix()
+        if any(fnmatchcase(pstr, g) for g in ignore_globs):
+            return True
         return False
-    md: List[Path] = []
-    if paths:
-        queue = []
-        for p in paths:
-            pp = Path(p).expanduser()
-            if pp.is_file() and pp.suffix.lower() == '.md':
-                queue.append(pp)
-            elif pp.is_dir():
-                queue.extend(list(pp.rglob('*.md')))
-        for p in queue:
-            if any(is_within(p, ex) for ex in exclude_paths) or skip_dir(p.parent):
-                continue
-            md.append(p)
-    else:
-        for inc in include_paths:
-            if not inc.exists():
-                continue
-            for p in inc.rglob('*.md'):
-                if any(is_within(p, ex) for ex in exclude_paths) or skip_dir(p.parent):
-                    continue
-                md.append(p)
-    return md
-
-
-def sim_dump_docs_cmd(args: argparse.Namespace) -> int:
-    db, _ = _load_similarity_required()
-    vault = _load_vault()
-    cfg = load_config()
-    docs_keep = int((cfg.get('obsidian') or {}).get('docs_keep', 99))
-    md_files = _collect_md_paths(args.paths or [])
-    if not md_files:
-        print('No Markdown files found to dump')
-        return 0
-    dumped = 0
-    for p in md_files:
+    texts = []
+    for p in path.rglob('*'):
         try:
-            txt = db._read_file_text(p, max_chars=db.max_chars) or ''
-            # Use DB hasher to compute content hash
-            ch = db._compute_hash(txt)
-            vault.write_doc_text(ch, p, txt, keep=docs_keep)
-            dumped += 1
-        except Exception as e:
-            print(f'Failed to dump {p}: {e}')
-    print(f'Dumped {dumped} Markdown file(s) to ~/obsidian/WKS/Docs')
+            if p.is_dir():
+                if _skip(p):
+                    continue
+                continue
+            if p.suffix.lower() not in {'.md', '.txt', '.py', '.tex'}:
+                continue
+            s = p.read_text(encoding='utf-8', errors='ignore')
+            if s and s.strip():
+                texts.append(f"# {p.name}\n\n" + s[:1500])
+            if len(texts) >= 12:
+                break
+        except Exception:
+            continue
+    doc = "\n\n".join(texts) if texts else f"Directory: {path.name} (no readable text files)"
+    model = _llm_model_from_config()
+    sys_prompt = "Summarize the directory and suggest next steps. Keep it concise and actionable."
+    user_prompt = f"Directory: {path}\n\nContent samples:\n\n{doc}"
+    out = _ollama_chat(sys_prompt, user_prompt, model=model)
+    if args.json:
+        import json as _json
+        print(_json.dumps({"model": model, "summary": out}, indent=2))
+    else:
+        print(out)
     return 0
 
 
@@ -609,63 +657,44 @@ def _date_for_scope(scope: str, path: Path) -> str:
     raise ValueError("scope must be one of: project|document|deadline")
 
 
-def names_route_cmd(args: argparse.Namespace) -> int:
-    p = Path(args.path).expanduser()
-    if not p.exists():
-        print(f"No such path: {p}")
-        return 2
-    scope = args.scope
-    # Determine date
-    if args.date:
-        try:
-            date = _normalize_date(args.date)
-        except Exception as e:
-            print(f"Invalid --date: {e}")
-            return 2
-    else:
-        date = _date_for_scope(scope, p)
-    # Determine name
-    if args.name:
-        name = _sanitize_name(args.name)
-    else:
-        stem = p.stem if p.is_file() else p.name
-        name = _sanitize_name(stem)
-    folder = f"{date}-{name}"
-    # Determine base output
-    if scope == 'project':
-        base = Path.home()
-    elif scope == 'document':
-        base = Path.home() / 'Documents'
-    else:
-        base = Path.home() / 'deadlines'
-    full = base / folder
-    if args.json:
-        import json as _json
-        print(_json.dumps({
-            'scope': scope,
-            'date': date,
-            'name': name,
-            'folder': folder,
-            'path': str(full),
-        }, indent=2))
-    else:
-        print(f"{full}")
-    return 0
+# names_route_cmd removed
 
 
 def names_check_cmd(args: argparse.Namespace) -> int:
-    roots = [Path(p).expanduser() for p in (args.roots or [])]
-    if not roots:
-        # Default to scanning include_paths top-level dirs
-        cfg = load_config()
-        mon = cfg.get('monitor', {})
-        roots = [Path(p).expanduser() for p in (mon.get('include_paths') or [])]
+    cfg = load_config()
+    mon = cfg.get('monitor', {})
+    include_paths = [Path(p).expanduser().resolve() for p in (mon.get('include_paths') or [])]
+    exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
+    ignore_dirnames = set(mon.get('ignore_dirnames') or [])
+    ignore_globs = list(mon.get('ignore_globs') or [])
+    roots = [Path(p).expanduser().resolve() for p in (args.roots or include_paths)]
+
+    def is_within(p: Path, base: Path) -> bool:
+        try:
+            p.relative_to(base)
+            return True
+        except Exception:
+            return False
+
     problems = []
     for root in roots:
         if not root.exists() or not root.is_dir():
             continue
+        # Only scan immediate children of root
         for entry in root.iterdir():
             if not entry.is_dir():
+                continue
+            rp = entry.resolve()
+            # Apply excludes/ignores
+            if any(is_within(rp, ex) for ex in exclude_paths):
+                continue
+            if any(part.startswith('.') and part != '.wks' for part in rp.parts):
+                continue
+            if any(part in ignore_dirnames for part in rp.parts):
+                continue
+            from fnmatch import fnmatchcase
+            pstr = rp.as_posix()
+            if any(fnmatchcase(pstr, g) for g in ignore_globs):
                 continue
             name = entry.name
             m = _FOLDER_RE.match(name)
@@ -717,106 +746,7 @@ def _pascalize_name(raw: str) -> str:
     return ''.join(out_parts)
 
 
-def _infer_year_from_dir(d: Path) -> int:
-    try:
-        latest = 0
-        for p in d.rglob('*'):
-            try:
-                if p.is_file():
-                    m = int(p.stat().st_mtime)
-                    if m > latest:
-                        latest = m
-            except Exception:
-                continue
-        if latest > 0:
-            import time as _time
-            return int(_time.strftime('%Y', _time.localtime(latest)))
-    except Exception:
-        pass
-    from datetime import datetime as _dt
-    return int(_dt.now().strftime('%Y'))
-
-
-def _plan_project_fixes() -> list[tuple[Path, Path]]:
-    home = Path.home()
-    plans: list[tuple[Path, Path]] = []
-    for entry in home.iterdir():
-        if not entry.is_dir():
-            continue
-        name = entry.name
-        # Only operate on project-like dirs: YYYY-Name
-        m = re.match(r'^(\d{4})-(.+)$', name)
-        if not m:
-            continue
-        year, namestr = m.group(1), m.group(2)
-        bad = False
-        new_year = year
-        # Validate year
-        if not re.match(r'^20\d{2}$', year):
-            new_year = str(_infer_year_from_dir(entry))
-            bad = True
-        # Validate namestring (no hyphens allowed; only [A-Za-z0-9_])
-        new_name = namestr
-        if '-' in namestr or not re.match(r'^[A-Za-z0-9_]+$', namestr):
-            new_name = _pascalize_name(namestr)
-            bad = True
-        if bad:
-            dst = home / f"{new_year}-{new_name}"
-            if dst != entry:
-                plans.append((entry, dst))
-    return plans
-
-
-def names_fix_cmd(args: argparse.Namespace) -> int:
-    scope = args.scope
-    if scope != 'project':
-        print("Only --scope project is implemented right now.")
-        return 2
-    plans = _plan_project_fixes()
-    if not plans:
-        print("No project naming fixes needed.")
-        return 0
-    if not args.apply:
-        print("Planned renames (dry run):")
-        for src, dst in plans:
-            print(f"- {src} -> {dst}")
-        print("Run again with --apply to perform changes.")
-        return 0
-    # Apply
-    vault = _load_vault()
-    vault.ensure_structure()
-    applied = 0
-    skipped = 0
-    for src, dst in plans:
-        if dst.exists():
-            print(f"Skip (exists): {dst}")
-            skipped += 1
-            continue
-        try:
-            os.rename(src, dst)
-            # Update vault wiki links referencing this path
-            try:
-                vault.update_vault_links_on_move(src, dst)
-            except Exception:
-                pass
-            # Recreate common file links and cleanup broken
-            try:
-                vault.link_project(dst)
-            except Exception:
-                pass
-            applied += 1
-            print(f"Renamed: {src.name} -> {dst.name}")
-        except Exception as e:
-            print(f"Failed to rename {src} -> {dst}: {e}")
-            skipped += 1
-    try:
-        removed = vault.cleanup_broken_links()
-        if removed:
-            print(f"Cleaned {removed} broken links in vault.")
-    except Exception:
-        pass
-    print(f"Applied {applied}, skipped {skipped}.")
-    return 0
+# names fix features removed
 
 
 def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
@@ -863,53 +793,7 @@ def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
     return db, sim
 
 
-def sim_migrate_cmd(args: argparse.Namespace) -> int:
-    db, sim = _load_similarity_required()
-    cfg = load_config()
-    vault = _load_vault()
-    docs_keep = int((cfg.get('obsidian') or {}).get('docs_keep', 99))
-    limit = args.limit
-    prune = args.prune_missing
-    count = 0
-    updated = 0
-    removed = 0
-    for doc in db.collection.find():
-        path = Path(doc.get('path',''))
-        if not path:
-            continue
-        if not path.exists():
-            if prune:
-                try:
-                    db.remove_file(path)
-                    removed += 1
-                except Exception:
-                    pass
-            continue
-        try:
-            # Force re-embed regardless of content_hash
-            changed = db.add_file(path, force=True)
-            if changed:
-                updated += 1
-                rec = db.get_last_add_result() or {}
-                ch = rec.get('content_hash')
-                txt = rec.get('text')
-                if ch and txt is not None:
-                    try:
-                        vault.write_doc_text(ch, path, txt, keep=docs_keep)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        count += 1
-        if limit and count >= limit:
-            break
-    out = {"considered": count, "updated": updated, "removed": removed}
-    if args.json:
-        import json as _json
-        print(_json.dumps(out, indent=2))
-    else:
-        print(f"Considered: {count}  Updated: {updated}  Removed: {removed}")
-    return 0
+# migration removed
 
 
 def _is_within(path: Path, base: Path) -> bool:
@@ -946,75 +830,7 @@ def _should_skip_file(path: Path, ignore_patterns: List[str], ignore_globs: List
     return False
 
 
-def sim_backfill_cmd(args: argparse.Namespace) -> int:
-    db = _load_similarity_db()
-    if not db:
-        return 1
-    cfg = load_config()
-    mon = cfg.get('monitor', {})
-    roots = [Path(p).expanduser() for p in (args.paths or mon.get('include_paths') or [str(Path.home())])]
-    exclude_roots = [Path(p).expanduser() for p in (mon.get('exclude_paths') or [])]
-    ignore_dirnames = list(mon.get('ignore_dirnames') or [])
-    ignore_patterns = list(mon.get('ignore_patterns') or [])
-    ignore_globs = list(mon.get('ignore_globs') or [])
-    include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
-
-    start = time.time()
-    considered = 0
-    indexed = 0
-    skipped = 0
-    for root in roots:
-        if any(_is_within(root, ex) for ex in exclude_roots):
-            continue
-        for dirpath, dirnames, filenames in os.walk(root):
-            dpath = Path(dirpath)
-            # Prune excluded/ignored directories in-place
-            # Remove any dirnames that should be skipped
-            pruned = []
-            for i in list(dirnames):
-                sub = dpath / i
-                if any(_is_within(sub, ex) for ex in exclude_roots) or _should_skip_dir(sub, ignore_dirnames):
-                    pruned.append(i)
-            for name in pruned:
-                try:
-                    dirnames.remove(name)
-                except ValueError:
-                    pass
-            # Process files
-            for fname in filenames:
-                p = dpath / fname
-                if _should_skip_file(p, ignore_patterns, ignore_globs):
-                    continue
-                if include_exts and p.suffix.lower() not in include_exts:
-                    continue
-                considered += 1
-                try:
-                    if db.add_file(p):
-                        indexed += 1
-                    else:
-                        skipped += 1
-                except Exception:
-                    skipped += 1
-            # Optional limit
-            if args.limit and considered >= args.limit:
-                break
-        if args.limit and considered >= args.limit:
-            break
-    elapsed = time.time() - start
-    summary = {
-        "roots": [r.as_posix() for r in roots],
-        "considered": considered,
-        "indexed": indexed,
-        "skipped": skipped,
-        "seconds": round(elapsed, 3),
-    }
-    if args.json:
-        import json as _json
-        print(_json.dumps(summary, indent=2))
-    else:
-        print(f"Roots: {', '.join(summary['roots'])}")
-        print(f"Considered: {considered}  Indexed: {indexed}  Skipped: {skipped}  Time: {elapsed:0.2f}s")
-    return 0
+"""Backfill removed for simplicity."""
 
 
 # ----------------------------- Obsidian helpers ---------------------------- #
@@ -1046,147 +862,10 @@ def _load_vault() -> Any:
     return vault
 
 
-def obs_connect_cmd(args: argparse.Namespace) -> int:
-    vault = _load_vault()
-    vault.ensure_structure()
-    project_path = Path(args.path).expanduser()
-    if not project_path.exists() or not project_path.is_dir():
-        print(f"Not a directory: {project_path}")
-        return 2
-    # Create/update project note
-    note = vault.create_project_note(project_path, status=args.status or 'Active', description=args.description)
-    links = vault.link_project(project_path)
-    vault.log_file_operation('created', project_path, details='Connected project to Obsidian (note + links).')
-    if args.json:
-        import json as _json
-        print(_json.dumps({
-            "project": project_path.as_posix(),
-            "note": note.as_posix(),
-            "links": [p.as_posix() for p in links]
-        }, indent=2))
-    else:
-        print(f"Connected: {project_path}\n  Note: {note}\n  Links: {len(links)}")
-    return 0
+"""Unnecessary helpers removed for simplicity (obs connect, debug match, init logs, etc.)."""
 
 
-def debug_match_cmd(args: argparse.Namespace) -> int:
-    cfg = load_config()
-    mon = cfg.get('monitor', {})
-    include_paths = [Path(p).expanduser().resolve() for p in (mon.get('include_paths') or [str(Path.home())])]
-    exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
-    ignore_dirnames = list(mon.get('ignore_dirnames') or [])
-    ignore_globs = list(mon.get('ignore_globs') or [])
-    p = Path(args.path).expanduser().resolve()
-
-    def is_within(path: Path, base: Path) -> bool:
-        try:
-            path.relative_to(base)
-            return True
-        except Exception:
-            return False
-
-    reason = None
-    decision = 'include'
-
-    # Absolute excludes
-    for ex in exclude_paths:
-        if is_within(p, ex):
-            decision = 'ignore'
-            reason = f'exclude_paths: {ex}'
-            break
-
-    # Outside include_paths
-    if reason is None and include_paths:
-        if not any(is_within(p, inc) for inc in include_paths):
-            decision = 'ignore'
-            reason = 'outside include_paths'
-
-    # Dotfile segments (except .wks)
-    if reason is None:
-        for part in p.parts:
-            if part.startswith('.') and part != '.wks':
-                decision = 'ignore'
-                reason = f'dot-segment: {part}'
-                break
-
-    # Name-based dir ignores
-    if reason is None:
-        for part in p.parts:
-            if part in ignore_dirnames:
-                decision = 'ignore'
-                reason = f'ignore_dirnames: {part}'
-                break
-
-    # Glob ignores
-    if reason is None:
-        pstr = p.as_posix()
-        for g in ignore_globs:
-            if fnmatch.fnmatchcase(pstr, g) or fnmatch.fnmatchcase(p.name, g):
-                decision = 'ignore'
-                reason = f'ignore_globs: {g}'
-                break
-
-    out = {
-        'path': p.as_posix(),
-        'decision': decision,
-        'reason': reason or 'included',
-        'include_paths': [x.as_posix() for x in include_paths],
-        'exclude_paths': [x.as_posix() for x in exclude_paths],
-        'ignore_dirnames': ignore_dirnames,
-        'ignore_globs': ignore_globs,
-    }
-    if args.json:
-        import json as _json
-        print(_json.dumps(out, indent=2))
-    else:
-        print(f"Path: {out['path']}")
-        print(f"Decision: {out['decision']} ({out['reason']})")
-    return 0
-
-
-def obs_init_logs_cmd(args: argparse.Namespace) -> int:
-    # Ensure Obsidian structure and initialize logs with a first entry and ActiveFiles snapshot
-    vault = _load_vault()
-    vault.ensure_structure()
-    # No legacy migrations; keep simple
-
-    # Determine tracked files count from monitor state
-    cfg = load_config()
-    state_path = Path((cfg.get('monitor') or {}).get('state_file', str(Path.home()/'.wks'/'monitor_state.json'))).expanduser()
-    tracked = 0
-    try:
-        if state_path.exists():
-            import json as _json
-            data = _json.load(open(state_path, 'r'))
-            tracked = len(data.get('files') or {})
-    except Exception:
-        tracked = 0
-
-    # Write an initialization entry to FileOperations
-    home = Path.home()
-    vault.log_file_operation('initialized', home, details='Initialized Obsidian logs via wks obs init-logs', tracked_files_count=tracked)
-
-    # Update ActiveFiles from current tracker (if present)
-    try:
-        from .activity import ActivityTracker
-        act_cfg = cfg.get('activity', {})
-        act_state = Path(act_cfg.get('state_file', str(Path.home()/'.wks'/'activity_state.json'))).expanduser()
-        tracker = ActivityTracker(act_state)
-        top = tracker.get_top_active_files(limit=getattr(vault, 'active_files_max_rows', 50))
-        vault.update_active_files(top)
-    except Exception:
-        # Create a minimal header if tracker missing
-        vault.update_active_files([])
-
-    if args.json:
-        import json as _json
-        print(_json.dumps({'file_operations': str(vault.file_log_path), 'active_files': str(vault.activity_log_path), 'tracked': tracked}, indent=2))
-    else:
-        print(f"Initialized logs:\n  {vault.file_log_path}\n  {vault.activity_log_path}\n  Tracked files: {tracked}")
-    return 0
-
-
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="wks", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
 
@@ -1195,16 +874,9 @@ def main(argv: list[str] | None = None) -> int:
     cfg_print = cfg_sub.add_parser("print", help="Print effective config")
     cfg_print.set_defaults(func=print_config)
 
-    d = sub.add_parser("daemon", help="Manage daemon")
-    dsub = d.add_subparsers(dest="d_cmd")
-    dstart = dsub.add_parser("start", help="Start daemon in background")
-    dstart.set_defaults(func=daemon_start)
-    dstop = dsub.add_parser("stop", help="Stop daemon")
-    dstop.set_defaults(func=daemon_stop)
-    dstatus = dsub.add_parser("status", help="Daemon status")
-    dstatus.set_defaults(func=daemon_status)
-    drestart = dsub.add_parser("restart", help="Restart daemon")
-    drestart.set_defaults(func=daemon_restart)
+    # Service management (macOS launchd)
+
+    
 
     # Optional install/uninstall on macOS (hide behind help)
     def _launchctl(*args: str) -> int:
@@ -1281,20 +953,27 @@ def main(argv: list[str] | None = None) -> int:
             pass
         print("Uninstalled.")
 
-    dinst = dsub.add_parser("install", help="Install launchd agent (macOS)")
-    dinst.set_defaults(func=daemon_install)
-    duninst = dsub.add_parser("uninstall", help="Uninstall launchd agent (macOS)")
-    duninst.set_defaults(func=daemon_uninstall)
+    # install/uninstall bound under service group below
 
-    # Mongo is managed by the service; CLI subcommand retained to print message
-    # for users accustomed to the old flow.
-    m = sub.add_parser("mongo", help="(Deprecated) MongoDB is managed by the wks-service")
-    m.add_argument("action", nargs='?', default='status')
-    m.set_defaults(func=mongo_cmd)
+    # Single entry for service management
+    svc = sub.add_parser("service", help="Install/start/stop the WKS daemon (macOS)")
+    svcsub = svc.add_subparsers(dest="svc_cmd")
+    svcinst = svcsub.add_parser("install", help="Install launchd agent (macOS)")
+    svcinst.set_defaults(func=daemon_install)
+    svcrem = svcsub.add_parser("uninstall", help="Uninstall launchd agent (macOS)")
+    svcrem.set_defaults(func=daemon_uninstall)
+    svcstart2 = svcsub.add_parser("start", help="Start daemon in background or via launchd if installed")
+    svcstart2.set_defaults(func=daemon_start)
+    svcstop2 = svcsub.add_parser("stop", help="Stop daemon")
+    svcstop2.set_defaults(func=daemon_stop)
+    svcstatus2 = svcsub.add_parser("status", help="Daemon status")
+    svcstatus2.set_defaults(func=daemon_status)
+    svcrestart2 = svcsub.add_parser("restart", help="Restart daemon")
+    svcrestart2.set_defaults(func=daemon_restart)
 
-    # Similarity tools for agents
-    sim = sub.add_parser("sim", help="Similarity indexing and queries")
-    sim_sub = sim.add_subparsers(dest="sim_cmd")
+    # Analyze tools (agent helpers)
+    analyze = sub.add_parser("analyze", help="Agent helpers: similarity, dump, name, review, check")
+    sim_sub = analyze.add_subparsers(dest="an_cmd")
 
     sim_idx = sim_sub.add_parser("index", help="Index files or directories (recursive) into similarity DB")
     sim_idx.add_argument("paths", nargs="+", help="Files or directories to index")
@@ -1309,8 +988,7 @@ def main(argv: list[str] | None = None) -> int:
     sim_q.add_argument("--json", action="store_true", help="Output JSON (path, score)")
     sim_q.set_defaults(func=sim_query_cmd)
 
-    sim_stats = sim_sub.add_parser("stats", help="Similarity database stats")
-    sim_stats.set_defaults(func=sim_stats_cmd)
+    # (stats removed for simplicity)
 
     sim_route = sim_sub.add_parser("route", help="Suggest target folders for a file based on similarity")
     sim_route.add_argument("--path", required=True, help="Path of the file to route")
@@ -1322,236 +1000,69 @@ def main(argv: list[str] | None = None) -> int:
     sim_route.add_argument("--json", action="store_true", help="Output JSON with suggestions and evidence")
     sim_route.set_defaults(func=sim_route_cmd)
 
-    sim_back = sim_sub.add_parser("backfill", help="Index existing files under include_paths (or given roots) using config excludes/ignores")
-    sim_back.add_argument("paths", nargs='*', help="Optional roots to scan; defaults to monitor.include_paths or ~")
-    sim_back.add_argument("--limit", type=int, help="Stop after indexing N files (for testing)")
-    sim_back.add_argument("--json", action="store_true", help="Output JSON summary")
-    sim_back.set_defaults(func=sim_backfill_cmd)
+    # (backfill removed for simplicity)
 
-    sim_mig = sim_sub.add_parser("migrate", help="Recompute embeddings for all files in the DB with current settings; optional prune missing")
-    sim_mig.add_argument("--prune-missing", action="store_true", help="Remove DB entries for missing files")
-    sim_mig.add_argument("--limit", type=int, help="Stop after N files")
-    sim_mig.add_argument("--json", action="store_true", help="JSON summary output")
-    sim_mig.set_defaults(func=sim_migrate_cmd)
+    # (migrate removed for simplicity)
 
-    sim_ext = sim_sub.add_parser("extract", help="Extract text from a file with the configured engine")
-    sim_ext.add_argument("--path", required=True, help="Path to the file")
-    sim_ext.add_argument("--json", action="store_true", help="JSON output")
-    sim_ext.set_defaults(func=sim_extract_cmd)
+    # (extract removed for simplicity)
 
-    sim_dump = sim_sub.add_parser("dump-docs", help="Write Docling (or configured engine) dumps of Markdown files to ~/obsidian/WKS/Docs")
-    sim_dump.add_argument("paths", nargs='*', help="Files or directories. If omitted, scans monitor.include_paths")
-    sim_dump.set_defaults(func=sim_dump_docs_cmd)
+    # (dump-docs superseded by analyze dump)
 
-    sim_demo = sim_sub.add_parser("demo", help="Compute similarities among given files without using the DB (offline embeddings demo)")
-    sim_demo.add_argument("paths", nargs="+", help="Files or directories to include (.md/.txt/.py/.tex)")
-    sim_demo.add_argument("--top", type=int, default=6, help="Show top-N most similar pairs (default 6)")
-    def _sim_demo_cmd(args: argparse.Namespace) -> int:
-        # Initialize model using config (offline if set)
-        cfg = load_config()
-        sim_cfg = cfg.get('similarity', {})
-        model = sim_cfg.get('model', 'sentence-transformers/all-MiniLM-L6-v2')
-        model_path = sim_cfg.get('model_path')
-        offline = bool(sim_cfg.get('offline', False))
-        import os as _os
-        if offline:
-            _os.environ.setdefault('HF_HUB_OFFLINE', '1')
-            _os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
-        try:
-            from sentence_transformers import SentenceTransformer
-        except Exception as e:
-            print(f"sentence-transformers not available: {e}")
-            return 2
-        target = (model_path or model).strip()
-        try:
-            embedder = SentenceTransformer(target)
-        except Exception as e:
-            print(f"Failed to load model '{target}': {e}")
-            return 2
-        # Collect files
-        include_exts = {'.md', '.txt', '.py', '.tex'}
-        files: list[Path] = []
-        for p in args.paths:
-            pp = Path(p).expanduser()
-            if pp.is_file() and pp.suffix.lower() in include_exts:
-                files.append(pp)
-            elif pp.is_dir():
-                for x in pp.rglob('*'):
-                    if x.is_file() and x.suffix.lower() in include_exts:
-                        files.append(x)
-        if len(files) < 2:
-            print("Need at least two text-like files (.md/.txt/.py/.tex)")
-            return 2
-        # Read texts (simple reader)
-        items: list[tuple[Path,str]] = []
-        for f in files:
-            try:
-                text = f.read_text(encoding='utf-8', errors='ignore')
-            except Exception:
-                text = None
-            if text and len(text.strip()) >= max(10, int(sim_cfg.get('min_chars', 10))):
-                items.append((f, text))
-        if len(items) < 2:
-            print("Not enough textual content to compare.")
-            return 0
-        # Encode and compute pairwise cosine similarities
-        from numpy import dot
-        from numpy.linalg import norm
-        import numpy as np
-        vecs = embedder.encode([t for _, t in items])
-        paths = [p for p, _ in items]
-        pairs: list[tuple[float,int,int]] = []
-        for i in range(len(vecs)):
-            for j in range(i+1, len(vecs)):
-                a = np.array(vecs[i]); b = np.array(vecs[j])
-                sim = float(dot(a, b) / (norm(a) * norm(b))) if norm(a) and norm(b) else 0.0
-                pairs.append((sim, i, j))
-        pairs.sort(reverse=True, key=lambda x: x[0])
-        top = max(1, int(args.top))
-        print("Top similar pairs:\n")
-        for sim, i, j in pairs[:top]:
-            print(f"{sim:0.3f}  {paths[i].name}  ~  {paths[j].name}")
-        return 0
-    sim_demo.set_defaults(func=_sim_demo_cmd)
+    # prune removed; daemon prunes continuously based on config
 
-    # Names commands
-    n = sub.add_parser("names", help="Naming utilities")
-    nsub = n.add_subparsers(dest="names_cmd")
+    # Add non-similarity analyze helpers
+    az_dump = sim_sub.add_parser("dump", help="Extract and write a file's text to Obsidian WKS/Docs and print checksum")
+    az_dump.add_argument("--path", required=True, help="Path to the file")
+    az_dump.add_argument("--json", action="store_true")
+    az_dump.set_defaults(func=analyze_dump_cmd)
 
-    nroute = nsub.add_parser("route", help="Generate a normalized DATE-NAME folder name for a path")
-    nroute.add_argument("--path", required=True, help="Path to file or folder")
-    nroute.add_argument("--scope", choices=["project","document","deadline"], default="project")
-    nroute.add_argument("--date", help="Explicit DATE (YYYY or YYYY_MM or YYYY_MM_DD)")
-    nroute.add_argument("--name", help="Explicit NAME (will be sanitized)")
-    nroute.add_argument("--json", action="store_true", help="JSON output")
-    nroute.set_defaults(func=names_route_cmd)
+    az_name = sim_sub.add_parser("name", help="Recommend a better DATE-NAME for a project directory (uses rules + local LLM)")
+    az_name.add_argument("--path", required=True)
+    az_name.add_argument("--json", action="store_true")
+    az_name.set_defaults(func=analyze_name_cmd)
 
-    ncheck = nsub.add_parser("check", help="Check directory names under roots for DATE-NAME compliance")
-    ncheck.add_argument("roots", nargs='*', help="Roots to scan (defaults to monitor.include_paths top-level)")
-    ncheck.add_argument("--json", action="store_true", help="JSON output")
-    ncheck.set_defaults(func=names_check_cmd)
+    az_dir = sim_sub.add_parser("review", help="Analyze/summarize a directory using local LLM (ollama)")
+    az_dir.add_argument("--path", required=True)
+    az_dir.add_argument("--json", action="store_true")
+    az_dir.set_defaults(func=analyze_dir_cmd)
 
-    nfix = nsub.add_parser("fix", help="Fix non-conforming names (projects only)")
-    nfix.add_argument("--scope", choices=["project"], default="project", help="Scope to fix (projects only for now)")
-    nfix.add_argument("--apply", action="store_true", help="Apply changes (default is dry-run)")
-    nfix.set_defaults(func=names_fix_cmd)
+    az_check = sim_sub.add_parser("check", help="Check directory names under monitor.include_paths for DATE-NAME compliance")
+    az_check.add_argument("roots", nargs='*')
+    az_check.add_argument("--json", action="store_true")
+    az_check.set_defaults(func=names_check_cmd)
 
-    obs = sub.add_parser("obs", help="Obsidian helpers")
-    obs_sub = obs.add_subparsers(dest="obs_cmd")
-    obs_connect = obs_sub.add_parser("connect", help="Connect a project directory to the vault (create note + links)")
-    obs_connect.add_argument("--path", required=True, help="Project directory (e.g., ~/2025-MyProject)")
-    obs_connect.add_argument("--status", help="Project status (default Active)")
-    obs_connect.add_argument("--description", help="Optional note description")
-    obs_connect.add_argument("--json", action="store_true", help="JSON output")
-    obs_connect.set_defaults(func=obs_connect_cmd)
-
-    dbg = sub.add_parser("debug", help="Debug utilities")
-    dbg_sub = dbg.add_subparsers(dest="dbg_cmd")
-    dbg_match = dbg_sub.add_parser("match", help="Explain how a path is matched by include/exclude/ignore rules")
-    dbg_match.add_argument("path", help="Path to test")
-    dbg_match.add_argument("--json", action="store_true", help="JSON output")
-    dbg_match.set_defaults(func=debug_match_cmd)
-
-    obs_init = obs_sub.add_parser("init-logs", help="Initialize Obsidian logs (alias of reset-logs)")
-    obs_init.add_argument("--json", action="store_true", help="JSON output")
-    obs_init.set_defaults(func=obs_init_logs_cmd)
-
-    obs_reset = obs_sub.add_parser("reset-logs", help="Reset Obsidian logs to a clean state (recreate headers)")
-    obs_reset.add_argument("--json", action="store_true", help="JSON output")
-    obs_reset.set_defaults(func=obs_init_logs_cmd)
-
-    # Prune WKS/Docs entries that reference unwanted paths (e.g., venv, site-packages)
-    obs_prune = obs_sub.add_parser("prune-docs", help="Remove WKS/Docs entries containing path substrings (e.g., '/venv/', 'site-packages')")
-    obs_prune.add_argument("--contains", nargs="+", help="One or more substrings to match in the source path header", default=["/venv/", "site-packages"])
-    def _obs_prune_docs_cmd(args: argparse.Namespace) -> int:
-        cfg = load_config()
-        obs = cfg.get('obsidian') or {}
-        vault_root = Path(cfg.get('vault_path', '~/obsidian')).expanduser()
-        base = obs.get('base_dir') or 'WKS'
-        docs_dir = vault_root / base / 'Docs'
-        if not docs_dir.exists():
-            print(f"Docs dir not found: {docs_dir}")
-            return 0
-        pats = [str(s) for s in (args.contains or [])]
-        removed = 0
-        scanned = 0
-        for md in docs_dir.glob('*.md'):
-            try:
-                head = md.read_text(encoding='utf-8', errors='ignore').splitlines()[:50]
-            except Exception:
-                continue
-            scanned += 1
-            blob = "\n".join(head)
-            # The header includes a backticked source path like `~/path/to/file`
-            if any(p in blob for p in pats):
-                try:
-                    md.unlink()
-                    removed += 1
-                except Exception:
-                    pass
-        print(f"Scanned {scanned} doc(s); removed {removed} containing: {', '.join(pats)}")
-        return 0
-    obs_prune.set_defaults(func=_obs_prune_docs_cmd)
-
-    # Tidy FileOperations.md by removing rows that match substrings (noise reducers)
-    obs_tidy = obs_sub.add_parser("tidy-ops", help="Remove rows from FileOperations.md that match substrings (e.g., '/_build/', 'site_libs')")
-    obs_tidy.add_argument("--contains", nargs="+", default=["/_build/", "/site_libs/", "/node_modules/", "/venv/", "/.venv/", "/__pycache__/"], help="Substrings to match in Source/Destination cells")
-    def _obs_tidy_ops_cmd(args: argparse.Namespace) -> int:
-        cfg = load_config()
-        obs = cfg.get('obsidian') or {}
-        vault_root = Path(cfg.get('vault_path', '~/obsidian')).expanduser()
-        base = obs.get('base_dir') or 'WKS'
-        ops_path = vault_root / base / 'FileOperations.md'
-        if not ops_path.exists():
-            print(f"FileOperations not found: {ops_path}")
-            return 0
-        pats = [str(s) for s in (args.contains or [])]
-        lines = ops_path.read_text(encoding='utf-8', errors='ignore').splitlines()
-        out = []
-        i = 0
-        removed = 0
-        while i < len(lines):
-            line = lines[i]
-            if line.startswith('| '):
-                row = line
-                blob = row
-                # Extract immediate detail lines (start with '>')
-                j = i + 1
-                detail = []
-                while j < len(lines) and lines[j].startswith('>'):
-                    detail.append(lines[j])
-                    j += 1
-                blob_all = row + "\n" + "\n".join(detail)
-                if any(p in blob_all for p in pats):
-                    removed += 1
-                    i = j
-                    continue
-                out.append(row)
-                out.extend(detail)
-                i = j
-            else:
-                out.append(line)
-                i += 1
-        ops_path.write_text("\n".join(out) + "\n", encoding='utf-8')
-        print(f"Removed {removed} row(s) containing: {', '.join(pats)}")
-        return 0
-    obs_tidy.set_defaults(func=_obs_tidy_ops_cmd)
-
-    # Links commands
-    from . import links as _links
-    lnk = sub.add_parser("links", help="Link organization tools")
-    lsub = lnk.add_subparsers(dest="links_cmd")
-    ltidy = lsub.add_parser("tidy", help="Organize bare URLs in a Markdown file into categories with titles and blurbs")
-    ltidy.add_argument("--source", required=True, help="Path to Markdown file (e.g., ~/obsidian/Topics/2025-AwesomeUrls.md)")
-    def _links_tidy_cmd(args: argparse.Namespace) -> int:
-        path = Path(args.source).expanduser()
+    # Health status
+    az_health = sim_sub.add_parser("health", help="Show daemon health status")
+    az_health.add_argument("--update", action="store_true", help="Also rebuild the Health.md landing page")
+    def _health_cmd(args: argparse.Namespace) -> int:
+        path = Path.home()/'.wks'/'health.json'
+        import json as _json
         if not path.exists():
-            print(f"No such file: {path}")
+            print("Health file not found (daemon may not be running yet)")
+            return 1
+        try:
+            data = _json.load(open(path, 'r'))
+        except Exception as e:
+            print(f"Failed to read health.json: {e}")
             return 2
-        out = _links.write_tidy_markdown(path)
-        print(f"Updated: {out}")
+        print(_json.dumps(data, indent=2))
+        if args.update:
+            try:
+                cfg = load_config(); obs = cfg.get('obsidian') or {}
+                vault = _load_vault()
+                # state file from config
+                mon = cfg.get('monitor', {})
+                state_file = Path(mon.get('state_file', str(Path.home()/'.wks'/'monitor_state.json'))).expanduser()
+                vault.write_health_page(state_file=state_file)
+                base_dir = obs.get('base_dir') or 'WKS'
+                dest = Path(cfg.get('vault_path','~/obsidian')).expanduser()/base_dir/'Health.md'
+                print(f"Updated: {dest}")
+            except Exception as e:
+                print(f"Failed to update Health.md: {e}")
         return 0
-    ltidy.set_defaults(func=_links_tidy_cmd)
+    az_health.set_defaults(func=_health_cmd)
+
+    # Simplified CLI — no extra top-level groups beyond config/service/analyze
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
@@ -1563,28 +1074,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-    sim_prune = sim_sub.add_parser("prune", help="Remove similarity DB entries by path substring (and related chunks)")
-    sim_prune.add_argument("--contains", required=True, help="Substring to match in stored file paths (e.g., '/venv/' or 'site-packages')")
-    def _sim_prune_cmd(args: argparse.Namespace) -> int:
-        db, _ = _load_similarity_required()
-        sub = str(args.contains)
-        # Build regex pattern safely (case-insensitive)
-        import re as _re
-        pat = _re.compile(_re.escape(sub), _re.I)
-        # Find matching paths first for chunk cleanup
-        paths = [doc.get('path') for doc in db.collection.find({}) if doc.get('path') and pat.search(doc['path'])]
-        if not paths:
-            print("No matching entries.")
-            return 0
-        # Delete file-level docs
-        from pymongo import DeleteMany
-        ops = [DeleteMany({'path': p}) for p in paths]
-        if ops:
-            db.collection.bulk_write(ops, ordered=False)
-        # Delete chunk-level docs
-        ops2 = [DeleteMany({'file_path': p}) for p in paths]
-        if ops2:
-            db.chunks.bulk_write(ops2, ordered=False)
-        print(f"Pruned {len(paths)} file(s) and related chunks containing: {sub}")
-        return 0
-    sim_prune.set_defaults(func=_sim_prune_cmd)

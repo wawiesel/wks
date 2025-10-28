@@ -77,3 +77,30 @@ Use this checklist to track setup, migration, automation, and maintenance. Link 
 - [ ] Define automation boundaries for the AI agent (what it can change autonomously)
 - [ ] Choose Dataview schemas and tags taxonomy
 - [ ] Decide on ROADMAP dates and milestones
+
+## Imported Context Tasks (from Vault Context.md)
+
+### Documents Organization
+- [x] 9 loose presentation files organized into event directories (2025-10-20)
+- [x] Created categorization directories: `2025-Research-Papers/`, `2025-Technical-Figures/`, `2025-Hardware-Datasheets/`, `2025-AI-Generated-Images/`, `2025-Ideas/`, `2025-Templates/`
+- [x] Organized and removed Misc directories: `2025-Misc-Documents/` (16), `2025-Misc-PDFs/` (108), `2025-Misc-Images/` (92)
+- [x] Fixed generic names: moved/removed `2025-Administrative/`, `2025-AI-Research/`, `2025-GIS-Data/`, `2025-SCALE-Work/`
+- [ ] Separate workshop directories: `2025-DNCSH_Workshops/` vs `2025-Workshop_Slides_Collection/`
+- [ ] Route receipt photos in `~/Documents/2025-Trips/` into per-trip folders
+- [ ] Verify ANS Winter vs DAF trips in 2024_11 categorization
+
+### Downloads Organization
+- [x] Downloads cleaned (2025-10-20): DMGs → `~/Documents/2025-Software-Installers/`; SCALE outputs → `~/2025-SCALE/scratch-tests/`; DALL-E images → `~/Documents/2025-AI-Generated-Images/`; scripts/notebooks → `~/2025-SCALE/scratch-tests/`; HALEU drafts → `~/Documents/2025_07-HALEU_Consortium/_drafts/`; SDL bug files → `~/2025-SCALE/bug-tracking/`; installers → `~/2025-SCALE/installers/`; misc → `~/2025-SCALE/scratch-tests/`; personal → `~/Documents/2025-Personal-Records/`
+- [x] Downloads directory empty and organized
+
+### Desktop Organization
+- [ ] Decide on large screen recordings (keep/delete/archive)
+- [ ] Complete desktop/stacks migration to WKS structure
+
+### Pending Clarifications
+- [ ] Where to place Slack exports (Reactorium_Slack_Export_2017_2024.zip)?
+- [x] ANSWER presentations: Separate meeting from ANS Winter (2025-10-20)
+
+### Deletion Policy and Candidates
+- [x] Deleted DMG installers (3.7GB freed, 2025-10-20)
+- [ ] Review UUID-named PDF downloads; generic plot images without context; old DALL‑E images; reproducible SCALE scratch files
