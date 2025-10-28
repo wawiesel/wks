@@ -152,6 +152,13 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 ## Hand‑Off Rule
 - Do not ship changes unless the smoke tests above pass locally. If tests require specific setup (Docling/Mongo), state it explicitly and provide copy‑paste commands.
 
+## Versioning (SemVer)
+- Follow Semantic Versioning strictly.
+- MAJOR: breaking CLI/API changes.
+- MINOR: backward‑compatible features (new commands/options, new DB views).
+- PATCH: backward‑compatible bug fixes and internal improvements.
+- Every change increments version in `setup.py` and updates `CHANGELOG.md` with Added/Changed/Removed sections.
+
 ## Obsidian Conventions (imported)
 - Pages link knowledge and provide personal context; avoid documenting directory scaffolding or implementation details in the vault.
 - Organize around responsibilities, deliverables, organizations, people, and presentations.
