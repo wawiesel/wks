@@ -9,9 +9,7 @@ Start here: open `SPEC.md`.
 ## Install (pipx)
 
 - Ensure pipx is on your PATH: `pipx ensurepath` (open a new shell if needed)
-- From the repo root:
-  - `pipx install .`
-  - If using Docling extraction: `pipx runpip wkso install docling`
+- From the repo root: `pipx install .` (Docling is installed as a dependency)
 
 Verify installation
 - `wkso -h`

@@ -22,7 +22,7 @@ This spec documents the wkso CLI: a minimal, focused interface to configure, run
   - `obsidian`: `{ "base_dir": "WKS", "log_max_entries": 500, "active_files_max_rows": 50, "source_max_chars": 40, "destination_max_chars": 40, "docs_keep": 99 }`
   - `monitor`: `{ "include_paths": ["~"], "exclude_paths": ["~/Library","~/obsidian","~/.wks"], "ignore_dirnames": [".git","_build"], "ignore_globs": ["*.tmp","*~","._*"], "state_file": "~/.wks/monitor_state.json" }`
   - `similarity`: `{ "enabled": true, "mongo_uri": "mongodb://localhost:27027/", "database": "wks_similarity", "collection": "file_embeddings", "model": "all-MiniLM-L6-v2", "include_extensions": [".md",".txt",".py",".ipynb",".tex",".docx",".pptx",".pdf",".html",".csv",".xlsx"], "min_chars": 10, "max_chars": 200000, "chunk_chars": 1500, "chunk_overlap": 200, "offline": true }`
-  - `extract`: `{ "engine": "docling", "ocr": false, "timeout_secs": 30 }`
+  - `extract`: `{ "engine": "docling", "ocr": false, "timeout_secs": 30 }` (Docling is required)
 
 ## Commands
 
