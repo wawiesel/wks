@@ -34,6 +34,22 @@ class ObsidianVault:
         # Table width controls for path columns
         self.source_max_chars = int(source_max_chars)
         self.destination_max_chars = int(destination_max_chars)
+        # Append-only JSONL ledger for file operations used to rebuild the log
+        self.ops_ledger_path = Path.home() / ".wks" / "file_ops.jsonl"
+        self.ops_ledger_max_lines = 20000
+        self.ops_ledger_keep_lines = 10000
+        # Throttle for markdown rewrites (seconds)
+        self._write_throttle_secs = 2.0
+        self._last_ops_write_ts = 0.0
+        self._last_active_write_ts = 0.0
+        # Health page throttle
+        self._last_health_write_ts = 0.0
+        try:
+            self.ops_ledger_path.parent.mkdir(parents=True, exist_ok=True)
+            if not self.ops_ledger_path.exists():
+                self.ops_ledger_path.write_text("")
+        except Exception:
+            pass
 
     def _shorten_path(self, p: Path, max_chars: int) -> str:
         """Return a compact string for a path, using ~ for home and mid-ellipsis if too long."""
@@ -74,59 +90,151 @@ class ObsidianVault:
     def _get_file_log_path(self) -> Path:
         return self.file_log_path
 
-    def _cap_log_entries(self, file_path: Path):
-        """Limit the number of table rows to log_max_entries, preserving header."""
+    def _append_ops_ledger(self, record: dict):
+        """Append a JSON line record to the operations ledger."""
         try:
-            if not file_path.exists() or self.log_max_entries <= 0:
-                return
-            lines = file_path.read_text().splitlines()
-            if not lines:
-                return
-            # Find header start (table header line)
-            header_idx = None
-            sep_idx = None
-            for i, line in enumerate(lines):
-                if line.strip().startswith('| Date/Time | Operation'):
-                    header_idx = i
-                    # The separator is expected next or soon after
-                    # Search up to next few lines for separator row starting with "|-"
-                    for j in range(i+1, min(i+5, len(lines))):
-                        if lines[j].strip().startswith('|-'):
-                            sep_idx = j
-                            break
-                    break
-            if header_idx is None or sep_idx is None:
-                return
-            head = lines[:sep_idx+1]
-            body = lines[sep_idx+1:]
-            out = head[:]
-            kept = 0
-            idx = 0
-            while idx < len(body) and kept < self.log_max_entries:
-                line = body[idx]
-                if line.strip().startswith('|'):
-                    # This is a table row -> count and keep
-                    out.append(line)
-                    kept += 1
-                    # Also keep any immediate detail quote lines that follow
-                    k = idx + 1
-                    while k < len(body) and body[k].strip().startswith('>'):
-                        out.append(body[k])
-                        k += 1
-                    idx = k
-                else:
-                    # Non-row line between entries (e.g., blank) -> keep if within entries area
-                    out.append(line)
-                    idx += 1
-            file_path.write_text('\n'.join(out) + '\n')
+            import json as _json
+            with open(self.ops_ledger_path, 'a', encoding='utf-8') as f:
+                f.write(_json.dumps(record, ensure_ascii=False) + "\n")
+            # Compact/rotate if too large
+            try:
+                lines = self.ops_ledger_path.read_text(encoding='utf-8', errors='ignore').splitlines()
+                if len(lines) > self.ops_ledger_max_lines:
+                    keep = lines[-self.ops_ledger_keep_lines:]
+                    self.ops_ledger_path.write_text("\n".join(keep) + "\n", encoding='utf-8')
+            except Exception:
+                pass
         except Exception:
-            # Best-effort; don't break logging on parse errors
             pass
+
+    def _load_recent_ops(self, limit: int) -> list[dict]:
+        """Load last N operation records from the JSONL ledger."""
+        try:
+            lines = self.ops_ledger_path.read_text(encoding='utf-8', errors='ignore').splitlines()
+        except Exception:
+            return []
+        out = []
+        import json as _json
+        for line in lines[-max(0, int(limit)):] if lines else []:
+            try:
+                out.append(_json.loads(line))
+            except Exception:
+                continue
+        # newest first
+        out.reverse()
+        return out
+
+    def _rebuild_file_operations(self, tracked_files_count: Optional[int] = None):
+        """Rewrite FileOperations.md from the JSONL ledger (newest first).
+
+        Format: list entries with file:// links for Path(s), no tables.
+        """
+        import time as _time
+        if _time.time() - self._last_ops_write_ts < self._write_throttle_secs:
+            return
+        file_path = self._get_file_log_path()
+        ops = self._load_recent_ops(self.log_max_entries)
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cfg_path = (Path.home() / ".wks" / "config.json").expanduser()
+        cfg_url = f"file://{cfg_path}"
+        # Intro + table header
+        header = [
+            f"Reverse chronological log of last {self.log_max_entries} file operations tracked by WKS. [config]({cfg_url})",
+            "",
+            "| Action | Time | Checksum | Path |",
+            "|:--|:--|--:|:--|",
+        ]
+        rows = []
+        def _icon_for(op:str) -> str:
+            m = {
+                'CREATED': '➕',
+                'MODIFIED': '✏️',
+                'DELETED': '🗑️',
+                'MOVED': '🔀',
+                'RENAMED': '📝',
+            }
+            return m.get(op.upper(), '📄')
+        home = Path.home().resolve()
+        def _disp(p: Path) -> str:
+            try:
+                rel = p.resolve().relative_to(home)
+                return f"~/{rel.as_posix()}"
+            except Exception:
+                return p.resolve().as_posix()
+
+        home = Path.home().resolve()
+        def _is_within(child: Path, base: Path) -> bool:
+            try:
+                child.resolve().relative_to(base.resolve())
+                return True
+            except Exception:
+                return False
+
+        def _skip_ops_path(p: Path) -> bool:
+            try:
+                pics = home/"Pictures"
+                photos = home/"Photos"
+                if _is_within(p, pics) or _is_within(p, photos):
+                    return True
+            except Exception:
+                pass
+            return False
+
+        for rec in ops:
+            ts = rec.get('timestamp','')
+            op = (str(rec.get('operation','')).upper() or 'OP')
+            icon = _icon_for(op)
+            src = rec.get('source')
+            dst = rec.get('destination')
+            checksum = rec.get('checksum') or 'N/A'
+            a_path = Path(src) if src else None
+            b_path = Path(dst) if dst else None
+            a = a_path.resolve().as_uri() if a_path else None
+            b = b_path.resolve().as_uri() if b_path else None
+            # Skip ignored paths (e.g., Photos/Pictures)
+            if a_path and _skip_ops_path(a_path):
+                continue
+            if b_path and _skip_ops_path(b_path):
+                continue
+            # Build rows; for MOVED, split into two rows: MOVE_FROM and MOVE_TO
+            _fig = "\u2007"
+            def make_action_cell(label: str) -> str:
+                raw = f"{icon} {label}"
+                pad = max(0, 14 - len(raw))
+                return f"`{raw}{_fig*pad}`"
+            time_cell = f"`{ts}{_fig*2}`"
+            if op == 'MOVED' and a_path and b_path:
+                from_cell = f"[{_disp(a_path)}]({a})"
+                to_cell = f"[{_disp(b_path)}]({b})"
+                rows.append(f"| {make_action_cell('MOVE_FROM')} | {time_cell} | `{checksum}` | {from_cell} |")
+                rows.append(f"| {make_action_cell('MOVE_TO')} | {time_cell} | `{checksum}` | {to_cell} |")
+            else:
+                if a_path and b_path:
+                    path_cell = f"[{_disp(a_path)}]({a}) → [{_disp(b_path)}]({b})"
+                elif a_path:
+                    path_cell = f"[{_disp(a_path)}]({a})"
+                elif b_path:
+                    path_cell = f"[{_disp(b_path)}]({b})"
+                else:
+                    path_cell = ""
+                action_cell = make_action_cell(op)
+                rows.append(f"| {action_cell} | {time_cell} | `{checksum}` | {path_cell} |")
+        # Do not filter out blank lines; keep a true blank line before the table
+        out = "\n".join(header) + ("\n" + "\n".join(rows) + "\n" if rows else "\n")
+        self._atomic_write(file_path, out)
+        self._last_ops_write_ts = _time.time()
 
     def ensure_structure(self):
         """Create vault folder structure if it doesn't exist."""
         # Ensure base path (for logs) exists
         self._base_path().mkdir(parents=True, exist_ok=True)
+        # Ensure Health landing page exists
+        hp = self._base_path() / 'Health.md'
+        if not hp.exists():
+            try:
+                self._atomic_write(hp, "# Health\n\n(Initialized)\n")
+            except Exception:
+                pass
         # Ensure root-level category folders exist
         for directory in [
             self.links_dir,
@@ -456,130 +564,32 @@ class ObsidianVault:
         tracked_files_count: Optional[int] = None
     ):
         """
-        Log a file operation to FileOperations.md in reverse chronological order.
-
-        Args:
-            operation: Type of operation (created, modified, moved, deleted, renamed)
-            path: Source path
-            destination: Destination path (for moves/renames)
-            details: Optional additional details
+        Record a file operation by appending to a JSONL ledger and rewrite the
+        FileOperations.md from that ledger (newest first). This avoids fragile
+        in-place table editing.
         """
-        # Use non-breaking space + inline code to avoid column wrapping in Obsidian tables
-        timestamp_raw = datetime.now().strftime('%Y-%m-%d\u00A0%H:%M:%S')
-        timestamp_cell = f"`{timestamp_raw}`"
-        timestamp_plain = timestamp_raw.replace('\u00A0', ' ')
-
-        # Get checksums
-        source_checksum = self._get_file_checksum(path)
-        dest_checksum = self._get_file_checksum(destination) if destination else None
-
-        # Build log entry in table format
-        src_disp = f"`{self._shorten_path(path, self.source_max_chars)}`"
-        dest_disp = f"`{self._shorten_path(destination, self.destination_max_chars)}`" if destination else "—"
-        if operation == "moved" and destination:
-            checksum = dest_checksum or source_checksum or 'N/A'
-            entry = f"| {timestamp_cell} | `MOVED` | {src_disp} | {dest_disp} | {checksum} |"
-        elif operation == "renamed" and destination:
-            checksum = dest_checksum or source_checksum or 'N/A'
-            entry = f"| {timestamp_cell} | `RENAMED` | {src_disp} | {dest_disp} | {checksum} |"
-        elif operation == "created":
-            checksum = source_checksum or 'N/A'
-            entry = f"| {timestamp_cell} | `CREATED` | {src_disp} | — | {checksum} |"
-        elif operation == "deleted":
-            entry = f"| {timestamp_cell} | `DELETED` | {src_disp} | — | N/A |"
-        elif operation == "modified":
-            checksum = source_checksum or 'N/A'
-            entry = f"| {timestamp_cell} | `MODIFIED` | {src_disp} | — | {checksum} |"
-        else:
-            entry = f"| {timestamp_cell} | `{operation.upper()}` | {src_disp} | — | N/A |"
-
-        if details:
-            entry += f"\n> {details}"
-
-        entry += "\n"
-
-        file_path = self._get_file_log_path()
-
-        # Initialize file if it doesn't exist
-        if not file_path.exists():
-            tracked_line = f"Tracking: {tracked_files_count} files (as of {timestamp_plain})\n" if tracked_files_count is not None else ""
-            cfg_path = (Path.home() / ".wks" / "config.json").expanduser()
-            cfg_url = f"file://{cfg_path}"
-            intro = (
-                "Reverse chronological log of file operations tracked by WKS.\n\n"
-                f"Config: [~/.wks/config.json]({cfg_url})\n"
-                f"Monitors include_paths (or ~ by default) minus exclude_paths and ignores.\n"
-                f"Shows up to {self.log_max_entries} recent entries; older rows are trimmed.\n"
-                f"Checksum is first 12 chars of SHA-256. Moves show destination checksum.\n\n"
-            )
-            file_path.write_text(
-                f"# File Operations Log\n\n"
-                + intro
-                + tracked_line
-                + "| Date/Time | Operation | Source | Destination | Checksum |\n"
-                + "|-----------|-----------|--------|-------------|----------|\n"
-                + f"{entry}"
-            )
-        else:
-            # Read existing content
-            content = file_path.read_text()
-
-            # Optionally update tracking line near the top before the table
-            if tracked_files_count is not None:
-                lines = content.split('\n')
-                updated = False
-                table_header_idx = None
-                for i, line in enumerate(lines[:100]):
-                    if line.strip().startswith('| Date/Time | Operation'):
-                        table_header_idx = i
-                        break
-                # Search for existing Tracking line before table
-                search_upto = table_header_idx if table_header_idx is not None else min(len(lines), 100)
-                for i in range(search_upto):
-                    if lines[i].strip().startswith('Tracking:'):
-                        lines[i] = f"Tracking: {tracked_files_count} files (as of {timestamp_plain})"
-                        updated = True
-                        break
-                if not updated:
-                    insert_idx = 3 if len(lines) >= 3 else len(lines)
-                    lines.insert(insert_idx, f"Tracking: {tracked_files_count} files (as of {timestamp_plain})")
-                content = '\n'.join(lines)
-
-            # Ensure config link and a short explanation exist near the top
-            if "Config: [~/.wks/config.json]" not in content:
-                cfg_path = (Path.home() / ".wks" / "config.json").expanduser()
-                cfg_url = f"file://{cfg_path}"
-                info = (
-                    f"Config: [~/.wks/config.json]({cfg_url})\n"
-                    f"Monitors include_paths (or ~ by default) minus exclude_paths and ignores.\n"
-                    f"Shows up to {self.log_max_entries} recent entries; older rows are trimmed.\n"
-                    f"Checksum is first 12 chars of SHA-256. Moves show destination checksum.\n\n"
-                )
-                if content.startswith('# '):
-                    first_nl = content.find('\n')
-                    if first_nl != -1:
-                        content = content[:first_nl+1] + info + content[first_nl+1:]
-                    else:
-                        content = content + '\n' + info
-                else:
-                    content = info + content
-
-            # Find the table header
-            if "| Date/Time | Operation |" in content:
-                parts = content.split("|-", 1)
-                if len(parts) == 2:
-                    header_part = parts[0] + "|-" + parts[1].split("\n", 1)[0] + "\n"
-                    # Insert new entry right after header
-                    new_content = header_part + entry + parts[1].split("\n", 1)[1] if len(parts[1].split("\n", 1)) > 1 else header_part + entry
-                else:
-                    new_content = content + "\n" + entry
-            else:
-                # Fallback if table not found
-                new_content = content + "\n" + entry
-
-            file_path.write_text(new_content)
-            # Enforce max entries
-            self._cap_log_entries(file_path)
+        # Build record
+        ts_raw = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        rec = {
+            "timestamp": ts_raw,
+            "operation": operation,
+            "source": str(path) if path else None,
+            "destination": str(destination) if destination else None,
+            "details": details or None,
+        }
+        # Compute a representative checksum (source or destination)
+        try:
+            src_cs = self._get_file_checksum(path)
+        except Exception:
+            src_cs = None
+        try:
+            dst_cs = self._get_file_checksum(destination) if destination else None
+        except Exception:
+            dst_cs = None
+        rec["checksum"] = dst_cs or src_cs or None
+        # Append to ledger and rebuild file
+        self._append_ops_ledger(rec)
+        self._rebuild_file_operations(tracked_files_count=tracked_files_count)
 
     def get_recent_operations(self, limit: int = 50) -> str:
         """
@@ -602,56 +612,302 @@ class ObsidianVault:
 
         return '\n'.join(entries[:limit])
 
-    def update_active_files(self, active_files: list[tuple[str, float, float]]):
+    def update_active_files(self, active_files: list[tuple[str, float, float]], tracker=None):
+        """Single-line ActiveFiles entries with fixed-width header and path last.
+
+        Format: `ANGLE° · DELTA°/min · YYYY-MM-DD HH:MM:SS ·` [~/path](file:///...)
         """
-        Update the ActiveFiles.md view with recently changed files and angles.
+        # Compact table header with rate scales; numeric columns right-aligned
+        lines = [
+            "| ° | °/hr | °/day | °/wk | Modified | Name |",
+            "|--:|--:|--:|--:|:--|:--|",
+        ]
+        from datetime import datetime
+        home = Path.home().resolve()
 
-        Args:
-            active_files: List of (path, angle, delta_angle) tuples
-        """
-        content = """# Active Files
+        # Load ignore rules to filter out excluded/ignored paths
+        try:
+            from .cli import load_config as _load
+            cfg = _load(); mon = cfg.get('monitor') or {}
+            exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
+            ignore_dirnames = set(mon.get('ignore_dirnames') or [])
+            ignore_globs = list(mon.get('ignore_globs') or [])
+        except Exception:
+            exclude_paths = []
+            ignore_dirnames = set()
+            ignore_globs = []
 
-Files with recent activity, sorted by attention angle.
-
-**Angle**: Measure of recent activity (higher = more active)
-**Δ**: Change in angle (positive = increasing activity)
-
-| File | Location | Angle | Δ | Modified |
-|------|----------|-------|---|----------|
-"""
-
-        for path_str, angle, delta in (active_files[: self.active_files_max_rows] if isinstance(active_files, list) else active_files):
-            path = Path(path_str)
-
-            # Just show filename
-            filename = path.name
-
-            # Show parent directory compactly
+        def _is_within(child: Path, base: Path) -> bool:
             try:
-                rel_path = path.relative_to(Path.home())
-                parent = str(rel_path.parent)
-                if parent == '.':
-                    location = '~'
-                else:
-                    location = f"~/{parent}"
-            except ValueError:
-                location = str(path.parent)
+                child.resolve().relative_to(base.resolve())
+                return True
+            except Exception:
+                return False
 
-            # Format last modified
-            if path.exists():
-                mod_time = datetime.fromtimestamp(path.stat().st_mtime)
-                time_str = mod_time.strftime('%m/%d %H:%M')
+        def _skip_path(p: Path) -> bool:
+            # Explicit skip for ~/Pictures hierarchy
+            try:
+                if p.resolve().is_relative_to(Path.home().resolve()/"Pictures"):
+                    return True
+            except Exception:
+                try:
+                    (p.resolve()).relative_to(Path.home().resolve()/"Pictures")
+                    return True
+                except Exception:
+                    pass
+            if any(_is_within(p, ex) for ex in exclude_paths):
+                return True
+            for part in p.parts:
+                if part.startswith('.') and part != '.wks':
+                    return True
+                if part in ignore_dirnames:
+                    return True
+            try:
+                import fnmatch as _fn
+                pstr = p.as_posix()
+                for g in ignore_globs:
+                    if _fn.fnmatchcase(pstr, g) or _fn.fnmatchcase(p.name, g):
+                        return True
+            except Exception:
+                pass
+            return False
+
+        def _disp(p: Path) -> str:
+            try:
+                rel = p.resolve().relative_to(home)
+                return f"~/{rel.as_posix()}"
+            except Exception:
+                return p.resolve().as_posix()
+
+        # Prepare Mongo changes querying for windowed averages
+        use_changes = True
+        changes_coll = None
+        try:
+            from .cli import load_config as _load
+            cfg2 = _load(); sim2 = cfg2.get('similarity') or {}
+            if sim2.get('enabled'):
+                from pymongo import MongoClient as _MC
+                client = _MC(sim2.get('mongo_uri','mongodb://localhost:27027/'))
+                db = client[sim2.get('database','wks_similarity')]
+                changes_coll = db['embedding_changes']
             else:
-                time_str = "—"
+                use_changes = False
+        except Exception:
+            use_changes = False
 
-            # Format delta compactly
-            delta_str = f"{delta:+.1f}"
+        import time as _time
+        now_epoch = int(_time.time())
+        def window_deg_per_sec(fp: str, seconds_window: int) -> float:
+            if not changes_coll:
+                return 0.0
+            try:
+                start = now_epoch - seconds_window
+                total_deg = 0.0
+                total_dt = 0.0
+                for ev in changes_coll.find({"file_path": fp, "t_new_epoch": {"$gte": start}}):
+                    d = float(ev.get('degrees') or 0.0)
+                    dt = float(ev.get('seconds') or 0.0)
+                    if dt > 0:
+                        total_deg += d
+                        total_dt += dt
+                return (total_deg / total_dt) if total_dt > 0 else 0.0
+            except Exception:
+                return 0.0
 
-            content += f"| `{filename}` | {location} | {angle:.1f} | {delta_str} | {time_str} |\n"
+        # Collect rows so we can sort by absolute hourly angle when embedding changes available
+        rows_sorted: list[tuple[float, str]] = []
 
-        content += f"\n*Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n"
+        for path_str, angle, _delta in (active_files[: self.active_files_max_rows] if isinstance(active_files, list) else active_files):
+            p = Path(path_str)
+            if _skip_path(p):
+                continue
+            # Last modified
+            if tracker is not None:
+                try:
+                    last_mod = tracker.get_last_modified(p)
+                except Exception:
+                    last_mod = None
+            else:
+                last_mod = None
+            if not last_mod:
+                try:
+                    # Simple readable timestamp (match FileOperations)
+                    last_mod = datetime.fromtimestamp(p.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    last_mod = "Unknown"
+            else:
+                # Normalize tracker ISO timestamps to simple format
+                try:
+                    from datetime import datetime as _dt
+                    last_mod = _dt.fromisoformat(str(last_mod)).strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    s = str(last_mod).replace('T', ' ')
+                    if '.' in s:
+                        s = s.split('.', 1)[0]
+                    last_mod = s
+            # Windowed weighted averages from embedding_changes
+            if use_changes and changes_coll is not None:
+                # Strict windowed averages per your definition
+                dps_1h = window_deg_per_sec(path_str, 3600)
+                dps_1d = window_deg_per_sec(path_str, 86400)
+                dps_1w = window_deg_per_sec(path_str, 604800)
+                dph = dps_1h * 3600.0
+                dpd = dps_1d * 86400.0
+                dpw = dps_1w * 604800.0
+                # recent angle from last event
+                try:
+                    ev = changes_coll.find({"file_path": path_str}).sort("t_new_epoch", -1).limit(1)
+                    last_deg = None
+                    for e in ev:
+                        last_deg = float(e.get('degrees') or 0.0)
+                    if last_deg is not None:
+                        angle = last_deg
+                except Exception:
+                    pass
+            else:
+                # fallback: no changes available
+                dph = 0.0; dpd = 0.0; dpw = 0.0
+            angle_str = f"{angle:0.2f}"
+            dph_str = f"{dph:+0.2f}"
+            dpd_str = f"{dpd:+0.2f}"
+            dpw_str = f"{dpw:+0.2f}"
+            name_cell = f"📄 [{_disp(p)}]({p.resolve().as_uri()})"
+            line = f"| `{angle_str}` | `{dph_str}` | `{dpd_str}` | `{dpw_str}` | `{last_mod}` | {name_cell} |"
+            # Sort by absolute hourly angle when similarity changes are available; else keep order
+            key = abs(float(dph)) if (use_changes and changes_coll is not None) else 0.0
+            rows_sorted.append((key, line))
+        # If we collected sortable rows, sort descending by absolute hourly angle
+        if rows_sorted:
+            rows_sorted.sort(key=lambda t: t[0], reverse=True)
+            for _, ln in rows_sorted:
+                lines.append(ln)
+        lines.append("")
+        lines.append(f"Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        import time as _time
+        if _time.time() - self._last_active_write_ts < self._write_throttle_secs:
+            return
+        self._atomic_write(self.activity_log_path, "\n".join(lines) + "\n")
+        self._last_active_write_ts = _time.time()
 
-        self.activity_log_path.write_text(content)
+    def _atomic_write(self, path: Path, content: str):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            with open(tmp, 'w', encoding='utf-8') as f:
+                f.write(content)
+            tmp.replace(path)
+        except Exception:
+            try:
+                path.write_text(content, encoding='utf-8')
+            except Exception:
+                pass
+
+    def write_health_page(self, *, state_file: Optional[Path] = None):
+        """Write Health.md landing page with key metrics and an embedded Spec.
+
+        - Uses ~/.wks/health.json if present
+        - Counts tracked files from monitor_state.json if present
+        - Shows ledger size and recent ops count
+        - Tries to include similarity stats if available
+        """
+        import time as _time
+        if _time.time() - self._last_health_write_ts < self._write_throttle_secs:
+            return
+        base = self._base_path()
+        hp = base / 'Health.md'
+        # Metrics
+        from datetime import datetime as _dt
+        import json as _json
+        health_path = Path.home()/'.wks'/'health.json'
+        health = {}
+        try:
+            if health_path.exists():
+                health = _json.load(open(health_path, 'r'))
+        except Exception:
+            health = {}
+        # Tracked files
+        tracked = None
+        try:
+            sf = state_file or (Path.home()/'.wks'/'monitor_state.json')
+            if sf.exists():
+                ms = _json.load(open(sf, 'r'))
+                tracked = len((ms.get('files') or {}))
+        except Exception:
+            tracked = None
+        # Ledger lines
+        ledger_lines = 0
+        try:
+            ledger_lines = len(self.ops_ledger_path.read_text(encoding='utf-8', errors='ignore').splitlines())
+        except Exception:
+            pass
+        # Similarity stats
+        sim_stats = None
+        try:
+            from .similarity import SimilarityDB as _S
+            # Use default config locations via a local loader
+            from .cli import load_config as _load
+            cfg = _load(); sim = cfg.get('similarity') or {}
+            if sim.get('enabled'):
+                db = _S(database_name=sim.get('database','wks_similarity'), collection_name=sim.get('collection','file_embeddings'), mongo_uri=sim.get('mongo_uri','mongodb://localhost:27027/'), model_name=sim.get('model','all-MiniLM-L6-v2'))
+                sim_stats = db.get_stats()
+        except Exception:
+            sim_stats = None
+        # Build compact metrics-only table
+        def _age_str(secs):
+            try:
+                secs = int(secs)
+                if secs < 60:
+                    return f"{secs}s"
+                mins = secs // 60
+                if mins < 60:
+                    return f"{mins}m"
+                hrs = mins // 60
+                return f"{hrs}h"
+            except Exception:
+                return "—"
+
+        heartbeat_iso = health.get('heartbeat_iso', '')
+        uptime_hms = health.get('uptime_hms', '—')
+        bpm = health.get('avg_beats_per_min', '—')
+        try:
+            bpm_str = f"{float(bpm):.1f}"
+        except Exception:
+            bpm_str = str(bpm)
+        pdel = health.get('pending_deletes', 0)
+        pmod = health.get('pending_mods', 0)
+        lerr = health.get('last_error')
+        lerr_age = _age_str(health.get('last_error_age_secs') or 0)
+
+        ops_path = (base/'FileOperations.md').as_posix()
+        act_path = (base/'ActiveFiles.md').as_posix()
+
+        pid = health.get('pid', '—')
+        ok_flag = 'true' if not lerr else 'false'
+        last_err_age = health.get('last_error_age_secs')
+        lock_present = health.get('lock_present')
+        lock_pid = health.get('lock_pid')
+        lines = [
+            '| Metric | Value | Info |',
+            '|:--|:--|:--|',
+            f"| 🟢 Last Update | `{heartbeat_iso}` | Health tick time |",
+            f"| 🕒 Uptime | `{uptime_hms}` | Since last restart |",
+            f"| 🫀 BPM | `{bpm_str}` | Average beats/min (ticks + ops) |",
+            f"| 🧩 PID | `{pid}` | Daemon process ID |",
+            f"| 🧰 Pending deletes | `{pdel}` | Pending coalesced ops |",
+            f"| 🧰 Pending mods | `{pmod}` | Pending coalesced ops |",
+            f"| ✅ OK | `{ok_flag}` | Most recent error or OK |",
+            f"| 📁 Tracked files | `{tracked if tracked is not None else '—'}` | [Active](WKS/ActiveFiles) |",
+            f"| 🧾 Ledger entries | `{ledger_lines}` | [Ops](WKS/FileOperations) |",
+            f"| 🔒 Lock present | `{str(bool(lock_present)).lower()}` | Lock file currently exists |",
+            f"| 🧷 Lock pid | `{lock_pid if lock_pid is not None else '—'}` | PID recorded in lock file |",
+        ]
+        if sim_stats:
+            total = sim_stats.get('total_files', 0)
+            lines += [f"| 🗃️ Similarity files | `{total}` | Indexed files |"]
+        # Divider and spec embed below, outside metrics
+        lines += ['','---','![[SPEC]]']
+        self._atomic_write(hp, "\n".join(lines) + "\n")
+        self._last_health_write_ts = _time.time()
 
 
 if __name__ == "__main__":

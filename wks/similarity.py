@@ -52,6 +52,8 @@ class SimilarityDB:
         self.db = self.client[database_name]
         self.collection = self.db[collection_name]
         self.chunks = self.db[chunks_collection]
+        # Embedding change events (degrees between consecutive embeddings)
+        self.changes = self.db["embedding_changes"]
 
         # Load sentence transformer model
         # Using a small, fast model suitable for semantic search
@@ -82,6 +84,8 @@ class SimilarityDB:
         self.collection.create_index("timestamp")
         self.chunks.create_index([("file_path", 1), ("chunk_id", 1)], unique=True)
         self.chunks.create_index("timestamp")
+        # Changes: query by file and time
+        self.changes.create_index([("file_path", 1), ("t_new_epoch", 1)])
 
     def _compute_hash(self, text: str) -> str:
         """Compute SHA256 hash of text."""
@@ -309,6 +313,8 @@ class SimilarityDB:
             embedding = agg.tolist()
 
         # Store in database (file-level)
+        from datetime import datetime as _dt
+        now_iso = _dt.now().isoformat()
         self.collection.update_one(
             {"path": path_str},
             {
@@ -319,7 +325,7 @@ class SimilarityDB:
                     "content_hash": content_hash,
                     "embedding": embedding,
                     "text_preview": text[:500],  # Store preview
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": now_iso,
                     "model": self.model_name,
                     "num_chunks": len(chunk_docs),
                     "chunk_chars": self.chunk_chars,
@@ -328,6 +334,42 @@ class SimilarityDB:
             },
             upsert=True
         )
+
+        # Record an embedding change event if we have a previous embedding
+        try:
+            import math as _math
+            import numpy as _np
+            if existing and existing.get("embedding"):
+                prev_emb = _np.array(existing.get("embedding"))
+                new_emb = _np.array(embedding)
+                # Safe cosine -> angle
+                denom = (_np.linalg.norm(prev_emb) * _np.linalg.norm(new_emb))
+                if denom > 0:
+                    cosv = float(_np.dot(prev_emb, new_emb) / denom)
+                    cosv = max(-1.0, min(1.0, cosv))
+                    theta_rad = _math.acos(cosv)
+                    degrees = float(theta_rad * 180.0 / _math.pi)
+                else:
+                    degrees = 0.0
+                # Time delta between prev timestamp and now
+                try:
+                    prev_ts = existing.get("timestamp")
+                    from datetime import datetime as _dt
+                    t_prev = _dt.fromisoformat(prev_ts) if isinstance(prev_ts, str) else _dt.now()
+                except Exception:
+                    t_prev = _dt.now()
+                t_new = _dt.now()
+                seconds = max(1.0, (t_new - t_prev).total_seconds())
+                self.changes.insert_one({
+                    "file_path": path_str,
+                    "t_prev": t_prev.isoformat(),
+                    "t_new": t_new.isoformat(),
+                    "t_new_epoch": int(t_new.timestamp()),
+                    "seconds": float(seconds),
+                    "degrees": degrees,
+                })
+        except Exception:
+            pass
 
         # Upsert chunk-level documents
         # Remove old chunks first (simpler than diff)

@@ -118,18 +118,40 @@ if __name__ == "__main__":
         if extract_cfg is None or 'engine' not in extract_cfg or 'ocr' not in extract_cfg or 'timeout_secs' not in extract_cfg:
             print("Fatal: 'extract.engine', 'extract.ocr', and 'extract.timeout_secs' are required in config")
             raise SystemExit(2)
-        simdb = SimilarityDB(
-            database_name=database,
-            collection_name=collection,
-            mongo_uri=mongo_uri,
-            model_name=model,
-            max_chars=max_chars,
-            chunk_chars=chunk_chars,
-            chunk_overlap=chunk_overlap,
-            extract_engine=extract_cfg['engine'],
-            extract_ocr=bool(extract_cfg['ocr']),
-            extract_timeout_secs=int(extract_cfg['timeout_secs']),
-        )
+        def _build_simdb():
+            return SimilarityDB(
+                database_name=database,
+                collection_name=collection,
+                mongo_uri=mongo_uri,
+                model_name=model,
+                max_chars=max_chars,
+                chunk_chars=chunk_chars,
+                chunk_overlap=chunk_overlap,
+                extract_engine=extract_cfg['engine'],
+                extract_ocr=bool(extract_cfg['ocr']),
+                extract_timeout_secs=int(extract_cfg['timeout_secs']),
+            )
+        try:
+            simdb = _build_simdb()
+        except Exception as e:
+            # Best-effort: if using localhost and mongod exists, try to start it
+            try:
+                if str(mongo_uri).startswith("mongodb://localhost:") and shutil.which("mongod"):
+                    dbroot = Path.home() / ".wks" / "mongodb"
+                    dbpath = dbroot / "db"
+                    logfile = dbroot / "mongod.log"
+                    dbpath.mkdir(parents=True, exist_ok=True)
+                    subprocess.check_call([
+                        "mongod", "--dbpath", str(dbpath), "--logpath", str(logfile),
+                        "--fork", "--bind_ip", "127.0.0.1", "--port", str(mongo_uri.split(":")[-1].split("/")[0])
+                    ])
+                    time.sleep(0.3)
+                    simdb = _build_simdb()
+                else:
+                    raise
+            except Exception as e2:
+                print(f"Fatal: failed to initialize similarity DB: {e2}")
+                raise SystemExit(2)
         daemon.similarity = simdb
         daemon.similarity_extensions = include_exts
         daemon.similarity_min_chars = min_chars

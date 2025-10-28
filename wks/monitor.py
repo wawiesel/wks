@@ -122,7 +122,11 @@ class WKSFileMonitor(FileSystemEventHandler):
         for part in path_obj.parts:
             if part in self.ignore_dirs:
                 return True
-            if part.startswith('.') and part not in self._dot_whitelist:  # Allow dot-whitelist (e.g., .wks)
+            # Ignore dot-directories except whitelisted
+            if part.startswith('.') and part not in self._dot_whitelist:
+                return True
+            # Ignore directories starting with underscore (e.g., _build, _site)
+            if part.startswith('_'):
                 return True
 
         # No separate ignore_patterns check: patterns are folded into glob rules.
@@ -302,7 +306,8 @@ def start_monitoring(
     if not candidates:
         candidates = [Observer]  # type: ignore
 
-    last_error: Exception | None = None
+    # Track last error encountered by the observer thread
+    last_error: Optional[Exception] = None
     for Obs in candidates:
         try:
             observer = Obs()  # type: ignore
