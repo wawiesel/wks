@@ -170,11 +170,39 @@ class ObsidianVault:
             except Exception:
                 return False
 
+        def _is_temp_or_autosave(p: Path) -> bool:
+            try:
+                n = p.name
+                nl = n.lower()
+                if n.endswith('~'):
+                    return True
+                if (n.startswith('#') and n.endswith('#')) or n.startswith('.#'):
+                    return True
+                if n.startswith('~$'):
+                    return True
+                if n.startswith('._'):
+                    return True
+                if nl in {'.ds_store', 'icon\r'}:
+                    return True
+                if any(nl.endswith(ext) for ext in ('.swp', '.swo', '.tmp', '.part', '.crdownload')):
+                    return True
+                if '.tmp' in nl:
+                    return True
+            except Exception:
+                pass
+            return False
+
         def _skip_ops_path(p: Path) -> bool:
             try:
                 pics = home/"Pictures"
                 photos = home/"Photos"
                 if _is_within(p, pics) or _is_within(p, photos):
+                    return True
+            except Exception:
+                pass
+            # Hide temp/autosave artifacts
+            try:
+                if _is_temp_or_autosave(p):
                     return True
             except Exception:
                 pass
@@ -204,16 +232,24 @@ class ObsidianVault:
                 return f"`{raw}{_fig*pad}`"
             time_cell = f"`{ts}{_fig*2}`"
             if op == 'MOVED' and a_path and b_path:
+                if _skip_ops_path(a_path) or _skip_ops_path(b_path):
+                    continue
                 from_cell = f"[{_disp(a_path)}]({a})"
                 to_cell = f"[{_disp(b_path)}]({b})"
                 rows.append(f"| {make_action_cell('MOVE_FROM')} | {time_cell} | `{checksum}` | {from_cell} |")
                 rows.append(f"| {make_action_cell('MOVE_TO')} | {time_cell} | `{checksum}` | {to_cell} |")
             else:
                 if a_path and b_path:
+                    if _skip_ops_path(a_path) and _skip_ops_path(b_path):
+                        continue
                     path_cell = f"[{_disp(a_path)}]({a}) → [{_disp(b_path)}]({b})"
                 elif a_path:
+                    if _skip_ops_path(a_path):
+                        continue
                     path_cell = f"[{_disp(a_path)}]({a})"
                 elif b_path:
+                    if _skip_ops_path(b_path):
+                        continue
                     path_cell = f"[{_disp(b_path)}]({b})"
                 else:
                     path_cell = ""
