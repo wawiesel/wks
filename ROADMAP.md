@@ -2,19 +2,19 @@
 
 A forward-looking view of outcomes and constraints. Use this as a compass; the checklists live in `TASKS.md`.
 
-## Phase 1 — Foundation
+## Phase 1 — Foundation (DONE)
 
 Outcome: A clean baseline with structure, a minimal vault, and a settled spec.
 Exit criteria:
 - Home has year-scoped work roots; vault skeleton exists; spec is versioned.
 
-## Phase 2 — Migration
+## Phase 2 — Migration (DONE)
 
 Outcome: Legacy material is re-homed; staging areas are quiet; embeds reflect truth.
 Exit criteria:
 - Legacy trees are archived or adopted; loose files are routed; embeds resolve.
 
-## Phase 3 — Agent
+## Phase 3 — Agent (IN PROGRESS)
 
 Outcome: A background agent keeps filesystem and vault in sync with minimal noise.
 Exit criteria:
