@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
 
+from .config import mongo_settings, timestamp_format, load_user_config, DEFAULT_TIMESTAMP_FORMAT
+
 
 class ObsidianVault:
     """Interface to an Obsidian vault for WKS."""
@@ -38,6 +40,30 @@ class ObsidianVault:
         self.ops_ledger_path = Path.home() / ".wks" / "file_ops.jsonl"
         self.ops_ledger_max_lines = 20000
         self.ops_ledger_keep_lines = 10000
+        try:
+            cfg = load_user_config()
+            self.timestamp_format = timestamp_format(cfg)
+        except Exception:
+            self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
+
+    def _format_dt(self, dt: datetime) -> str:
+        try:
+            return dt.strftime(self.timestamp_format)
+        except Exception:
+            return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
+
+    def _format_ts_value(self, value) -> str:
+        if not value:
+            return ""
+        try:
+            if isinstance(value, str):
+                s = value.replace('Z', '+00:00') if value.endswith('Z') else value
+                dt = datetime.fromisoformat(s)
+            else:
+                dt = datetime.fromtimestamp(float(value))
+            return self._format_dt(dt)
+        except Exception:
+            return str(value)
         # Throttle for markdown rewrites (seconds)
         self._write_throttle_secs = 2.0
         self._last_ops_write_ts = 0.0
@@ -134,7 +160,7 @@ class ObsidianVault:
             return
         file_path = self._get_file_log_path()
         ops = self._load_recent_ops(self.log_max_entries)
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = self._format_dt(datetime.now())
         cfg_path = (Path.home() / ".wks" / "config.json").expanduser()
         cfg_url = f"file://{cfg_path}"
         # Intro + table header
@@ -223,13 +249,15 @@ class ObsidianVault:
         simdb = None
         try:
             from .similarity import SimilarityDB as _S
-            from .cli import load_config as _load
-            cfg = _load(); sim = cfg.get('similarity') or {}; ext = cfg.get('extract') or {}
+            cfg = load_user_config()
+            sim = cfg.get('similarity') or {}
+            ext = cfg.get('extract') or {}
+            mongo_cfg = mongo_settings(cfg)
             if sim.get('enabled'):
                 simdb = _S(
-                    database_name=sim.get('database','wks_similarity'),
-                    collection_name=sim.get('collection','file_embeddings'),
-                    mongo_uri=sim.get('mongo_uri','mongodb://localhost:27027/'),
+                    database_name=mongo_cfg['space_database'],
+                    collection_name=mongo_cfg['space_collection'],
+                    mongo_uri=mongo_cfg['uri'],
                     model_name=sim.get('model','all-MiniLM-L6-v2'),
                     model_path=sim.get('model_path'),
                     offline=bool(sim.get('offline', False)),
@@ -265,15 +293,14 @@ class ObsidianVault:
                 raw = f"{icon} {label}"
                 pad = max(0, 14 - len(raw))
                 return f"`{raw}{_fig*pad}`"
-            time_cell = f"`{ts}{_fig*2}`"
+            time_cell = f"`{self._format_ts_value(ts)}{_fig*2}`"
             def _cells_for(p: Path) -> tuple[str,str,str]:
                 # size, modified, angle0
                 s_cell = "-"; m_cell = "-"; a0_cell = "-"
                 try:
                     st = p.stat()
                     s_cell = _hsize(getattr(st,'st_size',0))
-                    from datetime import datetime as _dt
-                    m_cell = _dt.fromtimestamp(st.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                    m_cell = self._format_dt(datetime.fromtimestamp(st.st_mtime))
                 except Exception:
                     pass
                 if simdb is not None:
@@ -535,7 +562,7 @@ class ObsidianVault:
         header = (
             f"# {source_path.name}\n\n"
             f"`{source_path}`\n\n"
-            f"*Checksum:* `{content_hash}`  *Updated:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            f"*Checksum:* `{content_hash}`  *Updated:* {self._format_dt(datetime.now())}\n\n"
             "---\n\n"
         )
         try:
@@ -667,7 +694,7 @@ class ObsidianVault:
         in-place table editing.
         """
         # Build record
-        ts_raw = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ts_raw = self._format_dt(datetime.now())
         rec = {
             "timestamp": ts_raw,
             "operation": operation,
@@ -782,11 +809,13 @@ class ObsidianVault:
         changes_coll = None
         try:
             from .cli import load_config as _load
-            cfg2 = _load(); sim2 = cfg2.get('similarity') or {}
+            cfg2 = _load()
+            sim2 = cfg2.get('similarity') or {}
             if sim2.get('enabled'):
                 from pymongo import MongoClient as _MC
-                client = _MC(sim2.get('mongo_uri','mongodb://localhost:27027/'))
-                db = client[sim2.get('database','wks_similarity')]
+                mongo_cfg = mongo_settings(cfg2)
+                client = _MC(mongo_cfg['uri'])
+                db = client[mongo_cfg['space_database']]
                 changes_coll = db['embedding_changes']
             else:
                 use_changes = False
@@ -822,27 +851,18 @@ class ObsidianVault:
             # Last modified
             if tracker is not None:
                 try:
-                    last_mod = tracker.get_last_modified(p)
+                    last_mod_raw = tracker.get_last_modified(p)
                 except Exception:
-                    last_mod = None
+                    last_mod_raw = None
             else:
-                last_mod = None
-            if not last_mod:
+                last_mod_raw = None
+            if not last_mod_raw:
                 try:
-                    # Simple readable timestamp (match FileOperations)
-                    last_mod = datetime.fromtimestamp(p.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                    last_mod = self._format_dt(datetime.fromtimestamp(p.stat().st_mtime))
                 except Exception:
                     last_mod = "Unknown"
             else:
-                # Normalize tracker ISO timestamps to simple format
-                try:
-                    from datetime import datetime as _dt
-                    last_mod = _dt.fromisoformat(str(last_mod)).strftime('%Y-%m-%d %H:%M:%S')
-                except Exception:
-                    s = str(last_mod).replace('T', ' ')
-                    if '.' in s:
-                        s = s.split('.', 1)[0]
-                    last_mod = s
+                last_mod = self._format_ts_value(last_mod_raw)
             # Windowed weighted averages from embedding_changes
             if use_changes and changes_coll is not None:
                 # Strict windowed averages per your definition
@@ -880,7 +900,7 @@ class ObsidianVault:
             for _, ln in rows_sorted:
                 lines.append(ln)
         lines.append("")
-        lines.append(f"Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        lines.append(f"Updated: {self._format_dt(datetime.now())}")
         import time as _time
         if _time.time() - self._last_active_write_ts < self._write_throttle_secs:
             return
@@ -946,7 +966,13 @@ class ObsidianVault:
             from .cli import load_config as _load
             cfg = _load(); sim = cfg.get('similarity') or {}
             if sim.get('enabled'):
-                db = _S(database_name=sim.get('database','wks_similarity'), collection_name=sim.get('collection','file_embeddings'), mongo_uri=sim.get('mongo_uri','mongodb://localhost:27027/'), model_name=sim.get('model','all-MiniLM-L6-v2'))
+                mongo_cfg = mongo_settings(cfg)
+                db = _S(
+                    database_name=mongo_cfg['space_database'],
+                    collection_name=mongo_cfg['space_collection'],
+                    mongo_uri=mongo_cfg['uri'],
+                    model_name=sim.get('model','all-MiniLM-L6-v2'),
+                )
                 sim_stats = db.get_stats()
         except Exception:
             sim_stats = None

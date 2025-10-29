@@ -17,6 +17,7 @@ from .monitor import start_monitoring
 from .obsidian import ObsidianVault
 from .activity import ActivityTracker
 try:
+    from .config import apply_similarity_mongo_defaults, mongo_settings
     from .similarity import SimilarityDB
 except Exception:
     SimilarityDB = None  # Optional dependency
@@ -748,14 +749,16 @@ if __name__ == "__main__":
     daemon.activity = ActivityTracker(activity_state_file)
 
     # Similarity (explicit)
-    sim_cfg = config.get("similarity")
-    if sim_cfg is None or "enabled" not in sim_cfg:
+    mongo_cfg = mongo_settings(config)
+    sim_cfg_raw = config.get("similarity")
+    if sim_cfg_raw is None or "enabled" not in sim_cfg_raw:
         print("Fatal: 'similarity.enabled' is required (true/false) in ~/.wks/config.json")
         raise SystemExit(2)
-    if sim_cfg.get("enabled"):
+    if sim_cfg_raw.get("enabled"):
         if SimilarityDB is None:
             print("Fatal: similarity enabled but SimilarityDB not available")
             raise SystemExit(2)
+        sim_cfg = apply_similarity_mongo_defaults(sim_cfg_raw, mongo_cfg)
         required = ["mongo_uri", "database", "collection", "model", "include_extensions", "min_chars", "max_chars", "chunk_chars", "chunk_overlap"]
         missing = [k for k in required if k not in sim_cfg]
         if missing:
