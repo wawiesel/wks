@@ -40,11 +40,18 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
   "activity": {
     "state_file": "~/.wks/activity_state.json"
   },
+  "display": {
+    "timestamp_format": "%Y-%m-%d %H:%M:%S"
+  },
+  "mongo": {
+    "uri": "mongodb://localhost:27027/",
+    "space_database": "wks_similarity",
+    "space_collection": "file_embeddings",
+    "time_database": "wks_similarity",
+    "time_collection": "file_snapshots"
+  },
   "similarity": {
     "enabled": false,
-    "mongo_uri": "mongodb://localhost:27027/",
-    "database": "wks_similarity",
-    "collection": "file_embeddings",
     "model": "all-MiniLM-L6-v2",
     "include_extensions": [".md", ".txt", ".pdf", ".docx", ".pptx"],
     "min_chars": 200,
@@ -97,6 +104,7 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 - Start/stop/status: `wks service start|stop|status|restart`
 - Logs: `~/.wks/daemon.log`; lock: `~/.wks/daemon.lock`
 - macOS: optional launchd agent `~/Library/LaunchAgents/com.wieselquist.wks.plist`
+- `wkso service install|start` auto-start local MongoDB on `localhost:27027` when it's not already running, and `wkso service stop|reset|uninstall` shuts it down if we launched it.
 
 ## Daily/Weekly Rituals
 - Daily: ensure daemon running; glance `ActiveFiles.md`; route strays; index new content if similarity on.
@@ -137,11 +145,11 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 - Global flags precede subcommands (argparse): place `--display rich|basic` before `config|service|index|db`.
 
 ## Required Smoke Tests (Space DB)
-- Index new file: `wkso --display rich index ~/test/file.txt` → `wkso --display rich db stats -n 5` shows it.
+- Index new file: `wkso --display rich index ~/test/file.txt` → `wkso --display rich db info -n 5` shows it.
 - Re‑index unchanged file: reports skipped; totals stable.
 - File move (daemon running): move file → totals unchanged; single logical entry remains (path updated in place).
 - Directory move (daemon running): move folder with files → totals unchanged; descendants updated in place.
-- Query/stats ergonomics: `wkso --display rich db query --space --filter '{}' --limit 5` and `wkso --display rich db stats -n 5` succeed.
+- Query/stats ergonomics: `wkso --display rich db query --space --filter '{}' --limit 5` and `wkso --display rich db info -n 5` succeed.
 
 ## Foreground Daemon for Local Testing (No Install)
 - Start in one terminal:
@@ -158,6 +166,29 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 - MINOR: backward‑compatible features (new commands/options, new DB views).
 - PATCH: backward‑compatible bug fixes and internal improvements.
 - Every change increments version in `setup.py` and updates `CHANGELOG.md` with Added/Changed/Removed sections.
+
+### User Test Hand‑Off Rule
+- Every time we ask the user to test, we must cut a new version (SemVer bump and CHANGELOG entry). This guarantees the user is testing our latest changes.
+- Internal testing iterations (before asking the user to test) do not require a version bump.
+
+### Patch (x.y.Z) Bug‑Fix Policy
+- No behavior changes. Fixes must be strictly internal or correctness fixes that do not alter the public interface, CLI output format, DB schemas, or config semantics.
+- No new flags/options; no renames; no side‑effects beyond the fix.
+- Add/adjust tests that reproduce the bug and verify the exact behavior remains consistent.
+- Performance improvements are allowed only if results and ordering semantics are unchanged.
+
+### Release Approvals
+- Do not bump to v1.0.0 without explicit user approval. All MAJOR (x.0.0) releases require approval.
+
+## Spec Discipline
+- SPEC as source of truth: Any feature or behavior we build MUST be reflected in `SPEC.md`.
+- If the user asks for something not in `SPEC.md`, request to add/update `SPEC.md` first (or as part of the same change) before or alongside implementation.
+- Everything described in `SPEC.md` MUST be covered by tests (unit/integration/CLI), with clear pass/fail criteria.
+- When `SPEC.md` changes, update tests accordingly and ensure they pass before version bump and hand‑off.
+
+## Forward‑Only Policy (Alpha)
+- No aliases or legacy paths once renamed; remove deprecated code. Move forward.
+- Keep the CLI minimal: `wkso config`, `wkso service`, `wkso index`, `wkso db`.
 
 ## Obsidian Conventions (imported)
 - Pages link knowledge and provide personal context; avoid documenting directory scaffolding or implementation details in the vault.

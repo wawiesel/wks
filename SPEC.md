@@ -8,6 +8,7 @@ This spec documents the wkso CLI: a minimal, focused interface to configure, run
   - `wkso config` — inspect effective configuration
   - `wkso service` — install/start/stop the background daemon (macOS launchd support)
   - `wkso index` — add files/directories to the similarity database with progress and Docs output
+  - `wkso db` — query or reset Mongo collections that back the similarity/time databases
 
 ## Installation
 - Recommended: pipx
@@ -21,10 +22,16 @@ This spec documents the wkso CLI: a minimal, focused interface to configure, run
   - Top-level: `"vault_path": "~/obsidian"`
   - `obsidian`: `{ "base_dir": "WKS", "log_max_entries": 500, "active_files_max_rows": 50, "source_max_chars": 40, "destination_max_chars": 40, "docs_keep": 99 }`
   - `monitor`: `{ "include_paths": ["~"], "exclude_paths": ["~/Library","~/obsidian","~/.wks"], "ignore_dirnames": [".git","_build"], "ignore_globs": ["*.tmp","*~","._*"], "state_file": "~/.wks/monitor_state.json" }`
-  - `similarity`: `{ "enabled": true, "mongo_uri": "mongodb://localhost:27027/", "database": "wks_similarity", "collection": "file_embeddings", "model": "all-MiniLM-L6-v2", "include_extensions": [".md",".txt",".py",".ipynb",".tex",".docx",".pptx",".pdf",".html",".csv",".xlsx"], "min_chars": 10, "max_chars": 200000, "chunk_chars": 1500, "chunk_overlap": 200, "offline": true }`
+  - `display`: `{ "timestamp_format": "%Y-%m-%d %H:%M:%S" }`
+  - `mongo`: `{ "uri": "mongodb://localhost:27027/", "space_database": "wks_similarity", "space_collection": "file_embeddings", "time_database": "wks_similarity", "time_collection": "file_snapshots" }`
+  - `similarity`: `{ "enabled": true, "model": "all-MiniLM-L6-v2", "include_extensions": [".md",".txt",".py",".ipynb",".tex",".docx",".pptx",".pdf",".html",".csv",".xlsx"], "min_chars": 10, "max_chars": 200000, "chunk_chars": 1500, "chunk_overlap": 200, "offline": true }`
   - `extract`: `{ "engine": "docling", "ocr": false, "timeout_secs": 30 }` (Docling is required)
 
 ## Commands
+
+Global options:
+- `--version` — print the installed CLI version (with current git SHA when available) and exit immediately.
+- `--display {auto,rich,basic}` — select the output style for subcommands (default `rich`).
 
 ### wkso config
 - `wkso config print` — print the effective JSON config to stdout.
@@ -33,10 +40,11 @@ This spec documents the wkso CLI: a minimal, focused interface to configure, run
 - Purpose: Manage the long‑running daemon that monitors files, writes FileOperations/ActiveFiles/Health in `~/obsidian/<base_dir>`, and updates embeddings.
 - macOS launchd:
   - `wkso service install` — write `~/Library/LaunchAgents/com.wieselquist.wkso.plist`, bootstrap, and start.
+  - `wkso service install` ensures the configured MongoDB endpoint is reachable; when using the default `localhost:27027`, it auto-starts a local `mongod` if needed.
   - `wkso service uninstall` — unload and remove the plist (cleans up legacy labels).
 - Start/stop/status (works with or without launchd):
-  - `wkso service start` — start via launchd if installed, else start a background process.
-  - `wkso service stop` — stop the running daemon.
+  - `wkso service start` — verify Mongo is running (auto-start local `mongod` when configured), then start via launchd if installed, else start a background process.
+  - `wkso service stop` — stop the running daemon and shut down the managed `mongod` if we launched it.
   - `wkso service status` — print daemon status.
   - `wkso service restart` — restart daemon (via launchd if present).
 
@@ -72,6 +80,21 @@ Notes
   - Filters files by `similarity.include_extensions`.
   - For each file: extracts text (Docling or configured engine), computes embeddings, records change angle, and writes `~/obsidian/<base_dir>/Docs/<checksum>.md` when updated.
   - Shows a progress bar with ETA and current filename; prints a final summary.
+
+### wkso db
+- Purpose: Provide lightweight access to the Mongo databases that power similarity (space) and change snapshots (time) without requiring Docling/model startup.
+- Subcommands:
+  - `wkso db query --space|--time [--filter JSON] [--projection JSON] [--sort field:asc|desc] [--limit N]` — run raw Mongo queries against the selected logical store.
+    - `--space` targets the embeddings collection (`similarity.collection`, default `file_embeddings`).
+    - `--time` targets the snapshots collection (`similarity.snapshots_collection`, default `file_snapshots`).
+    - Works with minimal config: `mongo.uri`, `mongo.space_database`, and `mongo.space_collection`; all default to the canonical values if missing.
+  - `wkso db info [--space|--time] [-n N]` — print counts and list the most recent files/snapshots using short Mongo timeouts for responsiveness.
+    - Defaults to the space database when neither `--space` nor `--time` is supplied.
+    - `-n/--latest` shows the latest N entries (default 10).
+    - When using the default local URI, the command auto-starts `mongod` if it is not already running.
+    - Space view columns: timestamp, path, checksum, chunk count, and on-disk size. Time/snapshot view columns: t_new, path, checksum, size, and byte delta.
+  - `wkso db reset` — drop the configured database and remove the local `~/.wks/mongodb` data directory; best-effort stop of local `mongod` on port 27027.
+- Error handling: all db commands report connection failures succinctly (`DB connection failed`/`DB unreachable`) and exit non‑zero when Mongo cannot be reached.
 
 ## Output Surfaces (daemon)
 - `WKS/FileOperations.md` — reverse chronological operations log (auditable ledger; temp/autosaves hidden in view).

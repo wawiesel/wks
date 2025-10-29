@@ -21,23 +21,45 @@ import os
 import fnmatch
 import time
 import shutil
+import pymongo
+try:
+    import importlib.metadata as importlib_metadata
+except ImportError:  # pragma: no cover
+    import importlib_metadata  # type: ignore
+
+from .config import (
+    apply_similarity_mongo_defaults,
+    mongo_settings,
+    timestamp_format,
+    DEFAULT_TIMESTAMP_FORMAT,
+    load_user_config,
+)
 
 
 LOCK_FILE = Path.home() / ".wks" / "daemon.lock"
+MONGO_ROOT = Path.home() / ".wks" / "mongodb"
+MONGO_PID_FILE = MONGO_ROOT / "mongod.pid"
+MONGO_MANAGED_FLAG = MONGO_ROOT / "managed"
 
 
 def load_config() -> Dict[str, Any]:
-    path = Path.home() / ".wks" / "config.json"
-    if path.exists():
-        try:
-            return json.load(open(path, "r"))
-        except Exception as e:
-            print(f"Warning: failed to parse {path}: {e}")
-    return {}
+    return load_user_config()
 
 
 def print_config(args):
     cfg = load_config()
+    mongo_cfg = mongo_settings(cfg)
+    cfg = dict(cfg)
+    cfg["mongo"] = mongo_cfg
+    display_cfg = dict(cfg.get("display") or {})
+    display_cfg.setdefault("timestamp_format", DEFAULT_TIMESTAMP_FORMAT)
+    cfg["display"] = display_cfg
+    sim = dict(cfg.get("similarity") or {})
+    for legacy_key in ("mongo_uri", "database", "collection", "snapshots_collection"):
+        if legacy_key in sim:
+            sim.pop(legacy_key, None)
+    if sim:
+        cfg["similarity"] = sim
     print(json.dumps(cfg, indent=2))
 
 
@@ -229,24 +251,55 @@ def daemon_status(args: argparse.Namespace) -> int:
                         tl.add_row(key, val)
                 panels.append(Panel(tl, title="Launch Agent", border_style="blue"))
 
-            # DB stats panel (best-effort)
+            # DB stats panel (best-effort, fast timeouts)
             try:
-                # Fast, non-blocking DB ping (avoid auto-start or long delays)
                 from pymongo import MongoClient as _MC
-                cfg = load_config(); sim = cfg.get('similarity') or {}
-                uri = sim.get('mongo_uri','mongodb://localhost:27027/')
-                name = sim.get('database','wks_similarity')
-                coll = sim.get('collection','file_embeddings')
-                client = _MC(uri, serverSelectionTimeoutMS=500, connectTimeoutMS=500)
+                from datetime import datetime as _dt
+                cfg = load_config()
+                mongo_cfg = mongo_settings(cfg)
+                client = _MC(mongo_cfg['uri'], serverSelectionTimeoutMS=300, connectTimeoutMS=300)
                 client.admin.command('ping')
-                total = client[name][coll].count_documents({})
-                s = {"database": name, "collection": coll, "total_files": total}
+                coll = client[mongo_cfg['space_database']][mongo_cfg['space_collection']]
+                total = coll.count_documents({})
+                # last updated (most recent timestamp)
+                last_doc = coll.find({}, {"timestamp":1}).sort("timestamp", -1).limit(1)
+                last_ts = ""
+                for d in last_doc:
+                    last_ts = str(d.get('timestamp',''))
+                # total size best-effort: sum sizes with a short time budget
+                import time as _time, os as _os
+                start = _time.time(); size_sum = 0; scanned = 0
+                for d in coll.find({}, {"path":1}).limit(10000):
+                    p = d.get('path');
+                    if p and _os.path.exists(p):
+                        try:
+                            size_sum += _os.path.getsize(p)
+                        except Exception:
+                            pass
+                    scanned += 1
+                    if _time.time() - start > 0.2:  # 200ms budget
+                        break
+                def _hsize(n: int) -> str:
+                    units = ['B','KB','MB','GB','TB']
+                    i = 0; f = float(n)
+                    while f >= 1024.0 and i < len(units)-1:
+                        f /= 1024.0; i += 1
+                    return f"{f:0.1f} {units[i]}"
                 tdb = Table(show_header=True, header_style="bold magenta")
-                tdb.add_column("Key", style="bold")
+                tdb.add_column("Metric", style="bold")
                 tdb.add_column("Value")
-                for k in ["database","collection","total_files"]:
-                    tdb.add_row(k, str(s.get(k,'')))
-                panels.append(Panel(tdb, title="Space DB", border_style="magenta"))
+                tdb.add_row("Tracked files", str(total))
+                tdb.add_row("Last updated", last_ts)
+                tdb.add_row("Total size (approx)", _hsize(size_sum))
+                # Latest 10 files
+                latest = coll.find({}, {"path":1, "timestamp":1}).sort("timestamp", -1).limit(10)
+                tt = Table(show_header=True, header_style="bold magenta")
+                tt.add_column("#", justify="right")
+                tt.add_column("timestamp")
+                tt.add_column("path")
+                for i, d in enumerate(latest, 1):
+                    tt.add_row(str(i), str(d.get('timestamp','')), str(d.get('path','')))
+                panels.append(Panel(Columns([tdb, tt]), title="Space DB", border_style="magenta"))
             except SystemExit:
                 pass
             except Exception:
@@ -308,6 +361,7 @@ def daemon_status(args: argparse.Namespace) -> int:
 
 
 def daemon_start(_: argparse.Namespace):
+    _ensure_mongo_running(_default_mongo_uri(), record_start=True)
     if _is_macos() and _agent_installed():
         _daemon_start_launchd()
         return
@@ -345,9 +399,11 @@ def daemon_start(_: argparse.Namespace):
 def daemon_stop(_: argparse.Namespace):
     if _is_macos() and _agent_installed():
         _daemon_stop_launchd()
+        _stop_managed_mongo()
         return
     if not LOCK_FILE.exists():
         print("WKS daemon is not running")
+        _stop_managed_mongo()
         return
     try:
         pid_line = LOCK_FILE.read_text().strip().splitlines()[0]
@@ -360,6 +416,8 @@ def daemon_stop(_: argparse.Namespace):
         print(f"Sent SIGTERM to PID {pid}")
     except Exception as e:
         print(f"Failed to send SIGTERM to PID {pid}: {e}")
+    finally:
+        _stop_managed_mongo()
 
 
 def daemon_restart(_: argparse.Namespace):
@@ -392,12 +450,13 @@ def _load_similarity_db() -> Any:
 
     cfg = load_config()
     sim_cfg = cfg.get("similarity", {})
+    mongo_cfg = mongo_settings(cfg)
     model = sim_cfg.get("model", 'all-MiniLM-L6-v2')
     model_path = sim_cfg.get("model_path")
     offline = bool(sim_cfg.get("offline", False))
-    mongo_uri = sim_cfg.get("mongo_uri", 'mongodb://localhost:27027/')
-    database = sim_cfg.get("database", 'wks_similarity')
-    collection = sim_cfg.get("collection", 'file_embeddings')
+    mongo_uri = str(sim_cfg.get("mongo_uri") or mongo_cfg['uri'])
+    database = str(sim_cfg.get("database") or mongo_cfg['space_database'])
+    collection = str(sim_cfg.get("collection") or mongo_cfg['space_collection'])
 
     def _init():
         return SimilarityDB(database_name=database, collection_name=collection, mongo_uri=mongo_uri, model_name=model, model_path=model_path, offline=offline)
@@ -582,13 +641,15 @@ def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
         print(f"Fatal: SimilarityDB not available: {e}")
         raise SystemExit(2)
     cfg = load_config()
-    sim = cfg.get('similarity')
-    if sim is None or 'enabled' not in sim:
+    sim_raw = cfg.get('similarity')
+    if sim_raw is None or 'enabled' not in sim_raw:
         print("Fatal: 'similarity.enabled' is required in config")
         raise SystemExit(2)
-    if not sim.get('enabled'):
+    if not sim_raw.get('enabled'):
         print("Fatal: similarity.enabled must be true for this operation")
         raise SystemExit(2)
+    mongo_cfg = mongo_settings(cfg)
+    sim = apply_similarity_mongo_defaults(sim_raw, mongo_cfg)
     required = [
         'mongo_uri','database','collection','model',
         'include_extensions','min_chars','max_chars','chunk_chars','chunk_overlap'
@@ -647,6 +708,111 @@ def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
 
 
 # migration removed
+
+
+def _mongo_client_params(
+    server_timeout: int = 500,
+    connect_timeout: int = 500,
+    cfg: Optional[Dict[str, Any]] = None,
+) -> Tuple[pymongo.MongoClient, Dict[str, str]]:
+    """Return (client, normalized mongo settings)."""
+    if cfg is None:
+        cfg = load_config()
+    mongo_cfg = mongo_settings(cfg)
+    try:
+        _ensure_mongo_running(mongo_cfg['uri'])
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+    client = pymongo.MongoClient(
+        mongo_cfg['uri'],
+        serverSelectionTimeoutMS=server_timeout,
+        connectTimeoutMS=connect_timeout,
+    )
+    return client, mongo_cfg
+
+
+def _mongo_ping(uri: str, timeout_ms: int = 500) -> bool:
+    try:
+        client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout_ms, connectTimeoutMS=timeout_ms)
+        client.admin.command('ping')
+        return True
+    except Exception:
+        return False
+
+
+def _default_mongo_uri() -> str:
+    return mongo_settings(load_config())['uri']
+
+
+def _stop_managed_mongo() -> None:
+    if not MONGO_MANAGED_FLAG.exists() or not MONGO_PID_FILE.exists():
+        return
+    try:
+        pid = int(MONGO_MANAGED_FLAG.read_text().strip())
+    except Exception:
+        pid = None
+    try:
+        if pid:
+            os.kill(pid, signal.SIGTERM)
+            for _ in range(20):
+                if not _pid_running(pid):
+                    break
+                time.sleep(0.1)
+        MONGO_MANAGED_FLAG.unlink(missing_ok=True)
+        MONGO_PID_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def _ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
+    if _mongo_ping(uri):
+        return
+    is_local = uri.startswith("mongodb://localhost:27027")
+    if is_local and shutil.which("mongod"):
+        dbroot = MONGO_ROOT
+        dbpath = dbroot / "db"
+        logfile = dbroot / "mongod.log"
+        dbroot.mkdir(parents=True, exist_ok=True)
+        dbpath.mkdir(parents=True, exist_ok=True)
+        pidfile = MONGO_PID_FILE if record_start else (dbroot / "mongod.pid.tmp")
+        try:
+            if pidfile.exists():
+                pidfile.unlink()
+        except Exception:
+            pass
+        try:
+            subprocess.check_call([
+                "mongod",
+                "--dbpath", str(dbpath),
+                "--logpath", str(logfile),
+                "--fork",
+                "--pidfilepath", str(pidfile),
+                "--bind_ip", "127.0.0.1",
+                "--port", "27027",
+            ])
+        except Exception as e:
+            print(f"Fatal: failed to auto-start local mongod: {e}")
+            raise SystemExit(2)
+        time.sleep(0.3)
+        if _mongo_ping(uri, timeout_ms=1000):
+            if record_start:
+                try:
+                    pid = int(pidfile.read_text().strip())
+                    MONGO_MANAGED_FLAG.write_text(str(pid))
+                except Exception:
+                    pass
+            else:
+                try:
+                    pidfile.unlink()
+                except Exception:
+                    pass
+            return
+        print("Fatal: mongod started but MongoDB still unreachable; check logs in ~/.wks/mongodb/mongod.log")
+        raise SystemExit(2)
+    print(f"Fatal: MongoDB not reachable at {uri}; start mongod and retry.")
+    raise SystemExit(2)
 
 
 def _is_within(path: Path, base: Path) -> bool:
@@ -722,6 +888,30 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="wkso", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
     # Global display mode
+    try:
+        pkg_version = importlib_metadata.version("wks")
+    except Exception:
+        pkg_version = "unknown"
+    git_sha = ""
+    try:
+        repo_root = Path(__file__).resolve().parents[1]
+        out = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            cwd=str(repo_root),
+        )
+        git_sha = out.decode("utf-8", errors="ignore").strip()
+    except Exception:
+        git_sha = ""
+    version_str = f"wkso {pkg_version}"
+    if git_sha:
+        version_str = f"{version_str} ({git_sha})"
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=version_str,
+        help="Show CLI version and exit",
+    )
     parser.add_argument(
         "--display",
         choices=["auto", "rich", "basic"],
@@ -862,7 +1052,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 """.strip()
         pl.write_text(xml)
         uid = os.getuid()
-        with _make_progress(total=5, display=getattr(args, 'display', 'auto')) as prog:
+        with _make_progress(total=6, display=getattr(args, 'display', 'auto')) as prog:
+            prog.update("ensure mongo")
+            _ensure_mongo_running(_default_mongo_uri(), record_start=True)
             prog.update("bootout legacy")
             for old in [
                 "com.wieselquist.wkso",
@@ -901,6 +1093,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     (Path.home()/"Library"/"LaunchAgents"/(label+".plist")).unlink()
                 except Exception:
                     pass
+        _stop_managed_mongo()
         print("Uninstalled.")
 
     # install/uninstall bound under service group below
@@ -934,6 +1127,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             pass
         # Reuse DB reset steps
         _db_reset(args)
+        _stop_managed_mongo()
+        # Ensure Mongo is running again before restart
+        try:
+            _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+        except SystemExit:
+            return 2
         # Clear local agent state (keep config.json)
         try:
             home = Path.home()
@@ -966,7 +1165,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         except Exception:
             pass
         try:
-            _db_stats(argparse.Namespace(space=True, time=False, latest=5, display=getattr(args,'display','rich')))
+            _db_info(argparse.Namespace(space=True, time=False, latest=5, display=getattr(args,'display','rich')))
         except Exception:
             pass
         return 0
@@ -1034,7 +1233,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     dbq.add_argument("--limit", type=int, default=20)
     dbq.add_argument("--sort", default=None, help="Sort spec 'field:asc|desc' (optional)")
     def _db_query(args: argparse.Namespace) -> int:
-        db, sim = _load_similarity_required()
+        cfg_local = load_config()
+        try:
+            client, mongo_cfg = _mongo_client_params(cfg=cfg_local)
+        except Exception as e:
+            print(f"DB connection failed: {e}")
+            return 2
         try:
             import json as _json
             filt = _json.loads(args.filter or "{}")
@@ -1044,14 +1248,18 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 2
         # Decide target collection by logical DB
         if args.space:
-            coll = db.collection  # space.files (embeddings)
-            coll_name = 'file_embeddings'
+            coll_name = mongo_cfg['space_collection']
+            coll = client[mongo_cfg['space_database']][coll_name]
             scope_label = 'space'
         else:
-            coll = db.db['file_snapshots']  # time.snapshots
-            coll_name = 'file_snapshots'
+            coll_name = mongo_cfg['time_collection']
+            coll = client[mongo_cfg['time_database']][coll_name]
             scope_label = 'time'
-        cur = coll.find(filt, proj)
+        try:
+            cur = coll.find(filt, proj)
+        except Exception as e:
+            print(f"DB query failed: {e}")
+            return 1
         if args.sort:
             try:
                 fld, dirspec = args.sort.split(':',1)
@@ -1084,31 +1292,65 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     dbq.set_defaults(func=_db_query)
 
-    dbs = dbsub.add_parser("stats", help="Print basic DB stats and optionally list latest files")
-    scope2 = dbs.add_mutually_exclusive_group()
-    scope2.add_argument("--space", action="store_true", help="Stats for the space DB")
-    scope2.add_argument("--time", action="store_true", help="Stats for the time DB")
-    dbs.add_argument("-n", "--latest", type=int, default=0, help="Show the most recent N records")
-    def _db_stats(args: argparse.Namespace) -> int:
+    def _db_info(args: argparse.Namespace) -> int:
         # Use a lightweight, fast Mongo client for stats (no model/docling startup)
-        from pymongo import MongoClient as _MC
-        cfg = load_config(); sim = cfg.get('similarity') or {}
-        uri = sim.get('mongo_uri','mongodb://localhost:27027/')
-        name = sim.get('database','wks_similarity')
-        coll_space = sim.get('collection','file_embeddings')
-        client = _MC(uri, serverSelectionTimeoutMS=300, connectTimeoutMS=300)
+        cfg_local = load_config()
+        ts_format = timestamp_format(cfg_local)
+        try:
+            client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
+        except Exception as e:
+            print(f"DB connection failed: {e}")
+            return 2
         try:
             client.admin.command('ping')
         except Exception as e:
             print(f"DB unreachable: {e}")
             return 1
+        coll_space = mongo_cfg['space_collection']
+        coll_time = mongo_cfg['time_collection']
+        # Helper to format timestamps consistently
+        from datetime import datetime as _dt
+        def _fmt_ts(ts):
+            if not ts:
+                return ""
+            try:
+                if isinstance(ts, str):
+                    s = ts.replace('Z','+00:00') if ts.endswith('Z') else ts
+                    dt = _dt.fromisoformat(s)
+                else:
+                    dt = _dt.fromtimestamp(float(ts))
+                return dt.strftime(ts_format)
+            except Exception:
+                return str(ts)
+
+        def _fmt_size(path: str, fallback: Optional[int] = None) -> str:
+            try:
+                if path and os.path.exists(path):
+                    bytes_val = os.path.getsize(path)
+                elif fallback is not None:
+                    bytes_val = int(fallback)
+                else:
+                    return "-"
+            except Exception:
+                return "-"
+            units = ['B', 'KB', 'MB', 'GB', 'TB']
+            f = float(bytes_val)
+            i = 0
+            while f >= 1024.0 and i < len(units) - 1:
+                f /= 1024.0
+                i += 1
+            return f"{f:0.1f} {units[i]}"
+
         if args.time:
-            coll = client[name]['file_snapshots']
+            coll = client[mongo_cfg['time_database']][coll_time]
             total = coll.count_documents({})
-            print({"database": name, "collection": "file_snapshots", "total_docs": total})
+            print({"database": mongo_cfg['time_database'], "collection": coll_time, "total_docs": total})
             n = int(getattr(args, 'latest', 0) or 0)
             if n > 0:
-                cur = coll.find({}, {"path": 1, "t_new": 1}).sort("t_new_epoch", -1).limit(n)
+                cur = coll.find(
+                    {},
+                    {"path": 1, "t_new": 1, "checksum_new": 1, "size_bytes_new": 1, "bytes_delta": 1},
+                ).sort("t_new_epoch", -1).limit(n)
                 dis = getattr(args, 'display', 'rich')
                 use_rich = (dis == 'rich') or (dis == 'auto')
                 try:
@@ -1119,23 +1361,49 @@ def main(argv: Optional[List[str]] = None) -> int:
                         t.add_column("#", justify="right")
                         t.add_column("t_new")
                         t.add_column("path")
+                        t.add_column("checksum")
+                        t.add_column("bytes", justify="right")
+                        t.add_column("Δ bytes", justify="right")
                         for i, doc in enumerate(cur, 1):
-                            t.add_row(str(i), str(doc.get('t_new','')), str(doc.get('path','')))
+                            checksum = doc.get('checksum_new') or doc.get('content_hash') or "-"
+                            size_disp = _fmt_size(doc.get('path', ''), doc.get('size_bytes_new'))
+                            delta = doc.get('bytes_delta')
+                            delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
+                            t.add_row(
+                                str(i),
+                                _fmt_ts(doc.get('t_new', '')),
+                                str(doc.get('path', '')),
+                                checksum,
+                                size_disp,
+                                delta_disp,
+                            )
                         Console().print(t)
                     else:
                         for i, doc in enumerate(cur, 1):
-                            print(f"[{i}] {doc.get('t_new','')}  {doc.get('path','')}")
+                            checksum = doc.get('checksum_new') or doc.get('content_hash') or "-"
+                            size_disp = _fmt_size(doc.get('path', ''), doc.get('size_bytes_new'))
+                            delta = doc.get('bytes_delta')
+                            delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
+                            print(
+                                f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {doc.get('path','')}"
+                            )
                 except Exception:
                     for i, doc in enumerate(cur, 1):
-                        print(f"[{i}] {doc.get('t_new','')}  {doc.get('path','')}")
+                        checksum = doc.get('checksum_new') or doc.get('content_hash') or "-"
+                        size_disp = _fmt_size(doc.get('path', ''), doc.get('size_bytes_new'))
+                        delta = doc.get('bytes_delta')
+                        delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
+                        print(
+                            f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {doc.get('path','')}"
+                        )
             return 0
         else:
-            coll = client[name][coll_space]
+            coll = client[mongo_cfg['space_database']][coll_space]
             total = coll.count_documents({})
-            print({"total_files": total, "database": name, "collection": coll_space})
+            print(f"tracked files: {total}")
             n = int(getattr(args, 'latest', 0) or 0)
             if n > 0:
-                cur = coll.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(n)
+                cur = coll.find({}, {"path": 1, "timestamp": 1, "content_hash": 1, "num_chunks": 1}).sort("timestamp", -1).limit(n)
                 dis = getattr(args, 'display', 'rich')
                 use_rich = (dis == 'rich') or (dis == 'auto')
                 try:
@@ -1146,33 +1414,79 @@ def main(argv: Optional[List[str]] = None) -> int:
                         t.add_column("#", justify="right")
                         t.add_column("timestamp")
                         t.add_column("path")
+                        t.add_column("checksum")
+                        t.add_column("chunks", justify="right")
+                        t.add_column("size")
                         for i, doc in enumerate(cur, 1):
-                            t.add_row(str(i), str(doc.get('timestamp','')), str(doc.get('path','')))
+                            checksum = doc.get('content_hash') or "-"
+                            chunks = doc.get('num_chunks')
+                            try:
+                                chunks_disp = str(int(chunks))
+                            except Exception:
+                                chunks_disp = "-"
+                            size_disp = _fmt_size(doc.get('path', ''))
+                            t.add_row(
+                                str(i),
+                                _fmt_ts(doc.get('timestamp','')),
+                                str(doc.get('path','')),
+                                checksum,
+                                chunks_disp,
+                                size_disp,
+                            )
                         Console().print(t)
                     else:
                         for i, doc in enumerate(cur, 1):
-                            print(f"[{i}] {doc.get('timestamp','')}  {doc.get('path','')}")
+                            checksum = doc.get('content_hash') or "-"
+                            chunks = doc.get('num_chunks')
+                            try:
+                                chunks_disp = str(int(chunks))
+                            except Exception:
+                                chunks_disp = "-"
+                            size_disp = _fmt_size(doc.get('path', ''))
+                            print(
+                                f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} chunks={chunks_disp} size={size_disp} {doc.get('path','')}"
+                            )
                 except Exception:
                     for i, doc in enumerate(cur, 1):
-                        print(f"[{i}] {doc.get('timestamp','')}  {doc.get('path','')}")
+                        checksum = doc.get('content_hash') or "-"
+                        chunks = doc.get('num_chunks')
+                        try:
+                            chunks_disp = str(int(chunks))
+                        except Exception:
+                            chunks_disp = "-"
+                        size_disp = _fmt_size(doc.get('path', ''))
+                        print(
+                            f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} chunks={chunks_disp} size={size_disp} {doc.get('path','')}"
+                        )
             return 0
-    dbs.set_defaults(func=_db_stats)
 
+    dbinfo = dbsub.add_parser("info", help="Print tracked file count and latest files")
+    scope_info = dbinfo.add_mutually_exclusive_group()
+    scope_info.add_argument("--space", action="store_true", help="Stats for the space DB")
+    scope_info.add_argument("--time", action="store_true", help="Stats for the time DB")
+    dbinfo.add_argument("-n", "--latest", type=int, default=10, help="Show the most recent N records (default 10)")
+    dbinfo.set_defaults(func=_db_info)
     # DB reset: drop Mongo database and remove local mongod files (if any)
     dbr = dbsub.add_parser("reset", help="Drop WKS Mongo databases and local DB files (space/time)")
     def _db_reset(args: argparse.Namespace) -> int:
         cfg = load_config()
-        sim = cfg.get('similarity') or {}
-        uri = str(sim.get('mongo_uri','mongodb://localhost:27027/'))
-        dbname = sim.get('database','wks_similarity')
+        mongo_cfg = mongo_settings(cfg)
+        uri = mongo_cfg['uri']
+        space_db = mongo_cfg['space_database']
+        time_db = mongo_cfg['time_database']
+        _stop_managed_mongo()
         # Try to drop DB via pymongo
         try:
-            from pymongo import MongoClient as _MC
-            client = _MC(uri, serverSelectionTimeoutMS=3000)
+            client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=3000)
             try:
                 client.admin.command('ping')
-                client.drop_database(dbname)
-                print(f"Dropped database: {dbname}")
+                dropped = set()
+                client.drop_database(space_db)
+                dropped.add(space_db)
+                if time_db not in dropped:
+                    client.drop_database(time_db)
+                    dropped.add(time_db)
+                print(f"Dropped database(s): {', '.join(sorted(dropped))}")
             except Exception as e:
                 print(f"DB drop skipped (unreachable or error): {e}")
         except Exception as e:
@@ -1191,6 +1505,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             if dbroot.exists():
                 _sh.rmtree(dbroot, ignore_errors=True)
                 print(f"Removed local DB files: {dbroot}")
+        except Exception:
+            pass
+        # Ensure Mongo comes back up so the service can reconnect immediately
+        try:
+            _ensure_mongo_running(uri, record_start=True)
+        except SystemExit:
+            raise
         except Exception:
             pass
         return 0

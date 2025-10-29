@@ -11,9 +11,12 @@ import time
 from pathlib import Path
 from .daemon import WKSDaemon
 try:
+    from .config import apply_similarity_mongo_defaults, mongo_settings
     from .similarity import SimilarityDB
+    from .cli import _ensure_mongo_running
 except Exception:
     SimilarityDB = None
+    _ensure_mongo_running = None
 
 def _expand(p: str) -> Path:
     return Path(p).expanduser()
@@ -32,6 +35,14 @@ if __name__ == "__main__":
         print("Fatal: 'vault_path' is required in ~/.wks/config.json")
         raise SystemExit(2)
     vault_path = _expand(config.get("vault_path"))
+    mongo_cfg = mongo_settings(config)
+    if _ensure_mongo_running is not None:
+        try:
+            _ensure_mongo_running(mongo_cfg['uri'], record_start=True)
+        except SystemExit:
+            raise
+        except Exception:
+            pass
 
     monitor_cfg = config.get("monitor", {})
     # Require explicit monitor.*
@@ -91,14 +102,16 @@ if __name__ == "__main__":
     )
 
     # Similarity (explicit)
-    sim_cfg = config.get("similarity")
-    if sim_cfg is None or "enabled" not in sim_cfg:
+    mongo_cfg = mongo_settings(config)
+    sim_cfg_raw = config.get("similarity")
+    if sim_cfg_raw is None or "enabled" not in sim_cfg_raw:
         print("Fatal: 'similarity.enabled' is required (true/false) in ~/.wks/config.json")
         raise SystemExit(2)
-    if sim_cfg.get("enabled"):
+    if sim_cfg_raw.get("enabled"):
         if SimilarityDB is None:
             print("Fatal: similarity enabled but SimilarityDB not available")
             raise SystemExit(2)
+        sim_cfg = apply_similarity_mongo_defaults(sim_cfg_raw, mongo_cfg)
         required = ["mongo_uri", "database", "collection", "model", "include_extensions", "min_chars", "max_chars", "chunk_chars", "chunk_overlap"]
         missing = [k for k in required if k not in sim_cfg]
         if missing:
