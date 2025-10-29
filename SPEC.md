@@ -3,12 +3,13 @@
 This spec documents the wkso CLI: a minimal, focused interface to configure, run, and index the WKS agent. It intentionally covers only three command groups: config, service, and index.
 
 ## Overview
-- Purpose: Keep filesystem and Obsidian in sync, maintain embeddings + change history, and surface activity.
+- Purpose: Keep filesystem and Obsidian in sync, maintain embeddings + change history, and expose raw document extractions for downstream tooling.
 - Scope: Single CLI `wkso` with commands:
   - `wkso config` — inspect effective configuration
   - `wkso service` — install/start/stop the background daemon (macOS launchd support)
-  - `wkso index` — add files/directories to the similarity database with progress and Docs output
-  - `wkso db` — query or reset Mongo collections that back the similarity/time databases
+  - `wkso extract` — run the configured extractor on one or more documents and persist their plain-text form
+  - `wkso index` — extract + embed files/directories into the similarity "space" database with Docs output
+  - `wkso db` — query or reset Mongo collections that back the space/time databases
 
 ## Installation
 - Recommended: pipx
@@ -17,15 +18,57 @@ This spec documents the wkso CLI: a minimal, focused interface to configure, run
 - Python: 3.10+
 
 ## Configuration
-- File: `~/.wks/config.json`
-- Minimal keys (examples shown):
-  - Top-level: `"vault_path": "~/obsidian"`
-  - `obsidian`: `{ "base_dir": "WKS", "log_max_entries": 500, "active_files_max_rows": 50, "source_max_chars": 40, "destination_max_chars": 40, "docs_keep": 99 }`
-  - `monitor`: `{ "include_paths": ["~"], "exclude_paths": ["~/Library","~/obsidian","~/.wks"], "ignore_dirnames": [".git","_build"], "ignore_globs": ["*.tmp","*~","._*"], "state_file": "~/.wks/monitor_state.json" }`
-  - `display`: `{ "timestamp_format": "%Y-%m-%d %H:%M:%S" }`
-  - `mongo`: `{ "uri": "mongodb://localhost:27027/", "space_database": "wks_similarity", "space_collection": "file_embeddings", "time_database": "wks_similarity", "time_collection": "file_snapshots" }`
-  - `similarity`: `{ "enabled": true, "model": "all-MiniLM-L6-v2", "include_extensions": [".md",".txt",".py",".ipynb",".tex",".docx",".pptx",".pdf",".html",".csv",".xlsx"], "min_chars": 10, "max_chars": 200000, "chunk_chars": 1500, "chunk_overlap": 200, "offline": true }`
-  - `extract`: `{ "engine": "docling", "ocr": false, "timeout_secs": 30 }` (Docling is required)
+- Stored at `~/.wks/config.json`. All keys shown below are required unless noted optional.
+
+```json
+{
+  "vault_path": "~/obsidian",
+  "obsidian": {
+    "base_dir": "WKS",
+    "log_max_entries": 500,
+    "active_files_max_rows": 50,
+    "source_max_chars": 40,
+    "destination_max_chars": 40,
+    "docs_keep": 99
+  },
+  "monitor": {
+    "include_paths": ["~"],
+    "exclude_paths": ["~/Library", "~/obsidian", "~/.wks"],
+    "ignore_dirnames": [".git", "_build"],
+    "ignore_globs": ["*.tmp", "*~", "._*"],
+    "state_file": "~/.wks/monitor_state.json"
+  },
+  "activity": { "state_file": "~/.wks/activity_state.json" },
+  "display": { "timestamp_format": "%Y-%m-%d %H:%M:%S" },
+  "mongo": {
+    "uri": "mongodb://localhost:27027/",
+    "space_database": "wks_similarity",
+    "space_collection": "file_embeddings",
+    "time_database": "wks_similarity",
+    "time_collection": "file_snapshots"
+  },
+  "extract": {
+    "engine": "docling",
+    "ocr": false,
+    "timeout_secs": 30,
+    "options": {}
+  },
+  "similarity": {
+    "enabled": true,
+    "model": "all-MiniLM-L6-v2",
+    "include_extensions": [".md", ".txt", ".py", ".ipynb", ".tex", ".docx", ".pptx", ".pdf", ".html", ".csv", ".xlsx"],
+    "min_chars": 10,
+    "max_chars": 200000,
+    "chunk_chars": 1500,
+    "chunk_overlap": 200,
+    "offline": true,
+    "respect_monitor_ignores": false
+  }
+}
+```
+- `display.timestamp_format` governs every timestamp printed by the CLI and Obsidian surfaces.
+- `extract.*` is forwarded to the extractor implementation; Docling must honor `engine`, `ocr`, `timeout_secs`, and any values inside `options`.
+- `similarity.include_extensions` limits which files are processed; extraction always runs through the `extract` config prior to embedding.
 
 ## Commands
 
@@ -72,13 +115,23 @@ Notes
 - Health: `~/.wks/health.json` and `~/obsidian/<base_dir>/Health.md`.
 - FileOperations: rebuilt from `~/.wks/file_ops.jsonl` with temp/autosaves hidden in the page view.
 
+### wkso extract
+- Purpose: Run the configured extractor on one or more files and persist the plain-text output for reuse.
+- Usage:
+  - `wkso extract <source ...> [--output DIR]`
+- Behavior:
+  - Verifies each source path against `monitor` include/ignore rules, then invokes the engine described in `config.extract` (Docling by default).
+  - Extraction settings (`engine`, `ocr`, `timeout_secs`, and `options`) are honored exactly as supplied in config.
+  - Output defaults to `~/obsidian/<base_dir>/Docs/<content-hash>.md`. When `--output DIR` is supplied, the results are written to that directory using the same hash-based filenames.
+  - Produces UTF-8 Markdown only; no embeddings are generated. Downstream commands (e.g., `wkso index`) may reuse the extracted text directly when re-indexing.
+
 ### wkso index
-- Purpose: Add files and directories to the similarity DB and write Docs snapshots.
+- Purpose: Extract + embed files and directories into the space database and refresh Docs snapshots.
 - Usage:
   - `wkso index <path ...>` — each path may be a file or directory; directories are processed recursively.
 - Behavior:
   - Filters files by `similarity.include_extensions`.
-  - For each file: extracts text (Docling or configured engine), computes embeddings, records change angle, and writes `~/obsidian/<base_dir>/Docs/<checksum>.md` when updated.
+  - For each file: invokes the same extraction pipeline used by `wkso extract` (reusing cached output when the content hash is unchanged), computes embeddings, records change angle, and writes `~/obsidian/<base_dir>/Docs/<checksum>.md` when updated.
   - Shows a progress bar with ETA and current filename; prints a final summary.
 
 ### wkso db
@@ -106,3 +159,51 @@ Notes
 - Writes only under `~/obsidian/<base_dir>`.
 - Respects ignore rules (`exclude_paths`, `ignore_dirnames`, `ignore_globs`).
 - Avoids duplicate daemons; stale locks are cleaned when possible.
+-## Databases
+
+### Space database (`mongo.space_collection`)
+- Storage: MongoDB. Production deployments must provide a reachable Mongo instance; the local CLI auto-starts `mongod` on `localhost:27027` when using defaults.
+- Primary key: absolute URI string (e.g., `file:///Users/.../README.md`). Future remote providers must normalize their paths to absolute URIs as well.
+- Required fields for each document:
+  - `path` — absolute URI (string, primary key)
+  - `timestamp` — ISO 8601 UTC string when modified last
+  - `checksum` - sha256 (configurable) checksum of the file
+  - `bytes` — raw file size (integer)
+  - `content_path` - path to the extracted content 
+  - `embedding` — embedding for the extracted file as floating-point vector (list of floats)
+  - `angle` — degrees embedding is from from empty string
+
+The current standard we will uphold is that the `extraction_path` is the same directory
+as the `path` but in a `.wkso` subdirectory. The extraction pipeline dictates the extension,
+for example `.md` for docling right now. The checksum of the content is used for the file name.
+For example: `basedir(<path>)/.wks/<checksum>.md`. When a file changes checksum or moves, 
+the old checksum files should be cleaned up. 
+
+The default view with `wkso db info` should show in this order:
+human readable timestamp, checksum, human readable size, angle, the path as a file URI
+
+`wkso index <file>` should add a file to the db `wkso index --untrack <file>` should remove
+tracking of that file. Any file system moves should be picked up by the WKS service and
+updated in the DB. A move registers as a modification and the time should be updated to reflect it.
+
+
+
+- Behavioural requirements:
+  - Re-indexing the same file updates the existing record in-place (no duplicate rows).
+  - Moves or renames reuse the same logical record (identified by checksum); we update `path`, keeping history in the time database.
+  - The space database powers similarity, duplicate detection, and `wkso db info/query --space`.
+
+### Time (snapshot) database (`mongo.time_collection`)
+- Captures per-change history for each logical file:
+  - `path`, `t_prev`, `t_new`
+  - `checksum_prev`, `checksum_new`
+  - `size_bytes_prev`, `size_bytes_new`, `bytes_delta`
+  - `binary_patch_size`, `angle_delta`
+- Records are append-only. On rename we update existing entries to the new path.
+- Consumers should index `(path, t_new_epoch)` for efficient lookups.
+
+### Supporting collections
+- `embedding_changes` — rolling window statistics that feed ActiveFiles (degrees/hour, etc.).
+- `file_moves` — durable queue of path transitions produced by the monitor. Each record captures `path_before`, `path_after`, `event_ts`, `is_directory`, and the list of descendant URIs (for directories) so that Obsidian link rewrites and Docs refreshes can be applied idempotently. Entries are marked processed once both the space database and the vault links have been updated.
+- `file_chunks` — chunk-level search index. Each row describes a slice of a file with fields: `path` (URI, same as space db), `chunk_index`, `chunk_hash`, `text`, `embedding`, and optional metadata (page number, heading). This collection is optimized for retrieval-augmented generation and search APIs.
+- Any future helper collections must be documented here before adoption.
