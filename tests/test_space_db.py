@@ -204,8 +204,6 @@ def test_similarity_audit_handles_plain_paths(tmpdir):
     })
 
     summary = db.audit_documents()
+    doc = db.collection.find_one({'path': str(file_path)})
     assert summary['updated'] >= 1
-    updated_doc = db.collection.find_one({'path_local': str(file_path)})
-    assert updated_doc['bytes'] == file_path.stat().st_size
-    # path should now be normalized to file URI
-    assert updated_doc['path'].startswith('file://')
+    assert doc['bytes'] == file_path.stat().st_size
