@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
 
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
+
+## [0.2.5] - 2025-10-29
+### Added
+- `wkso extract` runs the configured extractor and persists artefacts without touching the database.
+- `wkso index --untrack` removes tracked entries and cleans their extraction artefacts from the Space DB.
+
+### Changed
+- Space database documents now store absolute file URIs, checksum/size/angle metadata, and all CLI views respect `display.timestamp_format`; `wkso db info` surfaces timestamp, checksum, size, angle, and URI in that order.
+- `wkso config print` emits the canonical config structure (including `display` and `mongo` blocks) and normalization defaults; `wkso index` shares the extraction pipeline with `wkso extract`.
+- Similarity indexing caches extracted content under `.wkso/<checksum>.md`, cleans stale artefacts on updates/moves, and tracks removals via the CLI.
+
 ## [0.2.4] - 2025-10-29
 ### Added
 - `display.timestamp_format` config option (default `%Y-%m-%d %H:%M:%S`) drives all CLI/Obsidian timestamp output.
@@ -45,7 +61,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 - `wkso db info` uses a lightweight client with short timeouts for responsiveness.
-- Service status defaults to rich panels; basic fallback prints a structured summary.
+- Service status defaults to rich panels; json mode emits the structured status document.
 - Docling is now a required extractor (no optional branches).
 - Primary CLI is `wkso`; package remains `wks`.
 

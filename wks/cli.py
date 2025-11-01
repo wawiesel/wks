@@ -7,21 +7,23 @@ Provides simple commands for managing the daemon, config, and local MongoDB.
 from __future__ import annotations
 
 import argparse
-import re
+import hashlib
+import math
 import json
 import os
 import platform
+import re
 import signal
 import subprocess
 import sys
-from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional
-from dataclasses import dataclass
-import os
-import fnmatch
 import time
-import shutil
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import fnmatch
 import pymongo
+import shutil
 try:
     import importlib.metadata as importlib_metadata
 except ImportError:  # pragma: no cover
@@ -30,37 +32,344 @@ except ImportError:  # pragma: no cover
 from .config import (
     apply_similarity_mongo_defaults,
     mongo_settings,
-    timestamp_format,
     DEFAULT_TIMESTAMP_FORMAT,
+    timestamp_format,
     load_user_config,
 )
+from .constants import WKS_HOME_EXT, WKS_EXTRACT_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
+from .extractor import Extractor
+from .status import record_db_activity, load_db_activity_summary, load_db_activity_history
 
 
-LOCK_FILE = Path.home() / ".wks" / "daemon.lock"
-MONGO_ROOT = Path.home() / ".wks" / "mongodb"
+LOCK_FILE = Path.home() / WKS_HOME_EXT / "daemon.lock"
+MONGO_ROOT = Path.home() / WKS_HOME_EXT / "mongodb"
 MONGO_PID_FILE = MONGO_ROOT / "mongod.pid"
 MONGO_MANAGED_FLAG = MONGO_ROOT / "managed"
 
+DEFAULT_MONITOR_INCLUDE_PATHS = ["~"]
+DEFAULT_MONITOR_EXCLUDE_PATHS = ["~/Library", "~/obsidian", f"{WKS_HOME_DISPLAY}"]
+DEFAULT_MONITOR_IGNORE_DIRS = [".git", "_build", WKS_HOME_EXT, WKS_EXTRACT_EXT]
+DEFAULT_MONITOR_IGNORE_GLOBS = ["*.tmp", "*~", "._*"]
+
+DEFAULT_OBSIDIAN_CONFIG = {
+    "base_dir": "WKS",
+    "log_max_entries": 500,
+    "active_files_max_rows": 50,
+    "source_max_chars": 40,
+    "destination_max_chars": 40,
+    "docs_keep": 99,
+}
+
+DEFAULT_SIMILARITY_EXTS = [
+    ".md",
+    ".txt",
+    ".py",
+    ".ipynb",
+    ".tex",
+    ".docx",
+    ".pptx",
+    ".pdf",
+    ".html",
+    ".csv",
+    ".xlsx",
+]
+
+
+def _human_bytes(value: Optional[int]) -> str:
+    if value is None:
+        return "-"
+    try:
+        val = float(value)
+    except Exception:
+        return "-"
+    units = ["B", "kB", "MB", "GB", "TB"]
+    idx = 0
+    while val >= 1024.0 and idx < len(units) - 1:
+        val /= 1024.0
+        idx += 1
+    return f"{val:7.2f} {units[idx]:>2}"
+
+
+def _fmt_bool(value: Optional[bool]) -> str:
+    if value is None:
+        return "-"
+    return "true" if value else "false"
+
+
+@dataclass
+class ServiceStatusLaunch:
+    state: Optional[str] = None
+    active_count: Optional[str] = None
+    pid: Optional[str] = None
+    program: Optional[str] = None
+    arguments: Optional[str] = None
+    working_dir: Optional[str] = None
+    stdout: Optional[str] = None
+    stderr: Optional[str] = None
+    runs: Optional[str] = None
+    last_exit: Optional[str] = None
+    path: Optional[str] = None
+    type: Optional[str] = None
+
+    def present(self) -> bool:
+        return any(
+            [
+                self.state,
+                self.pid,
+                self.program,
+                self.arguments,
+                self.working_dir,
+                self.stdout,
+                self.stderr,
+                self.path,
+            ]
+        )
+
+    def as_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class ServiceStatusDB:
+    tracked_files: Optional[int] = None
+    last_updated: Optional[str] = None
+    total_size_bytes: Optional[int] = None
+    latest_files: List[Dict[str, str]] = field(default_factory=list)
+
+    def present(self) -> bool:
+        return any(
+            [
+                self.tracked_files is not None,
+                self.last_updated,
+                self.total_size_bytes is not None,
+                self.latest_files,
+            ]
+        )
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "tracked_files": self.tracked_files,
+            "last_updated": self.last_updated,
+            "total_size_bytes": self.total_size_bytes,
+            "latest_files": list(self.latest_files),
+        }
+
+
+@dataclass
+class ServiceStatusData:
+    running: Optional[bool] = None
+    heartbeat: Optional[str] = None
+    uptime: Optional[str] = None
+    pid: Optional[int] = None
+    beats_per_min: Optional[float] = None
+    pending_deletes: Optional[int] = None
+    pending_mods: Optional[int] = None
+    ok: Optional[bool] = None
+    lock: Optional[bool] = None
+    last_error: Optional[str] = None
+    db_last_operation: Optional[str] = None
+    db_last_operation_detail: Optional[str] = None
+    db_last_operation_iso: Optional[str] = None
+    db_ops_last_minute: Optional[int] = None
+    fs_rate_short: Optional[float] = None
+    fs_rate_long: Optional[float] = None
+    fs_rate_weighted: Optional[float] = None
+    launch: ServiceStatusLaunch = field(default_factory=ServiceStatusLaunch)
+    db: ServiceStatusDB = field(default_factory=ServiceStatusDB)
+    notes: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "service": {
+                "running": self.running,
+                "heartbeat": self.heartbeat,
+                "uptime": self.uptime,
+                "pid": self.pid,
+                "beats_per_min": self.beats_per_min,
+                "pending_deletes": self.pending_deletes,
+                "pending_mods": self.pending_mods,
+                "ok": self.ok,
+                "lock": self.lock,
+                "last_error": self.last_error,
+                "db_last_operation": self.db_last_operation,
+                "db_last_operation_detail": self.db_last_operation_detail,
+                "db_last_operation_iso": self.db_last_operation_iso,
+                "db_ops_last_minute": self.db_ops_last_minute,
+                "fs_rate_short": self.fs_rate_short,
+                "fs_rate_long": self.fs_rate_long,
+                "fs_rate_weighted": self.fs_rate_weighted,
+            },
+            "launch_agent": self.launch.as_dict(),
+            "space_db": self.db.as_dict(),
+            "notes": list(self.notes),
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2, sort_keys=True)
+
+    def to_rows(self) -> List[Tuple[str, str]]:
+        rows: List[Tuple[str, str]] = []
+        rows.append(("Running", _fmt_bool(self.running)))
+        rows.append(("Heartbeat", self.heartbeat or "-"))
+        rows.append(("Uptime", self.uptime or "-"))
+        rows.append(("PID", str(self.pid) if self.pid is not None else "-"))
+        rows.append(
+            ("DB ops/min", f"{self.beats_per_min:.2f}" if isinstance(self.beats_per_min, (int, float)) else "-")
+        )
+        rows.append(
+            ("Pending deletes", str(self.pending_deletes) if self.pending_deletes is not None else "-")
+        )
+        rows.append(("Pending mods", str(self.pending_mods) if self.pending_mods is not None else "-"))
+        rows.append(("OK", _fmt_bool(self.ok)))
+        rows.append(("Lock", _fmt_bool(self.lock)))
+        if self.last_error:
+            rows.append(("Last error", self.last_error))
+        if self.db_last_operation or self.db_last_operation_iso:
+            desc = self.db_last_operation or "-"
+            if self.db_last_operation_detail:
+                desc = f"{desc} ({self.db_last_operation_detail})"
+            if self.db_last_operation_iso:
+                desc = f"{desc} @ {self.db_last_operation_iso}"
+            rows.append(("Last operation", desc))
+        if self.db_ops_last_minute is not None:
+            rows.append(("DB ops (last min)", str(self.db_ops_last_minute)))
+        if self.fs_rate_short is not None:
+            rows.append(("FS ops/sec (10s)", f"{self.fs_rate_short:.2f}"))
+        if self.fs_rate_long is not None:
+            rows.append(("FS ops/sec (10m)", f"{self.fs_rate_long:.2f}"))
+        if self.fs_rate_weighted is not None:
+            rows.append(("FS ops/sec (weighted)", f"{self.fs_rate_weighted:.2f}"))
+        if self.launch.present():
+            rows.append(("Launch state", self.launch.state or "-"))
+            rows.append(("Launch PID", self.launch.pid or "-"))
+            program_desc = self.launch.arguments or self.launch.program or "-"
+            rows.append(("Launch program", program_desc))
+            rows.append(("Launch stdout", self.launch.stdout or "-"))
+            rows.append(("Launch stderr", self.launch.stderr or "-"))
+            rows.append(("Launch runs", self.launch.runs or "-"))
+            rows.append(("Launch last exit", self.launch.last_exit or "-"))
+            rows.append(("Launch path", self.launch.path or "-"))
+            rows.append(("Launch type", self.launch.type or "-"))
+        if self.db.present():
+            rows.append(
+                (
+                    "DB tracked files",
+                    str(self.db.tracked_files) if self.db.tracked_files is not None else "-",
+                )
+            )
+            rows.append(("DB last updated", self.db.last_updated or "-"))
+            rows.append(
+                (
+                    "DB total size",
+                    _human_bytes(self.db.total_size_bytes),
+                )
+            )
+        if self.notes:
+            rows.append(("Notes", "; ".join(self.notes)))
+        return rows
+
+    def to_markdown(self) -> str:
+        rows = self.to_rows()
+        lines = ["| Key | Value |", "| --- | --- |"]
+        for key, value in rows:
+            val = value if value else "-"
+            val = val.replace("|", "\\|").replace("\n", "<br>")
+            lines.append(f"| {key} | {val} |")
+        return "\n".join(lines)
 
 def load_config() -> Dict[str, Any]:
     return load_user_config()
 
 
-def print_config(args):
+def _merge_defaults(defaults: List[str], user: Optional[List[str]]) -> List[str]:
+    merged: List[str] = []
+    for item in defaults:
+        if item not in merged:
+            merged.append(item)
+    for item in user or []:
+        if item not in merged:
+            merged.append(item)
+    return merged
+
+
+def print_config(_: argparse.Namespace) -> None:
     cfg = load_config()
     mongo_cfg = mongo_settings(cfg)
-    cfg = dict(cfg)
-    cfg["mongo"] = mongo_cfg
-    display_cfg = dict(cfg.get("display") or {})
-    display_cfg.setdefault("timestamp_format", DEFAULT_TIMESTAMP_FORMAT)
-    cfg["display"] = display_cfg
-    sim = dict(cfg.get("similarity") or {})
-    for legacy_key in ("mongo_uri", "database", "collection", "snapshots_collection"):
-        if legacy_key in sim:
-            sim.pop(legacy_key, None)
-    if sim:
-        cfg["similarity"] = sim
-    print(json.dumps(cfg, indent=2))
+
+    obs_raw = cfg.get("obsidian") or {}
+    obsidian = {
+        "base_dir": obs_raw.get("base_dir", DEFAULT_OBSIDIAN_CONFIG["base_dir"]),
+        "log_max_entries": int(obs_raw.get("log_max_entries", DEFAULT_OBSIDIAN_CONFIG["log_max_entries"])),
+        "active_files_max_rows": int(obs_raw.get("active_files_max_rows", DEFAULT_OBSIDIAN_CONFIG["active_files_max_rows"])),
+        "source_max_chars": int(obs_raw.get("source_max_chars", DEFAULT_OBSIDIAN_CONFIG["source_max_chars"])),
+        "destination_max_chars": int(obs_raw.get("destination_max_chars", DEFAULT_OBSIDIAN_CONFIG["destination_max_chars"])),
+        "docs_keep": int(obs_raw.get("docs_keep", DEFAULT_OBSIDIAN_CONFIG["docs_keep"])),
+    }
+
+    mon_raw = cfg.get("monitor") or {}
+    monitor = {
+        "include_paths": _merge_defaults(DEFAULT_MONITOR_INCLUDE_PATHS, mon_raw.get("include_paths")),
+        "exclude_paths": _merge_defaults(DEFAULT_MONITOR_EXCLUDE_PATHS, mon_raw.get("exclude_paths")),
+        "ignore_dirnames": _merge_defaults(DEFAULT_MONITOR_IGNORE_DIRS, mon_raw.get("ignore_dirnames")),
+        "ignore_globs": _merge_defaults(DEFAULT_MONITOR_IGNORE_GLOBS, mon_raw.get("ignore_globs")),
+        "state_file": mon_raw.get("state_file", f"{WKS_HOME_DISPLAY}/monitor_state.json"),
+    }
+
+    activity_raw = cfg.get("activity") or {}
+    activity = {
+        "state_file": activity_raw.get("state_file", f"{WKS_HOME_DISPLAY}/activity_state.json"),
+    }
+
+    display_cfg = cfg.get("display") or {}
+    display = {
+        "timestamp_format": display_cfg.get("timestamp_format", timestamp_format(cfg) or DEFAULT_TIMESTAMP_FORMAT),
+    }
+
+    ext_raw = cfg.get("extract") or {}
+    extract = {
+        "engine": ext_raw.get("engine", "docling"),
+        "ocr": bool(ext_raw.get("ocr", False)),
+        "timeout_secs": int(ext_raw.get("timeout_secs", 30)),
+        "options": dict(ext_raw.get("options") or {}),
+    }
+
+    sim_raw = cfg.get("similarity") or {}
+    include_exts = sim_raw.get("include_extensions")
+    if not include_exts:
+        include_exts = DEFAULT_SIMILARITY_EXTS
+    similarity = {
+        "enabled": bool(sim_raw.get("enabled", True)),
+        "model": sim_raw.get("model", "all-MiniLM-L6-v2"),
+        "include_extensions": [ext.lower() for ext in include_exts],
+        "min_chars": int(sim_raw.get("min_chars", 10)),
+        "max_chars": int(sim_raw.get("max_chars", 200000)),
+        "chunk_chars": int(sim_raw.get("chunk_chars", 1500)),
+        "chunk_overlap": int(sim_raw.get("chunk_overlap", 200)),
+        "offline": bool(sim_raw.get("offline", True)),
+        "respect_monitor_ignores": bool(sim_raw.get("respect_monitor_ignores", False)),
+    }
+
+    metrics_raw = cfg.get("metrics") or {}
+    metrics = {
+        "fs_rate_short_window_secs": int(metrics_raw.get("fs_rate_short_window_secs", 10)),
+        "fs_rate_long_window_secs": int(metrics_raw.get("fs_rate_long_window_secs", 600)),
+        "fs_rate_short_weight": float(metrics_raw.get("fs_rate_short_weight", 0.8)),
+        "fs_rate_long_weight": float(metrics_raw.get("fs_rate_long_weight", 0.2)),
+    }
+
+    output = {
+        "vault_path": cfg.get("vault_path", "~/obsidian"),
+        "obsidian": obsidian,
+        "monitor": monitor,
+        "activity": activity,
+        "display": display,
+        "mongo": mongo_cfg,
+        "extract": extract,
+        "similarity": similarity,
+        "metrics": metrics,
+    }
+
+    print(json.dumps(output, indent=2))
 
 
 def _pid_running(pid: int) -> bool:
@@ -124,10 +433,10 @@ def _daemon_status_launchd() -> int:
 
 
 def daemon_status(args: argparse.Namespace) -> int:
-    # Collect launchd status and parse key fields for redisplay
-    launch_text = ""
+    status = ServiceStatusData()
+
     @dataclass
-    class LaunchAgentStatus:
+    class LaunchAgentStatusInternal:
         state: str = ""
         active_count: str = ""
         path: str = ""
@@ -138,21 +447,25 @@ def daemon_status(args: argparse.Namespace) -> int:
         stdout: str = ""
         stderr: str = ""
         runs: str = ""
-        last_exit: str = ""
         pid: str = ""
+        last_exit: str = ""
 
-    launch_info: Optional[LaunchAgentStatus] = None
+    launch_info: Optional[LaunchAgentStatusInternal] = None
     if _is_macos() and _agent_installed():
         try:
             uid = os.getuid()
-            out = subprocess.check_output(["launchctl", "print", f"gui/{uid}/{_agent_label()}"], stderr=subprocess.STDOUT)
-            launch_text = out.decode('utf-8', errors='ignore')
-            # Parse a few important fields for dashboard (KISS)
+            out = subprocess.check_output(
+                ["launchctl", "print", f"gui/{uid}/{_agent_label()}"],
+                stderr=subprocess.STDOUT,
+            )
+            launch_text = out.decode("utf-8", errors="ignore")
             import re as _re
-            def _find(pattern, default=""):
-                m = _re.search(pattern, launch_text)
-                return (m.group(1).strip() if m else default)
-            launch_info = LaunchAgentStatus(
+
+            def _find(pattern: str, default: str = "") -> str:
+                match = _re.search(pattern, launch_text)
+                return match.group(1).strip() if match else default
+
+            launch_info = LaunchAgentStatusInternal(
                 active_count=_find(r"active count =\s*(\d+)"),
                 path=_find(r"\n\s*path =\s*(.*)"),
                 type=_find(r"\n\s*type =\s*(.*)"),
@@ -161,11 +474,10 @@ def daemon_status(args: argparse.Namespace) -> int:
                 working_dir=_find(r"\n\s*working directory =\s*(.*)"),
                 stdout=_find(r"\n\s*stdout path =\s*(.*)"),
                 stderr=_find(r"\n\s*stderr path =\s*(.*)"),
-                pid=_find(r"\n\s*pid =\s*(\d+)"),
                 runs=_find(r"\n\s*runs =\s*(\d+)"),
+                pid=_find(r"\n\s*pid =\s*(\d+)"),
                 last_exit=_find(r"\n\s*last exit code =\s*(\d+)"),
             )
-            # Parse arguments block (first block only)
             try:
                 args_block = _re.search(r"arguments = \{([^}]*)\}", launch_text, _re.DOTALL)
                 if args_block:
@@ -174,190 +486,216 @@ def daemon_status(args: argparse.Namespace) -> int:
                         launch_info.arguments = " ".join(lines)
             except Exception:
                 pass
-        except Exception as e:
-            launch_text = f"(launchctl print unavailable: {e})\n"
-    # Try to read health
-    health_path = Path.home()/'.wks'/'health.json'
-    health = {}
+        except Exception:
+            status.notes.append("Launch agent status unavailable")
+
+    if launch_info:
+        status.launch = ServiceStatusLaunch(
+            state=launch_info.state or None,
+            active_count=launch_info.active_count or None,
+            pid=launch_info.pid or None,
+            program=launch_info.program or None,
+            arguments=launch_info.arguments or None,
+            working_dir=launch_info.working_dir or None,
+            stdout=launch_info.stdout or None,
+            stderr=launch_info.stderr or None,
+            runs=launch_info.runs or None,
+            last_exit=launch_info.last_exit or None,
+            path=launch_info.path or None,
+            type=launch_info.type or None,
+        )
+
+    health_path = Path.home() / WKS_HOME_EXT / "health.json"
+    health: Dict[str, Any] = {}
     try:
         if health_path.exists():
-            import json as _json
-            health = _json.load(open(health_path, 'r'))
+            health = json.load(open(health_path, "r"))
     except Exception:
+        status.notes.append("Failed to read health metrics")
         health = {}
-    dis = getattr(args, 'display', 'rich')
-    use_rich = (dis == 'rich') or (dis == 'auto')
-    # Fallback simple status text
-    if not health:
-        out = []
-        if LOCK_FILE.exists():
+
+    if health:
+        status.running = bool(health.get("lock_present"))
+        status.heartbeat = str(health.get("heartbeat_iso") or "")
+        status.uptime = str(health.get("uptime_hms") or "")
+        try:
+            status.pid = int(health.get("pid"))
+        except Exception:
+            status.pid = None
+        try:
+            bpm = health.get("avg_beats_per_min")
+            status.beats_per_min = float(bpm) if bpm is not None else None
+        except Exception:
+            status.beats_per_min = None
+        status.pending_deletes = health.get("pending_deletes")
+        status.pending_mods = health.get("pending_mods")
+        status.ok = False if health.get("last_error") else True
+        status.lock = bool(health.get("lock_present"))
+        if health.get("last_error"):
+            status.last_error = str(health.get("last_error"))
+        if health.get("db_last_operation"):
+            status.db_last_operation = health.get("db_last_operation")
+        if health.get("db_last_operation_detail"):
+            status.db_last_operation_detail = health.get("db_last_operation_detail")
+        if health.get("db_last_operation_iso"):
+            status.db_last_operation_iso = health.get("db_last_operation_iso")
+        if health.get("db_ops_last_minute") is not None:
+            try:
+                status.db_ops_last_minute = int(health.get("db_ops_last_minute"))
+            except Exception:
+                status.db_ops_last_minute = None
+        for attr, key in [
+            ("fs_rate_short", "fs_rate_short"),
+            ("fs_rate_long", "fs_rate_long"),
+            ("fs_rate_weighted", "fs_rate_weighted"),
+        ]:
+            try:
+                val = health.get(key)
+                setattr(status, attr, float(val) if val is not None else None)
+            except Exception:
+                setattr(status, attr, None)
+    else:
+        lock_exists = LOCK_FILE.exists()
+        status.lock = lock_exists
+        if lock_exists:
             try:
                 pid = int(LOCK_FILE.read_text().strip().splitlines()[0])
-                out.append(f"WKS daemon: running (PID {pid})")
+                status.pid = pid
+                status.running = _pid_running(pid)
             except Exception:
-                out.append("WKS daemon: lock present (unknown PID)")
+                status.notes.append("Lock present but PID unavailable")
+                status.running = None
         else:
-            out.append("WKS daemon: not running")
-        print("\n".join(out))
-        return 0 if LOCK_FILE.exists() else 3
-    # Pretty dashboard
+            status.running = False
+        if not status.notes and not lock_exists:
+            status.notes.append("WKS daemon: not running")
+
+    summary = load_db_activity_summary()
+    if summary:
+        if not status.db_last_operation:
+            status.db_last_operation = summary.get("operation") or None
+        if not status.db_last_operation_detail:
+            status.db_last_operation_detail = summary.get("detail") or None
+        if not status.db_last_operation_iso:
+            status.db_last_operation_iso = summary.get("timestamp_iso") or None
+        if not status.heartbeat:
+            status.heartbeat = summary.get("timestamp_iso") or status.heartbeat
+
+    recent = load_db_activity_history(60)
+    if status.db_ops_last_minute is None:
+        status.db_ops_last_minute = len(recent)
+    if status.beats_per_min is None and recent:
+        status.beats_per_min = float(len(recent))
+    if status.beats_per_min is None:
+        status.beats_per_min = float(status.db_ops_last_minute or 0)
+
     try:
+        cfg = load_config()
+        mongo_cfg = mongo_settings(cfg)
+        client = pymongo.MongoClient(
+            mongo_cfg["uri"],
+            serverSelectionTimeoutMS=300,
+            connectTimeoutMS=300,
+        )
+        client.admin.command("ping")
+        coll = client[mongo_cfg["space_database"]][mongo_cfg["space_collection"]]
+        status.db.tracked_files = coll.count_documents({})
+        last_doc = coll.find({}, {"timestamp": 1}).sort("timestamp", -1).limit(1)
+        for doc in last_doc:
+            status.db.last_updated = str(doc.get("timestamp", ""))
+        size_sum = 0
+        start_time = time.time()
+        from urllib.parse import urlparse, unquote
+
+        try:
+            agg = coll.aggregate(
+                [{"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$bytes", 0]}}}}]
+            )
+            agg_doc = next(agg, None)
+            if agg_doc and agg_doc.get("total") is not None:
+                status.db.total_size_bytes = int(agg_doc["total"])
+            else:
+                status.db.total_size_bytes = 0
+        except Exception:
+            status.db.total_size_bytes = 0
+        latest = coll.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(5)
+        status.db.latest_files = [
+            {"timestamp": str(doc.get("timestamp", "")), "path": str(doc.get("path", ""))}
+            for doc in latest
+        ]
+        try:
+            client.close()
+        except Exception:
+            pass
+    except SystemExit:
+        raise
+    except Exception as exc:
+        status.notes.append(f"Space DB stats unavailable: {exc}")
+
+    display_mode = getattr(args, "display", "rich")
+    use_rich = False
+    if display_mode == "rich":
+        use_rich = True
+    elif display_mode == "auto":
+        try:
+            use_rich = sys.stdout.isatty()
+        except Exception:
+            use_rich = False
+
+    if display_mode == "markdown":
+        print(status.to_markdown())
+        return 0
+
+    if use_rich:
+        from rich import box
         from rich.console import Console
         from rich.table import Table
-        from rich.panel import Panel
-        from rich.columns import Columns
-        from rich.text import Text
-        if use_rich:
-            # Metrics panel
-            t = Table(show_header=True, header_style="bold cyan")
-            t.add_column("Metric", style="bold")
-            t.add_column("Value")
-            ok_flag = 'true' if not health.get('last_error') else 'false'
-            rows = [
-                ("Heartbeat", health.get('heartbeat_iso','')),
-                ("Uptime", health.get('uptime_hms','')),
-                ("PID", str(health.get('pid',''))),
-                ("Beats/min", str(health.get('avg_beats_per_min',''))),
-                ("Pending deletes", str(health.get('pending_deletes',''))),
-                ("Pending mods", str(health.get('pending_mods',''))),
-                ("OK", ok_flag),
-                ("Lock", str(health.get('lock_present')).lower()),
-            ]
-            for k, v in rows:
-                t.add_row(k, v)
 
-            panels = [Panel(t, title="WKS Service", border_style="green" if ok_flag=='true' else "red")]
+        table = Table(
+            title="WKS Service Status",
+            header_style="bold",
+            box=box.SQUARE,
+            expand=False,
+            pad_edge=False,
+        )
+        table.add_column("Key", style="cyan", overflow="fold")
+        table.add_column("Value", style="white", overflow="fold")
+        for key, value in status.to_rows():
+            table.add_row(key, value)
+        Console().print(table)
+        return 0
 
-            # Launchd parsed panel (structured summary)
-            if launch_info is not None:
-                tl = Table(show_header=True, header_style="bold blue")
-                tl.add_column("Key", style="bold")
-                tl.add_column("Value")
-                for key, val in [
-                    ('State', launch_info.state),
-                    ('Active Count', launch_info.active_count),
-                    ('PID', launch_info.pid),
-                    ('Program', launch_info.program),
-                    ('Arguments', launch_info.arguments),
-                    ('Working Dir', launch_info.working_dir),
-                    ('Stdout', launch_info.stdout),
-                    ('Stderr', launch_info.stderr),
-                    ('Runs', launch_info.runs),
-                    ('Last Exit', launch_info.last_exit),
-                    ('Path', launch_info.path),
-                    ('Type', launch_info.type),
-                ]:
-                    if val:
-                        tl.add_row(key, val)
-                panels.append(Panel(tl, title="Launch Agent", border_style="blue"))
+    print(status.to_json())
+    return 0
 
-            # DB stats panel (best-effort, fast timeouts)
+
+def _read_health_snapshot() -> Dict[str, Any]:
+    health_path = Path.home() / WKS_HOME_EXT / "health.json"
+    if not health_path.exists():
+        return {}
+    try:
+        with open(health_path, "r") as fh:
+            return json.load(fh)
+    except Exception:
+        return {}
+
+
+def _wait_for_health_update(previous_heartbeat: Optional[str], timeout: float = 5.0) -> None:
+    health_path = Path.home() / WKS_HOME_EXT / "health.json"
+    if timeout <= 0:
+        return
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if health_path.exists():
             try:
-                from pymongo import MongoClient as _MC
-                from datetime import datetime as _dt
-                cfg = load_config()
-                mongo_cfg = mongo_settings(cfg)
-                client = _MC(mongo_cfg['uri'], serverSelectionTimeoutMS=300, connectTimeoutMS=300)
-                client.admin.command('ping')
-                coll = client[mongo_cfg['space_database']][mongo_cfg['space_collection']]
-                total = coll.count_documents({})
-                # last updated (most recent timestamp)
-                last_doc = coll.find({}, {"timestamp":1}).sort("timestamp", -1).limit(1)
-                last_ts = ""
-                for d in last_doc:
-                    last_ts = str(d.get('timestamp',''))
-                # total size best-effort: sum sizes with a short time budget
-                import time as _time, os as _os
-                start = _time.time(); size_sum = 0; scanned = 0
-                for d in coll.find({}, {"path":1}).limit(10000):
-                    p = d.get('path');
-                    if p and _os.path.exists(p):
-                        try:
-                            size_sum += _os.path.getsize(p)
-                        except Exception:
-                            pass
-                    scanned += 1
-                    if _time.time() - start > 0.2:  # 200ms budget
-                        break
-                def _hsize(n: int) -> str:
-                    units = ['B','KB','MB','GB','TB']
-                    i = 0; f = float(n)
-                    while f >= 1024.0 and i < len(units)-1:
-                        f /= 1024.0; i += 1
-                    return f"{f:0.1f} {units[i]}"
-                tdb = Table(show_header=True, header_style="bold magenta")
-                tdb.add_column("Metric", style="bold")
-                tdb.add_column("Value")
-                tdb.add_row("Tracked files", str(total))
-                tdb.add_row("Last updated", last_ts)
-                tdb.add_row("Total size (approx)", _hsize(size_sum))
-                # Latest 10 files
-                latest = coll.find({}, {"path":1, "timestamp":1}).sort("timestamp", -1).limit(10)
-                tt = Table(show_header=True, header_style="bold magenta")
-                tt.add_column("#", justify="right")
-                tt.add_column("timestamp")
-                tt.add_column("path")
-                for i, d in enumerate(latest, 1):
-                    tt.add_row(str(i), str(d.get('timestamp','')), str(d.get('path','')))
-                panels.append(Panel(Columns([tdb, tt]), title="Space DB", border_style="magenta"))
-            except SystemExit:
-                pass
+                with open(health_path, "r") as fh:
+                    data = json.load(fh)
+                hb = data.get("heartbeat_iso") or str(data.get("heartbeat"))
+                if hb and hb != previous_heartbeat:
+                    return
             except Exception:
                 pass
-
-            # Last error panel if any
-            if health.get('last_error'):
-                err = str(health.get('last_error'))
-                panels.append(Panel(Text(err, style="red"), title="Last Error", border_style="red"))
-
-            Console().print(Columns(panels))
-            return 0
-    except Exception:
-        pass
-    # Basic text dashboard
-    # Basic text dashboard
-    if launch_info is not None:
-        print("Launch Agent:")
-        for key, val in [
-            ('state', launch_info.state),
-            ('active_count', launch_info.active_count),
-            ('pid', launch_info.pid),
-            ('program', launch_info.program),
-            ('arguments', launch_info.arguments),
-            ('working_dir', launch_info.working_dir),
-            ('stdout', launch_info.stdout),
-            ('stderr', launch_info.stderr),
-            ('runs', launch_info.runs),
-            ('last_exit', launch_info.last_exit),
-            ('path', launch_info.path),
-            ('type', launch_info.type),
-        ]:
-            if val:
-                print(f"  {key}: {val}")
-    print(f"Heartbeat: {health.get('heartbeat_iso','')}")
-    print(f"Uptime:    {health.get('uptime_hms','')}")
-    print(f"PID:       {health.get('pid','')}")
-    print(f"Beats/min: {health.get('avg_beats_per_min','')}")
-    print(f"Pending:   deletes={health.get('pending_deletes',0)} mods={health.get('pending_mods',0)}")
-    ok = 'true' if not health.get('last_error') else 'false'
-    print(f"OK:        {ok}")
-    print(f"Lock:      {str(health.get('lock_present')).lower()}")
-    return 0
-    if LOCK_FILE.exists():
-        try:
-            pid_line = LOCK_FILE.read_text().strip().splitlines()[0]
-            pid = int(pid_line)
-            if _pid_running(pid):
-                print(f"WKS daemon is running (PID {pid})")
-                return 0
-            else:
-                print("WKS daemon lock exists but process is not running (stale lock)")
-                return 1
-        except Exception:
-            print("Could not read PID from lock; unknown status")
-            return 1
-    print("WKS daemon is not running")
-    return 3
+        time.sleep(0.25)
 
 
 def daemon_start(_: argparse.Namespace):
@@ -368,7 +706,7 @@ def daemon_start(_: argparse.Namespace):
     # Start as background process: python -m wks.daemon
     env = os.environ.copy()
     python = sys.executable
-    log_dir = Path.home() / ".wks"
+    log_dir = Path.home() / WKS_HOME_EXT
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "daemon.log"
     # Prefer running against the local source tree when available
@@ -396,14 +734,16 @@ def daemon_start(_: argparse.Namespace):
     print(f"WKS daemon started (PID {p.pid}). Log: {log_file}")
 
 
-def daemon_stop(_: argparse.Namespace):
+def _daemon_stop_core(stop_mongo: bool = True) -> None:
     if _is_macos() and _agent_installed():
         _daemon_stop_launchd()
-        _stop_managed_mongo()
+        if stop_mongo:
+            _stop_managed_mongo()
         return
     if not LOCK_FILE.exists():
         print("WKS daemon is not running")
-        _stop_managed_mongo()
+        if stop_mongo:
+            _stop_managed_mongo()
         return
     try:
         pid_line = LOCK_FILE.read_text().strip().splitlines()[0]
@@ -417,24 +757,37 @@ def daemon_stop(_: argparse.Namespace):
     except Exception as e:
         print(f"Failed to send SIGTERM to PID {pid}: {e}")
     finally:
-        _stop_managed_mongo()
+        if stop_mongo:
+            _stop_managed_mongo()
 
 
-def daemon_restart(_: argparse.Namespace):
-    # Prefer launchd restart on macOS if installed
+def daemon_stop(_: argparse.Namespace):
+    _daemon_stop_core(stop_mongo=True)
+
+
+def daemon_restart(args: argparse.Namespace):
+    previous_health = _read_health_snapshot()
+    previous_heartbeat = previous_health.get("heartbeat_iso") or previous_health.get("heartbeat")
+
+    # macOS launchd-managed restart
     if _is_macos() and _agent_installed():
         try:
             _daemon_stop_launchd()
-        finally:
-            _daemon_start_launchd()
+        except Exception:
+            pass
+        time.sleep(0.5)
+        _daemon_start_launchd()
+        _wait_for_health_update(previous_heartbeat, timeout=5.0)
         return
-    # Fallback: stop then start (background process)
+
+    # Fallback: stop/start without touching databases
     try:
-        daemon_stop(argparse.Namespace())
+        _daemon_stop_core(stop_mongo=False)
     except Exception:
         pass
     time.sleep(0.5)
-    daemon_start(argparse.Namespace())
+    daemon_start(args)
+    _wait_for_health_update(previous_heartbeat, timeout=5.0)
 
 
 
@@ -466,7 +819,7 @@ def _load_similarity_db() -> Any:
     except Exception as e:
         # Try to start local mongod if using our default URI
         if mongo_uri.startswith("mongodb://localhost:27027") and shutil.which("mongod"):
-            dbroot = Path.home() / ".wks" / "mongodb"
+            dbroot = Path.home() / WKS_HOME_EXT / "mongodb"
             dbpath = dbroot / "db"
             logfile = dbroot / "mongod.log"
             dbpath.mkdir(parents=True, exist_ok=True)
@@ -474,7 +827,7 @@ def _load_similarity_db() -> Any:
                 subprocess.check_call([
                     "mongod", "--dbpath", str(dbpath), "--logpath", str(logfile),
                     "--fork", "--bind_ip", "127.0.0.1", "--port", "27027"
-                ])
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 return _init()
             except Exception as e2:
                 print(f"Failed to auto-start local mongod: {e2}")
@@ -504,7 +857,13 @@ def _iter_files(paths: List[str], include_exts: List[str], cfg: Dict[str, Any]) 
         except Exception:
             return False
 
+    def _auto_skip(p: Path) -> bool:
+        parts = p.parts
+        return any(part in WKS_DOT_DIRS for part in parts)
+
     def _skip(p: Path) -> bool:
+        if _auto_skip(p):
+            return True
         if not respect:
             return False
         # Exclude explicit paths
@@ -532,6 +891,8 @@ def _iter_files(paths: List[str], include_exts: List[str], cfg: Dict[str, Any]) 
         pp = Path(p).expanduser()
         if not pp.exists():
             continue
+        if _auto_skip(pp):
+            continue
         if pp.is_file():
             if (not include_exts or pp.suffix.lower() in include_exts) and not _skip(pp):
                 out.append(pp)
@@ -539,12 +900,135 @@ def _iter_files(paths: List[str], include_exts: List[str], cfg: Dict[str, Any]) 
             for x in pp.rglob('*'):
                 if not x.is_file():
                     continue
+                if _auto_skip(x):
+                    continue
                 if include_exts and x.suffix.lower() not in include_exts:
                     continue
                 if _skip(x):
                     continue
                 out.append(x)
     return out
+
+
+def _build_extractor(cfg: Dict[str, Any]) -> Extractor:
+    ext = cfg.get("extract") or {}
+    sim = cfg.get("similarity") or {}
+    return Extractor(
+        engine=ext.get("engine", "docling"),
+        ocr=bool(ext.get("ocr", False)),
+        timeout_secs=int(ext.get("timeout_secs", 30)),
+        options=dict(ext.get("options") or {}),
+        max_chars=int(sim.get("max_chars", 200000)),
+        write_extension=ext.get("write_extension"),
+    )
+
+
+def _file_checksum(path: Path) -> str:
+    hasher = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _as_file_uri_local(path: Path) -> str:
+    try:
+        return path.expanduser().resolve().as_uri()
+    except ValueError:
+        return "file://" + path.expanduser().resolve().as_posix()
+
+
+def _format_duration(seconds: float) -> str:
+    if seconds >= 1:
+        return f"{seconds:.2f}s"
+    return f"{seconds * 1000:.1f}ms"
+
+
+def _make_progress(total: int, display: str):
+    from contextlib import contextmanager
+    import sys, time
+
+    def _clip(text: str, limit: int = 48) -> str:
+        if len(text) <= limit:
+            return text
+        if limit <= 1:
+            return text[:limit]
+        return text[: limit - 1] + "…"
+
+    def _hms(secs: float) -> str:
+        secs = max(0, int(secs))
+        h = secs // 3600; m = (secs % 3600) // 60; s = secs % 60
+        return f"{h:02d}:{m:02d}:{s:02d}"
+
+    use_rich = False
+    if display in (None, "auto"):
+        try:
+            use_rich = sys.stdout.isatty()
+        except Exception:
+            use_rich = False
+    elif display == "rich":
+        use_rich = True
+    else:
+        use_rich = False
+
+    if use_rich:
+        try:
+            from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn, TimeElapsedColumn
+
+            @contextmanager
+            def _rp():
+                start = time.perf_counter()
+                last = {"label": "Starting"}
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[bold blue]{task.fields[current]}"),
+                    BarColumn(bar_width=32),
+                    TextColumn("{task.completed}/{task.total}"),
+                    TimeRemainingColumn(),
+                    TimeElapsedColumn(),
+                    transient=False,
+                ) as progress:
+                    task = progress.add_task("task", total=total if total else None, current="Starting")
+                    class R:
+                        def update(self, label: str, advance: int = 1):
+                            clipped = _clip(label)
+                            last["label"] = clipped
+                            progress.update(task, advance=advance, current=clipped)
+                        def close(self):
+                            pass
+                    yield R()
+                elapsed = time.perf_counter() - start
+                label = last.get("label") or "Completed"
+                progress.console.print(f"[dim]{label} finished in {_format_duration(elapsed)}[/dim]")
+            return _rp()
+        except Exception:
+            pass
+
+    @contextmanager
+    def _bp():
+        start = time.time()
+        done = {"n": 0, "label": "Starting"}
+        class B:
+            def update(self, label: str, advance: int = 1):
+                done["label"] = label
+                done["n"] += advance
+                n = done["n"]
+                pct = (n/total*100.0) if total else 100.0
+                elapsed = time.time()-start
+                eta = _hms((elapsed/n)*(total-n)) if n>0 and total>n else _hms(0)
+                print(f"[{n}/{total}] {pct:5.1f}% ETA {eta}  {label}")
+            def close(self):
+                pass
+        try:
+            yield B()
+        finally:
+            elapsed = time.time() - start
+            label = done.get("label") or "Completed"
+            print(f"[done] {label} finished in {_format_duration(elapsed)}")
+    return _bp()
+
 
 # ----------------------------- LLM helpers --------------------------------- # (removed)
 
@@ -674,12 +1158,15 @@ def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
             model_name=sim['model'],
             model_path=sim.get('model_path'),
             offline=bool(sim.get('offline', False)),
+            min_chars=int(sim['min_chars']),
             max_chars=int(sim['max_chars']),
             chunk_chars=int(sim['chunk_chars']),
             chunk_overlap=int(sim['chunk_overlap']),
-            extract_engine='docling',
+            extract_engine=str(ext.get('engine', 'docling')),
             extract_ocr=bool(ext['ocr']),
             extract_timeout_secs=int(ext['timeout_secs']),
+            extract_options=dict(ext.get('options') or {}),
+            write_extension=ext.get('write_extension'),
         )
     try:
         db = _make()
@@ -690,7 +1177,7 @@ def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
             import shutil as _sh, subprocess as _sp, time as _t
             uri = str(sim.get('mongo_uri',''))
             if uri.startswith('mongodb://localhost:27027') and _sh.which('mongod'):
-                dbroot = Path.home() / '.wks' / 'mongodb'
+                dbroot = Path.home() / WKS_HOME_EXT / 'mongodb'
                 dbpath = dbroot / 'db'
                 logfile = dbroot / 'mongod.log'
                 dbpath.mkdir(parents=True, exist_ok=True)
@@ -791,7 +1278,7 @@ def _ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
                 "--pidfilepath", str(pidfile),
                 "--bind_ip", "127.0.0.1",
                 "--port", "27027",
-            ])
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
             print(f"Fatal: failed to auto-start local mongod: {e}")
             raise SystemExit(2)
@@ -809,7 +1296,7 @@ def _ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
                 except Exception:
                     pass
             return
-        print("Fatal: mongod started but MongoDB still unreachable; check logs in ~/.wks/mongodb/mongod.log")
+        print(f"Fatal: mongod started but MongoDB still unreachable; check logs in {WKS_HOME_DISPLAY}/mongodb/mongod.log")
         raise SystemExit(2)
     print(f"Fatal: MongoDB not reachable at {uri}; start mongod and retry.")
     raise SystemExit(2)
@@ -828,14 +1315,16 @@ def _should_skip_dir(dirpath: Path, ignore_dirnames: List[str]) -> bool:
     for part in parts:
         if part in ignore_dirnames:
             return True
-        if part.startswith('.') and part != '.wks':
+        if part in WKS_DOT_DIRS:
+            return True
+        if part.startswith('.'):
             return True
     return False
 
 
 def _should_skip_file(path: Path, ignore_patterns: List[str], ignore_globs: List[str]) -> bool:
-    # Dotfiles except .wks
-    if path.name.startswith('.') and path.name != '.wks':
+    # Dotfiles (including .wks/.wkso artefact directories)
+    if path.name.startswith('.') or any(part in WKS_DOT_DIRS for part in path.parts):
         return True
     # Pattern tokens match any segment exactly
     for tok in ignore_patterns:
@@ -858,12 +1347,12 @@ def _load_vault() -> Any:
     cfg = load_config()
     vault_path = cfg.get('vault_path')
     if not vault_path:
-        print("Fatal: 'vault_path' is required in ~/.wks/config.json")
+        print(f"Fatal: 'vault_path' is required in {WKS_HOME_DISPLAY}/config.json")
         raise SystemExit(2)
     obs = cfg.get('obsidian', {})
     base_dir = obs.get('base_dir')
     if not base_dir:
-        print("Fatal: 'obsidian.base_dir' is required in ~/.wks/config.json (e.g., 'WKS')")
+        print(f"Fatal: 'obsidian.base_dir' is required in {WKS_HOME_DISPLAY}/config.json (e.g., 'WKS')")
         raise SystemExit(2)
     # Require explicit logging caps/widths
     for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars"]:
@@ -914,76 +1403,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument(
         "--display",
-        choices=["auto", "rich", "basic"],
+        choices=["auto", "rich", "json", "markdown"],
         default="rich",
-        help="Progress display: rich (interactive), basic (line-by-line), or auto",
+        help="Output display: rich (interactive), json, markdown, or auto (detect).",
     )
 
     # Lightweight progress helpers
-    def _make_progress(total: int, display: str):
-        from contextlib import contextmanager
-        import sys, time
-
-        def _hms(secs: float) -> str:
-            secs = max(0, int(secs))
-            h = secs // 3600; m = (secs % 3600) // 60; s = secs % 60
-            return f"{h:02d}:{m:02d}:{s:02d}"
-
-        use_rich = False
-        if display in (None, "auto"):
-            # Auto: prefer rich if available and isatty
-            try:
-                use_rich = sys.stdout.isatty()
-            except Exception:
-                use_rich = False
-        elif display == "rich":
-            use_rich = True
-        else:
-            use_rich = False
-
-        if use_rich:
-            try:
-                from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn
-
-                @contextmanager
-                def _rp():
-                    with Progress(
-                        SpinnerColumn(),
-                        TextColumn("[bold blue]Working"),
-                        BarColumn(bar_width=None),
-                        TextColumn("{task.completed}/{task.total}"),
-                        TimeRemainingColumn(),
-                        TextColumn("• {task.fields[current]}"),
-                    ) as progress:
-                        task = progress.add_task("task", total=total, current="")
-                        class R:
-                            def update(self, filename: str, advance: int = 1):
-                                progress.update(task, advance=advance, current=filename)
-                            def close(self):
-                                pass
-                        yield R()
-                return _rp()
-            except Exception:
-                pass
-
-        # Basic, line-by-line
-        @contextmanager
-        def _bp():
-            start = time.time()
-            done = {"n": 0}
-            class B:
-                def update(self, filename: str, advance: int = 1):
-                    done["n"] += advance
-                    n = done["n"]
-                    pct = (n/total*100.0) if total else 100.0
-                    elapsed = time.time()-start
-                    eta = _hms((elapsed/n)*(total-n)) if n>0 and total>n else _hms(0)
-                    print(f"[{n}/{total}] {pct:5.1f}% ETA {eta}  {filename}")
-                def close(self):
-                    pass
-            yield B()
-        return _bp()
-
     cfg = sub.add_parser("config", help="Config commands")
     cfg_sub = cfg.add_subparsers(dest="cfg_cmd")
     cfg_print = cfg_sub.add_parser("print", help="Print effective config")
@@ -1010,7 +1435,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return
         pl = _plist_path()
         pl.parent.mkdir(parents=True, exist_ok=True)
-        log_dir = Path.home()/".wks"
+        log_dir = Path.home()/WKS_HOME_EXT
         log_dir.mkdir(exist_ok=True)
         # Use the current interpreter (works for system Python, venv, and pipx)
         python = sys.executable
@@ -1140,7 +1565,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 'file_ops.jsonl','monitor_state.json','activity_state.json','health.json',
                 'daemon.lock','daemon.log','daemon.error.log'
             ]:
-                p = home/'.wks'/name
+                p = home/WKS_HOME_EXT/name
                 try:
                     if p.exists():
                         p.unlink()
@@ -1173,48 +1598,445 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # (analyze group was removed)
 
-    # Top-level index command (moved out of analyze)
-    idx = sub.add_parser("index", help="Index files or directories (recursive) into similarity DB with progress")
-    idx.add_argument("paths", nargs="+", help="Files or directories to index")
-    def _index_cmd(args: argparse.Namespace) -> int:
-        print("Connecting to DB…")
-        db, _ = _load_similarity_required()
+    # Extract text without indexing
+    extp = sub.add_parser("extract", help="Extract document text using the configured pipeline")
+    extp.add_argument("paths", nargs="+", help="Files or directories to extract")
+    def _extract_cmd(args: argparse.Namespace) -> int:
         cfg = load_config()
         include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
         files = _iter_files(args.paths, include_exts, cfg)
         if not files:
-            print("No files to index (check paths/extensions)")
+            print("No files to extract (check paths/extensions)")
             return 0
-        vault = _load_vault()
-        docs_keep = int((cfg.get('obsidian') or {}).get('docs_keep', 99))
-        added = 0
+        extractor = _build_extractor(cfg)
+        extracted = 0
         skipped = 0
         errors = 0
+        outputs: List[Tuple[Path, Path]] = []
         with _make_progress(total=len(files), display=getattr(args, 'display', 'auto')) as prog:
             for f in files:
                 prog.update(f.name, advance=0)
                 try:
-                    updated = db.add_file(f)
-                    if updated:
-                        added += 1
-                        rec = db.get_last_add_result() or {}
-                        ch = rec.get('content_hash')
-                        txt = rec.get('text')
-                        if ch and txt is not None:
-                            try:
-                                vault.write_doc_text(ch, f, txt, keep=docs_keep)
-                            except Exception:
-                                pass
+                    result = extractor.extract(f, persist=True)
+                    if result.content_path:
+                        extracted += 1
+                        outputs.append((f, Path(result.content_path)))
                     else:
                         skipped += 1
                 except Exception:
                     errors += 1
                 finally:
                     prog.update(f.name, advance=1)
+        for src, artefact in outputs:
+            print(f"{src} -> {artefact}")
+        print(f"Extracted {extracted} file(s), skipped {skipped}, errors {errors}")
+        return 0
+    extp.set_defaults(func=_extract_cmd)
+
+    # Top-level index command (moved out of analyze)
+    idx = sub.add_parser("index", help="Index files or directories (recursive) into similarity DB with progress")
+    idx.add_argument("--untrack", action="store_true", help="Remove tracked entries (and artefacts) instead of indexing")
+    idx.add_argument("paths", nargs="+", help="Files or directories to process")
+    def _index_cmd(args: argparse.Namespace) -> int:
+        cfg = load_config()
+        include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
+        files = _iter_files(args.paths, include_exts, cfg)
+        if not files:
+            print("No files to process (check paths/extensions)")
+            return 0
+
+        display_mode = getattr(args, 'display', 'auto')
+
+        if args.untrack:
+            removed = 0
+            missing = 0
+            errors = 0
+            with _make_progress(total=len(files), display=getattr(args, 'display', 'auto')) as prog:
+                prog.update("Connecting to DB…", advance=0)
+                db, _ = _load_similarity_required()
+                for f in files:
+                    prog.update(f"{f.name} • untrack", advance=0)
+                    try:
+                        if db.remove_file(f):
+                            removed += 1
+                        else:
+                            missing += 1
+                    except Exception:
+                        errors += 1
+                    finally:
+                        prog.update(f.name, advance=1)
+                prog.update("Untracking complete", advance=0)
+            print(f"Untracked {removed} file(s), missing {missing}, errors {errors}")
+            return 0
+
+        hash_times: Dict[Path, Optional[float]] = {}
+        checksums: Dict[Path, Optional[str]] = {}
+        file_sizes: Dict[Path, Optional[int]] = {}
+        for f in files:
+            try:
+                h_start = time.perf_counter()
+                checksum = _file_checksum(f)
+                hash_times[f] = time.perf_counter() - h_start
+                checksums[f] = checksum
+            except Exception:
+                hash_times[f] = None
+                checksums[f] = None
+            try:
+                file_sizes[f] = f.stat().st_size
+            except Exception:
+                file_sizes[f] = None
+
+        pre_skipped: List[Path] = []
+        files_to_process = list(files)
+        try:
+            client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg)
+        except Exception:
+            client = None
+            mongo_cfg = None
+        if client is not None and mongo_cfg is not None:
+            try:
+                coll = client[mongo_cfg['space_database']][mongo_cfg['space_collection']]
+                to_process: List[Path] = []
+                for f in files:
+                    checksum = checksums.get(f)
+                    if checksum is None:
+                        to_process.append(f)
+                        continue
+                    doc = coll.find_one({"path": _as_file_uri_local(f)})
+                    try:
+                        record_db_activity("index.precheck", str(f))
+                    except Exception:
+                        pass
+                    if not doc:
+                        doc = coll.find_one({"path_local": str(f.resolve())})
+                    if doc and doc.get("checksum") == checksum:
+                        pre_skipped.append(f)
+                    else:
+                        to_process.append(f)
+                files_to_process = to_process
+            finally:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+
+        def _fmt_duration(seconds: Optional[float]) -> str:
+            if seconds is None:
+                return "—"
+            if seconds >= 1:
+                return f"{seconds:6.2f} {'s':>2}"
+            return f"{seconds * 1000:6.1f} {'ms':>2}"
+
+        stage_labels = [
+            ("hash", "Hash"),
+            ("extract", "Extract"),
+            ("embed", "Embed"),
+            ("db", "DB"),
+            ("chunks", "Chunks"),
+            ("obsidian", "Obsidian"),
+        ]
+
+        def _truncate_cell(text: str, limit: Optional[int]) -> str:
+            if limit is None or limit <= 0 or len(text) <= limit:
+                return text
+            if limit == 1:
+                return text[:1]
+            return text[: limit - 1] + "…"
+
+        def _format_cell(text: str, width: int, align: str) -> str:
+            if align == "right":
+                return text.rjust(width)
+            if align == "center":
+                return text.center(width)
+            return text.ljust(width)
+
+        def _render_plain_boxed_table(
+            title: str,
+            header: List[str],
+            rows: List[List[str]],
+            align: List[str],
+            limits: Optional[Dict[int, int]] = None,
+        ) -> None:
+            if not rows:
+                return
+            limits = limits or {}
+            processed: List[List[str]] = []
+            for row in rows:
+                processed_row: List[str] = []
+                for idx, cell in enumerate(row):
+                    text = str(cell)
+                    text = _truncate_cell(text, limits.get(idx))
+                    processed_row.append(text)
+                processed.append(processed_row)
+            widths: List[int] = []
+            for idx, head in enumerate(header):
+                col_width = len(str(head))
+                for row in processed:
+                    col_width = max(col_width, len(row[idx]))
+                limit = limits.get(idx)
+                if limit:
+                    col_width = min(col_width, limit)
+                widths.append(col_width)
+            total_width = sum(widths) + 3 * (len(widths) - 1)
+            border = "+" + "-" * (total_width + 2) + "+"
+            print()
+            print(border)
+            print("| " + title.center(total_width) + " |")
+            print(border)
+            header_line = " | ".join(
+                _format_cell(str(head), widths[idx], "center" if align[idx] == "right" else align[idx])
+                for idx, head in enumerate(header)
+            )
+            print("| " + header_line + " |")
+            separator = "-+-".join("-" * width for width in widths)
+            print("| " + separator + " |")
+            for row in processed:
+                line = " | ".join(
+                    _format_cell(cell, widths[idx], align[idx]) for idx, cell in enumerate(row)
+                )
+                print("| " + line + " |")
+            print(border)
+
+        def _render_timing_summary(entries: List[Dict[str, Any]], display_mode: str, fmt) -> None:
+            if not entries:
+                return
+            totals: Dict[str, float] = {key: 0.0 for key, _ in stage_labels}
+            counts: Dict[str, int] = {key: 0 for key, _ in stage_labels}
+            for entry in entries:
+                for key, _ in stage_labels:
+                    val = entry.get(key)
+                    if isinstance(val, (int, float)):
+                        totals[key] += val
+                        counts[key] += 1
+
+            use_rich = False
+            try:
+                if display_mode == "rich":
+                    use_rich = True
+                elif display_mode in (None, "auto"):
+                    use_rich = sys.stdout.isatty()
+            except Exception:
+                use_rich = False
+
+            if use_rich:
+                try:
+                    from rich import box
+                    from rich.console import Console
+                    from rich.panel import Panel
+                    from rich.table import Table
+                except Exception:
+                    use_rich = False
+                if use_rich:
+                    console = Console()
+                    console.print()
+                    detail = Table(show_header=True, header_style="bold", expand=False, box=box.SQUARE, pad_edge=False)
+                    detail.add_column("#", justify="right", no_wrap=True, overflow="ignore", min_width=2, max_width=3)
+                    detail.add_column("File", style="cyan", no_wrap=False, overflow="fold", min_width=12, max_width=28)
+                    detail.add_column("Status", style="magenta", no_wrap=False, overflow="fold", min_width=8, max_width=20)
+                    for _, label in stage_labels:
+                        detail.add_column(label, justify="right", no_wrap=True, overflow="ignore", min_width=9, max_width=11)
+                    for idx, entry in enumerate(entries, 1):
+                        row = [str(idx), entry['path'].name, entry['status']]
+                        for key, _ in stage_labels:
+                            row.append(fmt(entry.get(key)))
+                        detail.add_row(*row)
+                    width = console.width or 80
+                    console.print(Panel.fit(detail, title="Timing Details", border_style="dim"), width=min(max(width, 72), 110))
+
+                    totals_table = Table(show_header=True, header_style="bold", expand=False, box=box.SQUARE, pad_edge=False)
+                    totals_table.add_column("Stage", style="green", no_wrap=False, overflow="fold", min_width=10, max_width=20)
+                    totals_table.add_column("Duration", justify="right", no_wrap=True, overflow="ignore", min_width=9, max_width=11)
+                    totals_table.add_column("Files", justify="right", no_wrap=True, overflow="ignore", min_width=5, max_width=6)
+                    any_totals = False
+                    for key, label in stage_labels:
+                        if counts[key]:
+                            totals_table.add_row(label, fmt(totals[key]), str(counts[key]))
+                            any_totals = True
+                    if any_totals:
+                        console.print(Panel.fit(totals_table, title="Timing Totals", border_style="dim"), width=min(max(width, 54), 90))
+                    return
+
+            header = ["#", "File", "Status"] + [label for _, label in stage_labels]
+            align = ["right", "left", "left"] + ["right"] * len(stage_labels)
+            limits = {1: 32, 2: 20}
+            details_rows: List[List[str]] = []
+            for idx, entry in enumerate(entries, 1):
+                row = [str(idx), entry['path'].name, entry['status']]
+                for key, _ in stage_labels:
+                    row.append(fmt(entry.get(key)))
+                details_rows.append(row)
+            _render_plain_boxed_table("Timing Details", header, details_rows, align, limits)
+
+            total_rows: List[List[str]] = []
+            for key, label in stage_labels:
+                if counts[key]:
+                    total_rows.append([label, fmt(totals[key]), str(counts[key])])
+            if total_rows:
+                _render_plain_boxed_table(
+                    "Timing Totals",
+                    ["Stage", "Duration", "Files"],
+                    total_rows,
+                    ["left", "right", "right"],
+                )
+            return
+
+        if not files_to_process:
+            skipped = len(pre_skipped)
+            total_files = None
+            try:
+                client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg)
+                coll = client[mongo_cfg['space_database']][mongo_cfg['space_collection']]
+                total_files = coll.count_documents({})
+            except Exception:
+                total_files = None
+            finally:
+                if client is not None:
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
+            print("Nothing to index; all files already current.")
+            print(f"Indexed 0 file(s), skipped {skipped}, errors 0")
+            if total_files is not None and mongo_cfg is not None:
+                print(f"DB: {mongo_cfg['space_database']}.{mongo_cfg['space_collection']} total_files={total_files}")
+            if pre_skipped:
+                _render_timing_summary(
+                    [{
+                        "path": f,
+                        "status": "cached",
+                        "hash": hash_times.get(f),
+                        "extract": None,
+                        "embed": None,
+                        "db": None,
+                        "chunks": None,
+                        "obsidian": None,
+                    } for f in pre_skipped],
+                    display_mode,
+                    _fmt_duration,
+                )
+            return 0
+
+        db = None
+        extractor = None
+        vault = None
+        docs_keep = int((cfg.get('obsidian') or {}).get('docs_keep', 99))
+        added = 0
+        skipped = len(pre_skipped)
+        errors = 0
+        summaries: List[Dict[str, Any]] = []
+        with _make_progress(total=len(files_to_process), display=getattr(args, 'display', 'auto')) as prog:
+            prog.update(f"Pre-checking {len(files)} file(s)…", advance=0)
+            prog.update("Connecting to DB…", advance=0)
+            db, _ = _load_similarity_required()
+            extractor = _build_extractor(cfg)
+            vault = _load_vault()
+            for f in files_to_process:
+                prog.update(f"{f.name} • extract", advance=0)
+                try:
+                    extract_start = time.perf_counter()
+                    extraction = extractor.extract(f, persist=True)
+                    extract_time = time.perf_counter() - extract_start
+                except Exception as exc:
+                    errors += 1
+                    prog.update(f.name, advance=1)
+                    summaries.append({
+                        "path": f,
+                        "status": f"error: {exc}",
+                        "hash": hash_times.get(f),
+                        "extract": None,
+                        "embed": None,
+                        "db": None,
+                        "chunks": None,
+                        "obsidian": None,
+                    })
+                    continue
+
+                prog.update(f"{f.name} • embed", advance=0)
+                updated = False
+                rec_timings: Dict[str, float] = {}
+                kwargs: Dict[str, Any] = {}
+                checksum_value = checksums.get(f)
+                if checksum_value is not None:
+                    kwargs['file_checksum'] = checksum_value
+                size_value = file_sizes.get(f)
+                if size_value is not None:
+                    kwargs['file_bytes'] = size_value
+                try:
+                    updated = db.add_file(
+                        f,
+                        extraction=extraction,
+                        **kwargs,
+                    )
+                    rec = db.get_last_add_result() or {}
+                    rec_timings = rec.get('timings') or {}
+                except Exception:
+                    errors += 1
+                    prog.update(f.name, advance=1)
+                    summaries.append({
+                        "path": f,
+                        "status": "error",
+                        "hash": hash_times.get(f),
+                        "extract": extract_time,
+                        "embed": None,
+                        "db": None,
+                        "chunks": None,
+                        "obsidian": None,
+                    })
+                    continue
+
+                obsidian_time: Optional[float] = None
+                if updated:
+                    added += 1
+                    rec = db.get_last_add_result() or {}
+                    ch = rec.get('content_checksum') or rec.get('content_hash')
+                    txt = rec.get('text')
+                    if ch and txt is not None:
+                        try:
+                            prog.update(f"{f.name} • obsidian", advance=0)
+                            obs_start = time.perf_counter()
+                            vault.write_doc_text(ch, f, txt, keep=docs_keep)
+                            obsidian_time = time.perf_counter() - obs_start
+                        except Exception:
+                            obsidian_time = None
+                else:
+                    skipped += 1
+
+                prog.update(f.name, advance=1)
+                summaries.append({
+                    "path": f,
+                    "status": "updated" if updated else "unchanged",
+                    "hash": hash_times.get(f),
+                    "extract": extract_time,
+                    "embed": rec_timings.get('embed'),
+                    "db": rec_timings.get('db_update'),
+                    "chunks": rec_timings.get('chunks'),
+                    "obsidian": obsidian_time,
+                })
+            prog.update("DB update complete", advance=0)
+
+        for f in pre_skipped:
+            summaries.append({
+                "path": f,
+                "status": "cached",
+                "hash": hash_times.get(f),
+                "extract": None,
+                "embed": None,
+                "db": None,
+                "chunks": None,
+                "obsidian": None,
+            })
+
         print(f"Indexed {added} file(s), skipped {skipped}, errors {errors}")
+
+        if summaries:
+            _render_timing_summary(summaries, display_mode, _fmt_duration)
         try:
             stats = db.get_stats()
-            print(f"DB: {stats['database']}.{stats['collection']} total_files={stats['total_files']}")
+            total_bytes = stats.get('total_bytes')
+            if total_bytes is not None:
+                print(f"DB: {stats['database']}.{stats['collection']} total_files={stats['total_files']} total_bytes={total_bytes}")
+            else:
+                print(f"DB: {stats['database']}.{stats['collection']} total_files={stats['total_files']}")
         except Exception:
             pass
         return 0
@@ -1269,9 +2091,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                 pass
         if args.limit:
             cur = cur.limit(int(args.limit))
+        try:
+            record_db_activity(f"db.query.{scope_label}", args.filter or "{}")
+        except Exception:
+            pass
         # Output formatting per display
-        dis = getattr(args, 'display', 'rich')
-        use_rich = (dis == 'rich') or (dis == 'auto')
+        display_mode = getattr(args, 'display', 'rich')
+        if display_mode == 'json':
+            docs = list(cur)
+            print(json.dumps(docs, default=str, indent=2))
+            return 0
+        use_rich = (display_mode == 'rich') or (display_mode == 'auto')
         try:
             from rich.console import Console
             from rich.table import Table
@@ -1286,7 +2116,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 return 0
         except Exception:
             pass
-        # basic
+        # plain fallback
         for i, doc in enumerate(cur, 1):
             print(f"[{i}] {doc}")
         return 0
@@ -1296,6 +2126,61 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Use a lightweight, fast Mongo client for stats (no model/docling startup)
         cfg_local = load_config()
         ts_format = timestamp_format(cfg_local)
+        display_mode = getattr(args, 'display', 'rich')
+
+        reference_input = getattr(args, 'reference', None)
+        reference_uri: Optional[str] = None
+        reference_path: Optional[Path] = None
+        reference_info: Optional[Dict[str, Any]] = None
+        db_idx = None
+        if reference_input:
+            from urllib.parse import unquote, urlparse
+
+            if reference_input.startswith("file://"):
+                parsed = urlparse(reference_input)
+                reference_uri = reference_input
+                reference_path = Path(unquote(parsed.path or "")).expanduser()
+            else:
+                reference_path = Path(reference_input).expanduser()
+                reference_uri = _as_file_uri_local(reference_path)
+            if not reference_path.exists():
+                print(f"Reference file not found: {reference_path}")
+                return 2
+            try:
+                db_idx, _ = _load_similarity_required()
+                extractor = _build_extractor(cfg_local)
+                checksum_val = None
+                size_val = None
+                try:
+                    checksum_val = _file_checksum(reference_path)
+                except Exception:
+                    checksum_val = None
+                try:
+                    size_val = reference_path.stat().st_size
+                except Exception:
+                    size_val = None
+                extraction = extractor.extract(reference_path, persist=True)
+                db_idx.add_file(
+                    reference_path,
+                    extraction=extraction,
+                    file_checksum=checksum_val,
+                    file_bytes=size_val,
+                )
+            except SystemExit:
+                raise
+            except Exception as exc:
+                print(f"Failed to index reference: {exc}")
+                return 2
+            finally:
+                if db_idx is not None:
+                    try:
+                        db_idx.client.close()
+                    except Exception:
+                        pass
+            reference_info = {"uri": reference_uri, "path": reference_path}
+        else:
+            reference_info = None
+
         try:
             client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
         except Exception as e:
@@ -1308,6 +2193,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         coll_space = mongo_cfg['space_collection']
         coll_time = mongo_cfg['time_collection']
+        if reference_info and getattr(args, 'time', False):
+            print("Reference comparisons are only available for the space database.")
+            return 2
         # Helper to format timestamps consistently
         from datetime import datetime as _dt
         def _fmt_ts(ts):
@@ -1323,141 +2211,470 @@ def main(argv: Optional[List[str]] = None) -> int:
             except Exception:
                 return str(ts)
 
-        def _fmt_size(path: str, fallback: Optional[int] = None) -> str:
+        def _fmt_bytes(value: Optional[Any]) -> str:
             try:
-                if path and os.path.exists(path):
-                    bytes_val = os.path.getsize(path)
-                elif fallback is not None:
-                    bytes_val = int(fallback)
-                else:
+                if value is None:
                     return "-"
+                bytes_val = float(value)
             except Exception:
                 return "-"
-            units = ['B', 'KB', 'MB', 'GB', 'TB']
-            f = float(bytes_val)
+            units = ['B', 'kB', 'MB', 'GB', 'TB']
             i = 0
-            while f >= 1024.0 and i < len(units) - 1:
-                f /= 1024.0
+            while bytes_val >= 1024.0 and i < len(units) - 1:
+                bytes_val /= 1024.0
                 i += 1
-            return f"{f:0.1f} {units[i]}"
+            return f"{bytes_val:7.2f} {units[i]:>2}"
+
+        def _fmt_uri(doc: Dict[str, Any]) -> str:
+            uri = doc.get('path')
+            if uri:
+                return str(uri)
+            local = doc.get('path_local')
+            if not local:
+                return ""
+            try:
+                return Path(local).expanduser().resolve().as_uri()
+            except Exception:
+                return str(local)
+
+        def _fmt_checksum(value: Optional[Any]) -> str:
+            if value is None or value == "":
+                return "-"
+            text = str(value)
+            if len(text) <= 10:
+                return text
+            return f"{text[:10]} …"
+
+        def _parse_ts_value(ts: Any) -> Optional[_dt]:
+            if not ts:
+                return None
+            try:
+                if isinstance(ts, str):
+                    s = ts.replace("Z", "+00:00") if ts.endswith("Z") else ts
+                    return _dt.fromisoformat(s)
+                if isinstance(ts, (int, float)):
+                    return _dt.fromtimestamp(float(ts))
+            except Exception:
+                return None
+            return None
+
+        def _fmt_tdelta(delta: Optional[Any]) -> str:
+            if delta is None:
+                return "-"
+            if not isinstance(delta, (int, float)):
+                total_seconds = int(delta.total_seconds())
+            else:
+                total_seconds = int(delta)
+            sign = "+" if total_seconds >= 0 else "-"
+            total_seconds = abs(total_seconds)
+            days, rem = divmod(total_seconds, 86400)
+            hours, rem = divmod(rem, 3600)
+            minutes, seconds = divmod(rem, 60)
+            if days:
+                return f"{sign}{days}d {hours:02d}:{minutes:02d}:{seconds:02d}"
+            return f"{sign}{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+        def _fmt_size_delta(delta: Optional[Any]) -> str:
+            if delta is None:
+                return "-"
+            try:
+                value = float(delta)
+            except Exception:
+                return "-"
+            sign = "+" if value >= 0 else "-"
+            value = abs(value)
+            units = ['B', 'kB', 'MB', 'GB', 'TB']
+            i = 0
+            while value >= 1024.0 and i < len(units) - 1:
+                value /= 1024.0
+                i += 1
+            return f"{sign}{value:7.2f} {units[i]:>2}"
+
+        def _fmt_angle_delta(delta: Optional[float]) -> str:
+            if delta is None:
+                return "-"
+            return f"{delta:6.2f}°"
+
+        def _angle_between(vec_a: Optional[List[Any]], vec_b: Optional[List[Any]]) -> Optional[float]:
+            if not vec_a or not vec_b:
+                return None
+            try:
+                pairs = list(zip(vec_a, vec_b))
+                if not pairs:
+                    return None
+                dot = sum(float(a) * float(b) for a, b in pairs)
+                norm_a = math.sqrt(sum(float(a) * float(a) for a in vec_a))
+                norm_b = math.sqrt(sum(float(b) * float(b) for b in vec_b))
+                denom = norm_a * norm_b
+                if denom <= 0:
+                    return None
+                cosv = max(-1.0, min(1.0, dot / denom))
+                return math.degrees(math.acos(cosv))
+            except Exception:
+                return None
+
+        def _format_cell(text: str, width: int, align: str) -> str:
+            if align == "right":
+                return text.rjust(width)
+            if align == "center":
+                return text.center(width)
+            return text.ljust(width)
+
+        def _render_plain_boxed_table_simple(
+            title: str,
+            header: List[str],
+            rows: List[List[str]],
+            align: List[str],
+            limits: Optional[Dict[int, int]] = None,
+        ) -> None:
+            if not rows:
+                return
+            limits = limits or {}
+            processed: List[List[str]] = []
+            for row in rows:
+                processed_row: List[str] = []
+                for idx, cell in enumerate(row):
+                    text = str(cell)
+                    limit = limits.get(idx)
+                    if limit and len(text) > limit:
+                        if limit == 1:
+                            text = text[:1]
+                        else:
+                            text = text[: limit - 1] + "…"
+                    processed_row.append(text)
+                processed.append(processed_row)
+            widths: List[int] = []
+            for idx, head in enumerate(header):
+                col_width = len(str(head))
+                for row in processed:
+                    col_width = max(col_width, len(row[idx]))
+                limit = limits.get(idx)
+                if limit:
+                    col_width = min(col_width, limit)
+                widths.append(col_width)
+            total_width = sum(widths) + 3 * (len(widths) - 1)
+            border = "+" + "-" * (total_width + 2) + "+"
+            print()
+            print(border)
+            print("| " + title.center(total_width) + " |")
+            print(border)
+            header_line = " | ".join(
+                _format_cell(str(head), widths[idx], "center" if align[idx] == "right" else align[idx])
+                for idx, head in enumerate(header)
+            )
+            print("| " + header_line + " |")
+            separator = "-+-".join("-" * width for width in widths)
+            print("| " + separator + " |")
+            for row in processed:
+                line = " | ".join(
+                    _format_cell(cell, widths[idx], align[idx]) for idx, cell in enumerate(row)
+                )
+                print("| " + line + " |")
+            print(border)
 
         if args.time:
             coll = client[mongo_cfg['time_database']][coll_time]
             total = coll.count_documents({})
-            print({"database": mongo_cfg['time_database'], "collection": coll_time, "total_docs": total})
+            if display_mode != 'json':
+                print({"database": mongo_cfg['time_database'], "collection": coll_time, "total_docs": total})
+            try:
+                record_db_activity("db.info.time", f"total={total}")
+            except Exception:
+                pass
             n = int(getattr(args, 'latest', 0) or 0)
             if n > 0:
                 cur = coll.find(
                     {},
                     {"path": 1, "t_new": 1, "checksum_new": 1, "size_bytes_new": 1, "bytes_delta": 1},
                 ).sort("t_new_epoch", -1).limit(n)
-                dis = getattr(args, 'display', 'rich')
-                use_rich = (dis == 'rich') or (dis == 'auto')
+                docs = list(cur)
+                if display_mode == 'json':
+                    latest_payload = []
+                    for doc in docs:
+                        latest_payload.append({
+                            "timestamp": _fmt_ts(doc.get('t_new', '')),
+                            "uri": _fmt_uri(doc),
+                            "checksum": _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash')),
+                            "size_bytes": doc.get('size_bytes_new'),
+                            "bytes_delta": doc.get('bytes_delta'),
+                        })
+                    payload = {
+                        "database": mongo_cfg['time_database'],
+                        "collection": coll_time,
+                        "total_docs": total,
+                        "latest": latest_payload,
+                    }
+                    print(json.dumps(payload, indent=2))
+                    return 0
+                use_rich = (display_mode == 'rich') or (display_mode == 'auto')
                 try:
                     from rich.console import Console
                     from rich.table import Table
                     if use_rich:
                         t = Table(title=f"[time] latest {n} snapshots")
-                        t.add_column("#", justify="right")
-                        t.add_column("t_new")
-                        t.add_column("path")
-                        t.add_column("checksum")
-                        t.add_column("bytes", justify="right")
-                        t.add_column("Δ bytes", justify="right")
-                        for i, doc in enumerate(cur, 1):
-                            checksum = doc.get('checksum_new') or doc.get('content_hash') or "-"
-                            size_disp = _fmt_size(doc.get('path', ''), doc.get('size_bytes_new'))
+                        t.add_column("#", justify="right", no_wrap=True, overflow="ignore")
+                        t.add_column("t_new", no_wrap=True, overflow="ignore", min_width=19)
+                        t.add_column("path", overflow="fold")
+                        t.add_column("checksum", no_wrap=True, overflow="ignore", min_width=14)
+                        t.add_column("bytes", justify="right", no_wrap=True, overflow="ignore", min_width=10)
+                        t.add_column("Δ bytes", justify="right", no_wrap=True, overflow="ignore", min_width=10)
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('size_bytes_new'))
                             delta = doc.get('bytes_delta')
                             delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
                             t.add_row(
                                 str(i),
                                 _fmt_ts(doc.get('t_new', '')),
-                                str(doc.get('path', '')),
+                                _fmt_uri(doc),
                                 checksum,
                                 size_disp,
                                 delta_disp,
                             )
                         Console().print(t)
                     else:
-                        for i, doc in enumerate(cur, 1):
-                            checksum = doc.get('checksum_new') or doc.get('content_hash') or "-"
-                            size_disp = _fmt_size(doc.get('path', ''), doc.get('size_bytes_new'))
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('size_bytes_new'))
                             delta = doc.get('bytes_delta')
                             delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
                             print(
-                                f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {doc.get('path','')}"
+                                f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {_fmt_uri(doc)}"
                             )
                 except Exception:
-                    for i, doc in enumerate(cur, 1):
-                        checksum = doc.get('checksum_new') or doc.get('content_hash') or "-"
-                        size_disp = _fmt_size(doc.get('path', ''), doc.get('size_bytes_new'))
+                    for i, doc in enumerate(docs, 1):
+                        checksum = _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash'))
+                        size_disp = _fmt_bytes(doc.get('size_bytes_new'))
                         delta = doc.get('bytes_delta')
                         delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
                         print(
-                            f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {doc.get('path','')}"
+                            f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {_fmt_uri(doc)}"
                         )
+            elif display_mode == 'json':
+                payload = {
+                    "database": mongo_cfg['time_database'],
+                    "collection": coll_time,
+                    "total_docs": total,
+                    "latest": [],
+                }
+                print(json.dumps(payload, indent=2))
+                return 0
             return 0
         else:
             coll = client[mongo_cfg['space_database']][coll_space]
             total = coll.count_documents({})
-            print(f"tracked files: {total}")
+            if display_mode != 'json':
+                print(f"tracked files: {total}")
+            try:
+                record_db_activity("db.info.space", f"total={total}")
+            except Exception:
+                pass
+            if reference_info:
+                uri = reference_info.get("uri")
+                ref_path_obj = reference_info.get("path")
+                ref_doc = None
+                if uri:
+                    ref_doc = coll.find_one({"path": uri})
+                if ref_doc is None and ref_path_obj is not None:
+                    ref_doc = coll.find_one({"path_local": str(ref_path_obj.resolve())})
+                if not ref_doc:
+                    print("Reference document not found in the database.")
+                    return 2
+                ref_embedding = ref_doc.get("embedding")
+                if not ref_embedding:
+                    print("Reference document is missing embedding data; re-index and retry.")
+                    return 2
+                ref_ts = _parse_ts_value(ref_doc.get("timestamp"))
+                ref_bytes = ref_doc.get("bytes")
+                ref_checksum = ref_doc.get("checksum")
+
+                entries: List[Dict[str, Any]] = []
+                cursor = coll.find({}, {"path": 1, "path_local": 1, "timestamp": 1, "checksum": 1, "bytes": 1, "embedding": 1})
+                for doc in cursor:
+                    emb = doc.get("embedding")
+                    angle_delta = _angle_between(ref_embedding, emb)
+                    if angle_delta is None:
+                        continue
+                    other_ts = _parse_ts_value(doc.get("timestamp"))
+                    t_delta = None
+                    if other_ts is not None and ref_ts is not None:
+                        t_delta = (other_ts - ref_ts).total_seconds()
+                    size_delta = None
+                    bytes_val = doc.get("bytes")
+                    if bytes_val is not None and ref_bytes is not None:
+                        try:
+                            size_delta = int(bytes_val) - int(ref_bytes)
+                        except Exception:
+                            size_delta = None
+                    checksum_same = False
+                    if ref_checksum is not None:
+                        checksum_same = doc.get("checksum") == ref_checksum
+                    entries.append({
+                        "doc": doc,
+                        "angle_delta": angle_delta,
+                        "time_delta": t_delta,
+                        "size_delta": size_delta,
+                        "checksum_same": checksum_same,
+                    })
+
+                entries.sort(key=lambda e: (abs(e['angle_delta']) if e['angle_delta'] is not None else float('inf'), e['doc'].get('path', '')))
+                limit_n = int(getattr(args, 'latest', 0) or 10)
+                if limit_n > 0:
+                    entries = entries[:limit_n]
+
+                try:
+                    record_db_activity("db.info.reference", title_label)
+                except Exception:
+                    pass
+
+                use_rich = False
+                try:
+                    if display_mode == 'rich':
+                        use_rich = True
+                    elif display_mode in (None, 'auto'):
+                        use_rich = sys.stdout.isatty()
+                except Exception:
+                    use_rich = False
+
+                title_label = uri or (str(ref_path_obj.resolve()) if ref_path_obj is not None else "reference")
+                if display_mode == 'json':
+                    json_entries: List[Dict[str, Any]] = []
+                    for entry in entries:
+                        doc = entry['doc']
+                        json_entries.append({
+                            "uri": _fmt_uri(doc),
+                            "timestamp": _fmt_ts(doc.get('timestamp', '')),
+                            "angle_delta": entry['angle_delta'],
+                            "checksum_same": bool(entry['checksum_same']),
+                            "size_delta": entry['size_delta'],
+                            "time_delta_secs": entry['time_delta'],
+                        })
+                    payload = {
+                        "reference": title_label,
+                        "tracked_files": total,
+                        "entries": json_entries,
+                    }
+                    print(json.dumps(payload, indent=2))
+                    return 0
+                if use_rich:
+                    try:
+                        from rich import box
+                        from rich.console import Console
+                        from rich.panel import Panel
+                        from rich.table import Table
+                    except Exception:
+                        use_rich = False
+                if use_rich:
+                    console = Console()
+                    table = Table(show_header=True, header_style="bold", box=box.SQUARE, expand=False, pad_edge=False)
+                    table.add_column("#", justify="right", width=3, no_wrap=True)
+                    table.add_column("Δ time", justify="right", no_wrap=True)
+                    table.add_column("Checksum", justify="left", no_wrap=True)
+                    table.add_column("Δ size", justify="right", no_wrap=True)
+                    table.add_column("Δ angle", justify="right", no_wrap=True)
+                    table.add_column("uri", overflow="fold")
+                    for idx, entry in enumerate(entries, 1):
+                        checksum_label = "same" if entry['checksum_same'] else "diff"
+                        checksum_display = f"[green]{checksum_label}[/]" if entry['checksum_same'] else f"[red]{checksum_label}[/]"
+                        table.add_row(
+                            str(idx),
+                            _fmt_tdelta(entry['time_delta']) if entry['time_delta'] is not None else "-",
+                            checksum_display,
+                            _fmt_size_delta(entry['size_delta']),
+                            _fmt_angle_delta(entry['angle_delta']),
+                            _fmt_uri(entry['doc'])
+                        )
+                    console.print(Panel.fit(table, title=f"Reference: {title_label}", border_style="dim"))
+                    return 0
+
+                header = ["#", "Δ time", "Checksum", "Δ size", "Δ angle", "uri"]
+                align_plain = ["right", "right", "left", "right", "right", "left"]
+                limits_plain = {5: 80}
+                rows_plain: List[List[str]] = []
+                for idx, entry in enumerate(entries, 1):
+                    rows_plain.append([
+                        str(idx),
+                        _fmt_tdelta(entry['time_delta']) if entry['time_delta'] is not None else "-",
+                        "same" if entry['checksum_same'] else "diff",
+                        _fmt_size_delta(entry['size_delta']),
+                        _fmt_angle_delta(entry['angle_delta']),
+                        _fmt_uri(entry['doc']),
+                    ])
+                _render_plain_boxed_table_simple(f"Reference: {title_label}", header, rows_plain, align_plain, limits_plain)
+                return 0
+
             n = int(getattr(args, 'latest', 0) or 0)
             if n > 0:
-                cur = coll.find({}, {"path": 1, "timestamp": 1, "content_hash": 1, "num_chunks": 1}).sort("timestamp", -1).limit(n)
-                dis = getattr(args, 'display', 'rich')
-                use_rich = (dis == 'rich') or (dis == 'auto')
+                cur = coll.find({}, {"path": 1, "path_local": 1, "timestamp": 1, "checksum": 1, "bytes": 1, "angle": 1}).sort("timestamp", -1).limit(n)
+                docs = list(cur)
+                latest_docs_payload = [
+                    {
+                        "timestamp": _fmt_ts(doc.get('timestamp', '')),
+                        "checksum": _fmt_checksum(doc.get('checksum') or doc.get('content_hash')),
+                        "bytes": doc.get('bytes'),
+                        "angle": doc.get('angle'),
+                        "uri": _fmt_uri(doc),
+                    }
+                    for doc in docs
+                ]
+                if display_mode == 'json':
+                    payload = {
+                        "tracked_files": total,
+                        "latest": latest_docs_payload,
+                    }
+                    print(json.dumps(payload, indent=2))
+                    return 0
+                use_rich = (display_mode == 'rich') or (display_mode == 'auto')
                 try:
                     from rich.console import Console
                     from rich.table import Table
                     if use_rich:
                         t = Table(title=f"[space] latest {n} files")
-                        t.add_column("#", justify="right")
-                        t.add_column("timestamp")
-                        t.add_column("path")
-                        t.add_column("checksum")
-                        t.add_column("chunks", justify="right")
-                        t.add_column("size")
-                        for i, doc in enumerate(cur, 1):
-                            checksum = doc.get('content_hash') or "-"
-                            chunks = doc.get('num_chunks')
-                            try:
-                                chunks_disp = str(int(chunks))
-                            except Exception:
-                                chunks_disp = "-"
-                            size_disp = _fmt_size(doc.get('path', ''))
+                        t.add_column("#", justify="right", no_wrap=True, overflow="ignore")
+                        t.add_column("timestamp", no_wrap=True, overflow="ignore", min_width=19)
+                        t.add_column("checksum", no_wrap=True, overflow="ignore", min_width=14)
+                        t.add_column("size", justify="right", no_wrap=True, overflow="ignore", min_width=10)
+                        t.add_column("angle", justify="right", no_wrap=True, overflow="ignore", min_width=8)
+                        t.add_column("uri", overflow="fold")
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('bytes'))
+                            angle = doc.get('angle')
+                            angle_disp = f"{float(angle):6.2f}°" if isinstance(angle, (int, float)) else "-"
                             t.add_row(
                                 str(i),
                                 _fmt_ts(doc.get('timestamp','')),
-                                str(doc.get('path','')),
                                 checksum,
-                                chunks_disp,
                                 size_disp,
+                                angle_disp,
+                                _fmt_uri(doc),
                             )
                         Console().print(t)
                     else:
-                        for i, doc in enumerate(cur, 1):
-                            checksum = doc.get('content_hash') or "-"
-                            chunks = doc.get('num_chunks')
-                            try:
-                                chunks_disp = str(int(chunks))
-                            except Exception:
-                                chunks_disp = "-"
-                            size_disp = _fmt_size(doc.get('path', ''))
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('bytes'))
+                            angle = doc.get('angle')
+                            angle_disp = f"{float(angle):6.2f}°" if isinstance(angle, (int, float)) else "-"
                             print(
-                                f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} chunks={chunks_disp} size={size_disp} {doc.get('path','')}"
+                                f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} size={size_disp} angle={angle_disp} {_fmt_uri(doc)}"
                             )
                 except Exception:
-                    for i, doc in enumerate(cur, 1):
-                        checksum = doc.get('content_hash') or "-"
-                        chunks = doc.get('num_chunks')
-                        try:
-                            chunks_disp = str(int(chunks))
-                        except Exception:
-                            chunks_disp = "-"
-                        size_disp = _fmt_size(doc.get('path', ''))
+                    for i, doc in enumerate(docs, 1):
+                        checksum = _fmt_checksum(doc.get('checksum') or doc.get('content_hash'))
+                        size_disp = _fmt_bytes(doc.get('bytes'))
+                        angle = doc.get('angle')
+                        angle_disp = f"{float(angle):6.2f}°" if isinstance(angle, (int, float)) else "-"
                         print(
-                            f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} chunks={chunks_disp} size={size_disp} {doc.get('path','')}"
+                            f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} size={size_disp} angle={angle_disp} {_fmt_uri(doc)}"
                         )
+            elif display_mode == 'json':
+                payload = {
+                    "tracked_files": total,
+                    "latest": [],
+                }
+                print(json.dumps(payload, indent=2))
+                return 0
             return 0
 
     dbinfo = dbsub.add_parser("info", help="Print tracked file count and latest files")
@@ -1465,6 +2682,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     scope_info.add_argument("--space", action="store_true", help="Stats for the space DB")
     scope_info.add_argument("--time", action="store_true", help="Stats for the time DB")
     dbinfo.add_argument("-n", "--latest", type=int, default=10, help="Show the most recent N records (default 10)")
+    dbinfo.add_argument("--reference", help="File path or file:// URI to compare against")
     dbinfo.set_defaults(func=_db_info)
     # DB reset: drop Mongo database and remove local mongod files (if any)
     dbr = dbsub.add_parser("reset", help="Drop WKS Mongo databases and local DB files (space/time)")
@@ -1487,6 +2705,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                     client.drop_database(time_db)
                     dropped.add(time_db)
                 print(f"Dropped database(s): {', '.join(sorted(dropped))}")
+                try:
+                    record_db_activity("db.reset", ",".join(sorted(dropped)))
+                except Exception:
+                    pass
             except Exception as e:
                 print(f"DB drop skipped (unreachable or error): {e}")
         except Exception as e:
@@ -1501,7 +2723,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Remove local DB files
         try:
             import shutil as _sh
-            dbroot = Path.home()/'.wks'/'mongodb'
+            dbroot = Path.home()/WKS_HOME_EXT/'mongodb'
             if dbroot.exists():
                 _sh.rmtree(dbroot, ignore_errors=True)
                 print(f"Removed local DB files: {dbroot}")

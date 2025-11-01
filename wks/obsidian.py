@@ -10,6 +10,7 @@ from typing import Optional, Dict
 from datetime import datetime
 
 from .config import mongo_settings, timestamp_format, load_user_config, DEFAULT_TIMESTAMP_FORMAT
+from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 
 
 class ObsidianVault:
@@ -37,7 +38,7 @@ class ObsidianVault:
         self.source_max_chars = int(source_max_chars)
         self.destination_max_chars = int(destination_max_chars)
         # Append-only JSONL ledger for file operations used to rebuild the log
-        self.ops_ledger_path = Path.home() / ".wks" / "file_ops.jsonl"
+        self.ops_ledger_path = Path.home() / WKS_HOME_EXT / "file_ops.jsonl"
         self.ops_ledger_max_lines = 20000
         self.ops_ledger_keep_lines = 10000
         try:
@@ -161,7 +162,7 @@ class ObsidianVault:
         file_path = self._get_file_log_path()
         ops = self._load_recent_ops(self.log_max_entries)
         timestamp = self._format_dt(datetime.now())
-        cfg_path = (Path.home() / ".wks" / "config.json").expanduser()
+        cfg_path = (Path.home() / WKS_HOME_EXT / "config.json").expanduser()
         cfg_url = f"file://{cfg_path}"
         # Intro + table header
         header = [
@@ -783,7 +784,9 @@ class ObsidianVault:
             if any(_is_within(p, ex) for ex in exclude_paths):
                 return True
             for part in p.parts:
-                if part.startswith('.') and part != '.wks':
+                if part in WKS_DOT_DIRS:
+                    return True
+                if part.startswith('.'):
                     return True
                 if part in ignore_dirnames:
                     return True
@@ -936,7 +939,7 @@ class ObsidianVault:
         # Metrics
         from datetime import datetime as _dt
         import json as _json
-        health_path = Path.home()/'.wks'/'health.json'
+        health_path = Path.home()/WKS_HOME_EXT/'health.json'
         health = {}
         try:
             if health_path.exists():
@@ -946,7 +949,7 @@ class ObsidianVault:
         # Tracked files
         tracked = None
         try:
-            sf = state_file or (Path.home()/'.wks'/'monitor_state.json')
+            sf = state_file or (Path.home()/WKS_HOME_EXT/'monitor_state.json')
             if sf.exists():
                 ms = _json.load(open(sf, 'r'))
                 tracked = len((ms.get('files') or {}))

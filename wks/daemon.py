@@ -7,20 +7,27 @@ Adds support for ~/.wks/config.json with include/exclude path control.
 import time
 import json
 import os
+from collections import deque
 try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
     fcntl = None
 from pathlib import Path
 from typing import Optional, Set, List, Dict, Any
+from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from .monitor import start_monitoring
 from .obsidian import ObsidianVault
 from .activity import ActivityTracker
 try:
     from .config import apply_similarity_mongo_defaults, mongo_settings
     from .similarity import SimilarityDB
+    from .status import load_db_activity_summary, load_db_activity_history
 except Exception:
     SimilarityDB = None  # Optional dependency
+    def load_db_activity_summary():  # type: ignore
+        return {}
+    def load_db_activity_history(max_age_secs: Optional[int] = None):  # type: ignore
+        return []
 
 
 class WKSDaemon:
@@ -45,6 +52,10 @@ class WKSDaemon:
         similarity_db=None,
         similarity_extensions: Optional[Set[str]] = None,
         similarity_min_chars: int = 10,
+        fs_rate_short_window_secs: float = 10.0,
+        fs_rate_long_window_secs: float = 600.0,
+        fs_rate_short_weight: float = 0.8,
+        fs_rate_long_weight: float = 0.2,
     ):
         """
         Initialize WKS daemon.
@@ -64,18 +75,18 @@ class WKSDaemon:
         )
         self.docs_keep = int(obsidian_docs_keep)
         self.monitor_paths = monitor_paths
-        self.state_file = state_file or Path.home() / ".wks" / "monitor_state.json"
+        self.state_file = state_file or Path.home() / WKS_HOME_EXT / "monitor_state.json"
         self.ignore_dirnames = ignore_dirnames or set()
         self.exclude_paths = [Path(p).expanduser() for p in (exclude_paths or [])]
         self.ignore_patterns = ignore_patterns or set()
         self.observer = None
         self.auto_project_notes = bool(auto_project_notes)
         # Activity tracking for ActiveFiles.md
-        self.activity = ActivityTracker(Path.home() / ".wks" / "activity_state.json")
+        self.activity = ActivityTracker(Path.home() / WKS_HOME_EXT / "activity_state.json")
         self._last_active_update = 0.0
         self.ignore_globs = ignore_globs or []
         # Single-instance lock
-        self.lock_file = Path.home() / ".wks" / "daemon.lock"
+        self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
         self._lock_fh = None
         # Similarity settings
         self.similarity = similarity_db
@@ -91,11 +102,18 @@ class WKSDaemon:
         self._pending_mods: Dict[str, Dict[str, Any]] = {}
         self._mod_coalesce_secs = 0.6
         # Health
-        self.health_file = Path.home() / ".wks" / "health.json"
+        self.health_file = Path.home() / WKS_HOME_EXT / "health.json"
         self._last_error = None
         self._last_error_at = None
         self._health_started_at = time.time()
         self._beat_count = 0
+        # FS operation rate tracking
+        self.fs_rate_short_window = max(float(fs_rate_short_window_secs), 1.0)
+        self.fs_rate_long_window = max(float(fs_rate_long_window_secs), self.fs_rate_short_window)
+        self.fs_rate_short_weight = float(fs_rate_short_weight)
+        self.fs_rate_long_weight = float(fs_rate_long_weight)
+        self._fs_events_short: deque[float] = deque()
+        self._fs_events_long: deque[float] = deque()
 
     def _should_index_for_similarity(self, path: Path) -> bool:
         if not self.similarity or not path.exists() or not path.is_file():
@@ -109,6 +127,18 @@ class WKSDaemon:
         except Exception:
             return False
         return True
+
+    def _record_fs_event(self, timestamp: Optional[float] = None) -> None:
+        """Track raw file-system event timing for rate calculations."""
+        t = timestamp or time.time()
+        self._fs_events_short.append(t)
+        self._fs_events_long.append(t)
+        cutoff_short = t - self.fs_rate_short_window
+        cutoff_long = t - self.fs_rate_long_window
+        while self._fs_events_short and self._fs_events_short[0] < cutoff_short:
+            self._fs_events_short.popleft()
+        while self._fs_events_long and self._fs_events_long[0] < cutoff_long:
+            self._fs_events_long.popleft()
 
     def _is_probably_file(self, p: Path) -> bool:
         """Heuristic: log only file events; for deleted (nonexistent), use suffix-based guess."""
@@ -129,6 +159,7 @@ class WKSDaemon:
             event_type: Type of event (created, modified, moved, deleted)
             path_info: Path string for most events, or (src, dest) tuple for moves
         """
+        self._record_fs_event()
         # Handle move events specially
         if event_type == "moved":
             src_path, dest_path = path_info
@@ -253,7 +284,7 @@ class WKSDaemon:
             if not top:
                 try:
                     import json as _json
-                    ms_path = self.state_file or (Path.home()/'.wks'/'monitor_state.json')
+                    ms_path = self.state_file or (Path.home()/WKS_HOME_EXT/'monitor_state.json')
                     recent = []
                     if ms_path and Path(ms_path).exists():
                         ms = _json.load(open(ms_path, 'r'))
@@ -281,7 +312,7 @@ class WKSDaemon:
             # Fallback 2: use recent file operations ledger if still empty
             if not top:
                 try:
-                    ops_path = Path.home()/'.wks'/'file_ops.jsonl'
+                    ops_path = Path.home()/WKS_HOME_EXT/'file_ops.jsonl'
                     if ops_path.exists():
                         lines = ops_path.read_text(encoding='utf-8', errors='ignore').splitlines()
                         # newest are at end; walk backwards and collect unique paths
@@ -384,9 +415,11 @@ class WKSDaemon:
         # Inside exclude roots
         if any(self._within_any(path, [ex]) for ex in (self.exclude_paths or [])):
             return True
-        # Dotfile segments (except .wks)
+        # Dotfile segments (including .wks/.wkso artefacts)
         for part in path.parts:
-            if part.startswith('.') and part != '.wks':
+            if part in WKS_DOT_DIRS:
+                return True
+            if part.startswith('.'):
                 return True
         # Named ignored directories
         for part in path.parts:
@@ -522,7 +555,7 @@ class WKSDaemon:
                             updated = self.similarity.add_file(p)
                             if updated:
                                 rec = self.similarity.get_last_add_result() or {}
-                                ch = rec.get('content_hash')
+                                ch = rec.get('content_checksum') or rec.get('content_hash')
                                 txt = rec.get('text')
                                 if ch and txt is not None:
                                     try:
@@ -541,15 +574,69 @@ class WKSDaemon:
     def _write_health(self):
         try:
             now = time.time()
-            # count this tick as a beat
-            self._beat_count += 1
             uptime_secs = int(now - self._health_started_at)
-            def _hms(secs:int):
-                h = secs // 3600; m = (secs % 3600) // 60; s = secs % 60
+
+            db_summary = load_db_activity_summary()
+            db_history_window = max(int(self.fs_rate_long_window), 600)
+            db_history = load_db_activity_history(db_history_window)
+            db_last_ts = None
+            db_last_iso = None
+            db_last_operation = None
+            db_last_detail = None
+            if db_summary:
+                try:
+                    db_last_ts = float(db_summary.get("timestamp"))
+                except Exception:
+                    db_last_ts = None
+                db_last_iso = db_summary.get("timestamp_iso") or None
+                db_last_operation = db_summary.get("operation") or None
+                db_last_detail = db_summary.get("detail") or None
+
+            if db_last_ts is None and db_history:
+                try:
+                    db_last_ts = float(db_history[-1].get("timestamp"))
+                    db_last_iso = db_history[-1].get("timestamp_iso")
+                    db_last_operation = db_history[-1].get("operation")
+                    db_last_detail = db_history[-1].get("detail")
+                except Exception:
+                    pass
+
+            cutoff_minute = now - 60.0
+            db_ops_last_minute = 0
+            for item in db_history:
+                try:
+                    ts_val = float(item.get("timestamp", 0))
+                except Exception:
+                    continue
+                if ts_val >= cutoff_minute:
+                    db_ops_last_minute += 1
+
+            db_ops_per_min = round(db_ops_last_minute / 1.0, 2)
+            self._beat_count = len(db_history)
+
+            heartbeat_ts = db_last_ts or now
+            heartbeat_iso = (
+                time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(heartbeat_ts))
+                if heartbeat_ts is not None
+                else time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now))
+            )
+
+            short_rate = len(self._fs_events_short) / self.fs_rate_short_window if self.fs_rate_short_window else 0.0
+            long_rate = len(self._fs_events_long) / self.fs_rate_long_window if self.fs_rate_long_window else 0.0
+            weighted_rate = (
+                self.fs_rate_short_weight * short_rate
+                + self.fs_rate_long_weight * long_rate
+            )
+
+            def _hms(secs: int) -> str:
+                h = secs // 3600
+                m = (secs % 3600) // 60
+                s = secs % 60
                 return f"{h:02d}:{m:02d}:{s:02d}"
+
             data = {
-                "heartbeat": int(now),
-                "heartbeat_iso": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now)),
+                "heartbeat": int(heartbeat_ts) if heartbeat_ts is not None else int(now),
+                "heartbeat_iso": heartbeat_iso,
                 "pending_deletes": len(self._pending_deletes),
                 "pending_mods": len(self._pending_mods),
                 "last_error": self._last_error,
@@ -562,11 +649,22 @@ class WKSDaemon:
                 "uptime_secs": uptime_secs,
                 "uptime_hms": _hms(uptime_secs),
                 "beats": int(self._beat_count),
-                "avg_beats_per_min": round(self._beat_count / max(1.0, (now - self._health_started_at) / 60.0), 2),
+                "avg_beats_per_min": db_ops_per_min,
                 # Lock status
                 "lock_present": bool(self.lock_file.exists()),
                 "lock_pid": (int(self.lock_file.read_text().strip().splitlines()[0]) if self.lock_file.exists() and self.lock_file.read_text().strip() else None) if True else None,
                 "lock_path": str(self.lock_file),
+                "db_last_operation": db_last_operation,
+                "db_last_operation_detail": db_last_detail,
+                "db_last_operation_iso": db_last_iso,
+                "db_ops_last_minute": db_ops_last_minute,
+                "fs_rate_short": short_rate,
+                "fs_rate_long": long_rate,
+                "fs_rate_weighted": weighted_rate,
+                "fs_rate_short_window_secs": self.fs_rate_short_window,
+                "fs_rate_long_window_secs": self.fs_rate_long_window,
+                "fs_rate_short_weight": self.fs_rate_short_weight,
+                "fs_rate_long_weight": self.fs_rate_long_weight,
             }
             self.health_file.parent.mkdir(parents=True, exist_ok=True)
             import json as _json
@@ -685,7 +783,7 @@ if __name__ == "__main__":
     # Weekly log filename helpers removed (feature deprecated)
 
     # Load config from ~/.wks/config.json
-    config_path = Path.home() / ".wks" / "config.json"
+    config_path = Path.home() / WKS_HOME_EXT / "config.json"
     config: Dict[str, Any] = {}
     try:
         if config_path.exists():
@@ -695,7 +793,7 @@ if __name__ == "__main__":
 
     # Require vault_path
     if "vault_path" not in config or not str(config.get("vault_path")).strip():
-        print("Fatal: 'vault_path' is required in ~/.wks/config.json")
+        print(f"Fatal: 'vault_path' is required in {WKS_HOME_DISPLAY}/config.json")
         raise SystemExit(2)
     vault_path = _expand(config.get("vault_path"))
 
@@ -717,7 +815,7 @@ if __name__ == "__main__":
 
     # Activity tracker config (optional but recommended)
     activity_cfg = config.get("activity", {})
-    activity_state_file = _expand(activity_cfg.get("state_file", str(Path.home() / ".wks" / "activity_state.json")))
+    activity_state_file = _expand(activity_cfg.get("state_file", str(Path.home() / WKS_HOME_EXT / "activity_state.json")))
 
     # Obsidian config (explicit)
     obsidian_cfg = config.get("obsidian", {})
@@ -752,7 +850,7 @@ if __name__ == "__main__":
     mongo_cfg = mongo_settings(config)
     sim_cfg_raw = config.get("similarity")
     if sim_cfg_raw is None or "enabled" not in sim_cfg_raw:
-        print("Fatal: 'similarity.enabled' is required (true/false) in ~/.wks/config.json")
+        print(f"Fatal: 'similarity.enabled' is required (true/false) in {WKS_HOME_DISPLAY}/config.json")
         raise SystemExit(2)
     if sim_cfg_raw.get("enabled"):
         if SimilarityDB is None:
@@ -782,12 +880,15 @@ if __name__ == "__main__":
             model_name=sim_cfg["model"],
             model_path=sim_cfg.get("model_path"),
             offline=bool(sim_cfg.get("offline", False)),
+            min_chars=int(sim_cfg["min_chars"]),
             max_chars=int(sim_cfg["max_chars"]),
             chunk_chars=int(sim_cfg["chunk_chars"]),
             chunk_overlap=int(sim_cfg["chunk_overlap"]),
             extract_engine=extract_cfg['engine'],
             extract_ocr=bool(extract_cfg['ocr']),
             extract_timeout_secs=int(extract_cfg['timeout_secs']),
+            extract_options=dict(extract_cfg.get('options') or {}),
+            write_extension=extract_cfg.get('write_extension'),
         )
         daemon.similarity_extensions = set([e.lower() for e in sim_cfg["include_extensions"]])
         daemon.similarity_min_chars = int(sim_cfg["min_chars"])
