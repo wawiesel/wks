@@ -175,6 +175,20 @@ class SimilarityDB:
             )
         except Exception:
             pass
+        try:
+            self.changes.update_many(
+                {"file_path": old_uri},
+                {"$set": {"file_path": new_uri}},
+            )
+        except Exception:
+            pass
+        try:
+            self.db["file_snapshots"].update_many(
+                {"path": old_uri},
+                {"$set": {"path": new_uri}},
+            )
+        except Exception:
+            pass
 
     def close(self) -> None:
         if getattr(self, "_own_client", False):
@@ -690,6 +704,19 @@ class SimilarityDB:
                 continue
 
             updates: Dict[str, Any] = {}
+            path_before = doc.get("path") if isinstance(doc.get("path"), str) else None
+            normalized_uri: Optional[str] = None
+            if exists and local_path is not None and path_before and not path_before.startswith("file://"):
+                try:
+                    normalized_uri = _as_file_uri(local_path)
+                except Exception:
+                    normalized_uri = None
+                if normalized_uri and normalized_uri != path_before:
+                    updates["path"] = normalized_uri
+                    updates.setdefault("path_local", str(local_path))
+                    updates.setdefault("filename", local_path.name)
+                    updates.setdefault("parent", str(local_path.parent))
+
             if fix_missing_metadata and exists and local_path is not None:
                 try:
                     size = local_path.stat().st_size
@@ -716,6 +743,8 @@ class SimilarityDB:
                     self.collection.update_one({"_id": doc["_id"]}, {"$set": updates})
                     results["updated"] += 1
                     record_db_activity("similarity.audit.fix", doc_label)
+                    if normalized_uri:
+                        self._update_related_paths(path_before, normalized_uri, str(local_path))
                 except Exception:
                     pass
 

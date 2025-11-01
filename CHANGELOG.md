@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
 
+## [0.2.7] - 2025-11-01
+### Changed
+- Space DB maintenance now converts legacy plain-path records to canonical `file://` URIs and updates related chunk/change/snapshot collections.
+
+### Fixed
+- `wkso db info` and background audits immediately reap records for deleted files even when older data used raw paths rather than URIs.
+
 ## [0.2.6] - 2025-11-01
 ### Added
 - Daemon now launches a background maintenance thread that regularly runs `SimilarityDB.audit_documents()` and shuts down cleanly with the Mongo client.
