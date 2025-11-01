@@ -7,6 +7,7 @@ Adds support for ~/.wks/config.json with include/exclude path control.
 import time
 import json
 import os
+import threading
 from collections import deque
 try:
     import fcntl  # POSIX file locking
@@ -56,6 +57,7 @@ class WKSDaemon:
         fs_rate_long_window_secs: float = 600.0,
         fs_rate_short_weight: float = 0.8,
         fs_rate_long_weight: float = 0.2,
+        maintenance_interval_secs: float = 600.0,
     ):
         """
         Initialize WKS daemon.
@@ -114,6 +116,10 @@ class WKSDaemon:
         self.fs_rate_long_weight = float(fs_rate_long_weight)
         self._fs_events_short: deque[float] = deque()
         self._fs_events_long: deque[float] = deque()
+        # Background maintenance (similarity DB audits)
+        self._maintenance_interval_secs = max(float(maintenance_interval_secs), 1.0)
+        self._maintenance_thread: Optional[threading.Thread] = None
+        self._maintenance_stop_event = threading.Event()
 
     def _should_index_for_similarity(self, path: Path) -> bool:
         if not self.similarity or not path.exists() or not path.is_file():
@@ -369,13 +375,22 @@ class WKSDaemon:
         )
 
         print(f"WKS daemon started, monitoring: {[str(p) for p in self.monitor_paths]}")
+        self._start_maintenance_thread()
 
     def stop(self):
         """Stop monitoring."""
+        maintenance_stopped = self._stop_maintenance_thread()
         if self.observer:
             self.observer.stop()
             self.observer.join()
             print("WKS daemon stopped")
+        if maintenance_stopped and self.similarity and hasattr(self.similarity, "close"):
+            try:
+                self.similarity.close()
+            except Exception as exc:
+                self._set_error(f"sim_close_error: {exc}")
+            finally:
+                self.similarity = None
         self._release_lock()
 
     def run(self):
@@ -399,6 +414,67 @@ class WKSDaemon:
             self.stop()
 
     # -------------------------- Maintenance helpers -------------------------- #
+    def _start_maintenance_thread(self):
+        if self._maintenance_thread and self._maintenance_thread.is_alive():
+            return
+        self._maintenance_stop_event.clear()
+        thread = threading.Thread(
+            target=self._maintenance_loop,
+            name="wks-maintenance",
+            daemon=True,
+        )
+        self._maintenance_thread = thread
+        try:
+            thread.start()
+        except Exception:
+            self._maintenance_thread = None
+
+    def _stop_maintenance_thread(self) -> bool:
+        thread = self._maintenance_thread
+        if not thread:
+            return True
+        self._maintenance_stop_event.set()
+        try:
+            timeout = min(max(self._maintenance_interval_secs, 1.0) + 5.0, 60.0)
+            thread.join(timeout=timeout)
+        except Exception:
+            pass
+        if thread.is_alive():
+            self._set_error("maintenance_stop_timeout")
+            return False
+        self._maintenance_thread = None
+        self._maintenance_stop_event = threading.Event()
+        return True
+
+    def _maintenance_loop(self):
+        interval = max(self._maintenance_interval_secs, 1.0)
+        while not self._maintenance_stop_event.is_set():
+            self._perform_similarity_maintenance()
+            if self._maintenance_stop_event.wait(interval):
+                break
+
+    def _perform_similarity_maintenance(self):
+        sim = self.similarity
+        if not sim or not hasattr(sim, "audit_documents"):
+            return
+        try:
+            summary = sim.audit_documents(remove_missing=True, fix_missing_metadata=True)
+        except Exception as exc:
+            self._set_error(f"sim_audit_error: {exc}")
+            return
+        if not isinstance(summary, dict):
+            return
+        try:
+            removed = int(summary.get("removed", 0))
+        except Exception:
+            removed = summary.get("removed", 0) or 0
+        try:
+            updated = int(summary.get("updated", 0))
+        except Exception:
+            updated = summary.get("updated", 0) or 0
+        if removed or updated:
+            print(f"Similarity maintenance: removed {removed} entries, updated {updated} metadata")
+
     def _within_any(self, path: Path, bases: list[Path]) -> bool:
         for base in bases or []:
             try:

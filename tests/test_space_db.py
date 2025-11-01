@@ -131,3 +131,79 @@ def test_rename_folder_updates_descendants(tmpdir):
     # Verify records now reference moved paths
     assert db.collection.find_one({'path': (new_base / 'a.txt').resolve().as_uri()})
     assert db.collection.find_one({'path': (new_base / 'sub' / 'b.txt').resolve().as_uri()})
+
+
+def test_similarity_audit_removes_missing_file(tmpdir):
+    from wks.similarity import SimilarityDB
+
+    db = SimilarityDB(
+        database_name='audit_remove',
+        collection_name='audit_remove_coll',
+        mongo_uri='mongodb://localhost:27017/',
+        model_name='dummy',
+        extract_engine='builtin',
+    )
+
+    missing = (tmpdir / 'missing.txt').resolve()
+    db.collection.insert_one({
+        'path': f"file://{missing.as_posix()}",
+        'path_local': str(missing),
+        'bytes': None,
+    })
+
+    summary = db.audit_documents()
+    assert summary['removed'] == 1
+    assert db.collection.count_documents({}) == 0
+
+
+def test_similarity_audit_fills_missing_bytes(tmpdir):
+    from wks.similarity import SimilarityDB
+
+    db = SimilarityDB(
+        database_name='audit_fix',
+        collection_name='audit_fix_coll',
+        mongo_uri='mongodb://localhost:27017/',
+        model_name='dummy',
+        extract_engine='builtin',
+    )
+
+    file_path = (tmpdir / 'existing.txt').resolve()
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text('hello index audit', encoding='utf-8')
+
+    db.collection.insert_one({
+        'path': f"file://{file_path.as_posix()}",
+        'path_local': str(file_path),
+        'bytes': None,
+    })
+
+    summary = db.audit_documents()
+    doc = db.collection.find_one({'path_local': str(file_path)})
+    assert summary['updated'] >= 1
+    assert doc['bytes'] == file_path.stat().st_size
+
+
+def test_similarity_audit_handles_plain_paths(tmpdir):
+    from wks.similarity import SimilarityDB
+
+    db = SimilarityDB(
+        database_name='audit_fix_plain',
+        collection_name='audit_fix_plain_coll',
+        mongo_uri='mongodb://localhost:27017/',
+        model_name='dummy',
+        extract_engine='builtin',
+    )
+
+    file_path = (tmpdir / 'plain_path.txt').resolve()
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text('plain path bytes', encoding='utf-8')
+
+    db.collection.insert_one({
+        'path': str(file_path),  # stored without file:// prefix
+        'bytes': None,
+    })
+
+    summary = db.audit_documents()
+    doc = db.collection.find_one({'path': str(file_path)})
+    assert summary['updated'] >= 1
+    assert doc['bytes'] == file_path.stat().st_size
