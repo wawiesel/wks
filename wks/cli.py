@@ -19,7 +19,9 @@ import sys
 import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import unquote, urlparse
 
 import fnmatch
 import pymongo
@@ -94,6 +96,52 @@ def _fmt_bool(value: Optional[bool]) -> str:
     if value is None:
         return "-"
     return "true" if value else "false"
+
+
+def _format_timestamp_value(value: Optional[Any], fmt: str) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    try:
+        s = text
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        s = s.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+    except Exception:
+        try:
+            fallback = text.replace("T", " ").replace("Z", "")
+            dt = datetime.fromisoformat(fallback)
+        except Exception:
+            return text
+    try:
+        return dt.strftime(fmt)
+    except Exception:
+        return text
+
+
+def _doc_path_to_local(doc: Dict[str, Any]) -> Optional[Path]:
+    local = doc.get("path_local")
+    if isinstance(local, str) and local:
+        try:
+            return Path(local).expanduser()
+        except Exception:
+            pass
+    uri = doc.get("path")
+    if isinstance(uri, str) and uri:
+        if uri.startswith("file://"):
+            try:
+                parsed = urlparse(uri)
+                return Path(unquote(parsed.path or "")).expanduser()
+            except Exception:
+                return None
+        try:
+            return Path(uri).expanduser()
+        except Exception:
+            return None
+    return None
 
 
 @dataclass
@@ -596,6 +644,7 @@ def daemon_status(args: argparse.Namespace) -> int:
 
     try:
         cfg = load_config()
+        ts_format = timestamp_format(cfg)
         mongo_cfg = mongo_settings(cfg)
         client = pymongo.MongoClient(
             mongo_cfg["uri"],
@@ -607,27 +656,59 @@ def daemon_status(args: argparse.Namespace) -> int:
         status.db.tracked_files = coll.count_documents({})
         last_doc = coll.find({}, {"timestamp": 1}).sort("timestamp", -1).limit(1)
         for doc in last_doc:
-            status.db.last_updated = str(doc.get("timestamp", ""))
-        size_sum = 0
-        start_time = time.time()
-        from urllib.parse import urlparse, unquote
+            formatted = _format_timestamp_value(doc.get("timestamp"), ts_format)
+            status.db.last_updated = formatted or str(doc.get("timestamp", ""))
 
+        total_size: Optional[int] = None
         try:
             agg = coll.aggregate(
-                [{"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$bytes", 0]}}}}]
+                [{"$group": {"_id": None, "total": {"$sum": {"$cond": [{"$gt": ["$bytes", 0]}, "$bytes", 0]}}}}]
             )
             agg_doc = next(agg, None)
             if agg_doc and agg_doc.get("total") is not None:
-                status.db.total_size_bytes = int(agg_doc["total"])
-            else:
-                status.db.total_size_bytes = 0
+                total_candidate = agg_doc.get("total")
+                if isinstance(total_candidate, (int, float)):
+                    total_size = int(total_candidate)
         except Exception:
-            status.db.total_size_bytes = 0
+            total_size = None
+
+        if total_size in (None, 0):
+            try:
+                approx_total = 0
+                found_any = False
+                missing_metadata = False
+                for doc in coll.find({}, {"path": 1, "path_local": 1, "bytes": 1}).limit(1000):
+                    found_any = True
+                    bval = doc.get("bytes")
+                    if isinstance(bval, (int, float)) and bval > 0:
+                        approx_total += int(bval)
+                        continue
+                    missing_metadata = True
+                    local_path = _doc_path_to_local(doc)
+                    if local_path and local_path.exists():
+                        try:
+                            approx_total += local_path.stat().st_size
+                        except Exception:
+                            pass
+                if found_any and approx_total > 0:
+                    total_size = approx_total
+                elif not missing_metadata and total_size is None:
+                    total_size = approx_total
+            except Exception:
+                pass
+
+        if isinstance(total_size, (int, float)) and total_size >= 0:
+            status.db.total_size_bytes = int(total_size)
+        else:
+            status.db.total_size_bytes = None
         latest = coll.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(5)
-        status.db.latest_files = [
-            {"timestamp": str(doc.get("timestamp", "")), "path": str(doc.get("path", ""))}
-            for doc in latest
-        ]
+        records = []
+        for doc in latest:
+            ts_value = _format_timestamp_value(doc.get("timestamp"), ts_format)
+            if not ts_value:
+                ts_value = str(doc.get("timestamp", ""))
+            records.append({"timestamp": ts_value, "path": str(doc.get("path", ""))})
+        status.db.latest_files = records
         try:
             client.close()
         except Exception:

@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
 
-# Changelog
+## [0.2.6] - 2025-11-01
+### Added
+- Daemon now launches a background maintenance thread that regularly runs `SimilarityDB.audit_documents()` and shuts down cleanly with the Mongo client.
 
-All notable changes to this project will be documented in this file.
+### Changed
+- `wkso service status` and `wkso db info` display timestamps using the configured `display.timestamp_format` and backfill missing byte totals by inspecting on-disk files.
 
-The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
+### Fixed
+- Space DB audits handle documents stored with plain filesystem paths (without `file://`), ensuring missing `bytes` metadata is repopulated.
 
 ## [0.2.5] - 2025-10-29
 ### Added

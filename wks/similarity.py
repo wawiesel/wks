@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse, unquote
 
 import numpy as np
 from pymongo import MongoClient
@@ -63,8 +64,14 @@ class SimilarityDB:
         extract_timeout_secs: int = 30,
         extract_options: Optional[Dict[str, Any]] = None,
         write_extension: Optional[str] = None,
+        mongo_client: Optional[MongoClient] = None,
     ) -> None:
-        self.client = MongoClient(mongo_uri)
+        if mongo_client is not None:
+            self.client = mongo_client
+            self._own_client = False
+        else:
+            self.client = MongoClient(mongo_uri)
+            self._own_client = True
         self.db = self.client[database_name]
         self.collection = self.db[collection_name]
         self.chunks = self.db[chunks_collection]
@@ -168,14 +175,13 @@ class SimilarityDB:
             )
         except Exception:
             pass
-        try:
-            self.changes.update_many({"file_path": old_uri}, {"$set": {"file_path": new_uri}})
-        except Exception:
-            pass
-        try:
-            self.db["file_snapshots"].update_many({"path": old_uri}, {"$set": {"path": new_uri}})
-        except Exception:
-            pass
+
+    def close(self) -> None:
+        if getattr(self, "_own_client", False):
+            try:
+                self.client.close()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------ #
     def _embed_text(
@@ -612,3 +618,105 @@ class SimilarityDB:
                 "total_files": 0,
                 "total_bytes": None,
             }
+
+    # ------------------------------------------------------------------ #
+    def _resolve_local_path(self, doc: Dict[str, Any]) -> Optional[Path]:
+        local = doc.get("path_local")
+        if isinstance(local, str) and local:
+            try:
+                return Path(local).expanduser()
+            except Exception:
+                pass
+        uri = doc.get("path")
+        if isinstance(uri, str) and uri:
+            if uri.startswith("file://"):
+                try:
+                    parsed = urlparse(uri)
+                    return Path(unquote(parsed.path or "")).expanduser()
+                except Exception:
+                    return None
+            try:
+                return Path(uri).expanduser()
+            except Exception:
+                return None
+        return None
+
+    def _purge_document(self, doc: Dict[str, Any]) -> None:
+        try:
+            self.collection.delete_one({"_id": doc["_id"]})
+        except Exception:
+            pass
+        try:
+            self.chunks.delete_many({"file_path": doc.get("path")})
+        except Exception:
+            pass
+        try:
+            self.changes.delete_many({"file_path": doc.get("path")})
+        except Exception:
+            pass
+        try:
+            self.db["file_snapshots"].delete_many({"path": doc.get("path")})
+        except Exception:
+            pass
+        self._cleanup_content_file(doc.get("content_path"))
+
+    def audit_documents(
+        self,
+        remove_missing: bool = True,
+        fix_missing_metadata: bool = True,
+    ) -> Dict[str, int]:
+        results = {"removed": 0, "updated": 0}
+        cursor = self.collection.find(
+            {},
+            {
+                "_id": 1,
+                "path": 1,
+                "path_local": 1,
+                "bytes": 1,
+                "content_path": 1,
+                "content_checksum": 1,
+                "content_bytes": 1,
+            },
+        )
+        for doc in cursor:
+            local_path = self._resolve_local_path(doc)
+            exists = local_path is not None and local_path.exists()
+            doc_label = doc.get("path_local") or doc.get("path") or ""
+
+            if remove_missing and local_path is not None and not exists:
+                self._purge_document(doc)
+                results["removed"] += 1
+                record_db_activity("similarity.audit.remove", doc_label)
+                continue
+
+            updates: Dict[str, Any] = {}
+            if fix_missing_metadata and exists and local_path is not None:
+                try:
+                    size = local_path.stat().st_size
+                except Exception:
+                    size = None
+                if size is not None and doc.get("bytes") != size:
+                    updates["bytes"] = int(size)
+
+            content_path = doc.get("content_path")
+            if content_path and isinstance(content_path, str):
+                try:
+                    artefact = Path(content_path)
+                    if not artefact.exists():
+                        updates["content_path"] = None
+                        updates["content_checksum"] = None
+                        updates["content_bytes"] = None
+                except Exception:
+                    updates["content_path"] = None
+                    updates["content_checksum"] = None
+                    updates["content_bytes"] = None
+
+            if updates:
+                try:
+                    self.collection.update_one({"_id": doc["_id"]}, {"$set": updates})
+                    results["updated"] += 1
+                    record_db_activity("similarity.audit.fix", doc_label)
+                except Exception:
+                    pass
+
+        return results

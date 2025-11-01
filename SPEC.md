@@ -96,6 +96,7 @@ Global options:
 Database responsibilities
 - The service maintains a file database keyed by path that tracks: path, checksum, embedding, date last modified, last operation, number of bytes, and angle from empty (the angle between the file’s embedding and the embedding of the empty string). Embeddings are computed per the configured strategy (Docling extraction + sentence-transformers as currently deployed).
 - The database powers de‑duplication, similarity checks, and RAG‑like queries. Moves/renames are recognized via matching checksum so we avoid creating new logical entries on path changes. We do not use the checksum as the primary key; path remains the key so when a file at a path is updated, all metadata updates in place without changing the key.
+- The daemon runs a background maintenance loop (default cadence ≈10 minutes) that calls `SimilarityDB.audit_documents()` to prune missing files, clear stale extraction artefacts, and refresh stored byte counts. Shutdown waits for the current audit to finish so the Mongo client can close cleanly.
 - Primary views today:
   - `FileOperations.md`: a Markdown view of the top N most recent changes. It should show checksum, date last modified, last operation, human‑readable size, and angle from empty (or `-` if unavailable). Temp/autosave artifacts are hidden in this view.
 - `Health.md`: a dashboard of current status and metrics.
