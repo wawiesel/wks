@@ -72,7 +72,7 @@ def test_index_and_stats_and_move(tmpdir, monkeypatch):
     db.rename_file(src, dst)
     stats2 = db.get_stats()
     assert stats2['total_files'] == 1  # no duplicate
-    doc = db.collection.find_one({'path': str(dst.resolve())})
+    doc = db.collection.find_one({'path': dst.resolve().as_uri()})
     assert doc is not None
     assert doc['filename'] == dst.name
 
@@ -100,8 +100,8 @@ def test_index_time_rename_detection(tmpdir):
     assert db.add_file(new) is True
     stats = db.get_stats()
     assert stats['total_files'] == 1
-    assert db.collection.find_one({'path': str(new.resolve())}) is not None
-    assert db.collection.find_one({'path': str(old.resolve())}) is None
+    assert db.collection.find_one({'path': new.resolve().as_uri()}) is not None
+    assert db.collection.find_one({'path': old.resolve().as_uri()}) is None
 
 
 def test_rename_folder_updates_descendants(tmpdir):
@@ -129,5 +129,5 @@ def test_rename_folder_updates_descendants(tmpdir):
     updated = db.rename_folder(base, new_base)
     assert updated >= 2
     # Verify records now reference moved paths
-    assert db.collection.find_one({'path': str((new_base / 'a.txt').resolve())})
-    assert db.collection.find_one({'path': str((new_base / 'sub' / 'b.txt').resolve())})
+    assert db.collection.find_one({'path': (new_base / 'a.txt').resolve().as_uri()})
+    assert db.collection.find_one({'path': (new_base / 'sub' / 'b.txt').resolve().as_uri()})

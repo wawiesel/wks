@@ -9,6 +9,8 @@ from pathlib import Path
 import fnmatch
 from datetime import datetime
 from typing import Dict, Set, Callable, Optional, List
+
+from .constants import WKS_HOME_EXT, WKS_DOT_DIRS
 from watchdog.observers import Observer
 try:
     from watchdog.observers.fsevents import FSEventsObserver  # macOS
@@ -70,7 +72,7 @@ class WKSFileMonitor(FileSystemEventHandler):
                 _globs.append(f"**/{tok}")
         self.ignore_globs = _globs
         # Dot-path whitelist that should never be ignored by default rules
-        self._dot_whitelist = {'.wks'}
+        self._dot_whitelist = set()
         self.state = self._load_state()
 
     def _load_state(self) -> Dict:
@@ -123,6 +125,8 @@ class WKSFileMonitor(FileSystemEventHandler):
             if part in self.ignore_dirs:
                 return True
             # Ignore dot-directories except whitelisted
+            if part in WKS_DOT_DIRS:
+                return True
             if part.startswith('.') and part not in self._dot_whitelist:
                 return True
             # Ignore directories starting with underscore (e.g., _build, _site)
@@ -338,7 +342,7 @@ if __name__ == "__main__":
     # Monitor home directory
     observer = start_monitoring(
         directories=[Path.home()],
-        state_file=Path.home() / ".wks" / "monitor_state.json",
+        state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",
         on_change=on_file_change
     )
 

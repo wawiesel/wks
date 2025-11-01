@@ -1,4 +1,5 @@
 import io
+import json
 from contextlib import redirect_stdout
 
 import mongomock
@@ -11,7 +12,8 @@ def singleton_client():
     return mongomock.MongoClient()
 
 
-def test_db_info_basic_lists_tracked_and_latest(monkeypatch, singleton_client):
+def test_db_info_json_lists_tracked_and_latest(monkeypatch, tmp_path, singleton_client):
+    monkeypatch.setattr('pathlib.Path.home', lambda: tmp_path)
     # Minimal config for space DB
     def _cfg():
         return {
@@ -27,8 +29,8 @@ def test_db_info_basic_lists_tracked_and_latest(monkeypatch, singleton_client):
     client = singleton_client
     coll = client['wks_similarity']['file_embeddings']
     coll.insert_many([
-        {'path': '/tmp/x.txt', 'timestamp': '2025-10-28T10:00:00.000000'},
-        {'path': '/tmp/y.txt', 'timestamp': '2025-10-28T11:00:00.000000'},
+        {'path': 'file:///tmp/x.txt', 'timestamp': '2025-10-28T10:00:00.000000', 'checksum': '0123456789abcdef', 'bytes': 1024, 'angle': 2.5},
+        {'path': 'file:///tmp/y.txt', 'timestamp': '2025-10-28T11:00:00.000000', 'checksum': 'fedcba9876543210', 'bytes': 2048, 'angle': 5.0},
     ])
 
     # Ensure the CLI uses the same singleton client
@@ -38,17 +40,18 @@ def test_db_info_basic_lists_tracked_and_latest(monkeypatch, singleton_client):
     from wks.cli import main
     buf = io.StringIO()
     with redirect_stdout(buf):
-        rc = main(['--display','basic','db','info','-n','2','--space'])
+        rc = main(['--display','json','db','info','-n','2','--space'])
     out = buf.getvalue()
+    data = json.loads(out)
     assert rc == 0
-    assert 'tracked files:' in out
-    assert '2025-10-28 11:00:00' in out or '2025-10-28 10:00:00' in out
-    assert '/tmp/x.txt' in out or '/tmp/y.txt' in out
-    assert 'checksum=' in out
-    assert 'chunks=' in out
+    assert data.get('tracked_files') == 2 or data.get('total_docs') == 2
+    latest = data.get('latest') or data.get('records') or []
+    assert len(latest) >= 1
+    assert any('file:///tmp/x.txt' in (item.get('uri') or '') or 'file:///tmp/y.txt' in (item.get('uri') or '') for item in latest)
 
 
-def test_db_info_uses_top_level_mongo(monkeypatch, singleton_client):
+def test_db_info_uses_top_level_mongo(monkeypatch, tmp_path, singleton_client):
+    monkeypatch.setattr('pathlib.Path.home', lambda: tmp_path)
     def _cfg():
         return {
             'mongo': {
@@ -60,19 +63,21 @@ def test_db_info_uses_top_level_mongo(monkeypatch, singleton_client):
     monkeypatch.setattr('wks.cli.load_config', _cfg)
     client = singleton_client
     coll = client['wks_similarity']['file_embeddings']
-    coll.insert_one({'path': '/tmp/z.txt', 'timestamp': '2025-10-28T12:00:00.000000'})
+    coll.insert_one({'path': 'file:///tmp/z.txt', 'timestamp': '2025-10-28T12:00:00.000000', 'checksum': 'abcdef1234567890', 'bytes': 512, 'angle': 1.0})
     monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: client)
     from wks.cli import main
     buf = io.StringIO()
     with redirect_stdout(buf):
-        rc = main(['--display','basic','db','info','--space'])
+        rc = main(['--display','json','db','info','--space'])
     assert rc == 0
     output = buf.getvalue()
-    assert '/tmp/z.txt' in output
-    assert 'checksum=' in output
+    data = json.loads(output)
+    latest = data.get('latest') or []
+    assert any(item.get('uri') == 'file:///tmp/z.txt' for item in latest)
 
 
-def test_db_info_respects_timestamp_format(monkeypatch, singleton_client):
+def test_db_info_respects_timestamp_format(monkeypatch, tmp_path, singleton_client):
+    monkeypatch.setattr('pathlib.Path.home', lambda: tmp_path)
     def _cfg():
         return {
             'display': {'timestamp_format': '%m/%d/%Y %H:%M'},
@@ -85,12 +90,101 @@ def test_db_info_respects_timestamp_format(monkeypatch, singleton_client):
     monkeypatch.setattr('wks.cli.load_config', _cfg)
     client = singleton_client
     coll = client['wks_similarity']['file_embeddings']
-    coll.insert_one({'path': '/tmp/f.txt', 'timestamp': '2025-10-28T08:15:00.000000', 'content_hash': 'abc', 'num_chunks': 1})
+    coll.insert_one({'path': 'file:///tmp/f.txt', 'timestamp': '2025-10-28T08:15:00.000000', 'checksum': '0123456789abcdef', 'bytes': 256, 'angle': 0.0})
     monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: client)
     from wks.cli import main
     buf = io.StringIO()
     with redirect_stdout(buf):
-        rc = main(['--display','basic','db','info','--space'])
+        rc = main(['--display','json','db','info','--space'])
     assert rc == 0
     output = buf.getvalue()
-    assert '10/28/2025 08:15' in output
+    data = json.loads(output)
+    latest = data.get('latest') or []
+    assert any('10/28/2025 08:15' in (item.get('timestamp') or '') for item in latest)
+
+
+def test_db_info_reference_differences(monkeypatch, tmp_path, singleton_client):
+    ref_file = tmp_path / 'ref.txt'
+    ref_file.write_text('reference content', encoding='utf-8')
+    ref_uri = ref_file.resolve().as_uri()
+
+    def _cfg():
+        return {
+            'similarity': {
+                'mongo_uri': 'mongodb://localhost:27027/',
+                'database': 'wks_similarity',
+                'collection': 'file_embeddings',
+            },
+            'extract': {
+                'engine': 'builtin',
+                'ocr': False,
+                'timeout_secs': 30,
+            }
+        }
+
+    monkeypatch.setattr('wks.cli.load_config', _cfg)
+
+    class FakeDB:
+        def __init__(self):
+            class _Client:
+                def close(self_inner):
+                    pass
+            self.client = _Client()
+        def add_file(self, *a, **k):
+            return True
+
+    monkeypatch.setattr('wks.cli._load_similarity_required', lambda: (FakeDB(), {}))
+
+    class DummyExtractor:
+        def extract(self, path, persist=True):
+            from types import SimpleNamespace
+            return SimpleNamespace(
+                text='content',
+                content_path=None,
+                content_checksum='hash',
+                content_bytes=10,
+            )
+
+    monkeypatch.setattr('wks.cli._build_extractor', lambda cfg: DummyExtractor())
+
+    client = singleton_client
+    coll = client['wks_similarity']['file_embeddings']
+    coll.insert_many([
+        {
+            'path': ref_uri,
+            'path_local': str(ref_file.resolve()),
+            'timestamp': '2025-10-30T00:00:00Z',
+            'checksum': 'aaaa',
+            'bytes': 100,
+            'embedding': [1.0, 0.0, 0.0],
+        },
+        {
+            'path': 'file:///tmp/other.txt',
+            'path_local': '/tmp/other.txt',
+            'timestamp': '2025-10-30T01:00:00Z',
+            'checksum': 'bbbb',
+            'bytes': 200,
+            'embedding': [0.0, 1.0, 0.0],
+        },
+    ])
+
+    monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: client)
+
+    from wks.cli import main
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = main([
+            '--display', 'json',
+            'db', 'info', '--space',
+            '--reference', str(ref_file),
+            '--latest', '2',
+        ])
+
+    out = buf.getvalue()
+    assert rc == 0
+    data = json.loads(out)
+    assert data['reference'].startswith('file://')
+    entries = data['entries']
+    assert len(entries) == 2
+    assert any(entry['checksum_same'] is True for entry in entries)
+    assert any(entry['checksum_same'] is False for entry in entries)

@@ -11,6 +11,8 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
+from .constants import WKS_HOME_EXT
+
 
 class ActivityTracker:
     """Track file activity and calculate attention angles."""
@@ -273,7 +275,7 @@ if __name__ == "__main__":
     console = Console()
 
     # Example usage
-    tracker = ActivityTracker(Path.home() / ".wks" / "activity_state.json")
+    tracker = ActivityTracker(Path.home() / WKS_HOME_EXT / "activity_state.json")
 
     # Simulate some activity
     test_file = Path.home() / "2025-WKS" / "SPEC.md"

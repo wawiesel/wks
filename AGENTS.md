@@ -8,7 +8,7 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 
 ## Hard Boundaries
 - Write scope: only under `~/obsidian/WKS` (base_dir from config).
-- Respect ignore rules: dotfolders except `.wks`, `~/Pictures`, and `monitor.ignore_*` from config.
+- Respect ignore rules: dotfolders (including `.wks`/`.wkso`), `~/Pictures`, and `monitor.ignore_*` from config.
 - Destructive actions (delete/move) are opt‑in, logged, and reversible when possible.
 
 ## Environment Snapshot (fill in your machine specifics)
@@ -97,7 +97,7 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 
 ## Safety & Ignore Rules
 - Never touch outside `~/obsidian/WKS` when writing; never modify user content unless acting on monitored events.
-- Default ignores: dotsegments (except `.wks`), `~/Pictures`, config `exclude_paths`, `ignore_dirnames`, `ignore_globs`.
+- Default ignores: dotsegments (including `.wks`/`.wkso`), `~/Pictures`, config `exclude_paths`, `ignore_dirnames`, `ignore_globs`.
 - Add extra sensitive paths or patterns here: <…>
 
 ## Service Control Cheatsheet
@@ -142,7 +142,8 @@ This file is the authoritative memory and playbook for the WKS agent. It is for 
 ## Testing Responsibility (Non‑Negotiable)
 - The developer is responsible for end‑to‑end verification before hand‑off. The user’s tests must be a SUPER SIMPLE RERUN of tests we already executed locally.
 - Always test with Docling and Mongo running. No “optional” branches. The service is a watcher; core ops must work via CLI alone.
-- Global flags precede subcommands (argparse): place `--display rich|basic` before `config|service|index|db`.
+- Global flags precede subcommands (argparse): place `--display rich|json` before `config|service|index|db`.
+- Metrics config controls FS activity smoothing: `metrics.fs_rate_short_window_secs` (default 10), `metrics.fs_rate_long_window_secs` (600), with weights `metrics.fs_rate_short_weight` (0.8) and `metrics.fs_rate_long_weight` (0.2).
 
 ## Required Smoke Tests (Space DB)
 - Index new file: `wkso --display rich index ~/test/file.txt` → `wkso --display rich db info -n 5` shows it.

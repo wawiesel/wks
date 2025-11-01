@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+from .constants import WKS_HOME_EXT
+
 DEFAULT_MONGO_URI = "mongodb://localhost:27027/"
 DEFAULT_SPACE_DATABASE = "wks_similarity"
 DEFAULT_SPACE_COLLECTION = "file_embeddings"
@@ -63,7 +65,7 @@ def timestamp_format(cfg: Dict[str, Any]) -> str:
 
 
 def load_user_config() -> Dict[str, Any]:
-    path = Path.home() / ".wks" / "config.json"
+    path = Path.home() / WKS_HOME_EXT / "config.json"
     if path.exists():
         try:
             with open(path, "r") as fh:

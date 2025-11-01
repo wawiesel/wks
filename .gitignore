@@ -1,9 +1,10 @@
 # Virtual environment
 _requests
+**/.wkso
 venv/
 .venv/
 *.pyc
-__pycache__/
+**/__pycache__/
 
 # IDE
 .vscode/
