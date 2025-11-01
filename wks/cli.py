@@ -435,6 +435,11 @@ def _daemon_status_launchd() -> int:
 def daemon_status(args: argparse.Namespace) -> int:
     status = ServiceStatusData()
 
+    try:
+        _ensure_mongo_running(_default_mongo_uri(), record_start=False)
+    except Exception:
+        pass
+
     @dataclass
     class LaunchAgentStatusInternal:
         state: str = ""
@@ -772,6 +777,10 @@ def daemon_restart(args: argparse.Namespace):
     # macOS launchd-managed restart
     if _is_macos() and _agent_installed():
         try:
+            _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+        except Exception:
+            pass
+        try:
             _daemon_stop_launchd()
         except Exception:
             pass
@@ -786,6 +795,10 @@ def daemon_restart(args: argparse.Namespace):
     except Exception:
         pass
     time.sleep(0.5)
+    try:
+        _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+    except Exception:
+        pass
     daemon_start(args)
     _wait_for_health_update(previous_heartbeat, timeout=5.0)
 
@@ -2184,8 +2197,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
         except Exception as e:
-            print(f"DB connection failed: {e}")
-            return 2
+            try:
+                _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+                client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
+            except Exception:
+                print(f"DB connection failed: {e}")
+                return 2
         try:
             client.admin.command('ping')
         except Exception as e:
