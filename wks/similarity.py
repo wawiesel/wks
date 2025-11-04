@@ -17,6 +17,8 @@ from sentence_transformers import SentenceTransformer
 
 from .extractor import Extractor, ExtractResult
 from .status import record_db_activity
+from .dbmeta import ensure_db_compat, SPACE_COMPAT_DEFAULT
+from .config import apply_similarity_mongo_defaults, mongo_settings
 
 
 def _utc_now_iso() -> str:
@@ -65,6 +67,8 @@ class SimilarityDB:
         extract_options: Optional[Dict[str, Any]] = None,
         write_extension: Optional[str] = None,
         mongo_client: Optional[MongoClient] = None,
+        compatibility_tag: str = SPACE_COMPAT_DEFAULT,
+        product_version: Optional[str] = None,
     ) -> None:
         if mongo_client is not None:
             self.client = mongo_client
@@ -73,6 +77,7 @@ class SimilarityDB:
             self.client = MongoClient(mongo_uri)
             self._own_client = True
         self.db = self.client[database_name]
+        ensure_db_compat(self.client, database_name, "space", compatibility_tag, product_version=product_version)
         self.collection = self.db[collection_name]
         self.chunks = self.db[chunks_collection]
         self.changes = self.db["embedding_changes"]
@@ -720,3 +725,65 @@ class SimilarityDB:
                     pass
 
         return results
+
+
+def build_similarity_from_config(
+    cfg: Dict[str, Any],
+    *,
+    require_enabled: bool = True,
+    compatibility_tag: str = SPACE_COMPAT_DEFAULT,
+    product_version: Optional[str] = None,
+) -> Tuple[Optional[SimilarityDB], Optional[Dict[str, Any]]]:
+    """
+    Construct SimilarityDB from a configuration dictionary.
+
+    Returns (db, normalized_similarity_config). When require_enabled=False and
+    similarity is disabled, (None, None) is returned.
+    """
+    sim_raw = cfg.get("similarity") or {}
+    enabled = bool(sim_raw.get("enabled"))
+    if not enabled:
+        if require_enabled:
+            raise RuntimeError("similarity.enabled must be true")
+        return None, None
+    mongo_cfg = mongo_settings(cfg)
+    sim_cfg = apply_similarity_mongo_defaults(sim_raw, mongo_cfg)
+    required = [
+        "mongo_uri",
+        "database",
+        "collection",
+        "model",
+        "include_extensions",
+        "min_chars",
+        "max_chars",
+        "chunk_chars",
+        "chunk_overlap",
+    ]
+    missing = [k for k in required if k not in sim_cfg]
+    if missing:
+        raise RuntimeError("missing similarity keys: " + ", ".join([f"similarity.{k}" for k in missing]))
+    extract_cfg = cfg.get("extract")
+    if extract_cfg is None or "engine" not in extract_cfg or "ocr" not in extract_cfg or "timeout_secs" not in extract_cfg:
+        raise RuntimeError("'extract.engine', 'extract.ocr', and 'extract.timeout_secs' are required in config")
+    if str(extract_cfg.get("engine")).lower() != "docling":
+        raise RuntimeError("extract.engine must be 'docling'")
+    db = SimilarityDB(
+        database_name=sim_cfg["database"],
+        collection_name=sim_cfg["collection"],
+        mongo_uri=sim_cfg["mongo_uri"],
+        model_name=sim_cfg["model"],
+        model_path=sim_cfg.get("model_path"),
+        offline=bool(sim_cfg.get("offline", False)),
+        min_chars=int(sim_cfg["min_chars"]),
+        max_chars=int(sim_cfg["max_chars"]),
+        chunk_chars=int(sim_cfg["chunk_chars"]),
+        chunk_overlap=int(sim_cfg["chunk_overlap"]),
+        extract_engine=extract_cfg["engine"],
+        extract_ocr=bool(extract_cfg["ocr"]),
+        extract_timeout_secs=int(extract_cfg["timeout_secs"]),
+        extract_options=dict(extract_cfg.get("options") or {}),
+        write_extension=extract_cfg.get("write_extension"),
+        compatibility_tag=compatibility_tag,
+        product_version=product_version,
+    )
+    return db, sim_cfg

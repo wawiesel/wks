@@ -9,8 +9,21 @@ from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
 
+try:
+    import importlib.metadata as importlib_metadata
+except ImportError:  # pragma: no cover
+    import importlib_metadata  # type: ignore
+
 from .config import mongo_settings, timestamp_format, load_user_config, DEFAULT_TIMESTAMP_FORMAT
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
+from .dbmeta import resolve_db_compatibility, ensure_db_compat, IncompatibleDatabase
+
+
+def _pkg_version() -> str:
+    try:
+        return importlib_metadata.version("wks")
+    except Exception:
+        return "unknown"
 
 
 class ObsidianVault:
@@ -46,6 +59,18 @@ class ObsidianVault:
             self.timestamp_format = timestamp_format(cfg)
         except Exception:
             self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
+        # Throttle state for markdown rewrites (seconds)
+        self._write_throttle_secs = 2.0
+        self._last_ops_write_ts = 0.0
+        self._last_active_write_ts = 0.0
+        # Health page throttle
+        self._last_health_write_ts = 0.0
+        try:
+            self.ops_ledger_path.parent.mkdir(parents=True, exist_ok=True)
+            if not self.ops_ledger_path.exists():
+                self.ops_ledger_path.write_text("")
+        except Exception:
+            pass
 
     def _format_dt(self, dt: datetime) -> str:
         try:
@@ -65,18 +90,6 @@ class ObsidianVault:
             return self._format_dt(dt)
         except Exception:
             return str(value)
-        # Throttle for markdown rewrites (seconds)
-        self._write_throttle_secs = 2.0
-        self._last_ops_write_ts = 0.0
-        self._last_active_write_ts = 0.0
-        # Health page throttle
-        self._last_health_write_ts = 0.0
-        try:
-            self.ops_ledger_path.parent.mkdir(parents=True, exist_ok=True)
-            if not self.ops_ledger_path.exists():
-                self.ops_ledger_path.write_text("")
-        except Exception:
-            pass
 
     def _shorten_path(self, p: Path, max_chars: int) -> str:
         """Return a compact string for a path, using ~ for home and mid-ellipsis if too long."""
@@ -249,26 +262,9 @@ class ObsidianVault:
         # Optional similarity for angle-from-empty
         simdb = None
         try:
-            from .similarity import SimilarityDB as _S
+            from .similarity import build_similarity_from_config as _build_sim
             cfg = load_user_config()
-            sim = cfg.get('similarity') or {}
-            ext = cfg.get('extract') or {}
-            mongo_cfg = mongo_settings(cfg)
-            if sim.get('enabled'):
-                simdb = _S(
-                    database_name=mongo_cfg['space_database'],
-                    collection_name=mongo_cfg['space_collection'],
-                    mongo_uri=mongo_cfg['uri'],
-                    model_name=sim.get('model','all-MiniLM-L6-v2'),
-                    model_path=sim.get('model_path'),
-                    offline=bool(sim.get('offline', False)),
-                    max_chars=int(sim.get('max_chars',200000)),
-                    chunk_chars=int(sim.get('chunk_chars',1500)),
-                    chunk_overlap=int(sim.get('chunk_overlap',200)),
-                    extract_engine='docling',
-                    extract_ocr=bool(ext.get('ocr', False)),
-                    extract_timeout_secs=int(ext.get('timeout_secs', 30)),
-                )
+            simdb, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=_pkg_version())
         except Exception:
             simdb = None
 
@@ -817,11 +813,15 @@ class ObsidianVault:
             if sim2.get('enabled'):
                 from pymongo import MongoClient as _MC
                 mongo_cfg = mongo_settings(cfg2)
+                space_tag, _ = resolve_db_compatibility(cfg2)
                 client = _MC(mongo_cfg['uri'])
+                ensure_db_compat(client, mongo_cfg['space_database'], "space", space_tag)
                 db = client[mongo_cfg['space_database']]
                 changes_coll = db['embedding_changes']
             else:
                 use_changes = False
+        except IncompatibleDatabase:
+            use_changes = False
         except Exception:
             use_changes = False
 
@@ -964,18 +964,11 @@ class ObsidianVault:
         # Similarity stats
         sim_stats = None
         try:
-            from .similarity import SimilarityDB as _S
-            # Use default config locations via a local loader
+            from .similarity import build_similarity_from_config as _build_sim
             from .cli import load_config as _load
-            cfg = _load(); sim = cfg.get('similarity') or {}
-            if sim.get('enabled'):
-                mongo_cfg = mongo_settings(cfg)
-                db = _S(
-                    database_name=mongo_cfg['space_database'],
-                    collection_name=mongo_cfg['space_collection'],
-                    mongo_uri=mongo_cfg['uri'],
-                    model_name=sim.get('model','all-MiniLM-L6-v2'),
-                )
+            cfg = _load()
+            db, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=_pkg_version())
+            if db:
                 sim_stats = db.get_stats()
         except Exception:
             sim_stats = None

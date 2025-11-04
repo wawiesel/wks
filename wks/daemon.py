@@ -15,20 +15,35 @@ except Exception:  # pragma: no cover
     fcntl = None
 from pathlib import Path
 from typing import Optional, Set, List, Dict, Any
+
+try:
+    import importlib.metadata as importlib_metadata
+except ImportError:  # pragma: no cover
+    import importlib_metadata  # type: ignore
+
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from .monitor import start_monitoring
 from .obsidian import ObsidianVault
 from .activity import ActivityTracker
+from .mongoctl import MongoGuard, ensure_mongo_running
+from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
 try:
-    from .config import apply_similarity_mongo_defaults, mongo_settings
-    from .similarity import SimilarityDB
+    from .config import mongo_settings
+    from .similarity import build_similarity_from_config
     from .status import load_db_activity_summary, load_db_activity_history
 except Exception:
-    SimilarityDB = None  # Optional dependency
+    build_similarity_from_config = None  # type: ignore
     def load_db_activity_summary():  # type: ignore
         return {}
     def load_db_activity_history(max_age_secs: Optional[int] = None):  # type: ignore
         return []
+
+
+def _pkg_version() -> str:
+    try:
+        return importlib_metadata.version("wks")
+    except Exception:
+        return "unknown"
 
 
 class WKSDaemon:
@@ -58,6 +73,7 @@ class WKSDaemon:
         fs_rate_short_weight: float = 0.8,
         fs_rate_long_weight: float = 0.2,
         maintenance_interval_secs: float = 600.0,
+        mongo_uri: Optional[str] = None,
     ):
         """
         Initialize WKS daemon.
@@ -120,6 +136,8 @@ class WKSDaemon:
         self._maintenance_interval_secs = max(float(maintenance_interval_secs), 1.0)
         self._maintenance_thread: Optional[threading.Thread] = None
         self._maintenance_stop_event = threading.Event()
+        self.mongo_uri = str(mongo_uri or "")
+        self._mongo_guard: Optional[MongoGuard] = None
 
     def _should_index_for_similarity(self, path: Path) -> bool:
         if not self.similarity or not path.exists() or not path.is_file():
@@ -353,6 +371,7 @@ class WKSDaemon:
 
     def start(self):
         """Start monitoring."""
+        self._start_mongo_guard()
         # Acquire single-instance lock
         self._acquire_lock()
         self.vault.ensure_structure()
@@ -392,6 +411,25 @@ class WKSDaemon:
             finally:
                 self.similarity = None
         self._release_lock()
+        self._stop_mongo_guard()
+
+    def _start_mongo_guard(self):
+        if not self.mongo_uri:
+            return
+        guard = self._mongo_guard
+        if guard is None:
+            guard = MongoGuard(self.mongo_uri, ping_interval=10.0)
+            self._mongo_guard = guard
+        guard.start(record_start=True)
+
+    def _stop_mongo_guard(self):
+        guard = self._mongo_guard
+        if not guard:
+            return
+        try:
+            guard.stop()
+        except Exception:
+            pass
 
     def run(self):
         """Run the daemon (blocking)."""
@@ -902,6 +940,11 @@ if __name__ == "__main__":
         print("Fatal: missing required config keys: " + ", ".join(missing_obs))
         raise SystemExit(2)
 
+    mongo_cfg = mongo_settings(config)
+    space_compat_tag, time_compat_tag = resolve_db_compatibility(config)
+    mongo_uri = str(mongo_cfg.get("uri", ""))
+    ensure_mongo_running(mongo_uri, record_start=True)
+
     daemon = WKSDaemon(
         vault_path=vault_path,
         base_dir=base_dir,
@@ -917,55 +960,39 @@ if __name__ == "__main__":
         exclude_paths=exclude_paths,
         ignore_patterns=ignore_patterns,
         ignore_globs=ignore_globs,
+        mongo_uri=mongo_uri,
     )
 
     # Recreate activity tracker with configured file (after daemon constructed)
     daemon.activity = ActivityTracker(activity_state_file)
 
     # Similarity (explicit)
-    mongo_cfg = mongo_settings(config)
     sim_cfg_raw = config.get("similarity")
-    if sim_cfg_raw is None or "enabled" not in sim_cfg_raw:
-        print(f"Fatal: 'similarity.enabled' is required (true/false) in {WKS_HOME_DISPLAY}/config.json")
-        raise SystemExit(2)
-    if sim_cfg_raw.get("enabled"):
-        if SimilarityDB is None:
+    if sim_cfg_raw and sim_cfg_raw.get("enabled"):
+        if build_similarity_from_config is None:
             print("Fatal: similarity enabled but SimilarityDB not available")
             raise SystemExit(2)
-        sim_cfg = apply_similarity_mongo_defaults(sim_cfg_raw, mongo_cfg)
-        required = ["mongo_uri", "database", "collection", "model", "include_extensions", "min_chars", "max_chars", "chunk_chars", "chunk_overlap"]
-        missing = [k for k in required if k not in sim_cfg]
-        if missing:
-            print("Fatal: missing required similarity keys: " + ", ".join([f"similarity.{k}" for k in missing]))
+        try:
+            simdb, sim_cfg = build_similarity_from_config(
+                config,
+                require_enabled=True,
+                compatibility_tag=space_compat_tag,
+                product_version=_pkg_version(),
+            )
+        except IncompatibleDatabase as exc:
+            print(exc)
             raise SystemExit(2)
-        # Extraction config (explicit)
-        extract_cfg = config.get("extract")
-        if extract_cfg is None or 'engine' not in extract_cfg or 'ocr' not in extract_cfg or 'timeout_secs' not in extract_cfg:
-            print("Fatal: 'extract.engine', 'extract.ocr', and 'extract.timeout_secs' are required in config")
+        except Exception as exc:
+            print(f"Fatal: failed to initialize similarity DB: {exc}")
             raise SystemExit(2)
-        # Offline hint to avoid network
+        if simdb is None or sim_cfg is None:
+            print("Fatal: similarity initialization failed")
+            raise SystemExit(2)
+        daemon.similarity = simdb
         if bool(sim_cfg.get('offline', False)):
             import os as _os
             _os.environ.setdefault('HF_HUB_OFFLINE', '1')
             _os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
-        from .similarity import SimilarityDB as _S
-        daemon.similarity = _S(
-            database_name=sim_cfg["database"],
-            collection_name=sim_cfg["collection"],
-            mongo_uri=sim_cfg["mongo_uri"],
-            model_name=sim_cfg["model"],
-            model_path=sim_cfg.get("model_path"),
-            offline=bool(sim_cfg.get("offline", False)),
-            min_chars=int(sim_cfg["min_chars"]),
-            max_chars=int(sim_cfg["max_chars"]),
-            chunk_chars=int(sim_cfg["chunk_chars"]),
-            chunk_overlap=int(sim_cfg["chunk_overlap"]),
-            extract_engine=extract_cfg['engine'],
-            extract_ocr=bool(extract_cfg['ocr']),
-            extract_timeout_secs=int(extract_cfg['timeout_secs']),
-            extract_options=dict(extract_cfg.get('options') or {}),
-            write_extension=extract_cfg.get('write_extension'),
-        )
         daemon.similarity_extensions = set([e.lower() for e in sim_cfg["include_extensions"]])
         daemon.similarity_min_chars = int(sim_cfg["min_chars"])
 

@@ -188,3 +188,55 @@ def test_db_info_reference_differences(monkeypatch, tmp_path, singleton_client):
     assert len(entries) == 2
     assert any(entry['checksum_same'] is True for entry in entries)
     assert any(entry['checksum_same'] is False for entry in entries)
+
+
+def test_db_info_incompatible_db_requires_override(monkeypatch, tmp_path, singleton_client):
+    monkeypatch.setattr('pathlib.Path.home', lambda: tmp_path)
+
+    def _cfg():
+        return {
+            'mongo': {
+                'uri': 'mongodb://localhost:27027/',
+                'space_database': 'wks_similarity',
+                'space_collection': 'file_embeddings',
+            }
+        }
+
+    monkeypatch.setattr('wks.cli.load_config', _cfg)
+    client = singleton_client
+    client['wks_similarity']['_wks_meta'].insert_one({'_id': 'space', 'compat_tag': 'legacy-space'})
+    monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: client)
+    from wks.cli import main
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = main(['--display', 'plain', 'db', 'info', '--space'])
+    assert rc == 2
+    assert "Incompatible space database" in buf.getvalue()
+
+
+def test_db_info_respects_compat_override(monkeypatch, tmp_path, singleton_client):
+    monkeypatch.setattr('pathlib.Path.home', lambda: tmp_path)
+
+    def _cfg():
+        return {
+            'mongo': {
+                'uri': 'mongodb://localhost:27027/',
+                'space_database': 'wks_similarity',
+                'space_collection': 'file_embeddings',
+                'compatibility': {'space': 'legacy-space'},
+            }
+        }
+
+    monkeypatch.setattr('wks.cli.load_config', _cfg)
+    client = singleton_client
+    client['wks_similarity']['_wks_meta'].insert_one({'_id': 'space', 'compat_tag': 'legacy-space'})
+    coll = client['wks_similarity']['file_embeddings']
+    coll.insert_one({'path': 'file:///tmp/a.txt', 'timestamp': '2025-11-03T00:00:00Z'})
+    monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: client)
+    from wks.cli import main
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = main(['--display', 'json', 'db', 'info', '--space'])
+    assert rc == 0
+    data = json.loads(buf.getvalue())
+    assert data.get('tracked_files') == 1 or data.get('total_docs') == 1

@@ -3,6 +3,7 @@ import io
 import json
 import os
 import signal
+import threading
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -43,6 +44,8 @@ def test_cli_config_print_json(monkeypatch):
     assert data["vault_path"] == "~/obsidian"
     assert "mongo" in data
     assert data["mongo"]["uri"].startswith("mongodb://")
+    assert data["mongo"]["compatibility"]["space"] == "space-v1"
+    assert data["mongo"]["compatibility"]["time"] == "time-v1"
     assert "mongo_uri" not in data["similarity"]
     assert data["display"]["timestamp_format"] == "%Y-%m-%d %H:%M:%S"
 
@@ -214,7 +217,7 @@ def test_cli_index_json_progress(monkeypatch):
     assert 'total_bytes=1234' in out
     # Plain timing summary should include headers and aligned units
     assert 'Timing Details' in out
-    assert 'Timing Totals' in out
+    assert 'Totals' in out
     assert 'Hash' in out and 'Extract' in out and 'Embed' in out
     assert ' ms' in out or ' s' in out
 
@@ -264,41 +267,45 @@ def test_cli_index_untrack(monkeypatch):
 
 
 def test_ensure_mongo_running_autostarts(monkeypatch, tmp_path):
-    import wks.cli as cli
+    import wks.mongoctl as mongoctl
     calls = []
     def fake_ping(uri, timeout_ms=500):
         calls.append((uri, timeout_ms))
         return len(calls) > 1
-    monkeypatch.setattr(cli, "_mongo_ping", fake_ping)
+    monkeypatch.setattr(mongoctl, "mongo_ping", fake_ping)
     starts = []
-    monkeypatch.setattr(cli.shutil, "which", lambda exe: "/usr/bin/mongod" if exe == "mongod" else None)
+    monkeypatch.setattr(mongoctl.shutil, "which", lambda exe: "/usr/bin/mongod" if exe == "mongod" else None)
     def fake_check_call(cmd, *args, **kwargs):
         starts.append(cmd)
-    monkeypatch.setattr(cli.subprocess, "check_call", fake_check_call)
-    monkeypatch.setattr(cli.Path, "home", classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr(cli.time, "sleep", lambda _: None)
-    cli._ensure_mongo_running("mongodb://localhost:27027/")
+    monkeypatch.setattr(mongoctl.subprocess, "check_call", fake_check_call)
+    monkeypatch.setattr(mongoctl.time, "sleep", lambda _: None)
+    mongoctl.ensure_mongo_running("mongodb://localhost:27027/")
     assert starts, "mongod should be started when initial ping fails"
     assert len(calls) >= 2
 
 
 def test_ensure_mongo_running_fails_without_mongod(monkeypatch):
-    import wks.cli as cli
-    monkeypatch.setattr(cli, "_mongo_ping", lambda uri, timeout_ms=500: False)
-    monkeypatch.setattr(cli.shutil, "which", lambda exe: None)
+    import wks.mongoctl as mongoctl
+    monkeypatch.setattr(mongoctl, "mongo_ping", lambda uri, timeout_ms=500: False)
+    monkeypatch.setattr(mongoctl.shutil, "which", lambda exe: None)
     with pytest.raises(SystemExit):
-        cli._ensure_mongo_running("mongodb://localhost:27027/")
+        mongoctl.ensure_mongo_running("mongodb://localhost:27027/")
 
 
 def test_mongo_client_params_calls_ensure(monkeypatch, tmp_path):
     import wks.cli as cli
+    import wks.mongoctl as mongoctl
     called = {}
-    def fake_ensure(uri):
-        called['uri'] = uri
-    monkeypatch.setattr(cli, "_ensure_mongo_running", fake_ensure)
-    monkeypatch.setattr(cli, "MONGO_ROOT", tmp_path)
-    monkeypatch.setattr(cli, "MONGO_PID_FILE", tmp_path / 'mongod.pid')
-    monkeypatch.setattr(cli, "MONGO_MANAGED_FLAG", tmp_path / 'managed')
+    def fake_ensure(uri, record_start=False):
+        called['ensure_uri'] = uri
+        called['record'] = record_start
+    monkeypatch.setattr(mongoctl, "ensure_mongo_running", fake_ensure)
+    def fake_create(uri, server_timeout=500, connect_timeout=500, ensure_running=True):
+        if ensure_running:
+            fake_ensure(uri)
+        import mongomock
+        return mongomock.MongoClient()
+    monkeypatch.setattr(mongoctl, "create_client", fake_create)
     monkeypatch.setattr('wks.cli.load_config', lambda: {
         'mongo': {
             'uri': 'mongodb://localhost:27027/',
@@ -307,34 +314,58 @@ def test_mongo_client_params_calls_ensure(monkeypatch, tmp_path):
         }
     })
     client, mongo_cfg = cli._mongo_client_params()
-    assert called['uri'] == 'mongodb://localhost:27027/'
+    assert called['ensure_uri'] == 'mongodb://localhost:27027/'
     assert mongo_cfg['space_database'] == 'wks_similarity'
 
 
 def test_stop_managed_mongo(monkeypatch, tmp_path):
-    import wks.cli as cli
+    import wks.mongoctl as mongoctl
     flag = tmp_path / 'managed'
     pidfile = tmp_path / 'mongod.pid'
     flag.write_text('123')
     pidfile.write_text('123')
-    monkeypatch.setattr(cli, "MONGO_MANAGED_FLAG", flag)
-    monkeypatch.setattr(cli, "MONGO_PID_FILE", pidfile)
+    monkeypatch.setattr(mongoctl, "MONGO_MANAGED_FLAG", flag)
+    monkeypatch.setattr(mongoctl, "MONGO_PID_FILE", pidfile)
     killed = []
-    monkeypatch.setattr(cli, "_pid_running", lambda pid: False)
-    monkeypatch.setattr(cli.os, 'kill', lambda pid, sig: killed.append((pid, sig)))
-    cli._stop_managed_mongo()
+    monkeypatch.setattr(mongoctl, "pid_running", lambda pid: False)
+    monkeypatch.setattr(mongoctl.os, 'kill', lambda pid, sig: killed.append((pid, sig)))
+    mongoctl.stop_managed_mongo()
     assert killed == [(123, signal.SIGTERM)]
     assert not flag.exists()
     assert not pidfile.exists()
 
 
+def test_mongo_guard_restarts_local(monkeypatch):
+    import wks.mongoctl as mongoctl
+    ping_values = iter([False, True])
+    def fake_ping(uri, timeout_ms=500):
+        try:
+            return next(ping_values)
+        except StopIteration:
+            return True
+    monkeypatch.setattr(mongoctl, "mongo_ping", fake_ping)
+    ensure_calls = []
+    resumed = threading.Event()
+    def fake_ensure(uri, record_start=False):
+        ensure_calls.append(record_start)
+        if len(ensure_calls) > 1:
+            resumed.set()
+    monkeypatch.setattr(mongoctl, "ensure_mongo_running", fake_ensure)
+    guard = mongoctl.MongoGuard("mongodb://localhost:27027/", ping_interval=0.01)
+    guard.start(record_start=True)
+    assert resumed.wait(0.3), "Guard should trigger a restart when ping fails"
+    guard.stop()
+    assert len(ensure_calls) >= 2
+
+
 def test_db_reset_restarts_mongo(monkeypatch, tmp_path):
     import wks.cli as cli
+    import wks.mongoctl as mongoctl
     calls = {}
     def fake_ensure(uri, record_start=False):
         calls['uri'] = uri
         calls['record'] = record_start
-    monkeypatch.setattr(cli, "_ensure_mongo_running", fake_ensure)
+    monkeypatch.setattr(mongoctl, "ensure_mongo_running", fake_ensure)
     monkeypatch.setattr(cli, "_stop_managed_mongo", lambda: None)
     monkeypatch.setattr(cli, "mongo_settings", lambda cfg: {
         "uri": "mongodb://localhost:27027/",
