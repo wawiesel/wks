@@ -45,7 +45,11 @@ This spec documents the wkso CLI: a minimal, focused interface to configure, run
     "space_database": "wks_similarity",
     "space_collection": "file_embeddings",
     "time_database": "wks_similarity",
-    "time_collection": "file_snapshots"
+    "time_collection": "file_snapshots",
+    "compatibility": {
+      "space": "space-v1",
+      "time": "time-v1"
+    }
   },
   "extract": {
     "engine": "docling",
@@ -69,12 +73,14 @@ This spec documents the wkso CLI: a minimal, focused interface to configure, run
 - `display.timestamp_format` governs every timestamp printed by the CLI and Obsidian surfaces.
 - `extract.*` is forwarded to the extractor implementation; Docling must honor `engine`, `ocr`, `timeout_secs`, and any values inside `options`.
 - `similarity.include_extensions` limits which files are processed; extraction always runs through the `extract` config prior to embedding.
+- `mongo.compatibility.space|time` declare the expected compatibility tags for each Mongo database. The CLI writes a `_wks_meta` document in every database storing the tag it was created with; as long as the configured tag matches, data is reused. When a future release requires a breaking schema change, bump the tag in the config to opt-in, or set it to the stored tag to keep using an older layout.
 
 ## Commands
 
 Global options:
 - `--version` — print the installed CLI version (with current git SHA when available) and exit immediately.
-- `--display {auto,rich,json}` — select the output style for subcommands (default `rich`).
+- `--display {auto,rich,json,markdown}` — select the output style for subcommands (default `rich`). Pass the flag before the subcommand (e.g., `wkso --display json index …`).
+- Markdown output is rendered via Jinja2 templates using the same structured payloads surfaced with `--json`, so the rendered tables stay in sync with machine-readable output.
 - Service status summary surfaces DB heartbeat/last operation, weighted FS activity rates, and supports JSON/Markdown output alongside Rich tables.
 - Config `metrics` block tunes filesystem rate smoothing (`fs_rate_short_window_secs`, `fs_rate_long_window_secs`, `fs_rate_short_weight`, `fs_rate_long_weight`).
 
@@ -92,6 +98,8 @@ Global options:
   - `wkso service stop` — stop the running daemon and shut down the managed `mongod` if we launched it.
   - `wkso service status` — print daemon status.
   - `wkso service restart` — restart daemon (via launchd if present).
+  - Whenever the daemon is running (regardless of whether launchd or the CLI started it) the configured MongoDB endpoint is verified and the default local instance is kept alive by a guard thread that re-launches `mongod` if connectivity drops.
+  - The daemon refuses to touch a database whose stored compatibility tag (from `_wks_meta`) does not match `mongo.compatibility.space|time`; update the config to the stored tag to reuse data or run `wkso db reset` to rebuild with the new tag.
 
 Database responsibilities
 - The service maintains a file database keyed by path that tracks: path, checksum, embedding, date last modified, last operation, number of bytes, and angle from empty (the angle between the file’s embedding and the embedding of the empty string). Embeddings are computed per the configured strategy (Docling extraction + sentence-transformers as currently deployed).

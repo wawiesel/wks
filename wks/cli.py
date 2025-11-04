@@ -7,9 +7,9 @@ Provides simple commands for managing the daemon, config, and local MongoDB.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import math
-import json
 import os
 import platform
 import re
@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field, asdict
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -26,6 +27,7 @@ from urllib.parse import unquote, urlparse
 import fnmatch
 import pymongo
 import shutil
+
 try:
     import importlib.metadata as importlib_metadata
 except ImportError:  # pragma: no cover
@@ -41,12 +43,16 @@ from .config import (
 from .constants import WKS_HOME_EXT, WKS_EXTRACT_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from .extractor import Extractor
 from .status import record_db_activity, load_db_activity_summary, load_db_activity_history
+from .dbmeta import (
+    IncompatibleDatabase,
+    ensure_db_compat,
+    resolve_db_compatibility,
+)
+from . import mongoctl
+from .templating import render_template
 
 
 LOCK_FILE = Path.home() / WKS_HOME_EXT / "daemon.lock"
-MONGO_ROOT = Path.home() / WKS_HOME_EXT / "mongodb"
-MONGO_PID_FILE = MONGO_ROOT / "mongod.pid"
-MONGO_MANAGED_FLAG = MONGO_ROOT / "managed"
 
 DEFAULT_MONITOR_INCLUDE_PATHS = ["~"]
 DEFAULT_MONITOR_EXCLUDE_PATHS = ["~/Library", "~/obsidian", f"{WKS_HOME_DISPLAY}"]
@@ -75,6 +81,39 @@ DEFAULT_SIMILARITY_EXTS = [
     ".csv",
     ".xlsx",
 ]
+
+DISPLAY_CHOICES = ["auto", "rich", "plain", "markdown", "json", "none"]
+
+_PACKAGE_VERSION_CACHE: Optional[str] = None
+
+STATUS_MARKDOWN_TEMPLATE = """| Key | Value |
+| --- | --- |
+{% for key, value in rows %}
+| {{ key }} | {{ value | replace('|', '\\|') | replace('\n', '<br>') }} |
+{% endfor %}
+""".strip()
+
+DB_QUERY_MARKDOWN_TEMPLATE = """### {{ scope|capitalize }} query — {{ collection }}
+{% if rows %}
+| # | Document |
+| --- | --- |
+{% for row in rows %}
+| {{ loop.index }} | {{ row | replace('|', '\\|') }} |
+{% endfor %}
+{% else %}
+_No documents found._
+{% endif %}
+""".strip()
+
+
+def _package_version() -> str:
+    global _PACKAGE_VERSION_CACHE
+    if _PACKAGE_VERSION_CACHE is None:
+        try:
+            _PACKAGE_VERSION_CACHE = importlib_metadata.version("wks")
+        except Exception:
+            _PACKAGE_VERSION_CACHE = "unknown"
+    return _PACKAGE_VERSION_CACHE
 
 
 def _human_bytes(value: Optional[int]) -> str:
@@ -340,9 +379,15 @@ def _merge_defaults(defaults: List[str], user: Optional[List[str]]) -> List[str]
     return merged
 
 
-def print_config(_: argparse.Namespace) -> None:
+def print_config(args: argparse.Namespace) -> None:
     cfg = load_config()
     mongo_cfg = mongo_settings(cfg)
+    space_tag, time_tag = resolve_db_compatibility(cfg)
+    mongo_out = dict(mongo_cfg)
+    mongo_out["compatibility"] = {
+        "space": space_tag,
+        "time": time_tag,
+    }
 
     obs_raw = cfg.get("obsidian") or {}
     obsidian = {
@@ -405,19 +450,31 @@ def print_config(_: argparse.Namespace) -> None:
         "fs_rate_long_weight": float(metrics_raw.get("fs_rate_long_weight", 0.2)),
     }
 
-    output = {
+    payload = {
         "vault_path": cfg.get("vault_path", "~/obsidian"),
         "obsidian": obsidian,
         "monitor": monitor,
         "activity": activity,
         "display": display,
-        "mongo": mongo_cfg,
+        "mongo": mongo_out,
         "extract": extract,
         "similarity": similarity,
         "metrics": metrics,
     }
 
-    print(json.dumps(output, indent=2))
+    _maybe_write_json(args, payload)
+    if not _display_enabled(args.display):
+        return
+    if args.display == "rich":
+        try:
+            from rich.console import Console
+            from rich.syntax import Syntax
+
+            Console().print(Syntax(_json_dumps(payload), "json", word_wrap=False, indent_guides=True))
+            return
+        except Exception:
+            pass
+    print(_json_dumps(payload))
 
 
 def _pid_running(pid: int) -> bool:
@@ -426,6 +483,10 @@ def _pid_running(pid: int) -> bool:
         return True
     except Exception:
         return False
+
+
+def _stop_managed_mongo() -> None:
+    mongoctl.stop_managed_mongo()
 
 
 def _agent_label() -> str:
@@ -484,7 +545,7 @@ def daemon_status(args: argparse.Namespace) -> int:
     status = ServiceStatusData()
 
     try:
-        _ensure_mongo_running(_default_mongo_uri(), record_start=False)
+        mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=False)
     except Exception:
         pass
 
@@ -646,112 +707,154 @@ def daemon_status(args: argparse.Namespace) -> int:
         cfg = load_config()
         ts_format = timestamp_format(cfg)
         mongo_cfg = mongo_settings(cfg)
+        space_tag, _ = resolve_db_compatibility(cfg)
         client = pymongo.MongoClient(
             mongo_cfg["uri"],
             serverSelectionTimeoutMS=300,
             connectTimeoutMS=300,
         )
         client.admin.command("ping")
-        coll = client[mongo_cfg["space_database"]][mongo_cfg["space_collection"]]
-        status.db.tracked_files = coll.count_documents({})
-        last_doc = coll.find({}, {"timestamp": 1}).sort("timestamp", -1).limit(1)
-        for doc in last_doc:
-            formatted = _format_timestamp_value(doc.get("timestamp"), ts_format)
-            status.db.last_updated = formatted or str(doc.get("timestamp", ""))
-
-        total_size: Optional[int] = None
         try:
-            agg = coll.aggregate(
-                [{"$group": {"_id": None, "total": {"$sum": {"$cond": [{"$gt": ["$bytes", 0]}, "$bytes", 0]}}}}]
+            ensure_db_compat(
+                client,
+                mongo_cfg["space_database"],
+                "space",
+                space_tag,
+                product_version=_package_version(),
             )
-            agg_doc = next(agg, None)
-            if agg_doc and agg_doc.get("total") is not None:
-                total_candidate = agg_doc.get("total")
-                if isinstance(total_candidate, (int, float)):
-                    total_size = int(total_candidate)
-        except Exception:
-            total_size = None
-
-        if total_size in (None, 0):
+        except IncompatibleDatabase as exc:
+            status.notes.append(str(exc))
             try:
-                approx_total = 0
-                found_any = False
-                missing_metadata = False
-                for doc in coll.find({}, {"path": 1, "path_local": 1, "bytes": 1}).limit(1000):
-                    found_any = True
-                    bval = doc.get("bytes")
-                    if isinstance(bval, (int, float)) and bval > 0:
-                        approx_total += int(bval)
-                        continue
-                    missing_metadata = True
-                    local_path = _doc_path_to_local(doc)
-                    if local_path and local_path.exists():
-                        try:
-                            approx_total += local_path.stat().st_size
-                        except Exception:
-                            pass
-                if found_any and approx_total > 0:
-                    total_size = approx_total
-                elif not missing_metadata and total_size is None:
-                    total_size = approx_total
+                client.close()
             except Exception:
                 pass
-
-        if isinstance(total_size, (int, float)) and total_size >= 0:
-            status.db.total_size_bytes = int(total_size)
+            coll = None
         else:
-            status.db.total_size_bytes = None
-        latest = coll.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(5)
-        records = []
-        for doc in latest:
-            ts_value = _format_timestamp_value(doc.get("timestamp"), ts_format)
-            if not ts_value:
-                ts_value = str(doc.get("timestamp", ""))
-            records.append({"timestamp": ts_value, "path": str(doc.get("path", ""))})
-        status.db.latest_files = records
-        try:
-            client.close()
-        except Exception:
-            pass
+            coll = client[mongo_cfg["space_database"]][mongo_cfg["space_collection"]]
+        if coll is not None:
+            status.db.tracked_files = coll.count_documents({})
+            last_doc = coll.find({}, {"timestamp": 1}).sort("timestamp", -1).limit(1)
+            for doc in last_doc:
+                formatted = _format_timestamp_value(doc.get("timestamp"), ts_format)
+                status.db.last_updated = formatted or str(doc.get("timestamp", ""))
+
+            total_size: Optional[int] = None
+            try:
+                agg = coll.aggregate(
+                    [{"$group": {"_id": None, "total": {"$sum": {"$cond": [{"$gt": ["$bytes", 0]}, "$bytes", 0]}}}}]
+                )
+                agg_doc = next(agg, None)
+                if agg_doc and agg_doc.get("total") is not None:
+                    total_candidate = agg_doc.get("total")
+                    if isinstance(total_candidate, (int, float)):
+                        total_size = int(total_candidate)
+            except Exception:
+                total_size = None
+
+            if total_size in (None, 0):
+                try:
+                    approx_total = 0
+                    found_any = False
+                    missing_metadata = False
+                    for doc in coll.find({}, {"path": 1, "path_local": 1, "bytes": 1}).limit(1000):
+                        found_any = True
+                        bval = doc.get("bytes")
+                        if isinstance(bval, (int, float)) and bval > 0:
+                            approx_total += int(bval)
+                            continue
+                        missing_metadata = True
+                        local_path = _doc_path_to_local(doc)
+                        if local_path and local_path.exists():
+                            try:
+                                approx_total += local_path.stat().st_size
+                            except Exception:
+                                pass
+                    if found_any and approx_total > 0:
+                        total_size = approx_total
+                    elif not missing_metadata and total_size is None:
+                        total_size = approx_total
+                except Exception:
+                    pass
+
+            if isinstance(total_size, (int, float)) and total_size >= 0:
+                status.db.total_size_bytes = int(total_size)
+            else:
+                status.db.total_size_bytes = None
+            latest = coll.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(5)
+            records = []
+            for doc in latest:
+                ts_value = _format_timestamp_value(doc.get("timestamp"), ts_format)
+                if not ts_value:
+                    ts_value = str(doc.get("timestamp", ""))
+                records.append({"timestamp": ts_value, "path": str(doc.get("path", ""))})
+            status.db.latest_files = records
+            try:
+                client.close()
+            except Exception:
+                pass
     except SystemExit:
         raise
     except Exception as exc:
         status.notes.append(f"Space DB stats unavailable: {exc}")
 
-    display_mode = getattr(args, "display", "rich")
+    payload = status.to_dict()
+    _maybe_write_json(args, payload)
+
+    display_mode = args.display
+    if display_mode == "none":
+        return 0
+    if display_mode == "json":
+        print(_json_dumps(payload))
+        return 0
+    if display_mode == "markdown":
+        print(render_template(STATUS_MARKDOWN_TEMPLATE, {"rows": status.to_rows()}))
+        return 0
+
     use_rich = False
+    plain_mode = False
     if display_mode == "rich":
         use_rich = True
+    elif display_mode == "plain":
+        use_rich = True
+        plain_mode = True
     elif display_mode == "auto":
         try:
             use_rich = sys.stdout.isatty()
         except Exception:
             use_rich = False
 
-    if display_mode == "markdown":
-        print(status.to_markdown())
-        return 0
+    if use_rich:
+        try:
+            from rich import box
+            from rich.console import Console
+            from rich.table import Table
+        except Exception:
+            use_rich = False
 
     if use_rich:
-        from rich import box
-        from rich.console import Console
-        from rich.table import Table
-
+        colorful = (display_mode in {"rich", "auto"}) and not plain_mode
+        console = Console(
+            force_terminal=True,
+            color_system=None if colorful else "standard",
+            markup=colorful,
+            highlight=False,
+            soft_wrap=False,
+        )
         table = Table(
             title="WKS Service Status",
-            header_style="bold",
-            box=box.SQUARE,
+            header_style="bold" if colorful else "",
+            box=box.SQUARE if colorful else box.SIMPLE,
             expand=False,
             pad_edge=False,
         )
-        table.add_column("Key", style="cyan", overflow="fold")
-        table.add_column("Value", style="white", overflow="fold")
+        table.add_column("Key", style="cyan" if colorful else "", overflow="fold")
+        table.add_column("Value", style="white" if colorful else "", overflow="fold")
         for key, value in status.to_rows():
             table.add_row(key, value)
-        Console().print(table)
+        console.print(table)
         return 0
 
-    print(status.to_json())
+    print(_json_dumps(payload))
     return 0
 
 
@@ -785,7 +888,7 @@ def _wait_for_health_update(previous_heartbeat: Optional[str], timeout: float = 
 
 
 def daemon_start(_: argparse.Namespace):
-    _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+    mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
     if _is_macos() and _agent_installed():
         _daemon_start_launchd()
         return
@@ -858,7 +961,7 @@ def daemon_restart(args: argparse.Namespace):
     # macOS launchd-managed restart
     if _is_macos() and _agent_installed():
         try:
-            _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+            mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
         except Exception:
             pass
         try:
@@ -877,7 +980,7 @@ def daemon_restart(args: argparse.Namespace):
         pass
     time.sleep(0.5)
     try:
-        _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+        mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
     except Exception:
         pass
     daemon_start(args)
@@ -887,31 +990,32 @@ def daemon_restart(args: argparse.Namespace):
 
 
 # ----------------------------- Similarity CLI ------------------------------ #
-def _load_similarity_db() -> Any:
-    """Initialize SimilarityDB using config; auto-start local mongod if needed."""
+def _build_similarity_from_config(require_enabled: bool = True):
     try:
-        from .similarity import SimilarityDB  # type: ignore
+        from .similarity import build_similarity_from_config  # type: ignore
     except Exception as e:
         print(f"Similarity not available: {e}")
-        return None
-
+        if require_enabled:
+            raise SystemExit(2)
+        return None, None
     cfg = load_config()
-    sim_cfg = cfg.get("similarity", {})
-    mongo_cfg = mongo_settings(cfg)
-    model = sim_cfg.get("model", 'all-MiniLM-L6-v2')
-    model_path = sim_cfg.get("model_path")
-    offline = bool(sim_cfg.get("offline", False))
-    mongo_uri = str(sim_cfg.get("mongo_uri") or mongo_cfg['uri'])
-    database = str(sim_cfg.get("database") or mongo_cfg['space_database'])
-    collection = str(sim_cfg.get("collection") or mongo_cfg['space_collection'])
-
-    def _init():
-        return SimilarityDB(database_name=database, collection_name=collection, mongo_uri=mongo_uri, model_name=model, model_path=model_path, offline=offline)
-
+    space_tag, _ = resolve_db_compatibility(cfg)
+    pkg_version = _package_version()
     try:
-        return _init()
+        db, sim_cfg = build_similarity_from_config(
+            cfg,
+            require_enabled=require_enabled,
+            compatibility_tag=space_tag,
+            product_version=pkg_version,
+        )
+        return db, sim_cfg
+    except IncompatibleDatabase as exc:
+        print(exc)
+        if require_enabled:
+            raise SystemExit(2)
+        return None, None
     except Exception as e:
-        # Try to start local mongod if using our default URI
+        mongo_uri = mongo_settings(cfg)["uri"]
         if mongo_uri.startswith("mongodb://localhost:27027") and shutil.which("mongod"):
             dbroot = Path.home() / WKS_HOME_EXT / "mongodb"
             dbpath = dbroot / "db"
@@ -922,12 +1026,32 @@ def _load_similarity_db() -> Any:
                     "mongod", "--dbpath", str(dbpath), "--logpath", str(logfile),
                     "--fork", "--bind_ip", "127.0.0.1", "--port", "27027"
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                return _init()
+                db, sim_cfg = build_similarity_from_config(
+                    cfg,
+                    require_enabled=require_enabled,
+                    compatibility_tag=space_tag,
+                    product_version=pkg_version,
+                )
+                return db, sim_cfg
+            except IncompatibleDatabase as exc2:
+                print(exc2)
+                if require_enabled:
+                    raise SystemExit(2)
+                return None, None
             except Exception as e2:
                 print(f"Failed to auto-start local mongod: {e2}")
-                return None
+                if require_enabled:
+                    raise SystemExit(2)
+                return None, None
         print(f"Failed to initialize similarity DB: {e}")
-        return None
+        if require_enabled:
+            raise SystemExit(2)
+        return None, None
+
+
+def _load_similarity_db() -> Any:
+    db, _ = _build_similarity_from_config(require_enabled=False)
+    return db
 
 
 def _iter_files(paths: List[str], include_exts: List[str], cfg: Dict[str, Any]) -> List[Path]:
@@ -1040,9 +1164,43 @@ def _format_duration(seconds: float) -> str:
     return f"{seconds * 1000:.1f}ms"
 
 
+def _resolve_display_mode(args: argparse.Namespace, default: str = "rich") -> str:
+    mode = getattr(args, "display", None) or default
+    if mode not in DISPLAY_CHOICES:
+        return default
+    return mode
+
+
+def _display_enabled(mode: str) -> bool:
+    return mode != "none"
+
+
+def _json_dumps(payload: Any) -> str:
+    return json.dumps(payload, indent=2, ensure_ascii=False, default=str)
+
+
+def _maybe_write_json(args: argparse.Namespace, payload: Any) -> None:
+    path = getattr(args, "json_path", None)
+    if not path:
+        return
+    text = _json_dumps(payload)
+    if path == "-":
+        sys.__stdout__.write(text + "\n")
+        sys.__stdout__.flush()
+        return
+    dest = Path(path).expanduser()
+    try:
+        parent = dest.parent
+        if not parent.exists():
+            parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text + "\n", encoding="utf-8")
+    except Exception as exc:
+        sys.__stderr__.write(f"Failed to write JSON output to {dest}: {exc}\n")
+
+
 def _make_progress(total: int, display: str):
     from contextlib import contextmanager
-    import sys, time
+    import time
 
     def _clip(text: str, limit: int = 48) -> str:
         if len(text) <= limit:
@@ -1053,74 +1211,125 @@ def _make_progress(total: int, display: str):
 
     def _hms(secs: float) -> str:
         secs = max(0, int(secs))
-        h = secs // 3600; m = (secs % 3600) // 60; s = secs % 60
+        h = secs // 3600
+        m = (secs % 3600) // 60
+        s = secs % 60
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-    use_rich = False
-    if display in (None, "auto"):
-        try:
-            use_rich = sys.stdout.isatty()
-        except Exception:
-            use_rich = False
-    elif display == "rich":
-        use_rich = True
-    else:
-        use_rich = False
+    if display == "none":
+        @contextmanager
+        def _noop():
+            class _Progress:
+                def update(self, label: str, advance: int = 1) -> None:
+                    return None
 
+                def close(self) -> None:
+                    return None
+
+            yield _Progress()
+
+        return _noop()
+
+    use_rich = display in {"rich", "plain"}
     if use_rich:
         try:
-            from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn, TimeElapsedColumn
-
-            @contextmanager
-            def _rp():
-                start = time.perf_counter()
-                last = {"label": "Starting"}
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[bold blue]{task.fields[current]}"),
-                    BarColumn(bar_width=32),
-                    TextColumn("{task.completed}/{task.total}"),
-                    TimeRemainingColumn(),
-                    TimeElapsedColumn(),
-                    transient=False,
-                ) as progress:
-                    task = progress.add_task("task", total=total if total else None, current="Starting")
-                    class R:
-                        def update(self, label: str, advance: int = 1):
-                            clipped = _clip(label)
-                            last["label"] = clipped
-                            progress.update(task, advance=advance, current=clipped)
-                        def close(self):
-                            pass
-                    yield R()
-                elapsed = time.perf_counter() - start
-                label = last.get("label") or "Completed"
-                progress.console.print(f"[dim]{label} finished in {_format_duration(elapsed)}[/dim]")
-            return _rp()
+            from rich.console import Console
+            from rich.progress import (
+                Progress,
+                SpinnerColumn,
+                BarColumn,
+                TextColumn,
+                TimeRemainingColumn,
+                TimeElapsedColumn,
+            )
         except Exception:
-            pass
+            use_rich = False
+
+    if use_rich:
+        console = Console(
+            force_terminal=True,
+            color_system=None if display == "rich" else "standard",
+            markup=(display == "rich"),
+            highlight=False,
+            soft_wrap=False,
+        )
+        spinner_style = "cyan" if display == "rich" else ""
+        bar_complete = "green" if display == "rich" else "white"
+        bar_finished = "green" if display == "rich" else "white"
+        bar_pulse = "white"
+        label_template = "{task.fields[current]:<36}"
+        counter_template = "{task.completed}/{task.total}" if total else "{task.completed}"
+
+        @contextmanager
+        def _rp():
+            start = time.perf_counter()
+            last = {"label": "Starting"}
+            with Progress(
+                SpinnerColumn(style=spinner_style),
+                TextColumn(label_template, justify="left"),
+                BarColumn(
+                    bar_width=32,
+                    complete_style=bar_complete,
+                    finished_style=bar_finished,
+                    pulse_style=bar_pulse,
+                ),
+                TextColumn(counter_template, justify="right"),
+                TimeRemainingColumn(),
+                TimeElapsedColumn(),
+                transient=False,
+                console=console,
+                refresh_per_second=12,
+            ) as progress:
+                task = progress.add_task(
+                    "wkso",
+                    total=total if total else None,
+                    current="Starting",
+                )
+
+                class _RichProgress:
+                    def update(self, label: str, advance: int = 1) -> None:
+                        clipped = _clip(label)
+                        last["label"] = clipped
+                        progress.update(task, advance=advance, current=clipped)
+
+                    def close(self) -> None:
+                        return None
+
+                yield _RichProgress()
+            elapsed = time.perf_counter() - start
+            label = last.get("label") or "Completed"
+            console.print(
+                f"{label} finished in {_format_duration(elapsed)}",
+                style="dim" if display == "rich" else "",
+            )
+
+        return _rp()
 
     @contextmanager
     def _bp():
         start = time.time()
         done = {"n": 0, "label": "Starting"}
-        class B:
-            def update(self, label: str, advance: int = 1):
+
+        class _BasicProgress:
+            def update(self, label: str, advance: int = 1) -> None:
                 done["label"] = label
                 done["n"] += advance
                 n = done["n"]
-                pct = (n/total*100.0) if total else 100.0
-                elapsed = time.time()-start
-                eta = _hms((elapsed/n)*(total-n)) if n>0 and total>n else _hms(0)
+                pct = (n / total * 100.0) if total else 100.0
+                elapsed = time.time() - start
+                eta = _hms((elapsed / n) * (total - n)) if n > 0 and total > n else _hms(0)
                 print(f"[{n}/{total}] {pct:5.1f}% ETA {eta}  {label}")
-            def close(self):
-                pass
+
+            def close(self) -> None:
+                return None
+
         try:
-            yield B()
+            yield _BasicProgress()
         finally:
             elapsed = time.time() - start
             label = done.get("label") or "Completed"
             print(f"[done] {label} finished in {_format_duration(elapsed)}")
+
     return _bp()
 
 
@@ -1213,79 +1422,10 @@ def _pascalize_name(raw: str) -> str:
 
 
 def _load_similarity_required() -> Tuple[Any, Dict[str, Any]]:
-    try:
-        from .similarity import SimilarityDB  # type: ignore
-    except Exception as e:
-        print(f"Fatal: SimilarityDB not available: {e}")
+    db, sim_cfg = _build_similarity_from_config(require_enabled=True)
+    if db is None or sim_cfg is None:
         raise SystemExit(2)
-    cfg = load_config()
-    sim_raw = cfg.get('similarity')
-    if sim_raw is None or 'enabled' not in sim_raw:
-        print("Fatal: 'similarity.enabled' is required in config")
-        raise SystemExit(2)
-    if not sim_raw.get('enabled'):
-        print("Fatal: similarity.enabled must be true for this operation")
-        raise SystemExit(2)
-    mongo_cfg = mongo_settings(cfg)
-    sim = apply_similarity_mongo_defaults(sim_raw, mongo_cfg)
-    required = [
-        'mongo_uri','database','collection','model',
-        'include_extensions','min_chars','max_chars','chunk_chars','chunk_overlap'
-    ]
-    missing = [k for k in required if k not in sim]
-    if missing:
-        print("Fatal: missing similarity keys: " + ", ".join([f"similarity.{k}" for k in missing]))
-        raise SystemExit(2)
-    # Extraction config (docling required)
-    ext = cfg.get('extract')
-    if ext is None or 'engine' not in ext or 'ocr' not in ext or 'timeout_secs' not in ext:
-        print("Fatal: 'extract.engine', 'extract.ocr', and 'extract.timeout_secs' are required in config")
-        raise SystemExit(2)
-    if str(ext.get('engine')).lower() != 'docling':
-        print("Fatal: extract.engine must be 'docling'")
-        raise SystemExit(2)
-    def _make():
-        return SimilarityDB(
-            database_name=sim['database'],
-            collection_name=sim['collection'],
-            mongo_uri=sim['mongo_uri'],
-            model_name=sim['model'],
-            model_path=sim.get('model_path'),
-            offline=bool(sim.get('offline', False)),
-            min_chars=int(sim['min_chars']),
-            max_chars=int(sim['max_chars']),
-            chunk_chars=int(sim['chunk_chars']),
-            chunk_overlap=int(sim['chunk_overlap']),
-            extract_engine=str(ext.get('engine', 'docling')),
-            extract_ocr=bool(ext['ocr']),
-            extract_timeout_secs=int(ext['timeout_secs']),
-            extract_options=dict(ext.get('options') or {}),
-            write_extension=ext.get('write_extension'),
-        )
-    try:
-        db = _make()
-        return db, sim
-    except Exception as e:
-        # Auto-start local mongod if URI is localhost:27027 and mongod exists
-        try:
-            import shutil as _sh, subprocess as _sp, time as _t
-            uri = str(sim.get('mongo_uri',''))
-            if uri.startswith('mongodb://localhost:27027') and _sh.which('mongod'):
-                dbroot = Path.home() / WKS_HOME_EXT / 'mongodb'
-                dbpath = dbroot / 'db'
-                logfile = dbroot / 'mongod.log'
-                dbpath.mkdir(parents=True, exist_ok=True)
-                _sp.check_call([
-                    'mongod', '--dbpath', str(dbpath), '--logpath', str(logfile),
-                    '--fork', '--bind_ip', '127.0.0.1', '--port', '27027'
-                ])
-                _t.sleep(0.2)
-                db = _make()
-                return db, sim
-        except Exception:
-            pass
-        print(f"Fatal: failed to initialize similarity DB: {e}")
-        raise SystemExit(2)
+    return db, sim_cfg
 
 
 # migration removed
@@ -1300,100 +1440,17 @@ def _mongo_client_params(
     if cfg is None:
         cfg = load_config()
     mongo_cfg = mongo_settings(cfg)
-    try:
-        _ensure_mongo_running(mongo_cfg['uri'])
-    except SystemExit:
-        raise
-    except Exception:
-        pass
-    client = pymongo.MongoClient(
+    client = mongoctl.create_client(
         mongo_cfg['uri'],
-        serverSelectionTimeoutMS=server_timeout,
-        connectTimeoutMS=connect_timeout,
+        server_timeout=server_timeout,
+        connect_timeout=connect_timeout,
+        ensure_running=True,
     )
     return client, mongo_cfg
 
 
-def _mongo_ping(uri: str, timeout_ms: int = 500) -> bool:
-    try:
-        client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout_ms, connectTimeoutMS=timeout_ms)
-        client.admin.command('ping')
-        return True
-    except Exception:
-        return False
-
-
 def _default_mongo_uri() -> str:
     return mongo_settings(load_config())['uri']
-
-
-def _stop_managed_mongo() -> None:
-    if not MONGO_MANAGED_FLAG.exists() or not MONGO_PID_FILE.exists():
-        return
-    try:
-        pid = int(MONGO_MANAGED_FLAG.read_text().strip())
-    except Exception:
-        pid = None
-    try:
-        if pid:
-            os.kill(pid, signal.SIGTERM)
-            for _ in range(20):
-                if not _pid_running(pid):
-                    break
-                time.sleep(0.1)
-        MONGO_MANAGED_FLAG.unlink(missing_ok=True)
-        MONGO_PID_FILE.unlink(missing_ok=True)
-    except Exception:
-        pass
-
-
-def _ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
-    if _mongo_ping(uri):
-        return
-    is_local = uri.startswith("mongodb://localhost:27027")
-    if is_local and shutil.which("mongod"):
-        dbroot = MONGO_ROOT
-        dbpath = dbroot / "db"
-        logfile = dbroot / "mongod.log"
-        dbroot.mkdir(parents=True, exist_ok=True)
-        dbpath.mkdir(parents=True, exist_ok=True)
-        pidfile = MONGO_PID_FILE if record_start else (dbroot / "mongod.pid.tmp")
-        try:
-            if pidfile.exists():
-                pidfile.unlink()
-        except Exception:
-            pass
-        try:
-            subprocess.check_call([
-                "mongod",
-                "--dbpath", str(dbpath),
-                "--logpath", str(logfile),
-                "--fork",
-                "--pidfilepath", str(pidfile),
-                "--bind_ip", "127.0.0.1",
-                "--port", "27027",
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception as e:
-            print(f"Fatal: failed to auto-start local mongod: {e}")
-            raise SystemExit(2)
-        time.sleep(0.3)
-        if _mongo_ping(uri, timeout_ms=1000):
-            if record_start:
-                try:
-                    pid = int(pidfile.read_text().strip())
-                    MONGO_MANAGED_FLAG.write_text(str(pid))
-                except Exception:
-                    pass
-            else:
-                try:
-                    pidfile.unlink()
-                except Exception:
-                    pass
-            return
-        print(f"Fatal: mongod started but MongoDB still unreachable; check logs in {WKS_HOME_DISPLAY}/mongodb/mongod.log")
-        raise SystemExit(2)
-    print(f"Fatal: MongoDB not reachable at {uri}; start mongod and retry.")
-    raise SystemExit(2)
 
 
 def _is_within(path: Path, base: Path) -> bool:
@@ -1471,10 +1528,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="wkso", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
     # Global display mode
-    try:
-        pkg_version = importlib_metadata.version("wks")
-    except Exception:
-        pkg_version = "unknown"
+    pkg_version = _package_version()
     git_sha = ""
     try:
         repo_root = Path(__file__).resolve().parents[1]
@@ -1497,9 +1551,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument(
         "--display",
-        choices=["auto", "rich", "json", "markdown"],
+        choices=DISPLAY_CHOICES,
         default="rich",
-        help="Output display: rich (interactive), json, markdown, or auto (detect).",
+        help="Output style: auto (TTY-aware), rich, plain, markdown table, JSON, or none.",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_path",
+        help="Optional path to write structured JSON output; use '-' for stdout.",
     )
 
     # Lightweight progress helpers
@@ -1571,9 +1630,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 """.strip()
         pl.write_text(xml)
         uid = os.getuid()
-        with _make_progress(total=6, display=getattr(args, 'display', 'auto')) as prog:
+        with _make_progress(total=6, display=args.display) as prog:
             prog.update("ensure mongo")
-            _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+            mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
             prog.update("bootout legacy")
             for old in [
                 "com.wieselquist.wkso",
@@ -1600,7 +1659,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return
         pl = _plist_path()
         uid = os.getuid()
-        with _make_progress(total=4, display=getattr(args, 'display', 'auto')) as prog:
+        with _make_progress(total=4, display=args.display) as prog:
             for label in ["com.wieselquist.wkso", "com.wieselquist.wksctl", "com.wieselquist.wks", "com.wieselquist.wks.db"]:
                 prog.update(f"bootout {label}")
                 try:
@@ -1649,7 +1708,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         _stop_managed_mongo()
         # Ensure Mongo is running again before restart
         try:
-            _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+            mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
         except SystemExit:
             return 2
         # Clear local agent state (keep config.json)
@@ -1707,7 +1766,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         skipped = 0
         errors = 0
         outputs: List[Tuple[Path, Path]] = []
-        with _make_progress(total=len(files), display=getattr(args, 'display', 'auto')) as prog:
+        with _make_progress(total=len(files), display=args.display) as prog:
             for f in files:
                 prog.update(f.name, advance=0)
                 try:
@@ -1739,13 +1798,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("No files to process (check paths/extensions)")
             return 0
 
-        display_mode = getattr(args, 'display', 'auto')
+        display_mode = args.display
 
         if args.untrack:
             removed = 0
             missing = 0
             errors = 0
-            with _make_progress(total=len(files), display=getattr(args, 'display', 'auto')) as prog:
+            outcomes: List[Dict[str, Any]] = []
+            with _make_progress(total=len(files), display=args.display) as prog:
                 prog.update("Connecting to DB…", advance=0)
                 db, _ = _load_similarity_required()
                 for f in files:
@@ -1753,13 +1813,25 @@ def main(argv: Optional[List[str]] = None) -> int:
                     try:
                         if db.remove_file(f):
                             removed += 1
+                            outcomes.append({"path": str(f), "status": "removed"})
                         else:
                             missing += 1
-                    except Exception:
+                            outcomes.append({"path": str(f), "status": "not_tracked"})
+                    except Exception as exc:
                         errors += 1
+                        outcomes.append({"path": str(f), "status": f"error: {exc}"})
                     finally:
                         prog.update(f.name, advance=1)
                 prog.update("Untracking complete", advance=0)
+            payload = {
+                "mode": "untrack",
+                "requested": [str(p) for p in files],
+                "removed": removed,
+                "missing": missing,
+                "errors": errors,
+                "files": outcomes,
+            }
+            _maybe_write_json(args, payload)
             print(f"Untracked {removed} file(s), missing {missing}, errors {errors}")
             return 0
 
@@ -1894,6 +1966,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         def _render_timing_summary(entries: List[Dict[str, Any]], display_mode: str, fmt) -> None:
             if not entries:
                 return
+            if display_mode == "none":
+                return
             totals: Dict[str, float] = {key: 0.0 for key, _ in stage_labels}
             counts: Dict[str, int] = {key: 0 for key, _ in stage_labels}
             for entry in entries:
@@ -1903,14 +1977,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                         totals[key] += val
                         counts[key] += 1
 
-            use_rich = False
-            try:
-                if display_mode == "rich":
-                    use_rich = True
-                elif display_mode in (None, "auto"):
-                    use_rich = sys.stdout.isatty()
-            except Exception:
-                use_rich = False
+            use_rich = display_mode in {"rich", "plain"}
 
             if use_rich:
                 try:
@@ -1921,12 +1988,38 @@ def main(argv: Optional[List[str]] = None) -> int:
                 except Exception:
                     use_rich = False
                 if use_rich:
-                    console = Console()
+                    console = Console(
+                        force_terminal=True,
+                        color_system=None if display_mode == "rich" else "standard",
+                        markup=(display_mode == "rich"),
+                        highlight=False,
+                        soft_wrap=False,
+                    )
                     console.print()
-                    detail = Table(show_header=True, header_style="bold", expand=False, box=box.SQUARE, pad_edge=False)
+                    detail = Table(
+                        show_header=True,
+                        header_style="bold" if display_mode == "rich" else "",
+                        expand=False,
+                        box=box.SQUARE if display_mode == "rich" else box.SIMPLE,
+                        pad_edge=False,
+                    )
                     detail.add_column("#", justify="right", no_wrap=True, overflow="ignore", min_width=2, max_width=3)
-                    detail.add_column("File", style="cyan", no_wrap=False, overflow="fold", min_width=12, max_width=28)
-                    detail.add_column("Status", style="magenta", no_wrap=False, overflow="fold", min_width=8, max_width=20)
+                    detail.add_column(
+                        "File",
+                        style="cyan" if display_mode == "rich" else "",
+                        no_wrap=False,
+                        overflow="fold",
+                        min_width=12,
+                        max_width=28,
+                    )
+                    detail.add_column(
+                        "Status",
+                        style="magenta" if display_mode == "rich" else "",
+                        no_wrap=False,
+                        overflow="fold",
+                        min_width=8,
+                        max_width=20,
+                    )
                     for _, label in stage_labels:
                         detail.add_column(label, justify="right", no_wrap=True, overflow="ignore", min_width=9, max_width=11)
                     for idx, entry in enumerate(entries, 1):
@@ -1934,20 +2027,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                         for key, _ in stage_labels:
                             row.append(fmt(entry.get(key)))
                         detail.add_row(*row)
+                    total_files = 0
+                    for value in counts.values():
+                        if value > total_files:
+                            total_files = value
+                    if not total_files:
+                        total_files = len(entries)
+                    total_row = ["-", "Totals", f"{total_files} file(s)"]
+                    for key, _ in stage_labels:
+                        total_row.append(fmt(totals[key] if counts.get(key) else None))
+                    detail.add_row(*total_row, style="bold")
                     width = console.width or 80
                     console.print(Panel.fit(detail, title="Timing Details", border_style="dim"), width=min(max(width, 72), 110))
-
-                    totals_table = Table(show_header=True, header_style="bold", expand=False, box=box.SQUARE, pad_edge=False)
-                    totals_table.add_column("Stage", style="green", no_wrap=False, overflow="fold", min_width=10, max_width=20)
-                    totals_table.add_column("Duration", justify="right", no_wrap=True, overflow="ignore", min_width=9, max_width=11)
-                    totals_table.add_column("Files", justify="right", no_wrap=True, overflow="ignore", min_width=5, max_width=6)
-                    any_totals = False
-                    for key, label in stage_labels:
-                        if counts[key]:
-                            totals_table.add_row(label, fmt(totals[key]), str(counts[key]))
-                            any_totals = True
-                    if any_totals:
-                        console.print(Panel.fit(totals_table, title="Timing Totals", border_style="dim"), width=min(max(width, 54), 90))
                     return
 
             header = ["#", "File", "Status"] + [label for _, label in stage_labels]
@@ -1959,55 +2050,89 @@ def main(argv: Optional[List[str]] = None) -> int:
                 for key, _ in stage_labels:
                     row.append(fmt(entry.get(key)))
                 details_rows.append(row)
+            total_files_plain = 0
+            for value in counts.values():
+                if value > total_files_plain:
+                    total_files_plain = value
+            if not total_files_plain:
+                total_files_plain = len(entries)
+            totals_row = ["-", "Totals", f"{total_files_plain} file(s)"]
+            for key, _ in stage_labels:
+                totals_row.append(fmt(totals[key] if counts.get(key) else None))
+            details_rows.append(totals_row)
             _render_plain_boxed_table("Timing Details", header, details_rows, align, limits)
-
-            total_rows: List[List[str]] = []
-            for key, label in stage_labels:
-                if counts[key]:
-                    total_rows.append([label, fmt(totals[key]), str(counts[key])])
-            if total_rows:
-                _render_plain_boxed_table(
-                    "Timing Totals",
-                    ["Stage", "Duration", "Files"],
-                    total_rows,
-                    ["left", "right", "right"],
-                )
             return
 
         if not files_to_process:
             skipped = len(pre_skipped)
             total_files = None
+            db_summary: Optional[Dict[str, Any]] = None
             try:
                 client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg)
                 coll = client[mongo_cfg['space_database']][mongo_cfg['space_collection']]
                 total_files = coll.count_documents({})
+                db_summary = {
+                    "database": mongo_cfg['space_database'],
+                    "collection": mongo_cfg['space_collection'],
+                    "total_files": total_files,
+                }
             except Exception:
-                total_files = None
+                db_summary = None
             finally:
                 if client is not None:
                     try:
                         client.close()
                     except Exception:
                         pass
+
+            cached_summaries = [
+                {
+                    "path": f,
+                    "status": "cached",
+                    "hash": hash_times.get(f),
+                    "extract": None,
+                    "embed": None,
+                    "db": None,
+                    "chunks": None,
+                    "obsidian": None,
+                }
+                for f in pre_skipped
+            ]
+
+            payload = {
+                "mode": "index",
+                "requested": [str(p) for p in files],
+                "added": 0,
+                "skipped": skipped,
+                "errors": 0,
+                "files": [
+                    {
+                        "path": str(entry["path"]),
+                        "status": entry["status"],
+                        "timings": {
+                            "hash": entry.get("hash"),
+                            "extract": entry.get("extract"),
+                            "embed": entry.get("embed"),
+                            "db": entry.get("db"),
+                            "chunks": entry.get("chunks"),
+                            "obsidian": entry.get("obsidian"),
+                        },
+                    }
+                    for entry in cached_summaries
+                ],
+            }
+            if db_summary:
+                payload["database"] = db_summary
+            _maybe_write_json(args, payload)
+
             print("Nothing to index; all files already current.")
             print(f"Indexed 0 file(s), skipped {skipped}, errors 0")
-            if total_files is not None and mongo_cfg is not None:
-                print(f"DB: {mongo_cfg['space_database']}.{mongo_cfg['space_collection']} total_files={total_files}")
-            if pre_skipped:
-                _render_timing_summary(
-                    [{
-                        "path": f,
-                        "status": "cached",
-                        "hash": hash_times.get(f),
-                        "extract": None,
-                        "embed": None,
-                        "db": None,
-                        "chunks": None,
-                        "obsidian": None,
-                    } for f in pre_skipped],
-                    display_mode,
-                    _fmt_duration,
+            if db_summary:
+                print(
+                    f"DB: {db_summary['database']}.{db_summary['collection']} total_files={db_summary['total_files']}"
                 )
+            if cached_summaries:
+                _render_timing_summary(cached_summaries, display_mode, _fmt_duration)
             return 0
 
         db = None
@@ -2018,7 +2143,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         skipped = len(pre_skipped)
         errors = 0
         summaries: List[Dict[str, Any]] = []
-        with _make_progress(total=len(files_to_process), display=getattr(args, 'display', 'auto')) as prog:
+        with _make_progress(total=len(files_to_process), display=args.display) as prog:
             prog.update(f"Pre-checking {len(files)} file(s)…", advance=0)
             prog.update("Connecting to DB…", advance=0)
             db, _ = _load_similarity_required()
@@ -2120,19 +2245,58 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "obsidian": None,
             })
 
+        db_payload: Optional[Dict[str, Any]] = None
+        try:
+            stats = db.get_stats()
+            if stats:
+                db_payload = {
+                    "database": stats.get("database"),
+                    "collection": stats.get("collection"),
+                    "total_files": stats.get("total_files"),
+                    "total_bytes": stats.get("total_bytes"),
+                }
+        except Exception:
+            stats = None
+        payload = {
+            "mode": "index",
+            "requested": [str(p) for p in files],
+            "added": added,
+            "skipped": skipped,
+            "errors": errors,
+            "files": [
+                {
+                    "path": str(entry["path"]),
+                    "status": entry["status"],
+                    "timings": {
+                        "hash": entry.get("hash"),
+                        "extract": entry.get("extract"),
+                        "embed": entry.get("embed"),
+                        "db": entry.get("db"),
+                        "chunks": entry.get("chunks"),
+                        "obsidian": entry.get("obsidian"),
+                    },
+                }
+                for entry in summaries
+            ],
+        }
+        if db_payload:
+            payload["database"] = db_payload
+        _maybe_write_json(args, payload)
+
         print(f"Indexed {added} file(s), skipped {skipped}, errors {errors}")
 
         if summaries:
             _render_timing_summary(summaries, display_mode, _fmt_duration)
-        try:
-            stats = db.get_stats()
-            total_bytes = stats.get('total_bytes')
+        if db_payload:
+            total_bytes = db_payload.get("total_bytes")
             if total_bytes is not None:
-                print(f"DB: {stats['database']}.{stats['collection']} total_files={stats['total_files']} total_bytes={total_bytes}")
+                print(
+                    f"DB: {db_payload['database']}.{db_payload['collection']} total_files={db_payload['total_files']} total_bytes={total_bytes}"
+                )
             else:
-                print(f"DB: {stats['database']}.{stats['collection']} total_files={stats['total_files']}")
-        except Exception:
-            pass
+                print(
+                    f"DB: {db_payload['database']}.{db_payload['collection']} total_files={db_payload['total_files']}"
+                )
         return 0
     idx.set_defaults(func=_index_cmd)
 
@@ -2150,6 +2314,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     dbq.add_argument("--sort", default=None, help="Sort spec 'field:asc|desc' (optional)")
     def _db_query(args: argparse.Namespace) -> int:
         cfg_local = load_config()
+        space_tag, time_tag = resolve_db_compatibility(cfg_local)
+        pkg_version = _package_version()
         try:
             client, mongo_cfg = _mongo_client_params(cfg=cfg_local)
         except Exception as e:
@@ -2165,12 +2331,34 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Decide target collection by logical DB
         if args.space:
             coll_name = mongo_cfg['space_collection']
-            coll = client[mongo_cfg['space_database']][coll_name]
             scope_label = 'space'
+            try:
+                ensure_db_compat(
+                    client,
+                    mongo_cfg['space_database'],
+                    scope_label,
+                    space_tag,
+                    product_version=pkg_version,
+                )
+            except IncompatibleDatabase as exc:
+                print(exc)
+                return 2
+            coll = client[mongo_cfg['space_database']][coll_name]
         else:
             coll_name = mongo_cfg['time_collection']
-            coll = client[mongo_cfg['time_database']][coll_name]
             scope_label = 'time'
+            try:
+                ensure_db_compat(
+                    client,
+                    mongo_cfg['time_database'],
+                    scope_label,
+                    time_tag,
+                    product_version=pkg_version,
+                )
+            except IncompatibleDatabase as exc:
+                print(exc)
+                return 2
+            coll = client[mongo_cfg['time_database']][coll_name]
         try:
             cur = coll.find(filt, proj)
         except Exception as e:
@@ -2189,30 +2377,55 @@ def main(argv: Optional[List[str]] = None) -> int:
             record_db_activity(f"db.query.{scope_label}", args.filter or "{}")
         except Exception:
             pass
-        # Output formatting per display
-        display_mode = getattr(args, 'display', 'rich')
-        if display_mode == 'json':
-            docs = list(cur)
-            print(json.dumps(docs, default=str, indent=2))
+        docs = list(cur)
+        payload = {
+            "scope": scope_label,
+            "collection": coll_name,
+            "count": len(docs),
+            "documents": docs,
+        }
+        _maybe_write_json(args, payload)
+        if not _display_enabled(args.display):
             return 0
-        use_rich = (display_mode == 'rich') or (display_mode == 'auto')
-        try:
-            from rich.console import Console
-            from rich.table import Table
-            if use_rich:
-                title = f"[{scope_label}] {coll_name} query"
-                t = Table(title=title)
-                t.add_column("#", justify="right")
-                t.add_column("doc")
-                for i, doc in enumerate(cur, 1):
-                    t.add_row(str(i), str(doc))
-                Console().print(t)
+        if args.display == "markdown":
+            rows = [
+                _json_dumps(doc) if not isinstance(doc, str) else doc
+                for doc in docs
+            ]
+            print(
+                render_template(
+                    DB_QUERY_MARKDOWN_TEMPLATE,
+                    {"scope": scope_label, "collection": coll_name, "rows": rows},
+                )
+            )
+            return 0
+        use_rich = args.display in {"rich", "plain"}
+        if use_rich:
+            try:
+                from rich import box
+                from rich.console import Console
+                from rich.table import Table
+
+                table_box = box.SQUARE if args.display == "rich" else box.SIMPLE
+                header_style = "bold" if args.display == "rich" else ""
+                table = Table(
+                    title=f"[{scope_label}] {coll_name} query",
+                    header_style=header_style,
+                    box=table_box,
+                    expand=False,
+                    pad_edge=False,
+                )
+                table.add_column("#", justify="right", no_wrap=True)
+                table.add_column("Document", overflow="fold")
+                for idx, doc in enumerate(docs, 1):
+                    table.add_row(str(idx), str(doc))
+                Console().print(table)
                 return 0
-        except Exception:
-            pass
-        # plain fallback
-        for i, doc in enumerate(cur, 1):
-            print(f"[{i}] {doc}")
+            except Exception:
+                use_rich = False
+        if not use_rich:
+            for idx, doc in enumerate(docs, 1):
+                print(f"[{idx}] {doc}")
         return 0
     dbq.set_defaults(func=_db_query)
 
@@ -2220,7 +2433,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         # Use a lightweight, fast Mongo client for stats (no model/docling startup)
         cfg_local = load_config()
         ts_format = timestamp_format(cfg_local)
-        display_mode = getattr(args, 'display', 'rich')
+        display_mode = args.display
 
         reference_input = getattr(args, 'reference', None)
         reference_uri: Optional[str] = None
@@ -2279,7 +2492,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
         except Exception as e:
             try:
-                _ensure_mongo_running(_default_mongo_uri(), record_start=True)
+                mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
                 client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
             except Exception:
                 print(f"DB connection failed: {e}")
@@ -2289,6 +2502,22 @@ def main(argv: Optional[List[str]] = None) -> int:
         except Exception as e:
             print(f"DB unreachable: {e}")
             return 1
+        space_tag, time_tag = resolve_db_compatibility(cfg_local)
+        pkg_version = _package_version()
+        info_scope = "time" if getattr(args, "time", False) else "space"
+        target_db = mongo_cfg['time_database'] if info_scope == "time" else mongo_cfg['space_database']
+        compat_tag = time_tag if info_scope == "time" else space_tag
+        try:
+            ensure_db_compat(
+                client,
+                target_db,
+                info_scope,
+                compat_tag,
+                product_version=pkg_version,
+            )
+        except IncompatibleDatabase as exc:
+            print(exc)
+            return 2
         coll_space = mongo_cfg['space_collection']
         coll_time = mongo_cfg['time_collection']
         if reference_info and getattr(args, 'time', False):
@@ -2829,7 +3058,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             pass
         # Ensure Mongo comes back up so the service can reconnect immediately
         try:
-            _ensure_mongo_running(uri, record_start=True)
+            mongoctl.ensure_mongo_running(uri, record_start=True)
         except SystemExit:
             raise
         except Exception:
@@ -2840,6 +3069,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Simplified CLI — top-level groups: config/service/index/db
 
     args = parser.parse_args(argv)
+    args.display = _resolve_display_mode(args)
     if not hasattr(args, "func"):
         # If a group was selected without subcommand, show that group's help
         try:
@@ -2854,7 +3084,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             pass
         parser.print_help()
         return 2
-    res = args.func(args)
+    if args.display == "none":
+        with open(os.devnull, "w", encoding="utf-8") as _null, contextlib.redirect_stdout(_null):
+            res = args.func(args)
+    else:
+        res = args.func(args)
     return 0 if res is None else res
 
 

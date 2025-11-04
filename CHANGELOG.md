@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
 
+## [0.2.8] - 2025-11-03
+### Added
+- Every Mongo database now stores a `_wks_meta` compatibility tag so upgrades can reuse existing embeddings when the schema is still compatible. Configure overrides via `mongo.compatibility.space|time` in `~/.wks/config.json`.
+- `wkso db info/query` and the daemon status panel validate compatibility tags and explain how to override them instead of silently rebuilding the database.
+- Optional Obsidian views that read `SimilarityDB` (Health/ActiveFiles) honor the same compatibility tags.
+- Markdown outputs (service status, `db query`) now render through Jinja2 templates fed by the same JSON payloads used for `--display json`.
+
+### Changed
+- `wkso service`/daemon startup halts early when the stored compatibility tag does not match the current build, preventing unintended data wipes.
+- Progress bars no longer rely on Rich-only options, restoring compatibility with the pinned Rich version in `.venv`.
+- MongoDB connection setup is centralized in `mongoctl.create_client`, removing duplicated ensure/ping logic across the CLI.
+
+## [0.2.7] - 2025-11-03
+### Added
+- `MongoGuard` keeps the managed local MongoDB process alive for the entire daemon lifetime, automatically restarting `mongod` whenever connectivity checks fail.
+
+### Changed
+- `python -m wks.daemon` (the launchd entry point) now enforces Mongo availability before monitoring starts and passes the configured URI into the daemon so service start/restart always brings the database online.
+
 ## [0.2.6] - 2025-11-01
 ### Added
 - Daemon now launches a background maintenance thread that regularly runs `SimilarityDB.audit_documents()` and shuts down cleanly with the Mongo client.

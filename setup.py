@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="wks",
-    version="0.2.6",
+    version="0.2.8",
     description="Wieselquist Knowledge System - AI-assisted file organization",
     author="William Wieselquist",
     packages=find_packages(),
@@ -15,6 +15,7 @@ setup(
         "docling",            # Required content extraction engine
         "bsdiff4",            # Binary diff size for change snapshots
         "mongomock",          # In-memory MongoDB for tests
+        "jinja2",             # Template rendering for CLI outputs
     ],
     entry_points={
         "console_scripts": [
