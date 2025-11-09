@@ -318,6 +318,32 @@ def test_mongo_client_params_calls_ensure(monkeypatch, tmp_path):
     assert mongo_cfg['space_database'] == 'wks_similarity'
 
 
+def test_mongo_client_params_skip_ensure(monkeypatch, tmp_path):
+    import wks.cli as cli
+    import wks.mongoctl as mongoctl
+    called = {"ensure": 0}
+    def fail_ensure(uri, record_start=False):
+        called["ensure"] += 1
+        raise AssertionError("ensure should not run")
+    monkeypatch.setattr(mongoctl, "ensure_mongo_running", fail_ensure)
+    def fake_create(uri, server_timeout=500, connect_timeout=500, ensure_running=True):
+        called["ensure_running"] = ensure_running
+        import mongomock
+        return mongomock.MongoClient()
+    monkeypatch.setattr(mongoctl, "create_client", fake_create)
+    monkeypatch.setattr('wks.cli.load_config', lambda: {
+        'mongo': {
+            'uri': 'mongodb://localhost:27027/',
+            'space_database': 'wks_similarity',
+            'space_collection': 'file_embeddings',
+        }
+    })
+    client, mongo_cfg = cli._mongo_client_params(ensure_running=False)
+    assert called.get("ensure_running") is False
+    assert called["ensure"] == 0
+    assert mongo_cfg['space_collection'] == 'file_embeddings'
+
+
 def test_stop_managed_mongo(monkeypatch, tmp_path):
     import wks.mongoctl as mongoctl
     flag = tmp_path / 'managed'
