@@ -1435,6 +1435,8 @@ def _mongo_client_params(
     server_timeout: int = 500,
     connect_timeout: int = 500,
     cfg: Optional[Dict[str, Any]] = None,
+    *,
+    ensure_running: bool = True,
 ) -> Tuple[pymongo.MongoClient, Dict[str, str]]:
     """Return (client, normalized mongo settings)."""
     if cfg is None:
@@ -1444,7 +1446,7 @@ def _mongo_client_params(
         mongo_cfg['uri'],
         server_timeout=server_timeout,
         connect_timeout=connect_timeout,
-        ensure_running=True,
+        ensure_running=ensure_running,
     )
     return client, mongo_cfg
 
@@ -1855,7 +1857,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         pre_skipped: List[Path] = []
         files_to_process = list(files)
         try:
-            client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg)
+            client, mongo_cfg = _mongo_client_params(
+                server_timeout=300,
+                connect_timeout=300,
+                cfg=cfg,
+                ensure_running=False,
+            )
         except Exception:
             client = None
             mongo_cfg = None
@@ -2068,7 +2075,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             total_files = None
             db_summary: Optional[Dict[str, Any]] = None
             try:
-                client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg)
+                client, mongo_cfg = _mongo_client_params(
+                    server_timeout=300,
+                    connect_timeout=300,
+                    cfg=cfg,
+                    ensure_running=False,
+                )
                 coll = client[mongo_cfg['space_database']][mongo_cfg['space_collection']]
                 total_files = coll.count_documents({})
                 db_summary = {
