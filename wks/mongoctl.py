@@ -18,9 +18,9 @@ from typing import Optional
 
 import pymongo
 
-from .constants import WKS_HOME_EXT
+from .utils import wks_home_path
 
-MONGO_ROOT = Path.home() / WKS_HOME_EXT / "mongodb"
+MONGO_ROOT = wks_home_path("mongodb")
 MONGO_PID_FILE = MONGO_ROOT / "mongod.pid"
 MONGO_MANAGED_FLAG = MONGO_ROOT / "managed"
 _LOCAL_URIS = ("mongodb://localhost:27027", "mongodb://127.0.0.1:27027")
