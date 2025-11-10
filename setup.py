@@ -16,6 +16,8 @@ setup(
         "bsdiff4",            # Binary diff size for change snapshots
         "mongomock",          # In-memory MongoDB for tests
         "jinja2",             # Template rendering for CLI outputs
+        "pytest>=7.0",        # Testing framework
+        "pytest-timeout>=2.1",  # Test timeouts
     ],
     entry_points={
         "console_scripts": [

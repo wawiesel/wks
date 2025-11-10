@@ -4,11 +4,14 @@ WKS daemon for monitoring file system and updating Obsidian.
 Adds support for ~/.wks/config.json with include/exclude path control.
 """
 
+import logging
 import time
 import json
 import os
 import threading
 from collections import deque
+
+logger = logging.getLogger(__name__)
 try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
@@ -498,7 +501,9 @@ class WKSDaemon:
         try:
             summary = sim.audit_documents(remove_missing=True, fix_missing_metadata=True)
         except Exception as exc:
-            self._set_error(f"sim_audit_error: {exc}")
+            error_msg = f"sim_audit_error: {exc.__class__.__name__}: {exc}"
+            self._set_error(error_msg)
+            logger.error("Similarity audit failed", exc_info=True, extra={"operation": "audit"})
             return
         if not isinstance(summary, dict):
             return
@@ -511,6 +516,11 @@ class WKSDaemon:
         except Exception:
             updated = summary.get("updated", 0) or 0
         if removed or updated:
+            logger.info("Similarity maintenance completed", extra={
+                "removed": removed,
+                "updated": updated,
+                "operation": "maintenance"
+            })
             print(f"Similarity maintenance: removed {removed} entries, updated {updated} metadata")
 
     def _within_any(self, path: Path, bases: list[Path]) -> bool:
