@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from .constants import WKS_HOME_EXT
+from .utils import wks_home_path
 
 
 def setup_logging(
@@ -25,7 +25,7 @@ def setup_logging(
         format_string = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
     if log_file is None:
-        log_file = Path.home() / WKS_HOME_EXT / "wks.log"
+        log_file = wks_home_path("wks.log")
 
     # Ensure log directory exists
     log_file.parent.mkdir(parents=True, exist_ok=True)
