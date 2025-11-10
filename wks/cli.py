@@ -2313,6 +2313,89 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     idx.set_defaults(func=_index_cmd)
 
+    # Related command: find semantically similar documents
+    rel = sub.add_parser("related", help="Find semantically similar documents")
+    rel.add_argument("path", help="Reference file to find similar documents for")
+    rel.add_argument("--limit", type=int, default=10, help="Maximum number of results (default: 10)")
+    rel.add_argument("--min-similarity", type=float, default=0.0, help="Minimum similarity threshold 0.0-1.0 (default: 0.0)")
+    rel.add_argument("--format", choices=["table", "json"], default="table", help="Output format (default: table)")
+    def _related_cmd(args: argparse.Namespace) -> int:
+        """Find semantically similar documents."""
+        from pathlib import Path
+
+        # Parse input path
+        query_path = Path(args.path).expanduser().resolve()
+        if not query_path.exists():
+            print(f"Error: File not found: {query_path}")
+            return 2
+
+        # Load similarity DB
+        try:
+            db, _ = _load_similarity_required()
+        except SystemExit as e:
+            return e.code if isinstance(e.code, int) else 1
+        except Exception as e:
+            print(f"Error loading similarity database: {e}")
+            return 2
+
+        # Find similar documents
+        try:
+            results = db.find_similar(
+                query_path=query_path,
+                limit=args.limit,
+                min_similarity=args.min_similarity,
+                mode="file"
+            )
+        except Exception as e:
+            print(f"Error finding similar documents: {e}")
+            return 2
+        finally:
+            try:
+                db.client.close()
+            except Exception:
+                pass
+
+        # Format output
+        if args.format == "json":
+            import json
+            output = []
+            for path_uri, similarity in results:
+                # Convert file:// URI to path if needed
+                if path_uri.startswith("file://"):
+                    from urllib.parse import unquote, urlparse
+                    parsed = urlparse(path_uri)
+                    display_path = Path(unquote(parsed.path or ""))
+                else:
+                    display_path = Path(path_uri)
+
+                output.append({
+                    "path": str(display_path),
+                    "similarity": round(similarity, 3)
+                })
+            print(json.dumps(output, indent=2))
+        else:
+            # Table format
+            if not results:
+                print(f"No similar documents found for: {query_path}")
+                return 0
+
+            print(f"\nSimilar to: {query_path}\n")
+            for path_uri, similarity in results:
+                # Convert file:// URI to path if needed
+                if path_uri.startswith("file://"):
+                    from urllib.parse import unquote, urlparse
+                    parsed = urlparse(path_uri)
+                    display_path = Path(unquote(parsed.path or ""))
+                else:
+                    display_path = Path(path_uri)
+
+                # Format similarity as percentage
+                sim_pct = similarity * 100
+                print(f"{sim_pct:5.1f}% - {display_path}")
+
+        return 0
+    rel.set_defaults(func=_related_cmd)
+
     # DB command: simple query passthrough and stats
     dbp = sub.add_parser("db", help="Database helpers: query and stats")
     dbsub = dbp.add_subparsers(dest="db_cmd")
