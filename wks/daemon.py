@@ -19,17 +19,15 @@ except Exception:  # pragma: no cover
 from pathlib import Path
 from typing import Optional, Set, List, Dict, Any
 
-try:
-    import importlib.metadata as importlib_metadata
-except ImportError:  # pragma: no cover
-    import importlib_metadata  # type: ignore
-
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from .monitor import start_monitoring
 from .obsidian import ObsidianVault
 from .activity import ActivityTracker
 from .mongoctl import MongoGuard, ensure_mongo_running
 from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
+from .config_validator import validate_and_raise, ConfigValidationError
+from .config import load_user_config
+from .utils import get_package_version, expand_path
 try:
     from .config import mongo_settings
     from .similarity import build_similarity_from_config
@@ -40,13 +38,6 @@ except Exception:
         return {}
     def load_db_activity_history(max_age_secs: Optional[int] = None):  # type: ignore
         return []
-
-
-def _pkg_version() -> str:
-    try:
-        return importlib_metadata.version("wks")
-    except Exception:
-        return "unknown"
 
 
 class WKSDaemon:
@@ -901,45 +892,27 @@ class WKSDaemon:
 if __name__ == "__main__":
     import sys
 
-    def _expand(p: str) -> Path:
-        return Path(p).expanduser()
-
-    # Weekly log filename helpers removed (feature deprecated)
-
-    # Load config from ~/.wks/config.json
-    config_path = Path.home() / WKS_HOME_EXT / "config.json"
-    config: Dict[str, Any] = {}
+    # Load and validate config
+    config = load_user_config()
     try:
-        if config_path.exists():
-            config = json.load(open(config_path, "r"))
-    except Exception as e:
-        print(f"Warning: failed to load config {config_path}: {e}")
-
-    # Require vault_path
-    if "vault_path" not in config or not str(config.get("vault_path")).strip():
-        print(f"Fatal: 'vault_path' is required in {WKS_HOME_DISPLAY}/config.json")
+        validate_and_raise(config)
+    except ConfigValidationError as e:
+        print(str(e))
         raise SystemExit(2)
-    vault_path = _expand(config.get("vault_path"))
 
+    vault_path = expand_path(config.get("vault_path"))
     monitor_cfg = config.get("monitor", {})
-    missing_mon = []
-    for key in ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "state_file"]:
-        if key not in monitor_cfg:
-            missing_mon.append(f"monitor.{key}")
-    if missing_mon:
-        print("Fatal: missing required config keys: " + ", ".join(missing_mon))
-        raise SystemExit(2)
 
-    include_paths = [_expand(p) for p in monitor_cfg.get("include_paths")]
-    exclude_paths = [_expand(p) for p in monitor_cfg.get("exclude_paths")]
+    include_paths = [expand_path(p) for p in monitor_cfg.get("include_paths")]
+    exclude_paths = [expand_path(p) for p in monitor_cfg.get("exclude_paths")]
     ignore_dirnames = set(monitor_cfg.get("ignore_dirnames"))
     ignore_patterns = set()  # deprecated
     ignore_globs = list(monitor_cfg.get("ignore_globs"))
-    state_file = _expand(monitor_cfg.get("state_file"))
+    state_file = expand_path(monitor_cfg.get("state_file"))
 
     # Activity tracker config (optional but recommended)
     activity_cfg = config.get("activity", {})
-    activity_state_file = _expand(activity_cfg.get("state_file", str(Path.home() / WKS_HOME_EXT / "activity_state.json")))
+    activity_state_file = expand_path(activity_cfg.get("state_file", str(Path.home() / WKS_HOME_EXT / "activity_state.json")))
 
     # Obsidian config (explicit)
     obsidian_cfg = config.get("obsidian", {})
@@ -987,7 +960,7 @@ if __name__ == "__main__":
                 config,
                 require_enabled=True,
                 compatibility_tag=space_compat_tag,
-                product_version=_pkg_version(),
+                product_version=get_package_version(),
             )
         except IncompatibleDatabase as exc:
             print(exc)

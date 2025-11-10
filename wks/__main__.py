@@ -10,79 +10,43 @@ import subprocess
 import time
 from pathlib import Path
 
-try:
-    import importlib.metadata as importlib_metadata
-except ImportError:  # pragma: no cover
-    import importlib_metadata  # type: ignore
-
 from .constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
 from .daemon import WKSDaemon
 from .mongoctl import ensure_mongo_running
 from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
+from .config import load_user_config
+from .config_validator import validate_and_raise, ConfigValidationError
+from .utils import get_package_version, expand_path
 try:
     from .config import mongo_settings
     from .similarity import build_similarity_from_config
 except Exception:
     build_similarity_from_config = None  # type: ignore
 
-def _expand(p: str) -> Path:
-    return Path(p).expanduser()
-
-
-def _pkg_version() -> str:
-    try:
-        return importlib_metadata.version("wks")
-    except Exception:
-        return "unknown"
-
 if __name__ == "__main__":
-    # Load config from ~/.wks/config.json
-    config_path = Path.home() / WKS_HOME_EXT / "config.json"
-    config = {}
+    # Load and validate config
+    config = load_user_config()
     try:
-        if config_path.exists():
-            config = json.load(open(config_path, "r"))
-    except Exception as e:
-        print(f"Warning: failed to load config {config_path}: {e}")
-
-    if "vault_path" not in config:
-        print(f"Fatal: 'vault_path' is required in {WKS_HOME_DISPLAY}/config.json")
+        validate_and_raise(config)
+    except ConfigValidationError as e:
+        print(str(e))
         raise SystemExit(2)
-    vault_path = _expand(config.get("vault_path"))
+
+    vault_path = expand_path(config.get("vault_path"))
     mongo_cfg = mongo_settings(config)
     space_compat_tag, time_compat_tag = resolve_db_compatibility(config)
     ensure_mongo_running(mongo_cfg['uri'], record_start=True)
 
     monitor_cfg = config.get("monitor", {})
-    # Require explicit monitor.*
-    missing = []
-    for key in ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "state_file"]:
-        if key not in monitor_cfg:
-            missing.append(f"monitor.{key}")
-    if missing:
-        print("Fatal: missing required config keys: " + ", ".join(missing))
-        raise SystemExit(2)
-
-    include_paths = [_expand(p) for p in monitor_cfg.get("include_paths")]
-    exclude_paths = [_expand(p) for p in monitor_cfg.get("exclude_paths")]
+    include_paths = [expand_path(p) for p in monitor_cfg.get("include_paths")]
+    exclude_paths = [expand_path(p) for p in monitor_cfg.get("exclude_paths")]
     ignore_dirnames = set(monitor_cfg.get("ignore_dirnames"))
     ignore_patterns = set()  # deprecated
     ignore_globs = list(monitor_cfg.get("ignore_globs"))
-    state_file = _expand(monitor_cfg.get("state_file"))
+    state_file = expand_path(monitor_cfg.get("state_file"))
 
-    # Require obsidian.base_dir
     obsidian_cfg = config.get("obsidian", {})
     base_dir = obsidian_cfg.get("base_dir")
-    if not base_dir:
-        print(f"Fatal: 'obsidian.base_dir' is required in {WKS_HOME_DISPLAY}/config.json (e.g., 'WKS')")
-        raise SystemExit(2)
-
-    # Require obsidian.base_dir and explicit logging caps/widths
-    obsidian_cfg = config.get("obsidian", {})
-    base_dir = obsidian_cfg.get("base_dir")
-    if not base_dir:
-        print("Fatal: 'obsidian.base_dir' is required in ~/.wks/config.json (e.g., 'WKS')")
-        raise SystemExit(2)
     # Explicit obsidian logging settings
     for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars", "docs_keep"]:
         if k not in obsidian_cfg:
@@ -135,7 +99,7 @@ if __name__ == "__main__":
                 config,
                 require_enabled=True,
                 compatibility_tag=space_compat_tag,
-                product_version=_pkg_version(),
+                product_version=get_package_version(),
             )
         except IncompatibleDatabase as exc:
             print(exc)

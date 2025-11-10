@@ -76,7 +76,13 @@ class SimilarityDB:
             self.client = mongo_client
             self._own_client = False
         else:
-            self.client = MongoClient(mongo_uri)
+            try:
+                self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+                # Test connection immediately
+                self.client.admin.command('ping')
+            except Exception as e:
+                from .error_messages import mongodb_connection_error
+                mongodb_connection_error(mongo_uri, e)
             self._own_client = True
         self.db = self.client[database_name]
         ensure_db_compat(self.client, database_name, "space", compatibility_tag, product_version=product_version)
@@ -92,7 +98,11 @@ class SimilarityDB:
 
         target = (model_path or model_name).strip()
         self.model_name = model_name
-        self.model = SentenceTransformer(target)
+        try:
+            self.model = SentenceTransformer(target)
+        except Exception as e:
+            from .error_messages import model_download_error
+            model_download_error(target, e)
 
         self.min_chars = int(min_chars)
         self.max_chars = int(max_chars)
