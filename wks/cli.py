@@ -28,11 +28,6 @@ import fnmatch
 import pymongo
 import shutil
 
-try:
-    import importlib.metadata as importlib_metadata
-except ImportError:  # pragma: no cover
-    import importlib_metadata  # type: ignore
-
 from .config import (
     apply_similarity_mongo_defaults,
     mongo_settings,
@@ -84,8 +79,6 @@ DEFAULT_SIMILARITY_EXTS = [
 ]
 
 DISPLAY_CHOICES = ["auto", "rich", "plain", "markdown", "json", "none"]
-
-_PACKAGE_VERSION_CACHE: Optional[str] = None
 
 STATUS_MARKDOWN_TEMPLATE = """| Key | Value |
 | --- | --- |
