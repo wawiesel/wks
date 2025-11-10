@@ -48,6 +48,7 @@ from .dbmeta import (
     ensure_db_compat,
     resolve_db_compatibility,
 )
+from .utils import get_package_version
 from . import mongoctl
 from .templating import render_template
 
@@ -106,14 +107,7 @@ _No documents found._
 """.strip()
 
 
-def _package_version() -> str:
-    global _PACKAGE_VERSION_CACHE
-    if _PACKAGE_VERSION_CACHE is None:
-        try:
-            _PACKAGE_VERSION_CACHE = importlib_metadata.version("wks")
-        except Exception:
-            _PACKAGE_VERSION_CACHE = "unknown"
-    return _PACKAGE_VERSION_CACHE
+# _package_version moved to utils.get_package_version
 
 
 def _human_bytes(value: Optional[int]) -> str:
@@ -720,7 +714,7 @@ def daemon_status(args: argparse.Namespace) -> int:
                 mongo_cfg["space_database"],
                 "space",
                 space_tag,
-                product_version=_package_version(),
+                product_version=get_package_version(),
             )
         except IncompatibleDatabase as exc:
             status.notes.append(str(exc))
@@ -993,6 +987,20 @@ def daemon_restart(args: argparse.Namespace):
 def _build_similarity_from_config(require_enabled: bool = True):
     try:
         from .similarity import build_similarity_from_config  # type: ignore
+    except ImportError as e:
+        error_msg = str(e).lower()
+        if "sentence" in error_msg or "transformers" in error_msg:
+            from .error_messages import missing_dependency_error
+            missing_dependency_error("sentence-transformers", e)
+        elif "docling" in error_msg:
+            from .error_messages import missing_dependency_error
+            missing_dependency_error("docling", e)
+        else:
+            print(f"\nSimilarity features not available: {e}")
+            print("Install with: pip install -e '.[all]'\n")
+            if require_enabled:
+                raise SystemExit(2)
+        return None, None
     except Exception as e:
         print(f"Similarity not available: {e}")
         if require_enabled:
@@ -1000,7 +1008,7 @@ def _build_similarity_from_config(require_enabled: bool = True):
         return None, None
     cfg = load_config()
     space_tag, _ = resolve_db_compatibility(cfg)
-    pkg_version = _package_version()
+    pkg_version = get_package_version()
     try:
         db, sim_cfg = build_similarity_from_config(
             cfg,
@@ -1530,7 +1538,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="wkso", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
     # Global display mode
-    pkg_version = _package_version()
+    pkg_version = get_package_version()
     git_sha = ""
     try:
         repo_root = Path(__file__).resolve().parents[1]
@@ -2327,7 +2335,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     def _db_query(args: argparse.Namespace) -> int:
         cfg_local = load_config()
         space_tag, time_tag = resolve_db_compatibility(cfg_local)
-        pkg_version = _package_version()
+        pkg_version = get_package_version()
         try:
             client, mongo_cfg = _mongo_client_params(cfg=cfg_local)
         except Exception as e:
@@ -2515,7 +2523,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"DB unreachable: {e}")
             return 1
         space_tag, time_tag = resolve_db_compatibility(cfg_local)
-        pkg_version = _package_version()
+        pkg_version = get_package_version()
         info_scope = "time" if getattr(args, "time", False) else "space"
         target_db = mongo_cfg['time_database'] if info_scope == "time" else mongo_cfg['space_database']
         compat_tag = time_tag if info_scope == "time" else space_tag

@@ -9,21 +9,10 @@ from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
 
-try:
-    import importlib.metadata as importlib_metadata
-except ImportError:  # pragma: no cover
-    import importlib_metadata  # type: ignore
-
 from .config import mongo_settings, timestamp_format, load_user_config, DEFAULT_TIMESTAMP_FORMAT
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from .dbmeta import resolve_db_compatibility, ensure_db_compat, IncompatibleDatabase
-
-
-def _pkg_version() -> str:
-    try:
-        return importlib_metadata.version("wks")
-    except Exception:
-        return "unknown"
+from .utils import get_package_version
 
 
 class ObsidianVault:
@@ -264,7 +253,7 @@ class ObsidianVault:
         try:
             from .similarity import build_similarity_from_config as _build_sim
             cfg = load_user_config()
-            simdb, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=_pkg_version())
+            simdb, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=get_package_version())
         except Exception:
             simdb = None
 
@@ -967,7 +956,7 @@ class ObsidianVault:
             from .similarity import build_similarity_from_config as _build_sim
             from .cli import load_config as _load
             cfg = _load()
-            db, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=_pkg_version())
+            db, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=get_package_version())
             if db:
                 sim_stats = db.get_stats()
         except Exception:
