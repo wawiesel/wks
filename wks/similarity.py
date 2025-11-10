@@ -6,6 +6,8 @@ import os
 import math
 import re
 import time
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple

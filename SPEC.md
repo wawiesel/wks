@@ -82,7 +82,16 @@ Global options:
 - `--display {auto,rich,json,markdown}` — select the output style for subcommands (default `rich`). Pass the flag before the subcommand (e.g., `wkso --display json index …`).
 - Markdown output is rendered via Jinja2 templates using the same structured payloads surfaced with `--json`, so the rendered tables stay in sync with machine-readable output.
 - Service status summary surfaces DB heartbeat/last operation, weighted FS activity rates, and supports JSON/Markdown output alongside Rich tables.
-- Config `metrics` block tunes filesystem rate smoothing (`fs_rate_short_window_secs`, `fs_rate_long_window_secs`, `fs_rate_short_weight`, `fs_rate_long_weight`).
+- Config `metrics` block tunes filesystem rate smoothing:
+  ```json
+  "metrics": {
+    "fs_rate_short_window_secs": 10,
+    "fs_rate_long_window_secs": 600,
+    "fs_rate_short_weight": 0.8,
+    "fs_rate_long_weight": 0.2
+  }
+  ```
+  These control weighted filesystem activity averaging for display in service status.
 
 ### wkso config
 - `wkso config print` — print the effective JSON config to stdout.
@@ -98,13 +107,24 @@ Global options:
   - `wkso service stop` — stop the running daemon and shut down the managed `mongod` if we launched it.
   - `wkso service status` — print daemon status.
   - `wkso service restart` — restart daemon (via launchd if present).
-  - Whenever the daemon is running (regardless of whether launchd or the CLI started it) the configured MongoDB endpoint is verified and the default local instance is kept alive by a guard thread that re-launches `mongod` if connectivity drops.
+  - Whenever the daemon is running (regardless of whether launchd or the CLI started it) the configured MongoDB endpoint is verified and the default local instance is kept alive by a `MongoGuard` thread:
+    - `MongoGuard` pings MongoDB every 10 seconds
+    - Auto-restarts `mongod` if ping fails
+    - Records start in `~/.wks/mongodb/managed` flag
+    - Stops managed instance when daemon stops
   - The daemon refuses to touch a database whose stored compatibility tag (from `_wks_meta`) does not match `mongo.compatibility.space|time`; update the config to the stored tag to reuse data or run `wkso db reset` to rebuild with the new tag.
 
 Database responsibilities
 - The service maintains a file database keyed by path that tracks: path, checksum, embedding, date last modified, last operation, number of bytes, and angle from empty (the angle between the file’s embedding and the embedding of the empty string). Embeddings are computed per the configured strategy (Docling extraction + sentence-transformers as currently deployed).
 - The database powers de‑duplication, similarity checks, and RAG‑like queries. Moves/renames are recognized via matching checksum so we avoid creating new logical entries on path changes. We do not use the checksum as the primary key; path remains the key so when a file at a path is updated, all metadata updates in place without changing the key.
-- The daemon runs a background maintenance loop (default cadence ≈10 minutes) that calls `SimilarityDB.audit_documents()` to prune missing files, clear stale extraction artefacts, and refresh stored byte counts. Shutdown waits for the current audit to finish so the Mongo client can close cleanly.
+- The daemon runs a background maintenance thread (default interval 600 seconds / 10 minutes):
+  - Calls `SimilarityDB.audit_documents(remove_missing=True, fix_missing_metadata=True)`
+  - Prunes entries for missing/deleted files
+  - Backfills missing `bytes` metadata from disk
+  - Cleans stale extraction artefacts in `.wkso/` directories
+  - Reports removed/updated counts to daemon logs
+  - Shutdown waits for current audit to complete before closing Mongo client
+  - Configurable via daemon init: `maintenance_interval_secs` parameter
 - Primary views today:
   - `FileOperations.md`: a Markdown view of the top N most recent changes. It should show checksum, date last modified, last operation, human‑readable size, and angle from empty (or `-` if unavailable). Temp/autosave artifacts are hidden in this view.
 - `Health.md`: a dashboard of current status and metrics.
