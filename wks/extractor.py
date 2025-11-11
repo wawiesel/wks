@@ -78,7 +78,7 @@ class Extractor:
         if output_dir is None:
             repo_root = self._find_repo_root(source)
             if repo_root is not None:
-                output_dir = repo_root / WKS_EXTRACT_EXT
+                output_dir = repo_root.parent / WKS_EXTRACT_EXT
             else:
                 output_dir = source.parent / WKS_EXTRACT_EXT
         output_dir.mkdir(parents=True, exist_ok=True)

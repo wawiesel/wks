@@ -1,233 +1,531 @@
 # WKS Command-Line Utility (wkso)
 
-This spec documents the wkso CLI: a minimal, focused interface to configure, run, and index the WKS agent. It intentionally covers only three command groups: config, service, and index.
+This spec documents the wkso CLI: a layered architecture for filesystem monitoring, knowledge graph management, and semantic indexing.
 
-## Overview
-- Purpose: Keep filesystem and Obsidian in sync, maintain embeddings + change history, and expose raw document extractions for downstream tooling.
-- Scope: Single CLI `wkso` with commands:
-  - `wkso config` — inspect effective configuration
-  - `wkso service` — install/start/stop the background daemon (macOS launchd support)
-  - `wkso extract` — run the configured extractor on one or more documents and persist their plain-text form
-  - `wkso index` — extract + embed files/directories into the similarity "space" database with Docs output
-  - `wkso db` — query or reset Mongo collections that back the space/time databases
+## Architecture Overview
+
+WKS is built as a stack of independent, composable layers:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Patterns (CLAUDE.md)                                │
+│  Organizational guidance, not configuration          │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Search Layer                                        │
+│  Combines indices with weights                       │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Index Layer                                         │
+│  Multiple independent indices (RAG, AST, etc.)       │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Semantic Engines (pluggable)                        │
+│  Related | Diff | Extract                            │
+│  Each with _router for engine selection              │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Vault Layer (Obsidian)                              │
+│  Knowledge graph: links only                         │
+│  DB: wks_vault.links                                 │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Monitor Layer                                       │
+│  Filesystem state: paths, checksums, priorities      │
+│  DB: wks_monitor.filesystem                          │
+└─────────────────────────────────────────────────────┘
+```
 
 ## Installation
-- Recommended: pipx
-  - `pipx install .`
-  - If using Docling extraction: `pipx runpip wkso install docling`
+- Recommended: `pipx install .`
+- Optional: `pipx runpip wkso install docling` (for PDF/Office extraction)
 - Python: 3.10+
 
 ## Configuration
-- Stored at `~/.wks/config.json`. All keys shown below are required unless noted optional.
+
+Stored at `~/.wks/config.json`
 
 ```json
 {
-  "vault_path": "~/obsidian",
-  "obsidian": {
-    "base_dir": "WKS",
-    "log_max_entries": 500,
-    "active_files_max_rows": 50,
-    "source_max_chars": 40,
-    "destination_max_chars": 40,
-    "docs_keep": 99
-  },
   "monitor": {
     "include_paths": ["~"],
-    "exclude_paths": ["~/Library", "~/obsidian", "~/.wks"],
-    "ignore_dirnames": [".git", "_build"],
-    "ignore_globs": ["*.tmp", "*~", "._*"],
-    "state_file": "~/.wks/monitor_state.json"
+    "exclude_paths": ["~/Library", "~/obsidian", "~/.wks", "~/miniforge3"],
+    "ignore_dirnames": [
+      ".cache", ".venv", "__pycache__", "_build",
+      "build", "dist", "node_modules", "venv"
+    ],
+    "ignore_globs": [
+      "**/.DS_Store", "*.swp", "*.tmp", "*~", "._*", "~$*", ".~lock.*#"
+    ],
+    "managed_directories": {
+      "~/Desktop": 150,
+      "~/deadlines": 120,
+      "~": 100,
+      "~/Documents": 100,
+      "~/Pictures": 80,
+      "~/Downloads": 50
+    },
+    "priority": {
+      "depth_multiplier": 0.9,
+      "underscore_divisor": 2,
+      "single_underscore_divisor": 64,
+      "extension_weights": {
+        ".docx": 1.3,
+        ".pptx": 1.3,
+        ".pdf": 1.1,
+        "default": 1.0
+      },
+      "auto_index_min": 2
+    },
+    "database": "wks_monitor",
+    "collection": "filesystem",
+    "log_file": "~/.wks/monitor.log"
   },
-  "activity": { "state_file": "~/.wks/activity_state.json" },
-  "display": { "timestamp_format": "%Y-%m-%d %H:%M:%S" },
-  "mongo": {
-    "uri": "mongodb://localhost:27027/",
-    "space_database": "wks_similarity",
-    "space_collection": "file_embeddings",
-    "time_database": "wks_similarity",
-    "time_collection": "file_snapshots",
+
+  "vault": {
+    "type": "obsidian",
+    "base_dir": "~/obsidian",
+    "wks_dir": "WKS",
+    "health_file": "WKS/Health.md",
+    "activity_file": "WKS/Activity.md",
+    "file_ops_file": "WKS/FileOperations.md",
+    "extractions_dir": "WKS/Extractions",
+    "max_extraction_docs": 50,
+    "activity_max_rows": 100,
+    "update_frequency_seconds": 10,
+    "database": "wks_vault",
+    "collection": "links"
+  },
+
+  "db": {
+    "uri": "mongodb://localhost:27017/",
     "compatibility": {
-      "space": "space-v1",
-      "time": "time-v1"
+      "monitor": "v1",
+      "vault": "v1"
     }
   },
+
   "extract": {
-    "engine": "docling",
-    "ocr": false,
-    "timeout_secs": 30,
-    "options": {}
+    "output_dir_rules": {
+      "resolve_symlinks": true,
+      "git_parent": true,
+      "underscore_sibling": true
+    },
+    "engines": {
+      "docling": {
+        "enabled": true,
+        "is_default": true,
+        "ocr": false,
+        "timeout_secs": 30,
+        "write_extension": "md"
+      },
+      "builtin": {
+        "enabled": true,
+        "max_chars": 200000
+      }
+    },
+    "_router": {
+      "rules": [
+        {"extensions": [".pdf", ".docx", ".pptx"], "engine": "docling"},
+        {"extensions": [".txt", ".md", ".py"], "engine": "builtin"}
+      ],
+      "fallback": "builtin"
+    }
   },
-  "similarity": {
-    "enabled": true,
-    "model": "all-MiniLM-L6-v2",
-    "include_extensions": [".md", ".txt", ".py", ".ipynb", ".tex", ".docx", ".pptx", ".pdf", ".html", ".csv", ".xlsx"],
-    "min_chars": 10,
-    "max_chars": 200000,
-    "chunk_chars": 1500,
-    "chunk_overlap": 200,
-    "offline": true,
-    "respect_monitor_ignores": false
+
+  "diff": {
+    "engines": {
+      "bdiff": {
+        "enabled": true,
+        "is_default": true,
+        "algorithm": "bsdiff"
+      },
+      "text": {
+        "enabled": true,
+        "algorithm": "unified",
+        "context_lines": 3
+      }
+    },
+    "_router": {
+      "rules": [
+        {"extensions": [".txt", ".md", ".py", ".json"], "engine": "text"},
+        {"mime_prefix": "text/", "engine": "text"}
+      ],
+      "fallback": "bdiff"
+    }
+  },
+
+  "related": {
+    "engines": {
+      "embedding": {
+        "enabled": true,
+        "is_default": true,
+        "model": "all-MiniLM-L6-v2",
+        "min_chars": 10,
+        "max_chars": 200000,
+        "chunk_chars": 1500,
+        "chunk_overlap": 200,
+        "offline": true,
+        "database": "wks_similarity",
+        "collection": "file_embeddings"
+      },
+      "diff_based": {
+        "enabled": false,
+        "threshold": 0.7,
+        "database": "wks_similarity",
+        "collection": "diff_similarity"
+      }
+    },
+    "_router": {
+      "default": "embedding",
+      "rules": [
+        {"priority_min": 50, "engine": "embedding"}
+      ]
+    }
+  },
+
+  "index": {
+    "indices": {
+      "main": {
+        "enabled": true,
+        "type": "embedding",
+        "include_extensions": [
+          ".md", ".txt", ".py", ".ipynb", ".tex",
+          ".docx", ".pptx", ".pdf", ".html",
+          ".csv", ".xlsx"
+        ],
+        "respect_monitor_ignores": false,
+        "respect_priority": true,
+        "database": "wks_index_main",
+        "collection": "documents"
+      },
+      "code": {
+        "enabled": false,
+        "type": "ast",
+        "include_extensions": [".py", ".js", ".ts", ".cpp"],
+        "database": "wks_index_code",
+        "collection": "code_blocks"
+      }
+    }
+  },
+
+  "search": {
+    "default_index": "main",
+    "combine": {
+      "enabled": false,
+      "indices": ["main", "code"],
+      "weights": {
+        "main": 0.7,
+        "code": 0.3
+      }
+    }
+  },
+
+  "display": {
+    "timestamp_format": "%Y-%m-%d %H:%M:%S"
   }
 }
 ```
-- `display.timestamp_format` governs every timestamp printed by the CLI and Obsidian surfaces.
-- `extract.*` is forwarded to the extractor implementation; Docling must honor `engine`, `ocr`, `timeout_secs`, and any values inside `options`.
-- `similarity.include_extensions` limits which files are processed; extraction always runs through the `extract` config prior to embedding.
-- `mongo.compatibility.space|time` declare the expected compatibility tags for each Mongo database. The CLI writes a `_wks_meta` document in every database storing the tag it was created with; as long as the configured tag matches, data is reused. When a future release requires a breaking schema change, bump the tag in the config to opt-in, or set it to the stored tag to keep using an older layout.
 
-## Commands
+## Layer Descriptions
 
-Global options:
-- `--version` — print the installed CLI version (with current git SHA when available) and exit immediately.
-- `--display {auto,rich,json,markdown}` — select the output style for subcommands (default `rich`). Pass the flag before the subcommand (e.g., `wkso --display json index …`).
-- Markdown output is rendered via Jinja2 templates using the same structured payloads surfaced with `--json`, so the rendered tables stay in sync with machine-readable output.
-- Service status summary surfaces DB heartbeat/last operation, weighted FS activity rates, and supports JSON/Markdown output alongside Rich tables.
-- Config `metrics` block tunes filesystem rate smoothing:
-  ```json
-  "metrics": {
-    "fs_rate_short_window_secs": 10,
-    "fs_rate_long_window_secs": 600,
-    "fs_rate_short_weight": 0.8,
-    "fs_rate_long_weight": 0.2
-  }
-  ```
-  These control weighted filesystem activity averaging for display in service status.
+### Monitor Layer
 
-### wkso config
-- `wkso config print` — print the effective JSON config to stdout.
+**Purpose**: Track filesystem state and calculate priorities
 
-### wkso service
-- Purpose: Manage the long‑running daemon that monitors files, writes FileOperations/ActiveFiles/Health in `~/obsidian/<base_dir>`, and updates embeddings.
-- macOS launchd:
-  - `wkso service install` — write `~/Library/LaunchAgents/com.wieselquist.wkso.plist`, bootstrap, and start.
-  - `wkso service install` ensures the configured MongoDB endpoint is reachable; when using the default `localhost:27027`, it auto-starts a local `mongod` if needed.
-  - `wkso service uninstall` — unload and remove the plist (cleans up legacy labels).
-- Start/stop/status (works with or without launchd):
-  - `wkso service start` — verify Mongo is running (auto-start local `mongod` when configured), then start via launchd if installed, else start a background process.
-  - `wkso service stop` — stop the running daemon and shut down the managed `mongod` if we launched it.
-  - `wkso service status` — print daemon status.
-  - `wkso service restart` — restart daemon (via launchd if present).
-  - Whenever the daemon is running (regardless of whether launchd or the CLI started it) the configured MongoDB endpoint is verified and the default local instance is kept alive by a `MongoGuard` thread:
-    - `MongoGuard` pings MongoDB every 10 seconds
-    - Auto-restarts `mongod` if ping fails
-    - Records start in `~/.wks/mongodb/managed` flag
-    - Stops managed instance when daemon stops
-  - The daemon refuses to touch a database whose stored compatibility tag (from `_wks_meta`) does not match `mongo.compatibility.space|time`; update the config to the stored tag to reuse data or run `wkso db reset` to rebuild with the new tag.
+**Database**: `wks_monitor.filesystem`
 
-Database responsibilities
-- The service maintains a file database keyed by path that tracks: path, checksum, embedding, date last modified, last operation, number of bytes, and angle from empty (the angle between the file’s embedding and the embedding of the empty string). Embeddings are computed per the configured strategy (Docling extraction + sentence-transformers as currently deployed).
-- The database powers de‑duplication, similarity checks, and RAG‑like queries. Moves/renames are recognized via matching checksum so we avoid creating new logical entries on path changes. We do not use the checksum as the primary key; path remains the key so when a file at a path is updated, all metadata updates in place without changing the key.
-- The daemon runs a background maintenance thread (default interval 600 seconds / 10 minutes):
-  - Calls `SimilarityDB.audit_documents(remove_missing=True, fix_missing_metadata=True)`
-  - Prunes entries for missing/deleted files
-  - Backfills missing `bytes` metadata from disk
-  - Cleans stale extraction artefacts in `.wkso/` directories
-  - Reports removed/updated counts to daemon logs
-  - Shutdown waits for current audit to complete before closing Mongo client
-  - Configurable via daemon init: `maintenance_interval_secs` parameter
-- Primary views today:
-  - `FileOperations.md`: a Markdown view of the top N most recent changes. It should show checksum, date last modified, last operation, human‑readable size, and angle from empty (or `-` if unavailable). Temp/autosave artifacts are hidden in this view.
-- `Health.md`: a dashboard of current status and metrics.
+**Schema**:
+- `path` — absolute URI (e.g., `file:///Users/ww5/Documents/report.pdf`)
+- `timestamp` — ISO 8601 UTC string for last modification
+- `checksum` — SHA256 hash of file contents
+- `bytes` — file size in bytes
+- `priority` — calculated integer score (1-∞) based on path structure
 
-Change Snapshots Database (planned)
-- Purpose: Maintain a time-dependent history of content changes per file, respecting moves/renames and avoiding duplicate logical entries.
-- Key behaviors:
-  - Path remains the primary identity; moves/renames do not create new logical entries when the checksum is unchanged (records are renamed in-place).
-  - On content change, create a snapshot record with: `path`, `t_prev`, `t_new`, `checksum_new`, `checksum_prev`, `bytes_delta`, `size_bytes_new`, `size_bytes_prev`, `angle_delta` (from embedding_changes), and `binary_patch_size` (size in bytes from bsdiff4 on previous vs new content). Binary diff runs for every change, regardless of embedding availability.
-  - History access: must be able to list all change times in the past week per file, and always include at least the most recent modification.
-- Implementation notes:
-  - Collection name: `file_snapshots` (MongoDB). Indices on `(path, t_new_epoch)`.
-  - Binary diff: use `bsdiff4.file_diff(old, new, patch)` to compute a temp patch, measure size, and dispose; store `binary_patch_size` only (not the patch content).
-  - Angle from empty and change angle derive from the embedding DB: `angle_delta` aligns with entries in `embedding_changes`.
-  - Large files: consider a configurable size cap for diffing; still record metadata when skipped.
+**Priority Calculation**:
+1. Match file to deepest `managed_directories` entry (e.g., `~/Documents` → 100)
+2. For each path component after base: multiply by `depth_multiplier` (0.9)
+3. For each leading `_` in component name: divide by `underscore_divisor` (2)
+4. If component is single `_`: divide by `single_underscore_divisor` (64)
+5. Multiply by extension weight from `extension_weights`
+6. Round to integer (minimum 1)
 
-Notes
-- Single instance enforced via `~/.wks/daemon.lock`.
-- Health: `~/.wks/health.json` and `~/obsidian/<base_dir>/Health.md`.
-- FileOperations: rebuilt from `~/.wks/file_ops.jsonl` with temp/autosaves hidden in the page view.
+**Example**: `/Users/ww5/Documents/reports/_old/draft.pdf`
+- Matches: `~/Documents` (base = 100)
+- `reports`: 100 × 0.9 = 90
+- `_old`: 90 × 0.9 × 0.5 = 40.5
+- Extension `.pdf`: 40.5 × 1.1 = 44.55
+- **Priority: 45**
 
-### wkso extract
-- Purpose: Run the configured extractor on one or more files and persist the plain-text output for reuse.
-- Usage:
-  - `wkso extract <source ...> [--output DIR]`
-- Behavior:
-  - Verifies each source path against `monitor` include/ignore rules, then invokes the engine described in `config.extract` (Docling by default).
-  - Extraction settings (`engine`, `ocr`, `timeout_secs`, and `options`) are honored exactly as supplied in config.
-  - Output defaults to `~/obsidian/<base_dir>/Docs/<content-hash>.md`. When `--output DIR` is supplied, the results are written to that directory using the same hash-based filenames.
-  - Produces UTF-8 Markdown only; no embeddings are generated. Downstream commands (e.g., `wkso index`) may reuse the extracted text directly when re-indexing.
+**Commands**:
+- `wkso monitor status` — show monitoring statistics
+- `wkso monitor add <path>` — add path to include_paths
+- `wkso monitor remove <path>` — add path to exclude_paths
+- `wkso db monitor` — query filesystem database
 
-### wkso index
-- Purpose: Extract + embed files and directories into the space database and refresh Docs snapshots.
-- Usage:
-  - `wkso index <path ...>` — each path may be a file or directory; directories are processed recursively.
-  - `wkso index --untrack <path ...>` — remove tracked entries (and their extraction artefacts) from the space/time databases without deleting the source files.
-- Behavior:
-  - Filters files by `similarity.include_extensions`.
-  - For each file: invokes the same extraction pipeline used by `wkso extract` (reusing cached output when the content hash is unchanged), computes embeddings, records change angle, and writes `~/obsidian/<base_dir>/Docs/<checksum>.md` when updated.
-  - Shows a progress bar with ETA and current filename; prints a final summary.
+### Vault Layer
 
-### wkso db
-- Purpose: Provide lightweight access to the Mongo databases that power similarity (space) and change snapshots (time) without requiring Docling/model startup.
-- Subcommands:
-  - `wkso db query --space|--time [--filter JSON] [--projection JSON] [--sort field:asc|desc] [--limit N]` — run raw Mongo queries against the selected logical store.
-    - `--space` targets the embeddings collection (`similarity.collection`, default `file_embeddings`).
-    - `--time` targets the snapshots collection (`similarity.snapshots_collection`, default `file_snapshots`).
-    - Works with minimal config: `mongo.uri`, `mongo.space_database`, and `mongo.space_collection`; all default to the canonical values if missing.
-  - `wkso db info [--space|--time] [-n N]` — print counts and list the most recent files/snapshots using short Mongo timeouts for responsiveness.
-    - Defaults to the space database when neither `--space` nor `--time` is supplied.
-    - `-n/--latest` shows the latest N entries (default 10).
-    - When using the default local URI, the command auto-starts `mongod` if it is not already running.
-    - Space view columns (in order): human-readable timestamp (respecting `display.timestamp_format`), checksum, human-readable size, angle, and absolute URI.
-    - Time/snapshot view columns include: `t_new`, path, checksum, extracted size, and byte delta.
-  - `wkso db reset` — drop the configured database and remove the local `~/.wks/mongodb` data directory; best-effort stop of local `mongod` on port 27027.
-- Error handling: all db commands report connection failures succinctly (`DB connection failed`/`DB unreachable`) and exit non‑zero when Mongo cannot be reached.
+**Purpose**: Maintain knowledge graph (links only)
 
-## Output Surfaces (daemon)
-- `WKS/FileOperations.md` — reverse chronological operations log (auditable ledger; temp/autosaves hidden in view).
-- `WKS/ActiveFiles.md` — sorted by |°/hr| from embedding_changes (1h/1d/1w windows; sign preserved).
-- `WKS/Health.md` — heartbeat, metrics, links.
-- `WKS/Docs/` — extracted text snapshots by checksum (latest N kept).
+**Database**: `wks_vault.links`
 
-## Safety & Defaults
-- Writes only under `~/obsidian/<base_dir>`.
-- Respects ignore rules (`exclude_paths`, `ignore_dirnames`, `ignore_globs`).
-- Avoids duplicate daemons; stale locks are cleaned when possible.
+**Schema**:
+- `from_path` — source URI (typically vault-internal)
+- `to_path` — target URI (vault-internal or external `file:///`)
+- `link_type` — wikilink, markdown, embed
+- `line_number` — optional, for precise location
+- `last_observed` — timestamp when link was last seen
 
-## Databases
+**Service Workflow**:
+1. **Monitor → Vault**: Watch `wks_monitor.filesystem` for path changes
+   - Query `wks_vault.links` for all references to changed path
+   - Update Obsidian files with new paths
+   - Update vault DB
+2. **Vault → DB**: Periodically scan Obsidian files
+   - Parse all links
+   - Sync to `wks_vault.links`
+   - Obsidian handles internal vault moves, we observe and record
 
-### Space database (`mongo.space_collection`)
-- Storage: MongoDB. Production deployments must provide a reachable Mongo instance; the local CLI auto-starts `mongod` on `localhost:27027` when using defaults.
-- Primary key: absolute URI string (e.g., `file:///Users/.../README.md`). Future remote providers must normalize their paths to absolute URIs as well.
-- Required fields for each document:
-  - `path` — absolute URI (string, primary key)
-  - `timestamp` — ISO 8601 UTC string for the last observed modification
-  - `checksum` — cryptographic checksum (sha256 by default) of the raw file
-  - `bytes` — raw file size in bytes
-  - `content_path` — path to the extracted content generated by the active extractor
-  - `embedding` — floating-point vector representing the extracted content
-  - `angle` — degrees between the embedding and the “empty string” embedding
+**Generated Files**:
+- `WKS/Health.md` — daemon heartbeat, metrics
+- `WKS/Activity.md` — recently modified files
+- `WKS/FileOperations.md` — move/rename log
+- `WKS/Extractions/` — extracted content snapshots (keep latest N)
 
-Extraction artefacts live alongside the source file in a `.wkso/` sibling directory:
-`basedir(<path>)/.wkso/<checksum>.<ext>`. The extension is dictated by the extractor (Docling currently emits `.md`). When a file’s checksum changes or it moves, the old extraction files MUST be removed.
+**Commands**:
+- `wkso vault status` — link health summary
+- `wkso vault links <file>` — show inbound/outbound links for file
+- `wkso vault orphans` — find files with no links
+- `wkso vault check` — scan vault and sync links table
+- `wkso db vault` — query links database
 
-- Behavioural requirements:
-  - Re-indexing the same file updates the existing record in-place (no duplicate rows).
-  - Moves or renames reuse the same logical record (identified by checksum); we update `path`, keeping history in the time database.
-  - The space database powers similarity, duplicate detection, and `wkso db info/query --space`.
-  - `wkso db info` (space view) MUST display, in order: human-readable timestamp (respecting `display.timestamp_format`), checksum, human-readable size, angle, and the file URI.
-  - `wkso index <file>` adds or refreshes entries; `wkso index --untrack <file>` removes the space/time records and associated extraction artefacts. Filesystem moves detected by the WKS service register as modifications with updated timestamps.
+### Extract Layer
 
-### Time (snapshot) database (`mongo.time_collection`)
-- Captures per-change history for each logical file:
-  - `path`, `t_prev`, `t_new`
-  - `checksum_prev`, `checksum_new`
-  - `size_bytes_prev`, `size_bytes_new`, `bytes_delta`
-  - `binary_patch_size`, `angle_delta`
-- Records are append-only. On rename we update existing entries to the new path.
-- Consumers should index `(path, t_new_epoch)` for efficient lookups.
+**Purpose**: Convert documents to plain text with pluggable engines
 
-### Supporting collections
-- `embedding_changes` — rolling window statistics that feed ActiveFiles (degrees/hour, etc.).
-- `file_moves` — durable queue of path transitions produced by the monitor. Each record captures `path_before`, `path_after`, `event_ts`, `is_directory`, and the list of descendant URIs (for directories) so that Obsidian link rewrites and Docs refreshes can be applied idempotently. Entries are marked processed once both the space database and the vault links have been updated.
-- `file_chunks` — chunk-level search index. Each row describes a slice of a file with fields: `path` (URI, same as space db), `chunk_index`, `chunk_hash`, `text`, `embedding`, and optional metadata (page number, heading). This collection is optimized for retrieval-augmented generation and search APIs.
-- Any future helper collections must be documented here before adoption.
+**Engines**:
+- `docling` — PDF, DOCX, PPTX via IBM Docling
+- `builtin` — Plain text files
+
+**Router**: `_router` selects engine based on file extension
+
+**Output Location Rules** (applied in order):
+1. **Resolve symlinks**: Get real path before applying other rules
+2. **Git parent**: If file is in git repo, place `.wkso/` above repo root
+3. **Underscore sibling**: If any path component starts with `_`, place `.wkso/` as sibling to topmost `_`-prefixed directory
+4. **Default**: Place `.wkso/` as sibling to source file
+
+**Output Format**: `<.wkso_dir>/<checksum>.<extension>`
+
+**Commands**:
+- `wkso extract <file>` — extract file with default engine
+- `wkso extract <file> --engine builtin` — force specific engine
+
+**MCP Integration**: Extract engines can be exposed as MCP tools
+
+### Diff Layer
+
+**Purpose**: Calculate differences between file versions
+
+**Engines**:
+- `bdiff` — Binary diff (bsdiff algorithm)
+- `text` — Unified text diff
+
+**Router**: `_router` selects engine based on file type
+
+**Commands**:
+- `wkso diff <file1> <file2>` — diff with default engine
+- `wkso diff <file1> <file2> --engine text` — force specific engine
+
+**MCP Integration**: Diff engines can be exposed as MCP tools
+
+### Related Layer
+
+**Purpose**: Find semantically similar documents
+
+**Engines**:
+- `embedding` — Sentence transformer embeddings (all-MiniLM-L6-v2)
+- `diff_based` — Similarity based on diff size
+
+**Router**: `_router` selects engine based on context
+
+**Database**: Each engine has its own database/collection
+
+**Commands**:
+- `wkso related <file>` — find similar files
+- `wkso related <file> --limit 10 --min-similarity 0.5`
+- `wkso related <file> --engine embedding`
+
+**MCP Integration**: Related engines can be exposed as MCP tools
+
+### Index Layer
+
+**Purpose**: Multiple independent indices for different use cases
+
+**Indices**:
+- `main` — General embedding-based index for documents
+- `code` — AST-based index for code (optional)
+
+**No Router**: Indexing is a decision, not routed automatically
+
+**Schema** (per index):
+- `path` — file URI
+- `content_path` — extracted text location
+- `embedding` — vector representation
+- `angle` — degrees from empty string embedding
+- `metadata` — index-specific metadata
+
+**Commands**:
+- `wkso index <file>` — index with default index
+- `wkso index <file> --index code` — use specific index
+- `wkso index --untrack <file>` — remove from all indices
+
+### Search Layer
+
+**Purpose**: Query indices with optional combination
+
+**Features**:
+- Single index search (default)
+- Multi-index search with weighted combination
+
+**Commands**:
+- `wkso search <query>` — search default index
+- `wkso search <query> --index code` — search specific index
+- `wkso search <query> --combine` — search all indices with weights
+
+## Database Commands
+
+All layers store data in MongoDB:
+
+```bash
+# Query databases
+wkso db monitor              # Filesystem state
+wkso db vault                # Knowledge graph links
+wkso db related              # Similarity embeddings
+wkso db index                # Search indices
+
+# Reset databases (destructive)
+wkso db reset monitor        # Clear filesystem state
+wkso db reset vault          # Clear link graph
+wkso db reset related        # Clear embeddings
+wkso db reset index          # Clear all indices
+```
+
+## Service Management
+
+```bash
+wkso service install         # Install launchd service (macOS)
+wkso service uninstall       # Remove service
+wkso service start           # Start daemon
+wkso service stop            # Stop daemon
+wkso service restart         # Restart daemon
+wkso service status          # Show status and metrics
+```
+
+## Config Management
+
+```bash
+wkso config                  # Print effective config (JSON)
+wkso config --path monitor   # Show specific section
+wkso config --validate       # Validate config file
+```
+
+## Extraction Artefact Rules
+
+Files extracted by the Extract layer are stored in `.wkso/` directories:
+
+1. **Symlinks**: Resolve all symlinks before applying other rules
+2. **Git repositories**: Place `.wkso/` one level above repository root (parent of `.git/`)
+3. **Underscore-prefixed paths**: When any component starts with `_`, place `.wkso/` as sibling to topmost `_`-prefixed component
+   - Example: `/Users/ww5/Documents/projects/_old/_previous/file.txt` → `/Users/ww5/Documents/projects/.wkso/`
+4. **Default**: Place `.wkso/` as sibling to source file
+
+When file checksum changes or file moves, old extraction files are removed.
+
+## Priority Scoring Details
+
+### Managed Directory Mapping
+
+| Directory | Priority | Purpose |
+|-----------|----------|---------|
+| `~/Desktop` | 150 | Current week's work (symlinks) |
+| `~/deadlines` | 120 | Time-sensitive deliverables |
+| `~` | 100 | Active year-scoped projects |
+| `~/Documents` | 100 | Finalized materials and archives |
+| `~/Pictures` | 80 | Visual assets (memes, figures) |
+| `~/Downloads` | 50 | Temporary/unorganized staging |
+
+### Calculation Examples
+
+**Example 1**: `/Users/ww5/Documents/my/full/_path/__file.txt`
+- Matches: `~/Documents` (base = 100)
+- `my`: 100 × 0.9 = 90
+- `full`: 90 × 0.9 = 81
+- `_path`: 81 × 0.9 × 0.5 = 36.45 (one underscore)
+- `__file`: 36.45 × 0.9 × 0.25 = 8.20 (two underscores)
+- Extension `.txt`: 8.20 × 1.0 = 8.20
+- **Priority: 8**
+
+**Example 2**: `/Users/ww5/deadlines/2025_12_15-Proposal/draft.pdf`
+- Matches: `~/deadlines` (base = 120)
+- `2025_12_15-Proposal`: 120 × 0.9 = 108
+- Extension `.pdf`: 108 × 1.1 = 118.8
+- **Priority: 119**
+
+**Example 3**: `/Users/ww5/Downloads/_archive/old.txt`
+- Matches: `~/Downloads` (base = 50)
+- `_archive`: 50 × 0.9 × 0.5 = 22.5
+- Extension `.txt`: 22.5 × 1.0 = 22.5
+- **Priority: 23**
+
+### Auto-Indexing Rules
+
+- Files with priority < `auto_index_min` (default 2) are NOT auto-indexed
+- Files inside `_/` subdirectories typically have priority 1
+- Manual indexing via `wkso index <path>` always succeeds regardless of priority
+
+## MCP Integration
+
+WKS exposes semantic engines as MCP tools:
+
+**Extract Tools**:
+- `wks_extract` — extract document to plain text
+- Parameters: `path`, `engine` (optional)
+
+**Diff Tools**:
+- `wks_diff` — compare two files
+- Parameters: `path1`, `path2`, `engine` (optional)
+
+**Related Tools**:
+- `wks_related` — find similar documents
+- Parameters: `path`, `limit`, `min_similarity`, `engine` (optional)
+
+**Search Tools**:
+- `wks_search` — semantic search across indices
+- Parameters: `query`, `index` (optional), `limit`
+
+## Patterns (CLAUDE.md)
+
+Organizational patterns are documented separately in `CLAUDE.md`. They describe:
+- Where to place files physically (which managed directories)
+- How to name files (date formats, conventions)
+- When to archive (`_old/YYYY/`)
+- How to organize content types (presentations, emails, etc.)
+
+**Patterns do NOT duplicate system mechanics like**:
+- Priority calculation (defined in config)
+- Indexing rules (defined in config)
+- Extraction rules (defined in config)
+
+**Patterns provide organizational guidance**:
+- Use `~/deadlines/YYYY_MM_DD-Name/` for time-sensitive work
+- Use `~/YYYY-ProjectName/` for active projects
+- Use `_old/YYYY/` for hierarchical archiving
+- Use `_drafts/` to deprioritize working documents
+
+The system calculates priorities and handles indexing automatically based on where files are placed.
