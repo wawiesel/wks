@@ -7,7 +7,7 @@ from typing import Any, Dict
 from .constants import WKS_HOME_EXT
 from .utils import wks_home_path
 
-DEFAULT_MONGO_URI = "mongodb://localhost:27027/"
+DEFAULT_MONGO_URI = "mongodb://localhost:27017/"
 DEFAULT_SPACE_DATABASE = "wks_similarity"
 DEFAULT_SPACE_COLLECTION = "file_embeddings"
 DEFAULT_TIME_COLLECTION = "file_snapshots"

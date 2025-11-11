@@ -36,6 +36,7 @@ from .config import (
     load_user_config,
 )
 from .constants import WKS_HOME_EXT, WKS_EXTRACT_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
+from .display.context import get_display, add_display_argument
 from .extractor import Extractor
 from .status import record_db_activity, load_db_activity_summary, load_db_activity_history
 from .dbmeta import (
@@ -78,7 +79,10 @@ DEFAULT_SIMILARITY_EXTS = [
     ".xlsx",
 ]
 
-DISPLAY_CHOICES = ["auto", "rich", "plain", "markdown", "json", "none"]
+# Legacy display modes (mapped to cli/mcp internally)
+DISPLAY_CHOICES_LEGACY = ["auto", "rich", "plain", "markdown", "json", "none"]
+# New display modes
+DISPLAY_CHOICES = ["cli", "mcp"]
 
 STATUS_MARKDOWN_TEMPLATE = """| Key | Value |
 | --- | --- |
@@ -1552,12 +1556,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         version=version_str,
         help="Show CLI version and exit",
     )
-    parser.add_argument(
-        "--display",
-        choices=DISPLAY_CHOICES,
-        default="rich",
-        help="Output style: auto (TTY-aware), rich, plain, markdown table, JSON, or none.",
-    )
+    # Add --display argument (cli or mcp, auto-detected)
+    add_display_argument(parser)
     parser.add_argument(
         "--json",
         dest="json_path",
@@ -1752,7 +1752,930 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     svcreset.set_defaults(func=_service_reset)
 
-    # (analyze group was removed)
+    # Monitor command: filesystem monitoring status and configuration
+    mon = sub.add_parser("monitor", help="Filesystem monitoring status and configuration")
+    monsub = mon.add_subparsers(dest="monitor_cmd", required=False)
+
+    # monitor status
+    monstatus = monsub.add_parser("status", help="Show monitoring statistics")
+    def _monitor_status_cmd(args: argparse.Namespace) -> int:
+        """Show monitoring statistics."""
+        display = args.display_obj
+
+        # Show config location and WKS_HOME
+        from .config import wks_home_path
+        config_file = wks_home_path() / "config.json"
+        display.info(f"Reading config from: {config_file}")
+
+        wks_home_display = os.environ.get("WKS_HOME", str(wks_home_path()))
+        display.info(f"WKS_HOME: {wks_home_display}")
+
+        cfg = load_config()
+
+        # Get monitor config
+        monitor_config = cfg.get("monitor", {})
+
+        # Get database connection
+        mongo_config = cfg.get("mongo", {})
+        if not mongo_config:
+            mongo_config = cfg.get("db", {})
+
+        mongo_uri = mongo_config.get("uri", "mongodb://localhost:27017/")
+        db_name = monitor_config.get("database", "wks")
+        coll_name = monitor_config.get("collection", "monitor")
+
+        # Run validation first
+        include_paths = set(monitor_config.get("include_paths", []))
+        exclude_paths = set(monitor_config.get("exclude_paths", []))
+        managed_dirs = set(monitor_config.get("managed_directories", {}).keys())
+        ignore_dirnames = monitor_config.get("ignore_dirnames", [])
+        ignore_globs = monitor_config.get("ignore_globs", [])
+
+        issues = []  # Inconsistencies (red)
+        redundancies = []  # Redundant items (yellow)
+
+        # Check for conflicts
+        conflicts = include_paths & exclude_paths
+        for path in conflicts:
+            issues.append(f"Path in both include_paths and exclude_paths: {path}")
+
+        # Check for duplicate managed directories (nested)
+        from pathlib import Path as P
+        managed_list = list(managed_dirs)
+        for i, dir1 in enumerate(managed_list):
+            p1 = P(dir1).expanduser().resolve()
+            for dir2 in managed_list[i+1:]:
+                p2 = P(dir2).expanduser().resolve()
+                try:
+                    if p1 == p2:
+                        redundancies.append(f"Duplicate managed_directories: {dir1} and {dir2} resolve to same path")
+                except:
+                    pass
+
+        # Check for redundant ignore_dirnames (matched by ignore_globs)
+        for dirname in ignore_dirnames:
+            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs)
+            if not is_valid:
+                redundancies.append(f"ignore_dirnames entry '{dirname}': {error_msg}")
+
+        # Check for invalid ignore_globs (syntax errors)
+        for glob_pattern in ignore_globs:
+            is_valid, error_msg = MonitorValidator.validate_ignore_glob(glob_pattern)
+            if not is_valid:
+                issues.append(f"ignore_globs entry '{glob_pattern}': {error_msg}")
+
+        # Check for managed_directories that would not be monitored
+        managed_dirs_dict = monitor_config.get("managed_directories", {})
+        for managed_path in managed_dirs_dict.keys():
+            is_valid, error_msg = MonitorValidator.validate_managed_directory(
+                managed_path,
+                list(include_paths),
+                list(exclude_paths),
+                ignore_dirnames,
+                ignore_globs
+            )
+            if not is_valid:
+                issues.append(f"managed_directories entry '{managed_path}' would NOT be monitored: {error_msg}")
+
+        # Check for vault_path in include/exclude paths (vault is automatically ignored)
+        vault_path = cfg.get("vault_path")
+        if vault_path:
+            vault_resolved = str(P(vault_path).expanduser().resolve())
+
+            # Check if vault_path is EXPLICITLY in include_paths (ERROR - exact match only)
+            for include_path in include_paths:
+                include_resolved = str(P(include_path).expanduser().resolve())
+                if vault_resolved == include_resolved:
+                    issues.append(f"vault_path '{vault_path}' explicitly in include_paths - vault is automatically ignored")
+
+            # Check if vault_path is in exclude_paths (WARNING - redundant)
+            for exclude_path in exclude_paths:
+                exclude_resolved = str(P(exclude_path).expanduser().resolve())
+                if vault_resolved == exclude_resolved:
+                    redundancies.append(f"exclude_paths entry '{exclude_path}' is redundant - vault_path is automatically ignored")
+
+        # Check for ~/.wks and .wkso (automatically ignored system paths)
+        wks_home = str(P("~/.wks").expanduser().resolve())
+
+        # Check if ~/.wks is EXPLICITLY in include_paths (ERROR - exact match only)
+        for include_path in include_paths:
+            include_resolved = str(P(include_path).expanduser().resolve())
+            if wks_home == include_resolved:
+                issues.append(f"WKS home '~/.wks' explicitly in include_paths - WKS home is automatically ignored")
+
+        # Check if ~/.wks is in exclude_paths (WARNING - redundant)
+        for exclude_path in exclude_paths:
+            exclude_resolved = str(P(exclude_path).expanduser().resolve())
+            if wks_home == exclude_resolved:
+                redundancies.append(f"exclude_paths entry '{exclude_path}' is redundant - WKS home is automatically ignored")
+
+        # Check if .wkso is in ignore_dirnames (WARNING - redundant)
+        if ".wkso" in ignore_dirnames:
+            redundancies.append(f"ignore_dirnames entry '.wkso' is redundant - .wkso directories are automatically ignored")
+
+        # Check if ~/.wks is in managed_directories (ERROR)
+        for managed_path in managed_dirs_dict.keys():
+            managed_resolved = str(P(managed_path).expanduser().resolve())
+            if managed_resolved == wks_home or managed_resolved.startswith(wks_home + "/"):
+                issues.append(f"managed_directories entry '{managed_path}' is in WKS home - cannot manage WKS home directory")
+
+        # Connect to MongoDB
+        display.status(f"Connecting to {db_name}.{coll_name}...")
+        try:
+            from pymongo import MongoClient
+            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client.server_info()
+            db = client[db_name]
+            coll = db[coll_name]
+
+            # Get statistics
+            total_files = coll.count_documents({})
+
+            managed_dirs_dict = monitor_config.get("managed_directories", {})
+
+            # Build table data
+            status_data = [
+                {"Setting": "Tracked Files", "Value": str(total_files)},
+                {"Setting": "", "Value": ""},
+                {"Setting": "managed_directories", "Value": str(len(managed_dirs_dict))},
+            ]
+
+            # Build sets of problematic paths for coloring
+            red_paths = set()
+            yellow_paths = set()
+            for issue in issues:
+                for path in managed_dirs_dict.keys() | include_paths | exclude_paths:
+                    if f"'{path}'" in issue or f" {path}" in issue or issue.endswith(path):
+                        red_paths.add(path)
+
+            for redund in redundancies:
+                for path in managed_dirs_dict.keys() | include_paths | exclude_paths:
+                    if f"'{path}'" in redund or f" {path}" in redund or redund.endswith(path):
+                        yellow_paths.add(path)
+
+            # Calculate max pip count and max number width for alignment
+            import math
+            max_pip_count = 0
+            max_num_width = 0
+            for priority in managed_dirs_dict.values():
+                if priority <= 1:
+                    pip_count = 1
+                else:
+                    pip_count = int(math.log10(priority)) + 1
+                max_pip_count = max(max_pip_count, pip_count)
+                max_num_width = max(max_num_width, len(str(priority)))
+
+            # Add managed directories with logarithmic pip visualization and validation
+            for path, priority in sorted(managed_dirs_dict.items(), key=lambda x: -x[1]):
+                # Create logarithmic pip visualization
+                # 1 pip for <=1, 2 pips for <10, 3 pips for <100, 4 pips for <1000, etc.
+                if priority <= 1:
+                    pip_count = 1
+                else:
+                    pip_count = int(math.log10(priority)) + 1
+                pips = "▪" * pip_count
+
+                # Validate that this managed directory would be monitored
+                is_valid, error_msg = MonitorValidator.validate_managed_directory(
+                    path,
+                    list(include_paths),
+                    list(exclude_paths),
+                    ignore_dirnames,
+                    ignore_globs
+                )
+
+                # Collect validation messages and get status symbol
+                if error_msg:
+                    issues.append(f"managed_directories entry '{path}': {error_msg}")
+                status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
+
+                # Left-align pips, right-align numbers, add status symbol
+                pips_padded = pips.ljust(max_pip_count)
+                num_padded = str(priority).rjust(max_num_width)
+                priority_display = f"{pips_padded} {num_padded} {status_symbol}"
+
+                status_data.append({
+                    "Setting": f"  {path}",
+                    "Value": priority_display
+                })
+
+            status_data.append({"Setting": "", "Value": ""})
+            status_data.append({"Setting": "include_paths", "Value": str(len(include_paths))})
+            for path in sorted(include_paths):
+                error_msg = None if path not in (red_paths | yellow_paths) else "issue"
+                is_valid = path not in red_paths
+                status_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
+
+            status_data.append({"Setting": "", "Value": ""})
+            status_data.append({"Setting": "exclude_paths", "Value": str(len(exclude_paths))})
+            for path in sorted(exclude_paths):
+                error_msg = None if path not in (red_paths | yellow_paths) else "issue"
+                is_valid = path not in red_paths
+                status_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
+
+            # Build ignore rules list with validation
+            ignore_list = []
+            ignore_list.append(("ignore_dirnames", str(len(ignore_dirnames))))
+            ignore_list.append(("", ""))
+
+            # Validate each ignore_dirname
+            for dirname in ignore_dirnames:
+                is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs)
+                ignore_list.append((f"  {dirname}", MonitorValidator.status_symbol(error_msg, is_valid)))
+                if error_msg:
+                    (redundancies if is_valid else issues).append(f"ignore_dirnames entry '{dirname}': {error_msg}")
+
+            ignore_list.append(("", ""))
+            ignore_list.append(("ignore_globs", str(len(ignore_globs))))
+
+            # Validate each ignore_glob for syntax errors
+            for glob_pattern in ignore_globs:
+                is_valid, error_msg = MonitorValidator.validate_ignore_glob(glob_pattern)
+                ignore_list.append((f"  {glob_pattern}", MonitorValidator.status_symbol(error_msg, is_valid)))
+                if error_msg:
+                    (redundancies if is_valid else issues).append(f"ignore_globs pattern '{glob_pattern}': {error_msg}")
+
+            # Combine into single table with 4 columns
+            max_rows = max(len(status_data), len(ignore_list))
+            combined_data = []
+
+            for i in range(max_rows):
+                row = {}
+                if i < len(status_data):
+                    row["Setting"] = status_data[i]["Setting"]
+                    row["Value"] = status_data[i]["Value"]
+                else:
+                    row["Setting"] = ""
+                    row["Value"] = ""
+
+                if i < len(ignore_list):
+                    row["Ignore Rule"] = ignore_list[i][0]
+                    row["Count"] = ignore_list[i][1]
+                else:
+                    row["Ignore Rule"] = ""
+                    row["Count"] = ""
+
+                combined_data.append(row)
+
+            display.table(
+                combined_data,
+                headers=["Setting", "Value", "Ignore Rule", "Count"],
+                title="Monitor Status",
+                column_justify={"Value": "right", "Count": "right"}
+            )
+
+            # Print issues and redundancies
+            if issues:
+                display.error(f"\nInconsistencies found ({len(issues)}):")
+                for issue in issues:
+                    display.error(f"  • {issue}")
+
+            if redundancies:
+                display.warning(f"\nRedundancies found ({len(redundancies)}):")
+                for redund in redundancies:
+                    display.warning(f"  • {redund}")
+
+            if not issues and not redundancies:
+                display.success("\n✓ No configuration issues found")
+
+            client.close()
+            return 0
+
+        except Exception as e:
+            display.error(f"Failed to get monitor status: {e}")
+            return 2
+
+    monstatus.set_defaults(func=_monitor_status_cmd)
+
+    # monitor validate - check for inconsistencies
+    monvalidate = monsub.add_parser("validate", help="Check for configuration inconsistencies")
+    def _monitor_validate_cmd(args: argparse.Namespace) -> int:
+        """Check for configuration inconsistencies."""
+        display = args.display_obj
+        cfg = load_config()
+        monitor_config = cfg.get("monitor", {})
+
+        include_paths = set(monitor_config.get("include_paths", []))
+        exclude_paths = set(monitor_config.get("exclude_paths", []))
+        managed_dirs = set(monitor_config.get("managed_directories", {}).keys())
+
+        issues = []
+        warnings = []
+
+        # Check 1: Paths in both include and exclude
+        conflicts = include_paths & exclude_paths
+        if conflicts:
+            for path in conflicts:
+                issues.append(f"Path in both include and exclude: {path}")
+
+        # Check 2: Duplicate managed directories (same resolved path)
+        from pathlib import Path as P
+        managed_list = list(managed_dirs)
+        for i, dir1 in enumerate(managed_list):
+            p1 = P(dir1).expanduser().resolve()
+            for dir2 in managed_list[i+1:]:
+                p2 = P(dir2).expanduser().resolve()
+                try:
+                    if p1 == p2:
+                        warnings.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to same path")
+                except:
+                    pass
+
+        # Display results
+        if not issues and not warnings:
+            display.success("No configuration issues found")
+            return 0
+
+        if issues:
+            display.error(f"Found {len(issues)} error(s):")
+            for issue in issues:
+                display.error(f"  • {issue}")
+
+        if warnings:
+            display.warning(f"Found {len(warnings)} warning(s):")
+            for warning in warnings:
+                display.warning(f"  • {warning}")
+
+        return 1 if issues else 0
+
+    monvalidate.set_defaults(func=_monitor_validate_cmd)
+
+    # monitor check - test if a path would be monitored
+    moncheck = monsub.add_parser("check", help="Check if a path would be monitored")
+    moncheck.add_argument("path", help="Path to check")
+    def _monitor_check_cmd(args: argparse.Namespace) -> int:
+        """Check if a path would be monitored."""
+        display = args.display_obj
+        cfg = load_config()
+        monitor_config = cfg.get("monitor", {})
+
+        # Get configuration
+        include_paths = monitor_config.get("include_paths", [])
+        exclude_paths = monitor_config.get("exclude_paths", [])
+        ignore_dirnames = monitor_config.get("ignore_dirnames", [])
+        ignore_globs = monitor_config.get("ignore_globs", [])
+        managed_dirs = monitor_config.get("managed_directories", {})
+        priority_config = monitor_config.get("priority", {})
+
+        # Resolve path
+        from pathlib import Path as P
+        test_path = P(args.path).expanduser().resolve()
+
+        # Build decision chain
+        decisions = []
+        is_monitored = True
+        reason = None
+        priority = None
+
+        # Step 1: Check if path exists (informational)
+        if test_path.exists():
+            decisions.append(("✓", f"Path exists: {test_path}"))
+        else:
+            decisions.append(("⚠", f"Path does not exist (checking as if it did): {test_path}"))
+
+        # Step 2: Check include_paths
+        included = False
+        for include_path in include_paths:
+            include_resolved = P(include_path).expanduser().resolve()
+            try:
+                # Check if test_path is under include_path
+                test_path.relative_to(include_resolved)
+                included = True
+                decisions.append(("✓", f"Matches include_paths: {include_path}"))
+                break
+            except ValueError:
+                continue
+
+        if not included:
+            is_monitored = False
+            reason = "Not under any include_paths"
+            decisions.append(("✗", reason))
+
+        # Step 3: Check exclude_paths
+        if is_monitored:
+            for exclude_path in exclude_paths:
+                exclude_resolved = P(exclude_path).expanduser().resolve()
+                try:
+                    test_path.relative_to(exclude_resolved)
+                    is_monitored = False
+                    reason = f"Matches exclude_paths: {exclude_path}"
+                    decisions.append(("✗", reason))
+                    break
+                except ValueError:
+                    continue
+
+            if is_monitored:
+                decisions.append(("✓", "Not in exclude_paths"))
+
+        # Step 4: Check ignore_dirnames
+        if is_monitored:
+            path_parts = test_path.parts
+            for part in path_parts:
+                if part in ignore_dirnames:
+                    is_monitored = False
+                    reason = f"Directory name '{part}' in ignore_dirnames"
+                    decisions.append(("✗", reason))
+                    break
+
+            if is_monitored:
+                decisions.append(("✓", "No directory names match ignore_dirnames"))
+
+        # Step 5: Check ignore_globs
+        if is_monitored:
+            import fnmatch
+            matched_glob = None
+            for glob_pattern in ignore_globs:
+                # Check against full path
+                if fnmatch.fnmatch(str(test_path), glob_pattern):
+                    matched_glob = glob_pattern
+                    break
+                # Check against filename only
+                if fnmatch.fnmatch(test_path.name, glob_pattern):
+                    matched_glob = glob_pattern
+                    break
+
+            if matched_glob:
+                is_monitored = False
+                reason = f"Matches ignore_globs: {matched_glob}"
+                decisions.append(("✗", reason))
+            else:
+                decisions.append(("✓", "Does not match ignore_globs"))
+
+        # Step 6: Calculate priority if monitored
+        if is_monitored:
+            from wks.priority import calculate_priority
+            priority = calculate_priority(test_path, managed_dirs, priority_config)
+            decisions.append(("✓", f"Priority score: {priority}"))
+
+            # Show which managed directory matched
+            from wks.priority import find_managed_directory
+            matched_dir, base_priority = find_managed_directory(test_path, managed_dirs)
+            if matched_dir:
+                decisions.append(("ℹ", f"Managed directory: {matched_dir} (base priority {base_priority})"))
+
+        # Display results
+        if is_monitored:
+            display.success(f"Path WOULD be monitored: {test_path}")
+            if priority:
+                display.info(f"Priority: {priority}")
+        else:
+            display.error(f"Path would NOT be monitored: {test_path}")
+            if reason:
+                display.error(f"Reason: {reason}")
+
+        # Show decision chain
+        display.info("\nDecision chain:")
+        for symbol, message in decisions:
+            if symbol == "✓":
+                display.success(f"  {message}")
+            elif symbol == "✗":
+                display.error(f"  {message}")
+            elif symbol == "⚠":
+                display.warning(f"  {message}")
+            else:
+                display.info(f"  {message}")
+
+        return 0 if is_monitored else 1
+
+    moncheck.set_defaults(func=_monitor_check_cmd)
+
+    # Helper classes for monitor validation
+    class MonitorValidator:
+        """Encapsulates monitor configuration validation logic."""
+
+        @staticmethod
+        def status_symbol(error_msg: Optional[str], is_valid: bool = True) -> str:
+            """Convert validation result to colored status symbol."""
+            return "[green]✓[/]" if not error_msg else "[yellow]⚠[/]" if is_valid else "[red]✗[/]"
+
+        @staticmethod
+        def validate_ignore_dirname(dirname: str, ignore_globs: List[str]) -> Tuple[bool, Optional[str]]:
+            """Validate an ignore_dirname entry."""
+            import fnmatch
+            if '*' in dirname or '?' in dirname or '[' in dirname:
+                return False, "ignore_dirnames cannot contain wildcard characters (*, ?, [). Use ignore_globs for patterns."
+            for glob_pattern in ignore_globs:
+                if fnmatch.fnmatch(dirname, glob_pattern):
+                    return True, f"Redundant: dirname '{dirname}' already matched by ignore_globs pattern '{glob_pattern}'"
+            return True, None
+
+        @staticmethod
+        def validate_ignore_glob(pattern: str) -> Tuple[bool, Optional[str]]:
+            """Validate an ignore_glob pattern for syntax errors."""
+            import fnmatch
+            try:
+                fnmatch.fnmatch("test", pattern)
+                return True, None
+            except Exception as e:
+                return False, f"Invalid glob syntax: {str(e)}"
+
+        @staticmethod
+        def validate_managed_directory(managed_path: str, include_paths: List[str],
+                                     exclude_paths: List[str], ignore_dirnames: List[str],
+                                     ignore_globs: List[str]) -> Tuple[bool, Optional[str]]:
+            """Validate that a managed_directory would actually be monitored."""
+            from pathlib import Path as P
+            import fnmatch
+
+            managed_resolved = P(managed_path).expanduser().resolve()
+
+            # Check for system paths that are always ignored
+            wks_home = P("~/.wks").expanduser().resolve()
+            if managed_resolved == wks_home or str(managed_resolved).startswith(str(wks_home) + "/"):
+                return False, "In WKS home directory (automatically ignored)"
+
+            if ".wkso" in managed_resolved.parts:
+                return False, "Contains .wkso directory (automatically ignored)"
+
+            # Check if under any include_paths
+            if not any(managed_resolved.is_relative_to(P(p).expanduser().resolve())
+                      for p in include_paths):
+                return False, "Not under any include_paths"
+
+            # Check if in exclude_paths
+            for exclude_path in exclude_paths:
+                try:
+                    if managed_resolved.is_relative_to(P(exclude_path).expanduser().resolve()):
+                        return False, f"Matched by exclude_paths: {exclude_path}"
+                except:
+                    pass
+
+            # Check if any path component matches ignore_dirnames
+            for part in managed_resolved.parts:
+                if part in ignore_dirnames:
+                    return False, f"Contains ignored dirname: {part}"
+
+            # Check if matches ignore_globs
+            for glob_pattern in ignore_globs:
+                if fnmatch.fnmatch(str(managed_resolved), glob_pattern) or \
+                   fnmatch.fnmatch(managed_resolved.name, glob_pattern):
+                    return False, f"Matched by ignore_globs: {glob_pattern}"
+
+            return True, None
+
+    # Helper function for modifying config lists
+
+    def _modify_monitor_list(display, list_name: str, value: str, operation: str, resolve_path: bool = True) -> int:
+        """Modify a monitor config list (add/remove)."""
+        from .config import wks_home_path
+        config_path = wks_home_path() / "config.json"
+
+        if not config_path.exists():
+            display.error(f"Config file not found: {config_path}")
+            return 2
+
+        # Read current config
+        with open(config_path) as f:
+            cfg = json.load(f)
+
+        # Get monitor section
+        if "monitor" not in cfg:
+            cfg["monitor"] = {}
+
+        if list_name not in cfg["monitor"]:
+            cfg["monitor"][list_name] = []
+
+        # Normalize path for comparison if needed
+        if resolve_path:
+            # Resolve the input path
+            value_resolved = str(Path(value).expanduser().resolve())
+
+            # Preserve tilde notation if the resolved path is in home directory
+            home_dir = str(Path.home())
+            if value_resolved.startswith(home_dir):
+                value_to_store = "~" + value_resolved[len(home_dir):]
+            else:
+                value_to_store = value_resolved
+
+            # Find if this path exists in the list (comparing resolved versions)
+            existing_entry = None
+            for entry in cfg["monitor"][list_name]:
+                entry_resolved = str(Path(entry).expanduser().resolve())
+                if entry_resolved == value_resolved:
+                    existing_entry = entry
+                    break
+        else:
+            value_resolved = value
+            value_to_store = value
+            existing_entry = value if value in cfg["monitor"][list_name] else None
+
+        # Perform operation
+        if operation == "add":
+            # Validate ignore_dirnames before adding
+            if list_name == "ignore_dirnames":
+                ignore_globs = cfg["monitor"].get("ignore_globs", [])
+                is_valid, error_msg = MonitorValidator.validate_ignore_dirname(value_resolved if not resolve_path else value, ignore_globs)
+                if not is_valid:
+                    display.error(error_msg)
+                    return 1
+
+            if existing_entry:
+                display.warning(f"Already in {list_name}: {existing_entry}")
+                return 0
+
+            # Store using tilde notation when possible
+            cfg["monitor"][list_name].append(value_to_store)
+            display.success(f"Added to {list_name}: {value_to_store}")
+        elif operation == "remove":
+            if not existing_entry:
+                display.warning(f"Not in {list_name}: {value}")
+                return 0
+            cfg["monitor"][list_name].remove(existing_entry)
+            display.success(f"Removed from {list_name}: {existing_entry}")
+
+        # Write back
+        with open(config_path, "w") as f:
+            json.dump(cfg, f, indent=4)
+
+        display.info("Restart the monitor service for changes to take effect")
+        return 0
+
+    # Helper function to show a list
+    def _show_monitor_list(display, list_name: str, title: str) -> int:
+        """Show contents of a monitor config list with validation status."""
+        cfg = load_config()
+        monitor_config = cfg.get("monitor", {})
+        items = monitor_config.get(list_name, [])
+
+        if not items:
+            display.info(f"No {list_name} configured")
+            return 0
+
+        # Get other config items for validation
+        ignore_globs = monitor_config.get("ignore_globs", [])
+        ignore_dirnames = monitor_config.get("ignore_dirnames", [])
+        include_paths = monitor_config.get("include_paths", [])
+        exclude_paths = monitor_config.get("exclude_paths", [])
+        managed_dirs = monitor_config.get("managed_directories", {})
+
+        from pathlib import Path as P
+
+        table_data = []
+        for i, item in enumerate(items, 1):
+            is_valid, error_msg = True, None
+
+            if list_name == "ignore_dirnames":
+                is_valid, error_msg = MonitorValidator.validate_ignore_dirname(item, ignore_globs)
+            elif list_name == "ignore_globs":
+                is_valid, error_msg = MonitorValidator.validate_ignore_glob(item)
+            elif list_name in ("include_paths", "exclude_paths"):
+                try:
+                    path_obj = P(item).expanduser().resolve()
+                    if not path_obj.exists():
+                        is_valid = list_name == "exclude_paths"  # Warning for exclude, error for include
+                        error_msg = "Path does not exist" + (" (will be ignored if created)" if is_valid else "")
+                    elif not path_obj.is_dir():
+                        is_valid, error_msg = False, "Not a directory"
+                except Exception as e:
+                    is_valid, error_msg = False, f"Invalid path: {e}"
+
+            table_data.append({"#": str(i), "Value": item, "Status": MonitorValidator.status_symbol(error_msg, is_valid)})
+
+        display.table(table_data, title=title)
+        return 0
+
+    # monitor include_paths add/remove/list
+    mon_include = monsub.add_parser("include_paths", help="Manage include_paths")
+    mon_include_sub = mon_include.add_subparsers(dest="include_paths_op", required=False)
+
+    # Default action: show list
+    def _monitor_include_default(args: argparse.Namespace) -> int:
+        if not args.include_paths_op:
+            return _show_monitor_list(args.display_obj, "include_paths", "Include Paths")
+        return 0
+    mon_include.set_defaults(func=_monitor_include_default)
+
+    mon_include_add = mon_include_sub.add_parser("add", help="Add path(s) to include_paths")
+    mon_include_add.add_argument("paths", nargs='+', help="Path(s) to monitor")
+    def _monitor_include_add(args: argparse.Namespace) -> int:
+        for path in args.paths:
+            result = _modify_monitor_list(args.display_obj, "include_paths", path, "add", resolve_path=True)
+            if result != 0:
+                return result
+        return 0
+    mon_include_add.set_defaults(func=_monitor_include_add)
+
+    mon_include_remove = mon_include_sub.add_parser("remove", help="Remove path(s) from include_paths")
+    mon_include_remove.add_argument("paths", nargs='+', help="Path(s) to remove")
+    def _monitor_include_remove(args: argparse.Namespace) -> int:
+        for path in args.paths:
+            result = _modify_monitor_list(args.display_obj, "include_paths", path, "remove", resolve_path=True)
+            if result != 0:
+                return result
+        return 0
+    mon_include_remove.set_defaults(func=_monitor_include_remove)
+
+    # monitor exclude_paths add/remove
+    mon_exclude = monsub.add_parser("exclude_paths", help="Manage exclude_paths")
+    mon_exclude_sub = mon_exclude.add_subparsers(dest="exclude_paths_op", required=False)
+
+    def _monitor_exclude_default(args: argparse.Namespace) -> int:
+        if not args.exclude_paths_op:
+            return _show_monitor_list(args.display_obj, "exclude_paths", "Exclude Paths")
+        return 0
+    mon_exclude.set_defaults(func=_monitor_exclude_default)
+
+    mon_exclude_add = mon_exclude_sub.add_parser("add", help="Add path(s) to exclude_paths")
+    mon_exclude_add.add_argument("paths", nargs='+', help="Path(s) to exclude")
+    def _monitor_exclude_add(args: argparse.Namespace) -> int:
+        for path in args.paths:
+            result = _modify_monitor_list(args.display_obj, "exclude_paths", path, "add", resolve_path=True)
+            if result != 0:
+                return result
+        return 0
+    mon_exclude_add.set_defaults(func=_monitor_exclude_add)
+
+    mon_exclude_remove = mon_exclude_sub.add_parser("remove", help="Remove path(s) from exclude_paths")
+    mon_exclude_remove.add_argument("paths", nargs='+', help="Path(s) to remove")
+    def _monitor_exclude_remove(args: argparse.Namespace) -> int:
+        for path in args.paths:
+            result = _modify_monitor_list(args.display_obj, "exclude_paths", path, "remove", resolve_path=True)
+            if result != 0:
+                return result
+        return 0
+    mon_exclude_remove.set_defaults(func=_monitor_exclude_remove)
+
+    # monitor ignore_dirnames add/remove
+    mon_ignore_dir = monsub.add_parser("ignore_dirnames", help="Manage ignore_dirnames")
+    mon_ignore_dir_sub = mon_ignore_dir.add_subparsers(dest="ignore_dirnames_op", required=False)
+
+    def _monitor_ignore_dir_default(args: argparse.Namespace) -> int:
+        if not args.ignore_dirnames_op:
+            return _show_monitor_list(args.display_obj, "ignore_dirnames", "Ignore Directory Names")
+        return 0
+    mon_ignore_dir.set_defaults(func=_monitor_ignore_dir_default)
+
+    mon_ignore_dir_add = mon_ignore_dir_sub.add_parser("add", help="Add directory name(s) to ignore_dirnames")
+    mon_ignore_dir_add.add_argument("dirnames", nargs='+', help="Directory name(s) to ignore (e.g., node_modules)")
+    def _monitor_ignore_dir_add(args: argparse.Namespace) -> int:
+        for dirname in args.dirnames:
+            result = _modify_monitor_list(args.display_obj, "ignore_dirnames", dirname, "add", resolve_path=False)
+            if result != 0:
+                return result
+        return 0
+    mon_ignore_dir_add.set_defaults(func=_monitor_ignore_dir_add)
+
+    mon_ignore_dir_remove = mon_ignore_dir_sub.add_parser("remove", help="Remove directory name(s) from ignore_dirnames")
+    mon_ignore_dir_remove.add_argument("dirnames", nargs='+', help="Directory name(s) to remove")
+    def _monitor_ignore_dir_remove(args: argparse.Namespace) -> int:
+        for dirname in args.dirnames:
+            result = _modify_monitor_list(args.display_obj, "ignore_dirnames", dirname, "remove", resolve_path=False)
+            if result != 0:
+                return result
+        return 0
+    mon_ignore_dir_remove.set_defaults(func=_monitor_ignore_dir_remove)
+
+    # monitor ignore_globs add/remove
+    mon_ignore_glob = monsub.add_parser("ignore_globs", help="Manage ignore_globs")
+    mon_ignore_glob_sub = mon_ignore_glob.add_subparsers(dest="ignore_globs_op", required=False)
+
+    def _monitor_ignore_glob_default(args: argparse.Namespace) -> int:
+        if not args.ignore_globs_op:
+            return _show_monitor_list(args.display_obj, "ignore_globs", "Ignore Glob Patterns")
+        return 0
+    mon_ignore_glob.set_defaults(func=_monitor_ignore_glob_default)
+
+    mon_ignore_glob_add = mon_ignore_glob_sub.add_parser("add", help="Add glob pattern(s) to ignore_globs")
+    mon_ignore_glob_add.add_argument("patterns", nargs='+', help="Glob pattern(s) to ignore (e.g., *.tmp)")
+    def _monitor_ignore_glob_add(args: argparse.Namespace) -> int:
+        for pattern in args.patterns:
+            result = _modify_monitor_list(args.display_obj, "ignore_globs", pattern, "add", resolve_path=False)
+            if result != 0:
+                return result
+        return 0
+    mon_ignore_glob_add.set_defaults(func=_monitor_ignore_glob_add)
+
+    mon_ignore_glob_remove = mon_ignore_glob_sub.add_parser("remove", help="Remove glob pattern(s) from ignore_globs")
+    mon_ignore_glob_remove.add_argument("patterns", nargs='+', help="Pattern(s) to remove")
+    def _monitor_ignore_glob_remove(args: argparse.Namespace) -> int:
+        for pattern in args.patterns:
+            result = _modify_monitor_list(args.display_obj, "ignore_globs", pattern, "remove", resolve_path=False)
+            if result != 0:
+                return result
+        return 0
+    mon_ignore_glob_remove.set_defaults(func=_monitor_ignore_glob_remove)
+
+    # monitor managed add/remove/set-priority
+    mon_managed = monsub.add_parser("managed", help="Manage managed_directories with priorities")
+    mon_managed_sub = mon_managed.add_subparsers(dest="managed_op", required=False)
+
+    def _monitor_managed_default(args: argparse.Namespace) -> int:
+        if not args.managed_op:
+            cfg = load_config()
+            monitor_config = cfg.get("monitor", {})
+            managed_dirs = monitor_config.get("managed_directories", {})
+
+            if not managed_dirs:
+                args.display_obj.info("No managed_directories configured")
+                return 0
+
+            table_data = []
+            for path, priority in sorted(managed_dirs.items(), key=lambda x: -x[1]):
+                table_data.append({"Path": path, "Priority": str(priority)})
+
+            args.display_obj.table(table_data, title="Managed Directories")
+            return 0
+        return 0
+    mon_managed.set_defaults(func=_monitor_managed_default)
+
+    mon_managed_add = mon_managed_sub.add_parser("add", help="Add managed directory with priority")
+    mon_managed_add.add_argument("path", help="Directory path")
+    mon_managed_add.add_argument("--priority", type=int, required=True, help="Priority score (e.g., 100)")
+    def _monitor_managed_add(args: argparse.Namespace) -> int:
+        from .config import wks_home_path
+        config_path = wks_home_path() / "config.json"
+
+        if not config_path.exists():
+            args.display_obj.error(f"Config file not found: {config_path}")
+            return 2
+
+        path = str(Path(args.path).expanduser().resolve())
+
+        with open(config_path) as f:
+            cfg = json.load(f)
+
+        if "monitor" not in cfg:
+            cfg["monitor"] = {}
+        if "managed_directories" not in cfg["monitor"]:
+            cfg["monitor"]["managed_directories"] = {}
+
+        cfg["monitor"]["managed_directories"][path] = args.priority
+
+        with open(config_path, "w") as f:
+            json.dump(cfg, f, indent=4)
+
+        args.display_obj.success(f"Added managed directory: {path} (priority {args.priority})")
+        args.display_obj.info("Restart the monitor service for changes to take effect")
+        return 0
+    mon_managed_add.set_defaults(func=_monitor_managed_add)
+
+    mon_managed_remove = mon_managed_sub.add_parser("remove", help="Remove managed directory")
+    mon_managed_remove.add_argument("path", help="Directory path to remove")
+    def _monitor_managed_remove(args: argparse.Namespace) -> int:
+        from .config import wks_home_path
+        config_path = wks_home_path() / "config.json"
+
+        if not config_path.exists():
+            args.display_obj.error(f"Config file not found: {config_path}")
+            return 2
+
+        path = str(Path(args.path).expanduser().resolve())
+
+        with open(config_path) as f:
+            cfg = json.load(f)
+
+        if "monitor" not in cfg or "managed_directories" not in cfg["monitor"]:
+            args.display_obj.warning("No managed_directories configured")
+            return 0
+
+        if path not in cfg["monitor"]["managed_directories"]:
+            args.display_obj.warning(f"Not a managed directory: {path}")
+            return 0
+
+        del cfg["monitor"]["managed_directories"][path]
+
+        with open(config_path, "w") as f:
+            json.dump(cfg, f, indent=4)
+
+        args.display_obj.success(f"Removed managed directory: {path}")
+        args.display_obj.info("Restart the monitor service for changes to take effect")
+        return 0
+    mon_managed_remove.set_defaults(func=_monitor_managed_remove)
+
+    mon_managed_priority = mon_managed_sub.add_parser("set-priority", help="Set priority for managed directory")
+    mon_managed_priority.add_argument("path", help="Directory path")
+    mon_managed_priority.add_argument("priority", type=int, help="New priority score")
+    def _monitor_managed_priority(args: argparse.Namespace) -> int:
+        from .config import wks_home_path
+        config_path = wks_home_path() / "config.json"
+
+        if not config_path.exists():
+            args.display_obj.error(f"Config file not found: {config_path}")
+            return 2
+
+        path = str(Path(args.path).expanduser().resolve())
+
+        with open(config_path) as f:
+            cfg = json.load(f)
+
+        if "monitor" not in cfg or "managed_directories" not in cfg["monitor"]:
+            args.display_obj.error("No managed_directories configured")
+            return 2
+
+        if path not in cfg["monitor"]["managed_directories"]:
+            args.display_obj.error(f"Not a managed directory: {path}")
+            return 2
+
+        old_priority = cfg["monitor"]["managed_directories"][path]
+        cfg["monitor"]["managed_directories"][path] = args.priority
+
+        with open(config_path, "w") as f:
+            json.dump(cfg, f, indent=4)
+
+        args.display_obj.success(f"Updated priority: {path} ({old_priority} → {args.priority})")
+        args.display_obj.info("Restart the monitor service for changes to take effect")
+        return 0
+    mon_managed_priority.set_defaults(func=_monitor_managed_priority)
 
     # Extract text without indexing
     extp = sub.add_parser("extract", help="Extract document text using the configured pipeline")
@@ -2323,22 +3246,27 @@ def main(argv: Optional[List[str]] = None) -> int:
         """Find semantically similar documents."""
         from pathlib import Path
 
+        display = args.display_obj
+
         # Parse input path
         query_path = Path(args.path).expanduser().resolve()
         if not query_path.exists():
-            print(f"Error: File not found: {query_path}")
+            display.error(f"File not found: {query_path}")
             return 2
 
         # Load similarity DB
+        display.status("Loading similarity database...")
         try:
             db, _ = _load_similarity_required()
+            display.success("Connected to database")
         except SystemExit as e:
             return e.code if isinstance(e.code, int) else 1
         except Exception as e:
-            print(f"Error loading similarity database: {e}")
+            display.error(f"Error loading similarity database: {e}")
             return 2
 
         # Find similar documents
+        display.status(f"Finding similar documents to: {query_path.name}")
         try:
             results = db.find_similar(
                 query_path=query_path,
@@ -2347,7 +3275,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 mode="file"
             )
         except Exception as e:
-            print(f"Error finding similar documents: {e}")
+            display.error(f"Error finding similar documents: {e}")
             return 2
         finally:
             try:
@@ -2356,8 +3284,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 pass
 
         # Format output
-        if args.format == "json":
-            import json
+        if args.format == "json" or args.display == "mcp":
+            # JSON output
             output = []
             for path_uri, similarity in results:
                 # Convert file:// URI to path if needed
@@ -2372,14 +3300,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "path": str(display_path),
                     "similarity": round(similarity, 3)
                 })
-            print(json.dumps(output, indent=2))
+            display.json_output(output)
         else:
             # Table format
             if not results:
-                print(f"No similar documents found for: {query_path}")
+                display.info(f"No similar documents found for: {query_path}")
                 return 0
 
-            print(f"\nSimilar to: {query_path}\n")
+            # Prepare table data
+            table_data = []
             for path_uri, similarity in results:
                 # Convert file:// URI to path if needed
                 if path_uri.startswith("file://"):
@@ -2391,7 +3320,12 @@ def main(argv: Optional[List[str]] = None) -> int:
 
                 # Format similarity as percentage
                 sim_pct = similarity * 100
-                print(f"{sim_pct:5.1f}% - {display_path}")
+                table_data.append({
+                    "Similarity": f"{sim_pct:5.1f}%",
+                    "Path": str(display_path)
+                })
+
+            display.table(table_data, title=f"Similar to: {query_path}")
 
         return 0
     rel.set_defaults(func=_related_cmd)
@@ -3162,16 +4096,22 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     dbr.set_defaults(func=_db_reset)
 
-    # Simplified CLI — top-level groups: config/service/index/db
+    # Simplified CLI — top-level groups: config/service/monitor/extract/index/related/db
 
     args = parser.parse_args(argv)
-    args.display = _resolve_display_mode(args)
+
+    # Get display instance based on mode
+    args.display_obj = get_display(args.display)
+
     if not hasattr(args, "func"):
         # If a group was selected without subcommand, show that group's help
         try:
             cmd = getattr(args, 'cmd', None)
             if cmd == 'service':
                 svc.print_help()
+                return 2
+            if cmd == 'monitor':
+                mon.print_help()
                 return 2
             if cmd == 'db':
                 dbp.print_help()
@@ -3180,11 +4120,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             pass
         parser.print_help()
         return 2
-    if args.display == "none":
-        with open(os.devnull, "w", encoding="utf-8") as _null, contextlib.redirect_stdout(_null):
-            res = args.func(args)
-    else:
-        res = args.func(args)
+
+    res = args.func(args)
     return 0 if res is None else res
 
 

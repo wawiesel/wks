@@ -44,7 +44,8 @@ def test_extractor_uses_repo_root_wkso(tmp_path):
     result = extractor.extract(target)
 
     assert result.content_path is not None
-    assert result.content_path.parent == repo / WKS_EXTRACT_EXT
-    assert (repo / WKS_EXTRACT_EXT).exists()
-    # Ensure no nested .wkso under subdir
+    assert result.content_path.parent == tmp_path / WKS_EXTRACT_EXT
+    assert (tmp_path / WKS_EXTRACT_EXT).exists()
+    # Ensure no nested .wkso under repo or subdir
+    assert not (repo / WKS_EXTRACT_EXT).exists()
     assert not (subdir / WKS_EXTRACT_EXT).exists()
