@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
 
-from .config import mongo_settings, timestamp_format, load_user_config, DEFAULT_TIMESTAMP_FORMAT
+from .config import mongo_settings, timestamp_format, load_config, get_config_path, DEFAULT_TIMESTAMP_FORMAT
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from .dbmeta import resolve_db_compatibility, ensure_db_compat, IncompatibleDatabase
 from .utils import get_package_version
@@ -44,7 +44,7 @@ class ObsidianVault:
         self.ops_ledger_max_lines = 20000
         self.ops_ledger_keep_lines = 10000
         try:
-            cfg = load_user_config()
+            cfg = load_config()
             self.timestamp_format = timestamp_format(cfg)
         except Exception:
             self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
@@ -164,7 +164,7 @@ class ObsidianVault:
         file_path = self._get_file_log_path()
         ops = self._load_recent_ops(self.log_max_entries)
         timestamp = self._format_dt(datetime.now())
-        cfg_path = (Path.home() / WKS_HOME_EXT / "config.json").expanduser()
+        cfg_path = get_config_path()
         cfg_url = f"file://{cfg_path}"
         # Intro + table header
         header = [
@@ -252,7 +252,7 @@ class ObsidianVault:
         simdb = None
         try:
             from .similarity import build_similarity_from_config as _build_sim
-            cfg = load_user_config()
+            cfg = load_config()
             simdb, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=get_package_version())
         except Exception:
             simdb = None

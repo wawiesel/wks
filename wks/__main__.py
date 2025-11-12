@@ -14,7 +14,7 @@ from .constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
 from .daemon import WKSDaemon
 from .mongoctl import ensure_mongo_running
 from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
-from .config import load_user_config
+from .config import load_config
 from .config_validator import validate_and_raise, ConfigValidationError
 from .utils import get_package_version, expand_path
 try:
@@ -25,7 +25,7 @@ except Exception:
 
 if __name__ == "__main__":
     # Load and validate config
-    config = load_user_config()
+    config = load_config()
     try:
         validate_and_raise(config)
     except ConfigValidationError as e:

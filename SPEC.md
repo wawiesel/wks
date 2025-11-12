@@ -491,7 +491,37 @@ When file checksum changes or file moves, old extraction files are removed.
 
 ## MCP Integration
 
-WKS exposes semantic engines as MCP tools:
+WKS exposes semantic engines and monitor operations as MCP tools. Following SPEC principles: zero code duplication with business logic in controllers, view-agnostic structured data, and both CLI and MCP using the same controller methods.
+
+### Monitor Tools
+
+Complete parity between CLI and MCP for filesystem monitoring:
+
+**Status and Validation**:
+- `wks_monitor_status` — Get monitoring status and configuration (`wkso monitor status`)
+- `wks_monitor_validate` — Validate configuration for conflicts (`wkso monitor validate`)
+- `wks_monitor_check` — Check if path would be monitored (`wkso monitor check <path>`)
+
+**List Management**:
+- `wks_monitor_list` — Get contents of configuration list (`wkso monitor <list_name>`)
+  - Parameters: `list_name` (include_paths, exclude_paths, ignore_dirnames, ignore_globs)
+- `wks_monitor_add` — Add value to list (`wkso monitor <list_name> add <value>`)
+  - Parameters: `list_name`, `value`
+- `wks_monitor_remove` — Remove value from list (`wkso monitor <list_name> remove <value>`)
+  - Parameters: `list_name`, `value`
+
+**Managed Directories**:
+- `wks_monitor_managed_list` — List managed directories with priorities (`wkso monitor managed`)
+- `wks_monitor_managed_add` — Add managed directory (`wkso monitor managed add <path> --priority <N>`)
+  - Parameters: `path`, `priority`
+- `wks_monitor_managed_remove` — Remove managed directory (`wkso monitor managed remove <path>`)
+  - Parameters: `path`
+- `wks_monitor_managed_set_priority` — Update directory priority (`wkso monitor managed set-priority <path> <N>`)
+  - Parameters: `path`, `priority`
+
+All write operations save to config file and notify to restart service.
+
+### Semantic Engine Tools
 
 **Extract Tools**:
 - `wks_extract` — extract document to plain text
@@ -508,6 +538,20 @@ WKS exposes semantic engines as MCP tools:
 **Search Tools**:
 - `wks_search` — semantic search across indices
 - Parameters: `query`, `index` (optional), `limit`
+
+### Architecture
+
+**MonitorController Methods** (in `monitor_controller.py`):
+- Read-only: `get_status()`, `get_list()`, `get_managed_directories()`, `validate_config()`, `check_path()`
+- Write operations: `add_to_list()`, `remove_from_list()`, `add_managed_directory()`, `remove_managed_directory()`, `set_managed_priority()`
+
+**MCP Server Responsibilities**:
+1. JSON-RPC protocol (stdio transport)
+2. Loading/saving configuration file
+3. Routing tool calls to controllers
+4. Formatting responses
+
+**Implementation**: All functionality tested via unit tests (`test_monitor_controller.py`) and integration tests (`test_mcp_tools.py`).
 
 ## Patterns (CLAUDE.md)
 
