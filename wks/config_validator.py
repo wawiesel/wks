@@ -64,7 +64,7 @@ def validate_config(cfg: Dict[str, Any]) -> List[str]:
         errors.append("'monitor' must be an object")
     else:
         required_mon = ["include_paths", "exclude_paths", "ignore_dirnames",
-                       "ignore_globs", "state_file"]
+                       "ignore_globs", "state_file", "touch_weight"]
         for key in required_mon:
             if key not in mon:
                 errors.append(f"monitor.{key} is required")
@@ -78,6 +78,14 @@ def validate_config(cfg: Dict[str, Any]) -> List[str]:
                     path = Path(str(path_str)).expanduser()
                     if not path.exists():
                         errors.append(f"monitor.include_paths contains non-existent path: {path}")
+
+        try:
+            weight_val = float(mon.get("touch_weight"))
+        except (TypeError, ValueError):
+            errors.append("monitor.touch_weight must be a number between 0.001 and 1")
+        else:
+            if weight_val < 0.001 or weight_val > 1.0:
+                errors.append("monitor.touch_weight must be between 0.001 and 1")
 
     # Similarity config (if enabled)
     sim = cfg.get("similarity", {})

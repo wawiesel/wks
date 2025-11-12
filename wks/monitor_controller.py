@@ -411,103 +411,39 @@ class MonitorController:
         }
 
     @staticmethod
-    def get_status(config: dict) -> dict:
-        """Get monitor status as structured data (view-agnostic)."""
+    def get_status(config: Dict[str, Any]) -> Dict[str, Any]:
+        """Get monitor status, including validation issues."""
+        from .config import mongo_settings
+        from pymongo import MongoClient
+
         monitor_config = config.get("monitor", {})
+        mongo_config = mongo_settings(config)
 
-        # Extract config
-        include_paths = set(monitor_config.get("include_paths", []))
-        exclude_paths = set(monitor_config.get("exclude_paths", []))
-        managed_dirs_dict = monitor_config.get("managed_directories", {})
-        ignore_dirnames = monitor_config.get("ignore_dirnames", [])
-        ignore_globs = monitor_config.get("ignore_globs", [])
-
-        # Validation results
-        issues = []
-        redundancies = []
-
-        # Validate vault_path
-        vault_path = config.get("vault_path")
-        if vault_path:
-            vault_resolved = str(Path(vault_path).expanduser().resolve())
-            for include_path in include_paths:
-                if str(Path(include_path).expanduser().resolve()) == vault_resolved:
-                    issues.append(f"vault_path '{vault_path}' explicitly in include_paths - vault is automatically ignored")
-            for exclude_path in exclude_paths:
-                if str(Path(exclude_path).expanduser().resolve()) == vault_resolved:
-                    redundancies.append(f"exclude_paths entry '{exclude_path}' is redundant - vault_path is automatically ignored")
-
-        # Validate WKS home
-        wks_home = str(Path("~/.wks").expanduser().resolve())
-        for include_path in include_paths:
-            if str(Path(include_path).expanduser().resolve()) == wks_home:
-                issues.append(f"WKS home '~/.wks' explicitly in include_paths - WKS home is automatically ignored")
-        for exclude_path in exclude_paths:
-            if str(Path(exclude_path).expanduser().resolve()) == wks_home:
-                redundancies.append(f"exclude_paths entry '~/.wks' is redundant - WKS home is automatically ignored")
-
-        # Check for .wkso in ignore_dirnames
-        if ".wkso" in ignore_dirnames:
-            redundancies.append(f"ignore_dirnames entry '.wkso' is redundant - .wkso directories are automatically ignored")
-
-        # Validate managed directories
-        managed_validation = {}
-        for path, priority in managed_dirs_dict.items():
-            is_valid, error_msg = MonitorValidator.validate_managed_directory(
-                path, list(include_paths), list(exclude_paths), ignore_dirnames, ignore_globs
-            )
-            managed_validation[path] = {"priority": priority, "valid": is_valid, "error": error_msg}
-            if error_msg:
-                issues.append(f"managed_directories entry '{path}': {error_msg}")
-
-            # Calculate pips for display
-            pip_count = 1 if priority <= 1 else int(math.log10(priority)) + 1
-            managed_validation[path]["pips"] = pip_count
-
-        # Validate ignore rules
-        ignore_dirname_validation = {}
-        for dirname in ignore_dirnames:
-            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs)
-            ignore_dirname_validation[dirname] = {"valid": is_valid, "error": error_msg}
-            if error_msg:
-                (redundancies if is_valid else issues).append(f"ignore_dirnames entry '{dirname}': {error_msg}")
-
-        ignore_glob_validation = {}
-        for pattern in ignore_globs:
-            is_valid, error_msg = MonitorValidator.validate_ignore_glob(pattern)
-            ignore_glob_validation[pattern] = {"valid": is_valid, "error": error_msg}
-            if error_msg:
-                (redundancies if is_valid else issues).append(f"ignore_globs pattern '{pattern}': {error_msg}")
-
-        # Get DB stats
-        mongo_config = config.get("mongo", {}) or config.get("db", {})
-        mongo_uri = mongo_config.get("uri", "mongodb://localhost:27017/")
-        db_name = monitor_config.get("database", "wks")
-        coll_name = monitor_config.get("collection", "monitor")
-
-        tracked_files = 0
+        # Get total tracked files
         try:
-            from pymongo import MongoClient
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
             client.server_info()
-            tracked_files = client[db_name][coll_name].count_documents({})
+            db = client[monitor_config.get("database", "wks")]
+            collection = db[monitor_config.get("collection", "monitor")]
+            total_files = collection.count_documents({})
             client.close()
-        except:
-            pass
+        except Exception:
+            total_files = 0
+
+        # Get config validation
+        validation = MonitorController.validate_config(config)
 
         return {
-            "tracked_files": tracked_files,
-            "managed_directories": managed_validation,
-            "include_paths": sorted(include_paths),
-            "exclude_paths": sorted(exclude_paths),
-            "ignore_dirnames": ignore_dirnames,
-            "ignore_globs": ignore_globs,
-            "ignore_dirname_validation": ignore_dirname_validation,
-            "ignore_glob_validation": ignore_glob_validation,
-            "issues": issues,
-            "redundancies": redundancies,
-            "db_name": db_name,
-            "coll_name": coll_name
+            "tracked_files": total_files,
+            "issues": validation.get("issues", []),
+            "redundancies": validation.get("redundancies", []),
+            "managed_directories": validation.get("managed_directories", {}),
+            "include_paths": validation.get("include_paths", []),
+            "exclude_paths": validation.get("exclude_paths", []),
+            "ignore_dirnames": validation.get("ignore_dirnames", []),
+            "ignore_globs": validation.get("ignore_globs", []),
+            "ignore_dirname_validation": validation.get("ignore_dirname_validation", {}),
+            "ignore_glob_validation": validation.get("ignore_glob_validation", {}),
         }
 
     @staticmethod
@@ -667,3 +603,118 @@ class MonitorController:
             "priority": priority,
             "decisions": decisions
         }
+
+    @staticmethod
+    def prune_ignored_files(config: dict) -> dict:
+        """Prune ignored files from the monitor database."""
+        from .monitor import WKSFileMonitor
+        from .config import mongo_settings
+        from .uri_utils import uri_to_path
+        from pymongo import MongoClient
+        import os
+
+        monitor_config = config.get("monitor", {})
+        mongo_config = mongo_settings(config)
+
+        try:
+            client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
+            client.server_info()  # Will raise an exception if connection fails
+            db = client[monitor_config.get("database", "wks")]
+            collection = db[monitor_config.get("collection", "monitor")]
+        except Exception as e:
+            return {"success": False, "errors": [f"DB connection failed: {e}"], "pruned_files": []}
+
+        # Instantiate the monitor to get access to the ignore logic
+        monitor = WKSFileMonitor(
+            state_file=Path(os.path.expanduser(monitor_config.get("state_file", "~/.wks/monitor_state.json"))),
+            include_paths=[os.path.expanduser(p) for p in monitor_config.get("include_paths", [])],
+            exclude_paths=[os.path.expanduser(p) for p in monitor_config.get("exclude_paths", [])],
+            ignore_dirs=set(monitor_config.get("ignore_dirnames", [])),
+            ignore_globs=monitor_config.get("ignore_globs", [])
+        )
+
+        pruned_files = []
+        errors = []
+        processed_count = 0
+
+        try:
+            for doc in collection.find():
+                processed_count += 1
+                uri = doc.get("path")
+                if not uri:
+                    continue
+
+                try:
+                    # The URI in the DB is the canonical representation
+                    path_to_check = uri_to_path(uri)
+                except Exception as e:
+                    errors.append(f"Error converting URI {uri}: {e}")
+                    continue
+
+                if monitor._should_ignore(str(path_to_check)):
+                    pruned_files.append(str(path_to_check))
+                    collection.delete_one({"_id": doc["_id"]})
+        except Exception as e:
+            errors.append(f"An error occurred during pruning: {e}")
+        finally:
+            client.close()
+
+        return {
+            "success": not errors,
+            "pruned_count": len(pruned_files),
+            "processed_count": processed_count,
+            "pruned_files": pruned_files,
+            "errors": errors,
+        }
+
+    @staticmethod
+    def prune_deleted_files(config: dict) -> dict:
+        """Prune deleted files from the monitor database."""
+        from .config import mongo_settings
+        from .uri_utils import uri_to_path
+        from pymongo import MongoClient
+
+        monitor_config = config.get("monitor", {})
+        mongo_config = mongo_settings(config)
+
+        try:
+            client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
+            client.server_info()
+            db = client[monitor_config.get("database", "wks")]
+            collection = db[monitor_config.get("collection", "monitor")]
+        except Exception as e:
+            return {"success": False, "errors": [f"DB connection failed: {e}"], "pruned_files": []}
+
+        pruned_files = []
+        errors = []
+        processed_count = 0
+
+        try:
+            for doc in collection.find():
+                processed_count += 1
+                uri = doc.get("path")
+                if not uri:
+                    continue
+
+                try:
+                    path = uri_to_path(uri)
+                except Exception as e:
+                    errors.append(f"Error converting URI {uri}: {e}")
+                    continue
+
+                if not path.exists():
+                    pruned_files.append(str(path))
+                    collection.delete_one({"_id": doc["_id"]})
+        except Exception as e:
+            errors.append(f"An error occurred during pruning: {e}")
+        finally:
+            client.close()
+
+        return {
+            "success": not errors,
+            "pruned_count": len(pruned_files),
+            "processed_count": processed_count,
+            "pruned_files": pruned_files,
+            "errors": errors,
+        }
+

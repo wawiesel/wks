@@ -29,6 +29,7 @@ def test_valid_minimal_config(tmp_path):
             "ignore_dirnames": [".git"],
             "ignore_globs": ["*.tmp"],
             "state_file": "~/.wks/monitor_state.json",
+            "touch_weight": 0.2,
         },
     }
 
@@ -89,6 +90,7 @@ def test_invalid_numeric_values():
             "ignore_dirnames": [],
             "ignore_globs": [],
             "state_file": "~/.wks/monitor_state.json",
+            "touch_weight": 0.2,
         },
     }
 
@@ -96,6 +98,48 @@ def test_invalid_numeric_values():
     assert any("log_max_entries must be positive" in e for e in errors)
     assert any("active_files_max_rows must be an integer" in e for e in errors)
 
+
+def test_touch_weight_validation(tmp_path):
+    """monitor.touch_weight must be numeric and within range."""
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir()
+
+    include_path = tmp_path / "include"
+    include_path.mkdir()
+
+    cfg = {
+        "vault_path": str(vault_path),
+        "obsidian": {
+            "base_dir": "WKS",
+            "log_max_entries": 500,
+            "active_files_max_rows": 50,
+            "source_max_chars": 40,
+            "destination_max_chars": 40,
+        },
+        "monitor": {
+            "include_paths": [str(include_path)],
+            "exclude_paths": [],
+            "ignore_dirnames": [],
+            "ignore_globs": [],
+            "state_file": "~/.wks/monitor_state.json",
+            "touch_weight": 0.0,
+        },
+    }
+
+    errors = validate_config(cfg)
+    assert any("touch_weight" in e for e in errors)
+
+    cfg["monitor"]["touch_weight"] = "not-a-number"
+    errors = validate_config(cfg)
+    assert any("touch_weight" in e for e in errors)
+
+    cfg["monitor"]["touch_weight"] = 0.0005
+    errors = validate_config(cfg)
+    assert any("touch_weight" in e for e in errors)
+
+    cfg["monitor"]["touch_weight"] = 0.2
+    errors = validate_config(cfg)
+    assert not any("touch_weight" in e for e in errors)
 
 def test_similarity_validation():
     """Test similarity config validation."""
@@ -114,6 +158,7 @@ def test_similarity_validation():
             "ignore_dirnames": [],
             "ignore_globs": [],
             "state_file": "~/.wks/monitor_state.json",
+            "touch_weight": 0.2,
         },
         "similarity": {
             "enabled": True,
@@ -149,6 +194,7 @@ def test_validate_and_raise_success(tmp_path):
             "ignore_dirnames": [],
             "ignore_globs": [],
             "state_file": "~/.wks/monitor_state.json",
+            "touch_weight": 0.2,
         },
     }
 

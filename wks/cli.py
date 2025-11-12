@@ -155,26 +155,10 @@ def _format_timestamp_value(value: Optional[Any], fmt: str) -> str:
         return text
 
 
-def _doc_path_to_local(doc: Dict[str, Any]) -> Optional[Path]:
-    local = doc.get("path_local")
-    if isinstance(local, str) and local:
-        try:
-            return Path(local).expanduser()
-        except Exception:
-            pass
-    uri = doc.get("path")
-    if isinstance(uri, str) and uri:
-        if uri.startswith("file://"):
-            try:
-                parsed = urlparse(uri)
-                return Path(unquote(parsed.path or "")).expanduser()
-            except Exception:
-                return None
-        try:
-            return Path(uri).expanduser()
-        except Exception:
-            return None
-    return None
+def _doc_path_to_local(doc: Dict[str, Any]) -> Dict[str, Any]:
+    if "path" in doc:
+        doc["path"] = uri_to_path(doc["path"])
+    return doc
 
 
 @dataclass
