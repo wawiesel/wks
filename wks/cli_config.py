@@ -5,12 +5,12 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from .config import load_user_config, DEFAULT_TIMESTAMP_FORMAT
+from .config import load_config, DEFAULT_TIMESTAMP_FORMAT
 
 
 def print_config(args: argparse.Namespace) -> int:
     """Print effective configuration."""
-    cfg = load_user_config()
+    cfg = load_config()
     print(json.dumps(cfg, indent=2, sort_keys=True))
     return 0
 

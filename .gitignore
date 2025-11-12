@@ -5,6 +5,7 @@ venv/
 .venv/
 *.pyc
 **/__pycache__/
+.coverage
 
 # IDE
 .vscode/

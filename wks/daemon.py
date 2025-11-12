@@ -10,6 +10,7 @@ import json
 import os
 import threading
 from collections import deque
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 try:
@@ -19,6 +20,8 @@ except Exception:  # pragma: no cover
 from pathlib import Path
 from typing import Optional, Set, List, Dict, Any
 
+from pymongo.collection import Collection
+
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from .monitor import start_monitoring
 from .obsidian import ObsidianVault
@@ -26,8 +29,11 @@ from .activity import ActivityTracker
 from .mongoctl import MongoGuard, ensure_mongo_running
 from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
 from .config_validator import validate_and_raise, ConfigValidationError
-from .config import load_user_config
-from .utils import get_package_version, expand_path
+from .config import load_config
+from .utils import get_package_version, expand_path, file_checksum
+from .priority import calculate_priority
+from .uri_utils import uri_to_path
+
 try:
     from .config import mongo_settings
     from .similarity import build_similarity_from_config
@@ -45,6 +51,7 @@ class WKSDaemon:
 
     def __init__(
         self,
+        config: Dict[str, Any],
         vault_path: Path,
         base_dir: str,
         obsidian_log_max_entries: int,
@@ -68,6 +75,7 @@ class WKSDaemon:
         fs_rate_long_weight: float = 0.2,
         maintenance_interval_secs: float = 600.0,
         mongo_uri: Optional[str] = None,
+        monitor_collection: Optional[Collection] = None,
     ):
         """
         Initialize WKS daemon.
@@ -77,6 +85,7 @@ class WKSDaemon:
             monitor_paths: List of paths to monitor
             state_file: Path to monitoring state file
         """
+        self.config = config
         self.vault = ObsidianVault(
             vault_path,
             base_dir=base_dir,
@@ -132,6 +141,43 @@ class WKSDaemon:
         self._maintenance_stop_event = threading.Event()
         self.mongo_uri = str(mongo_uri or "")
         self._mongo_guard: Optional[MongoGuard] = None
+        self.monitor_collection = monitor_collection
+
+    def _update_monitor_db(self, path: Path):
+        if self.monitor_collection is None:
+            return
+
+        try:
+            stat = path.stat()
+            checksum = file_checksum(path)
+            monitor_config = self.config.get("monitor", {})
+            managed_dirs = monitor_config.get("managed_directories", {})
+            priority_config = monitor_config.get("priority", {})
+            priority = calculate_priority(path, managed_dirs, priority_config)
+
+            doc = {
+                "path": path.as_uri(),
+                "timestamp": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "checksum": checksum,
+                "bytes": stat.st_size,
+                "priority": priority,
+            }
+
+            self.monitor_collection.update_one(
+                {"path": doc["path"]},
+                {"$set": doc},
+                upsert=True,
+            )
+        except Exception as e:
+            self._set_error(f"monitor_db_update_error: {e}")
+
+    def _remove_from_monitor_db(self, path: Path):
+        if self.monitor_collection is None:
+            return
+        try:
+            self.monitor_collection.delete_one({"path": path.as_uri()})
+        except Exception as e:
+            self._set_error(f"monitor_db_delete_error: {e}")
 
     def _should_index_for_similarity(self, path: Path) -> bool:
         if not self.similarity or not path.exists() or not path.is_file():
@@ -205,6 +251,11 @@ class WKSDaemon:
                 self.vault.update_vault_links_on_move(src, dest)
             except Exception:
                 pass
+
+            # Update monitor DB
+            self._remove_from_monitor_db(src)
+            self._update_monitor_db(dest)
+
             # Update similarity index
             try:
                 if self.similarity:
@@ -554,6 +605,57 @@ class WKSDaemon:
             pass
         return False
 
+    def _maybe_prune_monitor_db(self):
+        """Prune monitor database entries that are missing or match exclude rules."""
+        if self.monitor_collection is None:
+            return
+        now = time.time()
+        if now - self._last_prune_check < self._prune_interval_secs:
+            return
+        self._last_prune_check = now
+
+        try:
+            removed = 0
+            # Iterate over all monitor entries
+            cursor = self.monitor_collection.find({}, {"path": 1})
+            for doc in cursor:
+                uri = doc.get('path')
+                if not uri:
+                    continue
+
+                # Convert URI to path for checking
+                try:
+                    p = uri_to_path(uri)
+                except Exception:
+                    continue
+
+                # Check if file is missing
+                try:
+                    missing = not p.exists()
+                except Exception:
+                    missing = True
+
+                # Check if file should be ignored by current rules
+                ignored = False
+                if not missing:
+                    try:
+                        ignored = self._should_ignore_by_rules(p)
+                    except Exception:
+                        ignored = False
+
+                # Remove if missing or ignored
+                if missing or ignored:
+                    try:
+                        self.monitor_collection.delete_one({"path": uri})
+                        removed += 1
+                    except Exception:
+                        continue
+
+            if removed:
+                print(f"Monitor maintenance: pruned {removed} stale/excluded entries")
+        except Exception as e:
+            self._set_error(f"monitor_prune_error: {e}")
+
     def _maybe_prune_similarity_db(self):
         if not self.similarity:
             return
@@ -622,6 +724,9 @@ class WKSDaemon:
                 except Exception as e:
                     self._set_error(f"delete_log_error: {e}")
                     pass
+
+                self._remove_from_monitor_db(p)
+
                 try:
                     if self.similarity:
                         self.similarity.remove_file(p)
@@ -664,6 +769,9 @@ class WKSDaemon:
                     except Exception as e:
                         self._set_error(f"activity_error: {e}")
                     self._maybe_update_active_files()
+
+                    self._update_monitor_db(p)
+
                     # Similarity indexing
                     try:
                         if self._should_index_for_similarity(p) and self.similarity:
@@ -878,6 +986,11 @@ class WKSDaemon:
 
     def _get_tracked_files_count(self) -> int:
         """Return number of unique files tracked in monitor state."""
+        if self.monitor_collection is not None:
+            try:
+                return self.monitor_collection.count_documents({})
+            except Exception:
+                return 0
         try:
             state_path = Path(self.state_file)
             if not state_path.exists():
@@ -891,9 +1004,10 @@ class WKSDaemon:
 
 if __name__ == "__main__":
     import sys
+    from pymongo import MongoClient
 
     # Load and validate config
-    config = load_user_config()
+    config = load_config()
     try:
         validate_and_raise(config)
     except ConfigValidationError as e:
@@ -928,7 +1042,13 @@ if __name__ == "__main__":
     mongo_uri = str(mongo_cfg.get("uri", ""))
     ensure_mongo_running(mongo_uri, record_start=True)
 
+    client = MongoClient(mongo_uri)
+    monitor_db_name = monitor_cfg.get("database", "wks")
+    monitor_coll_name = monitor_cfg.get("collection", "monitor")
+    monitor_collection = client[monitor_db_name][monitor_coll_name]
+
     daemon = WKSDaemon(
+        config=config,
         vault_path=vault_path,
         base_dir=base_dir,
         obsidian_log_max_entries=int(obsidian_cfg["log_max_entries"]),
@@ -944,6 +1064,7 @@ if __name__ == "__main__":
         ignore_patterns=ignore_patterns,
         ignore_globs=ignore_globs,
         mongo_uri=mongo_uri,
+        monitor_collection=monitor_collection,
     )
 
     # Recreate activity tracker with configured file (after daemon constructed)

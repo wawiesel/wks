@@ -49,7 +49,6 @@ from .dbmeta import (
 from .utils import get_package_version
 from . import mongoctl
 from .templating import render_template
-from . import cli_db
 
 
 LOCK_FILE = Path.home() / WKS_HOME_EXT / "daemon.lock"
@@ -1776,160 +1775,278 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         cfg = load_config()
 
-        # Use MonitorController to get status (includes validation)
-        status_data = MonitorController.get_status(cfg)
+        # Get monitor config
+        monitor_config = cfg.get("monitor", {})
 
-        # Extract data
-        total_files = status_data["tracked_files"]
-        issues = status_data["issues"]
-        redundancies = status_data["redundancies"]
-        managed_dirs_dict = status_data["managed_directories"]
-        include_paths = set(status_data["include_paths"])
-        exclude_paths = set(status_data["exclude_paths"])
+        # Get database connection
+        mongo_config = cfg.get("mongo", {})
+        if not mongo_config:
+            mongo_config = cfg.get("db", {})
 
-        # Build table data
-        table_data = [
-            {"Setting": "Tracked Files", "Value": str(total_files)},
-            {"Setting": "", "Value": ""},
-            {"Setting": "managed_directories", "Value": str(len(managed_dirs_dict))},
-        ]
+        mongo_uri = mongo_config.get("uri", "mongodb://localhost:27017/")
+        db_name = monitor_config.get("database", "wks")
+        coll_name = monitor_config.get("collection", "monitor")
 
-        # Build sets of problematic paths for coloring
-        red_paths = set()
-        yellow_paths = set()
-        for issue in issues:
-            for path in list(managed_dirs_dict.keys()) + list(include_paths) + list(exclude_paths):
-                if f"'{path}'" in issue or f" {path}" in issue or issue.endswith(path):
-                    red_paths.add(path)
+        # Run validation first
+        include_paths = set(monitor_config.get("include_paths", []))
+        exclude_paths = set(monitor_config.get("exclude_paths", []))
+        managed_dirs = set(monitor_config.get("managed_directories", {}).keys())
+        ignore_dirnames = monitor_config.get("ignore_dirnames", [])
+        ignore_globs = monitor_config.get("ignore_globs", [])
 
-        for redund in redundancies:
-            for path in list(managed_dirs_dict.keys()) + list(include_paths) + list(exclude_paths):
-                if f"'{path}'" in redund or f" {path}" in redund or redund.endswith(path):
-                    yellow_paths.add(path)
+        issues = []  # Inconsistencies (red)
+        redundancies = []  # Redundant items (yellow)
 
-        # Calculate max pip count and max number width for alignment
-        import math
-        max_pip_count = 0
-        max_num_width = 0
-        for path_info in managed_dirs_dict.values():
-            priority = path_info["priority"]
-            if priority <= 1:
-                pip_count = 1
-            else:
-                pip_count = int(math.log10(priority)) + 1
-            max_pip_count = max(max_pip_count, pip_count)
-            max_num_width = max(max_num_width, len(str(priority)))
+        # Check for conflicts
+        conflicts = include_paths & exclude_paths
+        for path in conflicts:
+            issues.append(f"Path in both include_paths and exclude_paths: {path}")
 
-        # Add managed directories with logarithmic pip visualization
-        for path, path_info in sorted(managed_dirs_dict.items(), key=lambda x: -x[1]["priority"]):
-            priority = path_info["priority"]
-            is_valid = path_info["valid"]
-            error_msg = path_info["error"]
+        # Check for duplicate managed directories (nested)
+        from pathlib import Path as P
+        managed_list = list(managed_dirs)
+        for i, dir1 in enumerate(managed_list):
+            p1 = P(dir1).expanduser().resolve()
+            for dir2 in managed_list[i+1:]:
+                p2 = P(dir2).expanduser().resolve()
+                try:
+                    if p1 == p2:
+                        redundancies.append(f"Duplicate managed_directories: {dir1} and {dir2} resolve to same path")
+                except:
+                    pass
 
-            # Create logarithmic pip visualization
-            if priority <= 1:
-                pip_count = 1
-            else:
-                pip_count = int(math.log10(priority)) + 1
-            pips = "▪" * pip_count
-
-            # Get status symbol
-            status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
-
-            # Left-align pips, right-align numbers, add status symbol
-            pips_padded = pips.ljust(max_pip_count)
-            num_padded = str(priority).rjust(max_num_width)
-            priority_display = f"{pips_padded} {num_padded} {status_symbol}"
-
-            table_data.append({
-                "Setting": f"  {path}",
-                "Value": priority_display
-            })
-
-        table_data.append({"Setting": "", "Value": ""})
-        table_data.append({"Setting": "include_paths", "Value": str(len(include_paths))})
-        for path in sorted(include_paths):
-            error_msg = None if path not in (red_paths | yellow_paths) else "issue"
-            is_valid = path not in red_paths
-            table_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
-
-        table_data.append({"Setting": "", "Value": ""})
-        table_data.append({"Setting": "exclude_paths", "Value": str(len(exclude_paths))})
-        for path in sorted(exclude_paths):
-            error_msg = None if path not in (red_paths | yellow_paths) else "issue"
-            is_valid = path not in red_paths
-            table_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
-
-        # Get ignore rules from status data
-        ignore_dirnames = status_data["ignore_dirnames"]
-        ignore_globs = status_data["ignore_globs"]
-
-        # Build ignore rules list with validation
-        ignore_list = []
-        ignore_list.append(("ignore_dirnames", str(len(ignore_dirnames))))
-        ignore_list.append(("", ""))
-
-        # Validate each ignore_dirname
+        # Check for redundant ignore_dirnames (matched by ignore_globs)
         for dirname in ignore_dirnames:
-            validation_info = status_data["ignore_dirname_validation"].get(dirname, {})
-            error_msg = validation_info.get("error")
-            is_valid = validation_info.get("valid", True)
-            ignore_list.append((f"  {dirname}", MonitorValidator.status_symbol(error_msg, is_valid)))
+            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs)
+            if not is_valid:
+                redundancies.append(f"ignore_dirnames entry '{dirname}': {error_msg}")
 
-        ignore_list.append(("", ""))
-        ignore_list.append(("ignore_globs", str(len(ignore_globs))))
-
-        # Validate each ignore_glob for syntax errors
+        # Check for invalid ignore_globs (syntax errors)
         for glob_pattern in ignore_globs:
-            validation_info = status_data["ignore_glob_validation"].get(glob_pattern, {})
-            error_msg = validation_info.get("error")
-            is_valid = validation_info.get("valid", True)
-            ignore_list.append((f"  {glob_pattern}", MonitorValidator.status_symbol(error_msg, is_valid)))
+            is_valid, error_msg = MonitorValidator.validate_ignore_glob(glob_pattern)
+            if not is_valid:
+                issues.append(f"ignore_globs entry '{glob_pattern}': {error_msg}")
 
-        # Combine into single table with 4 columns
-        max_rows = max(len(table_data), len(ignore_list))
-        combined_data = []
+        # Check for managed_directories that would not be monitored
+        managed_dirs_dict = monitor_config.get("managed_directories", {})
+        for managed_path in managed_dirs_dict.keys():
+            is_valid, error_msg = MonitorValidator.validate_managed_directory(
+                managed_path,
+                list(include_paths),
+                list(exclude_paths),
+                ignore_dirnames,
+                ignore_globs
+            )
+            if not is_valid:
+                issues.append(f"managed_directories entry '{managed_path}' would NOT be monitored: {error_msg}")
 
-        for i in range(max_rows):
-            row = {}
-            if i < len(table_data):
-                row["Setting"] = table_data[i]["Setting"]
-                row["Value"] = table_data[i]["Value"]
-            else:
-                row["Setting"] = ""
-                row["Value"] = ""
+        # Check for vault_path in include/exclude paths (vault is automatically ignored)
+        vault_path = cfg.get("vault_path")
+        if vault_path:
+            vault_resolved = str(P(vault_path).expanduser().resolve())
 
-            if i < len(ignore_list):
-                row["Ignore Rule"] = ignore_list[i][0]
-                row["Count"] = ignore_list[i][1]
-            else:
-                row["Ignore Rule"] = ""
-                row["Count"] = ""
+            # Check if vault_path is EXPLICITLY in include_paths (ERROR - exact match only)
+            for include_path in include_paths:
+                include_resolved = str(P(include_path).expanduser().resolve())
+                if vault_resolved == include_resolved:
+                    issues.append(f"vault_path '{vault_path}' explicitly in include_paths - vault is automatically ignored")
 
-            combined_data.append(row)
+            # Check if vault_path is in exclude_paths (WARNING - redundant)
+            for exclude_path in exclude_paths:
+                exclude_resolved = str(P(exclude_path).expanduser().resolve())
+                if vault_resolved == exclude_resolved:
+                    redundancies.append(f"exclude_paths entry '{exclude_path}' is redundant - vault_path is automatically ignored")
 
-        display.table(
-            combined_data,
-            headers=["Setting", "Value", "Ignore Rule", "Count"],
-            title="Monitor Status",
-            column_justify={"Value": "right", "Count": "right"}
-        )
+        # Check for ~/.wks and .wkso (automatically ignored system paths)
+        wks_home = str(P("~/.wks").expanduser().resolve())
 
-        # Print issues and redundancies
-        if issues:
-            display.error(f"\nInconsistencies found ({len(issues)}):")
+        # Check if ~/.wks is EXPLICITLY in include_paths (ERROR - exact match only)
+        for include_path in include_paths:
+            include_resolved = str(P(include_path).expanduser().resolve())
+            if wks_home == include_resolved:
+                issues.append(f"WKS home '~/.wks' explicitly in include_paths - WKS home is automatically ignored")
+
+        # Check if ~/.wks is in exclude_paths (WARNING - redundant)
+        for exclude_path in exclude_paths:
+            exclude_resolved = str(P(exclude_path).expanduser().resolve())
+            if wks_home == exclude_resolved:
+                redundancies.append(f"exclude_paths entry '{exclude_path}' is redundant - WKS home is automatically ignored")
+
+        # Check if .wkso is in ignore_dirnames (WARNING - redundant)
+        if ".wkso" in ignore_dirnames:
+            redundancies.append(f"ignore_dirnames entry '.wkso' is redundant - .wkso directories are automatically ignored")
+
+        # Check if ~/.wks is in managed_directories (ERROR)
+        for managed_path in managed_dirs_dict.keys():
+            managed_resolved = str(P(managed_path).expanduser().resolve())
+            if managed_resolved == wks_home or managed_resolved.startswith(wks_home + "/"):
+                issues.append(f"managed_directories entry '{managed_path}' is in WKS home - cannot manage WKS home directory")
+
+        # Connect to MongoDB
+        display.status(f"Connecting to {db_name}.{coll_name}...")
+        try:
+            from pymongo import MongoClient
+            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client.server_info()
+            db = client[db_name]
+            coll = db[coll_name]
+
+            # Get statistics
+            total_files = coll.count_documents({})
+
+            managed_dirs_dict = monitor_config.get("managed_directories", {})
+
+            # Build table data
+            status_data = [
+                {"Setting": "Tracked Files", "Value": str(total_files)},
+                {"Setting": "", "Value": ""},
+                {"Setting": "managed_directories", "Value": str(len(managed_dirs_dict))},
+            ]
+
+            # Build sets of problematic paths for coloring
+            red_paths = set()
+            yellow_paths = set()
             for issue in issues:
-                display.error(f"  • {issue}")
+                for path in managed_dirs_dict.keys() | include_paths | exclude_paths:
+                    if f"'{path}'" in issue or f" {path}" in issue or issue.endswith(path):
+                        red_paths.add(path)
 
-        if redundancies:
-            display.warning(f"\nRedundancies found ({len(redundancies)}):")
             for redund in redundancies:
-                display.warning(f"  • {redund}")
+                for path in managed_dirs_dict.keys() | include_paths | exclude_paths:
+                    if f"'{path}'" in redund or f" {path}" in redund or redund.endswith(path):
+                        yellow_paths.add(path)
 
-        if not issues and not redundancies:
-            display.success("\n✓ No configuration issues found")
+            # Calculate max pip count and max number width for alignment
+            import math
+            max_pip_count = 0
+            max_num_width = 0
+            for priority in managed_dirs_dict.values():
+                if priority <= 1:
+                    pip_count = 1
+                else:
+                    pip_count = int(math.log10(priority)) + 1
+                max_pip_count = max(max_pip_count, pip_count)
+                max_num_width = max(max_num_width, len(str(priority)))
 
-        return 0
+            # Add managed directories with logarithmic pip visualization and validation
+            for path, priority in sorted(managed_dirs_dict.items(), key=lambda x: -x[1]):
+                # Create logarithmic pip visualization
+                # 1 pip for <=1, 2 pips for <10, 3 pips for <100, 4 pips for <1000, etc.
+                if priority <= 1:
+                    pip_count = 1
+                else:
+                    pip_count = int(math.log10(priority)) + 1
+                pips = "▪" * pip_count
+
+                # Validate that this managed directory would be monitored
+                is_valid, error_msg = MonitorValidator.validate_managed_directory(
+                    path,
+                    list(include_paths),
+                    list(exclude_paths),
+                    ignore_dirnames,
+                    ignore_globs
+                )
+
+                # Collect validation messages and get status symbol
+                if error_msg:
+                    issues.append(f"managed_directories entry '{path}': {error_msg}")
+                status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
+
+                # Left-align pips, right-align numbers, add status symbol
+                pips_padded = pips.ljust(max_pip_count)
+                num_padded = str(priority).rjust(max_num_width)
+                priority_display = f"{pips_padded} {num_padded} {status_symbol}"
+
+                status_data.append({
+                    "Setting": f"  {path}",
+                    "Value": priority_display
+                })
+
+            status_data.append({"Setting": "", "Value": ""})
+            status_data.append({"Setting": "include_paths", "Value": str(len(include_paths))})
+            for path in sorted(include_paths):
+                error_msg = None if path not in (red_paths | yellow_paths) else "issue"
+                is_valid = path not in red_paths
+                status_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
+
+            status_data.append({"Setting": "", "Value": ""})
+            status_data.append({"Setting": "exclude_paths", "Value": str(len(exclude_paths))})
+            for path in sorted(exclude_paths):
+                error_msg = None if path not in (red_paths | yellow_paths) else "issue"
+                is_valid = path not in red_paths
+                status_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
+
+            # Build ignore rules list with validation
+            ignore_list = []
+            ignore_list.append(("ignore_dirnames", str(len(ignore_dirnames))))
+            ignore_list.append(("", ""))
+
+            # Validate each ignore_dirname
+            for dirname in ignore_dirnames:
+                is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs)
+                ignore_list.append((f"  {dirname}", MonitorValidator.status_symbol(error_msg, is_valid)))
+                if error_msg:
+                    (redundancies if is_valid else issues).append(f"ignore_dirnames entry '{dirname}': {error_msg}")
+
+            ignore_list.append(("", ""))
+            ignore_list.append(("ignore_globs", str(len(ignore_globs))))
+
+            # Validate each ignore_glob for syntax errors
+            for glob_pattern in ignore_globs:
+                is_valid, error_msg = MonitorValidator.validate_ignore_glob(glob_pattern)
+                ignore_list.append((f"  {glob_pattern}", MonitorValidator.status_symbol(error_msg, is_valid)))
+                if error_msg:
+                    (redundancies if is_valid else issues).append(f"ignore_globs pattern '{glob_pattern}': {error_msg}")
+
+            # Combine into single table with 4 columns
+            max_rows = max(len(status_data), len(ignore_list))
+            combined_data = []
+
+            for i in range(max_rows):
+                row = {}
+                if i < len(status_data):
+                    row["Setting"] = status_data[i]["Setting"]
+                    row["Value"] = status_data[i]["Value"]
+                else:
+                    row["Setting"] = ""
+                    row["Value"] = ""
+
+                if i < len(ignore_list):
+                    row["Ignore Rule"] = ignore_list[i][0]
+                    row["Count"] = ignore_list[i][1]
+                else:
+                    row["Ignore Rule"] = ""
+                    row["Count"] = ""
+
+                combined_data.append(row)
+
+            display.table(
+                combined_data,
+                headers=["Setting", "Value", "Ignore Rule", "Count"],
+                title="Monitor Status",
+                column_justify={"Value": "right", "Count": "right"}
+            )
+
+            # Print issues and redundancies
+            if issues:
+                display.error(f"\nInconsistencies found ({len(issues)}):")
+                for issue in issues:
+                    display.error(f"  • {issue}")
+
+            if redundancies:
+                display.warning(f"\nRedundancies found ({len(redundancies)}):")
+                for redund in redundancies:
+                    display.warning(f"  • {redund}")
+
+            if not issues and not redundancies:
+                display.success("\n✓ No configuration issues found")
+
+            client.close()
+            return 0
+
+        except Exception as e:
+            display.error(f"Failed to get monitor status: {e}")
+            return 2
 
     monstatus.set_defaults(func=_monitor_status_cmd)
 
@@ -3139,8 +3256,771 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     rel.set_defaults(func=_related_cmd)
 
-    # DB command: query databases by layer
-    dbp = cli_db.setup_db_parser(sub)
+    # DB command: simple query passthrough and stats
+    dbp = sub.add_parser("db", help="Database helpers: query and stats")
+    dbsub = dbp.add_subparsers(dest="db_cmd")
+    dbq = dbsub.add_parser("query", help="Run a JSON query against the selected DB space")
+    # Choose logical DB space: --space (embeddings) or --time (snapshots)
+    scope = dbq.add_mutually_exclusive_group(required=True)
+    scope.add_argument("--space", action="store_true", help="Query the space DB (embeddings)")
+    scope.add_argument("--time", action="store_true", help="Query the time DB (snapshots)")
+    dbq.add_argument('--filter', default='{}', help='JSON filter, e.g. {"path": {"$regex": "2025-WKS"}}')
+    dbq.add_argument('--projection', default=None, help='JSON projection, e.g. {"path":1,"timestamp":1}')
+    dbq.add_argument("--limit", type=int, default=20)
+    dbq.add_argument("--sort", default=None, help="Sort spec 'field:asc|desc' (optional)")
+    def _db_query(args: argparse.Namespace) -> int:
+        cfg_local = load_config()
+        space_tag, time_tag = resolve_db_compatibility(cfg_local)
+        pkg_version = get_package_version()
+        try:
+            client, mongo_cfg = _mongo_client_params(cfg=cfg_local)
+        except Exception as e:
+            print(f"DB connection failed: {e}")
+            return 2
+        try:
+            import json as _json
+            filt = _json.loads(args.filter or "{}")
+            proj = _json.loads(args.projection) if args.projection else None
+        except Exception as e:
+            print(f"Invalid JSON: {e}")
+            return 2
+        # Decide target collection by logical DB
+        if args.space:
+            coll_name = mongo_cfg['space_collection']
+            scope_label = 'space'
+            try:
+                ensure_db_compat(
+                    client,
+                    mongo_cfg['space_database'],
+                    scope_label,
+                    space_tag,
+                    product_version=pkg_version,
+                )
+            except IncompatibleDatabase as exc:
+                print(exc)
+                return 2
+            coll = client[mongo_cfg['space_database']][coll_name]
+        else:
+            coll_name = mongo_cfg['time_collection']
+            scope_label = 'time'
+            try:
+                ensure_db_compat(
+                    client,
+                    mongo_cfg['time_database'],
+                    scope_label,
+                    time_tag,
+                    product_version=pkg_version,
+                )
+            except IncompatibleDatabase as exc:
+                print(exc)
+                return 2
+            coll = client[mongo_cfg['time_database']][coll_name]
+        try:
+            cur = coll.find(filt, proj)
+        except Exception as e:
+            print(f"DB query failed: {e}")
+            return 1
+        if args.sort:
+            try:
+                fld, dirspec = args.sort.split(':',1)
+                direction = 1 if dirspec.lower().startswith('asc') else -1
+                cur = cur.sort(fld, direction)
+            except Exception:
+                pass
+        if args.limit:
+            cur = cur.limit(int(args.limit))
+        try:
+            record_db_activity(f"db.query.{scope_label}", args.filter or "{}")
+        except Exception:
+            pass
+        docs = list(cur)
+        payload = {
+            "scope": scope_label,
+            "collection": coll_name,
+            "count": len(docs),
+            "documents": docs,
+        }
+        _maybe_write_json(args, payload)
+        if not _display_enabled(args.display):
+            return 0
+        if args.display == "markdown":
+            rows = [
+                _json_dumps(doc) if not isinstance(doc, str) else doc
+                for doc in docs
+            ]
+            print(
+                render_template(
+                    DB_QUERY_MARKDOWN_TEMPLATE,
+                    {"scope": scope_label, "collection": coll_name, "rows": rows},
+                )
+            )
+            return 0
+        use_rich = args.display in {"rich", "plain"}
+        if use_rich:
+            try:
+                from rich import box
+                from rich.console import Console
+                from rich.table import Table
+
+                table_box = box.SQUARE if args.display == "rich" else box.SIMPLE
+                header_style = "bold" if args.display == "rich" else ""
+                table = Table(
+                    title=f"[{scope_label}] {coll_name} query",
+                    header_style=header_style,
+                    box=table_box,
+                    expand=False,
+                    pad_edge=False,
+                )
+                table.add_column("#", justify="right", no_wrap=True)
+                table.add_column("Document", overflow="fold")
+                for idx, doc in enumerate(docs, 1):
+                    table.add_row(str(idx), str(doc))
+                Console().print(table)
+                return 0
+            except Exception:
+                use_rich = False
+        if not use_rich:
+            for idx, doc in enumerate(docs, 1):
+                print(f"[{idx}] {doc}")
+        return 0
+    dbq.set_defaults(func=_db_query)
+
+    def _db_info(args: argparse.Namespace) -> int:
+        # Use a lightweight, fast Mongo client for stats (no model/docling startup)
+        cfg_local = load_config()
+        ts_format = timestamp_format(cfg_local)
+        display_mode = args.display
+
+        reference_input = getattr(args, 'reference', None)
+        reference_uri: Optional[str] = None
+        reference_path: Optional[Path] = None
+        reference_info: Optional[Dict[str, Any]] = None
+        db_idx = None
+        if reference_input:
+            from urllib.parse import unquote, urlparse
+
+            if reference_input.startswith("file://"):
+                parsed = urlparse(reference_input)
+                reference_uri = reference_input
+                reference_path = Path(unquote(parsed.path or "")).expanduser()
+            else:
+                reference_path = Path(reference_input).expanduser()
+                reference_uri = _as_file_uri_local(reference_path)
+            if not reference_path.exists():
+                print(f"Reference file not found: {reference_path}")
+                return 2
+            try:
+                db_idx, _ = _load_similarity_required()
+                extractor = _build_extractor(cfg_local)
+                checksum_val = None
+                size_val = None
+                try:
+                    checksum_val = _file_checksum(reference_path)
+                except Exception:
+                    checksum_val = None
+                try:
+                    size_val = reference_path.stat().st_size
+                except Exception:
+                    size_val = None
+                extraction = extractor.extract(reference_path, persist=True)
+                db_idx.add_file(
+                    reference_path,
+                    extraction=extraction,
+                    file_checksum=checksum_val,
+                    file_bytes=size_val,
+                )
+            except SystemExit:
+                raise
+            except Exception as exc:
+                print(f"Failed to index reference: {exc}")
+                return 2
+            finally:
+                if db_idx is not None:
+                    try:
+                        db_idx.client.close()
+                    except Exception:
+                        pass
+            reference_info = {"uri": reference_uri, "path": reference_path}
+        else:
+            reference_info = None
+
+        try:
+            client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
+        except Exception as e:
+            try:
+                mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
+                client, mongo_cfg = _mongo_client_params(server_timeout=300, connect_timeout=300, cfg=cfg_local)
+            except Exception:
+                print(f"DB connection failed: {e}")
+                return 2
+        try:
+            client.admin.command('ping')
+        except Exception as e:
+            print(f"DB unreachable: {e}")
+            return 1
+        space_tag, time_tag = resolve_db_compatibility(cfg_local)
+        pkg_version = get_package_version()
+        info_scope = "time" if getattr(args, "time", False) else "space"
+        target_db = mongo_cfg['time_database'] if info_scope == "time" else mongo_cfg['space_database']
+        compat_tag = time_tag if info_scope == "time" else space_tag
+        try:
+            ensure_db_compat(
+                client,
+                target_db,
+                info_scope,
+                compat_tag,
+                product_version=pkg_version,
+            )
+        except IncompatibleDatabase as exc:
+            print(exc)
+            return 2
+        coll_space = mongo_cfg['space_collection']
+        coll_time = mongo_cfg['time_collection']
+        if reference_info and getattr(args, 'time', False):
+            print("Reference comparisons are only available for the space database.")
+            return 2
+        # Helper to format timestamps consistently
+        from datetime import datetime as _dt
+        def _fmt_ts(ts):
+            if not ts:
+                return ""
+            try:
+                if isinstance(ts, str):
+                    s = ts.replace('Z','+00:00') if ts.endswith('Z') else ts
+                    dt = _dt.fromisoformat(s)
+                else:
+                    dt = _dt.fromtimestamp(float(ts))
+                return dt.strftime(ts_format)
+            except Exception:
+                return str(ts)
+
+        def _fmt_bytes(value: Optional[Any]) -> str:
+            try:
+                if value is None:
+                    return "-"
+                bytes_val = float(value)
+            except Exception:
+                return "-"
+            units = ['B', 'kB', 'MB', 'GB', 'TB']
+            i = 0
+            while bytes_val >= 1024.0 and i < len(units) - 1:
+                bytes_val /= 1024.0
+                i += 1
+            return f"{bytes_val:7.2f} {units[i]:>2}"
+
+        def _fmt_uri(doc: Dict[str, Any]) -> str:
+            uri = doc.get('path')
+            if uri:
+                return str(uri)
+            local = doc.get('path_local')
+            if not local:
+                return ""
+            try:
+                return Path(local).expanduser().resolve().as_uri()
+            except Exception:
+                return str(local)
+
+        def _fmt_checksum(value: Optional[Any]) -> str:
+            if value is None or value == "":
+                return "-"
+            text = str(value)
+            if len(text) <= 10:
+                return text
+            return f"{text[:10]} …"
+
+        def _parse_ts_value(ts: Any) -> Optional[_dt]:
+            if not ts:
+                return None
+            try:
+                if isinstance(ts, str):
+                    s = ts.replace("Z", "+00:00") if ts.endswith("Z") else ts
+                    return _dt.fromisoformat(s)
+                if isinstance(ts, (int, float)):
+                    return _dt.fromtimestamp(float(ts))
+            except Exception:
+                return None
+            return None
+
+        def _fmt_tdelta(delta: Optional[Any]) -> str:
+            if delta is None:
+                return "-"
+            if not isinstance(delta, (int, float)):
+                total_seconds = int(delta.total_seconds())
+            else:
+                total_seconds = int(delta)
+            sign = "+" if total_seconds >= 0 else "-"
+            total_seconds = abs(total_seconds)
+            days, rem = divmod(total_seconds, 86400)
+            hours, rem = divmod(rem, 3600)
+            minutes, seconds = divmod(rem, 60)
+            if days:
+                return f"{sign}{days}d {hours:02d}:{minutes:02d}:{seconds:02d}"
+            return f"{sign}{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+        def _fmt_size_delta(delta: Optional[Any]) -> str:
+            if delta is None:
+                return "-"
+            try:
+                value = float(delta)
+            except Exception:
+                return "-"
+            sign = "+" if value >= 0 else "-"
+            value = abs(value)
+            units = ['B', 'kB', 'MB', 'GB', 'TB']
+            i = 0
+            while value >= 1024.0 and i < len(units) - 1:
+                value /= 1024.0
+                i += 1
+            return f"{sign}{value:7.2f} {units[i]:>2}"
+
+        def _fmt_angle_delta(delta: Optional[float]) -> str:
+            if delta is None:
+                return "-"
+            return f"{delta:6.2f}°"
+
+        def _angle_between(vec_a: Optional[List[Any]], vec_b: Optional[List[Any]]) -> Optional[float]:
+            if not vec_a or not vec_b:
+                return None
+            try:
+                pairs = list(zip(vec_a, vec_b))
+                if not pairs:
+                    return None
+                dot = sum(float(a) * float(b) for a, b in pairs)
+                norm_a = math.sqrt(sum(float(a) * float(a) for a in vec_a))
+                norm_b = math.sqrt(sum(float(b) * float(b) for b in vec_b))
+                denom = norm_a * norm_b
+                if denom <= 0:
+                    return None
+                cosv = max(-1.0, min(1.0, dot / denom))
+                return math.degrees(math.acos(cosv))
+            except Exception:
+                return None
+
+        def _format_cell(text: str, width: int, align: str) -> str:
+            if align == "right":
+                return text.rjust(width)
+            if align == "center":
+                return text.center(width)
+            return text.ljust(width)
+
+        def _render_plain_boxed_table_simple(
+            title: str,
+            header: List[str],
+            rows: List[List[str]],
+            align: List[str],
+            limits: Optional[Dict[int, int]] = None,
+        ) -> None:
+            if not rows:
+                return
+            limits = limits or {}
+            processed: List[List[str]] = []
+            for row in rows:
+                processed_row: List[str] = []
+                for idx, cell in enumerate(row):
+                    text = str(cell)
+                    limit = limits.get(idx)
+                    if limit and len(text) > limit:
+                        if limit == 1:
+                            text = text[:1]
+                        else:
+                            text = text[: limit - 1] + "…"
+                    processed_row.append(text)
+                processed.append(processed_row)
+            widths: List[int] = []
+            for idx, head in enumerate(header):
+                col_width = len(str(head))
+                for row in processed:
+                    col_width = max(col_width, len(row[idx]))
+                limit = limits.get(idx)
+                if limit:
+                    col_width = min(col_width, limit)
+                widths.append(col_width)
+            total_width = sum(widths) + 3 * (len(widths) - 1)
+            border = "+" + "-" * (total_width + 2) + "+"
+            print()
+            print(border)
+            print("| " + title.center(total_width) + " |")
+            print(border)
+            header_line = " | ".join(
+                _format_cell(str(head), widths[idx], "center" if align[idx] == "right" else align[idx])
+                for idx, head in enumerate(header)
+            )
+            print("| " + header_line + " |")
+            separator = "-+-".join("-" * width for width in widths)
+            print("| " + separator + " |")
+            for row in processed:
+                line = " | ".join(
+                    _format_cell(cell, widths[idx], align[idx]) for idx, cell in enumerate(row)
+                )
+                print("| " + line + " |")
+            print(border)
+
+        if args.time:
+            coll = client[mongo_cfg['time_database']][coll_time]
+            total = coll.count_documents({})
+            if display_mode != 'json':
+                print({"database": mongo_cfg['time_database'], "collection": coll_time, "total_docs": total})
+            try:
+                record_db_activity("db.info.time", f"total={total}")
+            except Exception:
+                pass
+            n = int(getattr(args, 'latest', 0) or 0)
+            if n > 0:
+                cur = coll.find(
+                    {},
+                    {"path": 1, "t_new": 1, "checksum_new": 1, "size_bytes_new": 1, "bytes_delta": 1},
+                ).sort("t_new_epoch", -1).limit(n)
+                docs = list(cur)
+                if display_mode == 'json':
+                    latest_payload = []
+                    for doc in docs:
+                        latest_payload.append({
+                            "timestamp": _fmt_ts(doc.get('t_new', '')),
+                            "uri": _fmt_uri(doc),
+                            "checksum": _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash')),
+                            "size_bytes": doc.get('size_bytes_new'),
+                            "bytes_delta": doc.get('bytes_delta'),
+                        })
+                    payload = {
+                        "database": mongo_cfg['time_database'],
+                        "collection": coll_time,
+                        "total_docs": total,
+                        "latest": latest_payload,
+                    }
+                    print(json.dumps(payload, indent=2))
+                    return 0
+                use_rich = (display_mode == 'rich') or (display_mode == 'auto')
+                try:
+                    from rich.console import Console
+                    from rich.table import Table
+                    if use_rich:
+                        t = Table(title=f"[time] latest {n} snapshots")
+                        t.add_column("#", justify="right", no_wrap=True, overflow="ignore")
+                        t.add_column("t_new", no_wrap=True, overflow="ignore", min_width=19)
+                        t.add_column("path", overflow="fold")
+                        t.add_column("checksum", no_wrap=True, overflow="ignore", min_width=14)
+                        t.add_column("bytes", justify="right", no_wrap=True, overflow="ignore", min_width=10)
+                        t.add_column("Δ bytes", justify="right", no_wrap=True, overflow="ignore", min_width=10)
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('size_bytes_new'))
+                            delta = doc.get('bytes_delta')
+                            delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
+                            t.add_row(
+                                str(i),
+                                _fmt_ts(doc.get('t_new', '')),
+                                _fmt_uri(doc),
+                                checksum,
+                                size_disp,
+                                delta_disp,
+                            )
+                        Console().print(t)
+                    else:
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('size_bytes_new'))
+                            delta = doc.get('bytes_delta')
+                            delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
+                            print(
+                                f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {_fmt_uri(doc)}"
+                            )
+                except Exception:
+                    for i, doc in enumerate(docs, 1):
+                        checksum = _fmt_checksum(doc.get('checksum_new') or doc.get('content_hash'))
+                        size_disp = _fmt_bytes(doc.get('size_bytes_new'))
+                        delta = doc.get('bytes_delta')
+                        delta_disp = f"{delta:+}" if isinstance(delta, (int, float)) else "-"
+                        print(
+                            f"[{i}] {_fmt_ts(doc.get('t_new',''))} checksum={checksum} size={size_disp} delta={delta_disp} {_fmt_uri(doc)}"
+                        )
+            elif display_mode == 'json':
+                payload = {
+                    "database": mongo_cfg['time_database'],
+                    "collection": coll_time,
+                    "total_docs": total,
+                    "latest": [],
+                }
+                print(json.dumps(payload, indent=2))
+                return 0
+            return 0
+        else:
+            coll = client[mongo_cfg['space_database']][coll_space]
+            total = coll.count_documents({})
+            if display_mode != 'json':
+                print(f"tracked files: {total}")
+            try:
+                record_db_activity("db.info.space", f"total={total}")
+            except Exception:
+                pass
+            if reference_info:
+                uri = reference_info.get("uri")
+                ref_path_obj = reference_info.get("path")
+                ref_doc = None
+                if uri:
+                    ref_doc = coll.find_one({"path": uri})
+                if ref_doc is None and ref_path_obj is not None:
+                    ref_doc = coll.find_one({"path_local": str(ref_path_obj.resolve())})
+                if not ref_doc:
+                    print("Reference document not found in the database.")
+                    return 2
+                ref_embedding = ref_doc.get("embedding")
+                if not ref_embedding:
+                    print("Reference document is missing embedding data; re-index and retry.")
+                    return 2
+                ref_ts = _parse_ts_value(ref_doc.get("timestamp"))
+                ref_bytes = ref_doc.get("bytes")
+                ref_checksum = ref_doc.get("checksum")
+
+                entries: List[Dict[str, Any]] = []
+                cursor = coll.find({}, {"path": 1, "path_local": 1, "timestamp": 1, "checksum": 1, "bytes": 1, "embedding": 1})
+                for doc in cursor:
+                    emb = doc.get("embedding")
+                    angle_delta = _angle_between(ref_embedding, emb)
+                    if angle_delta is None:
+                        continue
+                    other_ts = _parse_ts_value(doc.get("timestamp"))
+                    t_delta = None
+                    if other_ts is not None and ref_ts is not None:
+                        t_delta = (other_ts - ref_ts).total_seconds()
+                    size_delta = None
+                    bytes_val = doc.get("bytes")
+                    if bytes_val is not None and ref_bytes is not None:
+                        try:
+                            size_delta = int(bytes_val) - int(ref_bytes)
+                        except Exception:
+                            size_delta = None
+                    checksum_same = False
+                    if ref_checksum is not None:
+                        checksum_same = doc.get("checksum") == ref_checksum
+                    entries.append({
+                        "doc": doc,
+                        "angle_delta": angle_delta,
+                        "time_delta": t_delta,
+                        "size_delta": size_delta,
+                        "checksum_same": checksum_same,
+                    })
+
+                entries.sort(key=lambda e: (abs(e['angle_delta']) if e['angle_delta'] is not None else float('inf'), e['doc'].get('path', '')))
+                limit_n = int(getattr(args, 'latest', 0) or 10)
+                if limit_n > 0:
+                    entries = entries[:limit_n]
+
+                try:
+                    record_db_activity("db.info.reference", title_label)
+                except Exception:
+                    pass
+
+                use_rich = False
+                try:
+                    if display_mode == 'rich':
+                        use_rich = True
+                    elif display_mode in (None, 'auto'):
+                        use_rich = sys.stdout.isatty()
+                except Exception:
+                    use_rich = False
+
+                title_label = uri or (str(ref_path_obj.resolve()) if ref_path_obj is not None else "reference")
+                if display_mode == 'json':
+                    json_entries: List[Dict[str, Any]] = []
+                    for entry in entries:
+                        doc = entry['doc']
+                        json_entries.append({
+                            "uri": _fmt_uri(doc),
+                            "timestamp": _fmt_ts(doc.get('timestamp', '')),
+                            "angle_delta": entry['angle_delta'],
+                            "checksum_same": bool(entry['checksum_same']),
+                            "size_delta": entry['size_delta'],
+                            "time_delta_secs": entry['time_delta'],
+                        })
+                    payload = {
+                        "reference": title_label,
+                        "tracked_files": total,
+                        "entries": json_entries,
+                    }
+                    print(json.dumps(payload, indent=2))
+                    return 0
+                if use_rich:
+                    try:
+                        from rich import box
+                        from rich.console import Console
+                        from rich.panel import Panel
+                        from rich.table import Table
+                    except Exception:
+                        use_rich = False
+                if use_rich:
+                    console = Console()
+                    table = Table(show_header=True, header_style="bold", box=box.SQUARE, expand=False, pad_edge=False)
+                    table.add_column("#", justify="right", width=3, no_wrap=True)
+                    table.add_column("Δ time", justify="right", no_wrap=True)
+                    table.add_column("Checksum", justify="left", no_wrap=True)
+                    table.add_column("Δ size", justify="right", no_wrap=True)
+                    table.add_column("Δ angle", justify="right", no_wrap=True)
+                    table.add_column("uri", overflow="fold")
+                    for idx, entry in enumerate(entries, 1):
+                        checksum_label = "same" if entry['checksum_same'] else "diff"
+                        checksum_display = f"[green]{checksum_label}[/]" if entry['checksum_same'] else f"[red]{checksum_label}[/]"
+                        table.add_row(
+                            str(idx),
+                            _fmt_tdelta(entry['time_delta']) if entry['time_delta'] is not None else "-",
+                            checksum_display,
+                            _fmt_size_delta(entry['size_delta']),
+                            _fmt_angle_delta(entry['angle_delta']),
+                            _fmt_uri(entry['doc'])
+                        )
+                    console.print(Panel.fit(table, title=f"Reference: {title_label}", border_style="dim"))
+                    return 0
+
+                header = ["#", "Δ time", "Checksum", "Δ size", "Δ angle", "uri"]
+                align_plain = ["right", "right", "left", "right", "right", "left"]
+                limits_plain = {5: 80}
+                rows_plain: List[List[str]] = []
+                for idx, entry in enumerate(entries, 1):
+                    rows_plain.append([
+                        str(idx),
+                        _fmt_tdelta(entry['time_delta']) if entry['time_delta'] is not None else "-",
+                        "same" if entry['checksum_same'] else "diff",
+                        _fmt_size_delta(entry['size_delta']),
+                        _fmt_angle_delta(entry['angle_delta']),
+                        _fmt_uri(entry['doc']),
+                    ])
+                _render_plain_boxed_table_simple(f"Reference: {title_label}", header, rows_plain, align_plain, limits_plain)
+                return 0
+
+            n = int(getattr(args, 'latest', 0) or 0)
+            if n > 0:
+                cur = coll.find({}, {"path": 1, "path_local": 1, "timestamp": 1, "checksum": 1, "bytes": 1, "angle": 1}).sort("timestamp", -1).limit(n)
+                docs = list(cur)
+                latest_docs_payload = [
+                    {
+                        "timestamp": _fmt_ts(doc.get('timestamp', '')),
+                        "checksum": _fmt_checksum(doc.get('checksum') or doc.get('content_hash')),
+                        "bytes": doc.get('bytes'),
+                        "angle": doc.get('angle'),
+                        "uri": _fmt_uri(doc),
+                    }
+                    for doc in docs
+                ]
+                if display_mode == 'json':
+                    payload = {
+                        "tracked_files": total,
+                        "latest": latest_docs_payload,
+                    }
+                    print(json.dumps(payload, indent=2))
+                    return 0
+                use_rich = (display_mode == 'rich') or (display_mode == 'auto')
+                try:
+                    from rich.console import Console
+                    from rich.table import Table
+                    if use_rich:
+                        t = Table(title=f"[space] latest {n} files")
+                        t.add_column("#", justify="right", no_wrap=True, overflow="ignore")
+                        t.add_column("timestamp", no_wrap=True, overflow="ignore", min_width=19)
+                        t.add_column("checksum", no_wrap=True, overflow="ignore", min_width=14)
+                        t.add_column("size", justify="right", no_wrap=True, overflow="ignore", min_width=10)
+                        t.add_column("angle", justify="right", no_wrap=True, overflow="ignore", min_width=8)
+                        t.add_column("uri", overflow="fold")
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('bytes'))
+                            angle = doc.get('angle')
+                            angle_disp = f"{float(angle):6.2f}°" if isinstance(angle, (int, float)) else "-"
+                            t.add_row(
+                                str(i),
+                                _fmt_ts(doc.get('timestamp','')),
+                                checksum,
+                                size_disp,
+                                angle_disp,
+                                _fmt_uri(doc),
+                            )
+                        Console().print(t)
+                    else:
+                        for i, doc in enumerate(docs, 1):
+                            checksum = _fmt_checksum(doc.get('checksum') or doc.get('content_hash'))
+                            size_disp = _fmt_bytes(doc.get('bytes'))
+                            angle = doc.get('angle')
+                            angle_disp = f"{float(angle):6.2f}°" if isinstance(angle, (int, float)) else "-"
+                            print(
+                                f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} size={size_disp} angle={angle_disp} {_fmt_uri(doc)}"
+                            )
+                except Exception:
+                    for i, doc in enumerate(docs, 1):
+                        checksum = _fmt_checksum(doc.get('checksum') or doc.get('content_hash'))
+                        size_disp = _fmt_bytes(doc.get('bytes'))
+                        angle = doc.get('angle')
+                        angle_disp = f"{float(angle):6.2f}°" if isinstance(angle, (int, float)) else "-"
+                        print(
+                            f"[{i}] {_fmt_ts(doc.get('timestamp',''))} checksum={checksum} size={size_disp} angle={angle_disp} {_fmt_uri(doc)}"
+                        )
+            elif display_mode == 'json':
+                payload = {
+                    "tracked_files": total,
+                    "latest": [],
+                }
+                print(json.dumps(payload, indent=2))
+                return 0
+            return 0
+
+    dbinfo = dbsub.add_parser("info", help="Print tracked file count and latest files")
+    scope_info = dbinfo.add_mutually_exclusive_group()
+    scope_info.add_argument("--space", action="store_true", help="Stats for the space DB")
+    scope_info.add_argument("--time", action="store_true", help="Stats for the time DB")
+    dbinfo.add_argument("-n", "--latest", type=int, default=10, help="Show the most recent N records (default 10)")
+    dbinfo.add_argument("--reference", help="File path or file:// URI to compare against")
+    dbinfo.set_defaults(func=_db_info)
+    # DB reset: drop Mongo database and remove local mongod files (if any)
+    dbr = dbsub.add_parser("reset", help="Drop WKS Mongo databases and local DB files (space/time)")
+    def _db_reset(args: argparse.Namespace) -> int:
+        cfg = load_config()
+        mongo_cfg = mongo_settings(cfg)
+        uri = mongo_cfg['uri']
+        space_db = mongo_cfg['space_database']
+        time_db = mongo_cfg['time_database']
+        _stop_managed_mongo()
+        # Try to drop DB via pymongo
+        try:
+            client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=3000)
+            try:
+                client.admin.command('ping')
+                dropped = set()
+                client.drop_database(space_db)
+                dropped.add(space_db)
+                if time_db not in dropped:
+                    client.drop_database(time_db)
+                    dropped.add(time_db)
+                print(f"Dropped database(s): {', '.join(sorted(dropped))}")
+                try:
+                    record_db_activity("db.reset", ",".join(sorted(dropped)))
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"DB drop skipped (unreachable or error): {e}")
+        except Exception as e:
+            print(f"Mongo client unavailable: {e}")
+        # Stop local mongod on 27027 (best-effort)
+        try:
+            import shutil as _sh, subprocess as _sp
+            if _sh.which('pkill'):
+                _sp.run(['pkill','-f','mongod.*27027'], check=False)
+        except Exception:
+            pass
+        # Remove local DB files
+        try:
+            import shutil as _sh
+            dbroot = Path.home()/WKS_HOME_EXT/'mongodb'
+            if dbroot.exists():
+                _sh.rmtree(dbroot, ignore_errors=True)
+                print(f"Removed local DB files: {dbroot}")
+        except Exception:
+            pass
+        # Ensure Mongo comes back up so the service can reconnect immediately
+        try:
+            mongoctl.ensure_mongo_running(uri, record_start=True)
+        except SystemExit:
+            raise
+        except Exception:
+            pass
+        return 0
+    dbr.set_defaults(func=_db_reset)
 
     # MCP server command
     mcp = sub.add_parser("mcp", help="MCP (Model Context Protocol) server for AI integration")
