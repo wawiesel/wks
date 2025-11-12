@@ -91,8 +91,15 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
         },
         "database": "wks_monitor",
         "collection": "filesystem",
+        "max_documents": 1000000,
         "log_file": "~/.wks/monitor.log"
     }
+
+    touch_weight = old_monitor.get("touch_weight")
+    if isinstance(touch_weight, (int, float)):
+        new_config["monitor"]["touch_weight"] = float(touch_weight)
+    else:
+        new_config["monitor"]["touch_weight"] = 0.1
 
     # === Vault section (from old obsidian section) ===
     old_obsidian = old_config.get("obsidian", {})

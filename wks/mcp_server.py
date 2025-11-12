@@ -470,6 +470,7 @@ class MCPServer:
                     self._write_error(request_id, -32601, f"Method not found: {method}")
 
 
+
 def main():
     """Main entry point for MCP server."""
     server = MCPServer()

@@ -4,6 +4,20 @@ WKS daemon for monitoring file system and updating Obsidian.
 Adds support for ~/.wks/config.json with include/exclude path control.
 """
 
+from .uri_utils import uri_to_path
+from .priority import calculate_priority
+from .utils import get_package_version, expand_path, file_checksum
+from .config import load_config
+from .config_validator import validate_and_raise, ConfigValidationError
+from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
+from .mongoctl import MongoGuard, ensure_mongo_running
+from .activity import ActivityTracker
+from .obsidian import ObsidianVault
+from .monitor import start_monitoring
+from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
+from pymongo.collection import Collection
+from typing import Optional, Set, List, Dict, Any
+from pathlib import Path
 import logging
 import time
 import json
@@ -17,22 +31,7 @@ try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
     fcntl = None
-from pathlib import Path
-from typing import Optional, Set, List, Dict, Any
 
-from pymongo.collection import Collection
-
-from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
-from .monitor import start_monitoring
-from .obsidian import ObsidianVault
-from .activity import ActivityTracker
-from .mongoctl import MongoGuard, ensure_mongo_running
-from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
-from .config_validator import validate_and_raise, ConfigValidationError
-from .config import load_config
-from .utils import get_package_version, expand_path, file_checksum
-from .priority import calculate_priority
-from .uri_utils import uri_to_path
 
 try:
     from .config import mongo_settings
@@ -40,8 +39,10 @@ try:
     from .status import load_db_activity_summary, load_db_activity_history
 except Exception:
     build_similarity_from_config = None  # type: ignore
+
     def load_db_activity_summary():  # type: ignore
         return {}
+
     def load_db_activity_history(max_age_secs: Optional[int] = None):  # type: ignore
         return []
 
@@ -143,6 +144,56 @@ class WKSDaemon:
         self._mongo_guard: Optional[MongoGuard] = None
         self.monitor_collection = monitor_collection
 
+    @staticmethod
+    def _get_touch_weight(raw_weight: Any) -> float:
+        min_weight = 0.001
+        max_weight = 1.0
+
+        if raw_weight is None:
+            raise ValueError("monitor.touch_weight missing")
+
+        try:
+            weight = float(raw_weight)
+        except (TypeError, ValueError):
+            raise ValueError(f"Invalid monitor.touch_weight {raw_weight!r}")
+
+        if weight < min_weight:
+            logger.warning("monitor.touch_weight %.6f below %.3f; using %.3f", weight, min_weight, min_weight)
+            return min_weight
+
+        if weight > max_weight:
+            logger.warning("monitor.touch_weight %.6f above %.3f; using %.3f", weight, max_weight, max_weight)
+            return max_weight
+
+        return weight
+
+    def _compute_touches_per_day(self, doc: Optional[Dict[str, Any]], now: datetime, weight: float) -> float:
+        if not doc:
+            return 0.0
+
+        timestamp = doc.get("timestamp")
+        if not isinstance(timestamp, str):
+            return 0.0
+
+        try:
+            last_modified_time = datetime.fromisoformat(timestamp)
+        except Exception:
+            return 0.0
+
+        dt = max((now - last_modified_time).total_seconds(), 0.0)
+        prev_rate = doc.get("touches_per_day")
+
+        if not isinstance(prev_rate, (int, float)) or prev_rate <= 0.0:
+            interval = dt
+        else:
+            prev_interval = 1.0 / (prev_rate / 86400.0)
+            interval = weight * dt + (1.0 - weight) * prev_interval
+
+        if interval <= 0.0:
+            return 0.0
+
+        return 86400.0 / interval
+
     def _update_monitor_db(self, path: Path):
         if self.monitor_collection is None:
             return
@@ -150,24 +201,35 @@ class WKSDaemon:
         try:
             stat = path.stat()
             checksum = file_checksum(path)
+            now = datetime.now()
             monitor_config = self.config.get("monitor", {})
             managed_dirs = monitor_config.get("managed_directories", {})
             priority_config = monitor_config.get("priority", {})
+
+            try:
+                touch_weight = self._get_touch_weight(monitor_config.get("touch_weight"))
+            except ValueError as exc:
+                self._set_error(f"monitor_config_error: {exc}")
+                return
             priority = calculate_priority(path, managed_dirs, priority_config)
 
+            path_uri = path.as_uri()
+            existing_doc = self.monitor_collection.find_one(
+                {"path": path_uri}, {"timestamp": 1, "touches_per_day": 1}
+            )
+            touches_per_day = self._compute_touches_per_day(existing_doc, now, touch_weight)
+
             doc = {
-                "path": path.as_uri(),
-                "timestamp": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "path": path_uri,
                 "checksum": checksum,
                 "bytes": stat.st_size,
                 "priority": priority,
+                "timestamp": now.isoformat(),
+                "touches_per_day": touches_per_day,
             }
 
-            self.monitor_collection.update_one(
-                {"path": doc["path"]},
-                {"$set": doc},
-                upsert=True,
-            )
+            self.monitor_collection.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
+            self._enforce_monitor_db_limit()
         except Exception as e:
             self._set_error(f"monitor_db_update_error: {e}")
 
@@ -178,6 +240,31 @@ class WKSDaemon:
             self.monitor_collection.delete_one({"path": path.as_uri()})
         except Exception as e:
             self._set_error(f"monitor_db_delete_error: {e}")
+
+    def _enforce_monitor_db_limit(self):
+        if self.monitor_collection is None:
+            return
+
+        try:
+            monitor_config = self.config.get("monitor", {})
+            max_docs = monitor_config.get("max_documents", 1000000)
+
+            count = self.monitor_collection.count_documents({})
+            if count <= max_docs:
+                return
+
+            extras = count - max_docs
+            if extras > 0:
+                # Find and remove the lowest priority documents
+                lowest_priority_docs = self.monitor_collection.find(
+                    {}, {"_id": 1, "priority": 1}
+                ).sort("priority", 1).limit(extras)
+
+                ids_to_delete = [doc["_id"] for doc in lowest_priority_docs]
+                if ids_to_delete:
+                    self.monitor_collection.delete_many({"_id": {"$in": ids_to_delete}})
+        except Exception as e:
+            self._set_error(f"monitor_db_limit_error: {e}")
 
     def _should_index_for_similarity(self, path: Path) -> bool:
         if not self.similarity or not path.exists() or not path.is_file():
@@ -353,7 +440,7 @@ class WKSDaemon:
             if not top:
                 try:
                     import json as _json
-                    ms_path = self.state_file or (Path.home()/WKS_HOME_EXT/'monitor_state.json')
+                    ms_path = self.state_file or (Path.home() / WKS_HOME_EXT / 'monitor_state.json')
                     recent = []
                     if ms_path and Path(ms_path).exists():
                         ms = _json.load(open(ms_path, 'r'))
@@ -381,7 +468,7 @@ class WKSDaemon:
             # Fallback 2: use recent file operations ledger if still empty
             if not top:
                 try:
-                    ops_path = Path.home()/WKS_HOME_EXT/'file_ops.jsonl'
+                    ops_path = Path.home() / WKS_HOME_EXT / 'file_ops.jsonl'
                     if ops_path.exists():
                         lines = ops_path.read_text(encoding='utf-8', errors='ignore').splitlines()
                         # newest are at end; walk backwards and collect unique paths
@@ -393,7 +480,7 @@ class WKSDaemon:
                                 rec = _json.loads(line)
                             except Exception:
                                 continue
-                            for key in ('destination','source'):
+                            for key in ('destination', 'source'):
                                 pstr = rec.get(key)
                                 if not pstr:
                                     continue

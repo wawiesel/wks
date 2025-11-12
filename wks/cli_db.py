@@ -41,7 +41,7 @@ def _db_monitor(args: argparse.Namespace) -> int:
 
     # Parse filter
     filter_dict, error = _parse_json_arg(args.filter if hasattr(args, 'filter') else None,
-                                          "filter", display)
+                                         "filter", display)
     if error:
         return error
 
@@ -87,7 +87,12 @@ def _db_monitor(args: argparse.Namespace) -> int:
         if docs:
             for idx, doc in enumerate(docs, 1):
                 # Remove MongoDB _id for cleaner display
-                doc_clean = {k: v for k, v in doc.items() if k != '_id'}
+                doc_clean = {k: v for k, v in doc.items() if k not in {"_id", "touches", "avg_time_between_modifications", "touches_per_second"}}
+
+                tpd = doc_clean.get("touches_per_day")
+                if isinstance(tpd, (int, float)):
+                    doc_clean["touches_per_day"] = f"{tpd:.2e}"
+
                 display.info(f"[{idx}]")
                 display.json_output(doc_clean)
                 display.info("")  # Blank line between docs
