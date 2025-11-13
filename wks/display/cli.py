@@ -1,7 +1,10 @@
 """CLI display implementation using Rich library."""
 
+import sys
 from typing import Any, Dict, List, Optional
 from pathlib import Path
+
+from ..constants import MAX_DISPLAY_WIDTH
 
 try:
     from rich.console import Console
@@ -25,7 +28,17 @@ class CLIDisplay(Display):
         if not RICH_AVAILABLE:
             raise ImportError("Rich library required for CLI display. Install with: pip install rich")
 
-        self.console = Console()
+        # Limit console width to MAX_DISPLAY_WIDTH for consistent display
+        detected_width = None
+        try:
+            import shutil
+            detected_width = shutil.get_terminal_size().columns
+        except Exception:
+            pass
+
+        console_width = min(detected_width or MAX_DISPLAY_WIDTH, MAX_DISPLAY_WIDTH)
+        self.console = Console(force_terminal=True, width=console_width)
+        self.stderr_console = Console(file=sys.stderr, width=console_width)
         self._progress_contexts = {}  # Store Progress contexts by handle
 
     def status(self, message: str, **kwargs) -> None:
@@ -62,12 +75,13 @@ class CLIDisplay(Display):
         title = kwargs.get("title", "")
         column_justify = kwargs.get("column_justify", {})  # Dict[str, str] mapping header to justify
         show_header = kwargs.get("show_header", True)
+        width = kwargs.get("width", MAX_DISPLAY_WIDTH)
 
         # Infer headers from first row if not provided
         if headers is None:
             headers = list(data[0].keys())
 
-        table = Table(title=title, show_header=show_header, header_style="bold cyan")
+        table = Table(title=title, show_header=show_header, header_style="bold cyan", width=min(width, MAX_DISPLAY_WIDTH))
 
         for header in headers:
             justify = column_justify.get(header, "left")
@@ -79,14 +93,14 @@ class CLIDisplay(Display):
         self.console.print(table)
 
     def progress_start(self, total: int, description: str = "", **kwargs) -> Any:
-        """Start a progress bar."""
+        """Start a progress bar (outputs to STDERR)."""
         progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn(),
-            console=self.console
+            console=self.stderr_console  # Progress goes to STDERR
         )
         progress.start()
         task_id = progress.add_task(description, total=total)

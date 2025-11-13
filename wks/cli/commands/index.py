@@ -17,7 +17,7 @@ from ..helpers import (
     maybe_write_json,
 )
 from ...config import load_config, mongo_settings
-from ...constants import WKS_HOME_DISPLAY
+from ...constants import WKS_HOME_DISPLAY, MAX_DISPLAY_WIDTH
 from ...dbmeta import IncompatibleDatabase, resolve_db_compatibility
 from ...status import record_db_activity
 from ...utils import get_package_version
@@ -684,15 +684,14 @@ def render_rich_timing_table(entries: List[FileSummary], totals: Dict[str, float
     console.print()
     add_timing_table_rows(table, entries, totals, counts)
 
-    width = console.width or 80
-    console.print(Panel.fit(table, title="Timing Details", border_style="dim"), width=min(max(width, 72), 110))
+    console.print(Panel.fit(table, title="Timing Details", border_style="dim"), width=MAX_DISPLAY_WIDTH)
 
 
 def render_plain_timing_table(entries: List[FileSummary], totals: Dict[str, float], counts: Dict[str, int]) -> None:
     """Render timing summary using plain text table."""
     stage_labels = get_stage_labels()
     header = ["#", "File", "Status"] + [label for _, label in stage_labels]
-    
+
     # Build rows
     details_rows: List[List[str]] = []
     for idx, entry in enumerate(entries, 1):
@@ -701,13 +700,13 @@ def render_plain_timing_table(entries: List[FileSummary], totals: Dict[str, floa
             val = getattr(entry.timings, key)
             row.append(fmt_duration(val))
         details_rows.append(row)
-    
+
     total_files = max(counts.values()) if counts.values() else len(entries)
     totals_row = ["-", "Totals", f"{total_files} file(s)"]
     for key, _ in stage_labels:
         totals_row.append(fmt_duration(totals[key] if counts.get(key) else None))
     details_rows.append(totals_row)
-    
+
     # Simple table output
     print("\nTiming Details")
     print("=" * 80)
@@ -838,4 +837,3 @@ def setup_index_parser(subparsers) -> None:
     idx.add_argument("--untrack", action="store_true", help="Remove tracked entries (and artefacts) instead of indexing")
     idx.add_argument("paths", nargs="+", help="Files or directories to process")
     idx.set_defaults(func=index_cmd)
-

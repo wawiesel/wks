@@ -41,7 +41,8 @@ class CLIDisplayStrategy(DisplayStrategy):
         from rich.table import Table
         from rich import box
 
-        console = Console()
+        from ...constants import MAX_DISPLAY_WIDTH
+        console = Console(width=MAX_DISPLAY_WIDTH)
 
         def _render_status() -> Table:
             """Render current status as a Rich table with grouped sections."""
@@ -105,7 +106,7 @@ class CLIDisplayStrategy(DisplayStrategy):
 def get_display_strategy(args: argparse.Namespace) -> DisplayStrategy:
     """Get appropriate display strategy based on args."""
     from .constants import DISPLAY_CHOICES
-    
+
     display_mode = getattr(args, "display", None)
     if display_mode not in DISPLAY_CHOICES:
         raise ValueError(f"Invalid display mode: {display_mode!r}. Must be one of {DISPLAY_CHOICES}")
@@ -114,4 +115,3 @@ def get_display_strategy(args: argparse.Namespace) -> DisplayStrategy:
         return MCPDisplayStrategy()
 
     return CLIDisplayStrategy()
-

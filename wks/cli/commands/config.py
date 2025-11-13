@@ -5,6 +5,7 @@ import json
 from typing import Any, Dict, List
 
 from ...config import get_config_path
+from ...constants import MAX_DISPLAY_WIDTH
 from ...display.context import get_display
 
 
@@ -90,7 +91,7 @@ def show_config(args: argparse.Namespace) -> int:
     """Show config file - table in CLI mode, JSON in MCP mode."""
     # Import from wks.cli to allow monkeypatching in tests
     from ...cli import load_config
-    
+
     config_path = get_config_path()
     display = getattr(args, "display_obj", None) or get_display(getattr(args, "display", None))
     display_mode = getattr(args, "display", None)
@@ -126,4 +127,3 @@ def setup_config_parser(subparsers) -> None:
     """Setup config command parser."""
     cfg = subparsers.add_parser("config", help="Show configuration file")
     cfg.set_defaults(func=show_config)
-
