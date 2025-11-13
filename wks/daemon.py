@@ -198,6 +198,10 @@ class WKSDaemon:
         if self.monitor_collection is None:
             return
 
+        # Skip if file should be ignored
+        if self._should_ignore_by_rules(path):
+            return
+
         try:
             stat = path.stat()
             checksum = file_checksum(path)
@@ -339,9 +343,11 @@ class WKSDaemon:
             except Exception:
                 pass
 
-            # Update monitor DB
-            self._remove_from_monitor_db(src)
-            self._update_monitor_db(dest)
+            # Update monitor DB (only if not ignored)
+            if not self._should_ignore_by_rules(src):
+                self._remove_from_monitor_db(src)
+            if not self._should_ignore_by_rules(dest):
+                self._update_monitor_db(dest)
 
             # Update similarity index
             try:
@@ -377,6 +383,10 @@ class WKSDaemon:
 
         # Regular events
         path = Path(path_info)
+
+        # Skip if file should be ignored
+        if self._should_ignore_by_rules(path):
+            return
 
         # Coalesce deletes: set pending and return; flush later
         if event_type == "deleted" and self._is_probably_file(path):
@@ -844,6 +854,10 @@ class WKSDaemon:
         for pstr, etype in ready:
             try:
                 p = Path(pstr)
+                # Skip if file should be ignored
+                if self._should_ignore_by_rules(p):
+                    self._pending_mods.pop(pstr, None)
+                    continue
                 # Only log if still exists and is file
                 if p.exists() and p.is_file():
                     try:
@@ -924,13 +938,6 @@ class WKSDaemon:
             db_ops_per_min = round(db_ops_last_minute / 1.0, 2)
             self._beat_count = len(db_history)
 
-            heartbeat_ts = db_last_ts or now
-            heartbeat_iso = (
-                time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(heartbeat_ts))
-                if heartbeat_ts is not None
-                else time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now))
-            )
-
             short_rate = len(self._fs_events_short) / self.fs_rate_short_window if self.fs_rate_short_window else 0.0
             long_rate = len(self._fs_events_long) / self.fs_rate_long_window if self.fs_rate_long_window else 0.0
             weighted_rate = (
@@ -945,8 +952,6 @@ class WKSDaemon:
                 return f"{h:02d}:{m:02d}:{s:02d}"
 
             data = {
-                "heartbeat": int(heartbeat_ts) if heartbeat_ts is not None else int(now),
-                "heartbeat_iso": heartbeat_iso,
                 "pending_deletes": len(self._pending_deletes),
                 "pending_mods": len(self._pending_mods),
                 "last_error": self._last_error,

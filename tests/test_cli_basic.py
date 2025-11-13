@@ -84,7 +84,7 @@ def test_cli_service_status_json_parsed(tmp_path, monkeypatch):
     home = tmp_path
     (home / WKS_HOME_EXT).mkdir(parents=True, exist_ok=True)
     health = {
-        'heartbeat_iso':'2025-10-28 12:00:00','uptime_hms':'00:01:00','pid': '12345',
+        'uptime_hms':'00:01:00','pid': '12345',
         'avg_beats_per_min': 30.0, 'pending_deletes':0, 'pending_mods':0, 'last_error': None,
         'lock_present': True
     }
@@ -148,7 +148,6 @@ gui/XXXX/com.wieselquist.wkso = {
     assert rc == 0
     data = json.loads(out)
     service = data['service']
-    assert service['heartbeat'] == '2025-10-28 12:00:00'
     assert service['pid'] == 12345
     assert service['lock'] is True
     assert service['db_ops_last_minute'] >= 0
