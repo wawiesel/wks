@@ -15,6 +15,15 @@ import fnmatch
 import math
 
 
+class ValidationError(Exception):
+    """Exception that collects multiple validation errors."""
+
+    def __init__(self, errors: List[str]):
+        self.errors = errors
+        message = "Validation failed with multiple errors:\n" + "\n".join(f"  - {e}" for e in errors)
+        super().__init__(message)
+
+
 class MonitorValidator:
     """Validation logic for monitor configuration."""
 
@@ -144,6 +153,79 @@ class ManagedDirectoriesResult:
 
 
 @dataclass
+class MonitorConfig:
+    """Monitor configuration loaded from config dict with validation."""
+    include_paths: List[str]
+    exclude_paths: List[str]
+    ignore_dirnames: List[str]
+    ignore_globs: List[str]
+    managed_directories: Dict[str, int]
+    database: str
+    touch_weight: float = 0.1
+    priority: Dict[str, Any] = field(default_factory=dict)
+    max_documents: int = 1000000
+    prune_interval_secs: float = 300.0
+
+    def __post_init__(self):
+        """Validate monitor configuration after initialization.
+
+        Collects all validation errors and raises a single ValidationError
+        with all errors, so the user can see everything that needs fixing.
+        """
+        errors = []
+
+        # Validate required fields are present and correct types
+        if not isinstance(self.include_paths, list):
+            errors.append(f"monitor.include_paths must be a list (found: {type(self.include_paths).__name__} = {self.include_paths!r}, expected: list)")
+
+        if not isinstance(self.exclude_paths, list):
+            errors.append(f"monitor.exclude_paths must be a list (found: {type(self.exclude_paths).__name__} = {self.exclude_paths!r}, expected: list)")
+
+        if not isinstance(self.ignore_dirnames, list):
+            errors.append(f"monitor.ignore_dirnames must be a list (found: {type(self.ignore_dirnames).__name__} = {self.ignore_dirnames!r}, expected: list)")
+
+        if not isinstance(self.ignore_globs, list):
+            errors.append(f"monitor.ignore_globs must be a list (found: {type(self.ignore_globs).__name__} = {self.ignore_globs!r}, expected: list)")
+
+        if not isinstance(self.managed_directories, dict):
+            errors.append(f"monitor.managed_directories must be a dict (found: {type(self.managed_directories).__name__} = {self.managed_directories!r}, expected: dict)")
+
+        if not isinstance(self.database, str) or "." not in self.database:
+            errors.append(f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor')")
+        elif isinstance(self.database, str):
+            parts = self.database.split(".", 1)
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                errors.append(f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor' with both parts non-empty)")
+
+        if not isinstance(self.touch_weight, (int, float)) or self.touch_weight < 0.001 or self.touch_weight > 1.0:
+            errors.append(f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(self.touch_weight).__name__} = {self.touch_weight!r}, expected: float between 0.001 and 1.0)")
+
+        if not isinstance(self.max_documents, int) or self.max_documents < 0:
+            errors.append(f"monitor.max_documents must be a non-negative integer (found: {type(self.max_documents).__name__} = {self.max_documents!r}, expected: integer >= 0)")
+
+        if not isinstance(self.prune_interval_secs, (int, float)) or self.prune_interval_secs <= 0:
+            errors.append(f"monitor.prune_interval_secs must be a positive number (found: {type(self.prune_interval_secs).__name__} = {self.prune_interval_secs!r}, expected: float > 0)")
+
+        if errors:
+            raise ValidationError(errors)
+
+    @classmethod
+    def from_config_dict(cls, config: dict) -> "MonitorConfig":
+        """Load monitor config from config dict.
+
+        Raises:
+            KeyError: If monitor section is missing
+            ValidationError: If field values are invalid (contains all validation errors)
+        """
+        monitor_config = config.get("monitor")
+        if not monitor_config:
+            raise KeyError("monitor section is required in config (found: missing, expected: monitor section with include_paths, exclude_paths, etc.)")
+
+        # Use natural dataclass instantiation from dict
+        return cls(**monitor_config)
+
+
+@dataclass
 class ConfigValidationResult:
     """Result of validate_config()."""
     issues: List[str] = field(default_factory=list)
@@ -194,9 +276,22 @@ class MonitorController:
 
         Returns:
             dict with 'list_name', 'items' (list), and optional validation info
+
+        Raises:
+            KeyError: If monitor section or list_name is missing
         """
-        monitor_config = config.get("monitor", {})
-        items = monitor_config.get(list_name, [])
+        monitor_cfg = MonitorConfig.from_config_dict(config)
+
+        if list_name == "include_paths":
+            items = monitor_cfg.include_paths
+        elif list_name == "exclude_paths":
+            items = monitor_cfg.exclude_paths
+        elif list_name == "ignore_dirnames":
+            items = monitor_cfg.ignore_dirnames
+        elif list_name == "ignore_globs":
+            items = monitor_cfg.ignore_globs
+        else:
+            raise ValueError(f"Unknown list_name: {list_name} (found: {list_name!r}, expected: include_paths, exclude_paths, ignore_dirnames, or ignore_globs)")
 
         result = {
             "list_name": list_name,
@@ -206,10 +301,9 @@ class MonitorController:
 
         # Add validation for ignore_dirnames
         if list_name == "ignore_dirnames":
-            ignore_globs = monitor_config.get("ignore_globs", [])
             validation = {}
             for dirname in items:
-                is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs)
+                is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, monitor_cfg.ignore_globs)
                 validation[dirname] = {"valid": is_valid, "error": error_msg}
             result["validation"] = validation
 
@@ -277,8 +371,8 @@ class MonitorController:
 
         # Validate ignore_dirnames before adding
         if list_name == "ignore_dirnames":
-            ignore_globs = config_dict["monitor"].get("ignore_globs", [])
-            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(value, ignore_globs)
+            monitor_cfg = MonitorConfig.from_config_dict(config_dict)
+            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(value, monitor_cfg.ignore_globs)
             if not is_valid:
                 return ListOperationResult(
                     success=False,
@@ -351,19 +445,18 @@ class MonitorController:
 
         Returns:
             dict with 'managed_directories' (dict of path->priority), 'count', and validation info
+
+        Raises:
+            KeyError: If monitor section or required fields are missing
         """
-        monitor_config = config.get("monitor", {})
-        managed_dirs = monitor_config.get("managed_directories", {})
-        include_paths = monitor_config.get("include_paths", [])
-        exclude_paths = monitor_config.get("exclude_paths", [])
-        ignore_dirnames = monitor_config.get("ignore_dirnames", [])
-        ignore_globs = monitor_config.get("ignore_globs", [])
+        monitor_cfg = MonitorConfig.from_config_dict(config)
 
         # Validate each managed directory
         validation = {}
-        for path, priority in managed_dirs.items():
+        for path, priority in monitor_cfg.managed_directories.items():
             is_valid, error_msg = MonitorValidator.validate_managed_directory(
-                path, include_paths, exclude_paths, ignore_dirnames, ignore_globs
+                path, monitor_cfg.include_paths, monitor_cfg.exclude_paths,
+                monitor_cfg.ignore_dirnames, monitor_cfg.ignore_globs
             )
             validation[path] = ManagedDirectoryInfo(
                 priority=priority,
@@ -372,8 +465,8 @@ class MonitorController:
             )
 
         return ManagedDirectoriesResult(
-            managed_directories=managed_dirs,
-            count=len(managed_dirs),
+            managed_directories=monitor_cfg.managed_directories,
+            count=len(monitor_cfg.managed_directories),
             validation=validation
         )
 
@@ -504,27 +597,24 @@ class MonitorController:
 
     @staticmethod
     def get_status(config: Dict[str, Any]) -> MonitorStatus:
-        """Get monitor status, including validation issues."""
+        """Get monitor status, including validation issues.
+
+        Raises:
+            KeyError: If monitor section is missing
+        """
         from .config import mongo_settings
         from pymongo import MongoClient
 
-        monitor_config = config.get("monitor", {})
+        monitor_cfg = MonitorConfig.from_config_dict(config)
         mongo_config = mongo_settings(config)
 
         # Get total tracked files
         try:
             client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
             client.server_info()
-            db_key = monitor_config.get("database")
-            if not db_key:
-                raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
-            if "." not in db_key:
-                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')")
-            parts = db_key.split(".", 1)
-            if len(parts) != 2 or not parts[0] or not parts[1]:
-                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
-            db = client[parts[0]]
-            collection = db[parts[1]]
+            db_name, coll_name = monitor_cfg.database.split(".", 1)
+            db = client[db_name]
+            collection = db[coll_name]
             total_files = collection.count_documents({})
             client.close()
         except Exception:
@@ -548,17 +638,16 @@ class MonitorController:
 
     @staticmethod
     def validate_config(config: dict) -> ConfigValidationResult:
-        """Validate monitor configuration for conflicts and issues."""
-        monitor_config = config.get("monitor", {})
-        include_paths_list = monitor_config.get("include_paths", [])
-        exclude_paths_list = monitor_config.get("exclude_paths", [])
-        ignore_dirnames_list = monitor_config.get("ignore_dirnames", [])
-        ignore_globs_list = monitor_config.get("ignore_globs", [])
-        managed_dirs_dict = monitor_config.get("managed_directories", {})
+        """Validate monitor configuration for conflicts and issues.
 
-        include_paths = set(include_paths_list)
-        exclude_paths = set(exclude_paths_list)
-        managed_dirs = set(managed_dirs_dict.keys())
+        Raises:
+            KeyError: If monitor section or required fields are missing
+        """
+        monitor_cfg = MonitorConfig.from_config_dict(config)
+
+        include_paths = set(monitor_cfg.include_paths)
+        exclude_paths = set(monitor_cfg.exclude_paths)
+        managed_dirs = set(monitor_cfg.managed_directories.keys())
 
         issues = []
         redundancies = []
@@ -585,9 +674,10 @@ class MonitorController:
                     pass
 
         # Validate each managed directory
-        for path, priority in managed_dirs_dict.items():
+        for path, priority in monitor_cfg.managed_directories.items():
             is_valid, error_msg = MonitorValidator.validate_managed_directory(
-                path, list(include_paths_list), list(exclude_paths_list), ignore_dirnames_list, ignore_globs_list
+                path, monitor_cfg.include_paths, monitor_cfg.exclude_paths,
+                monitor_cfg.ignore_dirnames, monitor_cfg.ignore_globs
             )
             managed_directories[path] = ManagedDirectoryInfo(
                 priority=priority,
@@ -598,14 +688,14 @@ class MonitorController:
                 issues.append(f"managed_directories entry '{path}' would NOT be monitored: {error_msg}")
 
         # Validate ignore_dirnames
-        for dirname in ignore_dirnames_list:
-            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs_list)
+        for dirname in monitor_cfg.ignore_dirnames:
+            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, monitor_cfg.ignore_globs)
             ignore_dirname_validation[dirname] = {"valid": is_valid, "error": error_msg}
             if error_msg and "Redundant" in error_msg:
                 redundancies.append(f"ignore_dirnames entry '{dirname}': {error_msg}")
 
         # Validate ignore_globs
-        for glob_pattern in ignore_globs_list:
+        for glob_pattern in monitor_cfg.ignore_globs:
             is_valid, error_msg = MonitorValidator.validate_ignore_glob(glob_pattern)
             ignore_glob_validation[glob_pattern] = {"valid": is_valid, "error": error_msg}
             if not is_valid:
@@ -615,26 +705,24 @@ class MonitorController:
             issues=issues,
             redundancies=redundancies,
             managed_directories=managed_directories,
-            include_paths=list(include_paths_list),
-            exclude_paths=list(exclude_paths_list),
-            ignore_dirnames=list(ignore_dirnames_list),
-            ignore_globs=list(ignore_globs_list),
+            include_paths=monitor_cfg.include_paths,
+            exclude_paths=monitor_cfg.exclude_paths,
+            ignore_dirnames=monitor_cfg.ignore_dirnames,
+            ignore_globs=monitor_cfg.ignore_globs,
             ignore_dirname_validation=ignore_dirname_validation,
             ignore_glob_validation=ignore_glob_validation,
         )
 
     @staticmethod
     def check_path(config: dict, path_str: str) -> dict:
-        """Check if a path would be monitored and calculate its priority."""
+        """Check if a path would be monitored and calculate its priority.
+
+        Raises:
+            KeyError: If monitor section or required fields are missing
+        """
         from .priority import calculate_priority
 
-        monitor_config = config.get("monitor", {})
-        include_paths = monitor_config.get("include_paths", [])
-        exclude_paths = monitor_config.get("exclude_paths", [])
-        ignore_dirnames = monitor_config.get("ignore_dirnames", [])
-        ignore_globs = monitor_config.get("ignore_globs", [])
-        managed_dirs = monitor_config.get("managed_directories", {})
-        priority_config = monitor_config.get("priority", {})
+        monitor_cfg = MonitorConfig.from_config_dict(config)
 
         # Resolve path
         test_path = Path(path_str).expanduser().resolve()
@@ -654,7 +742,7 @@ class MonitorController:
 
         # Step 2: Check include_paths
         included = False
-        for include_path in include_paths:
+        for include_path in monitor_cfg.include_paths:
             include_resolved = Path(include_path).expanduser().resolve()
             try:
                 test_path.relative_to(include_resolved)
@@ -677,7 +765,7 @@ class MonitorController:
             }
 
         # Step 3: Check exclude_paths
-        for exclude_path in exclude_paths:
+        for exclude_path in monitor_cfg.exclude_paths:
             exclude_resolved = Path(exclude_path).expanduser().resolve()
             try:
                 test_path.relative_to(exclude_resolved)
@@ -698,7 +786,7 @@ class MonitorController:
 
         # Step 4: Check ignore_dirnames
         for part in test_path.parts:
-            if part in ignore_dirnames:
+            if part in monitor_cfg.ignore_dirnames:
                 is_monitored = False
                 reason = f"Contains ignored dirname: {part}"
                 decisions.append({"symbol": "✗", "message": reason})
@@ -713,7 +801,7 @@ class MonitorController:
         decisions.append({"symbol": "✓", "message": "No ignored dirnames in path"})
 
         # Step 5: Check ignore_globs
-        for glob_pattern in ignore_globs:
+        for glob_pattern in monitor_cfg.ignore_globs:
             if fnmatch.fnmatch(str(test_path), glob_pattern) or \
                fnmatch.fnmatch(test_path.name, glob_pattern):
                 is_monitored = False
@@ -731,7 +819,7 @@ class MonitorController:
 
         # Step 6: Calculate priority
         try:
-            priority = calculate_priority(test_path, managed_dirs, priority_config)
+            priority = calculate_priority(test_path, monitor_cfg.managed_directories, monitor_cfg.priority)
             decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
         except Exception as e:
             priority = None
@@ -754,32 +842,25 @@ class MonitorController:
         from pymongo import MongoClient
         import os
 
-        monitor_config = config.get("monitor", {})
+        monitor_cfg = MonitorConfig.from_config_dict(config)
         mongo_config = mongo_settings(config)
 
         try:
             client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
             client.server_info()  # Will raise an exception if connection fails
-            db_key = monitor_config.get("database")
-            if not db_key:
-                raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
-            if "." not in db_key:
-                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')")
-            parts = db_key.split(".", 1)
-            if len(parts) != 2 or not parts[0] or not parts[1]:
-                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
-            db = client[parts[0]]
-            collection = db[parts[1]]
+            db_name, coll_name = monitor_cfg.database.split(".", 1)
+            db = client[db_name]
+            collection = db[coll_name]
         except Exception as e:
             return {"success": False, "errors": [f"DB connection failed: {e}"], "pruned_files": []}
 
         # Instantiate the monitor to get access to the ignore logic
         monitor = WKSFileMonitor(
-            state_file=Path(os.path.expanduser(monitor_config.get("state_file", "~/.wks/monitor_state.json"))),
-            include_paths=[os.path.expanduser(p) for p in monitor_config.get("include_paths", [])],
-            exclude_paths=[os.path.expanduser(p) for p in monitor_config.get("exclude_paths", [])],
-            ignore_dirs=set(monitor_config.get("ignore_dirnames", [])),
-            ignore_globs=monitor_config.get("ignore_globs", [])
+            state_file=Path(os.path.expanduser("~/.wks/monitor_state.json")),  # Optional field, use default
+            include_paths=[os.path.expanduser(p) for p in monitor_cfg.include_paths],
+            exclude_paths=[os.path.expanduser(p) for p in monitor_cfg.exclude_paths],
+            ignore_dirs=set(monitor_cfg.ignore_dirnames),
+            ignore_globs=monitor_cfg.ignore_globs
         )
 
         pruned_files = []
@@ -823,22 +904,15 @@ class MonitorController:
         from .uri_utils import uri_to_path
         from pymongo import MongoClient
 
-        monitor_config = config.get("monitor", {})
+        monitor_cfg = MonitorConfig.from_config_dict(config)
         mongo_config = mongo_settings(config)
 
         try:
             client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
             client.server_info()
-            db_key = monitor_config.get("database")
-            if not db_key:
-                raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
-            if "." not in db_key:
-                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')")
-            parts = db_key.split(".", 1)
-            if len(parts) != 2 or not parts[0] or not parts[1]:
-                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
-            db = client[parts[0]]
-            collection = db[parts[1]]
+            db_name, coll_name = monitor_cfg.database.split(".", 1)
+            db = client[db_name]
+            collection = db[coll_name]
         except Exception as e:
             return {"success": False, "errors": [f"DB connection failed: {e}"], "pruned_files": []}
 

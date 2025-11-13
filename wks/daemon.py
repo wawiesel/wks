@@ -16,6 +16,7 @@ from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
 from pymongo.collection import Collection
 from typing import Optional, Set, List, Dict, Any
 from pathlib import Path
+from dataclasses import dataclass, field, asdict
 import logging
 import time
 import json
@@ -29,6 +30,42 @@ try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
     fcntl = None
+
+
+@dataclass
+class HealthData:
+    """Health data structure for daemon health.json file."""
+    pending_deletes: int
+    pending_mods: int
+    last_error: Optional[str]
+    pid: int
+    last_error_at: Optional[int]
+    last_error_at_iso: Optional[str]
+    last_error_age_secs: Optional[int]
+    started_at: int
+    started_at_iso: str
+    uptime_secs: int
+    uptime_hms: str
+    beats: int
+    avg_beats_per_min: float
+    lock_present: bool
+    lock_pid: Optional[int]
+    lock_path: str
+    db_last_operation: Optional[str]
+    db_last_operation_detail: Optional[str]
+    db_last_operation_iso: Optional[str]
+    db_ops_last_minute: int
+    fs_rate_short: float
+    fs_rate_long: float
+    fs_rate_weighted: float
+    fs_rate_short_window_secs: float
+    fs_rate_long_window_secs: float
+    fs_rate_short_weight: float
+    fs_rate_long_weight: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dict for JSON serialization."""
+        return asdict(self)
 
 
 try:
@@ -273,6 +310,87 @@ class WKSDaemon:
         # Treat names with an extension as files (e.g., README.md); skip obvious directories
         return ('.' in name and not name.endswith('.') and name not in {'', '.', '..'})
 
+    def _handle_move_event(self, src_path: str, dest_path: str):
+        """Handle file move event."""
+        src = Path(src_path)
+        dest = Path(dest_path)
+
+        # Cancel any pending delete for destination (temp-file replace pattern)
+        try:
+            self._pending_deletes.pop(dest.resolve().as_posix(), None)
+        except Exception:
+            pass
+
+        # Only log file moves; skip pure directory moves to reduce noise
+        try:
+            if self._is_probably_file(src) or self._is_probably_file(dest):
+                self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
+                self._bump_beat()
+        except Exception:
+            pass
+
+        # Update symlink target if tracked
+        try:
+            self.vault.update_link_on_move(src, dest)
+        except Exception:
+            pass
+
+        # Update wiki links inside vault
+        try:
+            self.vault.update_vault_links_on_move(src, dest)
+        except Exception:
+            pass
+
+        # Update monitor DB (only if not ignored)
+        if not self._should_ignore_by_rules(src):
+            self._remove_from_monitor_db(src)
+        if not self._should_ignore_by_rules(dest):
+            self._update_monitor_db(dest)
+
+    def _handle_delete_event(self, path: Path):
+        """Handle file delete event."""
+        if self._is_probably_file(path):
+            try:
+                self._pending_deletes[path.resolve().as_posix()] = time.time()
+            except Exception:
+                pass
+
+    def _handle_create_modify_event(self, path: Path, event_type: str):
+        """Handle file create or modify event."""
+        # Cancel any pending delete for same path
+        try:
+            self._pending_deletes.pop(path.resolve().as_posix(), None)
+        except Exception:
+            pass
+
+        # Queue pending mod/create
+        try:
+            key = path.resolve().as_posix()
+            rec = self._pending_mods.get(key) or {}
+            rec["event_type"] = event_type
+            rec["when"] = time.time()
+            self._pending_mods[key] = rec
+        except Exception:
+            pass
+
+    def _handle_new_directory(self, path: Path):
+        """Handle new directory creation - check if it's a project."""
+        if not self.auto_project_notes:
+            return
+
+        # Check if it looks like a project folder (YYYY-Name pattern)
+        if path.parent == Path.home() and path.name.startswith("20"):
+            try:
+                self.vault.create_project_note(path, status="New")
+                self.vault.log_file_operation(
+                    "created",
+                    path,
+                    details="Auto-created project note in Obsidian",
+                    tracked_files_count=self._get_tracked_files_count(),
+                )
+            except Exception as e:
+                print(f"Error creating project note: {e}")
+
     def on_file_change(self, event_type: str, path_info):
         """
         Callback when a file changes.
@@ -282,40 +400,11 @@ class WKSDaemon:
             path_info: Path string for most events, or (src, dest) tuple for moves
         """
         self._record_fs_event()
+
         # Handle move events specially
         if event_type == "moved":
             src_path, dest_path = path_info
-            src = Path(src_path)
-            dest = Path(dest_path)
-            # Cancel any pending delete for destination (temp-file replace pattern)
-            try:
-                self._pending_deletes.pop(dest.resolve().as_posix(), None)
-            except Exception:
-                pass
-            # Only log file moves; skip pure directory moves to reduce noise
-            try:
-                if self._is_probably_file(src) or self._is_probably_file(dest):
-                    self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
-                    self._bump_beat()
-            except Exception:
-                pass
-            # Update symlink target if tracked
-            try:
-                self.vault.update_link_on_move(src, dest)
-            except Exception:
-                pass
-            # Update wiki links inside vault
-            try:
-                self.vault.update_vault_links_on_move(src, dest)
-            except Exception:
-                pass
-
-            # Update monitor DB (only if not ignored)
-            if not self._should_ignore_by_rules(src):
-                self._remove_from_monitor_db(src)
-            if not self._should_ignore_by_rules(dest):
-                self._update_monitor_db(dest)
-
+            self._handle_move_event(src_path, dest_path)
             return
 
         # Regular events
@@ -326,46 +415,18 @@ class WKSDaemon:
             return
 
         # Coalesce deletes: set pending and return; flush later
-        if event_type == "deleted" and self._is_probably_file(path):
-            try:
-                self._pending_deletes[path.resolve().as_posix()] = time.time()
-            except Exception:
-                pass
+        if event_type == "deleted":
+            self._handle_delete_event(path)
             return
 
         # Created/modified: cancel any pending delete for same path and coalesce modify
         if event_type in ["created", "modified"]:
-            try:
-                self._pending_deletes.pop(path.resolve().as_posix(), None)
-            except Exception:
-                pass
-            # Queue pending mod/create
-            try:
-                key = path.resolve().as_posix()
-                rec = self._pending_mods.get(key) or {}
-                rec["event_type"] = event_type
-                rec["when"] = time.time()
-                self._pending_mods[key] = rec
-            except Exception:
-                pass
-            return
+            self._handle_create_modify_event(path, event_type)
 
-        # Handle specific cases for non-move events
-        if event_type == "created" and path_info and Path(path_info).is_dir():
-            # New directory - check if it's a project
-            p = Path(path_info)
-            if self.auto_project_notes and p.parent == Path.home() and p.name.startswith("20"):
-                # Looks like a project folder (YYYY-Name pattern)
-                try:
-                    self.vault.create_project_note(p, status="New")
-                    self.vault.log_file_operation(
-                        "created",
-                        p,
-                        details="Auto-created project note in Obsidian",
-                        tracked_files_count=self._get_tracked_files_count(),
-                    )
-                except Exception as e:
-                    print(f"Error creating project note: {e}")
+            # Handle specific cases for new directories
+            if event_type == "created" and path.is_dir():
+                self._handle_new_directory(path)
+            return
 
     def start(self):
         """Start monitoring."""
@@ -589,96 +650,133 @@ class WKSDaemon:
                 except Exception:
                     pass
 
+    def _get_db_activity_info(self, now: float) -> tuple[Optional[str], Optional[str], Optional[str], int]:
+        """Get DB activity information from summary and history.
+
+        Returns:
+            Tuple of (last_operation, last_detail, last_iso, ops_last_minute)
+        """
+        db_summary = load_db_activity_summary()
+        db_history_window = max(int(self.fs_rate_long_window), 600)
+        db_history = load_db_activity_history(db_history_window)
+
+        db_last_operation = None
+        db_last_detail = None
+        db_last_iso = None
+
+        if db_summary:
+            try:
+                db_last_iso = db_summary.get("timestamp_iso") or None
+                db_last_operation = db_summary.get("operation") or None
+                db_last_detail = db_summary.get("detail") or None
+            except Exception:
+                pass
+
+        if db_last_operation is None and db_history:
+            try:
+                db_last_iso = db_history[-1].get("timestamp_iso")
+                db_last_operation = db_history[-1].get("operation")
+                db_last_detail = db_history[-1].get("detail")
+            except Exception:
+                pass
+
+        cutoff_minute = now - 60.0
+        db_ops_last_minute = 0
+        for item in db_history:
+            try:
+                ts_val = float(item.get("timestamp", 0))
+            except Exception:
+                continue
+            if ts_val >= cutoff_minute:
+                db_ops_last_minute += 1
+
+        self._beat_count = len(db_history)
+        return db_last_operation, db_last_detail, db_last_iso, db_ops_last_minute
+
+    def _calculate_fs_rates(self) -> tuple[float, float, float]:
+        """Calculate filesystem event rates.
+
+        Returns:
+            Tuple of (short_rate, long_rate, weighted_rate)
+        """
+        short_rate = len(self._fs_events_short) / self.fs_rate_short_window if self.fs_rate_short_window else 0.0
+        long_rate = len(self._fs_events_long) / self.fs_rate_long_window if self.fs_rate_long_window else 0.0
+        weighted_rate = (
+            self.fs_rate_short_weight * short_rate
+            + self.fs_rate_long_weight * long_rate
+        )
+        return short_rate, long_rate, weighted_rate
+
+    def _get_lock_info(self) -> tuple[bool, Optional[int], str]:
+        """Get lock file information.
+
+        Returns:
+            Tuple of (lock_present, lock_pid, lock_path)
+        """
+        lock_present = bool(self.lock_file.exists())
+        lock_pid = None
+        if lock_present:
+            try:
+                content = self.lock_file.read_text().strip()
+                if content:
+                    lock_pid = int(content.splitlines()[0])
+            except Exception:
+                pass
+        return lock_present, lock_pid, str(self.lock_file)
+
+    def _format_uptime(self, secs: int) -> str:
+        """Format uptime seconds as HH:MM:SS."""
+        h = secs // 3600
+        m = (secs % 3600) // 60
+        s = secs % 60
+        return f"{h:02d}:{m:02d}:{s:02d}"
+
     def _write_health(self):
+        """Write health data to health.json file."""
         try:
             now = time.time()
             uptime_secs = int(now - self._health_started_at)
 
-            db_summary = load_db_activity_summary()
-            db_history_window = max(int(self.fs_rate_long_window), 600)
-            db_history = load_db_activity_history(db_history_window)
-            db_last_ts = None
-            db_last_iso = None
-            db_last_operation = None
-            db_last_detail = None
-            if db_summary:
-                try:
-                    db_last_ts = float(db_summary.get("timestamp"))
-                except Exception:
-                    db_last_ts = None
-                db_last_iso = db_summary.get("timestamp_iso") or None
-                db_last_operation = db_summary.get("operation") or None
-                db_last_detail = db_summary.get("detail") or None
-
-            if db_last_ts is None and db_history:
-                try:
-                    db_last_ts = float(db_history[-1].get("timestamp"))
-                    db_last_iso = db_history[-1].get("timestamp_iso")
-                    db_last_operation = db_history[-1].get("operation")
-                    db_last_detail = db_history[-1].get("detail")
-                except Exception:
-                    pass
-
-            cutoff_minute = now - 60.0
-            db_ops_last_minute = 0
-            for item in db_history:
-                try:
-                    ts_val = float(item.get("timestamp", 0))
-                except Exception:
-                    continue
-                if ts_val >= cutoff_minute:
-                    db_ops_last_minute += 1
-
+            db_last_operation, db_last_detail, db_last_iso, db_ops_last_minute = self._get_db_activity_info(now)
             db_ops_per_min = round(db_ops_last_minute / 1.0, 2)
-            self._beat_count = len(db_history)
 
-            short_rate = len(self._fs_events_short) / self.fs_rate_short_window if self.fs_rate_short_window else 0.0
-            long_rate = len(self._fs_events_long) / self.fs_rate_long_window if self.fs_rate_long_window else 0.0
-            weighted_rate = (
-                self.fs_rate_short_weight * short_rate
-                + self.fs_rate_long_weight * long_rate
+            short_rate, long_rate, weighted_rate = self._calculate_fs_rates()
+            lock_present, lock_pid, lock_path = self._get_lock_info()
+
+            health_data = HealthData(
+                pending_deletes=len(self._pending_deletes),
+                pending_mods=len(self._pending_mods),
+                last_error=self._last_error,
+                pid=os.getpid(),
+                last_error_at=int(self._last_error_at) if self._last_error_at else None,
+                last_error_at_iso=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._last_error_at)) if self._last_error_at else None,
+                last_error_age_secs=int(now - self._last_error_at) if self._last_error_at else None,
+                started_at=int(self._health_started_at),
+                started_at_iso=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._health_started_at)),
+                uptime_secs=uptime_secs,
+                uptime_hms=self._format_uptime(uptime_secs),
+                beats=int(self._beat_count),
+                avg_beats_per_min=db_ops_per_min,
+                lock_present=lock_present,
+                lock_pid=lock_pid,
+                lock_path=lock_path,
+                db_last_operation=db_last_operation,
+                db_last_operation_detail=db_last_detail,
+                db_last_operation_iso=db_last_iso,
+                db_ops_last_minute=db_ops_last_minute,
+                fs_rate_short=short_rate,
+                fs_rate_long=long_rate,
+                fs_rate_weighted=weighted_rate,
+                fs_rate_short_window_secs=self.fs_rate_short_window,
+                fs_rate_long_window_secs=self.fs_rate_long_window,
+                fs_rate_short_weight=self.fs_rate_short_weight,
+                fs_rate_long_weight=self.fs_rate_long_weight,
             )
 
-            def _hms(secs: int) -> str:
-                h = secs // 3600
-                m = (secs % 3600) // 60
-                s = secs % 60
-                return f"{h:02d}:{m:02d}:{s:02d}"
-
-            data = {
-                "pending_deletes": len(self._pending_deletes),
-                "pending_mods": len(self._pending_mods),
-                "last_error": self._last_error,
-                "pid": os.getpid(),
-                "last_error_at": int(self._last_error_at) if self._last_error_at else None,
-                "last_error_at_iso": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._last_error_at)) if self._last_error_at else None,
-                "last_error_age_secs": int(now - self._last_error_at) if self._last_error_at else None,
-                "started_at": int(self._health_started_at),
-                "started_at_iso": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._health_started_at)),
-                "uptime_secs": uptime_secs,
-                "uptime_hms": _hms(uptime_secs),
-                "beats": int(self._beat_count),
-                "avg_beats_per_min": db_ops_per_min,
-                # Lock status
-                "lock_present": bool(self.lock_file.exists()),
-                "lock_pid": (int(self.lock_file.read_text().strip().splitlines()[0]) if self.lock_file.exists() and self.lock_file.read_text().strip() else None) if True else None,
-                "lock_path": str(self.lock_file),
-                "db_last_operation": db_last_operation,
-                "db_last_operation_detail": db_last_detail,
-                "db_last_operation_iso": db_last_iso,
-                "db_ops_last_minute": db_ops_last_minute,
-                "fs_rate_short": short_rate,
-                "fs_rate_long": long_rate,
-                "fs_rate_weighted": weighted_rate,
-                "fs_rate_short_window_secs": self.fs_rate_short_window,
-                "fs_rate_long_window_secs": self.fs_rate_long_window,
-                "fs_rate_short_weight": self.fs_rate_short_weight,
-                "fs_rate_long_weight": self.fs_rate_long_weight,
-            }
             self.health_file.parent.mkdir(parents=True, exist_ok=True)
-            import json as _json
             with open(self.health_file, 'w') as f:
-                _json.dump(data, f)
+                json.dump(health_data.to_dict(), f)
+
             # Update Health landing page
             try:
                 self.vault.write_health_page()

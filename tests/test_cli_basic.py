@@ -36,7 +36,12 @@ def run_cli(args, monkeypatch=None):
 
 
 def test_cli_config_print_json(monkeypatch):
-    cfg = {"vault": {"base_dir": "~/obsidian"}, "similarity": {"enabled": True}}
+    cfg = {
+        "vault": {"base_dir": "~/obsidian"},
+        "similarity": {"enabled": True},
+        "db": {"type": "mongodb", "uri": "mongodb://localhost:27017/"},
+        "display": {"timestamp_format": "%Y-%m-%d %H:%M:%S"}
+    }
     monkeypatch.setattr('wks.cli.load_config', lambda: cfg)
     rc, out = run_cli(['--display','mcp','config'], monkeypatch)
     assert rc == 0
@@ -58,7 +63,7 @@ def test_cli_version_flag():
     rc, out = run_cli(['--version'])
     assert rc == 0
     expected = importlib_metadata.version('wks')
-    assert f"wkso {expected}" in out
+    assert f"wks0 {expected}" in out
     # git SHA is optional but when present must be within parentheses
     if '(' in out:
         assert out.strip().endswith(')')
@@ -97,9 +102,9 @@ def test_cli_service_status_json_parsed(tmp_path, monkeypatch):
     # Fake launchctl print
     def _fake_check_output(args, stderr=None):
         return ("""
-gui/XXXX/com.wieselquist.wkso = {
+gui/XXXX/com.wieselquist.wks0 = {
     active count = 1
-    path = /Users/you/Library/LaunchAgents/com.wieselquist.wkso.plist
+    path = /Users/you/Library/LaunchAgents/com.wieselquist.wks0.plist
     type = LaunchAgent
     state = running
 

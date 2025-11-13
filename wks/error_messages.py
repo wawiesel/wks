@@ -20,7 +20,7 @@ def mongodb_connection_error(mongo_uri: str, original_error: Exception) -> NoRet
     print("  1. Start MongoDB if it's not running:")
     print("     - macOS: brew services start mongodb-community")
     print("     - Linux: sudo systemctl start mongod")
-    print("     - Or use: wkso daemon start (starts MongoDB automatically)")
+    print("     - Or use: wks0 daemon start (starts MongoDB automatically)")
     print("\n  2. Check if MongoDB is running:")
     print("     - macOS: brew services list | grep mongodb")
     print("     - Linux: sudo systemctl status mongod")
