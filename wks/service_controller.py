@@ -291,36 +291,37 @@ class ServiceController:
     def _read_health(status: ServiceStatusData) -> None:
         health_path = Path.home() / WKS_HOME_EXT / "health.json"
         health: Dict[str, Any] = {}
-        try:
-            if health_path.exists():
+        
+        if health_path.exists():
+            try:
                 with open(health_path, "r") as f:
                     health = json.load(f)
-        except Exception:
-            status.notes.append("Failed to read health metrics")
-            health = {}
+            except Exception:
+                status.notes.append("Failed to read health metrics")
 
         if health:
             status.running = bool(health.get("lock_present"))
             status.uptime = str(health.get("uptime_hms") or "")
             try:
                 status.pid = int(health.get("pid"))
-            except Exception:
+            except (ValueError, TypeError):
                 status.pid = None
             status.pending_deletes = health.get("pending_deletes")
             status.pending_mods = health.get("pending_mods")
-            status.ok = False if health.get("last_error") else True
+            status.ok = not bool(health.get("last_error"))
             status.lock = bool(health.get("lock_present"))
             if health.get("last_error"):
                 status.last_error = str(health.get("last_error"))
+            
             for attr, key in [
                 ("fs_rate_short", "fs_rate_short"),
                 ("fs_rate_long", "fs_rate_long"),
                 ("fs_rate_weighted", "fs_rate_weighted"),
             ]:
+                val = health.get(key)
                 try:
-                    val = health.get(key)
                     setattr(status, attr, float(val) if val is not None else None)
-                except Exception:
+                except (ValueError, TypeError):
                     setattr(status, attr, None)
         else:
             lock_exists = LOCK_FILE.exists()
@@ -335,8 +336,8 @@ class ServiceController:
                     status.running = None
             else:
                 status.running = False
-            if not status.notes and not lock_exists:
-                status.notes.append("WKS daemon: not running")
+                if not status.notes:
+                    status.notes.append("WKS daemon: not running")
 
     @staticmethod
     def get_status() -> ServiceStatusData:
