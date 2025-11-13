@@ -194,32 +194,25 @@ class ServiceStatusData:
             "notes": list(self.notes),
         }
 
-    def to_rows(self) -> List[Tuple[str, str]]:
-        """Return rows grouped by section: Health, File System, Launch."""
-        rows: List[Tuple[str, str]] = []
-        
-        # Health section
-        rows.append(("Health", ""))
-        rows.append(("  Running", _fmt_bool(self.running, color=True)))
-        rows.append(("  Uptime", self.uptime or "-"))
-        rows.append(("  PID", str(self.pid) if self.pid is not None else "-"))
-        rows.append(("  OK", _fmt_bool(self.ok, color=True)))
-        rows.append(("  Lock", _fmt_bool(self.lock, color=True)))
-        if self.last_error:
-            rows.append(("  Last error", self.last_error))
-        
-        # File System section
-        rows.append(("File System", ""))
-        # Pending deletes: files queued for deletion (2s grace period to avoid temp-file false positives)
+    def _build_health_rows(self) -> List[Tuple[str, str]]:
+        """Build Health section rows."""
+        return [
+            ("Health", ""),
+            ("  Running", _fmt_bool(self.running, color=True)),
+            ("  Uptime", self.uptime or "-"),
+            ("  PID", str(self.pid) if self.pid is not None else "-"),
+            ("  OK", _fmt_bool(self.ok, color=True)),
+            ("  Lock", _fmt_bool(self.lock, color=True)),
+        ] + ([("  Last error", self.last_error)] if self.last_error else [])
+
+    def _build_filesystem_rows(self) -> List[Tuple[str, str]]:
+        """Build File System section rows."""
+        rows = [("File System", "")]
         rows.append(("  Pending deletes", str(self.pending_deletes) if self.pending_deletes is not None else "-"))
-        # Pending mods: files queued for processing (0.6s coalesce window to batch rapid changes)
         rows.append(("  Pending mods", str(self.pending_mods) if self.pending_mods is not None else "-"))
         
-        # Calculate ops in last minute from weighted rate (FS prefix removed - already in File System section)
         if self.fs_rate_weighted is not None:
-            fs_ops_last_min = int(self.fs_rate_weighted * 60)
-            rows.append(("  Ops (last min)", str(fs_ops_last_min)))
-        
+            rows.append(("  Ops (last min)", str(int(self.fs_rate_weighted * 60))))
         if self.fs_rate_short is not None:
             rows.append(("  Ops/sec (10s)", f"{self.fs_rate_short:.2f}"))
         if self.fs_rate_long is not None:
@@ -227,18 +220,29 @@ class ServiceStatusData:
         if self.fs_rate_weighted is not None:
             rows.append(("  Ops/sec (weighted)", f"{self.fs_rate_weighted:.2f}"))
         
-        # Launch section (macOS only)
-        if self.launch.present():
-            rows.append(("Launch", ""))
-            # Launch state: macOS launchd agent status (may differ from Running if process crashed)
-            rows.append(("  State", self.launch.state or "-"))
-            program_desc = self.launch.arguments or self.launch.program or "-"
-            rows.append(("  Program", program_desc))
-            rows.append(("  Stdout", self.launch.stdout or "-"))
-            rows.append(("  Stderr", self.launch.stderr or "-"))
-            rows.append(("  Path", self.launch.path or "-"))
-            rows.append(("  Type", self.launch.type or "-"))
+        return rows
+
+    def _build_launch_rows(self) -> List[Tuple[str, str]]:
+        """Build Launch section rows."""
+        if not self.launch.present():
+            return []
         
+        return [
+            ("Launch", ""),
+            ("  State", self.launch.state or "-"),
+            ("  Program", self.launch.arguments or self.launch.program or "-"),
+            ("  Stdout", self.launch.stdout or "-"),
+            ("  Stderr", self.launch.stderr or "-"),
+            ("  Path", self.launch.path or "-"),
+            ("  Type", self.launch.type or "-"),
+        ]
+
+    def to_rows(self) -> List[Tuple[str, str]]:
+        """Return rows grouped by section: Health, File System, Launch."""
+        rows = []
+        rows.extend(self._build_health_rows())
+        rows.extend(self._build_filesystem_rows())
+        rows.extend(self._build_launch_rows())
         if self.notes:
             rows.append(("Notes", "; ".join(self.notes)))
         return rows

@@ -31,27 +31,71 @@ def _parse_json_arg(value: Optional[str], arg_name: str, display) -> tuple[Optio
         return None, 2
 
 
+def _parse_query_args(args: argparse.Namespace, display) -> tuple[Optional[dict], Optional[dict], Optional[int]]:
+    """Parse filter and projection arguments."""
+    filter_dict, error = _parse_json_arg(args.filter if hasattr(args, 'filter') else None, "filter", display)
+    if error:
+        return None, None, error
+
+    projection, error = _parse_json_arg(args.projection if hasattr(args, 'projection') else None, "projection", display)
+    if error:
+        return None, None, error
+
+    return filter_dict or {}, projection or {}, None
+
+
+def _build_query_cursor(coll, filter_dict: dict, projection: dict, limit: int, sort_arg: Optional[str]):
+    """Build MongoDB query cursor with filter, projection, limit, and sort."""
+    cursor = coll.find(filter_dict, projection).limit(limit)
+
+    if sort_arg:
+        field, direction = sort_arg.split(':') if ':' in sort_arg else (sort_arg, 'desc')
+        sort_dir = 1 if direction.lower().startswith('asc') else -1
+        cursor = cursor.sort(field, sort_dir)
+    else:
+        cursor = cursor.sort("timestamp", -1)
+
+    return cursor
+
+
+def _clean_document(doc: dict) -> dict:
+    """Clean document for display by removing internal fields and formatting."""
+    exclude_fields = {"_id", "touches", "avg_time_between_modifications", "touches_per_second"}
+    doc_clean = {k: v for k, v in doc.items() if k not in exclude_fields}
+
+    tpd = doc_clean.get("touches_per_day")
+    if isinstance(tpd, (int, float)):
+        doc_clean["touches_per_day"] = f"{tpd:.2e}"
+
+    return doc_clean
+
+
+def _display_query_results(display, db_name: str, coll_name: str, total: int, docs: list):
+    """Display query results."""
+    display.info(f"Database: {db_name}.{coll_name}")
+    display.info(f"Total documents: {total}")
+    display.info(f"Showing: {len(docs)} documents\n")
+
+    if docs:
+        for idx, doc in enumerate(docs, 1):
+            doc_clean = _clean_document(doc)
+            display.info(f"[{idx}]")
+            display.json_output(doc_clean)
+            display.info("")
+    else:
+        display.warning("No documents found")
+
+
 def _db_monitor(args: argparse.Namespace) -> int:
     """Query the filesystem monitoring database."""
     display = args.display_obj
     cfg = load_config()
-
-    # Get database configuration
     uri, db_name, coll_name = get_monitor_db_config(cfg)
 
-    # Parse filter
-    filter_dict, error = _parse_json_arg(args.filter if hasattr(args, 'filter') else None,
-                                         "filter", display)
+    filter_dict, projection, error = _parse_query_args(args, display)
     if error:
         return error
 
-    # Parse projection
-    projection, error = _parse_json_arg(args.projection if hasattr(args, 'projection') else None,
-                                        "projection", display)
-    if error:
-        return error
-
-    # Connect to database
     try:
         client = connect_to_mongo(uri)
     except Exception as e:
@@ -60,45 +104,14 @@ def _db_monitor(args: argparse.Namespace) -> int:
 
     try:
         coll = client[db_name][coll_name]
-
-        # Get count
         total = coll.count_documents(filter_dict)
-
-        # Query with limit
         limit = getattr(args, 'limit', 10)
-        cursor = coll.find(filter_dict, projection).limit(limit)
+        sort_arg = getattr(args, 'sort', None) if hasattr(args, 'sort') else None
 
-        # Sort if specified
-        if hasattr(args, 'sort') and args.sort:
-            field, direction = args.sort.split(':') if ':' in args.sort else (args.sort, 'desc')
-            sort_dir = 1 if direction.lower().startswith('asc') else -1
-            cursor = cursor.sort(field, sort_dir)
-        else:
-            # Default: sort by timestamp descending
-            cursor = cursor.sort("timestamp", -1)
-
+        cursor = _build_query_cursor(coll, filter_dict, projection, limit, sort_arg)
         docs = list(cursor)
 
-        # Display results
-        display.info(f"Database: {db_name}.{coll_name}")
-        display.info(f"Total documents: {total}")
-        display.info(f"Showing: {len(docs)} documents\n")
-
-        if docs:
-            for idx, doc in enumerate(docs, 1):
-                # Remove MongoDB _id for cleaner display
-                doc_clean = {k: v for k, v in doc.items() if k not in {"_id", "touches", "avg_time_between_modifications", "touches_per_second"}}
-
-                tpd = doc_clean.get("touches_per_day")
-                if isinstance(tpd, (int, float)):
-                    doc_clean["touches_per_day"] = f"{tpd:.2e}"
-
-                display.info(f"[{idx}]")
-                display.json_output(doc_clean)
-                display.info("")  # Blank line between docs
-        else:
-            display.warning("No documents found")
-
+        _display_query_results(display, db_name, coll_name, total, docs)
         return 0
 
     except Exception as e:

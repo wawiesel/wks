@@ -217,8 +217,48 @@ class MCPServer:
         ]
         self._write_response(request_id, {"tools": tools_list})
 
+    def _build_tool_registry(self) -> Dict[str, callable]:
+        """Build registry of tool handlers with parameter validation."""
+        def _require_params(*param_names: str):
+            """Decorator to validate required parameters."""
+            def decorator(handler: callable) -> callable:
+                def wrapper(config: Dict[str, Any], arguments: Dict[str, Any]) -> Dict[str, Any]:
+                    missing = [p for p in param_names if arguments.get(p) is None]
+                    if missing:
+                        raise ValueError(f"Missing required parameters: {', '.join(missing)}")
+                    return handler(config, arguments)
+                return wrapper
+            return decorator
+
+        return {
+            "wks_monitor_status": lambda config, args: self._tool_monitor_status(config),
+            "wks_monitor_check": _require_params("path")(
+                lambda config, args: self._tool_monitor_check(config, args["path"])
+            ),
+            "wks_monitor_validate": lambda config, args: self._tool_monitor_validate(config),
+            "wks_monitor_list": _require_params("list_name")(
+                lambda config, args: self._tool_monitor_list(config, args["list_name"])
+            ),
+            "wks_monitor_add": _require_params("list_name", "value")(
+                lambda config, args: self._tool_monitor_add(config, args["list_name"], args["value"])
+            ),
+            "wks_monitor_remove": _require_params("list_name", "value")(
+                lambda config, args: self._tool_monitor_remove(config, args["list_name"], args["value"])
+            ),
+            "wks_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),
+            "wks_monitor_managed_add": _require_params("path", "priority")(
+                lambda config, args: self._tool_monitor_managed_add(config, args["path"], args["priority"])
+            ),
+            "wks_monitor_managed_remove": _require_params("path")(
+                lambda config, args: self._tool_monitor_managed_remove(config, args["path"])
+            ),
+            "wks_monitor_managed_set_priority": _require_params("path", "priority")(
+                lambda config, args: self._tool_monitor_managed_set_priority(config, args["path"], args["priority"])
+            ),
+        }
+
     def _handle_call_tool(self, request_id: Any, params: Dict[str, Any]) -> None:
-        """Handle tools/call request."""
+        """Handle tools/call request using registry pattern."""
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
 
@@ -227,67 +267,16 @@ class MCPServer:
             return
 
         try:
-            # Load config once per call
             config = load_config()
+            registry = self._build_tool_registry()
 
-            # Route to appropriate tool handler
-            if tool_name == "wks_monitor_status":
-                result = self._tool_monitor_status(config)
-            elif tool_name == "wks_monitor_check":
-                path = arguments.get("path")
-                if not path:
-                    self._write_error(request_id, -32602, "Missing required parameter: path")
-                    return
-                result = self._tool_monitor_check(config, path)
-            elif tool_name == "wks_monitor_validate":
-                result = self._tool_monitor_validate(config)
-            elif tool_name == "wks_monitor_list":
-                list_name = arguments.get("list_name")
-                if not list_name:
-                    self._write_error(request_id, -32602, "Missing required parameter: list_name")
-                    return
-                result = self._tool_monitor_list(config, list_name)
-            elif tool_name == "wks_monitor_add":
-                list_name = arguments.get("list_name")
-                value = arguments.get("value")
-                if not list_name or not value:
-                    self._write_error(request_id, -32602, "Missing required parameters: list_name, value")
-                    return
-                result = self._tool_monitor_add(config, list_name, value)
-            elif tool_name == "wks_monitor_remove":
-                list_name = arguments.get("list_name")
-                value = arguments.get("value")
-                if not list_name or not value:
-                    self._write_error(request_id, -32602, "Missing required parameters: list_name, value")
-                    return
-                result = self._tool_monitor_remove(config, list_name, value)
-            elif tool_name == "wks_monitor_managed_list":
-                result = self._tool_monitor_managed_list(config)
-            elif tool_name == "wks_monitor_managed_add":
-                path = arguments.get("path")
-                priority = arguments.get("priority")
-                if not path or priority is None:
-                    self._write_error(request_id, -32602, "Missing required parameters: path, priority")
-                    return
-                result = self._tool_monitor_managed_add(config, path, priority)
-            elif tool_name == "wks_monitor_managed_remove":
-                path = arguments.get("path")
-                if not path:
-                    self._write_error(request_id, -32602, "Missing required parameter: path")
-                    return
-                result = self._tool_monitor_managed_remove(config, path)
-            elif tool_name == "wks_monitor_managed_set_priority":
-                path = arguments.get("path")
-                priority = arguments.get("priority")
-                if not path or priority is None:
-                    self._write_error(request_id, -32602, "Missing required parameters: path, priority")
-                    return
-                result = self._tool_monitor_managed_set_priority(config, path, priority)
-            else:
+            if tool_name not in registry:
                 self._write_error(request_id, -32601, f"Tool not implemented: {tool_name}")
                 return
 
-            # Return tool result
+            handler = registry[tool_name]
+            result = handler(config, arguments)
+
             self._write_response(request_id, {
                 "content": [
                     {
@@ -297,12 +286,15 @@ class MCPServer:
                 ]
             })
 
+        except ValueError as e:
+            self._write_error(request_id, -32602, str(e))
         except Exception as e:
             self._write_error(request_id, -32000, f"Tool execution failed: {e}", {"traceback": str(e)})
 
     def _tool_monitor_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Execute wks_monitor_status tool."""
-        return MonitorController.get_status(config)
+        status = MonitorController.get_status(config)
+        return status.to_dict()
 
     def _tool_monitor_check(self, config: Dict[str, Any], path: str) -> Dict[str, Any]:
         """Execute wks_monitor_check tool."""
@@ -468,7 +460,6 @@ class MCPServer:
                 # Only send error if this is a request (has ID), not a notification
                 if request_id is not None:
                     self._write_error(request_id, -32601, f"Method not found: {method}")
-
 
 
 def main():

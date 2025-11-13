@@ -318,16 +318,186 @@ def _daemon_status_launchd() -> int:
         return 3
 
 
-def daemon_status(args: argparse.Namespace) -> int:
+class DisplayStrategy:
+    """Base class for display strategies."""
+    def render(self, status: ServiceStatusData, args: argparse.Namespace) -> int:
+        """Render status using this strategy. Returns exit code."""
+        raise NotImplementedError
+
+
+class LiveDisplayStrategy(DisplayStrategy):
+    """Strategy for live updating display."""
+    def render(self, status: ServiceStatusData, args: argparse.Namespace) -> int:
+        try:
+            from rich.console import Console
+            from rich.live import Live
+            from rich.table import Table
+            from rich import box
+        except ImportError:
+            sys.stderr.write("Rich library required for --live mode. Install with: pip install rich\n")
+            return 2
+        
+        console = Console()
+        
+        def _render_status() -> Table:
+            """Render current status as a Rich table with grouped sections."""
+            current_status = ServiceController.get_status()
+            rows = current_status.to_rows()
+            
+            table = Table(
+                title="WKS Service Status (Live)",
+                header_style="bold cyan",
+                box=box.SQUARE,
+                expand=False,
+                pad_edge=False,
+                show_header=False,
+            )
+            table.add_column("", style="cyan", overflow="fold")
+            table.add_column("", style="white", overflow="fold")
+            
+            for key, value in rows:
+                if value == "" and not key.startswith("  "):
+                    table.add_row(key, value, style="bold yellow")
+                else:
+                    table.add_row(key, value)
+            
+            return table
+        
+        try:
+            with Live(_render_status(), refresh_per_second=0.5, screen=False, console=console) as live:
+                while True:
+                    time.sleep(2.0)
+                    try:
+                        live.update(_render_status())
+                    except Exception as update_exc:
+                        console.print(f"[yellow]Warning: {update_exc}[/yellow]", end="")
+        except KeyboardInterrupt:
+            console.print("\n[dim]Stopped monitoring.[/dim]")
+            return 0
+        except Exception as exc:
+            console.print(f"[red]Error in live mode: {exc}[/red]")
+            return 2
+
+
+class MCPDisplayStrategy(DisplayStrategy):
+    """Strategy for MCP display mode."""
+    def render(self, status: ServiceStatusData, args: argparse.Namespace) -> int:
+        display = args.display_obj
+        payload = status.to_dict()
+        display.success("WKS service status", data=payload)
+        return 0
+
+
+class CLIDisplayStrategy(DisplayStrategy):
+    """Strategy for CLI display mode."""
+    def render(self, status: ServiceStatusData, args: argparse.Namespace) -> int:
+        display = args.display_obj
+        rows = status.to_rows()
+        table_data = []
+        for key, value in rows:
+            if value == "" and not key.startswith("  "):
+                table_data.append({"Key": f"[bold yellow]{key}[/bold yellow]", "Value": value})
+            else:
+                table_data.append({"Key": key, "Value": value})
+        display.table(table_data, title="WKS Service Status", column_justify={"Value": "left"})
+        if status.notes:
+            display.info("; ".join(status.notes))
+        return 0
+
+
+class LegacyDisplayStrategy(DisplayStrategy):
+    """Strategy for legacy display modes."""
+    def render(self, status: ServiceStatusData, args: argparse.Namespace) -> int:
+        display_mode = getattr(args, "display", None)
+        payload = status.to_dict()
+        
+        if display_mode == "none":
+            return 0
+        if display_mode == "json":
+            print(_json_dumps(payload))
+            return 0
+        if display_mode == "markdown":
+            print(render_template(STATUS_MARKDOWN_TEMPLATE, {"rows": status.to_rows()}))
+            return 0
+        
+        # Rich-based legacy modes
+        use_rich = False
+        plain_mode = False
+        if display_mode == "rich":
+            use_rich = True
+        elif display_mode == "plain":
+            use_rich = True
+            plain_mode = True
+        elif display_mode == "auto":
+            try:
+                use_rich = sys.stdout.isatty()
+            except Exception:
+                use_rich = False
+
+        if use_rich:
+            try:
+                from rich import box
+                from rich.console import Console
+                from rich.table import Table
+            except Exception:
+                use_rich = False
+
+        if use_rich:
+            colorful = (display_mode in {"rich", "auto"}) and not plain_mode
+            console = Console(
+                force_terminal=True,
+                color_system=None if colorful else "standard",
+                markup=colorful,
+                highlight=False,
+                soft_wrap=False,
+            )
+            table = Table(
+                title="WKS Service Status",
+                header_style="bold" if colorful else "",
+                box=box.SQUARE if colorful else box.SIMPLE,
+                expand=False,
+                pad_edge=False,
+            )
+            table.add_column("Key", style="cyan" if colorful else "", overflow="fold")
+            table.add_column("Value", style="white" if colorful else "", overflow="fold")
+            for key, value in status.to_rows():
+                table.add_row(key, value)
+            console.print(table)
+            return 0
+
+        # Fallback to JSON
+        print(_json_dumps(payload))
+        return 0
+
+
+def _get_display_strategy(args: argparse.Namespace) -> DisplayStrategy:
+    """Get appropriate display strategy based on args."""
     live = getattr(args, "live", False)
-    
-    # Live mode only works with CLI display
     if live:
         display_mode = getattr(args, "display", None)
         if display_mode == "mcp":
             sys.stderr.write("--live mode is not supported with MCP display\n")
-            return 2
-        # Force CLI mode for live updates
+            raise ValueError("Live mode not supported with MCP")
+        return LiveDisplayStrategy()
+    
+    display_mode = getattr(args, "display", None)
+    if display_mode in DISPLAY_CHOICES:
+        if display_mode == "mcp":
+            return MCPDisplayStrategy()
+        return CLIDisplayStrategy()
+    
+    return LegacyDisplayStrategy()
+
+
+def daemon_status(args: argparse.Namespace) -> int:
+    """Show daemon status using appropriate display strategy."""
+    try:
+        strategy = _get_display_strategy(args)
+    except ValueError as e:
+        return 2
+    
+    # Live mode requires CLI display
+    if getattr(args, "live", False):
         args.display = "cli"
         args.display_obj = get_display("cli")
     
@@ -348,139 +518,7 @@ def daemon_status(args: argparse.Namespace) -> int:
     payload = status.to_dict()
     _maybe_write_json(args, payload)
 
-    display_mode = getattr(args, "display", None)
-
-    # Live mode: live updating display
-    if live:
-        try:
-            from rich.console import Console
-            from rich.live import Live
-            from rich.table import Table
-            from rich import box
-        except ImportError:
-            sys.stderr.write("Rich library required for --live mode. Install with: pip install rich\n")
-            return 2
-        
-        console = Console()
-        
-        def _render_status() -> Table:
-            """Render current status as a Rich table with grouped sections."""
-            status = ServiceController.get_status()
-            rows = status.to_rows()
-            
-            table = Table(
-                title="WKS Service Status (Live)",
-                header_style="bold cyan",
-                box=box.SQUARE,
-                expand=False,
-                pad_edge=False,
-                show_header=False,
-            )
-            table.add_column("", style="cyan", overflow="fold")
-            table.add_column("", style="white", overflow="fold")
-            
-            for key, value in rows:
-                # Style section headers
-                if value == "" and not key.startswith("  "):
-                    table.add_row(key, value, style="bold yellow")
-                else:
-                    table.add_row(key, value)
-            
-            return table
-        
-        try:
-            with Live(_render_status(), refresh_per_second=0.5, screen=False, console=console) as live:
-                while True:
-                    time.sleep(2.0)  # Update every 2 seconds
-                    try:
-                        live.update(_render_status())
-                    except Exception as update_exc:
-                        # Continue on update errors, but show them
-                        console.print(f"[yellow]Warning: {update_exc}[/yellow]", end="")
-        except KeyboardInterrupt:
-            console.print("\n[dim]Stopped monitoring.[/dim]")
-            return 0
-        except Exception as exc:
-            console.print(f"[red]Error in live mode: {exc}[/red]")
-            return 2
-
-    # New display modes (CLI/MCP auto-detected)
-    if display_mode in DISPLAY_CHOICES:
-        display = args.display_obj
-        if display_mode == "mcp":
-            display.success("WKS service status", data=payload)
-            return 0
-
-        rows = status.to_rows()
-        table_data = []
-        for key, value in rows:
-            # Style section headers in regular display too
-            if value == "" and not key.startswith("  "):
-                table_data.append({"Key": f"[bold yellow]{key}[/bold yellow]", "Value": value})
-            else:
-                table_data.append({"Key": key, "Value": value})
-        display.table(table_data, title="WKS Service Status", column_justify={"Value": "left"})
-        if status.notes:
-            display.info("; ".join(status.notes))
-        return 0
-
-    # Legacy display behaviour
-    if display_mode == "none":
-        return 0
-    if display_mode == "json":
-        print(_json_dumps(payload))
-        return 0
-    if display_mode == "markdown":
-        print(render_template(STATUS_MARKDOWN_TEMPLATE, {"rows": status.to_rows()}))
-        return 0
-
-    use_rich = False
-    plain_mode = False
-    if display_mode == "rich":
-        use_rich = True
-    elif display_mode == "plain":
-        use_rich = True
-        plain_mode = True
-    elif display_mode == "auto":
-        try:
-            use_rich = sys.stdout.isatty()
-        except Exception:
-            use_rich = False
-
-    if use_rich:
-        try:
-            from rich import box
-            from rich.console import Console
-            from rich.table import Table
-        except Exception:
-            use_rich = False
-
-    if use_rich:
-        colorful = (display_mode in {"rich", "auto"}) and not plain_mode
-        console = Console(
-            force_terminal=True,
-            color_system=None if colorful else "standard",
-            markup=colorful,
-            highlight=False,
-            soft_wrap=False,
-        )
-        table = Table(
-            title="WKS Service Status",
-            header_style="bold" if colorful else "",
-            box=box.SQUARE if colorful else box.SIMPLE,
-            expand=False,
-            pad_edge=False,
-        )
-        table.add_column("Key", style="cyan" if colorful else "", overflow="fold")
-        table.add_column("Value", style="white" if colorful else "", overflow="fold")
-        for key, value in status.to_rows():
-            table.add_row(key, value)
-        console.print(table)
-        return 0
-
-    # Fallback to JSON for unknown legacy modes
-    print(_json_dumps(payload))
-    return 0
+    return strategy.render(status, args)
 
 
 def _read_health_snapshot() -> Dict[str, Any]:
@@ -1367,176 +1405,180 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # monitor status
     monstatus = monsub.add_parser("status", help="Show monitoring statistics")
-    def _monitor_status_cmd(args: argparse.Namespace) -> int:
-        """Show monitoring statistics."""
-        display = args.display_obj
 
-        # Show config location and WKS_HOME
-        from .utils import wks_home_path
-        config_file = get_config_path()
-        display.info(f"Reading config from: {config_file}")
 
-        wks_home_display = os.environ.get("WKS_HOME", str(wks_home_path()))
-        display.info(f"WKS_HOME: {wks_home_display}")
+def _build_problematic_paths(issues: List[str], redundancies: List[str], 
+                              managed_dirs: Dict, include_paths: set, exclude_paths: set) -> Tuple[set, set]:
+    """Build sets of problematic paths for coloring."""
+    red_paths = set()
+    yellow_paths = set()
+    all_paths = list(managed_dirs.keys()) + list(include_paths) + list(exclude_paths)
+    
+    for issue in issues:
+        for path in all_paths:
+            if f"'{path}'" in issue or f" {path}" in issue or issue.endswith(path):
+                red_paths.add(path)
 
-        cfg = load_config()
+    for redund in redundancies:
+        for path in all_paths:
+            if f"'{path}'" in redund or f" {path}" in redund or redund.endswith(path):
+                yellow_paths.add(path)
+    
+    return red_paths, yellow_paths
 
-        # Use MonitorController to get status (includes validation)
-        status_data = MonitorController.get_status(cfg)
 
-        # Extract data
-        total_files = status_data["tracked_files"]
-        issues = status_data["issues"]
-        redundancies = status_data["redundancies"]
-        managed_dirs_dict = status_data["managed_directories"]
-        include_paths = set(status_data["include_paths"])
-        exclude_paths = set(status_data["exclude_paths"])
+def _calculate_priority_alignment(managed_dirs_dict: Dict) -> Tuple[int, int]:
+    """Calculate max pip count and number width for priority alignment."""
+    import math
+    max_pip_count = 0
+    max_num_width = 0
+    for path_info in managed_dirs_dict.values():
+        priority = path_info["priority"]
+        pip_count = 1 if priority <= 1 else int(math.log10(priority)) + 1
+        max_pip_count = max(max_pip_count, pip_count)
+        max_num_width = max(max_num_width, len(str(priority)))
+    return max_pip_count, max_num_width
 
-        # Build table data
-        table_data = [
-            {"Setting": "Tracked Files", "Value": str(total_files)},
-            {"Setting": "", "Value": ""},
-            {"Setting": "managed_directories", "Value": str(len(managed_dirs_dict))},
-        ]
 
-        # Build sets of problematic paths for coloring
-        red_paths = set()
-        yellow_paths = set()
+def _build_managed_dirs_rows(managed_dirs_dict: Dict, max_pip_count: int, max_num_width: int) -> List[Dict]:
+    """Build table rows for managed directories."""
+    import math
+    rows = []
+    for path, path_info in sorted(managed_dirs_dict.items(), key=lambda x: -x[1].priority):
+        priority = path_info.priority
+        is_valid = path_info.valid
+        error_msg = path_info.error
+        
+        pip_count = 1 if priority <= 1 else int(math.log10(priority)) + 1
+        pips = "▪" * pip_count
+        status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
+        priority_display = f"{pips.ljust(max_pip_count)} {str(priority).rjust(max_num_width)} {status_symbol}"
+        
+        rows.append({"Setting": f"  {path}", "Value": priority_display})
+    return rows
+
+
+def _build_path_list_rows(paths: set, red_paths: set, yellow_paths: set, label: str) -> List[Dict]:
+    """Build table rows for include/exclude paths."""
+    rows = [{"Setting": label, "Value": str(len(paths))}]
+    for path in sorted(paths):
+        error_msg = None if path not in (red_paths | yellow_paths) else "issue"
+        is_valid = path not in red_paths
+        rows.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
+    return rows
+
+
+def _build_ignore_rules_list(status_data) -> List[Tuple[str, str]]:
+    """Build ignore rules list with validation."""
+    ignore_list = []
+    ignore_dirnames = status_data.ignore_dirnames
+    ignore_globs = status_data.ignore_globs
+    
+    ignore_list.append(("ignore_dirnames", str(len(ignore_dirnames))))
+    ignore_list.append(("", ""))
+    
+    for dirname in ignore_dirnames:
+        validation_info = status_data.ignore_dirname_validation.get(dirname, {})
+        error_msg = validation_info.get("error")
+        is_valid = validation_info.get("valid", True)
+        ignore_list.append((f"  {dirname}", MonitorValidator.status_symbol(error_msg, is_valid)))
+    
+    ignore_list.append(("", ""))
+    ignore_list.append(("ignore_globs", str(len(ignore_globs))))
+    
+    for glob_pattern in ignore_globs:
+        validation_info = status_data.ignore_glob_validation.get(glob_pattern, {})
+        error_msg = validation_info.get("error")
+        is_valid = validation_info.get("valid", True)
+        ignore_list.append((f"  {glob_pattern}", MonitorValidator.status_symbol(error_msg, is_valid)))
+    
+    return ignore_list
+
+
+def _combine_table_data(table_data: List[Dict], ignore_list: List[Tuple[str, str]]) -> List[Dict]:
+    """Combine table data and ignore list into single table."""
+    max_rows = max(len(table_data), len(ignore_list))
+    combined_data = []
+    for i in range(max_rows):
+        row = {}
+        if i < len(table_data):
+            row["Setting"] = table_data[i]["Setting"]
+            row["Value"] = table_data[i]["Value"]
+        else:
+            row["Setting"] = ""
+            row["Value"] = ""
+        
+        if i < len(ignore_list):
+            row["Ignore Rule"] = ignore_list[i][0]
+            row["Count"] = ignore_list[i][1]
+        else:
+            row["Ignore Rule"] = ""
+            row["Count"] = ""
+        
+        combined_data.append(row)
+    return combined_data
+
+
+def _monitor_status_cmd(args: argparse.Namespace) -> int:
+    """Show monitoring statistics."""
+    display = args.display_obj
+
+    from .utils import wks_home_path
+    config_file = get_config_path()
+    display.info(f"Reading config from: {config_file}")
+    wks_home_display = os.environ.get("WKS_HOME", str(wks_home_path()))
+    display.info(f"WKS_HOME: {wks_home_display}")
+
+    cfg = load_config()
+    status_data = MonitorController.get_status(cfg)
+
+    total_files = status_data.tracked_files
+    issues = status_data.issues
+    redundancies = status_data.redundancies
+    managed_dirs_dict = status_data.managed_directories
+    include_paths = set(status_data.include_paths)
+    exclude_paths = set(status_data.exclude_paths)
+
+    table_data = [
+        {"Setting": "Tracked Files", "Value": str(total_files)},
+        {"Setting": "", "Value": ""},
+        {"Setting": "managed_directories", "Value": str(len(managed_dirs_dict))},
+    ]
+
+    red_paths, yellow_paths = _build_problematic_paths(issues, redundancies, managed_dirs_dict, include_paths, exclude_paths)
+    max_pip_count, max_num_width = _calculate_priority_alignment(managed_dirs_dict)
+    table_data.extend(_build_managed_dirs_rows(managed_dirs_dict, max_pip_count, max_num_width))
+    
+    table_data.append({"Setting": "", "Value": ""})
+    table_data.extend(_build_path_list_rows(include_paths, red_paths, yellow_paths, "include_paths"))
+    
+    table_data.append({"Setting": "", "Value": ""})
+    table_data.extend(_build_path_list_rows(exclude_paths, red_paths, yellow_paths, "exclude_paths"))
+
+    ignore_list = _build_ignore_rules_list(status_data)
+    combined_data = _combine_table_data(table_data, ignore_list)
+
+    display.table(
+        combined_data,
+        headers=["Setting", "Value", "Ignore Rule", "Count"],
+        title="Monitor Status",
+        column_justify={"Value": "right", "Count": "right"}
+    )
+
+    if issues:
+        display.error(f"\nInconsistencies found ({len(issues)}):")
         for issue in issues:
-            for path in list(managed_dirs_dict.keys()) + list(include_paths) + list(exclude_paths):
-                if f"'{path}'" in issue or f" {path}" in issue or issue.endswith(path):
-                    red_paths.add(path)
+            display.error(f"  • {issue}")
 
+    if redundancies:
+        display.warning(f"\nRedundancies found ({len(redundancies)}):")
         for redund in redundancies:
-            for path in list(managed_dirs_dict.keys()) + list(include_paths) + list(exclude_paths):
-                if f"'{path}'" in redund or f" {path}" in redund or redund.endswith(path):
-                    yellow_paths.add(path)
+            display.warning(f"  • {redund}")
 
-        # Calculate max pip count and max number width for alignment
-        import math
-        max_pip_count = 0
-        max_num_width = 0
-        for path_info in managed_dirs_dict.values():
-            priority = path_info["priority"]
-            if priority <= 1:
-                pip_count = 1
-            else:
-                pip_count = int(math.log10(priority)) + 1
-            max_pip_count = max(max_pip_count, pip_count)
-            max_num_width = max(max_num_width, len(str(priority)))
+    if not issues and not redundancies:
+        display.success("\n✓ No configuration issues found")
 
-        # Add managed directories with logarithmic pip visualization
-        for path, path_info in sorted(managed_dirs_dict.items(), key=lambda x: -x[1]["priority"]):
-            priority = path_info["priority"]
-            is_valid = path_info["valid"]
-            error_msg = path_info["error"]
-
-            # Create logarithmic pip visualization
-            if priority <= 1:
-                pip_count = 1
-            else:
-                pip_count = int(math.log10(priority)) + 1
-            pips = "▪" * pip_count
-
-            # Get status symbol
-            status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
-
-            # Left-align pips, right-align numbers, add status symbol
-            pips_padded = pips.ljust(max_pip_count)
-            num_padded = str(priority).rjust(max_num_width)
-            priority_display = f"{pips_padded} {num_padded} {status_symbol}"
-
-            table_data.append({
-                "Setting": f"  {path}",
-                "Value": priority_display
-            })
-
-        table_data.append({"Setting": "", "Value": ""})
-        table_data.append({"Setting": "include_paths", "Value": str(len(include_paths))})
-        for path in sorted(include_paths):
-            error_msg = None if path not in (red_paths | yellow_paths) else "issue"
-            is_valid = path not in red_paths
-            table_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
-
-        table_data.append({"Setting": "", "Value": ""})
-        table_data.append({"Setting": "exclude_paths", "Value": str(len(exclude_paths))})
-        for path in sorted(exclude_paths):
-            error_msg = None if path not in (red_paths | yellow_paths) else "issue"
-            is_valid = path not in red_paths
-            table_data.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
-
-        # Get ignore rules from status data
-        ignore_dirnames = status_data["ignore_dirnames"]
-        ignore_globs = status_data["ignore_globs"]
-
-        # Build ignore rules list with validation
-        ignore_list = []
-        ignore_list.append(("ignore_dirnames", str(len(ignore_dirnames))))
-        ignore_list.append(("", ""))
-
-        # Validate each ignore_dirname
-        for dirname in ignore_dirnames:
-            validation_info = status_data["ignore_dirname_validation"].get(dirname, {})
-            error_msg = validation_info.get("error")
-            is_valid = validation_info.get("valid", True)
-            ignore_list.append((f"  {dirname}", MonitorValidator.status_symbol(error_msg, is_valid)))
-
-        ignore_list.append(("", ""))
-        ignore_list.append(("ignore_globs", str(len(ignore_globs))))
-
-        # Validate each ignore_glob for syntax errors
-        for glob_pattern in ignore_globs:
-            validation_info = status_data["ignore_glob_validation"].get(glob_pattern, {})
-            error_msg = validation_info.get("error")
-            is_valid = validation_info.get("valid", True)
-            ignore_list.append((f"  {glob_pattern}", MonitorValidator.status_symbol(error_msg, is_valid)))
-
-        # Combine into single table with 4 columns
-        max_rows = max(len(table_data), len(ignore_list))
-        combined_data = []
-
-        for i in range(max_rows):
-            row = {}
-            if i < len(table_data):
-                row["Setting"] = table_data[i]["Setting"]
-                row["Value"] = table_data[i]["Value"]
-            else:
-                row["Setting"] = ""
-                row["Value"] = ""
-
-            if i < len(ignore_list):
-                row["Ignore Rule"] = ignore_list[i][0]
-                row["Count"] = ignore_list[i][1]
-            else:
-                row["Ignore Rule"] = ""
-                row["Count"] = ""
-
-            combined_data.append(row)
-
-        display.table(
-            combined_data,
-            headers=["Setting", "Value", "Ignore Rule", "Count"],
-            title="Monitor Status",
-            column_justify={"Value": "right", "Count": "right"}
-        )
-
-        # Print issues and redundancies
-        if issues:
-            display.error(f"\nInconsistencies found ({len(issues)}):")
-            for issue in issues:
-                display.error(f"  • {issue}")
-
-        if redundancies:
-            display.warning(f"\nRedundancies found ({len(redundancies)}):")
-            for redund in redundancies:
-                display.warning(f"  • {redund}")
-
-        if not issues and not redundancies:
-            display.success("\n✓ No configuration issues found")
-
-        return 0
-
-    monstatus.set_defaults(func=_monitor_status_cmd)
+    return 0
 
     # monitor validate - check for inconsistencies
     monvalidate = monsub.add_parser("validate", help="Check for configuration inconsistencies")
@@ -2772,25 +2814,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if not hasattr(args, "func"):
         # If a group was selected without subcommand, show that group's help
-        try:
-            cmd = getattr(args, 'cmd', None)
-            if cmd == 'config':
-                cfg.print_help()
+        help_registry = {
+            'config': cfg,
+            'service': svc,
+            'monitor': mon,
+            'db': dbp,
+            'mcp': mcp,
+        }
+        cmd = getattr(args, 'cmd', None)
+        if cmd in help_registry:
+            try:
+                help_registry[cmd].print_help()
                 return 2
-            if cmd == 'service':
-                svc.print_help()
-                return 2
-            if cmd == 'monitor':
-                mon.print_help()
-                return 2
-            if cmd == 'db':
-                dbp.print_help()
-                return 2
-            if cmd == 'mcp':
-                mcp.print_help()
-                return 2
-        except Exception:
-            pass
+            except Exception:
+                pass
         parser.print_help()
         return 2
 
