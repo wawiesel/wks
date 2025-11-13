@@ -95,18 +95,18 @@ class WKSDaemon:
         self.docs_keep = int(obsidian_docs_keep)
         self.monitor_paths = monitor_paths
         # state_file removed - not needed
-        self.ignore_dirnames = ignore_dirnames or set()
-        self.exclude_paths = [Path(p).expanduser() for p in (exclude_paths or [])]
-        self.ignore_patterns = ignore_patterns or set()
+        self.ignore_dirnames = ignore_dirnames if ignore_dirnames is not None else set()
+        self.exclude_paths = [Path(p).expanduser() for p in exclude_paths] if exclude_paths else []
+        self.ignore_patterns = ignore_patterns if ignore_patterns is not None else set()
         self.observer = None
-        self.auto_project_notes = bool(auto_project_notes)
-        self.ignore_globs = ignore_globs or []
+        self.auto_project_notes = auto_project_notes
+        self.ignore_globs = ignore_globs if ignore_globs is not None else []
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
         self._lock_fh = None
         # Similarity settings
         self.similarity = similarity_db
-        self.similarity_extensions = {e.lower() for e in (similarity_extensions or set())}
+        self.similarity_extensions = {e.lower() for e in similarity_extensions} if similarity_extensions else set()
         self.similarity_min_chars = int(similarity_min_chars)
         # Maintenance (periodic tasks)
         self._last_prune_check = 0.0
@@ -577,7 +577,7 @@ class WKSDaemon:
         if self.monitor_paths and not self._within_any(path, self.monitor_paths):
             return True
         # Inside exclude roots
-        if any(self._within_any(path, [ex]) for ex in (self.exclude_paths or [])):
+        if self.exclude_paths and any(self._within_any(path, [ex]) for ex in self.exclude_paths):
             return True
         # Dotfile segments (including .wks/.wkso artefacts)
         for part in path.parts:
@@ -586,21 +586,20 @@ class WKSDaemon:
             if part.startswith('.'):
                 return True
         # Named ignored directories
-        for part in path.parts:
-            if part in (self.ignore_dirnames or set()):
-                return True
+        if self.ignore_dirnames:
+            for part in path.parts:
+                if part in self.ignore_dirnames:
+                    return True
         # Glob-based ignores (full path and basename)
-        try:
+        if self.ignore_globs:
             import fnmatch as _fn
             pstr = path.as_posix()
-            for g in (self.ignore_globs or []):
+            for g in self.ignore_globs:
                 try:
                     if _fn.fnmatchcase(pstr, g) or _fn.fnmatchcase(path.name, g):
                         return True
                 except Exception:
                     continue
-        except Exception:
-            pass
         return False
 
     def _maybe_prune_monitor_db(self):
@@ -1020,7 +1019,6 @@ if __name__ == "__main__":
     # Vault settings (backward compat: use old obsidian section if vault missing)
     obsidian_cfg = config.get("obsidian", {})
     if obsidian_cfg:
-        # Legacy support
         obsidian_log_max_entries = int(obsidian_cfg.get("log_max_entries", 500))
         obsidian_active_files_max_rows = int(obsidian_cfg.get("active_files_max_rows", 50))
         obsidian_source_max_chars = int(obsidian_cfg.get("source_max_chars", 40))
@@ -1028,7 +1026,6 @@ if __name__ == "__main__":
         obsidian_docs_keep = int(obsidian_cfg.get("docs_keep", 99))
         auto_project_notes = bool(obsidian_cfg.get("auto_project_notes", False))
     else:
-        # New vault section defaults
         obsidian_log_max_entries = 500
         obsidian_active_files_max_rows = int(vault_cfg.get("activity_max_rows", 100))
         obsidian_source_max_chars = 40

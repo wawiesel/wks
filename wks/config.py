@@ -15,30 +15,36 @@ DEFAULT_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def mongo_settings(cfg: Dict[str, Any]) -> Dict[str, str]:
-    """Normalize Mongo connection settings from config."""
-    # Support both new 'db' section and legacy 'mongo'/'similarity' sections
+    """Normalize Mongo connection settings from config.
+    
+    Legacy: Supports old 'mongo'/'similarity' sections for backward compatibility.
+    """
     db_cfg = cfg.get("db", {})
-    sim = cfg.get("similarity") or {}
-    mongo = cfg.get("mongo") or {}
+    mongo = cfg.get("mongo", {})
+    sim = cfg.get("similarity", {})
 
     def _norm(value, default):
-        if value is None or value == "":
-            return default
-        return str(value)
+        return str(value) if value and value != "" else default
 
-    uri = _norm(db_cfg.get("uri") or mongo.get("uri") or sim.get("mongo_uri"), DEFAULT_MONGO_URI)
-    space_db = _norm(mongo.get("space_database") or sim.get("database"), DEFAULT_SPACE_DATABASE)
-    space_coll = _norm(mongo.get("space_collection") or sim.get("collection"), DEFAULT_SPACE_COLLECTION)
+    uri = _norm(
+        db_cfg.get("uri") or mongo.get("uri") or sim.get("mongo_uri"),
+        DEFAULT_MONGO_URI
+    )
+    space_db = _norm(
+        mongo.get("space_database") or sim.get("database"),
+        DEFAULT_SPACE_DATABASE
+    )
+    space_coll = _norm(
+        mongo.get("space_collection") or sim.get("collection"),
+        DEFAULT_SPACE_COLLECTION
+    )
     time_db = _norm(
-        mongo.get("time_database")
-        or mongo.get("space_database")
-        or sim.get("time_database")
-        or sim.get("database"),
-        DEFAULT_SPACE_DATABASE,
+        mongo.get("time_database") or mongo.get("space_database") or sim.get("time_database") or sim.get("database"),
+        DEFAULT_SPACE_DATABASE
     )
     time_coll = _norm(
         mongo.get("time_collection") or sim.get("snapshots_collection"),
-        DEFAULT_TIME_COLLECTION,
+        DEFAULT_TIME_COLLECTION
     )
     return {
         "uri": uri,
@@ -60,11 +66,9 @@ def apply_similarity_mongo_defaults(sim_cfg: Dict[str, Any], mongo_cfg: Dict[str
 
 
 def timestamp_format(cfg: Dict[str, Any]) -> str:
-    disp = cfg.get("display") or {}
+    disp = cfg.get("display", {})
     fmt = disp.get("timestamp_format")
-    if isinstance(fmt, str) and fmt.strip():
-        return fmt
-    return DEFAULT_TIMESTAMP_FORMAT
+    return fmt if isinstance(fmt, str) and fmt.strip() else DEFAULT_TIMESTAMP_FORMAT
 
 
 def get_config_path() -> Path:
