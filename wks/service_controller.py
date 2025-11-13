@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import mongoctl
 from .constants import WKS_HOME_EXT
-from .status import load_db_activity_history, load_db_activity_summary
 
 
 LOCK_FILE = Path.home() / WKS_HOME_EXT / "daemon.lock"
@@ -161,46 +160,15 @@ class ServiceStatusLaunch:
 
 
 @dataclass
-class ServiceStatusDB:
-    tracked_files: Optional[int] = None
-    last_updated: Optional[str] = None
-    total_size_bytes: Optional[int] = None
-    latest_files: List[Dict[str, str]] = field(default_factory=list)
-
-    def present(self) -> bool:
-        return any(
-            [
-                self.tracked_files is not None,
-                self.last_updated,
-                self.total_size_bytes is not None,
-                self.latest_files,
-            ]
-        )
-
-    def as_dict(self) -> Dict[str, Any]:
-        return {
-            "tracked_files": self.tracked_files,
-            "last_updated": self.last_updated,
-            "total_size_bytes": self.total_size_bytes,
-            "latest_files": list(self.latest_files),
-        }
-
-
-@dataclass
 class ServiceStatusData:
     running: Optional[bool] = None
     uptime: Optional[str] = None
     pid: Optional[int] = None
-    fs_ops_per_min: Optional[float] = None
     pending_deletes: Optional[int] = None
     pending_mods: Optional[int] = None
     ok: Optional[bool] = None
     lock: Optional[bool] = None
     last_error: Optional[str] = None
-    last_operation: Optional[str] = None
-    last_operation_detail: Optional[str] = None
-    last_operation_iso: Optional[str] = None
-    ops_last_minute: Optional[int] = None
     fs_rate_short: Optional[float] = None
     fs_rate_long: Optional[float] = None
     fs_rate_weighted: Optional[float] = None
@@ -213,16 +181,11 @@ class ServiceStatusData:
                 "running": self.running,
                 "uptime": self.uptime,
                 "pid": self.pid,
-                "fs_ops_per_min": self.fs_ops_per_min,
                 "pending_deletes": self.pending_deletes,
                 "pending_mods": self.pending_mods,
                 "ok": self.ok,
                 "lock": self.lock,
                 "last_error": self.last_error,
-                "last_operation": self.last_operation,
-                "last_operation_detail": self.last_operation_detail,
-                "last_operation_iso": self.last_operation_iso,
-                "ops_last_minute": self.ops_last_minute,
                 "fs_rate_short": self.fs_rate_short,
                 "fs_rate_long": self.fs_rate_long,
                 "fs_rate_weighted": self.fs_rate_weighted,

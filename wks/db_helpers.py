@@ -20,8 +20,8 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
     db_config = cfg.get("db", {}) or cfg.get("mongo", {})
 
     uri = db_config.get("uri", "mongodb://localhost:27017/")
-    db_name = monitor_config.get("database", "wks_monitor")
-    coll_name = monitor_config.get("collection", "filesystem")
+    db_name = monitor_config.get("database", "wks")
+    coll_name = monitor_config.get("collection", "monitor")
 
     return uri, db_name, coll_name
 

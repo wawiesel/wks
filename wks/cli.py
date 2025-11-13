@@ -44,7 +44,6 @@ from .status import record_db_activity, load_db_activity_summary, load_db_activi
 from .service_controller import (
     LOCK_FILE,
     ServiceController,
-    ServiceStatusDB,
     ServiceStatusData,
     ServiceStatusLaunch,
     agent_installed,
@@ -162,102 +161,105 @@ def _merge_defaults(defaults: List[str], user: Optional[List[str]]) -> List[str]
     return merged
 
 
-def print_config(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    mongo_cfg = mongo_settings(cfg)
-    space_tag, time_tag = resolve_db_compatibility(cfg)
-    mongo_out = dict(mongo_cfg)
-    mongo_out["compatibility"] = {
-        "space": space_tag,
-        "time": time_tag,
-    }
-
-    obs_raw = cfg.get("obsidian") or {}
-    obsidian = {
-        "base_dir": obs_raw.get("base_dir", DEFAULT_OBSIDIAN_CONFIG["base_dir"]),
-        "log_max_entries": int(obs_raw.get("log_max_entries", DEFAULT_OBSIDIAN_CONFIG["log_max_entries"])),
-        "active_files_max_rows": int(obs_raw.get("active_files_max_rows", DEFAULT_OBSIDIAN_CONFIG["active_files_max_rows"])),
-        "source_max_chars": int(obs_raw.get("source_max_chars", DEFAULT_OBSIDIAN_CONFIG["source_max_chars"])),
-        "destination_max_chars": int(obs_raw.get("destination_max_chars", DEFAULT_OBSIDIAN_CONFIG["destination_max_chars"])),
-        "docs_keep": int(obs_raw.get("docs_keep", DEFAULT_OBSIDIAN_CONFIG["docs_keep"])),
-    }
-
-    mon_raw = cfg.get("monitor") or {}
-    monitor = {
-        "include_paths": _merge_defaults(DEFAULT_MONITOR_INCLUDE_PATHS, mon_raw.get("include_paths")),
-        "exclude_paths": _merge_defaults(DEFAULT_MONITOR_EXCLUDE_PATHS, mon_raw.get("exclude_paths")),
-        "ignore_dirnames": _merge_defaults(DEFAULT_MONITOR_IGNORE_DIRS, mon_raw.get("ignore_dirnames")),
-        "ignore_globs": _merge_defaults(DEFAULT_MONITOR_IGNORE_GLOBS, mon_raw.get("ignore_globs")),
-        "state_file": mon_raw.get("state_file", f"{WKS_HOME_DISPLAY}/monitor_state.json"),
-    }
-
-    activity_raw = cfg.get("activity") or {}
-    activity = {
-        "state_file": activity_raw.get("state_file", f"{WKS_HOME_DISPLAY}/activity_state.json"),
-    }
-
-    display_cfg = cfg.get("display") or {}
-    display = {
-        "timestamp_format": display_cfg.get("timestamp_format", timestamp_format(cfg) or DEFAULT_TIMESTAMP_FORMAT),
-    }
-
-    ext_raw = cfg.get("extract") or {}
-    extract = {
-        "engine": ext_raw.get("engine", "docling"),
-        "ocr": bool(ext_raw.get("ocr", False)),
-        "timeout_secs": int(ext_raw.get("timeout_secs", 30)),
-        "options": dict(ext_raw.get("options") or {}),
-    }
-
-    sim_raw = cfg.get("similarity") or {}
-    include_exts = sim_raw.get("include_extensions")
-    if not include_exts:
-        include_exts = DEFAULT_SIMILARITY_EXTS
-    similarity = {
-        "enabled": bool(sim_raw.get("enabled", True)),
-        "model": sim_raw.get("model", "all-MiniLM-L6-v2"),
-        "include_extensions": [ext.lower() for ext in include_exts],
-        "min_chars": int(sim_raw.get("min_chars", 10)),
-        "max_chars": int(sim_raw.get("max_chars", 200000)),
-        "chunk_chars": int(sim_raw.get("chunk_chars", 1500)),
-        "chunk_overlap": int(sim_raw.get("chunk_overlap", 200)),
-        "offline": bool(sim_raw.get("offline", True)),
-        "respect_monitor_ignores": bool(sim_raw.get("respect_monitor_ignores", False)),
-    }
-
-    metrics_raw = cfg.get("metrics") or {}
-    metrics = {
-        "fs_rate_short_window_secs": int(metrics_raw.get("fs_rate_short_window_secs", 10)),
-        "fs_rate_long_window_secs": int(metrics_raw.get("fs_rate_long_window_secs", 600)),
-        "fs_rate_short_weight": float(metrics_raw.get("fs_rate_short_weight", 0.8)),
-        "fs_rate_long_weight": float(metrics_raw.get("fs_rate_long_weight", 0.2)),
-    }
-
-    payload = {
-        "vault_path": cfg.get("vault_path", "~/obsidian"),
-        "obsidian": obsidian,
-        "monitor": monitor,
-        "activity": activity,
-        "display": display,
-        "mongo": mongo_out,
-        "extract": extract,
-        "similarity": similarity,
-        "metrics": metrics,
-    }
-
-    _maybe_write_json(args, payload)
-    if not _display_enabled(args.display):
-        return
-    if args.display == "rich":
-        try:
-            from rich.console import Console
-            from rich.syntax import Syntax
-
-            Console().print(Syntax(_json_dumps(payload), "json", word_wrap=False, indent_guides=True))
-            return
-        except Exception:
-            pass
-    print(_json_dumps(payload))
+def show_config(args: argparse.Namespace) -> int:
+    """Show config file - table in CLI mode, JSON in MCP mode."""
+    from .config import get_config_path
+    import json as _json
+    
+    config_path = get_config_path()
+    display = getattr(args, "display_obj", None) or get_display(getattr(args, "display", None))
+    display_mode = getattr(args, "display", None)
+    
+    # Load raw config file
+    try:
+        with open(config_path, "r") as f:
+            config_data = _json.load(f)
+    except Exception as e:
+        display.error(f"Failed to read config file: {config_path}", details=str(e))
+        return 2
+    
+    # MCP mode: output raw JSON
+    if display_mode == "mcp":
+        display.json_output(config_data)
+        return 0
+    
+    # CLI mode: show as table with sections
+    table_data = []
+    
+    def _format_value(value: Any) -> str:
+        """Format a config value for display."""
+        if isinstance(value, list):
+            if value and isinstance(value[0], str):
+                return ", ".join(value)
+            return str(value)
+        elif isinstance(value, dict):
+            return str(value)
+        elif isinstance(value, bool):
+            return "true" if value else "false"
+        else:
+            return str(value)
+    
+    def _add_section_items(section_name: str, section_data: Dict[str, Any]) -> None:
+        """Add items from a config section."""
+        for key, value in sorted(section_data.items()):
+            if isinstance(value, dict):
+                # Nested dict - add as subsection
+                table_data.append({"Key": f"  {key}", "Value": ""})
+                for subkey, subvalue in sorted(value.items()):
+                    if isinstance(subvalue, dict):
+                        # Deeply nested - show as string
+                        table_data.append({"Key": f"    {subkey}", "Value": _format_value(subvalue)})
+                    else:
+                        table_data.append({"Key": f"    {subkey}", "Value": _format_value(subvalue)})
+            else:
+                table_data.append({"Key": f"  {key}", "Value": _format_value(value)})
+    
+    # Define section order and names (matching SPEC.md architecture)
+    sections = [
+        ("Monitor", "monitor"),
+        ("Vault", "vault"),
+        ("DB", "db"),
+        ("Extract", "extract"),
+        ("Diff", "diff"),
+        ("Related", "related"),
+        ("Index", "index"),
+        ("Search", "search"),
+        ("Display", "display"),
+    ]
+    
+    for section_name, section_key in sections:
+        if section_key in config_data:
+            # Add section header
+            table_data.append({"Key": section_name, "Value": ""})
+            _add_section_items(section_name, config_data[section_key])
+    
+    # Add any remaining top-level keys not in our section list
+    known_keys = {key for _, key in sections}
+    remaining = {k: v for k, v in config_data.items() if k not in known_keys}
+    if remaining:
+        table_data.append({"Key": "Other", "Value": ""})
+        for key, value in sorted(remaining.items()):
+            table_data.append({"Key": f"  {key}", "Value": _format_value(value)})
+    
+    # Format table data with section header styling
+    formatted_data = []
+    for row in table_data:
+        key = row["Key"]
+        value = row["Value"]
+        # Style section headers (empty value and not indented)
+        if value == "" and not key.startswith("  "):
+            formatted_data.append({"Key": f"[bold yellow]{key}[/bold yellow]", "Value": value})
+        else:
+            formatted_data.append({"Key": key, "Value": value})
+    
+    display.table(
+        formatted_data,
+        title=f"WKS Configuration ({config_path})",
+        column_justify={"Key": "left", "Value": "left"},
+        show_header=False
+    )
+    
+    return 0
 
 
 def _stop_managed_mongo() -> None:
@@ -1167,17 +1169,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     # Add --display argument (cli or mcp, auto-detected)
     add_display_argument(parser)
-    parser.add_argument(
-        "--json",
-        dest="json_path",
-        help="Optional path to write structured JSON output; use '-' for stdout.",
-    )
 
-    # Lightweight progress helpers
-    cfg = sub.add_parser("config", help="Config commands")
-    cfg_sub = cfg.add_subparsers(dest="cfg_cmd")
-    cfg_print = cfg_sub.add_parser("print", help="Print effective config")
-    cfg_print.set_defaults(func=print_config)
+    # Config command - show config file
+    cfg = sub.add_parser("config", help="Show configuration file")
+    cfg.set_defaults(func=show_config)
 
     # Service management (macOS launchd)
 
@@ -2779,6 +2774,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         # If a group was selected without subcommand, show that group's help
         try:
             cmd = getattr(args, 'cmd', None)
+            if cmd == 'config':
+                cfg.print_help()
+                return 2
             if cmd == 'service':
                 svc.print_help()
                 return 2

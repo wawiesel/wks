@@ -11,7 +11,6 @@ from .config import load_config
 from .config_validator import validate_and_raise, ConfigValidationError
 from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
 from .mongoctl import MongoGuard, ensure_mongo_running
-from .activity import ActivityTracker
 from .obsidian import ObsidianVault
 from .monitor import start_monitoring
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
@@ -62,7 +61,6 @@ class WKSDaemon:
         obsidian_docs_keep: int,
         monitor_paths: list[Path],
         auto_project_notes: bool = False,
-        state_file: Optional[Path] = None,
         ignore_dirnames: Optional[Set[str]] = None,
         exclude_paths: Optional[List[Path]] = None,
         ignore_patterns: Optional[Set[str]] = None,
@@ -84,7 +82,6 @@ class WKSDaemon:
         Args:
             vault_path: Path to Obsidian vault
             monitor_paths: List of paths to monitor
-            state_file: Path to monitoring state file
         """
         self.config = config
         self.vault = ObsidianVault(
@@ -97,15 +94,12 @@ class WKSDaemon:
         )
         self.docs_keep = int(obsidian_docs_keep)
         self.monitor_paths = monitor_paths
-        self.state_file = state_file or Path.home() / WKS_HOME_EXT / "monitor_state.json"
+        # state_file removed - not needed
         self.ignore_dirnames = ignore_dirnames or set()
         self.exclude_paths = [Path(p).expanduser() for p in (exclude_paths or [])]
         self.ignore_patterns = ignore_patterns or set()
         self.observer = None
         self.auto_project_notes = bool(auto_project_notes)
-        # Activity tracking for ActiveFiles.md
-        self.activity = ActivityTracker(Path.home() / WKS_HOME_EXT / "activity_state.json")
-        self._last_active_update = 0.0
         self.ignore_globs = ignore_globs or []
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
@@ -116,7 +110,9 @@ class WKSDaemon:
         self.similarity_min_chars = int(similarity_min_chars)
         # Maintenance (periodic tasks)
         self._last_prune_check = 0.0
-        self._prune_interval_secs = 600.0  # run every 10 minutes
+        # Read prune interval from config, default to 5 minutes (300 seconds)
+        monitor_cfg = config.get("monitor", {})
+        self._prune_interval_secs = float(monitor_cfg.get("prune_interval_secs", 300.0))
         # Coalesce delete events to avoid temp-file save false positives
         self._pending_deletes: Dict[str, float] = {}
         self._delete_grace_secs = 2.0
@@ -373,12 +369,6 @@ class WKSDaemon:
                             self.similarity.remove_file(src)
             except Exception:
                 pass
-            # Record activity on destination file
-            try:
-                self.activity.record_event(dest, event_type="moved")
-            except Exception:
-                pass
-            self._maybe_update_active_files()
             return
 
         # Regular events
@@ -394,7 +384,6 @@ class WKSDaemon:
                 self._pending_deletes[path.resolve().as_posix()] = time.time()
             except Exception:
                 pass
-            self._maybe_update_active_files()
             return
 
         # Created/modified: cancel any pending delete for same path and coalesce modify
@@ -431,102 +420,16 @@ class WKSDaemon:
                 except Exception as e:
                     print(f"Error creating project note: {e}")
 
-    def _maybe_update_active_files(self, interval_seconds: float = 30.0):
-        """Update ActiveFiles.md at most every interval_seconds."""
-        now = time.time()
-        if now - self._last_active_update < interval_seconds:
-            return
-        self._last_active_update = now
-        try:
-            # Refresh angle snapshots so deg/min can be negative as files cool down
-            try:
-                self.activity.refresh_angles_all()
-            except Exception:
-                pass
-            # Use vault-configured max rows as the retrieval limit
-            limit = getattr(self.vault, 'active_files_max_rows', 50)
-            top = self.activity.get_top_active_files(limit=limit)
-            # Fallback: if no tracked activity yet (fresh state), backfill with recent files
-            if not top:
-                try:
-                    import json as _json
-                    ms_path = self.state_file or (Path.home() / WKS_HOME_EXT / 'monitor_state.json')
-                    recent = []
-                    if ms_path and Path(ms_path).exists():
-                        ms = _json.load(open(ms_path, 'r'))
-                        files = (ms.get('files') or {})
-                        for pstr, info in files.items():
-                            mods = info.get('modifications') or []
-                            if not mods:
-                                continue
-                            ts = mods[-1].get('timestamp')
-                            if not ts:
-                                continue
-                            try:
-                                from datetime import datetime as _dt
-                                t = _dt.fromisoformat(ts)
-                            except Exception:
-                                continue
-                            recent.append((pstr, t.timestamp()))
-                        # Sort by most recent modification
-                        recent.sort(key=lambda x: x[1], reverse=True)
-                        # Map to (path, small_angle, delta)
-                        small = 0.05
-                        top = [(p, small, 0.0) for p, _ in recent[:limit]]
-                except Exception:
-                    pass
-            # Fallback 2: use recent file operations ledger if still empty
-            if not top:
-                try:
-                    ops_path = Path.home() / WKS_HOME_EXT / 'file_ops.jsonl'
-                    if ops_path.exists():
-                        lines = ops_path.read_text(encoding='utf-8', errors='ignore').splitlines()
-                        # newest are at end; walk backwards and collect unique paths
-                        seen = set()
-                        picks = []
-                        import json as _json
-                        for line in reversed(lines[-200:]):
-                            try:
-                                rec = _json.loads(line)
-                            except Exception:
-                                continue
-                            for key in ('destination', 'source'):
-                                pstr = rec.get(key)
-                                if not pstr:
-                                    continue
-                                if pstr in seen:
-                                    continue
-                                seen.add(pstr)
-                                picks.append(pstr)
-                                if len(picks) >= limit:
-                                    break
-                            if len(picks) >= limit:
-                                break
-                        small = 0.02
-                        top = [(p, small, 0.0) for p in picks]
-                except Exception:
-                    pass
-            # Provide tracker for deg/min and last modified
-            self.vault.update_active_files(top, tracker=self.activity)
-        except Exception:
-            pass
-
     def start(self):
         """Start monitoring."""
         self._start_mongo_guard()
         # Acquire single-instance lock
         self._acquire_lock()
         self.vault.ensure_structure()
-        # Rebuild ActiveFiles immediately on start
-        try:
-            self._last_active_update = 0.0
-            self._maybe_update_active_files(interval_seconds=0.0)
-        except Exception:
-            pass
 
         self.observer = start_monitoring(
             directories=self.monitor_paths,
-            state_file=self.state_file,
+            state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",  # Temporary default
             on_change=self.on_file_change,
             ignore_dirs=self.ignore_dirnames,
             ignore_patterns=self.ignore_patterns,
@@ -586,8 +489,6 @@ class WKSDaemon:
                 self._maybe_flush_pending_deletes()
                 self._maybe_flush_pending_mods()
                 self._maybe_prune_similarity_db()
-                # Ensure ActiveFiles refreshes even during quiet periods
-                self._maybe_update_active_files()
                 self._write_health()
                 time.sleep(1)
         except KeyboardInterrupt:
@@ -865,12 +766,6 @@ class WKSDaemon:
                         self._bump_beat()
                     except Exception as e:
                         self._set_error(f"ops_log_error: {e}")
-                    try:
-                        self.activity.record_event(p, event_type=etype)
-                    except Exception as e:
-                        self._set_error(f"activity_error: {e}")
-                    self._maybe_update_active_files()
-
                     self._update_monitor_db(p)
 
                     # Similarity indexing
@@ -987,7 +882,7 @@ class WKSDaemon:
                 _json.dump(data, f)
             # Update Health landing page
             try:
-                self.vault.write_health_page(state_file=self.state_file)
+                self.vault.write_health_page()
             except Exception:
                 pass
         except Exception:
@@ -1077,21 +972,13 @@ class WKSDaemon:
             return False
 
     def _get_tracked_files_count(self) -> int:
-        """Return number of unique files tracked in monitor state."""
+        """Return number of unique files tracked in monitor DB."""
         if self.monitor_collection is not None:
             try:
                 return self.monitor_collection.count_documents({})
             except Exception:
                 return 0
-        try:
-            state_path = Path(self.state_file)
-            if not state_path.exists():
-                return 0
-            data = json.load(open(state_path, 'r'))
-            files = data.get('files') or {}
-            return len(files)
-        except Exception:
-            return 0
+        return 0
 
 
 if __name__ == "__main__":
@@ -1106,32 +993,23 @@ if __name__ == "__main__":
         print(str(e))
         raise SystemExit(2)
 
-    vault_path = expand_path(config.get("vault_path"))
-    monitor_cfg = config.get("monitor", {})
+    # Vault config (new structure)
+    vault_cfg = config.get("vault", {})
+    vault_path = expand_path(vault_cfg.get("base_dir", "~/obsidian"))
+    base_dir = vault_cfg.get("wks_dir", "WKS")
 
+    # Monitor config
+    monitor_cfg = config.get("monitor", {})
     include_paths = [expand_path(p) for p in monitor_cfg.get("include_paths")]
     exclude_paths = [expand_path(p) for p in monitor_cfg.get("exclude_paths")]
     ignore_dirnames = set(monitor_cfg.get("ignore_dirnames"))
     ignore_patterns = set()  # deprecated
     ignore_globs = list(monitor_cfg.get("ignore_globs"))
-    state_file = expand_path(monitor_cfg.get("state_file"))
 
-    # Activity tracker config (optional but recommended)
-    activity_cfg = config.get("activity", {})
-    activity_state_file = expand_path(activity_cfg.get("state_file", str(Path.home() / WKS_HOME_EXT / "activity_state.json")))
-
-    # Obsidian config (explicit)
-    obsidian_cfg = config.get("obsidian", {})
-    base_dir = obsidian_cfg.get("base_dir")
-    required_obs = ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars"]
-    missing_obs = [f"obsidian.{k}" for k in ["base_dir"] if not base_dir] + [f"obsidian.{k}" for k in required_obs if k not in obsidian_cfg]
-    if missing_obs:
-        print("Fatal: missing required config keys: " + ", ".join(missing_obs))
-        raise SystemExit(2)
-
-    mongo_cfg = mongo_settings(config)
+    # DB config (new structure)
+    db_cfg = config.get("db", {})
+    mongo_uri = str(db_cfg.get("uri", "mongodb://localhost:27017/"))
     space_compat_tag, time_compat_tag = resolve_db_compatibility(config)
-    mongo_uri = str(mongo_cfg.get("uri", ""))
     ensure_mongo_running(mongo_uri, record_start=True)
 
     client = MongoClient(mongo_uri)
@@ -1139,18 +1017,36 @@ if __name__ == "__main__":
     monitor_coll_name = monitor_cfg.get("collection", "monitor")
     monitor_collection = client[monitor_db_name][monitor_coll_name]
 
+    # Vault settings (backward compat: use old obsidian section if vault missing)
+    obsidian_cfg = config.get("obsidian", {})
+    if obsidian_cfg:
+        # Legacy support
+        obsidian_log_max_entries = int(obsidian_cfg.get("log_max_entries", 500))
+        obsidian_active_files_max_rows = int(obsidian_cfg.get("active_files_max_rows", 50))
+        obsidian_source_max_chars = int(obsidian_cfg.get("source_max_chars", 40))
+        obsidian_destination_max_chars = int(obsidian_cfg.get("destination_max_chars", 40))
+        obsidian_docs_keep = int(obsidian_cfg.get("docs_keep", 99))
+        auto_project_notes = bool(obsidian_cfg.get("auto_project_notes", False))
+    else:
+        # New vault section defaults
+        obsidian_log_max_entries = 500
+        obsidian_active_files_max_rows = int(vault_cfg.get("activity_max_rows", 100))
+        obsidian_source_max_chars = 40
+        obsidian_destination_max_chars = 40
+        obsidian_docs_keep = int(vault_cfg.get("max_extraction_docs", 50))
+        auto_project_notes = False
+
     daemon = WKSDaemon(
         config=config,
         vault_path=vault_path,
         base_dir=base_dir,
-        obsidian_log_max_entries=int(obsidian_cfg["log_max_entries"]),
-        obsidian_active_files_max_rows=int(obsidian_cfg["active_files_max_rows"]),
-        obsidian_source_max_chars=int(obsidian_cfg["source_max_chars"]),
-        obsidian_destination_max_chars=int(obsidian_cfg["destination_max_chars"]),
-        obsidian_docs_keep=int(obsidian_cfg.get("docs_keep", 99)),
-        auto_project_notes=bool(obsidian_cfg.get("auto_project_notes", False)),
+        obsidian_log_max_entries=obsidian_log_max_entries,
+        obsidian_active_files_max_rows=obsidian_active_files_max_rows,
+        obsidian_source_max_chars=obsidian_source_max_chars,
+        obsidian_destination_max_chars=obsidian_destination_max_chars,
+        obsidian_docs_keep=obsidian_docs_keep,
+        auto_project_notes=auto_project_notes,
         monitor_paths=include_paths,
-        state_file=state_file,
         ignore_dirnames=ignore_dirnames,
         exclude_paths=exclude_paths,
         ignore_patterns=ignore_patterns,
@@ -1158,9 +1054,6 @@ if __name__ == "__main__":
         mongo_uri=mongo_uri,
         monitor_collection=monitor_collection,
     )
-
-    # Recreate activity tracker with configured file (after daemon constructed)
-    daemon.activity = ActivityTracker(activity_state_file)
 
     # Similarity (explicit)
     sim_cfg_raw = config.get("similarity")

@@ -64,7 +64,7 @@ def validate_config(cfg: Dict[str, Any]) -> List[str]:
         errors.append("'monitor' must be an object")
     else:
         required_mon = ["include_paths", "exclude_paths", "ignore_dirnames",
-                       "ignore_globs", "state_file", "touch_weight"]
+                       "ignore_globs", "touch_weight"]
         for key in required_mon:
             if key not in mon:
                 errors.append(f"monitor.{key} is required")
@@ -136,7 +136,23 @@ def validate_config(cfg: Dict[str, Any]) -> List[str]:
             except (ValueError, TypeError):
                 errors.append("extract.timeout_secs must be an integer")
 
-    # Mongo config
+    # DB config (new structure)
+    db = cfg.get("db", {})
+    if isinstance(db, dict):
+        # Validate type
+        db_type = db.get("type", "mongodb")  # Default to mongodb for backward compat
+        if db_type not in ["mongodb"]:
+            errors.append(f"db.type must be 'mongodb' (only supported type currently), got: {db_type}")
+        
+        # Validate URI
+        if "uri" in db:
+            uri = str(db["uri"])
+            if db_type == "mongodb" and not uri.startswith("mongodb://"):
+                errors.append("db.uri must start with 'mongodb://' when db.type is 'mongodb'")
+        elif db_type == "mongodb":
+            errors.append("db.uri is required when db.type is 'mongodb'")
+
+    # Mongo config (legacy - for backward compat)
     mongo = cfg.get("mongo", {})
     if isinstance(mongo, dict):
         if "uri" in mongo:

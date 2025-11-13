@@ -54,7 +54,6 @@ def test_daemon_background_maintenance(monkeypatch, tmp_path):
             return []
 
     monkeypatch.setattr(daemon_mod, "ObsidianVault", DummyVault)
-    monkeypatch.setattr(daemon_mod, "ActivityTracker", DummyActivity)
 
     class DummySimilarity:
         def __init__(self):
@@ -69,6 +68,7 @@ def test_daemon_background_maintenance(monkeypatch, tmp_path):
             self.closed = True
 
     daemon = daemon_mod.WKSDaemon(
+        config={},
         vault_path=tmp_path / "vault",
         base_dir="WKS",
         obsidian_log_max_entries=10,
@@ -77,7 +77,6 @@ def test_daemon_background_maintenance(monkeypatch, tmp_path):
         obsidian_destination_max_chars=10,
         obsidian_docs_keep=3,
         monitor_paths=[tmp_path],
-        state_file=tmp_path / "state.json",
         maintenance_interval_secs=0.1,
     )
 

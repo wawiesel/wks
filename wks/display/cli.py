@@ -61,12 +61,13 @@ class CLIDisplay(Display):
 
         title = kwargs.get("title", "")
         column_justify = kwargs.get("column_justify", {})  # Dict[str, str] mapping header to justify
+        show_header = kwargs.get("show_header", True)
 
         # Infer headers from first row if not provided
         if headers is None:
             headers = list(data[0].keys())
 
-        table = Table(title=title, show_header=True, header_style="bold cyan")
+        table = Table(title=title, show_header=show_header, header_style="bold cyan")
 
         for header in headers:
             justify = column_justify.get(header, "left")
