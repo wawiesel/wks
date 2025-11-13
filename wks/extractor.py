@@ -27,7 +27,7 @@ class ExtractResult:
 
 
 class Extractor:
-    """Shared document extraction helper used by wkso CLI and SimilarityDB."""
+    """Shared document extraction helper used by wks0 CLI and SimilarityDB."""
 
     def __init__(
         self,

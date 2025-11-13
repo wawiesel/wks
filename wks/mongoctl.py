@@ -1,5 +1,5 @@
 """
-Helpers for managing the local MongoDB process that backs wkso.
+Helpers for managing the local MongoDB process that backs wks0.
 
 Shared across the CLI and daemon so launchd/autostart paths behave
 the same as manual CLI invocations.

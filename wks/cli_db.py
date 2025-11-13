@@ -1,10 +1,10 @@
 """WKS CLI - Database commands
 
 Per SPEC.md, database commands are organized by layer:
-- wkso db monitor    -- Query filesystem monitoring database
-- wkso db vault      -- Query knowledge graph links (future)
-- wkso db related    -- Query similarity embeddings (future)
-- wkso db index      -- Query search indices (future)
+- wks0 db monitor    -- Query filesystem monitoring database
+- wks0 db vault      -- Query knowledge graph links (future)
+- wks0 db related    -- Query similarity embeddings (future)
+- wks0 db index      -- Query search indices (future)
 """
 
 import argparse
@@ -126,7 +126,7 @@ def setup_db_parser(subparsers) -> argparse.ArgumentParser:
     dbp = subparsers.add_parser("db", help="Database helpers: query and stats")
     dbsub = dbp.add_subparsers(dest="db_cmd", required=False)
 
-    # wkso db monitor
+    # wks0 db monitor
     mon = dbsub.add_parser("monitor", help="Query filesystem monitoring database")
     mon.add_argument("--filter", help='JSON filter, e.g. {"priority": {"$gte": 100}}')
     mon.add_argument("--projection", help='JSON projection, e.g. {"path":1,"priority":1}')

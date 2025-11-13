@@ -28,7 +28,7 @@ class IncompatibleDatabase(RuntimeError):
             f"Incompatible {scope} database: stored compatibility tag '{stored_tag or '?'}' "
             f"does not match expected '{expected_tag}'. "
             f"Update {config_key} in ~/.wks/config.json to '{stored_tag}' to reuse the existing data, "
-            "or run `wkso db reset` to rebuild the database."
+            "or run `wks0 db reset` to rebuild the database."
         )
         super().__init__(message)
         self.scope = scope
