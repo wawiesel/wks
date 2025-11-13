@@ -3,8 +3,8 @@
 import argparse
 import json
 import math
-import os
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -287,32 +287,8 @@ def display_monitor_status_table(
         display: Display object for rendering
         monitor_status_rows: List of (key, value) tuples for monitor status data
     """
-    from rich.table import Table
-    from rich.panel import Panel
-    from rich.style import Style
-
-    key_width = 22  # ~22 chars for key
-    value_width = 10  # ~10 chars for value
-
-    from rich.columns import Columns
-
-    # Create individual table rows that will reflow into columns
-    # Apply grey30 background to keys
-    row_tables = []
-    for key, value in monitor_status_rows:
-        row_table = Table(show_header=False, box=None, padding=(0, 1))
-        row_table.add_column("Key", justify="left", width=key_width)
-        row_table.add_column("Value", justify="right", width=value_width)
-        row_table.add_row(key, value)
-        row_tables.append(row_table)
-    # Use Columns with column_first=True for reflow layout
-    # This will fill the first column, then the second column
-    columns = Columns(row_tables, equal=True, column_first=True)
-
-    # Display Monitor Status panel (without Tracked Files)
-    # Don't set explicit width to let Rich calculate based on content
-    panel = Panel.fit(columns, title="Monitor Status", border_style="cyan")
-    display.console.print(panel)
+    from ..helpers import display_status_table
+    display_status_table(display, monitor_status_rows, title="Monitor Status")
 
 
 def display_monitor_status_issues_panel(display: Any, issues: List[str], redundancies: List[str]) -> None:
@@ -348,6 +324,14 @@ def monitor_status_cmd(args: argparse.Namespace) -> int:
     3. Say what you did and if there were problems on STDERR
     4. Display output on STDOUT
     """
+    # Live mode requires CLI display
+    live = getattr(args, "live", False)
+    if live:
+        args.display = "cli"
+        from ...display.context import get_display
+        args.display_obj = get_display("cli")
+        return _monitor_status_live(args)
+
     # Step 1: Say what you're doing on STDERR (include config file path)
     config_file = get_config_path()
     print(f"Loading monitor configuration from {config_file}...", file=sys.stderr)
@@ -395,6 +379,66 @@ def monitor_status_cmd(args: argparse.Namespace) -> int:
         return 1
 
     return 0
+
+
+def _monitor_status_live(args: argparse.Namespace) -> int:
+    """Render live-updating monitor status display."""
+    from rich.console import Console
+    from rich.live import Live
+    from rich.panel import Panel
+    from ...constants import MAX_DISPLAY_WIDTH
+    from ..helpers import display_status_table
+
+    console = Console(width=MAX_DISPLAY_WIDTH)
+
+    def _render_status() -> Panel:
+        """Render current status as a Rich panel with unified table."""
+        cfg = load_monitor_config()
+        status_data = MonitorController.get_status(cfg)
+        total_files, issues, redundancies, managed_dirs_dict, include_paths, exclude_paths = extract_monitor_status_data(status_data)
+
+        monitor_status_rows = build_monitor_status_table_data(
+            total_files, managed_dirs_dict, issues, redundancies, include_paths, exclude_paths, status_data, cfg
+        )
+
+        # Create a mock display object for the unified function
+        class MockDisplay:
+            def __init__(self, console):
+                self.console = console
+
+        mock_display = MockDisplay(console)
+
+        # Build the panel manually since we need to return it
+        from rich.table import Table
+        from rich.columns import Columns
+
+        key_width = 22
+        value_width = 10
+        row_tables = []
+        for key, value in monitor_status_rows:
+            row_table = Table(show_header=False, box=None, padding=(0, 1))
+            row_table.add_column("Key", justify="left", width=key_width)
+            row_table.add_column("Value", justify="right", width=value_width)
+            row_table.add_row(key, value)
+            row_tables.append(row_table)
+
+        columns = Columns(row_tables, equal=True, column_first=True)
+        return Panel.fit(columns, title="Monitor Status (Live)", border_style="cyan", width=MAX_DISPLAY_WIDTH)
+
+    try:
+        with Live(_render_status(), refresh_per_second=0.5, screen=False, console=console) as live:
+            while True:
+                time.sleep(2.0)
+                try:
+                    live.update(_render_status())
+                except Exception as update_exc:
+                    console.print(f"[yellow]Warning: {update_exc}[/yellow]", end="")
+    except KeyboardInterrupt:
+        console.print("\n[dim]Stopped monitoring.[/dim]")
+        return 0
+    except Exception as exc:
+        console.print(f"[red]Error in live mode: {exc}[/red]")
+        return 2
 
 
 # Validation helpers
@@ -886,6 +930,11 @@ def setup_monitor_parser(subparsers) -> None:
 
     # monitor status
     monstatus = monsub.add_parser("status", help="Show monitoring statistics")
+    monstatus.add_argument(
+        "--live",
+        action="store_true",
+        help="Keep display updated automatically (refreshes every 2 seconds)"
+    )
     monstatus.set_defaults(func=monitor_status_cmd)
 
     # monitor validate

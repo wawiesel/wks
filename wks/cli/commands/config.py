@@ -40,7 +40,11 @@ def _add_config_section_items(table_data: List[Dict[str, str]], section_data: Di
 
 
 def _build_config_table_data(config_data: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Build table data from config with sections."""
+    """Build table data from config with sections.
+
+    NOTE TO DEVELOPERS: This output is intentionally simple and straightforward.
+    Do not add complexity, fancy formatting, or additional features. Keep it as-is.
+    """
     table_data = []
 
     # Define section order and names (matching SPEC.md architecture)
