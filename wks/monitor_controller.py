@@ -8,6 +8,7 @@ from the CLI display layer. This enables:
 - Zero code duplication per SPEC.md
 """
 
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 import fnmatch
@@ -89,6 +90,97 @@ class MonitorValidator:
         return True, None
 
 
+@dataclass
+class ListOperationResult:
+    """Result of adding/removing items from a monitor list."""
+    success: bool
+    message: str
+    value_stored: Optional[str] = None
+    value_removed: Optional[str] = None
+    not_found: bool = False
+    already_exists: bool = False
+    validation_failed: bool = False
+
+    def __post_init__(self):
+        """Validate after initialization."""
+        if not self.message:
+            raise ValueError(f"ListOperationResult.message cannot be empty (found: {self.message!r}, expected: non-empty string)")
+        if self.success and self.not_found:
+            raise ValueError(
+                f"ListOperationResult: success cannot be True when not_found is True (found: success={
+                    self.success}, not_found={
+                    self.not_found}, expected: success=False when not_found=True)")
+        if self.success and self.already_exists:
+            raise ValueError(
+                f"ListOperationResult: success cannot be True when already_exists is True (found: success={
+                    self.success}, already_exists={
+                    self.already_exists}, expected: success=False when already_exists=True)")
+        if self.success and self.validation_failed:
+            raise ValueError(
+                f"ListOperationResult: success cannot be True when validation_failed is True (found: success={
+                    self.success}, validation_failed={
+                    self.validation_failed}, expected: success=False when validation_failed=True)")
+
+
+@dataclass
+class ManagedDirectoryInfo:
+    """Information about a managed directory."""
+    priority: int
+    valid: bool
+    error: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate after initialization."""
+        if self.priority < 0:
+            raise ValueError(f"ManagedDirectoryInfo.priority must be non-negative (found: {self.priority}, expected: integer >= 0)")
+
+
+@dataclass
+class ManagedDirectoriesResult:
+    """Result of get_managed_directories()."""
+    managed_directories: Dict[str, int]
+    count: int
+    validation: Dict[str, ManagedDirectoryInfo]
+
+
+@dataclass
+class ConfigValidationResult:
+    """Result of validate_config()."""
+    issues: List[str] = field(default_factory=list)
+    redundancies: List[str] = field(default_factory=list)
+    managed_directories: Dict[str, ManagedDirectoryInfo] = field(default_factory=dict)
+    include_paths: List[str] = field(default_factory=list)
+    exclude_paths: List[str] = field(default_factory=list)
+    ignore_dirnames: List[str] = field(default_factory=list)
+    ignore_globs: List[str] = field(default_factory=list)
+    ignore_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    ignore_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class MonitorStatus:
+    """Monitor status data structure."""
+    tracked_files: int
+    issues: List[str] = field(default_factory=list)
+    redundancies: List[str] = field(default_factory=list)
+    managed_directories: Dict[str, ManagedDirectoryInfo] = field(default_factory=dict)
+    include_paths: List[str] = field(default_factory=list)
+    exclude_paths: List[str] = field(default_factory=list)
+    ignore_dirnames: List[str] = field(default_factory=list)
+    ignore_globs: List[str] = field(default_factory=list)
+    ignore_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    ignore_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Validate after initialization."""
+        if self.tracked_files < 0:
+            raise ValueError(f"MonitorStatus.tracked_files must be non-negative (found: {self.tracked_files}, expected: integer >= 0)")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dict for JSON serialization using dataclasses.asdict."""
+        return asdict(self)
+
+
 class MonitorController:
     """Controller for monitor operations - returns data structures for any view."""
 
@@ -132,7 +224,7 @@ class MonitorController:
         return result
 
     @staticmethod
-    def add_to_list(config_dict: dict, list_name: str, value: str, resolve_path: bool = True) -> dict:
+    def add_to_list(config_dict: dict, list_name: str, value: str, resolve_path: bool = True) -> ListOperationResult:
         """Add value to a monitor config list.
 
         Args:
@@ -177,33 +269,33 @@ class MonitorController:
                     break
 
         if existing:
-            return {
-                "success": False,
-                "message": f"Already in {list_name}: {existing}",
-                "already_exists": True
-            }
+            return ListOperationResult(
+                success=False,
+                message=f"Already in {list_name}: {existing}",
+                already_exists=True
+            )
 
         # Validate ignore_dirnames before adding
         if list_name == "ignore_dirnames":
             ignore_globs = config_dict["monitor"].get("ignore_globs", [])
             is_valid, error_msg = MonitorValidator.validate_ignore_dirname(value, ignore_globs)
             if not is_valid:
-                return {
-                    "success": False,
-                    "message": error_msg,
-                    "validation_failed": True
-                }
+                return ListOperationResult(
+                    success=False,
+                    message=error_msg,
+                    validation_failed=True
+                )
 
         # Add to list
         config_dict["monitor"][list_name].append(value_to_store)
-        return {
-            "success": True,
-            "message": f"Added to {list_name}: {value_to_store}",
-            "value_stored": value_to_store
-        }
+        return ListOperationResult(
+            success=True,
+            message=f"Added to {list_name}: {value_to_store}",
+            value_stored=value_to_store
+        )
 
     @staticmethod
-    def remove_from_list(config_dict: dict, list_name: str, value: str, resolve_path: bool = True) -> dict:
+    def remove_from_list(config_dict: dict, list_name: str, value: str, resolve_path: bool = True) -> ListOperationResult:
         """Remove value from a monitor config list.
 
         Args:
@@ -216,11 +308,11 @@ class MonitorController:
             dict with 'success' (bool), 'message' (str), 'value_removed' (str if success)
         """
         if "monitor" not in config_dict or list_name not in config_dict["monitor"]:
-            return {
-                "success": False,
-                "message": f"No {list_name} configured",
-                "not_found": True
-            }
+            return ListOperationResult(
+                success=False,
+                message=f"No {list_name} configured",
+                not_found=True
+            )
 
         # Find matching entry
         existing = None
@@ -236,22 +328,22 @@ class MonitorController:
                 existing = value
 
         if not existing:
-            return {
-                "success": False,
-                "message": f"Not in {list_name}: {value}",
-                "not_found": True
-            }
+            return ListOperationResult(
+                success=False,
+                message=f"Not in {list_name}: {value}",
+                not_found=True
+            )
 
         # Remove from list
         config_dict["monitor"][list_name].remove(existing)
-        return {
-            "success": True,
-            "message": f"Removed from {list_name}: {existing}",
-            "value_removed": existing
-        }
+        return ListOperationResult(
+            success=True,
+            message=f"Removed from {list_name}: {existing}",
+            value_removed=existing
+        )
 
     @staticmethod
-    def get_managed_directories(config: dict) -> dict:
+    def get_managed_directories(config: dict) -> ManagedDirectoriesResult:
         """Get managed directories with their priorities.
 
         Args:
@@ -273,17 +365,17 @@ class MonitorController:
             is_valid, error_msg = MonitorValidator.validate_managed_directory(
                 path, include_paths, exclude_paths, ignore_dirnames, ignore_globs
             )
-            validation[path] = {
-                "priority": priority,
-                "valid": is_valid,
-                "error": error_msg
-            }
+            validation[path] = ManagedDirectoryInfo(
+                priority=priority,
+                valid=is_valid,
+                error=error_msg
+            )
 
-        return {
-            "managed_directories": managed_dirs,
-            "count": len(managed_dirs),
-            "validation": validation
-        }
+        return ManagedDirectoriesResult(
+            managed_directories=managed_dirs,
+            count=len(managed_dirs),
+            validation=validation
+        )
 
     @staticmethod
     def add_managed_directory(config_dict: dict, path: str, priority: int) -> dict:
@@ -411,7 +503,7 @@ class MonitorController:
         }
 
     @staticmethod
-    def get_status(config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_status(config: Dict[str, Any]) -> MonitorStatus:
         """Get monitor status, including validation issues."""
         from .config import mongo_settings
         from pymongo import MongoClient
@@ -425,12 +517,12 @@ class MonitorController:
             client.server_info()
             db_key = monitor_config.get("database")
             if not db_key:
-                raise ValueError("monitor.database is required in config")
+                raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
             if "." not in db_key:
-                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')")
             parts = db_key.split(".", 1)
             if len(parts) != 2 or not parts[0] or not parts[1]:
-                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
             db = client[parts[0]]
             collection = db[parts[1]]
             total_files = collection.count_documents({})
@@ -441,29 +533,38 @@ class MonitorController:
         # Get config validation
         validation = MonitorController.validate_config(config)
 
-        return {
-            "tracked_files": total_files,
-            "issues": validation.get("issues", []),
-            "redundancies": validation.get("redundancies", []),
-            "managed_directories": validation.get("managed_directories", {}),
-            "include_paths": validation.get("include_paths", []),
-            "exclude_paths": validation.get("exclude_paths", []),
-            "ignore_dirnames": validation.get("ignore_dirnames", []),
-            "ignore_globs": validation.get("ignore_globs", []),
-            "ignore_dirname_validation": validation.get("ignore_dirname_validation", {}),
-            "ignore_glob_validation": validation.get("ignore_glob_validation", {}),
-        }
+        return MonitorStatus(
+            tracked_files=total_files,
+            issues=validation.issues,
+            redundancies=validation.redundancies,
+            managed_directories=validation.managed_directories,
+            include_paths=validation.include_paths,
+            exclude_paths=validation.exclude_paths,
+            ignore_dirnames=validation.ignore_dirnames,
+            ignore_globs=validation.ignore_globs,
+            ignore_dirname_validation=validation.ignore_dirname_validation,
+            ignore_glob_validation=validation.ignore_glob_validation,
+        )
 
     @staticmethod
-    def validate_config(config: dict) -> dict:
+    def validate_config(config: dict) -> ConfigValidationResult:
         """Validate monitor configuration for conflicts and issues."""
         monitor_config = config.get("monitor", {})
-        include_paths = set(monitor_config.get("include_paths", []))
-        exclude_paths = set(monitor_config.get("exclude_paths", []))
-        managed_dirs = set(monitor_config.get("managed_directories", {}).keys())
+        include_paths_list = monitor_config.get("include_paths", [])
+        exclude_paths_list = monitor_config.get("exclude_paths", [])
+        ignore_dirnames_list = monitor_config.get("ignore_dirnames", [])
+        ignore_globs_list = monitor_config.get("ignore_globs", [])
+        managed_dirs_dict = monitor_config.get("managed_directories", {})
+
+        include_paths = set(include_paths_list)
+        exclude_paths = set(exclude_paths_list)
+        managed_dirs = set(managed_dirs_dict.keys())
 
         issues = []
-        warnings = []
+        redundancies = []
+        managed_directories = {}
+        ignore_dirname_validation = {}
+        ignore_glob_validation = {}
 
         # Check 1: Paths in both include and exclude
         conflicts = include_paths & exclude_paths
@@ -479,16 +580,48 @@ class MonitorController:
                 p2 = Path(dir2).expanduser().resolve()
                 try:
                     if p1 == p2:
-                        warnings.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to same path")
+                        redundancies.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to same path")
                 except BaseException:
                     pass
 
-        return {
-            "issues": issues,
-            "warnings": warnings,
-            "has_issues": len(issues) > 0,
-            "has_warnings": len(warnings) > 0
-        }
+        # Validate each managed directory
+        for path, priority in managed_dirs_dict.items():
+            is_valid, error_msg = MonitorValidator.validate_managed_directory(
+                path, list(include_paths_list), list(exclude_paths_list), ignore_dirnames_list, ignore_globs_list
+            )
+            managed_directories[path] = ManagedDirectoryInfo(
+                priority=priority,
+                valid=is_valid,
+                error=error_msg
+            )
+            if not is_valid:
+                issues.append(f"managed_directories entry '{path}' would NOT be monitored: {error_msg}")
+
+        # Validate ignore_dirnames
+        for dirname in ignore_dirnames_list:
+            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, ignore_globs_list)
+            ignore_dirname_validation[dirname] = {"valid": is_valid, "error": error_msg}
+            if error_msg and "Redundant" in error_msg:
+                redundancies.append(f"ignore_dirnames entry '{dirname}': {error_msg}")
+
+        # Validate ignore_globs
+        for glob_pattern in ignore_globs_list:
+            is_valid, error_msg = MonitorValidator.validate_ignore_glob(glob_pattern)
+            ignore_glob_validation[glob_pattern] = {"valid": is_valid, "error": error_msg}
+            if not is_valid:
+                issues.append(f"ignore_globs entry '{glob_pattern}': {error_msg}")
+
+        return ConfigValidationResult(
+            issues=issues,
+            redundancies=redundancies,
+            managed_directories=managed_directories,
+            include_paths=list(include_paths_list),
+            exclude_paths=list(exclude_paths_list),
+            ignore_dirnames=list(ignore_dirnames_list),
+            ignore_globs=list(ignore_globs_list),
+            ignore_dirname_validation=ignore_dirname_validation,
+            ignore_glob_validation=ignore_glob_validation,
+        )
 
     @staticmethod
     def check_path(config: dict, path_str: str) -> dict:
@@ -629,12 +762,12 @@ class MonitorController:
             client.server_info()  # Will raise an exception if connection fails
             db_key = monitor_config.get("database")
             if not db_key:
-                raise ValueError("monitor.database is required in config")
+                raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
             if "." not in db_key:
-                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')")
             parts = db_key.split(".", 1)
             if len(parts) != 2 or not parts[0] or not parts[1]:
-                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
             db = client[parts[0]]
             collection = db[parts[1]]
         except Exception as e:
@@ -698,12 +831,12 @@ class MonitorController:
             client.server_info()
             db_key = monitor_config.get("database")
             if not db_key:
-                raise ValueError("monitor.database is required in config")
+                raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
             if "." not in db_key:
-                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')")
             parts = db_key.split(".", 1)
             if len(parts) != 2 or not parts[0] or not parts[1]:
-                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+                raise ValueError(f"monitor.database must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
             db = client[parts[0]]
             collection = db[parts[1]]
         except Exception as e:

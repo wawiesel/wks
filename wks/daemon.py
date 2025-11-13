@@ -130,12 +130,12 @@ class WKSDaemon:
         max_weight = 1.0
 
         if raw_weight is None:
-            raise ValueError("monitor.touch_weight missing")
+            raise ValueError("monitor.touch_weight is required in config (found: missing, expected: float between 0.001 and 1.0)")
 
         try:
             weight = float(raw_weight)
         except (TypeError, ValueError):
-            raise ValueError(f"Invalid monitor.touch_weight {raw_weight!r}")
+            raise ValueError(f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(raw_weight).__name__} = {raw_weight!r}, expected: float between 0.001 and 1.0)")
 
         if weight < min_weight:
             logger.warning("monitor.touch_weight %.6f below %.3f; using %.3f", weight, min_weight, min_weight)
@@ -795,56 +795,56 @@ if __name__ == "__main__":
     # Vault config (new structure)
     vault_cfg = config.get("vault")
     if not vault_cfg:
-        raise ValueError("vault section is required in config")
+        raise ValueError("vault section is required in config (found: missing, expected: vault section with base_dir, wks_dir, etc.)")
     vault_path_str = vault_cfg.get("base_dir")
     if not vault_path_str:
-        raise ValueError("vault.base_dir is required in config")
+        raise ValueError("vault.base_dir is required in config (found: missing, expected: path to Obsidian vault directory)")
     vault_path = expand_path(vault_path_str)
     base_dir = vault_cfg.get("wks_dir")
     if not base_dir:
-        raise ValueError("vault.wks_dir is required in config")
+        raise ValueError("vault.wks_dir is required in config (found: missing, expected: subdirectory name within vault, e.g., 'WKS')")
 
     # Monitor config
     monitor_cfg = config.get("monitor")
     if not monitor_cfg:
-        raise ValueError("monitor section is required in config")
+        raise ValueError("monitor section is required in config (found: missing, expected: monitor section with include_paths, exclude_paths, etc.)")
     include_paths_list = monitor_cfg.get("include_paths")
     if not include_paths_list:
-        raise ValueError("monitor.include_paths is required in config")
+        raise ValueError("monitor.include_paths is required in config (found: missing, expected: list of directory paths to monitor)")
     include_paths = [expand_path(p) for p in include_paths_list]
     exclude_paths_list = monitor_cfg.get("exclude_paths")
     if exclude_paths_list is None:
-        raise ValueError("monitor.exclude_paths is required in config")
+        raise ValueError("monitor.exclude_paths is required in config (found: missing, expected: list of directory paths to exclude, can be empty [])")
     exclude_paths = [expand_path(p) for p in exclude_paths_list]
     ignore_dirnames_list = monitor_cfg.get("ignore_dirnames")
     if ignore_dirnames_list is None:
-        raise ValueError("monitor.ignore_dirnames is required in config")
+        raise ValueError("monitor.ignore_dirnames is required in config (found: missing, expected: list of directory names to ignore, can be empty [])")
     ignore_dirnames = set(ignore_dirnames_list)
     ignore_patterns = set()  # deprecated
     ignore_globs_list = monitor_cfg.get("ignore_globs")
     if ignore_globs_list is None:
-        raise ValueError("monitor.ignore_globs is required in config")
+        raise ValueError("monitor.ignore_globs is required in config (found: missing, expected: list of glob patterns to ignore, can be empty [])")
     ignore_globs = list(ignore_globs_list)
 
     # DB config
     db_cfg = config.get("db")
     if not db_cfg:
-        raise ValueError("db section is required in config")
+        raise ValueError("db section is required in config (found: missing, expected: db section with type and uri)")
     mongo_uri = db_cfg.get("uri")
     if not mongo_uri:
-        raise ValueError("db.uri is required in config")
+        raise ValueError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
     mongo_uri = str(mongo_uri)
     ensure_mongo_running(mongo_uri, record_start=True)
 
     client = MongoClient(mongo_uri)
     monitor_db_key = monitor_cfg.get("database")
     if not monitor_db_key:
-        raise ValueError("monitor.database is required in config")
+        raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
     if "." not in monitor_db_key:
-        raise ValueError(f"monitor.database must be in format 'database.collection', got: {monitor_db_key}")
+        raise ValueError(f"monitor.database must be in format 'database.collection' (found: {monitor_db_key!r}, expected: format like 'wks.monitor')")
     parts = monitor_db_key.split(".", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"monitor.database must be in format 'database.collection', got: {monitor_db_key}")
+        raise ValueError(f"monitor.database must be in format 'database.collection' (found: {monitor_db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
     monitor_db_name, monitor_coll_name = parts
     monitor_collection = client[monitor_db_name][monitor_coll_name]
 
