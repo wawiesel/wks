@@ -975,7 +975,6 @@ class ObsidianVault:
             except Exception:
                 return "—"
 
-        heartbeat_iso = health.get('heartbeat_iso', '')
         uptime_hms = health.get('uptime_hms', '—')
         bpm = health.get('avg_beats_per_min', '—')
         try:
@@ -998,7 +997,6 @@ class ObsidianVault:
         lines = [
             '| Metric | Value | Info |',
             '|:--|:--|:--|',
-            f"| 🟢 Last Update | `{heartbeat_iso}` | Health tick time |",
             f"| 🕒 Uptime | `{uptime_hms}` | Since last restart |",
             f"| 🫀 BPM | `{bpm_str}` | Average beats/min (ticks + ops) |",
             f"| 🧩 PID | `{pid}` | Daemon process ID |",

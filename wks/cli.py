@@ -41,6 +41,20 @@ from .constants import WKS_HOME_EXT, WKS_EXTRACT_EXT, WKS_DOT_DIRS, WKS_HOME_DIS
 from .display.context import get_display, add_display_argument
 from .extractor import Extractor
 from .status import record_db_activity, load_db_activity_summary, load_db_activity_history
+from .service_controller import (
+    LOCK_FILE,
+    ServiceController,
+    ServiceStatusDB,
+    ServiceStatusData,
+    ServiceStatusLaunch,
+    agent_installed,
+    daemon_start_launchd,
+    daemon_status_launchd,
+    daemon_stop_launchd,
+    default_mongo_uri,
+    is_macos,
+    stop_managed_mongo,
+)
 from .dbmeta import (
     IncompatibleDatabase,
     ensure_db_compat,
@@ -51,8 +65,6 @@ from . import mongoctl
 from .templating import render_template
 from . import cli_db
 
-
-LOCK_FILE = Path.home() / WKS_HOME_EXT / "daemon.lock"
 
 DEFAULT_MONITOR_INCLUDE_PATHS = ["~"]
 DEFAULT_MONITOR_EXCLUDE_PATHS = ["~/Library", "~/obsidian", f"{WKS_HOME_DISPLAY}"]
@@ -110,237 +122,29 @@ _No documents found._
 # _package_version moved to utils.get_package_version
 
 
-def _human_bytes(value: Optional[int]) -> str:
-    if value is None:
-        return "-"
-    try:
-        val = float(value)
-    except Exception:
-        return "-"
-    units = ["B", "kB", "MB", "GB", "TB"]
-    idx = 0
-    while val >= 1024.0 and idx < len(units) - 1:
-        val /= 1024.0
-        idx += 1
-    return f"{val:7.2f} {units[idx]:>2}"
+def _is_macos() -> bool:
+    """Backward-compatible wrapper for legacy imports."""
+    return is_macos()
 
 
-def _fmt_bool(value: Optional[bool]) -> str:
-    if value is None:
-        return "-"
-    return "true" if value else "false"
+def _agent_installed() -> bool:
+    return agent_installed()
 
 
-def _format_timestamp_value(value: Optional[Any], fmt: str) -> str:
-    if value is None:
-        return ""
-    text = str(value).strip()
-    if not text:
-        return ""
-    try:
-        s = text
-        if s.endswith("Z"):
-            s = s[:-1] + "+00:00"
-        s = s.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s)
-    except Exception:
-        try:
-            fallback = text.replace("T", " ").replace("Z", "")
-            dt = datetime.fromisoformat(fallback)
-        except Exception:
-            return text
-    try:
-        return dt.strftime(fmt)
-    except Exception:
-        return text
+def _daemon_start_launchd():
+    return daemon_start_launchd()
 
 
-def _doc_path_to_local(doc: Dict[str, Any]) -> Dict[str, Any]:
-    if "path" in doc:
-        doc["path"] = uri_to_path(doc["path"])
-    return doc
+def _daemon_stop_launchd():
+    return daemon_stop_launchd()
 
 
-@dataclass
-class ServiceStatusLaunch:
-    state: Optional[str] = None
-    active_count: Optional[str] = None
-    pid: Optional[str] = None
-    program: Optional[str] = None
-    arguments: Optional[str] = None
-    working_dir: Optional[str] = None
-    stdout: Optional[str] = None
-    stderr: Optional[str] = None
-    runs: Optional[str] = None
-    last_exit: Optional[str] = None
-    path: Optional[str] = None
-    type: Optional[str] = None
-
-    def present(self) -> bool:
-        return any(
-            [
-                self.state,
-                self.pid,
-                self.program,
-                self.arguments,
-                self.working_dir,
-                self.stdout,
-                self.stderr,
-                self.path,
-            ]
-        )
-
-    def as_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+def _daemon_status_launchd() -> int:
+    return daemon_status_launchd()
 
 
-@dataclass
-class ServiceStatusDB:
-    tracked_files: Optional[int] = None
-    last_updated: Optional[str] = None
-    total_size_bytes: Optional[int] = None
-    latest_files: List[Dict[str, str]] = field(default_factory=list)
-
-    def present(self) -> bool:
-        return any(
-            [
-                self.tracked_files is not None,
-                self.last_updated,
-                self.total_size_bytes is not None,
-                self.latest_files,
-            ]
-        )
-
-    def as_dict(self) -> Dict[str, Any]:
-        return {
-            "tracked_files": self.tracked_files,
-            "last_updated": self.last_updated,
-            "total_size_bytes": self.total_size_bytes,
-            "latest_files": list(self.latest_files),
-        }
-
-
-@dataclass
-class ServiceStatusData:
-    running: Optional[bool] = None
-    heartbeat: Optional[str] = None
-    uptime: Optional[str] = None
-    pid: Optional[int] = None
-    beats_per_min: Optional[float] = None
-    pending_deletes: Optional[int] = None
-    pending_mods: Optional[int] = None
-    ok: Optional[bool] = None
-    lock: Optional[bool] = None
-    last_error: Optional[str] = None
-    db_last_operation: Optional[str] = None
-    db_last_operation_detail: Optional[str] = None
-    db_last_operation_iso: Optional[str] = None
-    db_ops_last_minute: Optional[int] = None
-    fs_rate_short: Optional[float] = None
-    fs_rate_long: Optional[float] = None
-    fs_rate_weighted: Optional[float] = None
-    launch: ServiceStatusLaunch = field(default_factory=ServiceStatusLaunch)
-    db: ServiceStatusDB = field(default_factory=ServiceStatusDB)
-    notes: List[str] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "service": {
-                "running": self.running,
-                "heartbeat": self.heartbeat,
-                "uptime": self.uptime,
-                "pid": self.pid,
-                "beats_per_min": self.beats_per_min,
-                "pending_deletes": self.pending_deletes,
-                "pending_mods": self.pending_mods,
-                "ok": self.ok,
-                "lock": self.lock,
-                "last_error": self.last_error,
-                "db_last_operation": self.db_last_operation,
-                "db_last_operation_detail": self.db_last_operation_detail,
-                "db_last_operation_iso": self.db_last_operation_iso,
-                "db_ops_last_minute": self.db_ops_last_minute,
-                "fs_rate_short": self.fs_rate_short,
-                "fs_rate_long": self.fs_rate_long,
-                "fs_rate_weighted": self.fs_rate_weighted,
-            },
-            "launch_agent": self.launch.as_dict(),
-            "space_db": self.db.as_dict(),
-            "notes": list(self.notes),
-        }
-
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict(), indent=2, sort_keys=True)
-
-    def to_rows(self) -> List[Tuple[str, str]]:
-        rows: List[Tuple[str, str]] = []
-        rows.append(("Running", _fmt_bool(self.running)))
-        rows.append(("Heartbeat", self.heartbeat or "-"))
-        rows.append(("Uptime", self.uptime or "-"))
-        rows.append(("PID", str(self.pid) if self.pid is not None else "-"))
-        rows.append(
-            ("DB ops/min", f"{self.beats_per_min:.2f}" if isinstance(self.beats_per_min, (int, float)) else "-")
-        )
-        rows.append(
-            ("Pending deletes", str(self.pending_deletes) if self.pending_deletes is not None else "-")
-        )
-        rows.append(("Pending mods", str(self.pending_mods) if self.pending_mods is not None else "-"))
-        rows.append(("OK", _fmt_bool(self.ok)))
-        rows.append(("Lock", _fmt_bool(self.lock)))
-        if self.last_error:
-            rows.append(("Last error", self.last_error))
-        if self.db_last_operation or self.db_last_operation_iso:
-            desc = self.db_last_operation or "-"
-            if self.db_last_operation_detail:
-                desc = f"{desc} ({self.db_last_operation_detail})"
-            if self.db_last_operation_iso:
-                desc = f"{desc} @ {self.db_last_operation_iso}"
-            rows.append(("Last operation", desc))
-        if self.db_ops_last_minute is not None:
-            rows.append(("DB ops (last min)", str(self.db_ops_last_minute)))
-        if self.fs_rate_short is not None:
-            rows.append(("FS ops/sec (10s)", f"{self.fs_rate_short:.2f}"))
-        if self.fs_rate_long is not None:
-            rows.append(("FS ops/sec (10m)", f"{self.fs_rate_long:.2f}"))
-        if self.fs_rate_weighted is not None:
-            rows.append(("FS ops/sec (weighted)", f"{self.fs_rate_weighted:.2f}"))
-        if self.launch.present():
-            rows.append(("Launch state", self.launch.state or "-"))
-            rows.append(("Launch PID", self.launch.pid or "-"))
-            program_desc = self.launch.arguments or self.launch.program or "-"
-            rows.append(("Launch program", program_desc))
-            rows.append(("Launch stdout", self.launch.stdout or "-"))
-            rows.append(("Launch stderr", self.launch.stderr or "-"))
-            rows.append(("Launch runs", self.launch.runs or "-"))
-            rows.append(("Launch last exit", self.launch.last_exit or "-"))
-            rows.append(("Launch path", self.launch.path or "-"))
-            rows.append(("Launch type", self.launch.type or "-"))
-        if self.db.present():
-            rows.append(
-                (
-                    "DB tracked files",
-                    str(self.db.tracked_files) if self.db.tracked_files is not None else "-",
-                )
-            )
-            rows.append(("DB last updated", self.db.last_updated or "-"))
-            rows.append(
-                (
-                    "DB total size",
-                    _human_bytes(self.db.total_size_bytes),
-                )
-            )
-        if self.notes:
-            rows.append(("Notes", "; ".join(self.notes)))
-        return rows
-
-    def to_markdown(self) -> str:
-        rows = self.to_rows()
-        lines = ["| Key | Value |", "| --- | --- |"]
-        for key, value in rows:
-            val = value if value else "-"
-            val = val.replace("|", "\\|").replace("\n", "<br>")
-            lines.append(f"| {key} | {val} |")
-        return "\n".join(lines)
+def _stop_managed_mongo() -> None:
+    stop_managed_mongo()
 
 def load_config() -> Dict[str, Any]:
     """Load WKS configuration from default location."""
@@ -456,14 +260,6 @@ def print_config(args: argparse.Namespace) -> None:
     print(_json_dumps(payload))
 
 
-def _pid_running(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except Exception:
-        return False
-
-
 def _stop_managed_mongo() -> None:
     mongoctl.stop_managed_mongo()
 
@@ -521,265 +317,112 @@ def _daemon_status_launchd() -> int:
 
 
 def daemon_status(args: argparse.Namespace) -> int:
-    status = ServiceStatusData()
-
+    live = getattr(args, "live", False)
+    
+    # Live mode only works with CLI display
+    if live:
+        display_mode = getattr(args, "display", None)
+        if display_mode == "mcp":
+            sys.stderr.write("--live mode is not supported with MCP display\n")
+            return 2
+        # Force CLI mode for live updates
+        args.display = "cli"
+        args.display_obj = get_display("cli")
+    
+    status = None
     try:
-        mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=False)
-    except Exception:
-        pass
-
-    @dataclass
-    class LaunchAgentStatusInternal:
-        state: str = ""
-        active_count: str = ""
-        path: str = ""
-        type: str = ""
-        program: str = ""
-        arguments: str = ""
-        working_dir: str = ""
-        stdout: str = ""
-        stderr: str = ""
-        runs: str = ""
-        pid: str = ""
-        last_exit: str = ""
-
-    launch_info: Optional[LaunchAgentStatusInternal] = None
-    if _is_macos() and _agent_installed():
-        try:
-            uid = os.getuid()
-            out = subprocess.check_output(
-                ["launchctl", "print", f"gui/{uid}/{_agent_label()}"],
-                stderr=subprocess.STDOUT,
-            )
-            launch_text = out.decode("utf-8", errors="ignore")
-            import re as _re
-
-            def _find(pattern: str, default: str = "") -> str:
-                match = _re.search(pattern, launch_text)
-                return match.group(1).strip() if match else default
-
-            launch_info = LaunchAgentStatusInternal(
-                active_count=_find(r"active count =\s*(\d+)"),
-                path=_find(r"\n\s*path =\s*(.*)"),
-                type=_find(r"\n\s*type =\s*(.*)"),
-                state=_find(r"\n\s*state =\s*(.*)"),
-                program=_find(r"\n\s*program =\s*(.*)"),
-                working_dir=_find(r"\n\s*working directory =\s*(.*)"),
-                stdout=_find(r"\n\s*stdout path =\s*(.*)"),
-                stderr=_find(r"\n\s*stderr path =\s*(.*)"),
-                runs=_find(r"\n\s*runs =\s*(\d+)"),
-                pid=_find(r"\n\s*pid =\s*(\d+)"),
-                last_exit=_find(r"\n\s*last exit code =\s*(\d+)"),
-            )
-            try:
-                args_block = _re.search(r"arguments = \{([^}]*)\}", launch_text, _re.DOTALL)
-                if args_block:
-                    lines = [ln.strip() for ln in args_block.group(1).splitlines() if ln.strip()]
-                    if launch_info:
-                        launch_info.arguments = " ".join(lines)
-            except Exception:
-                pass
-        except Exception:
-            status.notes.append("Launch agent status unavailable")
-
-    if launch_info:
-        status.launch = ServiceStatusLaunch(
-            state=launch_info.state or None,
-            active_count=launch_info.active_count or None,
-            pid=launch_info.pid or None,
-            program=launch_info.program or None,
-            arguments=launch_info.arguments or None,
-            working_dir=launch_info.working_dir or None,
-            stdout=launch_info.stdout or None,
-            stderr=launch_info.stderr or None,
-            runs=launch_info.runs or None,
-            last_exit=launch_info.last_exit or None,
-            path=launch_info.path or None,
-            type=launch_info.type or None,
-        )
-
-    health_path = Path.home() / WKS_HOME_EXT / "health.json"
-    health: Dict[str, Any] = {}
-    try:
-        if health_path.exists():
-            health = json.load(open(health_path, "r"))
-    except Exception:
-        status.notes.append("Failed to read health metrics")
-        health = {}
-
-    if health:
-        status.running = bool(health.get("lock_present"))
-        status.heartbeat = str(health.get("heartbeat_iso") or "")
-        status.uptime = str(health.get("uptime_hms") or "")
-        try:
-            status.pid = int(health.get("pid"))
-        except Exception:
-            status.pid = None
-        try:
-            bpm = health.get("avg_beats_per_min")
-            status.beats_per_min = float(bpm) if bpm is not None else None
-        except Exception:
-            status.beats_per_min = None
-        status.pending_deletes = health.get("pending_deletes")
-        status.pending_mods = health.get("pending_mods")
-        status.ok = False if health.get("last_error") else True
-        status.lock = bool(health.get("lock_present"))
-        if health.get("last_error"):
-            status.last_error = str(health.get("last_error"))
-        if health.get("db_last_operation"):
-            status.db_last_operation = health.get("db_last_operation")
-        if health.get("db_last_operation_detail"):
-            status.db_last_operation_detail = health.get("db_last_operation_detail")
-        if health.get("db_last_operation_iso"):
-            status.db_last_operation_iso = health.get("db_last_operation_iso")
-        if health.get("db_ops_last_minute") is not None:
-            try:
-                status.db_ops_last_minute = int(health.get("db_ops_last_minute"))
-            except Exception:
-                status.db_ops_last_minute = None
-        for attr, key in [
-            ("fs_rate_short", "fs_rate_short"),
-            ("fs_rate_long", "fs_rate_long"),
-            ("fs_rate_weighted", "fs_rate_weighted"),
-        ]:
-            try:
-                val = health.get(key)
-                setattr(status, attr, float(val) if val is not None else None)
-            except Exception:
-                setattr(status, attr, None)
-    else:
-        lock_exists = LOCK_FILE.exists()
-        status.lock = lock_exists
-        if lock_exists:
-            try:
-                pid = int(LOCK_FILE.read_text().strip().splitlines()[0])
-                status.pid = pid
-                status.running = _pid_running(pid)
-            except Exception:
-                status.notes.append("Lock present but PID unavailable")
-                status.running = None
-        else:
-            status.running = False
-        if not status.notes and not lock_exists:
-            status.notes.append("WKS daemon: not running")
-
-    summary = load_db_activity_summary()
-    if summary:
-        if not status.db_last_operation:
-            status.db_last_operation = summary.get("operation") or None
-        if not status.db_last_operation_detail:
-            status.db_last_operation_detail = summary.get("detail") or None
-        if not status.db_last_operation_iso:
-            status.db_last_operation_iso = summary.get("timestamp_iso") or None
-        if not status.heartbeat:
-            status.heartbeat = summary.get("timestamp_iso") or status.heartbeat
-
-    recent = load_db_activity_history(60)
-    if status.db_ops_last_minute is None:
-        status.db_ops_last_minute = len(recent)
-    if status.beats_per_min is None and recent:
-        status.beats_per_min = float(len(recent))
-    if status.beats_per_min is None:
-        status.beats_per_min = float(status.db_ops_last_minute or 0)
-
-    try:
-        cfg = load_config()
-        ts_format = timestamp_format(cfg)
-        mongo_cfg = mongo_settings(cfg)
-        space_tag, _ = resolve_db_compatibility(cfg)
-        client = pymongo.MongoClient(
-            mongo_cfg["uri"],
-            serverSelectionTimeoutMS=300,
-            connectTimeoutMS=300,
-        )
-        client.admin.command("ping")
-        try:
-            ensure_db_compat(
-                client,
-                mongo_cfg["space_database"],
-                "space",
-                space_tag,
-                product_version=get_package_version(),
-            )
-        except IncompatibleDatabase as exc:
-            status.notes.append(str(exc))
-            try:
-                client.close()
-            except Exception:
-                pass
-            coll = None
-        else:
-            coll = client[mongo_cfg["space_database"]][mongo_cfg["space_collection"]]
-        if coll is not None:
-            status.db.tracked_files = coll.count_documents({})
-            last_doc = coll.find({}, {"timestamp": 1}).sort("timestamp", -1).limit(1)
-            for doc in last_doc:
-                formatted = _format_timestamp_value(doc.get("timestamp"), ts_format)
-                status.db.last_updated = formatted or str(doc.get("timestamp", ""))
-
-            total_size: Optional[int] = None
-            try:
-                agg = coll.aggregate(
-                    [{"$group": {"_id": None, "total": {"$sum": {"$cond": [{"$gt": ["$bytes", 0]}, "$bytes", 0]}}}}]
-                )
-                agg_doc = next(agg, None)
-                if agg_doc and agg_doc.get("total") is not None:
-                    total_candidate = agg_doc.get("total")
-                    if isinstance(total_candidate, (int, float)):
-                        total_size = int(total_candidate)
-            except Exception:
-                total_size = None
-
-            if total_size in (None, 0):
-                try:
-                    approx_total = 0
-                    found_any = False
-                    missing_metadata = False
-                    for doc in coll.find({}, {"path": 1, "path_local": 1, "bytes": 1}).limit(1000):
-                        found_any = True
-                        bval = doc.get("bytes")
-                        if isinstance(bval, (int, float)) and bval > 0:
-                            approx_total += int(bval)
-                            continue
-                        missing_metadata = True
-                        local_path = _doc_path_to_local(doc)
-                        if local_path and local_path.exists():
-                            try:
-                                approx_total += local_path.stat().st_size
-                            except Exception:
-                                pass
-                    if found_any and approx_total > 0:
-                        total_size = approx_total
-                    elif not missing_metadata and total_size is None:
-                        total_size = approx_total
-                except Exception:
-                    pass
-
-            if isinstance(total_size, (int, float)) and total_size >= 0:
-                status.db.total_size_bytes = int(total_size)
-            else:
-                status.db.total_size_bytes = None
-            latest = coll.find({}, {"path": 1, "timestamp": 1}).sort("timestamp", -1).limit(5)
-            records = []
-            for doc in latest:
-                ts_value = _format_timestamp_value(doc.get("timestamp"), ts_format)
-                if not ts_value:
-                    ts_value = str(doc.get("timestamp", ""))
-                records.append({"timestamp": ts_value, "path": str(doc.get("path", ""))})
-            status.db.latest_files = records
-            try:
-                client.close()
-            except Exception:
-                pass
-    except SystemExit:
-        raise
+        status = ServiceController.get_status()
     except Exception as exc:
-        status.notes.append(f"Space DB stats unavailable: {exc}")
+        display = getattr(args, "display_obj", None)
+        if display:
+            display.error("Failed to gather service status", details=str(exc))
+        else:
+            sys.stderr.write(f"Failed to gather service status: {exc}\n")
+        return 2
+
+    if status is None:
+        return 2
 
     payload = status.to_dict()
     _maybe_write_json(args, payload)
 
-    display_mode = args.display
+    display_mode = getattr(args, "display", None)
+
+    # Live mode: live updating display
+    if live:
+        try:
+            from rich.console import Console
+            from rich.live import Live
+            from rich.table import Table
+            from rich import box
+        except ImportError:
+            sys.stderr.write("Rich library required for --live mode. Install with: pip install rich\n")
+            return 2
+        
+        console = Console()
+        
+        def _render_status() -> Table:
+            """Render current status as a Rich table with grouped sections."""
+            status = ServiceController.get_status()
+            rows = status.to_rows()
+            
+            table = Table(
+                title="WKS Service Status (Live)",
+                header_style="bold cyan",
+                box=box.SQUARE,
+                expand=False,
+                pad_edge=False,
+                show_header=False,
+            )
+            table.add_column("", style="cyan", overflow="fold")
+            table.add_column("", style="white", overflow="fold")
+            
+            for key, value in rows:
+                # Style section headers
+                if value == "" and not key.startswith("  "):
+                    table.add_row(key, value, style="bold yellow")
+                else:
+                    table.add_row(key, value)
+            
+            return table
+        
+        try:
+            with Live(_render_status(), refresh_per_second=0.5, screen=False, console=console) as live:
+                while True:
+                    time.sleep(2.0)  # Update every 2 seconds
+                    try:
+                        live.update(_render_status())
+                    except Exception as update_exc:
+                        # Continue on update errors, but show them
+                        console.print(f"[yellow]Warning: {update_exc}[/yellow]", end="")
+        except KeyboardInterrupt:
+            console.print("\n[dim]Stopped monitoring.[/dim]")
+            return 0
+        except Exception as exc:
+            console.print(f"[red]Error in live mode: {exc}[/red]")
+            return 2
+
+    # New display modes (CLI/MCP auto-detected)
+    if display_mode in DISPLAY_CHOICES:
+        display = args.display_obj
+        if display_mode == "mcp":
+            display.success("WKS service status", data=payload)
+            return 0
+
+        rows = status.to_rows()
+        table_data = []
+        for key, value in rows:
+            # Style section headers in regular display too
+            if value == "" and not key.startswith("  "):
+                table_data.append({"Key": f"[bold yellow]{key}[/bold yellow]", "Value": value})
+            else:
+                table_data.append({"Key": key, "Value": value})
+        display.table(table_data, title="WKS Service Status", column_justify={"Value": "left"})
+        if status.notes:
+            display.info("; ".join(status.notes))
+        return 0
+
+    # Legacy display behaviour
     if display_mode == "none":
         return 0
     if display_mode == "json":
@@ -833,6 +476,7 @@ def daemon_status(args: argparse.Namespace) -> int:
         console.print(table)
         return 0
 
+    # Fallback to JSON for unknown legacy modes
     print(_json_dumps(payload))
     return 0
 
@@ -846,24 +490,6 @@ def _read_health_snapshot() -> Dict[str, Any]:
             return json.load(fh)
     except Exception:
         return {}
-
-
-def _wait_for_health_update(previous_heartbeat: Optional[str], timeout: float = 5.0) -> None:
-    health_path = Path.home() / WKS_HOME_EXT / "health.json"
-    if timeout <= 0:
-        return
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if health_path.exists():
-            try:
-                with open(health_path, "r") as fh:
-                    data = json.load(fh)
-                hb = data.get("heartbeat_iso") or str(data.get("heartbeat"))
-                if hb and hb != previous_heartbeat:
-                    return
-            except Exception:
-                pass
-        time.sleep(0.25)
 
 
 def daemon_start(_: argparse.Namespace):
@@ -934,9 +560,6 @@ def daemon_stop(_: argparse.Namespace):
 
 
 def daemon_restart(args: argparse.Namespace):
-    previous_health = _read_health_snapshot()
-    previous_heartbeat = previous_health.get("heartbeat_iso") or previous_health.get("heartbeat")
-
     # macOS launchd-managed restart
     if _is_macos() and _agent_installed():
         try:
@@ -949,7 +572,6 @@ def daemon_restart(args: argparse.Namespace):
             pass
         time.sleep(0.5)
         _daemon_start_launchd()
-        _wait_for_health_update(previous_heartbeat, timeout=5.0)
         return
 
     # Fallback: stop/start without touching databases
@@ -963,7 +585,6 @@ def daemon_restart(args: argparse.Namespace):
     except Exception:
         pass
     daemon_start(args)
-    _wait_for_health_update(previous_heartbeat, timeout=5.0)
 
 
 
@@ -1679,6 +1300,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     svcstop2 = svcsub.add_parser("stop", help="Stop daemon")
     svcstop2.set_defaults(func=daemon_stop)
     svcstatus2 = svcsub.add_parser("status", help="Daemon status")
+    svcstatus2.add_argument(
+        "--live",
+        action="store_true",
+        help="Keep display updated automatically (refreshes every 2 seconds)"
+    )
     svcstatus2.set_defaults(func=daemon_status)
     svcrestart2 = svcsub.add_parser("restart", help="Restart daemon")
     svcrestart2.set_defaults(func=daemon_restart)
@@ -3142,8 +2768,12 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
-    # Get display instance based on mode
-    args.display_obj = get_display(args.display)
+    # Preserve requested display for legacy handling
+    args.display_requested = args.display
+    mapped_display = args.display
+    if mapped_display in DISPLAY_CHOICES_LEGACY:
+        mapped_display = "cli" if mapped_display != "mcp" else mapped_display
+    args.display_obj = get_display(mapped_display)
 
     if not hasattr(args, "func"):
         # If a group was selected without subcommand, show that group's help

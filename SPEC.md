@@ -292,7 +292,7 @@ Stored at `~/.wks/config.json`
    - Obsidian handles internal vault moves, we observe and record
 
 **Generated Files**:
-- `WKS/Health.md` — daemon heartbeat, metrics
+- `WKS/Health.md` — daemon metrics
 - `WKS/Activity.md` — recently modified files
 - `WKS/FileOperations.md` — move/rename log
 - `WKS/Extractions/` — extracted content snapshots (keep latest N)
