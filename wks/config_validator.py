@@ -18,53 +18,62 @@ def validate_config(cfg: Dict[str, Any]) -> List[str]:
     """
     errors = []
 
-    # Required top-level keys
-    if "vault_path" not in cfg or not str(cfg.get("vault_path", "")).strip():
-        errors.append("'vault_path' is required and must be non-empty")
-
-    # Validate vault_path exists if provided
-    if "vault_path" in cfg:
-        vault_path = Path(str(cfg["vault_path"])).expanduser()
-        if not vault_path.exists():
-            errors.append(f"vault_path does not exist: {vault_path}")
-        elif not vault_path.is_dir():
-            errors.append(f"vault_path is not a directory: {vault_path}")
-
-    # Obsidian config
-    obs = cfg.get("obsidian", {})
-    if not isinstance(obs, dict):
-        errors.append("'obsidian' must be an object")
+    # Vault config (simplified: base_dir, wks_dir, update_frequency_seconds, type, database)
+    vault = cfg.get("vault", {})
+    if not isinstance(vault, dict):
+        errors.append("'vault' must be an object")
     else:
-        required_obs = ["base_dir", "log_max_entries", "active_files_max_rows",
-                       "source_max_chars", "destination_max_chars"]
-        for key in required_obs:
-            if key not in obs:
-                errors.append(f"obsidian.{key} is required")
+        if "base_dir" not in vault:
+            errors.append("vault.base_dir is required")
+        elif vault.get("base_dir"):
+            vault_path = Path(str(vault["base_dir"])).expanduser()
+            if not vault_path.exists():
+                errors.append(f"vault.base_dir does not exist: {vault_path}")
+            elif not vault_path.is_dir():
+                errors.append(f"vault.base_dir is not a directory: {vault_path}")
 
-        # Validate numeric values
-        if "log_max_entries" in obs:
-            try:
-                val = int(obs["log_max_entries"])
-                if val < 1:
-                    errors.append("obsidian.log_max_entries must be positive")
-            except (ValueError, TypeError):
-                errors.append("obsidian.log_max_entries must be an integer")
+        if "wks_dir" not in vault:
+            errors.append("vault.wks_dir is required")
 
-        if "active_files_max_rows" in obs:
+        if "update_frequency_seconds" not in vault:
+            errors.append("vault.update_frequency_seconds is required")
+        else:
             try:
-                val = int(obs["active_files_max_rows"])
+                val = int(vault["update_frequency_seconds"])
                 if val < 1:
-                    errors.append("obsidian.active_files_max_rows must be positive")
+                    errors.append("vault.update_frequency_seconds must be positive")
             except (ValueError, TypeError):
-                errors.append("obsidian.active_files_max_rows must be an integer")
+                errors.append("vault.update_frequency_seconds must be an integer")
+
+        if "database" not in vault:
+            errors.append("vault.database is required")
+        else:
+            db_key = vault["database"]
+            if not isinstance(db_key, str) or "." not in db_key:
+                errors.append("vault.database must be in format 'database.collection'")
+            else:
+                parts = db_key.split(".", 1)
+                if len(parts) != 2 or not parts[0] or not parts[1]:
+                    errors.append("vault.database must be in format 'database.collection'")
 
     # Monitor config
     mon = cfg.get("monitor", {})
     if not isinstance(mon, dict):
         errors.append("'monitor' must be an object")
     else:
+        if "database" not in mon:
+            errors.append("monitor.database is required")
+        else:
+            db_key = mon["database"]
+            if not isinstance(db_key, str) or "." not in db_key:
+                errors.append("monitor.database must be in format 'database.collection'")
+            else:
+                parts = db_key.split(".", 1)
+                if len(parts) != 2 or not parts[0] or not parts[1]:
+                    errors.append("monitor.database must be in format 'database.collection'")
+
         required_mon = ["include_paths", "exclude_paths", "ignore_dirnames",
-                       "ignore_globs", "touch_weight"]
+                        "ignore_globs", "touch_weight"]
         for key in required_mon:
             if key not in mon:
                 errors.append(f"monitor.{key} is required")
@@ -87,39 +96,6 @@ def validate_config(cfg: Dict[str, Any]) -> List[str]:
             if weight_val < 0.001 or weight_val > 1.0:
                 errors.append("monitor.touch_weight must be between 0.001 and 1")
 
-    # Similarity config (if enabled)
-    sim = cfg.get("similarity", {})
-    if isinstance(sim, dict) and sim.get("enabled"):
-        if "model" not in sim:
-            errors.append("similarity.model is required when similarity is enabled")
-        if "include_extensions" not in sim:
-            errors.append("similarity.include_extensions is required when similarity is enabled")
-
-        # Validate min/max chars
-        if "min_chars" in sim:
-            try:
-                val = int(sim["min_chars"])
-                if val < 0:
-                    errors.append("similarity.min_chars must be non-negative")
-            except (ValueError, TypeError):
-                errors.append("similarity.min_chars must be an integer")
-
-        if "max_chars" in sim:
-            try:
-                val = int(sim["max_chars"])
-                if val < 1:
-                    errors.append("similarity.max_chars must be positive")
-            except (ValueError, TypeError):
-                errors.append("similarity.max_chars must be an integer")
-
-        # Validate min < max
-        if "min_chars" in sim and "max_chars" in sim:
-            try:
-                if int(sim["min_chars"]) >= int(sim["max_chars"]):
-                    errors.append("similarity.min_chars must be less than max_chars")
-            except (ValueError, TypeError):
-                pass  # Already reported above
-
     # Extract config
     ext = cfg.get("extract", {})
     if isinstance(ext, dict):
@@ -136,29 +112,25 @@ def validate_config(cfg: Dict[str, Any]) -> List[str]:
             except (ValueError, TypeError):
                 errors.append("extract.timeout_secs must be an integer")
 
-    # DB config (new structure)
-    db = cfg.get("db", {})
-    if isinstance(db, dict):
-        # Validate type
-        db_type = db.get("type", "mongodb")  # Default to mongodb for backward compat
-        if db_type not in ["mongodb"]:
-            errors.append(f"db.type must be 'mongodb' (only supported type currently), got: {db_type}")
-        
-        # Validate URI
-        if "uri" in db:
-            uri = str(db["uri"])
-            if db_type == "mongodb" and not uri.startswith("mongodb://"):
-                errors.append("db.uri must start with 'mongodb://' when db.type is 'mongodb'")
-        elif db_type == "mongodb":
-            errors.append("db.uri is required when db.type is 'mongodb'")
+    # DB config
+    db = cfg.get("db")
+    if not db:
+        errors.append("db section is required")
+    elif not isinstance(db, dict):
+        errors.append("'db' must be an object")
+    else:
+        db_type = db.get("type")
+        if not db_type:
+            errors.append("db.type is required")
+        elif db_type != "mongodb":
+            errors.append("db.type must be 'mongodb' (only supported type)")
 
-    # Mongo config (legacy - for backward compat)
-    mongo = cfg.get("mongo", {})
-    if isinstance(mongo, dict):
-        if "uri" in mongo:
-            uri = str(mongo["uri"])
+        if "uri" not in db:
+            errors.append("db.uri is required")
+        elif db_type == "mongodb":
+            uri = str(db["uri"])
             if not uri.startswith("mongodb://"):
-                errors.append("mongo.uri must start with 'mongodb://'")
+                errors.append("db.uri must start with 'mongodb://' when db.type is 'mongodb'")
 
     return errors
 

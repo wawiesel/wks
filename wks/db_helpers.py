@@ -7,6 +7,26 @@ from typing import Dict, Tuple
 from pymongo import MongoClient
 
 
+def parse_database_key(db_key: str) -> Tuple[str, str]:
+    """Parse database key like 'wks.monitor' into (database, collection).
+
+    Args:
+        db_key: Database key in format "database.collection"
+
+    Returns:
+        Tuple of (database_name, collection_name)
+
+    Raises:
+        ValueError: If format is not "database.collection"
+    """
+    if "." not in db_key:
+        raise ValueError(f"Database key must be in format 'database.collection', got: {db_key}")
+    parts = db_key.split(".", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Database key must be in format 'database.collection', got: {db_key}")
+    return parts[0], parts[1]
+
+
 def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
     """Extract monitor database configuration.
 
@@ -15,13 +35,28 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
 
     Returns:
         Tuple of (uri, db_name, coll_name)
-    """
-    monitor_config = cfg.get("monitor", {})
-    db_config = cfg.get("db", {}) or cfg.get("mongo", {})
 
-    uri = db_config.get("uri", "mongodb://localhost:27017/")
-    db_name = monitor_config.get("database", "wks")
-    coll_name = monitor_config.get("collection", "monitor")
+    Raises:
+        ValueError: If database key is missing or not in "database.collection" format
+        KeyError: If required config sections are missing
+    """
+    monitor_config = cfg.get("monitor")
+    if not monitor_config:
+        raise KeyError("monitor section is required in config")
+
+    db_config = cfg.get("db")
+    if not db_config:
+        raise KeyError("db section is required in config")
+
+    uri = db_config.get("uri")
+    if not uri:
+        raise KeyError("db.uri is required in config")
+
+    db_key = monitor_config.get("database")
+    if not db_key:
+        raise KeyError("monitor.database is required in config")
+
+    db_name, coll_name = parse_database_key(db_key)
 
     return uri, db_name, coll_name
 

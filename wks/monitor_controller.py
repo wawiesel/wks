@@ -64,7 +64,7 @@ class MonitorValidator:
 
         # Check if under any include_paths
         if not any(managed_resolved.is_relative_to(Path(p).expanduser().resolve())
-                  for p in include_paths):
+                   for p in include_paths):
             return False, "Not under any include_paths"
 
         # Check if in exclude_paths
@@ -72,7 +72,7 @@ class MonitorValidator:
             try:
                 if managed_resolved.is_relative_to(Path(exclude_path).expanduser().resolve()):
                     return False, f"Matched by exclude_paths: {exclude_path}"
-            except:
+            except BaseException:
                 pass
 
         # Check if any path component matches ignore_dirnames
@@ -423,8 +423,16 @@ class MonitorController:
         try:
             client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
             client.server_info()
-            db = client[monitor_config.get("database", "wks")]
-            collection = db[monitor_config.get("collection", "monitor")]
+            db_key = monitor_config.get("database")
+            if not db_key:
+                raise ValueError("monitor.database is required in config")
+            if "." not in db_key:
+                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+            parts = db_key.split(".", 1)
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+            db = client[parts[0]]
+            collection = db[parts[1]]
             total_files = collection.count_documents({})
             client.close()
         except Exception:
@@ -467,12 +475,12 @@ class MonitorController:
         managed_list = list(managed_dirs)
         for i, dir1 in enumerate(managed_list):
             p1 = Path(dir1).expanduser().resolve()
-            for dir2 in managed_list[i+1:]:
+            for dir2 in managed_list[i + 1:]:
                 p2 = Path(dir2).expanduser().resolve()
                 try:
                     if p1 == p2:
                         warnings.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to same path")
-                except:
+                except BaseException:
                     pass
 
         return {
@@ -619,8 +627,16 @@ class MonitorController:
         try:
             client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
             client.server_info()  # Will raise an exception if connection fails
-            db = client[monitor_config.get("database", "wks")]
-            collection = db[monitor_config.get("collection", "monitor")]
+            db_key = monitor_config.get("database")
+            if not db_key:
+                raise ValueError("monitor.database is required in config")
+            if "." not in db_key:
+                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+            parts = db_key.split(".", 1)
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+            db = client[parts[0]]
+            collection = db[parts[1]]
         except Exception as e:
             return {"success": False, "errors": [f"DB connection failed: {e}"], "pruned_files": []}
 
@@ -680,8 +696,16 @@ class MonitorController:
         try:
             client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
             client.server_info()
-            db = client[monitor_config.get("database", "wks")]
-            collection = db[monitor_config.get("collection", "monitor")]
+            db_key = monitor_config.get("database")
+            if not db_key:
+                raise ValueError("monitor.database is required in config")
+            if "." not in db_key:
+                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+            parts = db_key.split(".", 1)
+            if len(parts) != 2 or not parts[0] or not parts[1]:
+                raise ValueError(f"monitor.database must be in format 'database.collection', got: {db_key}")
+            db = client[parts[0]]
+            collection = db[parts[1]]
         except Exception as e:
             return {"success": False, "errors": [f"DB connection failed: {e}"], "pruned_files": []}
 
@@ -717,4 +741,3 @@ class MonitorController:
             "pruned_files": pruned_files,
             "errors": errors,
         }
-

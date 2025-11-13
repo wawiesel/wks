@@ -17,35 +17,21 @@ DEFAULT_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 def mongo_settings(cfg: Dict[str, Any]) -> Dict[str, str]:
     """Normalize Mongo connection settings from config.
     
-    Legacy: Supports old 'mongo'/'similarity' sections for backward compatibility.
+    Uses 'db' section for URI, 'related' section for database/collection names.
     """
     db_cfg = cfg.get("db", {})
-    mongo = cfg.get("mongo", {})
-    sim = cfg.get("similarity", {})
+    related_cfg = cfg.get("related", {})
+    embedding_cfg = related_cfg.get("engines", {}).get("embedding", {})
 
     def _norm(value, default):
         return str(value) if value and value != "" else default
 
-    uri = _norm(
-        db_cfg.get("uri") or mongo.get("uri") or sim.get("mongo_uri"),
-        DEFAULT_MONGO_URI
-    )
-    space_db = _norm(
-        mongo.get("space_database") or sim.get("database"),
-        DEFAULT_SPACE_DATABASE
-    )
-    space_coll = _norm(
-        mongo.get("space_collection") or sim.get("collection"),
-        DEFAULT_SPACE_COLLECTION
-    )
-    time_db = _norm(
-        mongo.get("time_database") or mongo.get("space_database") or sim.get("time_database") or sim.get("database"),
-        DEFAULT_SPACE_DATABASE
-    )
-    time_coll = _norm(
-        mongo.get("time_collection") or sim.get("snapshots_collection"),
-        DEFAULT_TIME_COLLECTION
-    )
+    uri = _norm(db_cfg.get("uri"), DEFAULT_MONGO_URI)
+    space_db = _norm(embedding_cfg.get("database"), DEFAULT_SPACE_DATABASE)
+    space_coll = _norm(embedding_cfg.get("collection"), DEFAULT_SPACE_COLLECTION)
+    time_db = _norm(embedding_cfg.get("database"), DEFAULT_SPACE_DATABASE)
+    time_coll = _norm(embedding_cfg.get("snapshots_collection"), DEFAULT_TIME_COLLECTION)
+    
     return {
         "uri": uri,
         "space_database": space_db,
