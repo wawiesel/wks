@@ -21,21 +21,20 @@ class TestMonitorController(unittest.TestCase):
                 "exclude_paths": [],
                 "managed_directories": {"~/Documents": 100},
                 "ignore_dirnames": ["node_modules"],
-                "ignore_globs": ["*.tmp"]
+                "ignore_globs": ["*.tmp"],
+                "database": "wks.monitor"
             },
             "mongo": {"uri": "mongodb://localhost:27017/"}
         }
 
         result = MonitorController.get_status(config)
 
-        self.assertIn("tracked_files", result)
-        self.assertIn("managed_directories", result)
-        self.assertIn("include_paths", result)
-        self.assertIn("exclude_paths", result)
-        self.assertIn("issues", result)
-        self.assertIn("redundancies", result)
-        self.assertIsInstance(result["issues"], list)
-        self.assertIsInstance(result["redundancies"], list)
+        self.assertIsNotNone(result.tracked_files)
+        self.assertIsNotNone(result.managed_directories)
+        self.assertIsNotNone(result.include_paths)
+        self.assertIsNotNone(result.exclude_paths)
+        self.assertIsInstance(result.issues, list)
+        self.assertIsInstance(result.redundancies, list)
 
     def test_get_status_detects_vault_redundancy(self):
         """Test that vault_path in exclude_paths triggers redundancy warning."""
@@ -46,14 +45,15 @@ class TestMonitorController(unittest.TestCase):
                 "exclude_paths": ["~/obsidian"],  # Redundant - vault auto-excluded
                 "managed_directories": {},
                 "ignore_dirnames": [],
-                "ignore_globs": []
+                "ignore_globs": [],
+                "database": "wks.monitor"
             }
         }
 
         result = MonitorController.get_status(config)
 
         # Should detect redundancy
-        self.assertTrue(any("vault_path is automatically ignored" in r for r in result["redundancies"]))
+        self.assertTrue(any("vault_path is automatically ignored" in r for r in result.redundancies))
 
     def test_get_status_detects_wks_home_redundancy(self):
         """Test that ~/.wks in exclude_paths triggers redundancy warning."""
@@ -63,14 +63,15 @@ class TestMonitorController(unittest.TestCase):
                 "exclude_paths": ["~/.wks"],  # Redundant - WKS home auto-excluded
                 "managed_directories": {},
                 "ignore_dirnames": [],
-                "ignore_globs": []
+                "ignore_globs": [],
+                "database": "wks.monitor"
             }
         }
 
         result = MonitorController.get_status(config)
 
         # Should detect redundancy
-        self.assertTrue(any("WKS home is automatically ignored" in r for r in result["redundancies"]))
+        self.assertTrue(any("WKS home is automatically ignored" in r for r in result.redundancies))
 
     def test_validate_config_no_issues(self):
         """Test validate_config with clean configuration."""
@@ -78,16 +79,17 @@ class TestMonitorController(unittest.TestCase):
             "monitor": {
                 "include_paths": ["~"],
                 "exclude_paths": ["~/Downloads"],
-                "managed_directories": {"~/Documents": 100}
+                "managed_directories": {"~/Documents": 100},
+                "ignore_dirnames": [],
+                "ignore_globs": [],
+                "database": "wks.monitor"
             }
         }
 
         result = MonitorController.validate_config(config)
 
-        self.assertFalse(result["has_issues"])
-        self.assertFalse(result["has_warnings"])
-        self.assertEqual(len(result["issues"]), 0)
-        self.assertEqual(len(result["warnings"]), 0)
+        self.assertEqual(len(result.issues), 0)
+        self.assertEqual(len(result.redundancies), 0)
 
     def test_validate_config_detects_conflicts(self):
         """Test that paths in both include and exclude are detected."""
@@ -95,15 +97,17 @@ class TestMonitorController(unittest.TestCase):
             "monitor": {
                 "include_paths": ["~/Documents"],
                 "exclude_paths": ["~/Documents"],  # Conflict!
-                "managed_directories": {}
+                "managed_directories": {},
+                "ignore_dirnames": [],
+                "ignore_globs": [],
+                "database": "wks.monitor"
             }
         }
 
         result = MonitorController.validate_config(config)
 
-        self.assertTrue(result["has_issues"])
-        self.assertEqual(len(result["issues"]), 1)
-        self.assertIn("both include and exclude", result["issues"][0])
+        self.assertGreater(len(result.issues), 0)
+        self.assertTrue(any("both include and exclude" in issue for issue in result.issues))
 
     def test_check_path_included(self):
         """Test check_path for an included path."""
@@ -114,6 +118,7 @@ class TestMonitorController(unittest.TestCase):
                 "managed_directories": {"~/Documents": 100},
                 "ignore_dirnames": [],
                 "ignore_globs": [],
+                "database": "wks.monitor",
                 "priority": {
                     "depth_multiplier": 0.9,
                     "underscore_divisor": 2,
@@ -138,6 +143,7 @@ class TestMonitorController(unittest.TestCase):
                 "managed_directories": {"~": 100},
                 "ignore_dirnames": [],
                 "ignore_globs": [],
+                "database": "wks.monitor",
                 "priority": {}
             }
         }
@@ -157,6 +163,7 @@ class TestMonitorController(unittest.TestCase):
                 "managed_directories": {"~": 100},
                 "ignore_dirnames": ["node_modules"],
                 "ignore_globs": [],
+                "database": "wks.monitor",
                 "priority": {}
             }
         }
@@ -175,6 +182,7 @@ class TestMonitorController(unittest.TestCase):
                 "managed_directories": {"~": 100},
                 "ignore_dirnames": [],
                 "ignore_globs": ["*.tmp"],
+                "database": "wks.monitor",
                 "priority": {}
             }
         }

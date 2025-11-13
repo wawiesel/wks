@@ -21,8 +21,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            # Primary CLI name (short, avoids conflicts)
-            "wkso=wks.cli:main",
+            # Primary CLI name (dev version with zero)
+            "wks0=wks.cli:main",
         ],
     },
 )

@@ -673,6 +673,22 @@ class MonitorController:
                 except BaseException:
                     pass
 
+        # Check 3: Vault path redundancy (if vault_path exists in config)
+        vault_path = config.get("vault_path")
+        if vault_path:
+            vault_resolved = str(Path(vault_path).expanduser().resolve())
+            for exclude_path in exclude_paths:
+                exclude_resolved = str(Path(exclude_path).expanduser().resolve())
+                if vault_resolved == exclude_resolved:
+                    redundancies.append(f"exclude_paths entry '{exclude_path}' is redundant - vault_path is automatically ignored")
+
+        # Check 4: WKS home redundancy
+        wks_home = str(Path("~/.wks").expanduser().resolve())
+        for exclude_path in exclude_paths:
+            exclude_resolved = str(Path(exclude_path).expanduser().resolve())
+            if wks_home == exclude_resolved:
+                redundancies.append(f"exclude_paths entry '{exclude_path}' is redundant - WKS home is automatically ignored")
+
         # Validate each managed directory
         for path, priority in monitor_cfg.managed_directories.items():
             is_valid, error_msg = MonitorValidator.validate_managed_directory(

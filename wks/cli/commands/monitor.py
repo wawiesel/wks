@@ -4,10 +4,12 @@ import argparse
 import json
 import math
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ...config import get_config_path, load_config
+from ...constants import MAX_DISPLAY_WIDTH
 from ...monitor_controller import MonitorController, MonitorValidator
 from ...utils import wks_home_path
 
@@ -42,11 +44,17 @@ def calculate_priority_alignment(managed_dirs_dict: Dict) -> Tuple[int, int]:
     max_pip_count = 0
     max_num_width = 0
     for path_info in managed_dirs_dict.values():
-        priority = path_info["priority"]
+        priority = path_info.priority
         pip_count = 1 if priority <= 1 else int(math.log10(priority)) + 1
         max_pip_count = max(max_pip_count, pip_count)
         max_num_width = max(max_num_width, len(str(priority)))
     return max_pip_count, max_num_width
+
+
+def style_setting_column(text: str) -> str:
+    """Style setting column text (background is applied at column level)."""
+    # Background is now applied at the column level, so just return the text
+    return text
 
 
 def build_managed_dirs_rows(managed_dirs_dict: Dict, max_pip_count: int, max_num_width: int) -> List[Dict]:
@@ -62,77 +70,68 @@ def build_managed_dirs_rows(managed_dirs_dict: Dict, max_pip_count: int, max_num
         status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
         priority_display = f"{pips.ljust(max_pip_count)} {str(priority).rjust(max_num_width)} {status_symbol}"
 
-        rows.append({"Setting": f"  {path}", "Value": priority_display})
+        styled_path = style_setting_column(f"  {path}")
+        rows.append({"Setting": styled_path, "Value": priority_display})
     return rows
 
 
 def build_path_list_rows(paths: set, red_paths: set, yellow_paths: set, label: str) -> List[Dict]:
     """Build table rows for include/exclude paths."""
-    rows = [{"Setting": label, "Value": str(len(paths))}]
+    styled_label = style_setting_column(f"[bold cyan]{label}[/bold cyan]")
+    rows = [{"Setting": styled_label, "Value": str(len(paths))}]
     for path in sorted(paths):
         error_msg = None if path not in (red_paths | yellow_paths) else "issue"
         is_valid = path not in red_paths
-        rows.append({"Setting": f"  {path}", "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
+        styled_path = style_setting_column(f"  {path}")
+        rows.append({"Setting": styled_path, "Value": MonitorValidator.status_symbol(error_msg, is_valid)})
     return rows
 
 
-def build_ignore_rules_list(status_data) -> List[Tuple[str, str]]:
-    """Build ignore rules list with validation."""
-    ignore_list = []
+def build_ignore_rules_rows(status_data) -> List[Dict[str, str]]:
+    """Build table rows for ignore rules (ignore_dirnames and ignore_globs)."""
+    rows = []
     ignore_dirnames = status_data.ignore_dirnames
     ignore_globs = status_data.ignore_globs
 
-    ignore_list.append(("ignore_dirnames", str(len(ignore_dirnames))))
-    ignore_list.append(("", ""))
+    styled_ignore_dirnames = style_setting_column("[bold cyan]ignore_dirnames[/bold cyan]")
+    rows.append({
+        "Ignore Rule": styled_ignore_dirnames,
+        "Count": str(len(ignore_dirnames))
+    })
+    rows.append({"Ignore Rule": "", "Count": ""})
 
     for dirname in ignore_dirnames:
         validation_info = status_data.ignore_dirname_validation.get(dirname, {})
         error_msg = validation_info.get("error")
         is_valid = validation_info.get("valid", True)
-        ignore_list.append((f"  {dirname}", MonitorValidator.status_symbol(error_msg, is_valid)))
+        styled_dirname = style_setting_column(f"  {dirname}")
+        rows.append({
+            "Ignore Rule": styled_dirname,
+            "Count": MonitorValidator.status_symbol(error_msg, is_valid)
+        })
 
-    ignore_list.append(("", ""))
-    ignore_list.append(("ignore_globs", str(len(ignore_globs))))
+    rows.append({"Ignore Rule": "", "Count": ""})
+    styled_ignore_globs = style_setting_column("[bold cyan]ignore_globs[/bold cyan]")
+    rows.append({
+        "Ignore Rule": styled_ignore_globs,
+        "Count": str(len(ignore_globs))
+    })
 
     for glob_pattern in ignore_globs:
         validation_info = status_data.ignore_glob_validation.get(glob_pattern, {})
         error_msg = validation_info.get("error")
         is_valid = validation_info.get("valid", True)
-        ignore_list.append((f"  {glob_pattern}", MonitorValidator.status_symbol(error_msg, is_valid)))
+        styled_pattern = style_setting_column(f"  {glob_pattern}")
+        rows.append({
+            "Ignore Rule": styled_pattern,
+            "Count": MonitorValidator.status_symbol(error_msg, is_valid)
+        })
 
-    return ignore_list
-
-
-def combine_table_data(table_data: List[Dict], ignore_list: List[Tuple[str, str]]) -> List[Dict]:
-    """Combine table data and ignore list into single table."""
-    max_rows = max(len(table_data), len(ignore_list))
-    combined_data = []
-    for i in range(max_rows):
-        row = {}
-        if i < len(table_data):
-            row["Setting"] = table_data[i]["Setting"]
-            row["Value"] = table_data[i]["Value"]
-        else:
-            row["Setting"] = ""
-            row["Value"] = ""
-
-        if i < len(ignore_list):
-            row["Ignore Rule"] = ignore_list[i][0]
-            row["Count"] = ignore_list[i][1]
-        else:
-            row["Ignore Rule"] = ""
-            row["Count"] = ""
-
-        combined_data.append(row)
-    return combined_data
+    return rows
 
 
-def load_and_display_monitor_info(display: Any) -> Dict[str, Any]:
-    """Load config and display info about config file and WKS_HOME."""
-    config_file = get_config_path()
-    display.info(f"Reading config from: {config_file}")
-    wks_home_display = os.environ.get("WKS_HOME", str(wks_home_path()))
-    display.info(f"WKS_HOME: {wks_home_display}")
+def load_monitor_config() -> Dict[str, Any]:
+    """Load monitor configuration."""
     return load_config()
 
 
@@ -151,78 +150,249 @@ def extract_monitor_status_data(status_data: Any) -> Tuple[int, List[str], List[
     return total_files, issues, redundancies, managed_dirs_dict, include_paths, exclude_paths
 
 
+def get_last_touch_time(config: Dict[str, Any]) -> Optional[str]:
+    """Get the most recent timestamp from the monitor database."""
+    try:
+        from ...config import mongo_settings
+        from pymongo import MongoClient
+        from ...monitor_controller import MonitorConfig
+
+        monitor_cfg = MonitorConfig.from_config_dict(config)
+        mongo_config = mongo_settings(config)
+
+        client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
+        client.server_info()
+        db_name, coll_name = monitor_cfg.database.split(".", 1)
+        db = client[db_name]
+        collection = db[coll_name]
+
+        # Find the document with the most recent timestamp
+        latest_doc = collection.find_one(
+            {"timestamp": {"$exists": True}},
+            sort=[("timestamp", -1)]
+        )
+        client.close()
+
+        if latest_doc and latest_doc.get("timestamp"):
+            # Parse ISO timestamp and format it nicely
+            from datetime import datetime
+            try:
+                dt = datetime.fromisoformat(latest_doc["timestamp"])
+                return dt.strftime("%Y-%m-%d %H:%M:%S")
+            except (ValueError, TypeError):
+                return latest_doc["timestamp"]
+        return None
+    except Exception:
+        return None
+
+
 def build_monitor_status_table_data(
     total_files: int,
-    managed_dirs_dict: Dict[str, int],
+    managed_dirs_dict: Dict[str, Any],  # Dict[str, ManagedDirectoryInfo]
     issues: List[str],
     redundancies: List[str],
     include_paths: Set[str],
     exclude_paths: Set[str],
-    status_data: Any
-) -> List[Dict[str, Any]]:
-    """Build table data for monitor status display."""
-    table_data = [
-        {"Setting": "Tracked Files", "Value": str(total_files)},
-        {"Setting": "", "Value": ""},
-        {"Setting": "managed_directories", "Value": str(len(managed_dirs_dict))},
-    ]
+    status_data: Any,
+    config: Dict[str, Any]
+) -> List[Tuple[str, str]]:
+    """Build simple key/value pairs for monitor status display.
 
+    Returns:
+        List of (key, value) tuples for monitor status data, including files and last touch
+    """
+    # Color constants for consistent styling
+    COLOR_FILES_KEY = "bold purple"
+    COLOR_FILES_VALUE = "purple"
+    COLOR_LAST_TOUCH_KEY = "bold green"
+    COLOR_LAST_TOUCH_VALUE = "green"
+    COLOR_HEADING = "bold cyan"
+    COLOR_PATH_BG = "on gray30"
+
+    # Get last touch time
+    last_touch = get_last_touch_time(config) or "Never"
+
+    rows = []
+    # Add files and last touch at the top
+    rows.append((f"[{COLOR_FILES_KEY}]files[/{COLOR_FILES_KEY}]", f"[{COLOR_FILES_VALUE}]{str(total_files)}[/{COLOR_FILES_VALUE}]"))
+    rows.append((f"[{COLOR_LAST_TOUCH_KEY}]last touch[/{COLOR_LAST_TOUCH_KEY}]", f"[{COLOR_LAST_TOUCH_VALUE}]{last_touch}[/{COLOR_LAST_TOUCH_VALUE}]"))
+    rows.append(("", ""))  # Empty row separator
+
+    # Managed directories
+    rows.append((f"[{COLOR_HEADING}]managed_directories[/{COLOR_HEADING}]", str(len(managed_dirs_dict))))
     red_paths, yellow_paths = build_problematic_paths(issues, redundancies, managed_dirs_dict, include_paths, exclude_paths)
     max_pip_count, max_num_width = calculate_priority_alignment(managed_dirs_dict)
-    table_data.extend(build_managed_dirs_rows(managed_dirs_dict, max_pip_count, max_num_width))
 
-    table_data.append({"Setting": "", "Value": ""})
-    table_data.extend(build_path_list_rows(include_paths, red_paths, yellow_paths, "include_paths"))
+    # Ensure we have minimum values to avoid division by zero
+    max_pip_count = max(max_pip_count, 1)
+    max_num_width = max(max_num_width, 1)
 
-    table_data.append({"Setting": "", "Value": ""})
-    table_data.extend(build_path_list_rows(exclude_paths, red_paths, yellow_paths, "exclude_paths"))
+    for path, path_info in sorted(managed_dirs_dict.items(), key=lambda x: -x[1].priority):
+        priority = path_info.priority
+        is_valid = path_info.valid
+        error_msg = path_info.error
 
-    ignore_list = build_ignore_rules_list(status_data)
-    return combine_table_data(table_data, ignore_list)
+        pip_count = 1 if priority <= 1 else int(math.log10(priority)) + 1
+        pips = "▪" * pip_count
+        status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
+        priority_display = f"{pips.ljust(max_pip_count)} {str(priority).rjust(max_num_width)} {status_symbol}"
+        rows.append((f"  [{COLOR_PATH_BG}]{path}[/{COLOR_PATH_BG}]", priority_display))
+
+    rows.append(("", ""))
+
+    # Include paths
+    rows.append((f"[{COLOR_HEADING}]include_paths[/{COLOR_HEADING}]", str(len(include_paths))))
+    for path in sorted(include_paths):
+        error_msg = None if path not in (red_paths | yellow_paths) else "issue"
+        is_valid = path not in red_paths
+        rows.append((f"  [{COLOR_PATH_BG}]{path}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
+
+    rows.append(("", ""))
+
+    # Exclude paths
+    rows.append((f"[{COLOR_HEADING}]exclude_paths[/{COLOR_HEADING}]", str(len(exclude_paths))))
+    for path in sorted(exclude_paths):
+        error_msg = None if path not in (red_paths | yellow_paths) else "issue"
+        is_valid = path not in red_paths
+        rows.append((f"  [{COLOR_PATH_BG}]{path}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
+
+    rows.append(("", ""))
+
+    # Ignore rules
+    rows.append((f"[{COLOR_HEADING}]ignore_dirnames[/{COLOR_HEADING}]", str(len(status_data.ignore_dirnames))))
+    for dirname in status_data.ignore_dirnames:
+        validation_info = status_data.ignore_dirname_validation.get(dirname, {})
+        error_msg = validation_info.get("error")
+        is_valid = validation_info.get("valid", True)
+        rows.append((f"  [{COLOR_PATH_BG}]{dirname}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
+
+    rows.append(("", ""))
+    rows.append((f"[{COLOR_HEADING}]ignore_globs[/{COLOR_HEADING}]", str(len(status_data.ignore_globs))))
+    for glob_pattern in status_data.ignore_globs:
+        validation_info = status_data.ignore_glob_validation.get(glob_pattern, {})
+        error_msg = validation_info.get("error")
+        is_valid = validation_info.get("valid", True)
+        rows.append((f"  [{COLOR_PATH_BG}]{glob_pattern}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
+
+    return rows
 
 
-def display_monitor_status_table(display: Any, combined_data: List[Dict[str, Any]]) -> None:
-    """Display the monitor status table."""
-    display.table(
-        combined_data,
-        headers=["Setting", "Value", "Ignore Rule", "Count"],
-        title="Monitor Status",
-        column_justify={"Value": "right", "Count": "right"}
-    )
+def display_monitor_status_table(
+    display: Any,
+    monitor_status_rows: List[Tuple[str, str]]
+) -> None:
+    """Display the monitor status table using reflowing two-column layout.
+
+    Args:
+        display: Display object for rendering
+        monitor_status_rows: List of (key, value) tuples for monitor status data
+    """
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.style import Style
+
+    key_width = 22  # ~22 chars for key
+    value_width = 10  # ~10 chars for value
+
+    from rich.columns import Columns
+
+    # Create individual table rows that will reflow into columns
+    # Apply grey30 background to keys
+    row_tables = []
+    for key, value in monitor_status_rows:
+        row_table = Table(show_header=False, box=None, padding=(0, 1))
+        row_table.add_column("Key", justify="left", width=key_width)
+        row_table.add_column("Value", justify="right", width=value_width)
+        row_table.add_row(key, value)
+        row_tables.append(row_table)
+    # Use Columns with column_first=True for reflow layout
+    # This will fill the first column, then the second column
+    columns = Columns(row_tables, equal=True, column_first=True)
+
+    # Display Monitor Status panel (without Tracked Files)
+    # Don't set explicit width to let Rich calculate based on content
+    panel = Panel.fit(columns, title="Monitor Status", border_style="cyan")
+    display.console.print(panel)
 
 
-def display_monitor_status_issues(display: Any, issues: List[str], redundancies: List[str]) -> None:
-    """Display issues and redundancies found in monitor configuration."""
+def display_monitor_status_issues_panel(display: Any, issues: List[str], redundancies: List[str]) -> None:
+    """Display issues and redundancies in a panel on STDOUT."""
+    content_lines = []
+
     if issues:
-        display.error(f"\nInconsistencies found ({len(issues)}):")
+        content_lines.append(f"[bold red]Inconsistencies ({len(issues)}):[/bold red]")
         for issue in issues:
-            display.error(f"  • {issue}")
+            content_lines.append(f"  • {issue}")
+        if redundancies:
+            content_lines.append("")  # Blank line between sections
 
     if redundancies:
-        display.warning(f"\nRedundancies found ({len(redundancies)}):")
+        content_lines.append(f"[bold yellow]Redundancies ({len(redundancies)}):[/bold yellow]")
         for redund in redundancies:
-            display.warning(f"  • {redund}")
+            content_lines.append(f"  • {redund}")
 
-    if not issues and not redundancies:
-        display.success("\n✓ No configuration issues found")
+    if content_lines:
+        content = "\n".join(content_lines)
+        title = "Configuration Issues" if issues else "Configuration Warnings"
+        border_style = "red" if issues else "yellow"
+        display.panel(content, title=title, border_style=border_style, width=MAX_DISPLAY_WIDTH)
 
 
 # Monitor command implementations
 def monitor_status_cmd(args: argparse.Namespace) -> int:
-    """Show monitoring statistics."""
+    """Show monitoring statistics.
+
+    Follows the 4-step process:
+    1. Say what you're doing on STDERR
+    2. Start progress bar on STDERR
+    3. Say what you did and if there were problems on STDERR
+    4. Display output on STDOUT
+    """
+    # Step 1: Say what you're doing on STDERR (include config file path)
+    config_file = get_config_path()
+    print(f"Loading monitor configuration from {config_file}...", file=sys.stderr)
+
+    # Step 2: Start progress bar on STDERR
     display = args.display_obj
+    progress_handle = display.progress_start(total=3, description="Loading monitor status")
 
-    cfg = load_and_display_monitor_info(display)
-    status_data = MonitorController.get_status(cfg)
+    try:
+        # Load config (no informational output to STDOUT)
+        cfg = load_monitor_config()
+        display.progress_update(progress_handle, advance=1, description="Gathering monitor status")
 
-    total_files, issues, redundancies, managed_dirs_dict, include_paths, exclude_paths = extract_monitor_status_data(status_data)
+        status_data = MonitorController.get_status(cfg)
+        display.progress_update(progress_handle, advance=1, description="Building status display")
 
-    combined_data = build_monitor_status_table_data(
-        total_files, managed_dirs_dict, issues, redundancies, include_paths, exclude_paths, status_data
-    )
+        total_files, issues, redundancies, managed_dirs_dict, include_paths, exclude_paths = extract_monitor_status_data(status_data)
 
-    display_monitor_status_table(display, combined_data)
-    display_monitor_status_issues(display, issues, redundancies)
+        monitor_status_rows = build_monitor_status_table_data(
+            total_files, managed_dirs_dict, issues, redundancies, include_paths, exclude_paths, status_data, cfg
+        )
+
+        display.progress_update(progress_handle, advance=1, description="Complete")
+        display.progress_finish(progress_handle)
+
+        # Step 3: Say what you did and if there were problems on STDERR
+        problems = len(issues) + len(redundancies)
+        if problems > 0:
+            print(f"Monitor status loaded with {problems} issue(s) found", file=sys.stderr)
+        else:
+            print("Monitor status loaded successfully", file=sys.stderr)
+
+        # Step 4: Display output on STDOUT (table and issues panel)
+        display_monitor_status_table(display, monitor_status_rows)
+
+        # Display issues/redundancies panel after the table
+        if issues or redundancies:
+            display_monitor_status_issues_panel(display, issues, redundancies)
+
+    except Exception as e:
+        display.progress_finish(progress_handle)
+        import traceback
+        print(f"Error loading monitor status: {e}", file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
+        return 1
 
     return 0
 
