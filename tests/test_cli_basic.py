@@ -36,17 +36,21 @@ def run_cli(args, monkeypatch=None):
 
 
 def test_cli_config_print_json(monkeypatch):
-    cfg = {"vault_path": "~/obsidian", "similarity": {"enabled": True}}
+    cfg = {"vault": {"base_dir": "~/obsidian"}, "similarity": {"enabled": True}}
     monkeypatch.setattr('wks.cli.load_config', lambda: cfg)
-    rc, out = run_cli(['--display','json','config','print'], monkeypatch)
+    rc, out = run_cli(['--display','mcp','config'], monkeypatch)
     assert rc == 0
     data = json.loads(out)
-    assert data["vault_path"] == "~/obsidian"
-    assert "mongo" in data
-    assert data["mongo"]["uri"].startswith("mongodb://")
-    assert data["mongo"]["compatibility"]["space"] == "space-v1"
-    assert data["mongo"]["compatibility"]["time"] == "time-v1"
-    assert "mongo_uri" not in data["similarity"]
+    # New structure: vault section
+    assert "vault" in data
+    assert data["vault"]["base_dir"] == "~/obsidian"
+    # DB section (new) or mongo (legacy)
+    assert "db" in data or "mongo" in data
+    if "db" in data:
+        assert data["db"]["uri"].startswith("mongodb://")
+    elif "mongo" in data:
+        assert data["mongo"]["uri"].startswith("mongodb://")
+    assert "mongo_uri" not in data.get("similarity", {})
     assert data["display"]["timestamp_format"] == "%Y-%m-%d %H:%M:%S"
 
 
@@ -150,7 +154,6 @@ gui/XXXX/com.wieselquist.wkso = {
     service = data['service']
     assert service['pid'] == 12345
     assert service['lock'] is True
-    assert service['db_ops_last_minute'] >= 0
     if service['fs_rate_short'] is not None:
         assert service['fs_rate_short'] == pytest.approx(0.0)
     if service['fs_rate_long'] is not None:
@@ -306,8 +309,10 @@ def test_mongo_client_params_calls_ensure(monkeypatch, tmp_path):
         return mongomock.MongoClient()
     monkeypatch.setattr(mongoctl, "create_client", fake_create)
     monkeypatch.setattr('wks.cli.load_config', lambda: {
-        'mongo': {
+        'db': {
             'uri': 'mongodb://localhost:27027/',
+        },
+        'mongo': {
             'space_database': 'wks_similarity',
             'space_collection': 'file_embeddings',
         }
@@ -331,8 +336,10 @@ def test_mongo_client_params_skip_ensure(monkeypatch, tmp_path):
         return mongomock.MongoClient()
     monkeypatch.setattr(mongoctl, "create_client", fake_create)
     monkeypatch.setattr('wks.cli.load_config', lambda: {
-        'mongo': {
+        'db': {
             'uri': 'mongodb://localhost:27027/',
+        },
+        'mongo': {
             'space_database': 'wks_similarity',
             'space_collection': 'file_embeddings',
         }

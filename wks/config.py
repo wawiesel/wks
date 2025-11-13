@@ -16,6 +16,8 @@ DEFAULT_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 def mongo_settings(cfg: Dict[str, Any]) -> Dict[str, str]:
     """Normalize Mongo connection settings from config."""
+    # Support both new 'db' section and legacy 'mongo'/'similarity' sections
+    db_cfg = cfg.get("db", {})
     sim = cfg.get("similarity") or {}
     mongo = cfg.get("mongo") or {}
 
@@ -24,7 +26,7 @@ def mongo_settings(cfg: Dict[str, Any]) -> Dict[str, str]:
             return default
         return str(value)
 
-    uri = _norm(mongo.get("uri") or sim.get("mongo_uri"), DEFAULT_MONGO_URI)
+    uri = _norm(db_cfg.get("uri") or mongo.get("uri") or sim.get("mongo_uri"), DEFAULT_MONGO_URI)
     space_db = _norm(mongo.get("space_database") or sim.get("database"), DEFAULT_SPACE_DATABASE)
     space_coll = _norm(mongo.get("space_collection") or sim.get("collection"), DEFAULT_SPACE_COLLECTION)
     time_db = _norm(

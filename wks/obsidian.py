@@ -912,7 +912,7 @@ class ObsidianVault:
             except Exception:
                 pass
 
-    def write_health_page(self, *, state_file: Optional[Path] = None):
+    def write_health_page(self):
         """Write Health.md landing page with key metrics and an embedded Spec.
 
         - Uses ~/.wks/health.json if present
@@ -935,15 +935,8 @@ class ObsidianVault:
                 health = _json.load(open(health_path, 'r'))
         except Exception:
             health = {}
-        # Tracked files
+        # Tracked files (from monitor DB - not available here, will be None)
         tracked = None
-        try:
-            sf = state_file or (Path.home()/WKS_HOME_EXT/'monitor_state.json')
-            if sf.exists():
-                ms = _json.load(open(sf, 'r'))
-                tracked = len((ms.get('files') or {}))
-        except Exception:
-            tracked = None
         # Ledger lines
         ledger_lines = 0
         try:

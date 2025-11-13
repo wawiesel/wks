@@ -37,7 +37,7 @@ WKS is built as a stack of independent, composable layers:
 ┌─────────────────────────────────────────────────────┐
 │  Monitor Layer                                       │
 │  Filesystem state: paths, checksums, priorities      │
-│  DB: wks_monitor.filesystem                          │
+│  DB: wks.monitor                                     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -82,8 +82,8 @@ Stored at `~/.wks/config.json`
       },
       "auto_index_min": 2
     },
-    "database": "wks_monitor",
-    "collection": "filesystem",
+    "database": "wks",
+    "collection": "monitor",
     "log_file": "~/.wks/monitor.log"
   },
 
@@ -103,11 +103,8 @@ Stored at `~/.wks/config.json`
   },
 
   "db": {
-    "uri": "mongodb://localhost:27017/",
-    "compatibility": {
-      "monitor": "v1",
-      "vault": "v1"
-    }
+    "type": "mongodb",
+    "uri": "mongodb://localhost:27017/"
   },
 
   "extract": {
@@ -238,7 +235,7 @@ Stored at `~/.wks/config.json`
 
 **Purpose**: Track filesystem state and calculate priorities
 
-**Database**: `wks_monitor.filesystem`
+**Database**: `wks.monitor`
 
 **Schema**:
 - `path` — absolute URI (e.g., `file:///Users/ww5/Documents/report.pdf`)
@@ -282,7 +279,7 @@ Stored at `~/.wks/config.json`
 - `last_observed` — timestamp when link was last seen
 
 **Service Workflow**:
-1. **Monitor → Vault**: Watch `wks_monitor.filesystem` for path changes
+1. **Monitor → Vault**: Watch `wks.monitor` for path changes
    - Query `wks_vault.links` for all references to changed path
    - Update Obsidian files with new paths
    - Update vault DB

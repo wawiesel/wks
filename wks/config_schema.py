@@ -89,8 +89,8 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
             },
             "auto_index_min": 2
         },
-        "database": "wks_monitor",
-        "collection": "filesystem",
+        "database": "wks",
+        "collection": "monitor",
         "max_documents": 1000000,
         "log_file": "~/.wks/monitor.log"
     }
@@ -124,14 +124,8 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
     old_mongo = old_config.get("mongo", {})
 
     new_config["db"] = {
-        "uri": old_mongo.get("uri", "mongodb://localhost:27017/"),
-        "compatibility": {
-            "monitor": "v1",
-            "vault": "v1",
-            # Keep old compat tags if they exist
-            "space": old_mongo.get("compatibility", {}).get("space", "space-v1"),
-            "time": old_mongo.get("compatibility", {}).get("time", "time-v1")
-        }
+        "type": "mongodb",  # Database type: mongodb (only supported type currently)
+        "uri": old_mongo.get("uri", "mongodb://localhost:27017/")
     }
 
     # === Extract section ===
