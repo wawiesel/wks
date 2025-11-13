@@ -82,8 +82,7 @@ Stored at `~/.wks/config.json`
       },
       "auto_index_min": 2
     },
-    "database": "wks",
-    "collection": "monitor",
+    "database": "wks.monitor",
     "log_file": "~/.wks/monitor.log"
   },
 
@@ -91,15 +90,8 @@ Stored at `~/.wks/config.json`
     "type": "obsidian",
     "base_dir": "~/obsidian",
     "wks_dir": "WKS",
-    "health_file": "WKS/Health.md",
-    "activity_file": "WKS/Activity.md",
-    "file_ops_file": "WKS/FileOperations.md",
-    "extractions_dir": "WKS/Extractions",
-    "max_extraction_docs": 50,
-    "activity_max_rows": 100,
     "update_frequency_seconds": 10,
-    "database": "wks_vault",
-    "collection": "links"
+    "database": "wks.vault"
   },
 
   "db": {

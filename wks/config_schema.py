@@ -89,8 +89,7 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
             },
             "auto_index_min": 2
         },
-        "database": "wks",
-        "collection": "monitor",
+        "database": "wks.monitor",
         "max_documents": 1000000,
         "log_file": "~/.wks/monitor.log"
     }
@@ -109,15 +108,8 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
         "type": "obsidian",
         "base_dir": vault_path,
         "wks_dir": old_obsidian.get("base_dir", "WKS"),
-        "health_file": "WKS/Health.md",
-        "activity_file": "WKS/Activity.md",
-        "file_ops_file": "WKS/FileOperations.md",
-        "extractions_dir": "WKS/Extractions",
-        "max_extraction_docs": old_obsidian.get("docs_keep", 50),
-        "activity_max_rows": old_obsidian.get("active_files_max_rows", 100),
         "update_frequency_seconds": 10,
-        "database": "wks_vault",
-        "collection": "links"
+        "database": "wks.vault"
     }
 
     # === DB section ===
@@ -199,9 +191,9 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
                 "offline": old_similarity.get("offline", True),
                 # Use old mongo settings if they exist
                 "database": old_similarity.get("database",
-                           old_mongo.get("space_database", "wks_similarity")),
+                                               old_mongo.get("space_database", "wks_similarity")),
                 "collection": old_similarity.get("collection",
-                              old_mongo.get("space_collection", "file_embeddings"))
+                                                 old_mongo.get("space_collection", "file_embeddings"))
             },
             "diff_based": {
                 "enabled": False,

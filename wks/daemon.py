@@ -9,7 +9,6 @@ from .priority import calculate_priority
 from .utils import get_package_version, expand_path, file_checksum
 from .config import load_config
 from .config_validator import validate_and_raise, ConfigValidationError
-from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
 from .mongoctl import MongoGuard, ensure_mongo_running
 from .obsidian import ObsidianVault
 from .monitor import start_monitoring
@@ -34,11 +33,8 @@ except Exception:  # pragma: no cover
 
 try:
     from .config import mongo_settings
-    from .similarity import build_similarity_from_config
     from .status import load_db_activity_summary, load_db_activity_history
 except Exception:
-    build_similarity_from_config = None  # type: ignore
-
     def load_db_activity_summary():  # type: ignore
         return {}
 
@@ -65,14 +61,10 @@ class WKSDaemon:
         exclude_paths: Optional[List[Path]] = None,
         ignore_patterns: Optional[Set[str]] = None,
         ignore_globs: Optional[List[str]] = None,
-        similarity_db=None,
-        similarity_extensions: Optional[Set[str]] = None,
-        similarity_min_chars: int = 10,
         fs_rate_short_window_secs: float = 10.0,
         fs_rate_long_window_secs: float = 600.0,
         fs_rate_short_weight: float = 0.8,
         fs_rate_long_weight: float = 0.2,
-        maintenance_interval_secs: float = 600.0,
         mongo_uri: Optional[str] = None,
         monitor_collection: Optional[Collection] = None,
     ):
@@ -104,10 +96,6 @@ class WKSDaemon:
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
         self._lock_fh = None
-        # Similarity settings
-        self.similarity = similarity_db
-        self.similarity_extensions = {e.lower() for e in similarity_extensions} if similarity_extensions else set()
-        self.similarity_min_chars = int(similarity_min_chars)
         # Maintenance (periodic tasks)
         self._last_prune_check = 0.0
         # Read prune interval from config, default to 5 minutes (300 seconds)
@@ -132,10 +120,6 @@ class WKSDaemon:
         self.fs_rate_long_weight = float(fs_rate_long_weight)
         self._fs_events_short: deque[float] = deque()
         self._fs_events_long: deque[float] = deque()
-        # Background maintenance (similarity DB audits)
-        self._maintenance_interval_secs = max(float(maintenance_interval_secs), 1.0)
-        self._maintenance_thread: Optional[threading.Thread] = None
-        self._maintenance_stop_event = threading.Event()
         self.mongo_uri = str(mongo_uri or "")
         self._mongo_guard: Optional[MongoGuard] = None
         self.monitor_collection = monitor_collection
@@ -266,19 +250,6 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_db_limit_error: {e}")
 
-    def _should_index_for_similarity(self, path: Path) -> bool:
-        if not self.similarity or not path.exists() or not path.is_file():
-            return False
-        if self.similarity_extensions:
-            if path.suffix.lower() not in self.similarity_extensions:
-                return False
-        try:
-            if path.stat().st_size < max(self.similarity_min_chars, 1):
-                return False
-        except Exception:
-            return False
-        return True
-
     def _record_fs_event(self, timestamp: Optional[float] = None) -> None:
         """Track raw file-system event timing for rate calculations."""
         t = timestamp or time.time()
@@ -345,30 +316,6 @@ class WKSDaemon:
             if not self._should_ignore_by_rules(dest):
                 self._update_monitor_db(dest)
 
-            # Update similarity index
-            try:
-                if self.similarity:
-                    # Robust handling for directory moves
-                    if src.is_dir() and dest.is_dir() and hasattr(self.similarity, 'rename_folder'):
-                        try:
-                            self.similarity.rename_folder(src, dest)
-                        except Exception:
-                            pass
-                    else:
-                        # Prefer rename to preserve embedding and history
-                        if hasattr(self.similarity, 'rename_file'):
-                            ok = self.similarity.rename_file(src, dest)
-                            if not ok:
-                                # Fallback: re-add and remove old
-                                if self._should_index_for_similarity(dest):
-                                    self.similarity.add_file(dest)
-                                self.similarity.remove_file(src)
-                        else:
-                            if self._should_index_for_similarity(dest):
-                                self.similarity.add_file(dest)
-                            self.similarity.remove_file(src)
-            except Exception:
-                pass
             return
 
         # Regular events
@@ -439,22 +386,13 @@ class WKSDaemon:
         )
 
         print(f"WKS daemon started, monitoring: {[str(p) for p in self.monitor_paths]}")
-        self._start_maintenance_thread()
 
     def stop(self):
         """Stop monitoring."""
-        maintenance_stopped = self._stop_maintenance_thread()
         if self.observer:
             self.observer.stop()
             self.observer.join()
             print("WKS daemon stopped")
-        if maintenance_stopped and self.similarity and hasattr(self.similarity, "close"):
-            try:
-                self.similarity.close()
-            except Exception as exc:
-                self._set_error(f"sim_close_error: {exc}")
-            finally:
-                self.similarity = None
         self._release_lock()
         self._stop_mongo_guard()
 
@@ -488,80 +426,10 @@ class WKSDaemon:
                 # Flush pending deletes and periodic maintenance
                 self._maybe_flush_pending_deletes()
                 self._maybe_flush_pending_mods()
-                self._maybe_prune_similarity_db()
                 self._write_health()
                 time.sleep(1)
         except KeyboardInterrupt:
             self.stop()
-
-    # -------------------------- Maintenance helpers -------------------------- #
-    def _start_maintenance_thread(self):
-        if self._maintenance_thread and self._maintenance_thread.is_alive():
-            return
-        self._maintenance_stop_event.clear()
-        thread = threading.Thread(
-            target=self._maintenance_loop,
-            name="wks-maintenance",
-            daemon=True,
-        )
-        self._maintenance_thread = thread
-        try:
-            thread.start()
-        except Exception:
-            self._maintenance_thread = None
-
-    def _stop_maintenance_thread(self) -> bool:
-        thread = self._maintenance_thread
-        if not thread:
-            return True
-        self._maintenance_stop_event.set()
-        try:
-            timeout = min(max(self._maintenance_interval_secs, 1.0) + 5.0, 60.0)
-            thread.join(timeout=timeout)
-        except Exception:
-            pass
-        if thread.is_alive():
-            self._set_error("maintenance_stop_timeout")
-            return False
-        self._maintenance_thread = None
-        self._maintenance_stop_event = threading.Event()
-        return True
-
-    def _maintenance_loop(self):
-        interval = max(self._maintenance_interval_secs, 1.0)
-        while not self._maintenance_stop_event.is_set():
-            self._perform_similarity_maintenance()
-            if self._maintenance_stop_event.wait(interval):
-                break
-
-    def _perform_similarity_maintenance(self):
-        sim = self.similarity
-        if not sim or not hasattr(sim, "audit_documents"):
-            return
-        try:
-            summary = sim.audit_documents(remove_missing=True, fix_missing_metadata=True)
-        except Exception as exc:
-            error_msg = f"sim_audit_error: {exc.__class__.__name__}: {exc}"
-            self._set_error(error_msg)
-            logger.error("Similarity audit failed", exc_info=True, extra={"operation": "audit"})
-            return
-        if not isinstance(summary, dict):
-            return
-        try:
-            removed = int(summary.get("removed", 0))
-        except Exception:
-            removed = summary.get("removed", 0) or 0
-        try:
-            updated = int(summary.get("updated", 0))
-        except Exception:
-            updated = summary.get("updated", 0) or 0
-        if removed or updated:
-            logger.info("Similarity maintenance completed", extra={
-                "removed": removed,
-                "updated": updated,
-                "operation": "maintenance"
-            })
-            print(f"Similarity maintenance: removed {removed} entries, updated {updated} metadata")
 
     def _within_any(self, path: Path, bases: list[Path]) -> bool:
         for base in bases or []:
@@ -653,52 +521,6 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_prune_error: {e}")
 
-    def _maybe_prune_similarity_db(self):
-        if not self.similarity:
-            return
-        now = time.time()
-        if now - self._last_prune_check < self._prune_interval_secs:
-            return
-        self._last_prune_check = now
-        # Best-effort prune: remove docs for missing files or ignored paths
-        try:
-            removed = 0
-            # Iterate lazily to avoid loading everything at once
-            cursor = self.similarity.collection.find({}, {"path": 1})
-            for doc in cursor:
-                pstr = doc.get('path')
-                if not pstr:
-                    continue
-                p = Path(pstr)
-                try:
-                    missing = not p.exists()
-                except Exception:
-                    missing = True
-                ignored = False
-                if not missing:
-                    try:
-                        ignored = self._should_ignore_by_rules(p)
-                    except Exception:
-                        ignored = False
-                if missing or ignored:
-                    try:
-                        # Remove file-level
-                        self.similarity.collection.delete_one({"path": pstr})
-                        # Remove related chunks
-                        try:
-                            self.similarity.chunks.delete_many({"file_path": pstr})
-                        except Exception:
-                            pass
-                        removed += 1
-                    except Exception:
-                        continue
-            if removed:
-                print(f"Similarity maintenance: pruned {removed} stale/ignored entries")
-        except Exception as e:
-            self._set_error(f"prune_error: {e}")
-            # Never let maintenance crash the daemon
-            pass
-
     def _maybe_flush_pending_deletes(self):
         """Log deletes after a short grace period to avoid temp-file saves showing as delete+recreate."""
         if not self._pending_deletes:
@@ -724,12 +546,6 @@ class WKSDaemon:
 
                 self._remove_from_monitor_db(p)
 
-                try:
-                    if self.similarity:
-                        self.similarity.remove_file(p)
-                except Exception as e:
-                    self._set_error(f"sim_remove_error: {e}")
-                    pass
                 try:
                     self.vault.mark_reference_deleted(p)
                 except Exception as e:
@@ -766,22 +582,6 @@ class WKSDaemon:
                     except Exception as e:
                         self._set_error(f"ops_log_error: {e}")
                     self._update_monitor_db(p)
-
-                    # Similarity indexing
-                    try:
-                        if self._should_index_for_similarity(p) and self.similarity:
-                            updated = self.similarity.add_file(p)
-                            if updated:
-                                rec = self.similarity.get_last_add_result() or {}
-                                ch = rec.get('content_checksum') or rec.get('content_hash')
-                                txt = rec.get('text')
-                                if ch and txt is not None:
-                                    try:
-                                        self.vault.write_doc_text(ch, p, txt, keep=self.docs_keep)
-                                    except Exception as e:
-                                        self._set_error(f"doc_write_error: {e}")
-                    except Exception as e:
-                        self._set_error(f"sim_add_error: {e}")
                 self._pending_mods.pop(pstr, None)
             except Exception:
                 try:
@@ -993,45 +793,69 @@ if __name__ == "__main__":
         raise SystemExit(2)
 
     # Vault config (new structure)
-    vault_cfg = config.get("vault", {})
-    vault_path = expand_path(vault_cfg.get("base_dir", "~/obsidian"))
-    base_dir = vault_cfg.get("wks_dir", "WKS")
+    vault_cfg = config.get("vault")
+    if not vault_cfg:
+        raise ValueError("vault section is required in config")
+    vault_path_str = vault_cfg.get("base_dir")
+    if not vault_path_str:
+        raise ValueError("vault.base_dir is required in config")
+    vault_path = expand_path(vault_path_str)
+    base_dir = vault_cfg.get("wks_dir")
+    if not base_dir:
+        raise ValueError("vault.wks_dir is required in config")
 
     # Monitor config
-    monitor_cfg = config.get("monitor", {})
-    include_paths = [expand_path(p) for p in monitor_cfg.get("include_paths")]
-    exclude_paths = [expand_path(p) for p in monitor_cfg.get("exclude_paths")]
-    ignore_dirnames = set(monitor_cfg.get("ignore_dirnames"))
+    monitor_cfg = config.get("monitor")
+    if not monitor_cfg:
+        raise ValueError("monitor section is required in config")
+    include_paths_list = monitor_cfg.get("include_paths")
+    if not include_paths_list:
+        raise ValueError("monitor.include_paths is required in config")
+    include_paths = [expand_path(p) for p in include_paths_list]
+    exclude_paths_list = monitor_cfg.get("exclude_paths")
+    if exclude_paths_list is None:
+        raise ValueError("monitor.exclude_paths is required in config")
+    exclude_paths = [expand_path(p) for p in exclude_paths_list]
+    ignore_dirnames_list = monitor_cfg.get("ignore_dirnames")
+    if ignore_dirnames_list is None:
+        raise ValueError("monitor.ignore_dirnames is required in config")
+    ignore_dirnames = set(ignore_dirnames_list)
     ignore_patterns = set()  # deprecated
-    ignore_globs = list(monitor_cfg.get("ignore_globs"))
+    ignore_globs_list = monitor_cfg.get("ignore_globs")
+    if ignore_globs_list is None:
+        raise ValueError("monitor.ignore_globs is required in config")
+    ignore_globs = list(ignore_globs_list)
 
-    # DB config (new structure)
-    db_cfg = config.get("db", {})
-    mongo_uri = str(db_cfg.get("uri", "mongodb://localhost:27017/"))
-    space_compat_tag, time_compat_tag = resolve_db_compatibility(config)
+    # DB config
+    db_cfg = config.get("db")
+    if not db_cfg:
+        raise ValueError("db section is required in config")
+    mongo_uri = db_cfg.get("uri")
+    if not mongo_uri:
+        raise ValueError("db.uri is required in config")
+    mongo_uri = str(mongo_uri)
     ensure_mongo_running(mongo_uri, record_start=True)
 
     client = MongoClient(mongo_uri)
-    monitor_db_name = monitor_cfg.get("database", "wks")
-    monitor_coll_name = monitor_cfg.get("collection", "monitor")
+    monitor_db_key = monitor_cfg.get("database")
+    if not monitor_db_key:
+        raise ValueError("monitor.database is required in config")
+    if "." not in monitor_db_key:
+        raise ValueError(f"monitor.database must be in format 'database.collection', got: {monitor_db_key}")
+    parts = monitor_db_key.split(".", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"monitor.database must be in format 'database.collection', got: {monitor_db_key}")
+    monitor_db_name, monitor_coll_name = parts
     monitor_collection = client[monitor_db_name][monitor_coll_name]
 
-    # Vault settings (backward compat: use old obsidian section if vault missing)
-    obsidian_cfg = config.get("obsidian", {})
-    if obsidian_cfg:
-        obsidian_log_max_entries = int(obsidian_cfg.get("log_max_entries", 500))
-        obsidian_active_files_max_rows = int(obsidian_cfg.get("active_files_max_rows", 50))
-        obsidian_source_max_chars = int(obsidian_cfg.get("source_max_chars", 40))
-        obsidian_destination_max_chars = int(obsidian_cfg.get("destination_max_chars", 40))
-        obsidian_docs_keep = int(obsidian_cfg.get("docs_keep", 99))
-        auto_project_notes = bool(obsidian_cfg.get("auto_project_notes", False))
-    else:
-        obsidian_log_max_entries = 500
-        obsidian_active_files_max_rows = int(vault_cfg.get("activity_max_rows", 100))
-        obsidian_source_max_chars = 40
-        obsidian_destination_max_chars = 40
-        obsidian_docs_keep = int(vault_cfg.get("max_extraction_docs", 50))
-        auto_project_notes = False
+    # Vault settings from vault section (SPEC: vault.type="obsidian")
+    # Simplified: only base_dir, wks_dir, update_frequency_seconds, type, database
+    obsidian_log_max_entries = 500  # Default, not in vault section
+    obsidian_active_files_max_rows = 100  # Default, not in vault section
+    obsidian_source_max_chars = 40  # Default, not in vault section
+    obsidian_destination_max_chars = 40  # Default, not in vault section
+    obsidian_docs_keep = 50  # Default, not in vault section
+    auto_project_notes = False  # Default, not in vault section
 
     daemon = WKSDaemon(
         config=config,
@@ -1051,36 +875,6 @@ if __name__ == "__main__":
         mongo_uri=mongo_uri,
         monitor_collection=monitor_collection,
     )
-
-    # Similarity (explicit)
-    sim_cfg_raw = config.get("similarity")
-    if sim_cfg_raw and sim_cfg_raw.get("enabled"):
-        if build_similarity_from_config is None:
-            print("Fatal: similarity enabled but SimilarityDB not available")
-            raise SystemExit(2)
-        try:
-            simdb, sim_cfg = build_similarity_from_config(
-                config,
-                require_enabled=True,
-                compatibility_tag=space_compat_tag,
-                product_version=get_package_version(),
-            )
-        except IncompatibleDatabase as exc:
-            print(exc)
-            raise SystemExit(2)
-        except Exception as exc:
-            print(f"Fatal: failed to initialize similarity DB: {exc}")
-            raise SystemExit(2)
-        if simdb is None or sim_cfg is None:
-            print("Fatal: similarity initialization failed")
-            raise SystemExit(2)
-        daemon.similarity = simdb
-        if bool(sim_cfg.get('offline', False)):
-            import os as _os
-            _os.environ.setdefault('HF_HUB_OFFLINE', '1')
-            _os.environ.setdefault('TRANSFORMERS_OFFLINE', '1')
-        daemon.similarity_extensions = set([e.lower() for e in sim_cfg["include_extensions"]])
-        daemon.similarity_min_chars = int(sim_cfg["min_chars"])
 
     print("Starting WKS daemon...")
     print("Press Ctrl+C to stop")
