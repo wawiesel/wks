@@ -1,6 +1,6 @@
-# WKS Command-Line Utility (wkso)
+# WKS Command-Line Utility (wks0)
 
-This spec documents the wkso CLI: a layered architecture for filesystem monitoring, knowledge graph management, and semantic indexing.
+This spec documents the wks0 CLI: a layered architecture for filesystem monitoring, knowledge graph management, and semantic indexing.
 
 ## Architecture Overview
 
@@ -43,7 +43,7 @@ WKS is built as a stack of independent, composable layers:
 
 ## Installation
 - Recommended: `pipx install .`
-- Optional: `pipx runpip wkso install docling` (for PDF/Office extraction)
+- Optional: `pipx runpip wks0 install docling` (for PDF/Office extraction)
 - Python: 3.10+
 
 ## Configuration
@@ -252,10 +252,10 @@ Stored at `~/.wks/config.json`
 - **Priority: 45**
 
 **Commands**:
-- `wkso monitor status` — show monitoring statistics
-- `wkso monitor add <path>` — add path to include_paths
-- `wkso monitor remove <path>` — add path to exclude_paths
-- `wkso db monitor` — query filesystem database
+- `wks0 monitor status` — show monitoring statistics (supports `--live` for auto-updating display)
+- `wks0 monitor include_paths add <path>` — add path to include_paths
+- `wks0 monitor exclude_paths add <path>` — add path to exclude_paths
+- `wks0 db monitor` — query filesystem database
 
 ### Vault Layer
 
@@ -287,11 +287,11 @@ Stored at `~/.wks/config.json`
 - `WKS/Extractions/` — extracted content snapshots (keep latest N)
 
 **Commands**:
-- `wkso vault status` — link health summary
-- `wkso vault links <file>` — show inbound/outbound links for file
-- `wkso vault orphans` — find files with no links
-- `wkso vault check` — scan vault and sync links table
-- `wkso db vault` — query links database
+- `wks0 vault status` — link health summary
+- `wks0 vault links <file>` — show inbound/outbound links for file
+- `wks0 vault orphans` — find files with no links
+- `wks0 vault check` — scan vault and sync links table
+- `wks0 db vault` — query links database
 
 ### Extract Layer
 
@@ -312,8 +312,8 @@ Stored at `~/.wks/config.json`
 **Output Format**: `<.wkso_dir>/<checksum>.<extension>`
 
 **Commands**:
-- `wkso extract <file>` — extract file with default engine
-- `wkso extract <file> --engine builtin` — force specific engine
+- `wks0 extract <file>` — extract file with default engine
+- `wks0 extract <file> --engine builtin` — force specific engine
 
 **MCP Integration**: Extract engines can be exposed as MCP tools
 
@@ -328,8 +328,8 @@ Stored at `~/.wks/config.json`
 **Router**: `_router` selects engine based on file type
 
 **Commands**:
-- `wkso diff <file1> <file2>` — diff with default engine
-- `wkso diff <file1> <file2> --engine text` — force specific engine
+- `wks0 diff <file1> <file2>` — diff with default engine
+- `wks0 diff <file1> <file2> --engine text` — force specific engine
 
 **MCP Integration**: Diff engines can be exposed as MCP tools
 
@@ -346,9 +346,9 @@ Stored at `~/.wks/config.json`
 **Database**: Each engine has its own database/collection
 
 **Commands**:
-- `wkso related <file>` — find similar files
-- `wkso related <file> --limit 10 --min-similarity 0.5`
-- `wkso related <file> --engine embedding`
+- `wks0 related <file>` — find similar files
+- `wks0 related <file> --limit 10 --min-similarity 0.5`
+- `wks0 related <file> --engine embedding`
 
 **MCP Integration**: Related engines can be exposed as MCP tools
 
@@ -370,9 +370,9 @@ Stored at `~/.wks/config.json`
 - `metadata` — index-specific metadata
 
 **Commands**:
-- `wkso index <file>` — index with default index
-- `wkso index <file> --index code` — use specific index
-- `wkso index --untrack <file>` — remove from all indices
+- `wks0 index <file>` — index with default index
+- `wks0 index <file> --index code` — use specific index
+- `wks0 index --untrack <file>` — remove from all indices
 
 ### Search Layer
 
@@ -383,9 +383,9 @@ Stored at `~/.wks/config.json`
 - Multi-index search with weighted combination
 
 **Commands**:
-- `wkso search <query>` — search default index
-- `wkso search <query> --index code` — search specific index
-- `wkso search <query> --combine` — search all indices with weights
+- `wks0 search <query>` — search default index
+- `wks0 search <query> --index code` — search specific index
+- `wks0 search <query> --combine` — search all indices with weights
 
 ## Database Commands
 
@@ -393,35 +393,33 @@ All layers store data in MongoDB:
 
 ```bash
 # Query databases
-wkso db monitor              # Filesystem state
-wkso db vault                # Knowledge graph links
-wkso db related              # Similarity embeddings
-wkso db index                # Search indices
+wks0 db monitor              # Filesystem state
+wks0 db vault                # Knowledge graph links
+wks0 db related              # Similarity embeddings
+wks0 db index                # Search indices
 
 # Reset databases (destructive)
-wkso db reset monitor        # Clear filesystem state
-wkso db reset vault          # Clear link graph
-wkso db reset related        # Clear embeddings
-wkso db reset index          # Clear all indices
+wks0 db reset monitor        # Clear filesystem state
+wks0 db reset vault          # Clear link graph
+wks0 db reset related        # Clear embeddings
+wks0 db reset index          # Clear all indices
 ```
 
 ## Service Management
 
 ```bash
-wkso service install         # Install launchd service (macOS)
-wkso service uninstall       # Remove service
-wkso service start           # Start daemon
-wkso service stop            # Stop daemon
-wkso service restart         # Restart daemon
-wkso service status          # Show status and metrics
+wks0 service install         # Install launchd service (macOS)
+wks0 service uninstall       # Remove service
+wks0 service start           # Start daemon
+wks0 service stop            # Stop daemon
+wks0 service restart         # Restart daemon
+wks0 service status          # Show status and metrics (supports --live for auto-updating display)
 ```
 
 ## Config Management
 
 ```bash
-wkso config                  # Print effective config (JSON)
-wkso config --path monitor   # Show specific section
-wkso config --validate       # Validate config file
+wks0 config                  # Print effective config (table in CLI, JSON in MCP)
 ```
 
 ## Extraction Artefact Rules
@@ -476,7 +474,7 @@ When file checksum changes or file moves, old extraction files are removed.
 
 - Files with priority < `auto_index_min` (default 2) are NOT auto-indexed
 - Files inside `_/` subdirectories typically have priority 1
-- Manual indexing via `wkso index <path>` always succeeds regardless of priority
+- Manual indexing via `wks0 index <path>` always succeeds regardless of priority
 
 ## MCP Integration
 
@@ -487,25 +485,25 @@ WKS exposes semantic engines and monitor operations as MCP tools. Following SPEC
 Complete parity between CLI and MCP for filesystem monitoring:
 
 **Status and Validation**:
-- `wks_monitor_status` — Get monitoring status and configuration (`wkso monitor status`)
-- `wks_monitor_validate` — Validate configuration for conflicts (`wkso monitor validate`)
-- `wks_monitor_check` — Check if path would be monitored (`wkso monitor check <path>`)
+- `wks_monitor_status` — Get monitoring status and configuration (`wks0 monitor status`)
+- `wks_monitor_validate` — Validate configuration for conflicts (`wks0 monitor validate`)
+- `wks_monitor_check` — Check if path would be monitored (`wks0 monitor check <path>`)
 
 **List Management**:
-- `wks_monitor_list` — Get contents of configuration list (`wkso monitor <list_name>`)
+- `wks_monitor_list` — Get contents of configuration list (`wks0 monitor <list_name>`)
   - Parameters: `list_name` (include_paths, exclude_paths, ignore_dirnames, ignore_globs)
-- `wks_monitor_add` — Add value to list (`wkso monitor <list_name> add <value>`)
+- `wks_monitor_add` — Add value to list (`wks0 monitor <list_name> add <value>`)
   - Parameters: `list_name`, `value`
-- `wks_monitor_remove` — Remove value from list (`wkso monitor <list_name> remove <value>`)
+- `wks_monitor_remove` — Remove value from list (`wks0 monitor <list_name> remove <value>`)
   - Parameters: `list_name`, `value`
 
 **Managed Directories**:
-- `wks_monitor_managed_list` — List managed directories with priorities (`wkso monitor managed`)
-- `wks_monitor_managed_add` — Add managed directory (`wkso monitor managed add <path> --priority <N>`)
+- `wks_monitor_managed_list` — List managed directories with priorities (`wks0 monitor managed`)
+- `wks_monitor_managed_add` — Add managed directory (`wks0 monitor managed add <path> --priority <N>`)
   - Parameters: `path`, `priority`
-- `wks_monitor_managed_remove` — Remove managed directory (`wkso monitor managed remove <path>`)
+- `wks_monitor_managed_remove` — Remove managed directory (`wks0 monitor managed remove <path>`)
   - Parameters: `path`
-- `wks_monitor_managed_set_priority` — Update directory priority (`wkso monitor managed set-priority <path> <N>`)
+- `wks_monitor_managed_set_priority` — Update directory priority (`wks0 monitor managed set-priority <path> <N>`)
   - Parameters: `path`, `priority`
 
 All write operations save to config file and notify to restart service.
