@@ -41,32 +41,44 @@ class CLIDisplayStrategy(DisplayStrategy):
         from rich.table import Table
         from rich import box
 
-        from ...constants import MAX_DISPLAY_WIDTH
+        from ..constants import MAX_DISPLAY_WIDTH
         console = Console(width=MAX_DISPLAY_WIDTH)
 
-        def _render_status() -> Table:
-            """Render current status as a Rich table with grouped sections."""
+        def _render_status():
+            """Render current status as a Rich panel with Health left, File System right."""
+            from rich.panel import Panel
+            from rich.table import Table
+            from rich.columns import Columns
+
             current_status = ServiceController.get_status()
-            rows = current_status.to_rows()
 
-            table = Table(
-                title="WKS Service Status (Live)",
-                header_style="bold cyan",
-                box=box.SQUARE,
-                expand=False,
-                pad_edge=False,
-                show_header=False,
-            )
-            table.add_column("", style="cyan", overflow="fold")
-            table.add_column("", style="white", overflow="fold")
+            # Use the same layout as static display
+            health_rows = current_status._build_health_rows()
+            filesystem_rows = current_status._build_filesystem_rows()
+            launch_rows = current_status._build_launch_rows()
 
-            for key, value in rows:
-                if value == "" and not key.startswith("  "):
-                    table.add_row(key, value, style="bold yellow")
-                else:
-                    table.add_row(key, value)
+            # Create left table (Health)
+            left_table = Table(show_header=False, box=None, padding=(0, 1))
+            left_table.add_column("Key", justify="left", width=22)
+            left_table.add_column("Value", justify="right", width=10)
+            for key, value in health_rows:
+                left_table.add_row(key, value)
 
-            return table
+            # Add Launch section to left table if present
+            if launch_rows:
+                for key, value in launch_rows:
+                    left_table.add_row(key, value)
+
+            # Create right table (File System)
+            right_table = Table(show_header=False, box=None, padding=(0, 1))
+            right_table.add_column("Key", justify="left", width=22)
+            right_table.add_column("Value", justify="right", width=10)
+            for key, value in filesystem_rows:
+                right_table.add_row(key, value)
+
+            # Create side-by-side columns
+            columns = Columns([left_table, right_table], equal=True)
+            return Panel.fit(columns, title="WKS Service Status (Live)", border_style="cyan", width=MAX_DISPLAY_WIDTH)
 
         try:
             with Live(_render_status(), refresh_per_second=0.5, screen=False, console=console) as live:
@@ -91,16 +103,50 @@ class CLIDisplayStrategy(DisplayStrategy):
 
         display = args.display_obj
         rows = status.to_rows()
-        table_data = []
-        for key, value in rows:
-            if value == "" and not key.startswith("  "):
-                table_data.append({"Key": f"[bold yellow]{key}[/bold yellow]", "Value": value})
-            else:
-                table_data.append({"Key": key, "Value": value})
-        display.table(table_data, title="WKS Service Status", column_justify={"Value": "left"})
+        # Use unified display function for consistent table formatting
+        from .helpers import display_status_table
+        display_status_table(display, rows, title="WKS Service Status")
         if status.notes:
             display.info("; ".join(status.notes))
         return 0
+
+
+def _display_service_status(display: Any, status: ServiceStatusData) -> None:
+    """Display service status with Health on left, File System on right."""
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.columns import Columns
+    from ..constants import MAX_DISPLAY_WIDTH
+
+    health_rows = status._build_health_rows()
+    filesystem_rows = status._build_filesystem_rows()
+    launch_rows = status._build_launch_rows()
+
+    # Create left table (Health)
+    left_table = Table(show_header=False, box=None, padding=(0, 1))
+    left_table.add_column("Key", justify="left", width=22)
+    left_table.add_column("Value", justify="right", width=10)
+    for key, value in health_rows:
+        left_table.add_row(key, value)
+
+    # Add Launch section to left table if present
+    if launch_rows:
+        for key, value in launch_rows:
+            left_table.add_row(key, value)
+
+    # Create right table (File System)
+    right_table = Table(show_header=False, box=None, padding=(0, 1))
+    right_table.add_column("Key", justify="left", width=22)
+    right_table.add_column("Value", justify="right", width=10)
+    for key, value in filesystem_rows:
+        right_table.add_row(key, value)
+
+    # Create side-by-side columns
+    columns = Columns([left_table, right_table], equal=True)
+
+    # Display in panel
+    panel = Panel.fit(columns, title="WKS Service Status", border_style="cyan", width=MAX_DISPLAY_WIDTH)
+    display.console.print(panel)
 
 
 def get_display_strategy(args: argparse.Namespace) -> DisplayStrategy:

@@ -197,7 +197,7 @@ class ServiceStatusData:
     def _build_health_rows(self) -> List[Tuple[str, str]]:
         """Build Health section rows."""
         return [
-            ("Health", ""),
+            ("[bold cyan]Health[/bold cyan]", ""),
             ("  Running", _fmt_bool(self.running, color=True)),
             ("  Uptime", self.uptime or "-"),
             ("  PID", str(self.pid) if self.pid is not None else "-"),
@@ -207,7 +207,7 @@ class ServiceStatusData:
 
     def _build_filesystem_rows(self) -> List[Tuple[str, str]]:
         """Build File System section rows."""
-        rows = [("File System", "")]
+        rows = [("[bold cyan]File System[/bold cyan]", "")]
         rows.append(("  Pending deletes", str(self.pending_deletes) if self.pending_deletes is not None else "-"))
         rows.append(("  Pending mods", str(self.pending_mods) if self.pending_mods is not None else "-"))
         
@@ -228,7 +228,7 @@ class ServiceStatusData:
             return []
         
         return [
-            ("Launch", ""),
+            ("[bold cyan]Launch[/bold cyan]", ""),
             ("  State", self.launch.state or "-"),
             ("  Program", self.launch.arguments or self.launch.program or "-"),
             ("  Stdout", self.launch.stdout or "-"),
