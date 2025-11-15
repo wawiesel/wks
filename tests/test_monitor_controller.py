@@ -7,6 +7,7 @@ requiring CLI or display infrastructure.
 
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from wks.monitor_controller import MonitorController
 
 
@@ -35,6 +36,7 @@ class TestMonitorController(unittest.TestCase):
         self.assertIsNotNone(result.exclude_paths)
         self.assertIsInstance(result.issues, list)
         self.assertIsInstance(result.redundancies, list)
+        self.assertIsInstance(result.dot_whitelist, list)
 
     def test_get_status_detects_vault_redundancy(self):
         """Test that vault_path in exclude_paths triggers redundancy warning."""
@@ -191,6 +193,117 @@ class TestMonitorController(unittest.TestCase):
 
         self.assertFalse(result["is_monitored"])
         self.assertIn("ignore_globs", result["reason"])
+
+    def test_check_path_dot_directory_blocked_without_whitelist(self):
+        """Ensure dot directories are ignored unless whitelisted."""
+        config = {
+            "monitor": {
+                "include_paths": ["~/Documents"],
+                "exclude_paths": [],
+                "managed_directories": {"~/Documents": 100},
+                "ignore_dirnames": [],
+                "ignore_globs": [],
+                "dot_whitelist": [],
+                "database": "wks.monitor",
+                "priority": {}
+            }
+        }
+
+        result = MonitorController.check_path(config, "~/Documents/.obsidian/file.md")
+
+        self.assertFalse(result["is_monitored"])
+        self.assertIn("dot-directory", result["reason"])
+
+    def test_check_path_dot_directory_allowed_with_whitelist(self):
+        """Ensure dot directories are allowed when whitelisted."""
+        config = {
+            "monitor": {
+                "include_paths": ["~/Documents"],
+                "exclude_paths": [],
+                "managed_directories": {"~/Documents": 100},
+                "ignore_dirnames": [],
+                "ignore_globs": [],
+                "dot_whitelist": [".obsidian"],
+                "database": "wks.monitor",
+                "priority": {}
+            }
+        }
+
+        result = MonitorController.check_path(config, "~/Documents/.obsidian/file.md")
+
+        self.assertTrue(result["is_monitored"])
+        self.assertEqual(result["reason"], "Would be monitored")
+
+    @patch("wks.monitor_controller.WKSFileMonitor")
+    @patch("wks.monitor_controller.uri_to_path")
+    @patch("wks.monitor_controller.MongoClient")
+    def test_prune_ignored_files_deletes_matching_docs(self, mock_client, mock_uri_to_path, mock_monitor):
+        """Ensure prune_ignored_files removes entries matched by ignore rules."""
+        config = {
+            "monitor": {
+                "include_paths": ["~/Documents"],
+                "exclude_paths": [],
+                "managed_directories": {"~/Documents": 100},
+                "ignore_dirnames": [],
+                "ignore_globs": [],
+                "dot_whitelist": [],
+                "database": "wks.monitor",
+            },
+            "db": {"uri": "mongodb://localhost:27017/"},
+        }
+        mock_client_instance = MagicMock()
+        mock_db = MagicMock()
+        mock_collection = MagicMock()
+        mock_collection.find.return_value = [{"_id": 1, "path": "file://ignored"}]
+        mock_db.__getitem__.return_value = mock_collection
+        mock_client_instance.__getitem__.return_value = mock_db
+        mock_client_instance.server_info.return_value = {}
+        mock_client.return_value = mock_client_instance
+
+        mock_monitor_instance = mock_monitor.return_value
+        mock_monitor_instance._should_ignore.return_value = True
+        mock_uri_to_path.return_value = Path("/tmp/ignored.txt")
+
+        result = MonitorController.prune_ignored_files(config)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["pruned_count"], 1)
+        mock_collection.delete_one.assert_called_once()
+
+    @patch("wks.monitor_controller.uri_to_path")
+    @patch("wks.monitor_controller.MongoClient")
+    def test_prune_deleted_files_deletes_missing_docs(self, mock_client, mock_uri_to_path):
+        """Ensure prune_deleted_files removes documents pointing to missing files."""
+        config = {
+            "monitor": {
+                "include_paths": ["~/Documents"],
+                "exclude_paths": [],
+                "managed_directories": {"~/Documents": 100},
+                "ignore_dirnames": [],
+                "ignore_globs": [],
+                "dot_whitelist": [],
+                "database": "wks.monitor",
+            },
+            "db": {"uri": "mongodb://localhost:27017/"},
+        }
+        mock_client_instance = MagicMock()
+        mock_db = MagicMock()
+        mock_collection = MagicMock()
+        mock_collection.find.return_value = [{"_id": 1, "path": "file://missing"}]
+        mock_db.__getitem__.return_value = mock_collection
+        mock_client_instance.__getitem__.return_value = mock_db
+        mock_client_instance.server_info.return_value = {}
+        mock_client.return_value = mock_client_instance
+
+        mock_path = MagicMock()
+        mock_path.exists.return_value = False
+        mock_uri_to_path.return_value = mock_path
+
+        result = MonitorController.prune_deleted_files(config)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["pruned_count"], 1)
+        mock_collection.delete_one.assert_called_once()
 
 
 if __name__ == "__main__":

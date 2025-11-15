@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ...config import get_config_path, load_config
-from ...constants import MAX_DISPLAY_WIDTH
+from ...constants import MAX_DISPLAY_WIDTH, WKS_DOT_DIRS
 from ...monitor_controller import MonitorController, MonitorValidator
 from ...utils import wks_home_path
 
@@ -273,6 +273,20 @@ def build_monitor_status_table_data(
         error_msg = validation_info.get("error")
         is_valid = validation_info.get("valid", True)
         rows.append((f"  [{COLOR_PATH_BG}]{glob_pattern}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
+
+    rows.append(("", ""))
+    rows.append((f"[{COLOR_HEADING}]dot_whitelist[/{COLOR_HEADING}]", str(len(status_data.dot_whitelist))))
+    for entry in status_data.dot_whitelist:
+        if entry in WKS_DOT_DIRS:
+            error_msg = "Reserved directory"
+            is_valid = False
+        elif entry.startswith('.'):
+            error_msg = None
+            is_valid = True
+        else:
+            error_msg = "Must start with '.'"
+            is_valid = False
+        rows.append((f"  [{COLOR_PATH_BG}]{entry}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
 
     return rows
 
@@ -700,6 +714,11 @@ def show_monitor_list(display, list_name: str, title: str) -> int:
                     is_valid, error_msg = False, "Not a directory"
             except Exception as e:
                 is_valid, error_msg = False, f"Invalid path: {e}"
+        elif list_name == "dot_whitelist":
+            if item in WKS_DOT_DIRS:
+                is_valid, error_msg = False, "Reserved directory - always ignored"
+            elif not item.startswith('.'):
+                is_valid, error_msg = False, "Must start with '.'"
 
         table_data.append({"#": str(i), "Value": item, "Status": MonitorValidator.status_symbol(error_msg, is_valid)})
 
@@ -803,6 +822,31 @@ def monitor_ignore_glob_remove(args: argparse.Namespace) -> int:
     """Remove glob pattern(s) from ignore_globs."""
     for pattern in args.patterns:
         result = modify_monitor_list(args.display_obj, "ignore_globs", pattern, "remove", resolve_path=False)
+        if result != 0:
+            return result
+    return 0
+
+
+def monitor_dot_whitelist_default(args: argparse.Namespace) -> int:
+    """Default action for dot_whitelist: show list."""
+    if not args.dot_whitelist_op:
+        return show_monitor_list(args.display_obj, "dot_whitelist", "Dot-directory Whitelist")
+    return 0
+
+
+def monitor_dot_whitelist_add(args: argparse.Namespace) -> int:
+    """Add entries to dot_whitelist."""
+    for entry in args.entries:
+        result = modify_monitor_list(args.display_obj, "dot_whitelist", entry, "add", resolve_path=False)
+        if result != 0:
+            return result
+    return 0
+
+
+def monitor_dot_whitelist_remove(args: argparse.Namespace) -> int:
+    """Remove entries from dot_whitelist."""
+    for entry in args.entries:
+        result = modify_monitor_list(args.display_obj, "dot_whitelist", entry, "remove", resolve_path=False)
         if result != 0:
             return result
     return 0
@@ -985,6 +1029,17 @@ def setup_monitor_parser(subparsers) -> None:
     mon_ignore_glob_remove = mon_ignore_glob_sub.add_parser("remove", help="Remove glob pattern(s) from ignore_globs")
     mon_ignore_glob_remove.add_argument("patterns", nargs='+', help="Pattern(s) to remove")
     mon_ignore_glob_remove.set_defaults(func=monitor_ignore_glob_remove)
+
+    # monitor dot_whitelist
+    mon_dot_whitelist = monsub.add_parser("dot_whitelist", help="Manage dot-directory whitelist entries")
+    mon_dot_whitelist_sub = mon_dot_whitelist.add_subparsers(dest="dot_whitelist_op", required=False)
+    mon_dot_whitelist.set_defaults(func=monitor_dot_whitelist_default)
+    mon_dot_whitelist_add = mon_dot_whitelist_sub.add_parser("add", help="Add entry to dot_whitelist")
+    mon_dot_whitelist_add.add_argument("entries", nargs='+', help="Dot-directory names (e.g., .obsidian)")
+    mon_dot_whitelist_add.set_defaults(func=monitor_dot_whitelist_add)
+    mon_dot_whitelist_remove = mon_dot_whitelist_sub.add_parser("remove", help="Remove entry from dot_whitelist")
+    mon_dot_whitelist_remove.add_argument("entries", nargs='+', help="Entries to remove")
+    mon_dot_whitelist_remove.set_defaults(func=monitor_dot_whitelist_remove)
 
     # monitor managed
     mon_managed = monsub.add_parser("managed", help="Manage managed_directories with priorities")

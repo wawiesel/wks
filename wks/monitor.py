@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import fnmatch
 from datetime import datetime
-from typing import Dict, Set, Callable, Optional, List
+from typing import Dict, Set, Callable, Optional, List, Iterable
 
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS
 from watchdog.observers import Observer
@@ -44,6 +44,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         include_paths: Optional[List[Path]] = None,
         exclude_paths: Optional[List[Path]] = None,
         ignore_globs: Optional[List[str]] = None,
+        dot_whitelist: Optional[Iterable[str]] = None,
     ):
         """
         Initialize the file monitor.
@@ -53,6 +54,7 @@ class WKSFileMonitor(FileSystemEventHandler):
             on_change: Callback function(event_type, file_path) when files change
             ignore_patterns: Set of patterns to ignore (e.g., {'.git', 'venv'})
             ignore_dirs: Set of directory names to completely ignore
+            dot_whitelist: Iterable of dot-directory names that should never be ignored
         """
         super().__init__()
         self.state_file = Path(state_file)
@@ -72,8 +74,29 @@ class WKSFileMonitor(FileSystemEventHandler):
                 _globs.append(f"**/{tok}")
         self.ignore_globs = _globs
         # Dot-path whitelist that should never be ignored by default rules
-        self._dot_whitelist = set()
+        self._dot_whitelist = self._initialize_dot_whitelist(dot_whitelist)
         self.state = self._load_state()
+
+    def _initialize_dot_whitelist(self, extra_whitelist: Optional[Iterable[str]]) -> Set[str]:
+        """Build whitelist of dot-directories that should not be ignored."""
+        whitelist: Set[str] = set()
+        for entry in extra_whitelist or []:
+            entry_str = str(entry).strip()
+            if not entry_str:
+                continue
+            if entry_str in WKS_DOT_DIRS:
+                # Always ignore WKS internal directories
+                continue
+            whitelist.add(entry_str)
+
+        # Automatically whitelist dot-components that are explicitly included
+        for include_path in self.include_paths:
+            for part in include_path.parts:
+                if part in WKS_DOT_DIRS:
+                    continue
+                if part.startswith('.'):
+                    whitelist.add(part)
+        return whitelist
 
     def _load_state(self) -> Dict:
         """Load state from JSON file."""
@@ -275,6 +298,7 @@ def start_monitoring(
     include_paths: Optional[List[Path]] = None,
     exclude_paths: Optional[List[Path]] = None,
     ignore_globs: Optional[List[str]] = None,
+    dot_whitelist: Optional[Iterable[str]] = None,
 ) -> Observer:
     """
     Start monitoring directories for changes.
@@ -284,6 +308,7 @@ def start_monitoring(
         state_file: Path to state tracking file
         on_change: Optional callback for changes
         ignore_dirs: Optional set of directory names to ignore
+        dot_whitelist: Optional iterable of dot-directory names to allow even if they start with '.'
 
     Returns:
         Observer instance (call .stop() to stop monitoring)
@@ -296,6 +321,7 @@ def start_monitoring(
         include_paths=include_paths or directories,
         exclude_paths=exclude_paths,
         ignore_globs=ignore_globs,
+        dot_whitelist=dot_whitelist,
     )
     # Try observers in order of preference with fallback on start failures
     candidates: list[type] = []

@@ -100,6 +100,7 @@ class WKSDaemon:
         exclude_paths: Optional[List[Path]] = None,
         ignore_patterns: Optional[Set[str]] = None,
         ignore_globs: Optional[List[str]] = None,
+        dot_whitelist: Optional[Set[str]] = None,
         fs_rate_short_window_secs: float = 10.0,
         fs_rate_long_window_secs: float = 600.0,
         fs_rate_short_weight: float = 0.8,
@@ -132,6 +133,14 @@ class WKSDaemon:
         self.observer = None
         self.auto_project_notes = auto_project_notes
         self.ignore_globs = ignore_globs if ignore_globs is not None else []
+        whitelist = set(dot_whitelist or set())
+        for path in self.monitor_paths:
+            for part in path.parts:
+                if part in WKS_DOT_DIRS:
+                    continue
+                if part.startswith('.'):
+                    whitelist.add(part)
+        self.dot_whitelist = whitelist
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
         self._lock_fh = None
@@ -449,6 +458,7 @@ class WKSDaemon:
             include_paths=self.monitor_paths,
             exclude_paths=self.exclude_paths,
             ignore_globs=self.ignore_globs,
+            dot_whitelist=self.dot_whitelist,
         )
 
         print(f"WKS daemon started, monitoring: {[str(p) for p in self.monitor_paths]}")
@@ -540,7 +550,7 @@ class WKSDaemon:
         for part in path.parts:
             if part in WKS_DOT_DIRS:
                 return True
-            if part.startswith('.'):
+            if part.startswith('.') and part not in self.dot_whitelist:
                 return True
         # Named ignored directories
         if self.ignore_dirnames:
@@ -951,6 +961,10 @@ if __name__ == "__main__":
     if ignore_globs_list is None:
         raise ValueError("monitor.ignore_globs is required in config (found: missing, expected: list of glob patterns to ignore, can be empty [])")
     ignore_globs = list(ignore_globs_list)
+    dot_whitelist_list = monitor_cfg.get("dot_whitelist", [])
+    if not isinstance(dot_whitelist_list, list):
+        raise ValueError("monitor.dot_whitelist must be a list when provided (found: non-list value)")
+    dot_whitelist = set(str(entry).strip() for entry in dot_whitelist_list if str(entry).strip())
 
     # DB config
     db_cfg = config.get("db")
@@ -998,6 +1012,7 @@ if __name__ == "__main__":
         exclude_paths=exclude_paths,
         ignore_patterns=ignore_patterns,
         ignore_globs=ignore_globs,
+        dot_whitelist=dot_whitelist,
         mongo_uri=mongo_uri,
         monitor_collection=monitor_collection,
     )

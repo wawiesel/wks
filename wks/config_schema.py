@@ -67,6 +67,7 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
         "ignore_globs": old_monitor.get("ignore_globs", [
             "**/.DS_Store", "*.swp", "*.tmp", "*~", "._*", "~$*", ".~lock.*#"
         ]),
+        "dot_whitelist": old_monitor.get("dot_whitelist", []),
         # New: managed directories with priorities
         "managed_directories": {
             "~/Desktop": 150,
