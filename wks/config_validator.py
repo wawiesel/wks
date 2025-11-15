@@ -97,6 +97,9 @@ def _validate_monitor_config(mon: Dict[str, Any]) -> List[str]:
             if weight_val < 0.001 or weight_val > 1.0:
                 errors.append(f"monitor.touch_weight must be between 0.001 and 1 (found: {weight_val}, expected: 0.001 <= value <= 1.0)")
 
+    if "dot_whitelist" in mon and not isinstance(mon["dot_whitelist"], list):
+        errors.append(f"monitor.dot_whitelist must be an array when provided (found: {type(mon['dot_whitelist']).__name__} = {mon['dot_whitelist']!r}, expected: list of directory names)")
+
     return errors
 
 

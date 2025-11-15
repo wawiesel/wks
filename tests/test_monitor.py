@@ -62,6 +62,20 @@ class TestWKSFileMonitor(unittest.TestCase):
         self.assertTrue(monitor._should_ignore('/tmp/wks_test_monitor/test.log'))
         self.assertFalse(monitor._should_ignore('/tmp/wks_test_monitor/a.txt'))
 
+    def test_dot_directory_whitelisted(self):
+        monitor = WKSFileMonitor(self.state_file, dot_whitelist={'.config'})
+        path = self.temp_dir / '.config' / 'notes.txt'
+        path.parent.mkdir(exist_ok=True)
+        path.touch()
+        self.assertFalse(monitor._should_ignore(str(path)))
+
+    def test_dot_directory_without_whitelist(self):
+        monitor = WKSFileMonitor(self.state_file)
+        path = self.temp_dir / '.private' / 'secret.txt'
+        path.parent.mkdir(exist_ok=True)
+        path.touch()
+        self.assertTrue(monitor._should_ignore(str(path)))
+
     def test_track_change(self):
         monitor = WKSFileMonitor(self.state_file, on_change=self.on_change_mock)
         file_path = self.temp_dir / 'a.txt'

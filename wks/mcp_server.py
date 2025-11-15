@@ -56,14 +56,14 @@ class MCPServer:
                 }
             },
             "wks_monitor_list": {
-                "description": "Get contents of a monitor configuration list (include_paths, exclude_paths, ignore_dirnames, ignore_globs)",
+                "description": "Get contents of a monitor configuration list (include_paths, exclude_paths, ignore_dirnames, ignore_globs, dot_whitelist)",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to retrieve",
-                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs"]
+                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "dot_whitelist"]
                         }
                     },
                     "required": ["list_name"]
@@ -77,11 +77,11 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs"]
+                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "dot_whitelist"]
                         },
                         "value": {
                             "type": "string",
-                            "description": "Value to add (path for include/exclude_paths, dirname for ignore_dirnames, pattern for ignore_globs)"
+                            "description": "Value to add (path for include/exclude_paths, dirname for ignore_dirnames, pattern for ignore_globs, entry for dot_whitelist)"
                         }
                     },
                     "required": ["list_name", "value"]
@@ -95,7 +95,7 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs"]
+                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "dot_whitelist"]
                         },
                         "value": {
                             "type": "string",
