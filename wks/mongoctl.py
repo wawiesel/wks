@@ -16,6 +16,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from pymongo.uri_parser import parse_uri as _parse_mongo_uri
+
 import pymongo
 
 from .utils import wks_home_path
@@ -23,7 +25,7 @@ from .utils import wks_home_path
 MONGO_ROOT = wks_home_path("mongodb")
 MONGO_PID_FILE = MONGO_ROOT / "mongod.pid"
 MONGO_MANAGED_FLAG = MONGO_ROOT / "managed"
-_LOCAL_URIS = ("mongodb://localhost:27017", "mongodb://127.0.0.1:27017", "mongodb://localhost:27027", "mongodb://127.0.0.1:27027")
+_LOCAL_URI_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 def pid_running(pid: int) -> bool:
@@ -43,59 +45,103 @@ def mongo_ping(uri: str, timeout_ms: int = 500) -> bool:
         return False
 
 
+def _local_node(uri: str) -> Optional[tuple[str, int]]:
+    """Return the single loopback node defined by the URI, if any."""
+    if not uri or uri.startswith("mongodb+srv://"):
+        return None
+
+    try:
+        parsed = _parse_mongo_uri(uri, validate=False)
+    except Exception:
+        return None
+
+    nodes = parsed.get("nodelist") or []
+    if len(nodes) != 1:
+        return None
+
+    host, port = nodes[0]
+    if host not in _LOCAL_URI_HOSTS:
+        return None
+    return host, port
+
+
+def _is_local_uri(uri: str) -> bool:
+    return _local_node(uri) is not None
+
+
 def ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
+    uri = (uri or "").strip()
+    if not uri:
+        print("Fatal: MongoDB URI is empty; configure db.uri in config.json")
+        raise SystemExit(2)
+
     if mongo_ping(uri):
         return
-    is_local = uri.startswith(_LOCAL_URIS)
-    if is_local and shutil.which("mongod"):
+    local_node = _local_node(uri)
+    if local_node and shutil.which("mongod"):
+        host, port = local_node
+        bind_ip = "127.0.0.1" if host in ("localhost", "127.0.0.1") else host
         dbroot = MONGO_ROOT
         dbpath = dbroot / "db"
         logfile = dbroot / "mongod.log"
         dbroot.mkdir(parents=True, exist_ok=True)
         dbpath.mkdir(parents=True, exist_ok=True)
         pidfile = MONGO_PID_FILE if record_start else (dbroot / "mongod.pid.tmp")
+        proc_pid: Optional[int] = None
         try:
             if pidfile.exists():
                 pidfile.unlink()
         except Exception:
             pass
         try:
-            subprocess.check_call(
-                [
-                    "mongod",
-                    "--dbpath",
-                    str(dbpath),
-                    "--logpath",
-                    str(logfile),
-                    "--fork",
-                    "--pidfilepath",
-                    str(pidfile),
-                    "--bind_ip",
-                    "127.0.0.1",
-                    "--port",
-                    "27027",
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            with open(logfile, "ab") as log_handle:
+                proc = subprocess.Popen(
+                    [
+                        "mongod",
+                        "--dbpath",
+                        str(dbpath),
+                        "--logpath",
+                        str(logfile),
+                        "--logappend",
+                        "--bind_ip",
+                        bind_ip,
+                        "--port",
+                        str(port),
+                    ],
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+            proc_pid = proc.pid
+            try:
+                pidfile.write_text(str(proc_pid))
+            except Exception:
+                pass
         except Exception as exc:
             print(f"Fatal: failed to auto-start local mongod: {exc}")
             raise SystemExit(2)
-        time.sleep(0.3)
-        if mongo_ping(uri, timeout_ms=1000):
-            if record_start:
-                try:
-                    pid = int(pidfile.read_text().strip())
-                    MONGO_MANAGED_FLAG.write_text(str(pid))
-                except Exception:
-                    pass
-            else:
-                try:
-                    pidfile.unlink()
-                except Exception:
-                    pass
-            return
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            if mongo_ping(uri, timeout_ms=1000):
+                if record_start:
+                    if proc_pid:
+                        try:
+                            MONGO_MANAGED_FLAG.write_text(str(proc_pid))
+                        except Exception:
+                            pass
+                else:
+                    try:
+                        pidfile.unlink()
+                    except Exception:
+                        pass
+                return
+            time.sleep(0.3)
         print(f"Fatal: mongod started but MongoDB still unreachable; check logs in {dbroot}/mongod.log")
+        if proc_pid:
+            try:
+                os.kill(proc_pid, signal.SIGTERM)
+            except Exception:
+                pass
         raise SystemExit(2)
     print(f"Fatal: MongoDB not reachable at {uri}; start mongod and retry.")
     raise SystemExit(2)
@@ -147,11 +193,11 @@ class MongoGuard:
     """Background watcher that keeps the managed local MongoDB online."""
 
     def __init__(self, uri: str, *, ping_interval: float = 10.0):
-        self.uri = uri or ""
+        self.uri = (uri or "").strip()
         self.ping_interval = max(float(ping_interval), 0.01)
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-        self._manage_local = any(self.uri.startswith(prefix) for prefix in _LOCAL_URIS)
+        self._manage_local = _is_local_uri(self.uri)
 
     def start(self, *, record_start: bool = True) -> None:
         if not self.uri:

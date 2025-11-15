@@ -43,7 +43,7 @@ def test_cli_config_print_json(monkeypatch):
         "display": {"timestamp_format": "%Y-%m-%d %H:%M:%S"}
     }
     monkeypatch.setattr('wks.cli.load_config', lambda: cfg)
-    rc, out = run_cli(['--display','mcp','config'], monkeypatch)
+    rc, out = run_cli(['--display', 'mcp', 'config'], monkeypatch)
     assert rc == 0
     data = json.loads(out)
     # New structure: vault section
@@ -83,7 +83,7 @@ def test_cli_db_query_space_json(monkeypatch):
     coll = client['wks_similarity']['file_embeddings']
     coll.insert_one({'path': '/tmp/x.txt', 'timestamp': '2025-10-28T10:00:00.000000'})
     monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: client)
-    rc, out = run_cli(['--display','json','db','query','--space','--filter','{}','--limit','1'])
+    rc, out = run_cli(['--display', 'json', 'db', 'query', '--space', '--filter', '{}', '--limit', '1'])
     assert rc == 0
     assert '/tmp/x.txt' in out
 
@@ -93,13 +93,14 @@ def test_cli_service_status_json_parsed(tmp_path, monkeypatch):
     home = tmp_path
     (home / WKS_HOME_EXT).mkdir(parents=True, exist_ok=True)
     health = {
-        'uptime_hms':'00:01:00','pid': '12345',
-        'avg_beats_per_min': 30.0, 'pending_deletes':0, 'pending_mods':0, 'last_error': None,
+        'uptime_hms': '00:01:00', 'pid': '12345',
+        'avg_beats_per_min': 30.0, 'pending_deletes': 0, 'pending_mods': 0, 'last_error': None,
         'lock_present': True
     }
     (home / WKS_HOME_EXT / 'health.json').write_text(json.dumps(health))
     monkeypatch.setattr('pathlib.Path.home', lambda: home)
     # Fake launchctl print
+
     def _fake_check_output(args, stderr=None):
         return ("""
 gui/XXXX/com.wieselquist.wks0 = {
@@ -125,15 +126,18 @@ gui/XXXX/com.wieselquist.wks0 = {
 """).encode('utf-8')
     monkeypatch.setattr('subprocess.check_output', _fake_check_output)
     monkeypatch.setattr('wks.cli._agent_installed', lambda: True)
+
     class FakeCursor(list):
         def sort(self, *args, **kwargs):
             return self
+
         def limit(self, *args, **kwargs):
             return self
 
     class FakeCollection:
         def count_documents(self, *_):
             return 0
+
         def find(self, *args, **kwargs):
             return FakeCursor()
 
@@ -144,16 +148,19 @@ gui/XXXX/com.wieselquist.wks0 = {
     class FakeClient:
         def __init__(self, *a, **k):
             self.admin = self
+
         def command(self, *_):
             return {"ok": 1}
+
         def __getitem__(self, name):
             return FakeDB()
+
         def close(self):
             pass
 
     monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: FakeClient())
 
-    rc, out = run_cli(['--display','json','service','status'])
+    rc, out = run_cli(['--display', 'json', 'service', 'status'])
     assert rc == 0
     data = json.loads(out)
     service = data['service']
@@ -178,17 +185,20 @@ def test_cli_db_reset_drops_and_removes(tmp_path, monkeypatch):
     monkeypatch.setattr('pathlib.Path.home', lambda: home)
     # Config
     monkeypatch.setattr('wks.cli.load_config', lambda: {
-        'similarity': {'mongo_uri':'mongodb://localhost:27027/','database':'wks_similarity','collection':'file_embeddings'}
+        'similarity': {'mongo_uri': 'mongodb://localhost:27027/', 'database': 'wks_similarity', 'collection': 'file_embeddings'}
     })
     # Fake Mongo drop
+
     class FakeClient:
         def __init__(self, *a, **k): pass
+
         class admin:
             @staticmethod
-            def command(x): return {'ok':1}
+            def command(x): return {'ok': 1}
+
         def drop_database(self, name): self.dropped = name
     monkeypatch.setattr('wks.cli.pymongo.MongoClient', FakeClient)
-    rc, out = run_cli(['--display','json','db','reset'])
+    rc, out = run_cli(['--display', 'json', 'db', 'reset'])
     assert rc == 0
     assert not (home / WKS_HOME_EXT / 'mongodb').exists()
 
@@ -196,12 +206,13 @@ def test_cli_db_reset_drops_and_removes(tmp_path, monkeypatch):
 def test_cli_index_json_progress(monkeypatch):
     # Fake similarity loader and iter_files
     class FakeDB:
-        def __init__(self): self.count=0
-        def add_file(self, p, extraction=None, **kwargs): self.count+=1; return True
-        def get_last_add_result(self): return {'content_checksum':'abc','text':'content','timings': {'embed': 0.01, 'db_update': 0.002, 'chunks': 0.001}}
-        def get_stats(self): return {'database':'wks_similarity','collection':'file_embeddings','total_files': self.count, 'total_bytes': 1234}
+        def __init__(self): self.count = 0
+        def add_file(self, p, extraction=None, **kwargs): self.count += 1; return True
+        def get_last_add_result(self): return {'content_checksum': 'abc', 'text': 'content', 'timings': {'embed': 0.01, 'db_update': 0.002, 'chunks': 0.001}}
+        def get_stats(self): return {'database': 'wks_similarity', 'collection': 'file_embeddings', 'total_files': self.count, 'total_bytes': 1234}
     monkeypatch.setattr('wks.cli._load_similarity_required', lambda: (FakeDB(), {}))
     monkeypatch.setattr('wks.cli._iter_files', lambda paths, exts, cfg: [Path('a.txt'), Path('b.txt')])
+
     class FakeExtractor:
         def extract(self, path, persist=True):
             from types import SimpleNamespace
@@ -214,10 +225,11 @@ def test_cli_index_json_progress(monkeypatch):
             )
     monkeypatch.setattr('wks.cli._build_extractor', lambda cfg: FakeExtractor())
     # Vault writer
+
     class FakeVault:
         def write_doc_text(self, *a, **k): pass
     monkeypatch.setattr('wks.cli._load_vault', lambda: FakeVault())
-    rc, out = run_cli(['--display','json','index','a.txt','b.txt'])
+    rc, out = run_cli(['--display', 'json', 'index', 'a.txt', 'b.txt'])
     assert rc == 0
     # Expect textual progress lines even in JSON mode (shows in captured output)
     assert '[1/2]' in out or '[2/2]' in out
@@ -236,6 +248,7 @@ def test_cli_extract_runs_extractor(monkeypatch):
 
     class FakeExtractor:
         def __init__(self): self.calls = []
+
         def extract(self, path, persist=True):
             self.calls.append(path)
             from types import SimpleNamespace
@@ -249,7 +262,7 @@ def test_cli_extract_runs_extractor(monkeypatch):
 
     fake = FakeExtractor()
     monkeypatch.setattr('wks.cli._build_extractor', lambda cfg: fake)
-    rc, out = run_cli(['--display','json','extract','/tmp'])
+    rc, out = run_cli(['--display', 'json', 'extract', '/tmp'])
     assert rc == 0
     assert len(fake.calls) == len(files)
     for path in files:
@@ -259,7 +272,8 @@ def test_cli_extract_runs_extractor(monkeypatch):
 
 def test_cli_index_untrack(monkeypatch):
     class FakeDB:
-        def __init__(self): self.removed=[]
+        def __init__(self): self.removed = []
+
         def remove_file(self, path, **kwargs):
             self.removed.append(path)
             return True
@@ -267,7 +281,7 @@ def test_cli_index_untrack(monkeypatch):
     monkeypatch.setattr('wks.cli._load_similarity_required', lambda: (fake_db, {}))
     monkeypatch.setattr('wks.cli._iter_files', lambda paths, exts, cfg: [Path('one.txt'), Path('two.txt')])
     monkeypatch.setattr('wks.cli.load_config', lambda: {})
-    rc, out = run_cli(['--display','json','index','--untrack','one.txt','two.txt'])
+    rc, out = run_cli(['--display', 'json', 'index', '--untrack', 'one.txt', 'two.txt'])
     assert rc == 0
     assert 'Untracked 2 file(s)' in out
     assert fake_db.removed == [Path('one.txt'), Path('two.txt')]
@@ -276,19 +290,28 @@ def test_cli_index_untrack(monkeypatch):
 def test_ensure_mongo_running_autostarts(monkeypatch, tmp_path):
     import wks.mongoctl as mongoctl
     calls = []
+
     def fake_ping(uri, timeout_ms=500):
         calls.append((uri, timeout_ms))
         return len(calls) > 1
     monkeypatch.setattr(mongoctl, "mongo_ping", fake_ping)
     starts = []
     monkeypatch.setattr(mongoctl.shutil, "which", lambda exe: "/usr/bin/mongod" if exe == "mongod" else None)
-    def fake_check_call(cmd, *args, **kwargs):
+
+    def fake_popen(cmd, *args, **kwargs):
         starts.append(cmd)
-    monkeypatch.setattr(mongoctl.subprocess, "check_call", fake_check_call)
+
+        class Proc:
+            pid = 4242
+        return Proc()
+    monkeypatch.setattr(mongoctl.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(mongoctl.time, "sleep", lambda _: None)
     mongoctl.ensure_mongo_running("mongodb://localhost:27027/")
     assert starts, "mongod should be started when initial ping fails"
     assert len(calls) >= 2
+    assert "--port" in starts[0]
+    port_arg_index = starts[0].index("--port") + 1
+    assert starts[0][port_arg_index] == "27027"
 
 
 def test_ensure_mongo_running_fails_without_mongod(monkeypatch):
@@ -303,10 +326,12 @@ def test_mongo_client_params_calls_ensure(monkeypatch, tmp_path):
     import wks.cli as cli
     import wks.mongoctl as mongoctl
     called = {}
+
     def fake_ensure(uri, record_start=False):
         called['ensure_uri'] = uri
         called['record'] = record_start
     monkeypatch.setattr(mongoctl, "ensure_mongo_running", fake_ensure)
+
     def fake_create(uri, server_timeout=500, connect_timeout=500, ensure_running=True):
         if ensure_running:
             fake_ensure(uri)
@@ -331,10 +356,12 @@ def test_mongo_client_params_skip_ensure(monkeypatch, tmp_path):
     import wks.cli as cli
     import wks.mongoctl as mongoctl
     called = {"ensure": 0}
+
     def fail_ensure(uri, record_start=False):
         called["ensure"] += 1
         raise AssertionError("ensure should not run")
     monkeypatch.setattr(mongoctl, "ensure_mongo_running", fail_ensure)
+
     def fake_create(uri, server_timeout=500, connect_timeout=500, ensure_running=True):
         called["ensure_running"] = ensure_running
         import mongomock
@@ -375,6 +402,7 @@ def test_stop_managed_mongo(monkeypatch, tmp_path):
 def test_mongo_guard_restarts_local(monkeypatch):
     import wks.mongoctl as mongoctl
     ping_values = iter([False, True])
+
     def fake_ping(uri, timeout_ms=500):
         try:
             return next(ping_values)
@@ -383,6 +411,7 @@ def test_mongo_guard_restarts_local(monkeypatch):
     monkeypatch.setattr(mongoctl, "mongo_ping", fake_ping)
     ensure_calls = []
     resumed = threading.Event()
+
     def fake_ensure(uri, record_start=False):
         ensure_calls.append(record_start)
         if len(ensure_calls) > 1:
@@ -399,6 +428,7 @@ def test_db_reset_restarts_mongo(monkeypatch, tmp_path):
     import wks.cli as cli
     import wks.mongoctl as mongoctl
     calls = {}
+
     def fake_ensure(uri, record_start=False):
         calls['uri'] = uri
         calls['record'] = record_start
@@ -411,18 +441,21 @@ def test_db_reset_restarts_mongo(monkeypatch, tmp_path):
         "time_database": "wks_similarity",
         "time_collection": "file_snapshots",
     })
+
     class FakeClient:
         def __init__(self, *a, **k):
             pass
+
         class admin:
             @staticmethod
             def command(_):
                 return {"ok": 1}
+
         def drop_database(self, name):
             pass
     monkeypatch.setattr('pymongo.MongoClient', lambda *a, **k: FakeClient())
     monkeypatch.setattr('wks.cli.load_config', lambda: {})
-    rc, _ = run_cli(['--display','json','db','reset'])
+    rc, _ = run_cli(['--display', 'json', 'db', 'reset'])
     assert rc == 0
     assert calls["uri"] == "mongodb://localhost:27027/"
     assert calls["record"] is True
