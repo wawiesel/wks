@@ -30,7 +30,7 @@ Exit criteria:
   - `wks/cli/helpers.py` - Shared helper functions
   - `wks/cli/dataclasses.py` - CLI-specific dataclasses
   - `wks/cli/constants.py` - CLI constants
-- Renamed CLI from `wkso` to `wks0` (dev version)
+- Renamed CLI from `wks0` to `wks0` (dev version)
 - Unified table display format for `service status` and `monitor status`:
   - Reflowing two-column layout with panels
   - Health section on left, File System on right for service status

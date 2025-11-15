@@ -284,15 +284,15 @@ def setup_pattern_parser(subparsers):
     pattern_parser = subparsers.add_parser('pattern', help='Pattern script management')
     pattern_sub = pattern_parser.add_subparsers(dest='pattern_command')
 
-    # wkso pattern list
+    # wks0 pattern list
     list_parser = pattern_sub.add_parser('list', help='List available patterns')
     list_parser.add_argument('--format', choices=['table', 'json'], default='table')
 
-    # wkso pattern show <name>
+    # wks0 pattern show <name>
     show_parser = pattern_sub.add_parser('show', help='Show pattern documentation')
     show_parser.add_argument('name', help='Pattern name')
 
-    # wkso pattern run <name> [args...]
+    # wks0 pattern run <name> [args...]
     run_parser = pattern_sub.add_parser('run', help='Execute a pattern')
     run_parser.add_argument('name', help='Pattern name')
     run_parser.add_argument('args', nargs='*', help='Arguments to pass to pattern')
@@ -470,7 +470,7 @@ def main():
         elif args.pattern_command == 'run':
             return cmd_pattern_run(args)
         else:
-            print("Usage: wkso pattern {list|show|run}")
+            print("Usage: wks0 pattern {list|show|run}")
             return 1
 
     # MCP serve dispatch
@@ -575,7 +575,7 @@ echo "✓ Complete"
 ### Human CLI
 ```bash
 # List patterns
-wkso pattern list
+wks0 pattern list
 # Output:
 # Patterns directory: ~/.wks/patterns
 #
@@ -583,13 +583,13 @@ wkso pattern list
 # ✓ picofday           Picture of the Day organizer       ~/.wks/patterns/picofday
 
 # Show documentation
-wkso pattern show picofday
+wks0 pattern show picofday
 
 # Run pattern
-wkso pattern run picofday ~/Downloads/nuclear_data_plot.png
+wks0 pattern run picofday ~/Downloads/nuclear_data_plot.png
 
 # JSON output
-wkso pattern list --format json
+wks0 pattern list --format json
 ```
 
 ### AI MCP
@@ -598,7 +598,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "wks-patterns": {
-      "command": "wkso",
+      "command": "wks0",
       "args": ["mcp", "serve", "patterns"]
     }
   }
@@ -625,9 +625,9 @@ Arguments: {"file_path": "/Users/ww5/Downloads/figure.png"}
 
 ### Manual Smoke Tests
 1. Create test pattern script
-2. `wkso pattern list` shows it
-3. `wkso pattern show <name>` extracts docs
-4. `wkso pattern run <name>` executes
+2. `wks0 pattern list` shows it
+3. `wks0 pattern show <name>` extracts docs
+4. `wks0 pattern run <name>` executes
 5. MCP server exposes as tool
 
 ## Design Principles

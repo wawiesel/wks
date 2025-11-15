@@ -11,16 +11,16 @@ Extend `SimilarityDB.find_similar()` to provide a user-facing command for discov
 
 ```bash
 # Basic usage
-wkso related <path>
+wks0 related <path>
 
 # With filters
-wkso related paper.pdf --limit 10 --min-similarity 0.7 --type pdf
+wks0 related paper.pdf --limit 10 --min-similarity 0.7 --type pdf
 
 # JSON output
-wkso related paper.pdf --format json
+wks0 related paper.pdf --format json
 
 # Explain why related
-wkso related paper.pdf --explain
+wks0 related paper.pdf --explain
 ```
 
 ## Implementation Approach

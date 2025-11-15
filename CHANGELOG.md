@@ -7,14 +7,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [0.2.8] - 2025-11-03
 ### Added
 - Every Mongo database now stores a `_wks_meta` compatibility tag so upgrades can reuse existing embeddings when the schema is still compatible. Configure overrides via `mongo.compatibility.space|time` in `~/.wks/config.json`.
-- `wkso db info/query` and the daemon status panel validate compatibility tags and explain how to override them instead of silently rebuilding the database.
+- `wks0 db info/query` and the daemon status panel validate compatibility tags and explain how to override them instead of silently rebuilding the database.
 - Optional Obsidian views that read `SimilarityDB` (Health/ActiveFiles) honor the same compatibility tags.
 - Markdown outputs (service status, `db query`) now render through Jinja2 templates fed by the same JSON payloads used for `--display json`.
 
 ### Changed
-- `wkso service`/daemon startup halts early when the stored compatibility tag does not match the current build, preventing unintended data wipes.
+- `wks0 service`/daemon startup halts early when the stored compatibility tag does not match the current build, preventing unintended data wipes.
 - Progress bars no longer rely on Rich-only options, restoring compatibility with the pinned Rich version in `.venv`.
 - MongoDB connection setup is centralized in `mongoctl.create_client`, removing duplicated ensure/ping logic across the CLI.
+- `wks0 mcp install` registers the MCP server with Cursor, Claude, and Gemini configs so clients can auto-launch it without manual editing.
+- The WKS daemon now embeds an MCP broker; `wks0 mcp run` automatically proxies to the running service so Mongo, file monitoring, and MCP live under the same `wks0 service` lifecycle.
 
 ## [0.2.7] - 2025-11-03
 ### Added
@@ -28,19 +30,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Daemon now launches a background maintenance thread that regularly runs `SimilarityDB.audit_documents()` and shuts down cleanly with the Mongo client.
 
 ### Changed
-- `wkso service status` and `wkso db info` display timestamps using the configured `display.timestamp_format` and backfill missing byte totals by inspecting on-disk files.
+- `wks0 service status` and `wks0 db info` display timestamps using the configured `display.timestamp_format` and backfill missing byte totals by inspecting on-disk files.
 
 ### Fixed
 - Space DB audits handle documents stored with plain filesystem paths (without `file://`), ensuring missing `bytes` metadata is repopulated.
 
 ## [0.2.5] - 2025-10-29
 ### Added
-- `wkso extract` runs the configured extractor and persists artefacts without touching the database.
-- `wkso index --untrack` removes tracked entries and cleans their extraction artefacts from the Space DB.
+- `wks0 extract` runs the configured extractor and persists artefacts without touching the database.
+- `wks0 index --untrack` removes tracked entries and cleans their extraction artefacts from the Space DB.
 
 ### Changed
-- Space database documents now store absolute file URIs, checksum/size/angle metadata, and all CLI views respect `display.timestamp_format`; `wkso db info` surfaces timestamp, checksum, size, angle, and URI in that order.
-- `wkso config print` emits the canonical config structure (including `display` and `mongo` blocks) and normalization defaults; `wkso index` shares the extraction pipeline with `wkso extract`.
+- Space database documents now store absolute file URIs, checksum/size/angle metadata, and all CLI views respect `display.timestamp_format`; `wks0 db info` surfaces timestamp, checksum, size, angle, and URI in that order.
+- `wks0 config print` emits the canonical config structure (including `display` and `mongo` blocks) and normalization defaults; `wks0 index` shares the extraction pipeline with `wks0 extract`.
 - Similarity indexing caches extracted content under `.wkso/<checksum>.md`, cleans stale artefacts on updates/moves, and tracks removals via the CLI.
 
 ## [0.2.4] - 2025-10-29
@@ -48,45 +50,45 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - `display.timestamp_format` config option (default `%Y-%m-%d %H:%M:%S`) drives all CLI/Obsidian timestamp output.
 
 ### Changed
-- `wkso db info` now surfaces checksum, chunk count, and size columns and respects the configured timestamp format across both space/time views.
+- `wks0 db info` now surfaces checksum, chunk count, and size columns and respects the configured timestamp format across both space/time views.
 
 ## [0.2.3] - 2025-10-29
 ### Added
-- `wkso --version` now includes the current git SHA (when available) alongside the package version.
-- `wkso config print` surfaces the shared `mongo` block and hides legacy `similarity.mongo_*` keys so the output matches the canonical config structure.
+- `wks0 --version` now includes the current git SHA (when available) alongside the package version.
+- `wks0 config print` surfaces the shared `mongo` block and hides legacy `similarity.mongo_*` keys so the output matches the canonical config structure.
 
 ### Changed
-- Service lifecycle now fully manages the bundled MongoDB: `install|start|reset` auto-start `mongod`, `stop|reset|uninstall` shut it down, and `wkso db reset` restarts it after clearing data so the daemon immediately reconnects.
-- CLI database commands (`wkso db info/query/reset`) bootstrap the local Mongo instance before use, preventing connection-refused errors during manual runs.
+- Service lifecycle now fully manages the bundled MongoDB: `install|start|reset` auto-start `mongod`, `stop|reset|uninstall` shut it down, and `wks0 db reset` restarts it after clearing data so the daemon immediately reconnects.
+- CLI database commands (`wks0 db info/query/reset`) bootstrap the local Mongo instance before use, preventing connection-refused errors during manual runs.
 
 ## [0.2.2] - 2025-10-28
 ### Added
-- `wkso --version` prints the installed CLI version.
+- `wks0 --version` prints the installed CLI version.
 
 ### Fixed
-- `wkso db query` and related commands now connect with minimal config and respect patched `pymongo.MongoClient`, avoiding hard `similarity.enabled` requirements.
+- `wks0 db query` and related commands now connect with minimal config and respect patched `pymongo.MongoClient`, avoiding hard `similarity.enabled` requirements.
 
 ### Changed
-- Canonicalized `wkso db info` (dropping the `stats` alias) with short timeouts and defaults for missing config values.
-- `wkso service install|start|reset` now verify MongoDB is reachable and auto-start a local `mongod` on the default port when needed.
-- All CLI code paths (including `wkso db`) now auto-start the default local MongoDB when it isn't already running.
+- Canonicalized `wks0 db info` (dropping the `stats` alias) with short timeouts and defaults for missing config values.
+- `wks0 service install|start|reset` now verify MongoDB is reachable and auto-start a local `mongod` whenever the configured URI targets loopback.
+- All CLI code paths (including `wks0 db`) now auto-start the configured local MongoDB when it isn't already running.
 - Config promotes MongoDB settings to a dedicated `mongo` block; similarity inherits those values automatically.
 
 ## [0.2.0] - 2025-10-28
 ### Added
-- Rich dashboard for `wkso service status` with parsed launchctl info and fast Space DB panel.
-- `wkso service reset` to stop agent, reset DB/state, and restart cleanly.
-- `wkso db reset` to drop Mongo databases and remove local data dir.
-- `-n/--latest` to `wkso db info` to list most-recent files/snapshots quickly.
-- Auto-start local mongod (27027) during `wkso index` when needed.
+- Rich dashboard for `wks0 service status` with parsed launchctl info and fast Space DB panel.
+- `wks0 service reset` to stop agent, reset DB/state, and restart cleanly.
+- `wks0 db reset` to drop Mongo databases and remove local data dir.
+- `-n/--latest` to `wks0 db info` to list most-recent files/snapshots quickly.
+- Auto-start local mongod for any loopback URI during `wks0 index` when needed.
 - Directory move handling via `rename_folder` to update descendant paths in-place.
 - Pytest suite for Space DB (index, move, rename detection, folder moves).
 
 ### Changed
-- `wkso db info` uses a lightweight client with short timeouts for responsiveness.
+- `wks0 db info` uses a lightweight client with short timeouts for responsiveness.
 - Service status defaults to rich panels; json mode emits the structured status document.
 - Docling is now a required extractor (no optional branches).
-- Primary CLI is `wkso`; package remains `wks`.
+- Primary CLI is `wks0`; package remains `wks`.
 
 ### Removed
 - Legacy `analyze` CLI surface; kept CLI minimal: `config`, `service`, `index`, `db`.
@@ -96,4 +98,4 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Initial rich status panel, tests setup, KISS/DRY cleanup.
 
 ## [0.1.0] - 2025-10-27
-- Initial release of `wkso` CLI with `config`, `service`, `index`, `db`.
+- Initial release of `wks0` CLI with `config`, `service`, `index`, `db`.

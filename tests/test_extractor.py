@@ -31,7 +31,7 @@ def test_docling_fallback_to_builtin_text(tmp_path, monkeypatch):
     assert result.content_path.name.startswith(checksum)
 
 
-def test_extractor_uses_repo_root_wkso(tmp_path):
+def test_extractor_uses_repo_root_wks0(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()

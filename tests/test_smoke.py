@@ -35,11 +35,11 @@ def patch_model(monkeypatch):
 
 def test_smoke_index_new_file(tmp_path, patch_model):
     """
-    Index new file → wkso db info -n 5 shows it.
+    Index new file → wks0 db info -n 5 shows it.
 
     AGENTS.md requirement:
-    "Index new file: `wkso --display rich index ~/test/file.txt` →
-    `wkso --display rich db info -n 5` shows it."
+    "Index new file: `wks0 --display rich index ~/test/file.txt` →
+    `wks0 --display rich db info -n 5` shows it."
     """
     from wks.similarity import SimilarityDB
 
