@@ -185,8 +185,14 @@ class CLIDisplay(Display):
         syntax = Syntax(json_str, "json", theme="monokai", line_numbers=False)
         self.console.print(syntax)
 
-    def panel(self, content: str, title: str = "", **kwargs) -> None:
+    def panel(self, content: Any, title: str = "", **kwargs) -> None:
         """Display content in a panel."""
-        border_style = kwargs.get("border_style", "blue")
-        panel = Panel(content, title=title, border_style=border_style)
+        panel_kwargs = dict(kwargs)
+        border_style = panel_kwargs.pop("border_style", "blue")
+        panel = Panel(
+            content,
+            title=title,
+            border_style=border_style,
+            **panel_kwargs,
+        )
         self.console.print(panel)

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import mongoctl
+from .config import load_config, mongo_settings
 from .constants import WKS_HOME_EXT
 
 
@@ -203,14 +204,20 @@ class ServiceStatusData:
             ("  PID", str(self.pid) if self.pid is not None else "-"),
             ("  OK", _fmt_bool(self.ok, color=True)),
             ("  Lock", _fmt_bool(self.lock, color=True)),
-        ] + ([("  Last error", self.last_error)] if self.last_error else [])
+            (
+                "  Type",
+                self.launch.type
+                if (self.launch and self.launch.present() and self.launch.type)
+                else "LaunchAgent",
+            ),
+        ]
 
     def _build_filesystem_rows(self) -> List[Tuple[str, str]]:
         """Build File System section rows."""
-        rows = [("[bold cyan]File System[/bold cyan]", "")]
+        rows: List[Tuple[str, str]] = [("[bold cyan]File System[/bold cyan]", "")]
         rows.append(("  Pending deletes", str(self.pending_deletes) if self.pending_deletes is not None else "-"))
         rows.append(("  Pending mods", str(self.pending_mods) if self.pending_mods is not None else "-"))
-        
+
         if self.fs_rate_weighted is not None:
             rows.append(("  Ops (last min)", str(int(self.fs_rate_weighted * 60))))
         if self.fs_rate_short is not None:
@@ -219,17 +226,16 @@ class ServiceStatusData:
             rows.append(("  Ops/sec (10m)", f"{self.fs_rate_long:.2f}"))
         if self.fs_rate_weighted is not None:
             rows.append(("  Ops/sec (weighted)", f"{self.fs_rate_weighted:.2f}"))
-        
+
         return rows
 
     def _build_launch_rows(self) -> List[Tuple[str, str]]:
         """Build Launch section rows."""
         if not self.launch.present():
             return []
-        
+
         return [
             ("[bold cyan]Launch[/bold cyan]", ""),
-            ("  State", self.launch.state or "-"),
             ("  Program", self.launch.arguments or self.launch.program or "-"),
             ("  Stdout", self.launch.stdout or "-"),
             ("  Stderr", self.launch.stderr or "-"),
@@ -242,9 +248,6 @@ class ServiceStatusData:
         rows = []
         rows.extend(self._build_health_rows())
         rows.extend(self._build_filesystem_rows())
-        rows.extend(self._build_launch_rows())
-        if self.notes:
-            rows.append(("Notes", "; ".join(self.notes)))
         return rows
 
 
@@ -295,7 +298,7 @@ class ServiceController:
     def _read_health(status: ServiceStatusData) -> None:
         health_path = Path.home() / WKS_HOME_EXT / "health.json"
         health: Dict[str, Any] = {}
-        
+
         if health_path.exists():
             try:
                 with open(health_path, "r") as f:
@@ -316,7 +319,7 @@ class ServiceController:
             status.lock = bool(health.get("lock_present"))
             if health.get("last_error"):
                 status.last_error = str(health.get("last_error"))
-            
+
             for attr, key in [
                 ("fs_rate_short", "fs_rate_short"),
                 ("fs_rate_long", "fs_rate_long"),
@@ -374,4 +377,3 @@ __all__ = [
     "is_macos",
     "stop_managed_mongo",
 ]
-
