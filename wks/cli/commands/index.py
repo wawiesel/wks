@@ -86,7 +86,8 @@ def try_auto_start_mongod_and_build(
     from ...constants import WKS_HOME_EXT
 
     mongo_uri = mongo_settings(cfg)["uri"]
-    if not (mongo_uri.startswith("mongodb://localhost:27027") and shutil.which("mongod")):
+    node = mongoctl.local_node(mongo_uri)
+    if not (node and shutil.which("mongod")):
         print(f"Failed to initialize similarity DB: {original_error}")
         if require_enabled:
             raise SystemExit(2)
@@ -96,10 +97,12 @@ def try_auto_start_mongod_and_build(
     dbpath = dbroot / "db"
     logfile = dbroot / "mongod.log"
     dbpath.mkdir(parents=True, exist_ok=True)
+    host, port = node
+    bind_ip = "127.0.0.1" if host in ("localhost", "127.0.0.1") else host
     try:
         subprocess.check_call([
             "mongod", "--dbpath", str(dbpath), "--logpath", str(logfile),
-            "--fork", "--bind_ip", "127.0.0.1", "--port", "27027"
+            "--fork", "--bind_ip", bind_ip, "--port", str(port)
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         from ...similarity import build_similarity_from_config  # type: ignore
         db, sim_cfg = build_similarity_from_config(

@@ -10,6 +10,8 @@ from .utils import get_package_version, expand_path, file_checksum
 from .config import load_config
 from .config_validator import validate_and_raise, ConfigValidationError
 from .mongoctl import MongoGuard, ensure_mongo_running
+from .mcp_bridge import MCPBroker
+from .mcp_paths import mcp_socket_path
 from .obsidian import ObsidianVault
 from .monitor import start_monitoring
 from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
@@ -160,6 +162,8 @@ class WKSDaemon:
         self.mongo_uri = str(mongo_uri or "")
         self._mongo_guard: Optional[MongoGuard] = None
         self.monitor_collection = monitor_collection
+        self._mcp_broker: Optional[MCPBroker] = None
+        self._mcp_socket = mcp_socket_path()
 
     @staticmethod
     def _get_touch_weight(raw_weight: Any) -> float:
@@ -431,6 +435,7 @@ class WKSDaemon:
     def start(self):
         """Start monitoring."""
         self._start_mongo_guard()
+        self._start_mcp_broker()
         # Acquire single-instance lock
         self._acquire_lock()
         self.vault.ensure_structure()
@@ -456,6 +461,7 @@ class WKSDaemon:
             print("WKS daemon stopped")
         self._release_lock()
         self._stop_mongo_guard()
+        self._stop_mcp_broker()
 
     def _start_mongo_guard(self):
         if not self.mongo_uri:
@@ -472,6 +478,28 @@ class WKSDaemon:
             return
         try:
             guard.stop()
+        except Exception:
+            pass
+
+    def _start_mcp_broker(self):
+        socket_path = self._mcp_socket
+        if not socket_path:
+            return
+        broker = self._mcp_broker
+        if broker is None:
+            broker = MCPBroker(socket_path)
+            self._mcp_broker = broker
+        try:
+            broker.start()
+        except Exception as exc:
+            self._set_error(f"mcp_broker_error: {exc}")
+
+    def _stop_mcp_broker(self):
+        broker = self._mcp_broker
+        if not broker:
+            return
+        try:
+            broker.stop()
         except Exception:
             pass
 

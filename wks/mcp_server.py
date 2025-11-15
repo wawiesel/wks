@@ -7,7 +7,7 @@ Uses existing controllers for zero code duplication per SPEC.md.
 
 import json
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TextIO
 
 from .config import load_config
 from .monitor_controller import MonitorController
@@ -16,8 +16,15 @@ from .monitor_controller import MonitorController
 class MCPServer:
     """MCP server exposing WKS tools via stdio."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        input_stream: Optional[TextIO] = None,
+        output_stream: Optional[TextIO] = None,
+    ):
         """Initialize MCP server."""
+        self._input = input_stream or sys.stdin
+        self._output = output_stream or sys.stdout
         self.tools = {
             "wks_monitor_status": {
                 "description": "Get filesystem monitoring status and configuration",
@@ -154,11 +161,19 @@ class MCPServer:
                 }
             }
         }
+        self.resources = [
+            {
+                "uri": "mcp://wks/tools",
+                "name": "wks-monitor-tools",
+                "description": "WKS monitor tooling available via tools/call",
+                "type": "tool-collection"
+            }
+        ]
 
     def _read_message(self) -> Optional[Dict[str, Any]]:
         """Read JSON-RPC message from stdin."""
         try:
-            line = sys.stdin.readline()
+            line = self._input.readline()
             if not line:
                 return None
             return json.loads(line)
@@ -170,8 +185,8 @@ class MCPServer:
 
     def _write_message(self, message: Dict[str, Any]) -> None:
         """Write JSON-RPC message to stdout."""
-        sys.stdout.write(json.dumps(message) + "\n")
-        sys.stdout.flush()
+        self._output.write(json.dumps(message) + "\n")
+        self._output.flush()
 
     def _write_response(self, request_id: Any, result: Any) -> None:
         """Write JSON-RPC response."""
@@ -197,7 +212,8 @@ class MCPServer:
         self._write_response(request_id, {
             "protocolVersion": "2024-11-05",
             "capabilities": {
-                "tools": {}
+                "tools": {},
+                "resources": {}
             },
             "serverInfo": {
                 "name": "wks-mcp-server",
@@ -216,6 +232,17 @@ class MCPServer:
             for name, info in self.tools.items()
         ]
         self._write_response(request_id, {"tools": tools_list})
+
+    def _handle_list_resources(self, request_id: Any, params: Dict[str, Any]) -> None:
+        """Handle resources/list request with a single static page."""
+        if request_id is None:
+            return
+
+        # Basic pagination contract—single page only.
+        result = {"resources": self.resources}
+        if params.get("cursor") is not None:
+            result["nextCursor"] = None
+        self._write_response(request_id, result)
 
     def _build_tool_registry(self) -> Dict[str, callable]:
         """Build registry of tool handlers with parameter validation."""
@@ -452,6 +479,8 @@ class MCPServer:
                 pass
             elif method == "tools/list":
                 self._handle_list_tools(request_id)
+            elif method == "resources/list":
+                self._handle_list_resources(request_id, params)
             elif method == "tools/call":
                 self._handle_call_tool(request_id, params)
             elif method == "ping":

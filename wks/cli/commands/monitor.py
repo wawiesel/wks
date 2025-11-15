@@ -281,13 +281,9 @@ def display_monitor_status_table(
     display: Any,
     monitor_status_rows: List[Tuple[str, str]]
 ) -> None:
-    """Display the monitor status table using reflowing two-column layout.
-
-    Args:
-        display: Display object for rendering
-        monitor_status_rows: List of (key, value) tuples for monitor status data
-    """
+    """Display monitor status rows using the shared two-column table helper."""
     from ..helpers import display_status_table
+
     display_status_table(display, monitor_status_rows, title="Monitor Status")
 
 

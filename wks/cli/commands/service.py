@@ -26,6 +26,7 @@ from ...service_controller import (
 from ..display_strategies import get_display_strategy
 from ..helpers import maybe_write_json
 from ... import mongoctl
+from ...mcp_setup import install_mcp_configs
 
 
 # Launchd helpers
@@ -86,8 +87,16 @@ def daemon_status(args: argparse.Namespace) -> int:
     return strategy.render(status, args)
 
 
+def _ensure_mcp_registration() -> None:
+    try:
+        install_mcp_configs()
+    except Exception:
+        pass
+
+
 def daemon_start(_: argparse.Namespace):
     """Start daemon in background or via launchd if installed."""
+    _ensure_mcp_registration()
     mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
     if is_macos() and agent_installed():
         daemon_start_launchd()
@@ -158,6 +167,7 @@ def daemon_stop(_: argparse.Namespace):
 
 def daemon_restart(args: argparse.Namespace):
     """Restart daemon."""
+    _ensure_mcp_registration()
     # macOS launchd-managed restart
     if is_macos() and agent_installed():
         try:
@@ -190,6 +200,7 @@ def daemon_install(args: argparse.Namespace):
     if platform.system() != "Darwin":
         print("install is macOS-only (launchd)")
         return
+    _ensure_mcp_registration()
     pl = _plist_path()
     pl.parent.mkdir(parents=True, exist_ok=True)
     log_dir = Path.home() / WKS_HOME_EXT

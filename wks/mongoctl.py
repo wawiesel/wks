@@ -14,7 +14,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from pymongo.uri_parser import parse_uri as _parse_mongo_uri
 
@@ -45,7 +45,7 @@ def mongo_ping(uri: str, timeout_ms: int = 500) -> bool:
         return False
 
 
-def _local_node(uri: str) -> Optional[tuple[str, int]]:
+def local_node(uri: str) -> Optional[Tuple[str, int]]:
     """Return the single loopback node defined by the URI, if any."""
     if not uri or uri.startswith("mongodb+srv://"):
         return None
@@ -65,8 +65,8 @@ def _local_node(uri: str) -> Optional[tuple[str, int]]:
     return host, port
 
 
-def _is_local_uri(uri: str) -> bool:
-    return _local_node(uri) is not None
+def is_local_uri(uri: str) -> bool:
+    return local_node(uri) is not None
 
 
 def ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
@@ -77,9 +77,9 @@ def ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
 
     if mongo_ping(uri):
         return
-    local_node = _local_node(uri)
-    if local_node and shutil.which("mongod"):
-        host, port = local_node
+    local = local_node(uri)
+    if local and shutil.which("mongod"):
+        host, port = local
         bind_ip = "127.0.0.1" if host in ("localhost", "127.0.0.1") else host
         dbroot = MONGO_ROOT
         dbpath = dbroot / "db"
@@ -197,7 +197,7 @@ class MongoGuard:
         self.ping_interval = max(float(ping_interval), 0.01)
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
-        self._manage_local = _is_local_uri(self.uri)
+        self._manage_local = bool(local_node(self.uri))
 
     def start(self, *, record_start: bool = True) -> None:
         if not self.uri:

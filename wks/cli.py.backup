@@ -485,7 +485,7 @@ def _stop_managed_mongo() -> None:
 
 def _agent_label() -> str:
     # Unique launchd label bound to the new CLI name
-    return "com.wieselquist.wkso"
+    return "com.wieselquist.wks0"
 
 
 def _agent_plist_path() -> Path:
@@ -1289,7 +1289,7 @@ def _make_progress(total: int, display: str):
                 refresh_per_second=12,
             ) as progress:
                 task = progress.add_task(
-                    "wkso",
+                    "wks0",
                     total=total if total else None,
                     current="Starting",
                 )
@@ -1535,7 +1535,7 @@ def _load_vault() -> Any:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(prog="wkso", description="WKS management CLI")
+    parser = argparse.ArgumentParser(prog="wks0", description="WKS management CLI")
     sub = parser.add_subparsers(dest="cmd")
     # Global display mode
     pkg_version = get_package_version()
@@ -1550,7 +1550,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         git_sha = out.decode("utf-8", errors="ignore").strip()
     except Exception:
         git_sha = ""
-    version_str = f"wkso {pkg_version}"
+    version_str = f"wks0 {pkg_version}"
     if git_sha:
         version_str = f"{version_str} ({git_sha})"
     parser.add_argument(
@@ -1586,7 +1586,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 2
 
     def _plist_path() -> Path:
-        return Path.home()/"Library"/"LaunchAgents"/"com.wieselquist.wkso.plist"
+        return Path.home()/"Library"/"LaunchAgents"/"com.wieselquist.wks0.plist"
 
     def daemon_install(args: argparse.Namespace):
         if platform.system() != "Darwin":
@@ -1605,7 +1605,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.wieselquist.wkso</string>
+  <string>com.wieselquist.wks0</string>
   <key>LimitLoadToSessionType</key>
   <string>Aqua</string>
   <key>ProgramArguments</key>
@@ -1641,7 +1641,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             mongoctl.ensure_mongo_running(_default_mongo_uri(), record_start=True)
             prog.update("bootout legacy")
             for old in [
-                "com.wieselquist.wkso",
+                "com.wieselquist.wks0",
                 "com.wieselquist.wksctl",
                 "com.wieselquist.wks",
                 "com.wieselquist.wks.db",
@@ -1653,9 +1653,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             prog.update("bootstrap")
             _launchctl_quiet("bootstrap", f"gui/{uid}", str(pl))
             prog.update("enable")
-            _launchctl_quiet("enable", f"gui/{uid}/com.wieselquist.wkso")
+            _launchctl_quiet("enable", f"gui/{uid}/com.wieselquist.wks0")
             prog.update("kickstart")
-            _launchctl_quiet("kickstart", "-k", f"gui/{uid}/com.wieselquist.wkso")
+            _launchctl_quiet("kickstart", "-k", f"gui/{uid}/com.wieselquist.wks0")
             prog.update("done")
         print(f"Installed and started: {pl}")
 
@@ -1666,7 +1666,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         pl = _plist_path()
         uid = os.getuid()
         with _make_progress(total=4, display=args.display) as prog:
-            for label in ["com.wieselquist.wkso", "com.wieselquist.wksctl", "com.wieselquist.wks", "com.wieselquist.wks.db"]:
+            for label in ["com.wieselquist.wks0", "com.wieselquist.wksctl", "com.wieselquist.wks", "com.wieselquist.wks.db"]:
                 prog.update(f"bootout {label}")
                 try:
                     _launchctl_quiet("bootout", f"gui/{uid}", str(Path.home()/"Library"/"LaunchAgents"/(label+".plist")))
@@ -1737,8 +1737,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             if platform.system() == "Darwin":
                 pl = _plist_path()
                 _launchctl_quiet("bootstrap", f"gui/{os.getuid()}", str(pl))
-                _launchctl_quiet("enable", f"gui/{os.getuid()}/com.wieselquist.wkso")
-                _launchctl_quiet("kickstart", "-k", f"gui/{os.getuid()}/com.wieselquist.wkso")
+                _launchctl_quiet("enable", f"gui/{os.getuid()}/com.wieselquist.wks0")
+                _launchctl_quiet("kickstart", "-k", f"gui/{os.getuid()}/com.wieselquist.wks0")
             else:
                 daemon_start(args)
         except Exception:

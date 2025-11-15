@@ -1,4 +1,4 @@
-"""Tests for wkso related command."""
+"""Tests for wks0 related command."""
 
 import json
 import pytest
@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 
 
 def test_related_basic_table_output(tmp_path, monkeypatch):
-    """Test wkso related with table output format."""
+    """Test wks0 related with table output format."""
     # Create test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("This is a test document for similarity search.")
@@ -39,7 +39,7 @@ def test_related_basic_table_output(tmp_path, monkeypatch):
 
 
 def test_related_json_output(tmp_path, monkeypatch, capsys):
-    """Test wkso related with JSON output format."""
+    """Test wks0 related with JSON output format."""
     # Create test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("This is a test document.")
@@ -74,7 +74,7 @@ def test_related_json_output(tmp_path, monkeypatch, capsys):
 
 
 def test_related_with_limit(tmp_path, monkeypatch):
-    """Test wkso related with custom limit."""
+    """Test wks0 related with custom limit."""
     test_file = tmp_path / "test.txt"
     test_file.write_text("Test content")
 
@@ -96,7 +96,7 @@ def test_related_with_limit(tmp_path, monkeypatch):
 
 
 def test_related_with_min_similarity(tmp_path, monkeypatch):
-    """Test wkso related with minimum similarity threshold."""
+    """Test wks0 related with minimum similarity threshold."""
     test_file = tmp_path / "test.txt"
     test_file.write_text("Test content")
 
@@ -118,7 +118,7 @@ def test_related_with_min_similarity(tmp_path, monkeypatch):
 
 
 def test_related_file_not_found(tmp_path):
-    """Test wkso related with non-existent file."""
+    """Test wks0 related with non-existent file."""
     from wks.cli import main
     nonexistent = tmp_path / "nonexistent.txt"
 
@@ -127,7 +127,7 @@ def test_related_file_not_found(tmp_path):
 
 
 def test_related_no_results(tmp_path, monkeypatch, capsys):
-    """Test wkso related when no similar documents are found."""
+    """Test wks0 related when no similar documents are found."""
     test_file = tmp_path / "test.txt"
     test_file.write_text("Test content")
 
@@ -149,7 +149,7 @@ def test_related_no_results(tmp_path, monkeypatch, capsys):
 
 
 def test_related_database_error(tmp_path, monkeypatch):
-    """Test wkso related handles database errors gracefully."""
+    """Test wks0 related handles database errors gracefully."""
     test_file = tmp_path / "test.txt"
     test_file.write_text("Test content")
 
@@ -165,7 +165,7 @@ def test_related_database_error(tmp_path, monkeypatch):
 
 
 def test_related_find_similar_error(tmp_path, monkeypatch):
-    """Test wkso related handles find_similar errors gracefully."""
+    """Test wks0 related handles find_similar errors gracefully."""
     test_file = tmp_path / "test.txt"
     test_file.write_text("Test content")
 

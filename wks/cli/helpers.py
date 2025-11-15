@@ -141,39 +141,30 @@ def make_progress(total: int, display: str = "cli"):
 def display_status_table(
     display: Any,
     status_rows: List[Tuple[str, str]],
-    title: str = "Status"
+    title: str = "Status",
+    *,
+    key_width: Optional[int] = None,
+    value_width: Optional[int] = None,
 ) -> None:
-    """Display a status table using reflowing two-column layout.
-
-    This unified function is used by both service status and monitor status
-    to ensure consistent table formatting.
-
-    Args:
-        display: Display object for rendering
-        status_rows: List of (key, value) tuples for status data
-        title: Panel title (default: "Status")
-    """
+    """Display a status table using reflowing two-column layout."""
     from rich.table import Table
     from rich.panel import Panel
     from rich.columns import Columns
     from ..constants import MAX_DISPLAY_WIDTH
 
-    key_width = 24  # allow slightly longer key labels
-    value_width = 12  # ensure two-column layout still fits
+    if key_width is None:
+        key_width = max(16, min(30, MAX_DISPLAY_WIDTH // 5))
+    if value_width is None:
+        value_width = max(10, min(20, MAX_DISPLAY_WIDTH // 8))
 
-    # Create individual table rows that will reflow into columns
     row_tables = []
     for key, value in status_rows:
         row_table = Table(show_header=False, box=None, padding=(0, 1))
-        row_table.add_column("Key", justify="left", width=key_width)
+        row_table.add_column("Key", justify="left", width=key_width, no_wrap=True)
         row_table.add_column("Value", justify="right", width=value_width)
         row_table.add_row(key, value)
         row_tables.append(row_table)
 
-    # Use Columns with column_first=True for reflow layout
-    # This will fill the first column, then the second column
-    columns = Columns(row_tables, equal=True, column_first=True)
-
-    # Display status panel
+    columns = Columns(row_tables, equal=True, column_first=True, expand=True)
     panel = Panel.fit(columns, title=title, border_style="cyan", width=MAX_DISPLAY_WIDTH)
     display.console.print(panel)

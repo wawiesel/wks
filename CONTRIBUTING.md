@@ -33,5 +33,5 @@
 
 ## Security & Configuration Tips
 - User config: `~/.wks/config.json` (e.g., `obsidian.base_dir`, monitor paths, similarity settings). Never commit secrets.
-- Default Mongo: `mongodb://localhost:27027/` (auto‑start if available). Support offline models where possible.
+- Default Mongo: `mongodb://localhost:27017/` (any single-host loopback URI auto-starts when `mongod` is available). Support offline models where possible.
 - Respect ignore settings; never write outside the configured vault base dir.

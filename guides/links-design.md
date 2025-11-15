@@ -17,7 +17,7 @@ Already implemented in `wks/obsidian.py`:
 
 ## New Commands
 
-### `wkso links audit`
+### `wks0 links audit`
 Comprehensive link health check:
 - Scan all markdown files in vault
 - Find broken wiki links `[[path/to/file]]`
@@ -25,14 +25,14 @@ Comprehensive link health check:
 - Find references to deleted files
 - Generate report of issues
 
-### `wkso links fix`
+### `wks0 links fix`
 Automated repair:
 - Fix references to moved files (using file operations log)
 - Update legacy `[[links/...]]` to `[[_links/...]]`
 - Remove references to permanently deleted files
 - Interactive confirmation mode
 
-### `wkso links report`
+### `wks0 links report`
 Health dashboard:
 - Total links in vault
 - Broken link count
@@ -112,7 +112,7 @@ Issues:
   ~/obsidian/Topics/Nuclear_Data.md:42
     [[links/legacy/document.pdf]] → Legacy path (use _links)
 
-Run 'wkso links fix' to repair automatically.
+Run 'wks0 links fix' to repair automatically.
 ```
 
 ### Fix Output
