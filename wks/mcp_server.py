@@ -25,6 +25,7 @@ class MCPServer:
         """Initialize MCP server."""
         self._input = input_stream or sys.stdin
         self._output = output_stream or sys.stdout
+        self._lsp_mode = False
         self.tools = {
             "wks_monitor_status": {
                 "description": "Get filesystem monitoring status and configuration",
@@ -56,14 +57,14 @@ class MCPServer:
                 }
             },
             "wks_monitor_list": {
-                "description": "Get contents of a monitor configuration list (include_paths, exclude_paths, ignore_dirnames, ignore_globs, dot_whitelist)",
+                "description": "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to retrieve",
-                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "dot_whitelist"]
+                            "enum": ["include_paths", "exclude_paths", "include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"]
                         }
                     },
                     "required": ["list_name"]
@@ -77,11 +78,11 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "dot_whitelist"]
+                            "enum": ["include_paths", "exclude_paths", "include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"]
                         },
                         "value": {
                             "type": "string",
-                            "description": "Value to add (path for include/exclude_paths, dirname for ignore_dirnames, pattern for ignore_globs, entry for dot_whitelist)"
+                            "description": "Value to add (path for include/exclude_paths, dirname for include/exclude_dirnames, pattern for include/exclude_globs)"
                         }
                     },
                     "required": ["list_name", "value"]
@@ -95,7 +96,7 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": ["include_paths", "exclude_paths", "ignore_dirnames", "ignore_globs", "dot_whitelist"]
+                            "enum": ["include_paths", "exclude_paths", "include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"]
                         },
                         "value": {
                             "type": "string",
@@ -171,21 +172,51 @@ class MCPServer:
         ]
 
     def _read_message(self) -> Optional[Dict[str, Any]]:
-        """Read JSON-RPC message from stdin."""
+        """Read JSON-RPC message supporting newline or Content-Length framing."""
         try:
-            line = self._input.readline()
-            if not line:
-                return None
-            return json.loads(line)
+            while True:
+                line = self._input.readline()
+                if not line:
+                    return None
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                lowered = stripped.lower()
+                if lowered.startswith("content-length"):
+                    self._lsp_mode = True
+                    try:
+                        length = int(stripped.split(":", 1)[1].strip())
+                    except Exception:
+                        raise ValueError(f"Invalid Content-Length header: {stripped!r}")
+                    # Consume the blank line after headers
+                    while True:
+                        sep = self._input.readline()
+                        if sep == "":
+                            break
+                        if sep in ("\r\n", "\n", "\r"):
+                            break
+                        if not sep.strip():
+                            break
+                    payload = self._input.read(length)
+                    if payload is None:
+                        return None
+                    return json.loads(payload)
+                else:
+                    return json.loads(line)
         except Exception as e:
-            # Log parse errors to stderr but don't send error response
-            # (can't send valid JSON-RPC error without request ID)
             sys.stderr.write(f"Parse error: {e}\n")
             return None
 
     def _write_message(self, message: Dict[str, Any]) -> None:
-        """Write JSON-RPC message to stdout."""
-        self._output.write(json.dumps(message) + "\n")
+        """Write JSON-RPC message using negotiated framing."""
+        payload = json.dumps(message)
+        if self._lsp_mode:
+            encoded = payload.encode("utf-8")
+            self._output.write(f"Content-Length: {len(encoded)}\r\n\r\n")
+            self._output.write(payload)
+        else:
+            self._output.write(payload)
+        self._output.write("\n")
         self._output.flush()
 
     def _write_response(self, request_id: Any, result: Any) -> None:

@@ -21,8 +21,10 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~"],
                 "exclude_paths": [],
                 "managed_directories": {"~/Documents": 100},
-                "ignore_dirnames": ["node_modules"],
-                "ignore_globs": ["*.tmp"],
+                "include_dirnames": [],
+                "exclude_dirnames": ["node_modules"],
+                "include_globs": [],
+                "exclude_globs": ["*.tmp"],
                 "database": "wks.monitor"
             },
             "mongo": {"uri": "mongodb://localhost:27017/"}
@@ -36,7 +38,7 @@ class TestMonitorController(unittest.TestCase):
         self.assertIsNotNone(result.exclude_paths)
         self.assertIsInstance(result.issues, list)
         self.assertIsInstance(result.redundancies, list)
-        self.assertIsInstance(result.dot_whitelist, list)
+        self.assertIsInstance(result.include_dirnames, list)
 
     def test_get_status_detects_vault_redundancy(self):
         """Test that vault_path in exclude_paths triggers redundancy warning."""
@@ -46,8 +48,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~"],
                 "exclude_paths": ["~/obsidian"],  # Redundant - vault auto-excluded
                 "managed_directories": {},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "database": "wks.monitor"
             }
         }
@@ -64,8 +66,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~"],
                 "exclude_paths": ["~/.wks"],  # Redundant - WKS home auto-excluded
                 "managed_directories": {},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "database": "wks.monitor"
             }
         }
@@ -82,7 +84,7 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~"],
                 "exclude_paths": ["~/Downloads"],
                 "managed_directories": {"~/Documents": 100},
-                "ignore_dirnames": [],
+                "exclude_dirnames": [],
                 "ignore_globs": [],
                 "database": "wks.monitor"
             }
@@ -99,9 +101,8 @@ class TestMonitorController(unittest.TestCase):
             "monitor": {
                 "include_paths": ["~/Documents"],
                 "exclude_paths": ["~/Documents"],  # Conflict!
-                "managed_directories": {},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "database": "wks.monitor"
             }
         }
@@ -118,8 +119,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~/Documents"],
                 "exclude_paths": [],
                 "managed_directories": {"~/Documents": 100},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "database": "wks.monitor",
                 "priority": {
                     "depth_multiplier": 0.9,
@@ -143,8 +144,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~"],
                 "exclude_paths": ["~/Library"],
                 "managed_directories": {"~": 100},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "database": "wks.monitor",
                 "priority": {}
             }
@@ -163,8 +164,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~"],
                 "exclude_paths": [],
                 "managed_directories": {"~": 100},
-                "ignore_dirnames": ["node_modules"],
-                "ignore_globs": [],
+                "exclude_dirnames": ["node_modules"],
+                "exclude_globs": [],
                 "database": "wks.monitor",
                 "priority": {}
             }
@@ -182,8 +183,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~"],
                 "exclude_paths": [],
                 "managed_directories": {"~": 100},
-                "ignore_dirnames": [],
-                "ignore_globs": ["*.tmp"],
+                "exclude_dirnames": [],
+                "exclude_globs": ["*.tmp"],
                 "database": "wks.monitor",
                 "priority": {}
             }
@@ -201,8 +202,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~/Documents"],
                 "exclude_paths": [],
                 "managed_directories": {"~/Documents": 100},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "dot_whitelist": [],
                 "database": "wks.monitor",
                 "priority": {}
@@ -221,8 +222,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~/Documents"],
                 "exclude_paths": [],
                 "managed_directories": {"~/Documents": 100},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "dot_whitelist": [".obsidian"],
                 "database": "wks.monitor",
                 "priority": {}
@@ -244,8 +245,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~/Documents"],
                 "exclude_paths": [],
                 "managed_directories": {"~/Documents": 100},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "dot_whitelist": [],
                 "database": "wks.monitor",
             },
@@ -279,8 +280,8 @@ class TestMonitorController(unittest.TestCase):
                 "include_paths": ["~/Documents"],
                 "exclude_paths": [],
                 "managed_directories": {"~/Documents": 100},
-                "ignore_dirnames": [],
-                "ignore_globs": [],
+                "exclude_dirnames": [],
+                "exclude_globs": [],
                 "dot_whitelist": [],
                 "database": "wks.monitor",
             },
