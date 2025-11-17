@@ -9,8 +9,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ...config import get_config_path, load_config
-from ...constants import MAX_DISPLAY_WIDTH, WKS_DOT_DIRS
+from ...constants import MAX_DISPLAY_WIDTH
 from ...monitor_controller import MonitorController, MonitorValidator
+
+SUPPORTED_MONITOR_LISTS = {
+    "include_paths",
+    "exclude_paths",
+    "include_dirnames",
+    "exclude_dirnames",
+    "include_globs",
+    "exclude_globs",
+}
 from ...utils import wks_home_path
 
 
@@ -460,8 +469,6 @@ def monitor_validate_cmd(args: argparse.Namespace) -> int:
     """Check for configuration inconsistencies."""
     display = args.display_obj
     cfg = load_config()
-    monitor_config = cfg.get("monitor", {})
-
     include_paths = set(monitor_config.get("include_paths", []))
     exclude_paths = set(monitor_config.get("exclude_paths", []))
     managed_dirs = set(monitor_config.get("managed_directories", {}).keys())
@@ -522,7 +529,8 @@ def normalize_path_for_list(value: str, resolve_path: bool) -> Tuple[str, str]:
         else:
             value_to_store = value_resolved
         return value_resolved, value_to_store
-    return value, value
+    normalized = value.strip()
+    return normalized, normalized
 
 
 def find_existing_entry_in_list(
@@ -556,6 +564,11 @@ def validate_before_add(
         is_valid, error_msg = MonitorValidator.validate_dirname_entry(target_value)
         if not is_valid:
             display.error(error_msg)
+            return 1
+        opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
+        other_values = set(cfg["monitor"].get(opposite, []))
+        if target_value in other_values:
+            display.error(f"Directory name '{target_value}' already present in {opposite}")
             return 1
     elif list_name in ("include_globs", "exclude_globs"):
         is_valid, error_msg = MonitorValidator.validate_glob_pattern(target_value)
@@ -599,6 +612,11 @@ def perform_list_remove(
 
 def modify_monitor_list(display, list_name: str, value: str, operation: str, resolve_path: bool = True) -> int:
     """Modify a monitor config list (add/remove)."""
+    if list_name not in SUPPORTED_MONITOR_LISTS:
+        display.error(
+            f"Unsupported monitor list '{list_name}'. Allowed lists: {', '.join(sorted(SUPPORTED_MONITOR_LISTS))}"
+        )
+        return 2
     config_path = get_config_path()
 
     if not config_path.exists():
@@ -643,45 +661,43 @@ def modify_monitor_list(display, list_name: str, value: str, operation: str, res
 def show_monitor_list(display, list_name: str, title: str) -> int:
     """Show contents of a monitor config list with validation status."""
     cfg = load_config()
-    monitor_config = cfg.get("monitor", {})
-    items = monitor_config.get(list_name, [])
+    if list_name not in SUPPORTED_MONITOR_LISTS:
+        display.error(
+            f"Unsupported monitor list '{list_name}'. Allowed lists: {', '.join(sorted(SUPPORTED_MONITOR_LISTS))}"
+        )
+        return 2
 
+    try:
+        list_info = MonitorController.get_list(cfg, list_name)
+    except (KeyError, ValueError) as exc:
+        display.error(str(exc))
+        return 2
+
+    items = list_info.get("items", [])
     if not items:
         display.info(f"No {list_name} configured")
         return 0
 
-    # Get other config items for validation
-    include_paths = monitor_config.get("include_paths", [])
-    exclude_paths = monitor_config.get("exclude_paths", [])
-    include_dirnames = monitor_config.get("include_dirnames", [])
-    exclude_dirnames = monitor_config.get("exclude_dirnames", [])
-    include_globs = monitor_config.get("include_globs", [])
-    exclude_globs = monitor_config.get("exclude_globs", [])
-    managed_dirs = monitor_config.get("managed_directories", {})
+    validation = list_info.get("validation", {})
+    monitor_config = cfg.get("monitor", {})
 
     table_data = []
     for i, item in enumerate(items, 1):
         is_valid, error_msg = True, None
-
-        if list_name in ("include_dirnames", "exclude_dirnames"):
-            is_valid, error_msg = MonitorValidator.validate_dirname_entry(item)
-        elif list_name in ("include_globs", "exclude_globs"):
-            is_valid, error_msg = MonitorValidator.validate_glob_pattern(item)
-        elif list_name in ("include_paths", "exclude_paths"):
+        if list_name in ("include_paths", "exclude_paths"):
             try:
                 path_obj = Path(item).expanduser().resolve()
                 if not path_obj.exists():
-                    is_valid = list_name == "exclude_paths"  # Warning for exclude, error for include
-                    error_msg = "Path does not exist" + (" (will be ignored if created)" if is_valid else "")
+                    is_valid = list_name == "exclude_paths"
+                    error_msg = "Path does not exist" + (" (ok for exclude list)" if is_valid else "")
                 elif not path_obj.is_dir():
                     is_valid, error_msg = False, "Not a directory"
             except Exception as e:
                 is_valid, error_msg = False, f"Invalid path: {e}"
-        elif list_name == "dot_whitelist":
-            if item in WKS_DOT_DIRS:
-                is_valid, error_msg = False, "Reserved directory - always ignored"
-            elif not item.startswith('.'):
-                is_valid, error_msg = False, "Must start with '.'"
+        else:
+            entry_validation = validation.get(item, {})
+            is_valid = entry_validation.get("valid", True)
+            error_msg = entry_validation.get("error")
 
         table_data.append({"#": str(i), "Value": item, "Status": MonitorValidator.status_symbol(error_msg, is_valid)})
 
@@ -743,7 +759,7 @@ def monitor_exclude_remove(args: argparse.Namespace) -> int:
 def monitor_include_dirnames_default(args: argparse.Namespace) -> int:
     """Default action for include_dirnames: show list."""
     if not args.include_dirnames_op:
-        return show_monitor_list(args.display_obj, "include_dirnames", "Include Directory Names")
+        return show_monitor_list(args.display_obj, "include_dirnames", "Included Directory Names")
     return 0
 
 
@@ -768,7 +784,7 @@ def monitor_include_dirnames_remove(args: argparse.Namespace) -> int:
 def monitor_exclude_dirnames_default(args: argparse.Namespace) -> int:
     """Default action for exclude_dirnames: show list."""
     if not args.exclude_dirnames_op:
-        return show_monitor_list(args.display_obj, "exclude_dirnames", "Exclude Directory Names")
+        return show_monitor_list(args.display_obj, "exclude_dirnames", "Excluded Directory Names")
     return 0
 
 
@@ -793,7 +809,7 @@ def monitor_exclude_dirnames_remove(args: argparse.Namespace) -> int:
 def monitor_include_globs_default(args: argparse.Namespace) -> int:
     """Default action for include_globs: show list."""
     if not args.include_globs_op:
-        return show_monitor_list(args.display_obj, "include_globs", "Include Glob Patterns")
+        return show_monitor_list(args.display_obj, "include_globs", "Included Glob Patterns")
     return 0
 
 
@@ -818,7 +834,7 @@ def monitor_include_globs_remove(args: argparse.Namespace) -> int:
 def monitor_exclude_globs_default(args: argparse.Namespace) -> int:
     """Default action for exclude_globs: show list."""
     if not args.exclude_globs_op:
-        return show_monitor_list(args.display_obj, "exclude_globs", "Exclude Glob Patterns")
+        return show_monitor_list(args.display_obj, "exclude_globs", "Excluded Glob Patterns")
     return 0
 
 
@@ -956,6 +972,12 @@ def setup_monitor_parser(subparsers) -> None:
     mon = subparsers.add_parser("monitor", help="Filesystem monitoring status and configuration")
     monsub = mon.add_subparsers(dest="monitor_cmd", required=False)
 
+    def _monitor_help(args, parser=mon):
+        parser.print_help()
+        return 2
+
+    mon.set_defaults(func=_monitor_help)
+
     # monitor status
     monstatus = monsub.add_parser("status", help="Show monitoring statistics")
     monstatus.add_argument(
@@ -997,48 +1019,48 @@ def setup_monitor_parser(subparsers) -> None:
     mon_exclude_remove.set_defaults(func=monitor_exclude_remove)
 
     # monitor include_dirnames
-    mon_include_dir = monsub.add_parser("include_dirnames", help="Manage include_dirnames")
-    mon_include_dir_sub = mon_include_dir.add_subparsers(dest="include_dirnames_op", required=False)
-    mon_include_dir.set_defaults(func=monitor_include_dirnames_default)
-    mon_include_dir_add = mon_include_dir_sub.add_parser("add", help="Add directory name(s) to include_dirnames")
-    mon_include_dir_add.add_argument("dirnames", nargs='+', help="Directory name(s) to always monitor (e.g., .obsidian)")
-    mon_include_dir_add.set_defaults(func=monitor_include_dirnames_add)
-    mon_include_dir_remove = mon_include_dir_sub.add_parser("remove", help="Remove directory name(s) from include_dirnames")
-    mon_include_dir_remove.add_argument("dirnames", nargs='+', help="Directory name(s) to remove")
-    mon_include_dir_remove.set_defaults(func=monitor_include_dirnames_remove)
+    mon_inc_dir = monsub.add_parser("include_dirnames", help="Manage include_dirnames")
+    mon_inc_dir_sub = mon_inc_dir.add_subparsers(dest="include_dirnames_op", required=False)
+    mon_inc_dir.set_defaults(func=monitor_include_dirnames_default)
+    mon_inc_dir_add = mon_inc_dir_sub.add_parser("add", help="Add directory name(s) to include_dirnames")
+    mon_inc_dir_add.add_argument("dirnames", nargs='+', help="Directory name(s) to force-include (e.g., _inbox)")
+    mon_inc_dir_add.set_defaults(func=monitor_include_dirnames_add)
+    mon_inc_dir_remove = mon_inc_dir_sub.add_parser("remove", help="Remove directory name(s) from include_dirnames")
+    mon_inc_dir_remove.add_argument("dirnames", nargs='+', help="Directory name(s) to remove")
+    mon_inc_dir_remove.set_defaults(func=monitor_include_dirnames_remove)
 
     # monitor exclude_dirnames
-    mon_exclude_dir = monsub.add_parser("exclude_dirnames", help="Manage exclude_dirnames")
-    mon_exclude_dir_sub = mon_exclude_dir.add_subparsers(dest="exclude_dirnames_op", required=False)
-    mon_exclude_dir.set_defaults(func=monitor_exclude_dirnames_default)
-    mon_exclude_dir_add = mon_exclude_dir_sub.add_parser("add", help="Add directory name(s) to exclude_dirnames")
-    mon_exclude_dir_add.add_argument("dirnames", nargs='+', help="Directory name(s) to exclude (e.g., node_modules)")
-    mon_exclude_dir_add.set_defaults(func=monitor_exclude_dirnames_add)
-    mon_exclude_dir_remove = mon_exclude_dir_sub.add_parser("remove", help="Remove directory name(s) from exclude_dirnames")
-    mon_exclude_dir_remove.add_argument("dirnames", nargs='+', help="Directory name(s) to remove")
-    mon_exclude_dir_remove.set_defaults(func=monitor_exclude_dirnames_remove)
+    mon_exc_dir = monsub.add_parser("exclude_dirnames", help="Manage exclude_dirnames")
+    mon_exc_dir_sub = mon_exc_dir.add_subparsers(dest="exclude_dirnames_op", required=False)
+    mon_exc_dir.set_defaults(func=monitor_exclude_dirnames_default)
+    mon_exc_dir_add = mon_exc_dir_sub.add_parser("add", help="Add directory name(s) to exclude_dirnames")
+    mon_exc_dir_add.add_argument("dirnames", nargs='+', help="Directory name(s) to always exclude (e.g., node_modules)")
+    mon_exc_dir_add.set_defaults(func=monitor_exclude_dirnames_add)
+    mon_exc_dir_remove = mon_exc_dir_sub.add_parser("remove", help="Remove directory name(s) from exclude_dirnames")
+    mon_exc_dir_remove.add_argument("dirnames", nargs='+', help="Directory name(s) to remove")
+    mon_exc_dir_remove.set_defaults(func=monitor_exclude_dirnames_remove)
 
     # monitor include_globs
-    mon_include_glob = monsub.add_parser("include_globs", help="Manage include_globs")
-    mon_include_glob_sub = mon_include_glob.add_subparsers(dest="include_globs_op", required=False)
-    mon_include_glob.set_defaults(func=monitor_include_globs_default)
-    mon_include_glob_add = mon_include_glob_sub.add_parser("add", help="Add glob pattern(s) to include_globs")
-    mon_include_glob_add.add_argument("patterns", nargs='+', help="Glob pattern(s) to force-include (e.g., **/.config/**)")
-    mon_include_glob_add.set_defaults(func=monitor_include_globs_add)
-    mon_include_glob_remove = mon_include_glob_sub.add_parser("remove", help="Remove glob pattern(s) from include_globs")
-    mon_include_glob_remove.add_argument("patterns", nargs='+', help="Pattern(s) to remove")
-    mon_include_glob_remove.set_defaults(func=monitor_include_globs_remove)
+    mon_inc_glob = monsub.add_parser("include_globs", help="Manage include_globs")
+    mon_inc_glob_sub = mon_inc_glob.add_subparsers(dest="include_globs_op", required=False)
+    mon_inc_glob.set_defaults(func=monitor_include_globs_default)
+    mon_inc_glob_add = mon_inc_glob_sub.add_parser("add", help="Add glob pattern(s) to include_globs")
+    mon_inc_glob_add.add_argument("patterns", nargs='+', help="Glob pattern(s) to override exclusions (e.g., */_inbox/**)")
+    mon_inc_glob_add.set_defaults(func=monitor_include_globs_add)
+    mon_inc_glob_remove = mon_inc_glob_sub.add_parser("remove", help="Remove glob pattern(s) from include_globs")
+    mon_inc_glob_remove.add_argument("patterns", nargs='+', help="Pattern(s) to remove")
+    mon_inc_glob_remove.set_defaults(func=monitor_include_globs_remove)
 
     # monitor exclude_globs
-    mon_exclude_glob = monsub.add_parser("exclude_globs", help="Manage exclude_globs")
-    mon_exclude_glob_sub = mon_exclude_glob.add_subparsers(dest="exclude_globs_op", required=False)
-    mon_exclude_glob.set_defaults(func=monitor_exclude_globs_default)
-    mon_exclude_glob_add = mon_exclude_glob_sub.add_parser("add", help="Add glob pattern(s) to exclude_globs")
-    mon_exclude_glob_add.add_argument("patterns", nargs='+', help="Glob pattern(s) to exclude (e.g., *.tmp)")
-    mon_exclude_glob_add.set_defaults(func=monitor_exclude_globs_add)
-    mon_exclude_glob_remove = mon_exclude_glob_sub.add_parser("remove", help="Remove glob pattern(s) from exclude_globs")
-    mon_exclude_glob_remove.add_argument("patterns", nargs='+', help="Pattern(s) to remove")
-    mon_exclude_glob_remove.set_defaults(func=monitor_exclude_globs_remove)
+    mon_exc_glob = monsub.add_parser("exclude_globs", help="Manage exclude_globs")
+    mon_exc_glob_sub = mon_exc_glob.add_subparsers(dest="exclude_globs_op", required=False)
+    mon_exc_glob.set_defaults(func=monitor_exclude_globs_default)
+    mon_exc_glob_add = mon_exc_glob_sub.add_parser("add", help="Add glob pattern(s) to exclude_globs")
+    mon_exc_glob_add.add_argument("patterns", nargs='+', help="Glob pattern(s) to exclude (e.g., **/_build/**)")
+    mon_exc_glob_add.set_defaults(func=monitor_exclude_globs_add)
+    mon_exc_glob_remove = mon_exc_glob_sub.add_parser("remove", help="Remove glob pattern(s) from exclude_globs")
+    mon_exc_glob_remove.add_argument("patterns", nargs='+', help="Pattern(s) to remove")
+    mon_exc_glob_remove.set_defaults(func=monitor_exclude_globs_remove)
 
     # monitor managed
     mon_managed = monsub.add_parser("managed", help="Manage managed_directories with priorities")

@@ -22,6 +22,7 @@ from ...dbmeta import IncompatibleDatabase, resolve_db_compatibility
 from ...status import record_db_activity
 from ...utils import get_package_version
 from ... import mongoctl
+from ...vault import load_vault as build_vault
 
 
 # Similarity loading helpers
@@ -159,32 +160,8 @@ def mongo_client_params(
 
 
 def load_vault() -> Any:
-    """Load Obsidian vault from config."""
-    from ...obsidian import ObsidianVault  # lazy import
-    cfg = load_config()
-    vault_path = cfg.get('vault_path')
-    if not vault_path:
-        print(f"Fatal: 'vault_path' is required in {WKS_HOME_DISPLAY}/config.json")
-        raise SystemExit(2)
-    obs = cfg.get('obsidian', {})
-    base_dir = obs.get('base_dir')
-    if not base_dir:
-        print(f"Fatal: 'obsidian.base_dir' is required in {WKS_HOME_DISPLAY}/config.json (e.g., 'WKS')")
-        raise SystemExit(2)
-    # Require explicit logging caps/widths
-    for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars"]:
-        if k not in obs:
-            print(f"Fatal: missing required config key: obsidian.{k}")
-            raise SystemExit(2)
-    vault = ObsidianVault(
-        Path(vault_path).expanduser(),
-        base_dir=base_dir,
-        log_max_entries=int(obs["log_max_entries"]),
-        active_files_max_rows=int(obs["active_files_max_rows"]),
-        source_max_chars=int(obs["source_max_chars"]),
-        destination_max_chars=int(obs["destination_max_chars"]),
-    )
-    return vault
+    """Load configured vault instance."""
+    return build_vault()
 
 
 # Extract command

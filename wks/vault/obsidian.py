@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
 
-from .config import mongo_settings, timestamp_format, load_config, get_config_path, DEFAULT_TIMESTAMP_FORMAT
-from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
-from .dbmeta import resolve_db_compatibility, ensure_db_compat, IncompatibleDatabase
-from .utils import get_package_version
+from ..config import mongo_settings, timestamp_format, load_config, get_config_path, DEFAULT_TIMESTAMP_FORMAT
+from ..constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
+from ..dbmeta import resolve_db_compatibility, ensure_db_compat, IncompatibleDatabase
+from ..utils import get_package_version
 
 
 class ObsidianVault:
@@ -23,7 +23,7 @@ class ObsidianVault:
         Initialize vault interface.
 
         Args:
-            vault_path: Path to Obsidian vault (e.g., ~/obsidian)
+            vault_path: Path to Obsidian vault (e.g., ~/_vault)
         """
         self.vault_path = Path(vault_path)
         # Required base directory under the vault for WKS-managed logs and docs
@@ -251,7 +251,7 @@ class ObsidianVault:
         # Optional similarity for angle-from-empty
         simdb = None
         try:
-            from .similarity import build_similarity_from_config as _build_sim
+            from ..similarity import build_similarity_from_config as _build_sim
             cfg = load_config()
             simdb, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=get_package_version())
         except Exception:
@@ -466,6 +466,10 @@ class ObsidianVault:
             except Exception:
                 pass
             yield md
+
+    def iter_markdown_files(self):
+        """Public iterator over vault markdown files (excludes WKS logs)."""
+        yield from self._iter_vault_markdown()
 
     def update_vault_links_on_move(self, old_path: Path, new_path: Path):
         """Update wiki links inside the vault when a file moves.
@@ -738,7 +742,7 @@ class ObsidianVault:
 
         # Load ignore rules to filter out excluded/ignored paths
         try:
-            from .cli import load_config as _load
+            from ..cli import load_config as _load
             cfg = _load(); mon = cfg.get('monitor') or {}
             exclude_paths = [Path(p).expanduser().resolve() for p in (mon.get('exclude_paths') or [])]
             ignore_dirnames = set(mon.get('ignore_dirnames') or [])
@@ -796,7 +800,7 @@ class ObsidianVault:
         use_changes = True
         changes_coll = None
         try:
-            from .cli import load_config as _load
+            from ..cli import load_config as _load
             cfg2 = _load()
             sim2 = cfg2.get('similarity') or {}
             if sim2.get('enabled'):
@@ -946,8 +950,8 @@ class ObsidianVault:
         # Similarity stats
         sim_stats = None
         try:
-            from .similarity import build_similarity_from_config as _build_sim
-            from .cli import load_config as _load
+            from ..similarity import build_similarity_from_config as _build_sim
+            from ..cli import load_config as _load
             cfg = _load()
             db, _ = _build_sim(cfg, require_enabled=False, compatibility_tag=resolve_db_compatibility(cfg)[0], product_version=get_package_version())
             if db:

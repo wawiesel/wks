@@ -17,6 +17,8 @@ from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
 from .config import load_config
 from .config_validator import validate_and_raise, ConfigValidationError
 from .utils import get_package_version, expand_path
+from .monitor_controller import MonitorConfig
+from .monitor_rules import MonitorRules
 try:
     from .config import mongo_settings
     from .similarity import build_similarity_from_config
@@ -32,21 +34,26 @@ if __name__ == "__main__":
         print(str(e))
         raise SystemExit(2)
 
-    vault_path = expand_path(config.get("vault_path"))
+    vault_cfg = config.get("vault") or {}
+    legacy_vault_path = config.get("vault_path")
+    vault_root = vault_cfg.get("base_dir") or legacy_vault_path
+    if not vault_root:
+        print(f"Fatal: 'vault.base_dir' (or legacy 'vault_path') is required in {WKS_HOME_DISPLAY}/config.json")
+        raise SystemExit(2)
+    vault_path = expand_path(vault_root)
     mongo_cfg = mongo_settings(config)
     space_compat_tag, time_compat_tag = resolve_db_compatibility(config)
     ensure_mongo_running(mongo_cfg['uri'], record_start=True)
 
-    monitor_cfg = config.get("monitor", {})
-    include_paths = [expand_path(p) for p in monitor_cfg.get("include_paths")]
-    exclude_paths = [expand_path(p) for p in monitor_cfg.get("exclude_paths")]
-    ignore_dirnames = set(monitor_cfg.get("ignore_dirnames"))
-    ignore_patterns = set()  # deprecated
-    ignore_globs = list(monitor_cfg.get("ignore_globs"))
-    state_file = expand_path(monitor_cfg.get("state_file"))
+    monitor_cfg_obj = MonitorConfig.from_config_dict(config)
+    monitor_rules = MonitorRules.from_config(monitor_cfg_obj)
+    include_paths = [expand_path(p) for p in monitor_cfg_obj.include_paths]
 
     obsidian_cfg = config.get("obsidian", {})
-    base_dir = obsidian_cfg.get("base_dir")
+    base_dir = vault_cfg.get("wks_dir") or obsidian_cfg.get("base_dir")
+    if not base_dir:
+        print("Fatal: missing required config key: vault.wks_dir (or legacy obsidian.base_dir)")
+        raise SystemExit(2)
     # Explicit obsidian logging settings
     for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars", "docs_keep"]:
         if k not in obsidian_cfg:
@@ -65,6 +72,7 @@ if __name__ == "__main__":
     fs_long_weight = float(metrics_cfg.get("fs_rate_long_weight", 0.2))
 
     daemon = WKSDaemon(
+        config=config,
         vault_path=vault_path,
         base_dir=base_dir,
         obsidian_log_max_entries=log_max_entries,
@@ -73,11 +81,7 @@ if __name__ == "__main__":
         obsidian_destination_max_chars=dst_max,
         obsidian_docs_keep=docs_keep,
         monitor_paths=include_paths,
-        state_file=state_file,
-        ignore_dirnames=ignore_dirnames,
-        exclude_paths=exclude_paths,
-        ignore_patterns=ignore_patterns,
-        ignore_globs=ignore_globs,
+        monitor_rules=monitor_rules,
         mongo_uri=mongo_cfg.get("uri"),
         fs_rate_short_window_secs=fs_short_window,
         fs_rate_long_window_secs=fs_long_window,

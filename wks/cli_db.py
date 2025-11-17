@@ -12,7 +12,11 @@ import json
 from typing import Optional
 
 from .config import load_config
-from .db_helpers import get_monitor_db_config, connect_to_mongo
+from .db_helpers import (
+    get_monitor_db_config,
+    get_vault_db_config,
+    connect_to_mongo,
+)
 
 
 def _parse_json_arg(value: Optional[str], arg_name: str, display) -> tuple[Optional[dict], Optional[int]]:
@@ -86,12 +90,8 @@ def _display_query_results(display, db_name: str, coll_name: str, total: int, do
         display.warning("No documents found")
 
 
-def _db_monitor(args: argparse.Namespace) -> int:
-    """Query the filesystem monitoring database."""
+def _query_collection(uri: str, db_name: str, coll_name: str, args: argparse.Namespace) -> int:
     display = args.display_obj
-    cfg = load_config()
-    uri, db_name, coll_name = get_monitor_db_config(cfg)
-
     filter_dict, projection, error = _parse_query_args(args, display)
     if error:
         return error
@@ -110,15 +110,27 @@ def _db_monitor(args: argparse.Namespace) -> int:
 
         cursor = _build_query_cursor(coll, filter_dict, projection, limit, sort_arg)
         docs = list(cursor)
-
         _display_query_results(display, db_name, coll_name, total, docs)
         return 0
-
     except Exception as e:
         display.error(f"Query failed: {e}")
         return 1
     finally:
         client.close()
+
+
+def _db_monitor(args: argparse.Namespace) -> int:
+    """Query the filesystem monitoring database."""
+    cfg = load_config()
+    uri, db_name, coll_name = get_monitor_db_config(cfg)
+    return _query_collection(uri, db_name, coll_name, args)
+
+
+def _db_vault(args: argparse.Namespace) -> int:
+    """Query the vault links database."""
+    cfg = load_config()
+    uri, db_name, coll_name = get_vault_db_config(cfg)
+    return _query_collection(uri, db_name, coll_name, args)
 
 
 def setup_db_parser(subparsers) -> argparse.ArgumentParser:
@@ -127,11 +139,18 @@ def setup_db_parser(subparsers) -> argparse.ArgumentParser:
     dbsub = dbp.add_subparsers(dest="db_cmd", required=False)
 
     # wks0 db monitor
+    def _add_query_args(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--filter", help='JSON filter, e.g. {"priority": {"$gte": 100}}')
+        parser.add_argument("--projection", help='JSON projection, e.g. {"path":1,"priority":1}')
+        parser.add_argument("--limit", type=int, default=10, help="Limit results (default: 10)")
+        parser.add_argument("--sort", help='Sort field:direction, e.g. "priority:desc" or "timestamp:asc"')
+
     mon = dbsub.add_parser("monitor", help="Query filesystem monitoring database")
-    mon.add_argument("--filter", help='JSON filter, e.g. {"priority": {"$gte": 100}}')
-    mon.add_argument("--projection", help='JSON projection, e.g. {"path":1,"priority":1}')
-    mon.add_argument("--limit", type=int, default=10, help="Limit results (default: 10)")
-    mon.add_argument("--sort", help='Sort field:direction, e.g. "priority:desc" or "timestamp:asc"')
+    _add_query_args(mon)
     mon.set_defaults(func=_db_monitor)
+
+    vault = dbsub.add_parser("vault", help="Query Obsidian vault link database")
+    _add_query_args(vault)
+    vault.set_defaults(func=_db_vault)
 
     return dbp

@@ -6,11 +6,11 @@ Monitors directories and tracks file changes without external dependencies.
 import time
 import json
 from pathlib import Path
-import fnmatch
 from datetime import datetime
-from typing import Dict, Set, Callable, Optional, List, Iterable
+from typing import Dict, Callable, Optional
 
-from .constants import WKS_HOME_EXT, WKS_DOT_DIRS
+from .constants import WKS_HOME_EXT
+from .monitor_rules import MonitorRules
 from watchdog.observers import Observer
 try:
     from watchdog.observers.fsevents import FSEventsObserver  # macOS
@@ -38,13 +38,8 @@ class WKSFileMonitor(FileSystemEventHandler):
     def __init__(
         self,
         state_file: Path,
+        monitor_rules: MonitorRules,
         on_change: Optional[Callable[[str, str], None]] = None,
-        ignore_patterns: Optional[Set[str]] = None,
-        ignore_dirs: Optional[Set[str]] = None,
-        include_paths: Optional[List[Path]] = None,
-        exclude_paths: Optional[List[Path]] = None,
-        ignore_globs: Optional[List[str]] = None,
-        dot_whitelist: Optional[Iterable[str]] = None,
     ):
         """
         Initialize the file monitor.
@@ -59,44 +54,8 @@ class WKSFileMonitor(FileSystemEventHandler):
         super().__init__()
         self.state_file = Path(state_file)
         self.on_change = on_change
-        # Deprecated: ignore_patterns. We'll fold these into glob rules for consistency.
-        self.ignore_patterns = ignore_patterns or {'.git', '__pycache__', '.DS_Store', 'venv', '.venv', 'node_modules'}
-        self.ignore_dirs = ignore_dirs or {'Library', 'Applications', '.Trash', '.cache', 'Cache', '_build'}
-        # Paths to explicitly include/exclude (resolved)
-        self.include_paths = [Path(p).expanduser().resolve() for p in include_paths] if include_paths else []
-        self.exclude_paths = [Path(p).expanduser().resolve() for p in exclude_paths] if exclude_paths else []
-        # Glob patterns (Unix shell-style) to ignore. Fold legacy ignore_patterns into globs.
-        _globs = list(ignore_globs or [])
-        if self.ignore_patterns:
-            for tok in self.ignore_patterns:
-                # Ignore a directory named tok anywhere, and files named tok
-                _globs.append(f"**/{tok}/**")
-                _globs.append(f"**/{tok}")
-        self.ignore_globs = _globs
-        # Dot-path whitelist that should never be ignored by default rules
-        self._dot_whitelist = self._initialize_dot_whitelist(dot_whitelist)
+        self.monitor_rules = monitor_rules
         self.state = self._load_state()
-
-    def _initialize_dot_whitelist(self, extra_whitelist: Optional[Iterable[str]]) -> Set[str]:
-        """Build whitelist of dot-directories that should not be ignored."""
-        whitelist: Set[str] = set()
-        for entry in extra_whitelist or []:
-            entry_str = str(entry).strip()
-            if not entry_str:
-                continue
-            if entry_str in WKS_DOT_DIRS:
-                # Always ignore WKS internal directories
-                continue
-            whitelist.add(entry_str)
-
-        # Automatically whitelist dot-components that are explicitly included
-        for include_path in self.include_paths:
-            for part in include_path.parts:
-                if part in WKS_DOT_DIRS:
-                    continue
-                if part.startswith('.'):
-                    whitelist.add(part)
-        return whitelist
 
     def _load_state(self) -> Dict:
         """Load state from JSON file."""
@@ -121,58 +80,12 @@ class WKSFileMonitor(FileSystemEventHandler):
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f, indent=2)
 
-    def _is_within(self, path: Path, base: Path) -> bool:
-        """Return True if path is within base (or equal)."""
-        try:
-            path.resolve().relative_to(base.resolve())
-            return True
-        except ValueError:
-            return False
-
     def _should_ignore(self, path: str) -> bool:
-        """Check if path should be ignored based on patterns."""
-        path_obj = Path(path).resolve()
-
-        # Exclude by explicit exclude paths
-        for ex in self.exclude_paths:
-            if self._is_within(path_obj, ex):
-                return True
-
-        # If include paths are provided, ignore anything outside them
-        if self.include_paths:
-            if not any(self._is_within(path_obj, inc) for inc in self.include_paths):
-                return True
-
-        # Check if any parent directory should be ignored
-        for part in path_obj.parts:
-            if part in self.ignore_dirs:
-                return True
-            # Ignore dot-directories except whitelisted
-            if part in WKS_DOT_DIRS:
-                return True
-            if part.startswith('.') and part not in self._dot_whitelist:
-                return True
-            # Ignore directories starting with underscore (e.g., _build, _site)
-            if part.startswith('_'):
-                return True
-
-        # No separate ignore_patterns check: patterns are folded into glob rules.
-
-        # Glob-based ignores against full path and basename
-        path_str = path_obj.as_posix()
-        basename = path_obj.name
-        for g in self.ignore_globs:
-            try:
-                if fnmatch.fnmatchcase(path_str, g) or fnmatch.fnmatchcase(basename, g):
-                    # Preserve whitelist
-                    if basename in self._dot_whitelist:
-                        continue
-                    return True
-            except Exception:
-                # Ignore malformed globs
-                continue
-
-        return False
+        """Check if path should be ignored based on monitor rules."""
+        try:
+            return not self.monitor_rules.allows(Path(path))
+        except Exception:
+            return False
 
     def _track_change(self, event_type: str, path: str):
         """Track a file change in state."""
@@ -292,13 +205,8 @@ class WKSFileMonitor(FileSystemEventHandler):
 def start_monitoring(
     directories: list[Path],
     state_file: Path,
+    monitor_rules: MonitorRules,
     on_change: Optional[Callable] = None,
-    ignore_dirs: Optional[Set[str]] = None,
-    ignore_patterns: Optional[Set[str]] = None,
-    include_paths: Optional[List[Path]] = None,
-    exclude_paths: Optional[List[Path]] = None,
-    ignore_globs: Optional[List[str]] = None,
-    dot_whitelist: Optional[Iterable[str]] = None,
 ) -> Observer:
     """
     Start monitoring directories for changes.
@@ -307,21 +215,15 @@ def start_monitoring(
         directories: List of directories to monitor
         state_file: Path to state tracking file
         on_change: Optional callback for changes
-        ignore_dirs: Optional set of directory names to ignore
-        dot_whitelist: Optional iterable of dot-directory names to allow even if they start with '.'
+        monitor_rules: Shared include/exclude evaluation helper
 
     Returns:
         Observer instance (call .stop() to stop monitoring)
     """
     event_handler = WKSFileMonitor(
         state_file=state_file,
+        monitor_rules=monitor_rules,
         on_change=on_change,
-        ignore_dirs=ignore_dirs,
-        ignore_patterns=ignore_patterns,
-        include_paths=include_paths or directories,
-        exclude_paths=exclude_paths,
-        ignore_globs=ignore_globs,
-        dot_whitelist=dot_whitelist,
     )
     # Try observers in order of preference with fallback on start failures
     candidates: list[type] = []

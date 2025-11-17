@@ -1,7 +1,7 @@
 """Path and URI conversion utilities for WKS.
 
 The monitor database stores paths as URIs (file:///...) while configuration
-uses regular paths (~/obsidian, /Users/ww5/obsidian). These utilities handle
+uses regular paths (~/_vault, /Users/ww5/_vault). These utilities handle
 conversion between the two forms.
 """
 

@@ -120,7 +120,7 @@ class TestConfigMigration:
     def test_is_old_config_detection(self):
         """Test detecting old config format."""
         old_config = {
-            "vault_path": "~/obsidian",
+            "vault_path": "~/_vault",
             "obsidian": {"base_dir": "WKS"},
             "similarity": {"enabled": True},
         }
@@ -128,7 +128,7 @@ class TestConfigMigration:
 
         new_config = {
             "monitor": {"managed_directories": {"~": 100}},
-            "vault": {"base_dir": "~/obsidian"},
+            "vault": {"base_dir": "~/_vault"},
             "related": {"engines": {}},
         }
         assert is_old_config(new_config) is False
@@ -136,7 +136,7 @@ class TestConfigMigration:
     def test_migrate_config_structure(self):
         """Test config migration produces valid structure."""
         old_config = {
-            "vault_path": "~/obsidian",
+            "vault_path": "~/_vault",
             "obsidian": {"base_dir": "WKS"},
             "similarity": {
                 "enabled": True,
@@ -167,7 +167,7 @@ class TestConfigMigration:
         assert "priority" in new_config["monitor"]
 
         # Check vault converted from obsidian
-        assert new_config["vault"]["base_dir"] == "~/obsidian"
+        assert new_config["vault"]["base_dir"] == "~/_vault"
         assert new_config["vault"]["wks_dir"] == "WKS"
 
         # Check related converted from similarity
@@ -185,7 +185,7 @@ class TestConfigMigration:
                 "database": "wks_monitor",
             },
             "vault": {
-                "base_dir": "~/obsidian",
+                "base_dir": "~/_vault",
                 "database": "wks_vault",
             },
             "db": {

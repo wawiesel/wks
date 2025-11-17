@@ -54,12 +54,14 @@ Stored at `~/.wks/config.json`
 {
   "monitor": {
     "include_paths": ["~"],
-    "exclude_paths": ["~/Library", "~/obsidian", "~/.wks", "~/miniforge3"],
-    "ignore_dirnames": [
+    "exclude_paths": ["~/Library", "~/_vault", "~/.wks", "~/miniforge3"],
+    "include_dirnames": [],
+    "exclude_dirnames": [
       ".cache", ".venv", "__pycache__", "_build",
       "build", "dist", "node_modules", "venv"
     ],
-    "ignore_globs": [
+    "include_globs": [],
+    "exclude_globs": [
       "**/.DS_Store", "*.swp", "*.tmp", "*~", "._*", "~$*", ".~lock.*#"
     ],
     "managed_directories": {
@@ -88,7 +90,7 @@ Stored at `~/.wks/config.json`
 
   "vault": {
     "type": "obsidian",
-    "base_dir": "~/obsidian",
+    "base_dir": "~/_vault",
     "wks_dir": "WKS",
     "update_frequency_seconds": 10,
     "database": "wks.vault"
@@ -251,10 +253,18 @@ Stored at `~/.wks/config.json`
 - Extension `.pdf`: 40.5 × 1.1 = 44.55
 - **Priority: 45**
 
+**Monitor include/exclude logic**:
+- `include_paths` and `exclude_paths` store canonical directories (fully-resolved on load). A path must appear in exactly one list; identical entries across both lists are a validation error. When evaluating a file/directory, resolve it and walk its ancestors until one appears in either list. The nearest match wins. If the closest ancestor is in `exclude_paths` (or no ancestor is found at all), the path is excluded immediately and no further checks run.
+- Once a path survives the root check, the daemon applies directory/glob rules in two phases:
+  - **Exclusion phase**: evaluate `exclude_dirnames` (the immediate parent directory) and `exclude_globs` (full path/basename). If either matches, the path becomes “tentatively excluded”.
+  - **Inclusion overrides**: evaluate `include_dirnames` and `include_globs`. If a path was tentatively excluded but matches an include rule, the exclusion is reversed and the path is monitored. If neither include rule fires, the exclusion stands. Dirname/glob lists must not share entries; duplicates are validation errors, and entries that duplicate the opposite glob list are flagged as redundant.
+
 **Commands**:
 - `wks0 monitor status` — show monitoring statistics (supports `--live` for auto-updating display)
 - `wks0 monitor include_paths add <path>` — add path to include_paths
 - `wks0 monitor exclude_paths add <path>` — add path to exclude_paths
+- `wks0 monitor ignore_dirnames add <name>` — add directory name(s) that should always be ignored
+- `wks0 monitor ignore_globs add <pattern>` — add glob(s) that should always be ignored
 - `wks0 db monitor` — query filesystem database
 
 ### Vault Layer

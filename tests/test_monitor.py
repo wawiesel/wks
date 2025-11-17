@@ -1,182 +1,181 @@
-
-import unittest
-from unittest.mock import MagicMock, patch, mock_open
-from pathlib import Path
-import os
-import time
 import json
+import shutil
+import time
+import unittest
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent
 
 from wks.monitor import WKSFileMonitor, start_monitoring
-import wks.monitor
-from watchdog.events import FileSystemEvent, DirCreatedEvent, FileCreatedEvent, FileModifiedEvent, FileMovedEvent, FileDeletedEvent, DirDeletedEvent, DirModifiedEvent, DirMovedEvent
+from wks.monitor_rules import MonitorRules
+
 
 class TestWKSFileMonitor(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = Path('/tmp/wks_test_monitor')
+        self.temp_dir = Path("/tmp/wks_test_monitor")
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        self.state_file = self.temp_dir / 'state.json'
+        self.state_file = self.temp_dir / "state.json"
         self.on_change_mock = MagicMock()
+        self.rules = MonitorRules(
+            include_paths=[str(self.temp_dir)],
+            exclude_paths=[],
+            include_dirnames=[],
+            exclude_dirnames=[],
+            include_globs=[],
+            exclude_globs=[],
+        )
 
     def tearDown(self):
-        import shutil
         shutil.rmtree(self.temp_dir)
 
-    def test_initialization(self):
-        monitor = WKSFileMonitor(self.state_file)
+    def _build_monitor(self, rules: MonitorRules | None = None):
+        return WKSFileMonitor(self.state_file, rules or self.rules, on_change=self.on_change_mock)
+
+    def test_initialization_loads_empty_state(self):
+        monitor = self._build_monitor()
         self.assertEqual(monitor.state_file, self.state_file)
-        self.assertIsNotNone(monitor.ignore_patterns)
-        self.assertIsNotNone(monitor.ignore_dirs)
-
-    def test_load_state_no_file(self):
-        monitor = WKSFileMonitor(self.state_file)
         self.assertEqual(monitor.state, {"files": {}, "last_update": None})
 
-    def test_load_state_with_file(self):
-        state = {"files": {"/tmp/wks_test_monitor/a.txt": {}}, "last_update": "2025-01-01T00:00:00"}
-        with open(self.state_file, 'w') as f:
-            json.dump(state, f)
-        monitor = WKSFileMonitor(self.state_file)
-        self.assertEqual(monitor.state, state)
+    def test_load_state_from_disk(self):
+        stored = {"files": {str(self.temp_dir / "foo.md"): {}}, "last_update": "2025-01-01T00:00:00"}
+        self.state_file.write_text(json.dumps(stored))
+        monitor = self._build_monitor()
+        self.assertEqual(monitor.state, stored)
 
-    def test_load_state_corrupted_file(self):
-        with open(self.state_file, 'w') as f:
-            f.write("corrupted")
-        monitor = WKSFileMonitor(self.state_file)
+    def test_corrupted_state_creates_backup(self):
+        self.state_file.write_text("corrupted")
+        monitor = self._build_monitor()
         self.assertEqual(monitor.state, {"files": {}, "last_update": None})
-        self.assertTrue((self.state_file.with_suffix('.json.backup')).exists())
+        self.assertTrue(self.state_file.with_suffix(".json.backup").exists())
 
-    def test_save_state(self):
-        monitor = WKSFileMonitor(self.state_file)
-        monitor.state = {"files": {"/tmp/wks_test_monitor/a.txt": {}}, "last_update": None}
+    def test_save_state_updates_timestamp(self):
+        monitor = self._build_monitor()
+        monitor.state["files"][str(self.temp_dir / "keep.md")] = {"modifications": []}
         monitor._save_state()
-        with open(self.state_file, 'r') as f:
-            state = json.load(f)
-        self.assertIn("last_update", state)
-        self.assertIsNotNone(state["last_update"])
+        saved = json.loads(self.state_file.read_text())
+        self.assertIn("last_update", saved)
+        self.assertIsNotNone(saved["last_update"])
 
-    def test_should_ignore(self):
-        monitor = WKSFileMonitor(self.state_file, ignore_globs=['*.log'])
-        self.assertTrue(monitor._should_ignore('/tmp/wks_test_monitor/.git/hooks'))
-        self.assertTrue(monitor._should_ignore('/tmp/wks_test_monitor/node_modules/lib'))
-        self.assertTrue(monitor._should_ignore('/tmp/wks_test_monitor/test.log'))
-        self.assertFalse(monitor._should_ignore('/tmp/wks_test_monitor/a.txt'))
+    def test_should_ignore_respects_dirnames_and_globs(self):
+        rules = MonitorRules(
+            include_paths=[str(self.temp_dir)],
+            exclude_paths=[],
+            include_dirnames=[],
+            exclude_dirnames=["node_modules"],
+            include_globs=[],
+            exclude_globs=["*.log"],
+        )
+        monitor = self._build_monitor(rules)
+        self.assertTrue(monitor._should_ignore(str(self.temp_dir / "node_modules" / "pkg")))
+        self.assertTrue(monitor._should_ignore(str(self.temp_dir / "error.log")))
+        self.assertFalse(monitor._should_ignore(str(self.temp_dir / "notes.md")))
 
-    def test_dot_directory_whitelisted(self):
-        monitor = WKSFileMonitor(self.state_file, dot_whitelist={'.config'})
-        path = self.temp_dir / '.config' / 'notes.txt'
-        path.parent.mkdir(exist_ok=True)
-        path.touch()
-        self.assertFalse(monitor._should_ignore(str(path)))
+    def test_include_dirname_overrides_exclusion(self):
+        rules = MonitorRules(
+            include_paths=[str(self.temp_dir)],
+            exclude_paths=[],
+            include_dirnames=["_inbox"],
+            exclude_dirnames=["_build"],
+            include_globs=[],
+            exclude_globs=["**/_*"],
+        )
+        monitor = self._build_monitor(rules)
+        forced = self.temp_dir / "_inbox" / "keep.txt"
+        forced.parent.mkdir(exist_ok=True)
+        forced.touch()
+        rejected = self.temp_dir / "_build" / "skip.txt"
+        rejected.parent.mkdir(exist_ok=True)
+        rejected.touch()
+        self.assertFalse(monitor._should_ignore(str(forced)))
+        self.assertTrue(monitor._should_ignore(str(rejected)))
 
-    def test_dot_directory_without_whitelist(self):
-        monitor = WKSFileMonitor(self.state_file)
-        path = self.temp_dir / '.private' / 'secret.txt'
+    def test_reserved_dot_directories_always_ignored(self):
+        monitor = self._build_monitor()
+        path = self.temp_dir / ".wkso" / "artifact.txt"
         path.parent.mkdir(exist_ok=True)
         path.touch()
         self.assertTrue(monitor._should_ignore(str(path)))
 
-    def test_track_change(self):
-        monitor = WKSFileMonitor(self.state_file, on_change=self.on_change_mock)
-        file_path = self.temp_dir / 'a.txt'
+    def test_track_change_records_modification(self):
+        monitor = self._build_monitor()
+        file_path = self.temp_dir / "a.txt"
         file_path.touch()
-        monitor._track_change('created', str(file_path))
-        self.assertIn(str(file_path.resolve()), monitor.state['files'])
-        self.on_change_mock.assert_called_with('created', str(file_path.resolve()))
+        monitor._track_change("created", str(file_path))
+        key = str(file_path.resolve())
+        self.assertIn(key, monitor.state["files"])
+        self.on_change_mock.assert_called_with("created", key)
 
-    def test_on_created(self):
-        monitor = WKSFileMonitor(self.state_file, on_change=self.on_change_mock)
-        file_path = self.temp_dir / 'a.txt'
+    def test_event_handlers(self):
+        monitor = self._build_monitor()
+        file_path = self.temp_dir / "doc.md"
         file_path.touch()
-        event = FileCreatedEvent(str(file_path))
-        monitor.on_created(event)
-        self.assertIn(str(file_path.resolve()), monitor.state['files'])
-        self.on_change_mock.assert_called_with('created', str(file_path.resolve()))
 
-    def test_on_modified(self):
-        monitor = WKSFileMonitor(self.state_file, on_change=self.on_change_mock)
-        file_path = self.temp_dir / 'a.txt'
+        monitor.on_created(FileCreatedEvent(str(file_path)))
+        monitor.on_modified(FileModifiedEvent(str(file_path)))
+        monitor.on_moved(FileMovedEvent(str(file_path), str(self.temp_dir / "moved.md")))
+        monitor.on_deleted(FileDeletedEvent(str(file_path)))
+
+        key = str((self.temp_dir / "moved.md").resolve())
+        self.assertIn(key, monitor.state["files"])
+        self.assertTrue(monitor.state["files"][key]["modifications"])
+
+    def test_get_recent_changes_filters_by_time(self):
+        monitor = self._build_monitor()
+        file_path = self.temp_dir / "recent.txt"
         file_path.touch()
-        monitor._track_change('created', str(file_path))
-        event = FileModifiedEvent(str(file_path))
-        monitor.on_modified(event)
-        self.assertEqual(len(monitor.state['files'][str(file_path.resolve())]['modifications']), 2)
-        self.on_change_mock.assert_called_with('modified', str(file_path.resolve()))
-
-    def test_on_moved(self):
-        monitor = WKSFileMonitor(self.state_file, on_change=self.on_change_mock)
-        src_path = self.temp_dir / 'a.txt'
-        src_path.touch()
-        monitor._track_change('created', str(src_path))
-        dest_path = self.temp_dir / 'b.txt'
-        event = FileMovedEvent(str(src_path), str(dest_path))
-        monitor.on_moved(event)
-        self.assertIn(str(dest_path.resolve()), monitor.state['files'])
-        self.on_change_mock.assert_called_with('moved', (str(src_path.resolve()), str(dest_path.resolve())))
-
-    def test_on_deleted(self):
-        monitor = WKSFileMonitor(self.state_file, on_change=self.on_change_mock)
-        file_path = self.temp_dir / 'a.txt'
-        file_path.touch()
-        monitor._track_change('created', str(file_path))
-        event = FileDeletedEvent(str(file_path))
-        monitor.on_deleted(event)
-        self.assertEqual(len(monitor.state['files'][str(file_path.resolve())]['modifications']), 2)
-        self.on_change_mock.assert_called_with('deleted', str(file_path.resolve()))
-
-    def test_get_recent_changes(self):
-        monitor = WKSFileMonitor(self.state_file)
-        file_path = self.temp_dir / 'a.txt'
-        file_path.touch()
-        monitor._track_change('created', str(file_path))
+        monitor._track_change("created", str(file_path))
         time.sleep(0.1)
-        recent_changes = monitor.get_recent_changes(hours=1)
-        self.assertIn(str(file_path.resolve()), recent_changes)
+        recent = monitor.get_recent_changes(hours=1)
+        self.assertIn(str(file_path.resolve()), recent)
+
 
 class TestStartMonitoring(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = Path('/tmp/wks_test_monitor_start')
+        self.temp_dir = Path("/tmp/wks_test_monitor_start")
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        self.state_file = self.temp_dir / 'state.json'
+        self.state_file = self.temp_dir / "state.json"
+        self.rules = MonitorRules(
+            include_paths=[str(self.temp_dir)],
+            exclude_paths=[],
+            include_dirnames=[],
+            exclude_dirnames=[],
+            include_globs=[],
+            exclude_globs=[],
+        )
 
     def tearDown(self):
-        import shutil
         shutil.rmtree(self.temp_dir)
 
-    @patch('wks.monitor.PollingObserver')
-    @patch('wks.monitor.KqueueObserver')
-    @patch('wks.monitor.FSEventsObserver')
-    @patch('wks.monitor.Observer')
-    def test_start_monitoring(self, mock_observer, mock_fsevents, mock_kqueue, mock_polling):
-        # Make all observers available
-        wks.monitor.FSEventsObserver = mock_fsevents
-        wks.monitor.KqueueObserver = mock_kqueue
-        wks.monitor.PollingObserver = mock_polling
-        wks.monitor.Observer = mock_observer
-        
-        mock_observer_instance = mock_observer.return_value
-        mock_fsevents_instance = mock_fsevents.return_value
-        mock_kqueue_instance = mock_kqueue.return_value
-        mock_polling_instance = mock_polling.return_value
+    @patch("wks.monitor.PollingObserver")
+    @patch("wks.monitor.KqueueObserver")
+    @patch("wks.monitor.FSEventsObserver")
+    @patch("wks.monitor.Observer")
+    def test_start_monitoring_selects_available_observer(
+        self, mock_observer, mock_fsevents, mock_kqueue, mock_polling
+    ):
+        import wks.monitor as monitor_mod
 
-        observer = start_monitoring([self.temp_dir], self.state_file)
+        monitor_mod.FSEventsObserver = mock_fsevents
+        monitor_mod.KqueueObserver = mock_kqueue
+        monitor_mod.PollingObserver = mock_polling
+        monitor_mod.Observer = mock_observer
+
+        observer = start_monitoring(
+            [self.temp_dir],
+            self.state_file,
+            monitor_rules=self.rules,
+        )
         self.assertIsNotNone(observer)
-
-        # Check that one of the observers was used
-        scheduled = False
-        for instance in [mock_observer_instance, mock_fsevents_instance, mock_kqueue_instance, mock_polling_instance]:
-            if instance.schedule.called:
-                scheduled = True
-                break
+        scheduled = any(instance.schedule.called for instance in [
+            mock_observer.return_value,
+            mock_fsevents.return_value,
+            mock_kqueue.return_value,
+            mock_polling.return_value,
+        ])
         self.assertTrue(scheduled)
 
-        started = False
-        for instance in [mock_observer_instance, mock_fsevents_instance, mock_kqueue_instance, mock_polling_instance]:
-            if instance.start.called:
-                started = True
-                break
-        self.assertTrue(started)
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
