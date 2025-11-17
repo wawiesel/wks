@@ -34,7 +34,16 @@ def parse_mcp_stream(payload: str):
 
 def test_cli_config_print_json(monkeypatch):
     cfg = {
-        "vault": {"base_dir": "/vault", "wks_dir": "WKS"},
+        "vault": {
+            "base_dir": "/vault",
+            "wks_dir": "WKS",
+            "update_frequency_seconds": 60,
+            "database": "wks.vault",
+            "log_max_entries": 500,
+            "active_files_max_rows": 50,
+            "source_max_chars": 40,
+            "destination_max_chars": 40,
+        },
         "monitor": {
             "include_paths": ["~"],
             "exclude_paths": [],
@@ -112,7 +121,29 @@ def test_cli_db_vault_outputs_documents(monkeypatch):
 
     client = mongomock.MongoClient()
     coll = client["wks"]["vault"]
-    coll.insert_one({"doc_type": "link", "note_path": "Projects/Demo.md", "link_status": "ok"})
+    coll.insert_one(
+        {
+            "doc_type": "link",
+            "note_path": "Projects/Demo.md",
+            "line_number": 1,
+            "source_heading": "",
+            "raw_line": "See [[_links/demo/file.pdf]]",
+            "link_type": "wikilink",
+            "raw_target": "_links/demo/file.pdf",
+            "alias_or_text": "",
+            "is_embed": False,
+            "target_kind": "_links_symlink",
+            "target_uri": "vault-link:///_links/demo/file.pdf",
+            "links_rel": "_links/demo/file.pdf",
+            "resolved_path": "/tmp/demo",
+            "resolved_exists": False,
+            "monitor_doc_id": "",
+            "status": "ok",
+            "last_seen": "2025-01-01T00:00:00Z",
+            "last_updated": "2025-01-01T00:00:00Z",
+            "first_seen": "2025-01-01T00:00:00Z",
+        }
+    )
     monkeypatch.setattr(cli_db, "connect_to_mongo", lambda uri: client)
 
     rc, out, _ = run_cli(['--display', 'mcp', 'db', 'vault', '--filter', '{}', '--limit', '1'])
@@ -120,6 +151,31 @@ def test_cli_db_vault_outputs_documents(monkeypatch):
     payloads = parse_mcp_stream(out)
     data_events = [evt for evt in payloads if evt.get("type") == "data"]
     assert data_events[0]["data"]["note_path"] == "Projects/Demo.md"
+
+
+def test_cli_db_status_outputs_table(monkeypatch):
+    import wks.cli_db as cli_db
+
+    config = {
+        "monitor": {"database": "wks.monitor"},
+        "vault": {"database": "wks.vault"},
+        "db": {"uri": "mongodb://localhost:27017/"},
+    }
+    monkeypatch.setattr(cli_db, "load_config", lambda: config)
+
+    client = mongomock.MongoClient()
+    client["wks"]["monitor"].insert_one({"timestamp": "2025-01-01T00:00:00Z"})
+    client["wks"]["vault"].insert_one({"last_updated": "2025-01-02T00:00:00Z"})
+    monkeypatch.setattr(cli_db, "connect_to_mongo", lambda uri: client)
+
+    rc, out, _ = run_cli(['--display', 'mcp', 'db', 'status'])
+    assert rc == 0
+    payloads = parse_mcp_stream(out)
+    table_events = [evt for evt in payloads if evt.get("type") == "table"]
+    assert table_events, f"No table output found: {payloads}"
+    rows = table_events[0]["data"]
+    assert any(row["Scope"] == "monitor" for row in rows)
+    assert any(row["Scope"] == "vault" for row in rows)
 
 
 def test_cli_service_status_mcp(monkeypatch):
@@ -155,7 +211,17 @@ def test_cli_vault_status_json(monkeypatch):
         def summarize(self):
             return FakeSummary()
 
+    class FakeIndexer:
+        def sync(self):
+            return None
+
+        @classmethod
+        def from_config(cls, vault, cfg):
+            return cls()
+
     monkeypatch.setattr(vault_cmd, "load_config", lambda: {"db": {}, "vault": {}})
+    monkeypatch.setattr(vault_cmd, "load_vault", lambda cfg: object())
+    monkeypatch.setattr(vault_cmd, "VaultLinkIndexer", FakeIndexer)
     monkeypatch.setattr(vault_cmd, "VaultStatusController", lambda cfg: FakeController(cfg))
 
     rc, out, _ = run_cli(['--display', 'mcp', 'vault', 'status', '--json'])

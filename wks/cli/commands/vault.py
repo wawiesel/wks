@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 
 from ...config import load_config
 from ...constants import MAX_DISPLAY_WIDTH
+from ...vault import load_vault
+from ...vault.indexer import VaultLinkIndexer
 from ...vault.status_controller import VaultStatusController
 
 
@@ -31,6 +33,16 @@ def vault_status_cmd(args: argparse.Namespace) -> int:
     """Render vault status summary."""
     cfg = load_config()
     display = getattr(args, "display_obj", None)
+    try:
+        vault = load_vault(cfg)
+        indexer = VaultLinkIndexer.from_config(vault, cfg)
+        indexer.sync()
+    except Exception as exc:
+        if display:
+            display.error(f"Vault scan failed: {exc}")
+        else:
+            print(f"Error: {exc}")
+        return 2
     controller = VaultStatusController(cfg)
     try:
         summary = controller.summarize()
@@ -71,12 +83,13 @@ def vault_status_cmd(args: argparse.Namespace) -> int:
                 issue_rows.append(
                     {
                         "Note": issue.note_path,
-                        "Target": issue.link_target_uri,
-                        "Status": issue.link_status,
-                        "Seen": issue.last_seen or "-",
+                        "Line": str(issue.line_number),
+                        "Target": issue.target_uri,
+                        "Status": issue.status,
+                        "Updated": issue.last_updated or "-",
                     }
                 )
-            display.table(issue_rows, title="Unhealthy Links", headers=["Note", "Target", "Status", "Seen"])
+            display.table(issue_rows, title="Unhealthy Links", headers=["Note", "Line", "Target", "Status", "Updated"])
 
     if summary.errors:
         for err in summary.errors:
@@ -126,15 +139,17 @@ def _render_cli_vault_status(display, summary):
     if summary.issues:
         issue_table = Table(title="", show_header=True, header_style="bold red")
         issue_table.add_column("Note", justify="left")
+        issue_table.add_column("Line", justify="right")
         issue_table.add_column("Target", justify="left")
         issue_table.add_column("Status", justify="center")
-        issue_table.add_column("Seen", justify="right")
+        issue_table.add_column("Updated", justify="right")
         for issue in summary.issues:
             issue_table.add_row(
                 issue.note_path,
-                issue.link_target_uri,
-                issue.link_status,
-                issue.last_seen or "-",
+                str(issue.line_number),
+                issue.target_uri,
+                issue.status,
+                issue.last_updated or "-",
             )
         display.console.print(Panel.fit(issue_table, title="Unhealthy Links", border_style="red", width=MAX_DISPLAY_WIDTH))
     else:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pymongo import MongoClient
@@ -14,11 +13,16 @@ from ..config import load_config
 
 @dataclass
 class VaultIssue:
-    from_note: str
-    link_target_uri: str
-    link_status: str
     note_path: str
-    last_seen: Optional[str]
+    line_number: int
+    target_uri: str
+    status: str
+    source_heading: str
+    raw_line: str
+    links_rel: str
+    resolved_path: str
+    resolved_exists: bool
+    last_updated: Optional[str]
 
 
 @dataclass
@@ -62,41 +66,73 @@ class VaultStatusController:
     def summarize(self) -> VaultStatusSummary:
         client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
         collection = client[self.db_name][self.coll_name]
-        counts = {row["_id"]: row["count"] for row in collection.aggregate([
-            {"$match": {"doc_type": "link"}},
-            {"$group": {"_id": "$link_status", "count": {"$sum": 1}}},
-        ])}
-        type_counts = {row["_id"]: row["count"] for row in collection.aggregate([
-            {"$match": {"doc_type": "link"}},
-            {"$group": {"_id": "$link_type", "count": {"$sum": 1}}},
-        ])}
-        total_links = sum(counts.values())
-        ok_links = counts.get("ok", 0)
-        missing_symlink = counts.get("missing_symlink", 0)
-        missing_target = counts.get("missing_target", 0)
-        legacy_links = counts.get("legacy_link", 0)
+        meta = collection.find_one({"_id": "__meta__"}) or {}
 
-        meta = collection.find_one({"_id": "__meta__"})
+        status_counts = meta.get("status_counts")
+        if not status_counts:
+            status_counts = {
+                row["_id"]: row["count"]
+                for row in collection.aggregate(
+                    [
+                        {"$match": {"doc_type": "link"}},
+                        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
+                    ]
+                )
+            }
+        type_counts = meta.get("type_counts")
+        if not type_counts:
+            type_counts = {
+                row["_id"]: row["count"]
+                for row in collection.aggregate(
+                    [
+                        {"$match": {"doc_type": "link"}},
+                        {"$group": {"_id": "$link_type", "count": {"$sum": 1}}},
+                    ]
+                )
+            }
+
+        total_links = sum(status_counts.values())
+        ok_links = status_counts.get("ok", 0)
+        missing_symlink = status_counts.get("missing_symlink", 0)
+        missing_target = status_counts.get("missing_target", 0)
+        legacy_links = status_counts.get("legacy_link", 0)
+
         issues_cursor = collection.find(
-            {"doc_type": "link", "link_status": {"$ne": "ok"}},
-            {"from_note": 1, "note_path": 1, "link_target_uri": 1, "link_status": 1, "last_seen": 1},
-        ).sort("last_seen", -1).limit(10)
+            {"doc_type": "link", "status": {"$ne": "ok"}},
+            {
+                "note_path": 1,
+                "line_number": 1,
+                "target_uri": 1,
+                "status": 1,
+                "source_heading": 1,
+                "raw_line": 1,
+                "links_rel": 1,
+                "resolved_path": 1,
+                "resolved_exists": 1,
+                "last_updated": 1,
+            },
+        ).sort("last_updated", -1).limit(10)
         issues = [
             VaultIssue(
-                from_note=doc.get("from_note", ""),
-                link_target_uri=doc.get("link_target_uri", ""),
-                link_status=doc.get("link_status", ""),
                 note_path=doc.get("note_path", ""),
-                last_seen=doc.get("last_seen"),
+                line_number=doc.get("line_number", 0),
+                target_uri=doc.get("target_uri", ""),
+                status=doc.get("status", ""),
+                source_heading=doc.get("source_heading", ""),
+                raw_line=doc.get("raw_line", ""),
+                links_rel=doc.get("links_rel", ""),
+                resolved_path=doc.get("resolved_path", ""),
+                resolved_exists=bool(doc.get("resolved_exists", False)),
+                last_updated=doc.get("last_updated"),
             )
             for doc in issues_cursor
         ]
         client.close()
 
-        last_sync = meta.get("last_scan_started_at") if meta else None
-        notes_scanned = meta.get("notes_scanned", 0) if meta else 0
-        scan_duration = meta.get("last_scan_duration_ms") if meta else None
-        errors = list(meta.get("errors", [])) if meta else []
+        last_sync = meta.get("last_scan_started_at")
+        notes_scanned = meta.get("notes_scanned", 0)
+        scan_duration = meta.get("last_scan_duration_ms")
+        errors = list(meta.get("errors", []))
 
         return VaultStatusSummary(
             total_links=total_links,
