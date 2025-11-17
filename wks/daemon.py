@@ -258,6 +258,16 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_db_update_error: {e}")
 
+    def _monitor_has_path(self, path: Path) -> bool:
+        """Check whether the monitor DB currently tracks the given path."""
+        if self.monitor_collection is None:
+            return False
+        try:
+            return self.monitor_collection.count_documents({"path": path.as_uri()}, limit=1) > 0
+        except Exception as exc:
+            self._set_error(f"monitor_db_lookup_error: {exc}")
+            return False
+
     def _remove_from_monitor_db(self, path: Path):
         if self.monitor_collection is None:
             return
@@ -303,17 +313,6 @@ class WKSDaemon:
         while self._fs_events_long and self._fs_events_long[0] < cutoff_long:
             self._fs_events_long.popleft()
 
-    def _is_probably_file(self, p: Path) -> bool:
-        """Heuristic: log only file events; for deleted (nonexistent), use suffix-based guess."""
-        try:
-            if p.exists():
-                return p.is_file()
-        except Exception:
-            pass
-        name = p.name
-        # Treat names with an extension as files (e.g., README.md); skip obvious directories
-        return ('.' in name and not name.endswith('.') and name not in {'', '.', '..'})
-
     def _handle_move_event(self, src_path: str, dest_path: str):
         """Handle file move event."""
         src = Path(src_path)
@@ -325,13 +324,19 @@ class WKSDaemon:
         except Exception:
             pass
 
-        # Only log file moves; skip pure directory moves to reduce noise
+        tracked_src = self._monitor_has_path(src)
+        dest_is_file = False
         try:
-            if self._is_probably_file(src) or self._is_probably_file(dest):
+            dest_is_file = dest.exists() and dest.is_file()
+        except Exception:
+            dest_is_file = False
+
+        if tracked_src or dest_is_file:
+            try:
                 self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
                 self._bump_beat()
-        except Exception:
-            pass
+            except Exception:
+                pass
 
         # Update symlink target if tracked
         try:
@@ -346,18 +351,19 @@ class WKSDaemon:
             pass
 
         # Update monitor DB (only if not ignored)
-        if not self._should_ignore_by_rules(src):
+        if tracked_src and not self._should_ignore_by_rules(src):
             self._remove_from_monitor_db(src)
-        if not self._should_ignore_by_rules(dest):
+        if dest_is_file and not self._should_ignore_by_rules(dest):
             self._update_monitor_db(dest)
 
     def _handle_delete_event(self, path: Path):
         """Handle file delete event."""
-        if self._is_probably_file(path):
-            try:
-                self._pending_deletes[path.resolve().as_posix()] = time.time()
-            except Exception:
-                pass
+        if not self._monitor_has_path(path):
+            return
+        try:
+            self._pending_deletes[path.resolve().as_posix()] = time.time()
+        except Exception:
+            pass
 
     def _handle_create_modify_event(self, path: Path, event_type: str):
         """Handle file create or modify event."""

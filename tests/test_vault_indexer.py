@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import mongomock
@@ -57,7 +56,12 @@ def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
     cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
     indexer = VaultLinkIndexer(vault, mongo_uri=cfg["db"]["uri"], collection_key=cfg["vault"]["database"])
     result = indexer.sync()
-    assert result.stats.link_records == 2
+    assert result.stats.edge_total == 2
+    mongo_coll = patched_mongo["wks"]["vault"]
+    edge = mongo_coll.find_one({"doc_type": "link", "link_type": "wikilink"})
+    assert edge["note_path"] == "Projects/Demo.md"
+    assert edge["links_rel"] == "_links/papers/paper.pdf"
+    assert edge["status"] == "ok"
     summary = VaultStatusController(cfg).summarize()
     assert summary.total_links == 2
     assert summary.external_urls == 1

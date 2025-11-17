@@ -5,24 +5,25 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-from dataclasses import dataclass, asdict
+from collections import Counter
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 from pymongo import MongoClient, UpdateOne
 
 from ..db_helpers import parse_database_key
 from ..config import load_config
-from ..constants import WKS_HOME_DISPLAY
 from .obsidian import ObsidianVault
 
 WIKILINK_PATTERN = re.compile(r"(!)?\[\[([^\]]+)\]\]")
 MARKDOWN_URL_PATTERN = re.compile(r"\[([^\]]+)\]\((https?://[^)]+)\)")
+_MAX_LINE_PREVIEW = 400
 
 
-def _identity(from_note: str, line_number: int, target: str) -> str:
-    payload = f"{from_note}|{line_number}|{target}".encode("utf-8", errors="ignore")
+def _identity(note_path: str, line_number: int, target_uri: str) -> str:
+    payload = f"{note_path}|{line_number}|{target_uri}".encode("utf-8", errors="ignore")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -31,47 +32,59 @@ def _now_iso() -> str:
 
 
 @dataclass
-class VaultLinkRecord:
-    """Single link parsed from the vault."""
+class VaultEdgeRecord:
+    """Single vault edge flattened into the canonical schema."""
 
-    identity: str
-    from_note: str
     note_path: str
     line_number: int
+    source_heading: str
+    raw_line: str
     link_type: str
-    link_target_uri: str
-    link_status: str
-    embed_link: Optional[str]
-    resolved_path: Optional[str]
-    alias: Optional[str]
     raw_target: str
+    alias_or_text: str
+    is_embed: bool
+    target_kind: str
+    target_uri: str
+    links_rel: str
+    resolved_path: str
+    resolved_exists: bool
+    status: str
+    monitor_doc_id: str = ""
+
+    @property
+    def identity(self) -> str:
+        return _identity(self.note_path, self.line_number, self.target_uri)
 
     def to_document(self, seen_at_iso: str) -> Dict[str, object]:
-        doc = {
+        return {
             "_id": self.identity,
             "doc_type": "link",
-            "from_note": self.from_note,
             "note_path": self.note_path,
             "line_number": self.line_number,
+            "source_heading": self.source_heading,
+            "raw_line": self.raw_line,
             "link_type": self.link_type,
-            "link_target_uri": self.link_target_uri,
-            "link_status": self.link_status,
-            "embed_link": self.embed_link,
-            "resolved_path": self.resolved_path,
-            "alias": self.alias,
             "raw_target": self.raw_target,
+            "alias_or_text": self.alias_or_text,
+            "is_embed": self.is_embed,
+            "target_kind": self.target_kind,
+            "target_uri": self.target_uri,
+            "links_rel": self.links_rel,
+            "resolved_path": self.resolved_path,
+            "resolved_exists": self.resolved_exists,
+            "monitor_doc_id": self.monitor_doc_id,
+            "status": self.status,
             "last_seen": seen_at_iso,
+            "last_updated": seen_at_iso,
         }
-        return doc
 
 
 @dataclass
 class VaultScanStats:
     notes_scanned: int
-    link_records: int
-    wiki_links: int
-    embeds: int
-    markdown_urls: int
+    edge_total: int
+    type_counts: Dict[str, int]
+    status_counts: Dict[str, int]
     errors: List[str]
 
 
@@ -84,19 +97,17 @@ class VaultSyncResult:
     upserts: int
 
     def to_meta_document(self) -> Dict[str, object]:
-        meta = {
+        return {
             "_id": "__meta__",
             "doc_type": "meta",
             "last_scan_started_at": self.sync_started,
             "last_scan_duration_ms": self.sync_duration_ms,
             "notes_scanned": self.stats.notes_scanned,
-            "records_written": self.stats.link_records,
-            "wiki_links": self.stats.wiki_links,
-            "embeds": self.stats.embeds,
-            "markdown_urls": self.stats.markdown_urls,
+            "edges_written": self.stats.edge_total,
+            "type_counts": dict(self.stats.type_counts),
+            "status_counts": dict(self.stats.status_counts),
             "errors": list(self.stats.errors),
         }
-        return meta
 
 
 class VaultLinkScanner:
@@ -105,13 +116,12 @@ class VaultLinkScanner:
     def __init__(self, vault: ObsidianVault):
         self.vault = vault
 
-    def scan(self) -> List[VaultLinkRecord]:
-        records: List[VaultLinkRecord] = []
+    def scan(self) -> List[VaultEdgeRecord]:
+        records: List[VaultEdgeRecord] = []
         self._errors: List[str] = []
         self._notes_scanned = 0
-        self._wiki_links = 0
-        self._embeds = 0
-        self._urls = 0
+        self._type_counts: Counter[str] = Counter()
+        self._status_counts: Counter[str] = Counter()
 
         for note_path in self.vault.iter_markdown_files():
             self._notes_scanned += 1
@@ -124,10 +134,9 @@ class VaultLinkScanner:
 
         self._stats = VaultScanStats(
             notes_scanned=self._notes_scanned,
-            link_records=len(records),
-            wiki_links=self._wiki_links,
-            embeds=self._embeds,
-            markdown_urls=self._urls,
+            edge_total=len(records),
+            type_counts=dict(self._ensure_type_keys(self._type_counts)),
+            status_counts=dict(self._status_counts),
             errors=self._errors,
         )
         return records
@@ -136,126 +145,176 @@ class VaultLinkScanner:
     def stats(self) -> VaultScanStats:
         return self._stats
 
-    def _parse_note(self, note_path: Path, text: str) -> List[VaultLinkRecord]:
-        rows = []
+    @staticmethod
+    def _ensure_type_keys(counter: Counter[str]) -> Counter[str]:
+        for key in ("wikilink", "embed", "markdown_url"):
+            counter.setdefault(key, 0)
+        return counter
+
+    def _parse_note(self, note_path: Path, text: str) -> List[VaultEdgeRecord]:
+        rows: List[VaultEdgeRecord] = []
         lines = text.splitlines()
+        heading = ""
         for idx, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                heading = stripped.lstrip("#").strip()
             for match in WIKILINK_PATTERN.finditer(line):
                 is_embed = bool(match.group(1))
                 raw_target = match.group(2).strip()
                 target, alias = self._split_alias(raw_target)
                 record = self._build_wikilink_record(
-                    note_path,
-                    idx,
-                    target,
-                    alias,
-                    is_embed,
-                    raw_target,
+                    note_path=note_path,
+                    line_number=idx,
+                    raw_line=line,
+                    heading=heading,
+                    target=target,
+                    alias=alias,
+                    is_embed=is_embed,
+                    raw_target=raw_target,
                 )
                 rows.append(record)
-                if is_embed:
-                    self._embeds += 1
-                else:
-                    self._wiki_links += 1
+                self._record_counts(record)
             for match in MARKDOWN_URL_PATTERN.finditer(line):
                 url = match.group(2).strip()
-                alias = match.group(1).strip() or None
-                record = self._build_url_record(note_path, idx, url, alias)
+                alias = match.group(1).strip()
+                record = self._build_url_record(
+                    note_path=note_path,
+                    line_number=idx,
+                    raw_line=line,
+                    heading=heading,
+                    url=url,
+                    alias=alias,
+                )
                 rows.append(record)
-                self._urls += 1
+                self._record_counts(record)
         return rows
 
+    def _record_counts(self, record: VaultEdgeRecord) -> None:
+        self._type_counts[record.link_type] += 1
+        self._status_counts[record.status] += 1
+
     @staticmethod
-    def _split_alias(target: str) -> tuple[str, Optional[str]]:
+    def _split_alias(target: str) -> tuple[str, str]:
         if "|" in target:
             core, alias = target.split("|", 1)
-            return core.strip(), alias.strip() or None
-        return target.strip(), None
+            return core.strip(), alias.strip()
+        return target.strip(), ""
 
-    def _note_uris(self, note_path: Path) -> tuple[str, str]:
-        rel = note_path.relative_to(self.vault.vault_path)
-        return f"vault:///{rel.as_posix()}", rel.as_posix()
+    def _note_path(self, note_path: Path) -> str:
+        return note_path.relative_to(self.vault.vault_path).as_posix()
+
+    def _preview_line(self, line: str) -> str:
+        clean = line.rstrip("\n")
+        if len(clean) <= _MAX_LINE_PREVIEW:
+            return clean
+        return f"{clean[:_MAX_LINE_PREVIEW]}…"
 
     def _build_wikilink_record(
         self,
         note_path: Path,
         line_number: int,
+        raw_line: str,
+        heading: str,
         target: str,
-        alias: Optional[str],
+        alias: str,
         is_embed: bool,
         raw_target: str,
-    ) -> VaultLinkRecord:
-        from_note, rel_note = self._note_uris(note_path)
-        identity = _identity(from_note, line_number, target)
-        link_type = "embed" if is_embed else "wikilink"
-        link_status = "ok"
-        embed_link = None
-        resolved_path = None
-        link_target_uri = target
+    ) -> VaultEdgeRecord:
+        note_rel = self._note_path(note_path)
+        metadata = self._resolve_wikilink_target(target)
+        return VaultEdgeRecord(
+            note_path=note_rel,
+            line_number=line_number,
+            source_heading=heading,
+            raw_line=self._preview_line(raw_line),
+            link_type="embed" if is_embed else "wikilink",
+            raw_target=raw_target,
+            alias_or_text=alias,
+            is_embed=is_embed,
+            target_kind=metadata["target_kind"],
+            target_uri=metadata["target_uri"],
+            links_rel=metadata["links_rel"],
+            resolved_path=metadata["resolved_path"],
+            resolved_exists=metadata["resolved_exists"],
+            status=metadata["status"],
+        )
 
-        if target.lower().startswith("links/"):
-            link_status = "legacy_link"
+    def _resolve_wikilink_target(self, target: str) -> Dict[str, object]:
+        target = target.strip()
+        lowered = target.lower()
+        data: Dict[str, object] = {
+            "target_kind": "vault_note",
+            "target_uri": f"vault:///{target}",
+            "links_rel": "",
+            "resolved_path": "",
+            "resolved_exists": False,
+            "status": "ok",
+        }
+        if lowered.startswith("links/"):
             normalized = target[target.lower().index("links/") + len("links/") :]
-            link_target_uri = f"vault-link:///_links/{normalized}"
-            embed_link = f"_links/{normalized}"
-        elif target.startswith("_links/"):
-            link_target_uri = f"vault-link:///{target}"
-            embed_link = target
-        elif target.startswith("_"):
-            # Respect other vault-internal directories like _attachments
-            link_target_uri = f"vault:///{target}"
-        elif "://" not in target and not target.startswith("/"):
-            link_target_uri = f"vault:///{target}"
-
-        if embed_link:
-            rel = embed_link[len("_links/") :] if embed_link.startswith("_links/") else embed_link
+            data["target_kind"] = "legacy_path"
+            data["target_uri"] = f"legacy:///{normalized}"
+            data["status"] = "legacy_link"
+            return data
+        if target.startswith("_links/"):
+            rel = target[len("_links/") :]
             symlink_path = self.vault.links_dir / rel
+            data["target_kind"] = "_links_symlink"
+            data["target_uri"] = f"vault-link:///{target}"
+            data["links_rel"] = target
+            data["resolved_path"] = str(symlink_path)
             if not symlink_path.exists():
-                link_status = "missing_symlink"
+                data["status"] = "missing_symlink"
             else:
                 try:
                     resolved = symlink_path.resolve(strict=False)
                 except Exception:
                     resolved = symlink_path
-                resolved_path = str(resolved)
-                if not resolved.exists():
-                    link_status = "missing_target"
-
-        return VaultLinkRecord(
-            identity=identity,
-            from_note=from_note,
-            note_path=rel_note,
-            line_number=line_number,
-            link_type=link_type,
-            link_target_uri=link_target_uri,
-            link_status=link_status,
-            embed_link=embed_link,
-            resolved_path=resolved_path,
-            alias=alias,
-            raw_target=raw_target,
-        )
+                data["resolved_path"] = str(resolved)
+                data["resolved_exists"] = resolved.exists()
+                if not data["resolved_exists"]:
+                    data["status"] = "missing_target"
+            return data
+        if target.startswith("_"):
+            data["target_kind"] = "attachment"
+            data["target_uri"] = f"vault:///{target}"
+            return data
+        if "://" in target:
+            data["target_kind"] = "external_url"
+            data["target_uri"] = target
+            return data
+        if target.startswith("/"):
+            data["target_kind"] = "legacy_path"
+            data["target_uri"] = f"legacy:///{target}"
+            data["status"] = "legacy_link"
+            return data
+        return data
 
     def _build_url_record(
         self,
         note_path: Path,
         line_number: int,
+        raw_line: str,
+        heading: str,
         url: str,
-        alias: Optional[str],
-    ) -> VaultLinkRecord:
-        from_note, rel_note = self._note_uris(note_path)
-        identity = _identity(from_note, line_number, url)
-        return VaultLinkRecord(
-            identity=identity,
-            from_note=from_note,
-            note_path=rel_note,
+        alias: str,
+    ) -> VaultEdgeRecord:
+        return VaultEdgeRecord(
+            note_path=self._note_path(note_path),
             line_number=line_number,
+            source_heading=heading,
+            raw_line=self._preview_line(raw_line),
             link_type="markdown_url",
-            link_target_uri=url,
-            link_status="ok",
-            embed_link=None,
-            resolved_path=None,
-            alias=alias,
             raw_target=url,
+            alias_or_text=alias,
+            is_embed=False,
+            target_kind="external_url",
+            target_uri=url,
+            links_rel="",
+            resolved_path="",
+            resolved_exists=False,
+            status="ok",
         )
 
 

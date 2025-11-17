@@ -1,11 +1,15 @@
 """MCP display implementation - JSON output only."""
 
 import json
-import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from .base import Display
+
+
+def _now_iso() -> str:
+    """Return an ISO8601 timestamp in UTC with trailing Z."""
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class MCPDisplay(Display):
@@ -24,7 +28,7 @@ class MCPDisplay(Display):
         self._output({
             "type": "status",
             "message": message,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         })
 
     def success(self, message: str, **kwargs) -> None:
@@ -32,7 +36,7 @@ class MCPDisplay(Display):
         output = {
             "type": "success",
             "message": message,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         }
         if "data" in kwargs:
             output["data"] = kwargs["data"]
@@ -43,7 +47,7 @@ class MCPDisplay(Display):
         output = {
             "type": "error",
             "message": message,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         }
         if "details" in kwargs:
             output["details"] = kwargs["details"]
@@ -54,7 +58,7 @@ class MCPDisplay(Display):
         self._output({
             "type": "warning",
             "message": message,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         })
 
     def info(self, message: str, **kwargs) -> None:
@@ -62,7 +66,7 @@ class MCPDisplay(Display):
         self._output({
             "type": "info",
             "message": message,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         })
 
     def table(self, data: List[Dict[str, Any]], headers: Optional[List[str]] = None, **kwargs) -> None:
@@ -70,7 +74,7 @@ class MCPDisplay(Display):
         output = {
             "type": "table",
             "data": data,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         }
         if headers:
             output["headers"] = headers
@@ -104,7 +108,7 @@ class MCPDisplay(Display):
                 "total": state["total"],
                 "completed": state["current"],
                 "description": state["description"],
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": _now_iso()
             })
             del self._progress_states[handle]
 
@@ -127,7 +131,7 @@ class MCPDisplay(Display):
         output = {
             "type": "tree",
             "data": data,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         }
         if title:
             output["title"] = title
@@ -138,7 +142,7 @@ class MCPDisplay(Display):
         self._output({
             "type": "data",
             "data": data,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         })
 
     def panel(self, content: str, title: str = "", **kwargs) -> None:
@@ -146,7 +150,7 @@ class MCPDisplay(Display):
         output = {
             "type": "panel",
             "content": content,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": _now_iso()
         }
         if title:
             output["title"] = title

@@ -186,7 +186,7 @@ class TestConfigMigration:
             },
             "vault": {
                 "base_dir": "~/_vault",
-                "database": "wks_vault",
+                "database": "wks.vault",
             },
             "db": {
                 "uri": "mongodb://localhost:27017/",

@@ -31,7 +31,7 @@ WKS is built as a stack of independent, composable layers:
 ┌─────────────────────────────────────────────────────┐
 │  Vault Layer (Obsidian)                              │
 │  Knowledge graph: links only                         │
-│  DB: wks_vault.links                                 │
+│  DB: wks.vault                                       │
 └─────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────┐
@@ -269,26 +269,44 @@ Stored at `~/.wks/config.json`
 
 ### Vault Layer
 
-**Purpose**: Maintain knowledge graph (links only)
+**Goal**: Keep vault markdown, `_links/` symlinks, and filesystem state aligned without manual intervention. The vault database is the bridge between the scanner and the monitor—no human-facing “fix it” commands exist.
 
-**Database**: `wks_vault.links`
+**Database**: `wks.vault`
 
-**Schema**:
-- `from_path` — source URI (typically vault-internal)
-- `to_path` — target URI (vault-internal or external `file:///`)
-- `link_type` — wikilink, markdown, embed
-- `line_number` — optional, for precise location
-- `last_observed` — timestamp when link was last seen
+Each link becomes exactly one document (no optional fields; empty strings/zeros indicate “not applicable”). `_id` is `sha256(note_path + line_number + target_uri)` so repeated scans upsert deterministically. Fields are grouped as follows:
 
-**Service Workflow**:
-1. **Monitor → Vault**: Watch `wks.monitor` for path changes
-   - Query `wks_vault.links` for all references to changed path
-   - Update Obsidian files with new paths
-   - Update vault DB
-2. **Vault → DB**: Periodically scan Obsidian files
-   - Parse all links
-   - Sync to `wks_vault.links`
-   - Obsidian handles internal vault moves, we observe and record
+1. **Source context**
+   - `note_path`: note path relative to the vault root (e.g., `Projects/Foo.md`).
+   - `line_number`: 1-based line that produced the link.
+   - `source_heading`: nearest markdown heading text (empty string if none).
+   - `raw_line`: full line content trimmed to a safe length for debugging.
+
+2. **Link content**
+   - `link_type`: `wikilink`, `embed`, or `markdown_url`.
+   - `raw_target`: text inside the link (`[[…]]` target or `(…)` URL).
+   - `alias_or_text`: alias or `[text]` label (empty string when not supplied).
+   - `is_embed`: `true` only for `![[…]]`.
+
+3. **Target resolution**
+   - `target_kind`: `vault_note`, `_links_symlink`, `external_url`, `attachment`, or `legacy_path`.
+   - `target_uri`: normalized identifier for the link destination (`vault:///…`, `vault-link:///_links/...`, `https://…`).
+   - `links_rel`: `_links/...` relative path when applicable, otherwise `""`.
+   - `resolved_path`: absolute filesystem path reached at last scan (or `""`).
+   - `resolved_exists`: boolean indicating whether the path existed.
+   - `monitor_doc_id`: `_id` of the matching `wks.monitor` document or `""` if not yet indexed.
+
+4. **Health & lifecycle**
+   - `status`: `ok`, `missing_symlink`, `missing_target`, `legacy_link`, or `needs_monitor`.
+   - `first_seen`: ISO timestamp from the initial scan that created the document.
+   - `last_seen`: ISO timestamp from the latest scan that observed the link.
+   - `last_updated`: ISO timestamp of the most recent write (scan or monitor-triggered).
+
+A single metadata document (`_id = "__meta__"`, `doc_type = "meta"`) stores `last_scan_started_at`, `last_scan_duration_ms`, `notes_scanned`, `edges_written`, per-status counts, per-type counts, and the array `errors`. Status commands read this row instead of recomputing aggregates.
+
+**Automation Workflow**:
+1. **Monitor events** look up affected `resolved_path` values, rewrite markdown via `note_path`/`line_number`, refresh `_links/…`, and flip `status` plus `last_updated`.
+2. **Scanner loop** runs on `vault.update_frequency_seconds`, parses every markdown file, validates `_links/…`, writes deterministic documents, and drops rows whose `_id` wasn’t touched (links removed from the vault).
+3. **Status reporting** simply mirrors the persisted counts (`__meta__`) and lists unhealthy edges filtered by `status != "ok"`.
 
 **Generated Files**:
 - `WKS/Health.md` — daemon metrics
@@ -296,12 +314,9 @@ Stored at `~/.wks/config.json`
 - `WKS/FileOperations.md` — move/rename log
 - `WKS/Extractions/` — extracted content snapshots (keep latest N)
 
-**Commands**:
-- `wks0 vault status` — link health summary
-- `wks0 vault links <file>` — show inbound/outbound links for file
-- `wks0 vault orphans` — find files with no links
-- `wks0 vault check` — scan vault and sync links table
-- `wks0 db vault` — query links database
+**Commands** (diagnostics only):
+- `wks0 vault status` — summarize the most recent automated scan
+- `wks0 db vault` — query the underlying collection
 
 ### Extract Layer
 
