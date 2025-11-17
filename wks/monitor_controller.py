@@ -8,13 +8,17 @@ from the CLI display layer. This enables:
 - Zero code duplication per SPEC.md
 """
 
-from dataclasses import dataclass, field, asdict
+import logging
+from dataclasses import dataclass, field, asdict, fields
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Set
+from typing import Dict, List, Optional, Tuple, Any, Set, Iterable
 import fnmatch
 import math
 
 from .constants import WKS_DOT_DIRS
+from .monitor_rules import MonitorRules
+
+logger = logging.getLogger(__name__)
 
 
 def _canonicalize_path(path_str: str) -> str:
@@ -44,28 +48,6 @@ def _find_matching_path_key(path_map: Dict[str, Any], candidate: str) -> Optiona
     return None
 
 
-def _effective_dot_whitelist(include_paths: List[str], dot_whitelist: List[str]) -> Set[str]:
-    """
-    Build the effective dot-directory whitelist by combining user entries
-    with dot segments that appear inside include_paths.
-    """
-    whitelist: Set[str] = set()
-    for token in dot_whitelist:
-        token_str = str(token).strip()
-        if token_str and token_str not in WKS_DOT_DIRS:
-            whitelist.add(token_str)
-
-    for path_str in include_paths:
-        path_obj = Path(path_str).expanduser()
-        for part in path_obj.parts:
-            if part in WKS_DOT_DIRS:
-                continue
-            if part.startswith('.'):
-                whitelist.add(part)
-
-    return whitelist
-
-
 class ValidationError(Exception):
     """Exception that collects multiple validation errors."""
 
@@ -84,20 +66,33 @@ class MonitorValidator:
         return "[green]✓[/]" if not error_msg else "[yellow]⚠[/]" if is_valid else "[red]✗[/]"
 
     @staticmethod
-    def validate_ignore_dirname(dirname: str, ignore_globs: List[str]) -> Tuple[bool, Optional[str]]:
-        """Validate an ignore_dirname entry."""
-        if '*' in dirname or '?' in dirname or '[' in dirname:
-            return False, "ignore_dirnames cannot contain wildcard characters (*, ?, [). Use ignore_globs for patterns."
-
-        for glob_pattern in ignore_globs:
-            if fnmatch.fnmatch(dirname, glob_pattern):
-                return True, f"Redundant: dirname '{dirname}' already matched by ignore_globs pattern '{glob_pattern}'"
-
+    def validate_dirname_entry(dirname: str) -> Tuple[bool, Optional[str]]:
+        """Validate include/exclude dirname entries."""
+        if not dirname or not dirname.strip():
+            return False, "Directory name cannot be empty"
+        if any(ch in dirname for ch in "*?[]"):
+            return False, "Directory names cannot contain wildcard characters (*, ?, [)"
         return True, None
 
     @staticmethod
-    def validate_ignore_glob(pattern: str) -> Tuple[bool, Optional[str]]:
-        """Validate an ignore_glob pattern for syntax errors."""
+    def dirname_redundancy(dirname: str, related_globs: List[str], relation: str) -> Optional[str]:
+        """Detect redundant dirname entries already covered by globs."""
+        normalized = dirname.strip()
+        for pattern in related_globs:
+            pattern = pattern.strip()
+            if not pattern:
+                continue
+            simplified = pattern.rstrip("/")
+            simplified = simplified.removeprefix("**/").removesuffix("/**")
+            if simplified == normalized and not any(ch in pattern for ch in "*?[]"):
+                return f"Redundant: dirname '{dirname}' already covered by {relation} glob '{pattern}'"
+        return None
+
+    @staticmethod
+    def validate_glob_pattern(pattern: str) -> Tuple[bool, Optional[str]]:
+        """Validate glob syntax for include/exclude lists."""
+        if not pattern or not pattern.strip():
+            return False, "Glob pattern cannot be empty"
         try:
             fnmatch.fnmatch("test", pattern)
             return True, None
@@ -105,18 +100,10 @@ class MonitorValidator:
             return False, f"Invalid glob syntax: {str(e)}"
 
     @staticmethod
-    def validate_managed_directory(
-        managed_path: str,
-        include_paths: List[str],
-        exclude_paths: List[str],
-        ignore_dirnames: List[str],
-        ignore_globs: List[str],
-        dot_whitelist: Set[str]
-    ) -> Tuple[bool, Optional[str]]:
+    def validate_managed_directory(managed_path: str, rules: MonitorRules) -> Tuple[bool, Optional[str]]:
         """Validate that a managed_directory would actually be monitored."""
         managed_resolved = Path(managed_path).expanduser().resolve()
 
-        # Check for system paths that are always ignored
         wks_home = Path("~/.wks").expanduser().resolve()
         if managed_resolved == wks_home or str(managed_resolved).startswith(str(wks_home) + "/"):
             return False, "In WKS home directory (automatically ignored)"
@@ -124,35 +111,13 @@ class MonitorValidator:
         if ".wkso" in managed_resolved.parts:
             return False, "Contains .wkso directory (automatically ignored)"
 
-        # Check if under any include_paths
-        if not any(managed_resolved.is_relative_to(Path(p).expanduser().resolve())
-                   for p in include_paths):
-            return False, "Not under any include_paths"
+        allowed, trace = rules.explain(managed_resolved)
+        if allowed:
+            return True, None
 
-        # Check if in exclude_paths
-        for exclude_path in exclude_paths:
-            try:
-                if managed_resolved.is_relative_to(Path(exclude_path).expanduser().resolve()):
-                    return False, f"Matched by exclude_paths: {exclude_path}"
-            except BaseException:
-                pass
-
-        # Check if any path component matches ignore_dirnames
-        for part in managed_resolved.parts:
-            if part in ignore_dirnames:
-                return False, f"Contains ignored dirname: {part}"
-            if part in WKS_DOT_DIRS:
-                return False, f"Contains reserved directory: {part}"
-            if part.startswith('.') and part not in dot_whitelist:
-                return False, f"Contains dot-directory '{part}' that is not whitelisted"
-
-        # Check if matches ignore_globs
-        for glob_pattern in ignore_globs:
-            if fnmatch.fnmatch(str(managed_resolved), glob_pattern) or \
-               fnmatch.fnmatch(managed_resolved.name, glob_pattern):
-                return False, f"Matched by ignore_globs: {glob_pattern}"
-
-        return True, None
+        if trace:
+            return False, trace[-1]
+        return False, "Excluded by monitor rules"
 
 
 @dataclass
@@ -172,19 +137,16 @@ class ListOperationResult:
             raise ValueError(f"ListOperationResult.message cannot be empty (found: {self.message!r}, expected: non-empty string)")
         if self.success and self.not_found:
             raise ValueError(
-                f"ListOperationResult: success cannot be True when not_found is True (found: success={
-                    self.success}, not_found={
-                    self.not_found}, expected: success=False when not_found=True)")
+                f"ListOperationResult: success cannot be True when not_found is True (found: success={self.success}, not_found={self.not_found}, expected: success=False when not_found=True)"
+            )
         if self.success and self.already_exists:
             raise ValueError(
-                f"ListOperationResult: success cannot be True when already_exists is True (found: success={
-                    self.success}, already_exists={
-                    self.already_exists}, expected: success=False when already_exists=True)")
+                f"ListOperationResult: success cannot be True when already_exists is True (found: success={self.success}, already_exists={self.already_exists}, expected: success=False when already_exists=True)"
+            )
         if self.success and self.validation_failed:
             raise ValueError(
-                f"ListOperationResult: success cannot be True when validation_failed is True (found: success={
-                    self.success}, validation_failed={
-                    self.validation_failed}, expected: success=False when validation_failed=True)")
+                f"ListOperationResult: success cannot be True when validation_failed is True (found: success={self.success}, validation_failed={self.validation_failed}, expected: success=False when validation_failed=True)"
+            )
 
 
 @dataclass
@@ -213,11 +175,12 @@ class MonitorConfig:
     """Monitor configuration loaded from config dict with validation."""
     include_paths: List[str]
     exclude_paths: List[str]
-    ignore_dirnames: List[str]
-    ignore_globs: List[str]
+    include_dirnames: List[str]
+    exclude_dirnames: List[str]
+    include_globs: List[str]
+    exclude_globs: List[str]
     database: str
     managed_directories: Dict[str, int]
-    dot_whitelist: List[str] = field(default_factory=list)
     touch_weight: float = 0.1
     priority: Dict[str, Any] = field(default_factory=dict)
     max_documents: int = 1000000
@@ -238,14 +201,17 @@ class MonitorConfig:
         if not isinstance(self.exclude_paths, list):
             errors.append(f"monitor.exclude_paths must be a list (found: {type(self.exclude_paths).__name__} = {self.exclude_paths!r}, expected: list)")
 
-        if not isinstance(self.ignore_dirnames, list):
-            errors.append(f"monitor.ignore_dirnames must be a list (found: {type(self.ignore_dirnames).__name__} = {self.ignore_dirnames!r}, expected: list)")
+        if not isinstance(self.include_dirnames, list):
+            errors.append(f"monitor.include_dirnames must be a list (found: {type(self.include_dirnames).__name__} = {self.include_dirnames!r}, expected: list)")
 
-        if not isinstance(self.ignore_globs, list):
-            errors.append(f"monitor.ignore_globs must be a list (found: {type(self.ignore_globs).__name__} = {self.ignore_globs!r}, expected: list)")
+        if not isinstance(self.exclude_dirnames, list):
+            errors.append(f"monitor.exclude_dirnames must be a list (found: {type(self.exclude_dirnames).__name__} = {self.exclude_dirnames!r}, expected: list)")
 
-        if not isinstance(self.dot_whitelist, list):
-            errors.append(f"monitor.dot_whitelist must be a list (found: {type(self.dot_whitelist).__name__} = {self.dot_whitelist!r}, expected: list)")
+        if not isinstance(self.include_globs, list):
+            errors.append(f"monitor.include_globs must be a list (found: {type(self.include_globs).__name__} = {self.include_globs!r}, expected: list)")
+
+        if not isinstance(self.exclude_globs, list):
+            errors.append(f"monitor.exclude_globs must be a list (found: {type(self.exclude_globs).__name__} = {self.exclude_globs!r}, expected: list)")
 
         if not isinstance(self.managed_directories, dict):
             errors.append(f"monitor.managed_directories must be a dict (found: {type(self.managed_directories).__name__} = {self.managed_directories!r}, expected: dict)")
@@ -281,8 +247,24 @@ class MonitorConfig:
         if not monitor_config:
             raise KeyError("monitor section is required in config (found: missing, expected: monitor section with include_paths, exclude_paths, etc.)")
 
-        # Use natural dataclass instantiation from dict
-        return cls(**monitor_config)
+        monitor_config = dict(monitor_config)
+
+        allowed = {f.name for f in fields(cls)}
+        unsupported = [key for key in monitor_config.keys() if key not in allowed]
+        if unsupported:
+            errors = [
+                (
+                    "Unsupported monitor config key '"
+                    + key
+                    + "' (remove it; supported keys: "
+                    + ", ".join(sorted(allowed))
+                    + ")"
+                )
+                for key in unsupported
+            ]
+            raise ValidationError(errors)
+
+        return cls(**{k: monitor_config[k] for k in allowed})
 
 
 @dataclass
@@ -293,11 +275,14 @@ class ConfigValidationResult:
     managed_directories: Dict[str, ManagedDirectoryInfo] = field(default_factory=dict)
     include_paths: List[str] = field(default_factory=list)
     exclude_paths: List[str] = field(default_factory=list)
-    ignore_dirnames: List[str] = field(default_factory=list)
-    ignore_globs: List[str] = field(default_factory=list)
-    dot_whitelist: List[str] = field(default_factory=list)
-    ignore_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    ignore_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    include_dirnames: List[str] = field(default_factory=list)
+    exclude_dirnames: List[str] = field(default_factory=list)
+    include_globs: List[str] = field(default_factory=list)
+    exclude_globs: List[str] = field(default_factory=list)
+    include_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    exclude_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    include_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    exclude_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -309,11 +294,14 @@ class MonitorStatus:
     managed_directories: Dict[str, ManagedDirectoryInfo] = field(default_factory=dict)
     include_paths: List[str] = field(default_factory=list)
     exclude_paths: List[str] = field(default_factory=list)
-    ignore_dirnames: List[str] = field(default_factory=list)
-    ignore_globs: List[str] = field(default_factory=list)
-    dot_whitelist: List[str] = field(default_factory=list)
-    ignore_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    ignore_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    include_dirnames: List[str] = field(default_factory=list)
+    exclude_dirnames: List[str] = field(default_factory=list)
+    include_globs: List[str] = field(default_factory=list)
+    exclude_globs: List[str] = field(default_factory=list)
+    include_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    exclude_dirname_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    include_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    exclude_glob_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def __post_init__(self):
         """Validate after initialization."""
@@ -334,7 +322,7 @@ class MonitorController:
 
         Args:
             config: Configuration dictionary
-            list_name: Name of list (include_paths, exclude_paths, ignore_dirnames, ignore_globs, dot_whitelist)
+            list_name: Name of list (include/exclude paths, dirnames, or globs)
 
         Returns:
             dict with 'list_name', 'items' (list), and optional validation info
@@ -343,21 +331,19 @@ class MonitorController:
             KeyError: If monitor section or list_name is missing
         """
         monitor_cfg = MonitorConfig.from_config_dict(config)
-
-        if list_name == "include_paths":
-            items = monitor_cfg.include_paths
-        elif list_name == "exclude_paths":
-            items = monitor_cfg.exclude_paths
-        elif list_name == "ignore_dirnames":
-            items = monitor_cfg.ignore_dirnames
-        elif list_name == "ignore_globs":
-            items = monitor_cfg.ignore_globs
-        elif list_name == "dot_whitelist":
-            items = monitor_cfg.dot_whitelist
-        else:
+        supported_lists = {
+            "include_paths": monitor_cfg.include_paths,
+            "exclude_paths": monitor_cfg.exclude_paths,
+            "include_dirnames": monitor_cfg.include_dirnames,
+            "exclude_dirnames": monitor_cfg.exclude_dirnames,
+            "include_globs": monitor_cfg.include_globs,
+            "exclude_globs": monitor_cfg.exclude_globs,
+        }
+        if list_name not in supported_lists:
             raise ValueError(
-                f"Unknown list_name: {list_name} (found: {list_name!r}, expected: include_paths, exclude_paths, ignore_dirnames, ignore_globs, or dot_whitelist)"
+                f"Unknown list_name: {list_name} (found: {list_name!r}, expected one of {', '.join(sorted(supported_lists.keys()))})"
             )
+        items = supported_lists[list_name]
 
         result = {
             "list_name": list_name,
@@ -365,31 +351,25 @@ class MonitorController:
             "count": len(items)
         }
 
-        # Add validation for ignore_dirnames
-        if list_name == "ignore_dirnames":
+        # Include/exclude dirname validation
+        if list_name in ("include_dirnames", "exclude_dirnames"):
             validation = {}
+            related_globs = monitor_cfg.include_globs if list_name == "include_dirnames" else monitor_cfg.exclude_globs
+            relation = "include" if list_name == "include_dirnames" else "exclude"
             for dirname in items:
-                is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, monitor_cfg.ignore_globs)
+                is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
+                if is_valid:
+                    redundancy = MonitorValidator.dirname_redundancy(dirname, related_globs, relation)
+                    if redundancy:
+                        validation[dirname] = {"valid": True, "error": redundancy}
+                        continue
                 validation[dirname] = {"valid": is_valid, "error": error_msg}
             result["validation"] = validation
-
-        # Add validation for ignore_globs
-        elif list_name == "ignore_globs":
+        elif list_name in ("include_globs", "exclude_globs"):
             validation = {}
             for pattern in items:
-                is_valid, error_msg = MonitorValidator.validate_ignore_glob(pattern)
+                is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
                 validation[pattern] = {"valid": is_valid, "error": error_msg}
-            result["validation"] = validation
-        elif list_name == "dot_whitelist":
-            validation = {}
-            for entry in items:
-                entry_str = str(entry)
-                if entry_str in WKS_DOT_DIRS:
-                    validation[entry_str] = {"valid": False, "error": "Cannot whitelist WKS internal directories"}
-                elif not entry_str.startswith('.'):
-                    validation[entry_str] = {"valid": False, "error": "Entries must start with '.'"}
-                else:
-                    validation[entry_str] = {"valid": True, "error": None}
             result["validation"] = validation
 
         return result
@@ -426,26 +406,25 @@ class MonitorController:
             value_resolved = value
             value_to_store = value
 
-        if list_name == "dot_whitelist":
-            entry = value_resolved.strip()
-            if not entry:
+        if list_name in ("include_dirnames", "exclude_dirnames"):
+            entry = value.strip()
+            is_valid, error_msg = MonitorValidator.validate_dirname_entry(entry)
+            if not is_valid:
+                return ListOperationResult(success=False, message=error_msg or "Invalid directory name", validation_failed=True)
+            opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
+            if entry in config_dict["monitor"].get(opposite, []):
                 return ListOperationResult(
                     success=False,
-                    message="dot_whitelist entries cannot be empty",
-                    validation_failed=True
+                    message=f"Directory name '{entry}' already present in {opposite}",
+                    validation_failed=True,
                 )
-            if not entry.startswith('.'):
-                return ListOperationResult(
-                    success=False,
-                    message="dot_whitelist entries must start with '.'",
-                    validation_failed=True
-                )
-            if entry in WKS_DOT_DIRS:
-                return ListOperationResult(
-                    success=False,
-                    message=f"Cannot whitelist reserved directory: {entry}",
-                    validation_failed=True
-                )
+            value_resolved = entry
+            value_to_store = entry
+        elif list_name in ("include_globs", "exclude_globs"):
+            entry = value.strip()
+            is_valid, error_msg = MonitorValidator.validate_glob_pattern(entry)
+            if not is_valid:
+                return ListOperationResult(success=False, message=error_msg or "Invalid glob pattern", validation_failed=True)
             value_resolved = entry
             value_to_store = entry
 
@@ -468,17 +447,6 @@ class MonitorController:
                 message=f"Already in {list_name}: {existing}",
                 already_exists=True
             )
-
-        # Validate ignore_dirnames before adding
-        if list_name == "ignore_dirnames":
-            monitor_cfg = MonitorConfig.from_config_dict(config_dict)
-            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(value, monitor_cfg.ignore_globs)
-            if not is_valid:
-                return ListOperationResult(
-                    success=False,
-                    message=error_msg,
-                    validation_failed=True
-                )
 
         # Add to list
         config_dict["monitor"][list_name].append(value_to_store)
@@ -518,7 +486,10 @@ class MonitorController:
                     existing = item
                     break
         else:
-            search_value = value.strip() if list_name == "dot_whitelist" else value
+            if list_name in ("include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"):
+                search_value = value.strip()
+            else:
+                search_value = value
             for item in config_dict["monitor"][list_name]:
                 if item == search_value:
                     existing = item
@@ -556,11 +527,10 @@ class MonitorController:
 
         # Validate each managed directory
         validation = {}
-        effective_dot_whitelist = _effective_dot_whitelist(monitor_cfg.include_paths, monitor_cfg.dot_whitelist)
+        rules = MonitorRules.from_config(monitor_cfg)
         for path, priority in monitor_cfg.managed_directories.items():
             is_valid, error_msg = MonitorValidator.validate_managed_directory(
-                path, monitor_cfg.include_paths, monitor_cfg.exclude_paths,
-                monitor_cfg.ignore_dirnames, monitor_cfg.ignore_globs, effective_dot_whitelist
+                path, rules
             )
             validation[path] = ManagedDirectoryInfo(
                 priority=priority,
@@ -714,7 +684,6 @@ class MonitorController:
 
         monitor_cfg = MonitorConfig.from_config_dict(config)
         mongo_config = mongo_settings(config)
-        dot_whitelist = _effective_dot_whitelist(monitor_cfg.include_paths, monitor_cfg.dot_whitelist)
 
         # Get total tracked files
         try:
@@ -738,11 +707,14 @@ class MonitorController:
             managed_directories=validation.managed_directories,
             include_paths=validation.include_paths,
             exclude_paths=validation.exclude_paths,
-            ignore_dirnames=validation.ignore_dirnames,
-            ignore_globs=validation.ignore_globs,
-            dot_whitelist=validation.dot_whitelist,
-            ignore_dirname_validation=validation.ignore_dirname_validation,
-            ignore_glob_validation=validation.ignore_glob_validation,
+            include_dirnames=validation.include_dirnames,
+            exclude_dirnames=validation.exclude_dirnames,
+            include_globs=validation.include_globs,
+            exclude_globs=validation.exclude_globs,
+            include_dirname_validation=validation.include_dirname_validation,
+            exclude_dirname_validation=validation.exclude_dirname_validation,
+            include_glob_validation=validation.include_glob_validation,
+            exclude_glob_validation=validation.exclude_glob_validation,
         )
 
     @staticmethod
@@ -753,85 +725,109 @@ class MonitorController:
             KeyError: If monitor section or required fields are missing
         """
         monitor_cfg = MonitorConfig.from_config_dict(config)
+        rules = MonitorRules.from_config(monitor_cfg)
 
         include_map = _build_canonical_map(monitor_cfg.include_paths)
         exclude_map = _build_canonical_map(monitor_cfg.exclude_paths)
         include_paths = set(include_map.keys())
         exclude_paths = set(exclude_map.keys())
-        managed_dirs = set(monitor_cfg.managed_directories.keys())
-        effective_dot_whitelist = _effective_dot_whitelist(monitor_cfg.include_paths, monitor_cfg.dot_whitelist)
+        managed_dirs = list(monitor_cfg.managed_directories.keys())
 
-        issues = []
-        redundancies = []
-        managed_directories = {}
-        ignore_dirname_validation = {}
-        ignore_glob_validation = {}
+        issues: List[str] = []
+        redundancies: List[str] = []
+        managed_directories: Dict[str, ManagedDirectoryInfo] = {}
+        include_dirname_validation: Dict[str, Dict[str, Any]] = {}
+        exclude_dirname_validation: Dict[str, Dict[str, Any]] = {}
+        include_glob_validation: Dict[str, Dict[str, Any]] = {}
+        exclude_glob_validation: Dict[str, Dict[str, Any]] = {}
 
-        # Check 1: Paths in both include and exclude
-        conflicts = include_paths & exclude_paths
-        for canonical in conflicts:
+        # Paths present in both include/exclude lists
+        for canonical in sorted(include_paths & exclude_paths):
             includes = include_map.get(canonical, [])
             excludes = exclude_map.get(canonical, [])
-            if includes == excludes:
-                issues.append(f"Path in both include and exclude: {includes[0]}")
-            else:
-                issues.append(
-                    f"Paths overlap after resolving ({canonical}): include [{', '.join(includes)}] vs exclude [{', '.join(excludes)}]"
-                )
+            issues.append(
+                f"Path listed in both include_paths and exclude_paths after resolving to {canonical}: include [{', '.join(includes)}], exclude [{', '.join(excludes)}]"
+            )
 
-        # Check 2: Duplicate managed directories (same resolved path)
-        managed_list = list(managed_dirs)
-        for i, dir1 in enumerate(managed_list):
-            p1 = Path(dir1).expanduser().resolve()
-            for dir2 in managed_list[i + 1:]:
-                p2 = Path(dir2).expanduser().resolve()
-                try:
-                    if p1 == p2:
-                        redundancies.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to same path")
-                except BaseException:
-                    pass
+        # Duplicate canonical entries within the same list
+        for canonical, raw_paths in include_map.items():
+            if len(raw_paths) > 1:
+                redundancies.append(f"include_paths entries {raw_paths} resolve to the same path ({canonical})")
+        for canonical, raw_paths in exclude_map.items():
+            if len(raw_paths) > 1:
+                redundancies.append(f"exclude_paths entries {raw_paths} resolve to the same path ({canonical})")
 
-        # Check 3: Vault path redundancy (if vault_path exists in config)
-        vault_path = config.get("vault_path")
-        if vault_path:
-            vault_resolved = _canonicalize_path(vault_path)
-            if vault_resolved in exclude_map:
-                for entry in exclude_map[vault_resolved]:
-                    redundancies.append(f"exclude_paths entry '{entry}' is redundant - vault_path is automatically ignored")
-
-        # Check 4: WKS home redundancy
+        # Warn about redundant exclude paths automatically ignored
         wks_home = _canonicalize_path("~/.wks")
         if wks_home in exclude_map:
             for entry in exclude_map[wks_home]:
                 redundancies.append(f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored")
 
-        # Validate each managed directory
+        vault_base = config.get("vault", {}).get("base_dir")
+        if vault_base:
+            vault_resolved = _canonicalize_path(vault_base)
+            if vault_resolved in exclude_map:
+                for entry in exclude_map[vault_resolved]:
+                    redundancies.append(f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately")
+
+        # Managed directory validation
         for path, priority in monitor_cfg.managed_directories.items():
-            is_valid, error_msg = MonitorValidator.validate_managed_directory(
-                path, monitor_cfg.include_paths, monitor_cfg.exclude_paths,
-                monitor_cfg.ignore_dirnames, monitor_cfg.ignore_globs, effective_dot_whitelist
-            )
-            managed_directories[path] = ManagedDirectoryInfo(
-                priority=priority,
-                valid=is_valid,
-                error=error_msg
-            )
+            is_valid, error_msg = MonitorValidator.validate_managed_directory(path, rules)
+            managed_directories[path] = ManagedDirectoryInfo(priority=priority, valid=is_valid, error=error_msg)
             if not is_valid:
                 issues.append(f"managed_directories entry '{path}' would NOT be monitored: {error_msg}")
 
-        # Validate ignore_dirnames
-        for dirname in monitor_cfg.ignore_dirnames:
-            is_valid, error_msg = MonitorValidator.validate_ignore_dirname(dirname, monitor_cfg.ignore_globs)
-            ignore_dirname_validation[dirname] = {"valid": is_valid, "error": error_msg}
-            if error_msg and "Redundant" in error_msg:
-                redundancies.append(f"ignore_dirnames entry '{dirname}': {error_msg}")
+        # Duplicate managed directories (same resolved path)
+        for i, dir1 in enumerate(managed_dirs):
+            p1 = Path(dir1).expanduser().resolve()
+            for dir2 in managed_dirs[i + 1:]:
+                p2 = Path(dir2).expanduser().resolve()
+                if p1 == p2:
+                    redundancies.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to the same path")
 
-        # Validate ignore_globs
-        for glob_pattern in monitor_cfg.ignore_globs:
-            is_valid, error_msg = MonitorValidator.validate_ignore_glob(glob_pattern)
-            ignore_glob_validation[glob_pattern] = {"valid": is_valid, "error": error_msg}
+        # Dirname validations
+        include_dirname_set = set()
+        exclude_dirname_set = set()
+        for dirname in monitor_cfg.include_dirnames:
+            is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
+            include_dirname_set.add(dirname)
             if not is_valid:
-                issues.append(f"ignore_globs entry '{glob_pattern}': {error_msg}")
+                issues.append(f"include_dirnames entry '{dirname}': {error_msg}")
+            else:
+                redundancy = MonitorValidator.dirname_redundancy(dirname, monitor_cfg.include_globs, "include")
+                if redundancy:
+                    redundancies.append(f"include_dirnames entry '{dirname}': {redundancy}")
+                    error_msg = redundancy
+            include_dirname_validation[dirname] = {"valid": is_valid, "error": error_msg}
+
+        for dirname in monitor_cfg.exclude_dirnames:
+            is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
+            exclude_dirname_set.add(dirname)
+            if not is_valid:
+                issues.append(f"exclude_dirnames entry '{dirname}': {error_msg}")
+            else:
+                redundancy = MonitorValidator.dirname_redundancy(dirname, monitor_cfg.exclude_globs, "exclude")
+                if redundancy:
+                    redundancies.append(f"exclude_dirnames entry '{dirname}': {redundancy}")
+                    error_msg = redundancy
+            exclude_dirname_validation[dirname] = {"valid": is_valid, "error": error_msg}
+
+        duplicates = include_dirname_set & exclude_dirname_set
+        for dirname in sorted(duplicates):
+            issues.append(f"Directory name '{dirname}' appears in both include_dirnames and exclude_dirnames")
+
+        # Glob validations
+        for pattern in monitor_cfg.include_globs:
+            is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
+            include_glob_validation[pattern] = {"valid": is_valid, "error": error_msg}
+            if not is_valid:
+                issues.append(f"include_globs entry '{pattern}': {error_msg}")
+
+        for pattern in monitor_cfg.exclude_globs:
+            is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
+            exclude_glob_validation[pattern] = {"valid": is_valid, "error": error_msg}
+            if not is_valid:
+                issues.append(f"exclude_globs entry '{pattern}': {error_msg}")
 
         return ConfigValidationResult(
             issues=issues,
@@ -839,11 +835,14 @@ class MonitorController:
             managed_directories=managed_directories,
             include_paths=monitor_cfg.include_paths,
             exclude_paths=monitor_cfg.exclude_paths,
-            ignore_dirnames=monitor_cfg.ignore_dirnames,
-            ignore_globs=monitor_cfg.ignore_globs,
-            dot_whitelist=monitor_cfg.dot_whitelist,
-            ignore_dirname_validation=ignore_dirname_validation,
-            ignore_glob_validation=ignore_glob_validation,
+            include_dirnames=monitor_cfg.include_dirnames,
+            exclude_dirnames=monitor_cfg.exclude_dirnames,
+            include_globs=monitor_cfg.include_globs,
+            exclude_globs=monitor_cfg.exclude_globs,
+            include_dirname_validation=include_dirname_validation,
+            exclude_dirname_validation=exclude_dirname_validation,
+            include_glob_validation=include_glob_validation,
+            exclude_glob_validation=exclude_glob_validation,
         )
 
     @staticmethod
@@ -856,129 +855,39 @@ class MonitorController:
         from .priority import calculate_priority
 
         monitor_cfg = MonitorConfig.from_config_dict(config)
+        rules = MonitorRules.from_config(monitor_cfg)
 
         # Resolve path
         test_path = Path(path_str).expanduser().resolve()
-        effective_dot_whitelist = _effective_dot_whitelist(monitor_cfg.include_paths, monitor_cfg.dot_whitelist)
 
-        # Build decision chain
         decisions = []
-        is_monitored = True
-        reason = None
-        priority = None
-
-        # Step 1: Check if path exists
         path_exists = test_path.exists()
         decisions.append({
             "symbol": "✓" if path_exists else "⚠",
             "message": f"Path exists: {test_path}" if path_exists else f"Path does not exist (checking as if it did): {test_path}"
         })
 
-        # Step 2: Check include_paths
-        included = False
-        for include_path in monitor_cfg.include_paths:
-            include_resolved = Path(include_path).expanduser().resolve()
-            try:
-                test_path.relative_to(include_resolved)
-                included = True
-                decisions.append({"symbol": "✓", "message": f"Matches include_paths: {include_path}"})
-                break
-            except ValueError:
-                continue
+        allowed, trace = rules.explain(test_path)
+        for message in trace:
+            lower = message.lower()
+            if lower.startswith("excluded"):
+                symbol = "✗"
+            elif "override" in lower or lower.startswith("included"):
+                symbol = "✓"
+            else:
+                symbol = "•"
+            decisions.append({"symbol": symbol, "message": message})
 
-        if not included:
-            is_monitored = False
-            reason = "Not under any include_paths"
-            decisions.append({"symbol": "✗", "message": reason})
+        if not allowed:
             return {
                 "path": str(test_path),
-                "is_monitored": is_monitored,
-                "reason": reason,
+                "is_monitored": False,
+                "reason": trace[-1] if trace else "Excluded by monitor rules",
                 "priority": None,
                 "decisions": decisions
             }
 
-        # Step 3: Check exclude_paths
-        for exclude_path in monitor_cfg.exclude_paths:
-            exclude_resolved = Path(exclude_path).expanduser().resolve()
-            try:
-                test_path.relative_to(exclude_resolved)
-                is_monitored = False
-                reason = f"Matched by exclude_paths: {exclude_path}"
-                decisions.append({"symbol": "✗", "message": reason})
-                return {
-                    "path": str(test_path),
-                    "is_monitored": is_monitored,
-                    "reason": reason,
-                    "priority": None,
-                    "decisions": decisions
-                }
-            except ValueError:
-                continue
-
-        decisions.append({"symbol": "✓", "message": "Not in any exclude_paths"})
-
-        # Step 4: Check ignore_dirnames
-        for part in test_path.parts:
-            if part in monitor_cfg.ignore_dirnames:
-                is_monitored = False
-                reason = f"Contains ignored dirname: {part}"
-                decisions.append({"symbol": "✗", "message": reason})
-                return {
-                    "path": str(test_path),
-                    "is_monitored": is_monitored,
-                    "reason": reason,
-                    "priority": None,
-                    "decisions": decisions
-                }
-
-        decisions.append({"symbol": "✓", "message": "No ignored dirnames in path"})
-
-        # Step 5: Check dot-directories vs whitelist
-        for part in test_path.parts:
-            if part in WKS_DOT_DIRS:
-                is_monitored = False
-                reason = f"Contains reserved dot-directory: {part}"
-                decisions.append({"symbol": "✗", "message": reason})
-                return {
-                    "path": str(test_path),
-                    "is_monitored": is_monitored,
-                    "reason": reason,
-                    "priority": None,
-                    "decisions": decisions
-                }
-            if part.startswith('.') and part not in effective_dot_whitelist:
-                is_monitored = False
-                reason = f"Contains dot-directory '{part}' that is not whitelisted"
-                decisions.append({"symbol": "✗", "message": reason})
-                return {
-                    "path": str(test_path),
-                    "is_monitored": is_monitored,
-                    "reason": reason,
-                    "priority": None,
-                    "decisions": decisions
-                }
-
-        decisions.append({"symbol": "✓", "message": "Dot-directories allowed"})
-
-        # Step 6: Check ignore_globs
-        for glob_pattern in monitor_cfg.ignore_globs:
-            if fnmatch.fnmatch(str(test_path), glob_pattern) or \
-               fnmatch.fnmatch(test_path.name, glob_pattern):
-                is_monitored = False
-                reason = f"Matched by ignore_globs: {glob_pattern}"
-                decisions.append({"symbol": "✗", "message": reason})
-                return {
-                    "path": str(test_path),
-                    "is_monitored": is_monitored,
-                    "reason": reason,
-                    "priority": None,
-                    "decisions": decisions
-                }
-
-        decisions.append({"symbol": "✓", "message": "Not matched by any ignore_globs"})
-
-        # Step 7: Calculate priority
+        # Calculate priority
         try:
             priority = calculate_priority(test_path, monitor_cfg.managed_directories, monitor_cfg.priority)
             decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
@@ -988,7 +897,7 @@ class MonitorController:
 
         return {
             "path": str(test_path),
-            "is_monitored": is_monitored,
+            "is_monitored": True,
             "reason": "Would be monitored",
             "priority": priority,
             "decisions": decisions
@@ -997,7 +906,6 @@ class MonitorController:
     @staticmethod
     def prune_ignored_files(config: dict) -> dict:
         """Prune ignored files from the monitor database."""
-        from .monitor import WKSFileMonitor
         from .config import mongo_settings
         from .uri_utils import uri_to_path
         from pymongo import MongoClient
@@ -1015,15 +923,7 @@ class MonitorController:
         except Exception as e:
             return {"success": False, "errors": [f"DB connection failed: {e}"], "pruned_files": []}
 
-        # Instantiate the monitor to get access to the ignore logic
-        monitor = WKSFileMonitor(
-            state_file=Path(os.path.expanduser("~/.wks/monitor_state.json")),  # Optional field, use default
-            include_paths=[os.path.expanduser(p) for p in monitor_cfg.include_paths],
-            exclude_paths=[os.path.expanduser(p) for p in monitor_cfg.exclude_paths],
-            ignore_dirs=set(monitor_cfg.ignore_dirnames),
-            ignore_globs=monitor_cfg.ignore_globs,
-            dot_whitelist=dot_whitelist,
-        )
+        rules = MonitorRules.from_config(monitor_cfg)
 
         pruned_files = []
         errors = []
@@ -1043,7 +943,7 @@ class MonitorController:
                     errors.append(f"Error converting URI {uri}: {e}")
                     continue
 
-                if monitor._should_ignore(str(path_to_check)):
+                if not rules.allows(path_to_check):
                     pruned_files.append(str(path_to_check))
                     collection.delete_one({"_id": doc["_id"]})
         except Exception as e:

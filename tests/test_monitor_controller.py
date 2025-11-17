@@ -11,24 +11,44 @@ from unittest.mock import MagicMock, patch
 from wks.monitor_controller import MonitorController
 
 
+def build_config(**monitor_overrides):
+    """Return a fully-populated monitor config dict with overrides."""
+    monitor = {
+        "include_paths": ["~"],
+        "exclude_paths": [],
+        "include_dirnames": [],
+        "exclude_dirnames": [],
+        "include_globs": [],
+        "exclude_globs": [],
+        "managed_directories": {},
+        "database": "wks.monitor",
+        "touch_weight": 0.1,
+        "priority": {
+            "depth_multiplier": 0.9,
+            "underscore_divisor": 2,
+            "single_underscore_divisor": 64,
+            "extension_weights": {"default": 1.0},
+        },
+        "max_documents": 100000,
+        "prune_interval_secs": 300.0,
+    }
+    monitor.update(monitor_overrides)
+    return {
+        "monitor": monitor,
+        "db": {"uri": "mongodb://localhost:27017/"},
+    }
+
+
 class TestMonitorController(unittest.TestCase):
     """Test MonitorController methods."""
 
     def test_get_status_basic(self):
         """Test get_status with minimal config."""
-        config = {
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "managed_directories": {"~/Documents": 100},
-                "include_dirnames": [],
-                "exclude_dirnames": ["node_modules"],
-                "include_globs": [],
-                "exclude_globs": ["*.tmp"],
-                "database": "wks.monitor"
-            },
-            "mongo": {"uri": "mongodb://localhost:27017/"}
-        }
+        config = build_config(
+            managed_directories={"~/Documents": 100},
+            exclude_dirnames=["node_modules"],
+            exclude_globs=["*.tmp"],
+        )
 
         result = MonitorController.get_status(config)
 
@@ -38,21 +58,12 @@ class TestMonitorController(unittest.TestCase):
         self.assertIsNotNone(result.exclude_paths)
         self.assertIsInstance(result.issues, list)
         self.assertIsInstance(result.redundancies, list)
-        self.assertIsInstance(result.include_dirnames, list)
+        self.assertIsInstance(result.exclude_dirnames, list)
 
     def test_get_status_detects_vault_redundancy(self):
         """Test that vault_path in exclude_paths triggers redundancy warning."""
-        config = {
-            "vault_path": "~/obsidian",
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": ["~/obsidian"],  # Redundant - vault auto-excluded
-                "managed_directories": {},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "database": "wks.monitor"
-            }
-        }
+        config = build_config(exclude_paths=["/vault"])
+        config["vault_path"] = "/vault"
 
         result = MonitorController.get_status(config)
 
@@ -61,16 +72,7 @@ class TestMonitorController(unittest.TestCase):
 
     def test_get_status_detects_wks_home_redundancy(self):
         """Test that ~/.wks in exclude_paths triggers redundancy warning."""
-        config = {
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": ["~/.wks"],  # Redundant - WKS home auto-excluded
-                "managed_directories": {},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "database": "wks.monitor"
-            }
-        }
+        config = build_config(exclude_paths=["~/.wks"])
 
         result = MonitorController.get_status(config)
 
@@ -79,16 +81,10 @@ class TestMonitorController(unittest.TestCase):
 
     def test_validate_config_no_issues(self):
         """Test validate_config with clean configuration."""
-        config = {
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": ["~/Downloads"],
-                "managed_directories": {"~/Documents": 100},
-                "exclude_dirnames": [],
-                "ignore_globs": [],
-                "database": "wks.monitor"
-            }
-        }
+        config = build_config(
+            exclude_paths=["~/Downloads"],
+            managed_directories={"~/Documents": 100},
+        )
 
         result = MonitorController.validate_config(config)
 
@@ -97,15 +93,10 @@ class TestMonitorController(unittest.TestCase):
 
     def test_validate_config_detects_conflicts(self):
         """Test that paths in both include and exclude are detected."""
-        config = {
-            "monitor": {
-                "include_paths": ["~/Documents"],
-                "exclude_paths": ["~/Documents"],  # Conflict!
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "database": "wks.monitor"
-            }
-        }
+        config = build_config(
+            include_paths=["~/Documents"],
+            exclude_paths=["~/Documents"],
+        )
 
         result = MonitorController.validate_config(config)
 
@@ -114,22 +105,10 @@ class TestMonitorController(unittest.TestCase):
 
     def test_check_path_included(self):
         """Test check_path for an included path."""
-        config = {
-            "monitor": {
-                "include_paths": ["~/Documents"],
-                "exclude_paths": [],
-                "managed_directories": {"~/Documents": 100},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "database": "wks.monitor",
-                "priority": {
-                    "depth_multiplier": 0.9,
-                    "underscore_divisor": 2,
-                    "single_underscore_divisor": 64,
-                    "extension_weights": {"default": 1.0}
-                }
-            }
-        }
+        config = build_config(
+            include_paths=["~/Documents"],
+            managed_directories={"~/Documents": 100},
+        )
 
         result = MonitorController.check_path(config, "~/Documents/test.txt")
 
@@ -139,119 +118,51 @@ class TestMonitorController(unittest.TestCase):
 
     def test_check_path_excluded(self):
         """Test check_path for an excluded path."""
-        config = {
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": ["~/Library"],
-                "managed_directories": {"~": 100},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "database": "wks.monitor",
-                "priority": {}
-            }
-        }
+        config = build_config(
+            include_paths=["~"],
+            exclude_paths=["~/Library"],
+            managed_directories={"~": 100},
+        )
 
         result = MonitorController.check_path(config, "~/Library/test.txt")
 
         self.assertFalse(result["is_monitored"])
-        self.assertIn("exclude_paths", result["reason"])
+        self.assertIn("Excluded", result["reason"])
         self.assertIsNone(result["priority"])
 
-    def test_check_path_ignored_dirname(self):
-        """Test check_path for path with ignored dirname."""
-        config = {
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "managed_directories": {"~": 100},
-                "exclude_dirnames": ["node_modules"],
-                "exclude_globs": [],
-                "database": "wks.monitor",
-                "priority": {}
-            }
-        }
+    def test_check_path_excluded_dirname(self):
+        """Test check_path for path with excluded dirname."""
+        config = build_config(
+            managed_directories={"~": 100},
+            exclude_dirnames=["node_modules"],
+        )
 
         result = MonitorController.check_path(config, "~/project/node_modules/test.js")
 
         self.assertFalse(result["is_monitored"])
-        self.assertIn("ignored dirname", result["reason"])
+        self.assertIn("excluded", result["reason"].lower())
 
-    def test_check_path_ignored_glob(self):
-        """Test check_path for path matching ignore_globs."""
-        config = {
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "managed_directories": {"~": 100},
-                "exclude_dirnames": [],
-                "exclude_globs": ["*.tmp"],
-                "database": "wks.monitor",
-                "priority": {}
-            }
-        }
+    def test_check_path_excluded_glob(self):
+        """Test check_path for path matching exclude_globs."""
+        config = build_config(
+            managed_directories={"~": 100},
+            exclude_globs=["*.tmp"],
+        )
 
         result = MonitorController.check_path(config, "~/test.tmp")
 
         self.assertFalse(result["is_monitored"])
-        self.assertIn("ignore_globs", result["reason"])
+        self.assertIn("glob", result["reason"].lower())
 
-    def test_check_path_dot_directory_blocked_without_whitelist(self):
-        """Ensure dot directories are ignored unless whitelisted."""
-        config = {
-            "monitor": {
-                "include_paths": ["~/Documents"],
-                "exclude_paths": [],
-                "managed_directories": {"~/Documents": 100},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "dot_whitelist": [],
-                "database": "wks.monitor",
-                "priority": {}
-            }
-        }
-
-        result = MonitorController.check_path(config, "~/Documents/.obsidian/file.md")
-
-        self.assertFalse(result["is_monitored"])
-        self.assertIn("dot-directory", result["reason"])
-
-    def test_check_path_dot_directory_allowed_with_whitelist(self):
-        """Ensure dot directories are allowed when whitelisted."""
-        config = {
-            "monitor": {
-                "include_paths": ["~/Documents"],
-                "exclude_paths": [],
-                "managed_directories": {"~/Documents": 100},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "dot_whitelist": [".obsidian"],
-                "database": "wks.monitor",
-                "priority": {}
-            }
-        }
-
-        result = MonitorController.check_path(config, "~/Documents/.obsidian/file.md")
-
-        self.assertTrue(result["is_monitored"])
-        self.assertEqual(result["reason"], "Would be monitored")
-
-    @patch("wks.monitor_controller.WKSFileMonitor")
-    @patch("wks.monitor_controller.uri_to_path")
-    @patch("wks.monitor_controller.MongoClient")
-    def test_prune_ignored_files_deletes_matching_docs(self, mock_client, mock_uri_to_path, mock_monitor):
+    @patch("wks.monitor_controller.MonitorRules.from_config")
+    @patch("wks.uri_utils.uri_to_path")
+    @patch("pymongo.MongoClient")
+    def test_prune_ignored_files_deletes_matching_docs(self, mock_client, mock_uri_to_path, mock_rules):
         """Ensure prune_ignored_files removes entries matched by ignore rules."""
-        config = {
-            "monitor": {
-                "include_paths": ["~/Documents"],
-                "exclude_paths": [],
-                "managed_directories": {"~/Documents": 100},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "dot_whitelist": [],
-                "database": "wks.monitor",
-            },
-            "db": {"uri": "mongodb://localhost:27017/"},
-        }
+        config = build_config(
+            include_paths=["~/Documents"],
+            managed_directories={"~/Documents": 100},
+        )
         mock_client_instance = MagicMock()
         mock_db = MagicMock()
         mock_collection = MagicMock()
@@ -261,8 +172,9 @@ class TestMonitorController(unittest.TestCase):
         mock_client_instance.server_info.return_value = {}
         mock_client.return_value = mock_client_instance
 
-        mock_monitor_instance = mock_monitor.return_value
-        mock_monitor_instance._should_ignore.return_value = True
+        fake_rules = MagicMock()
+        fake_rules.allows.return_value = False
+        mock_rules.return_value = fake_rules
         mock_uri_to_path.return_value = Path("/tmp/ignored.txt")
 
         result = MonitorController.prune_ignored_files(config)
@@ -271,22 +183,14 @@ class TestMonitorController(unittest.TestCase):
         self.assertEqual(result["pruned_count"], 1)
         mock_collection.delete_one.assert_called_once()
 
-    @patch("wks.monitor_controller.uri_to_path")
-    @patch("wks.monitor_controller.MongoClient")
+    @patch("wks.uri_utils.uri_to_path")
+    @patch("pymongo.MongoClient")
     def test_prune_deleted_files_deletes_missing_docs(self, mock_client, mock_uri_to_path):
         """Ensure prune_deleted_files removes documents pointing to missing files."""
-        config = {
-            "monitor": {
-                "include_paths": ["~/Documents"],
-                "exclude_paths": [],
-                "managed_directories": {"~/Documents": 100},
-                "exclude_dirnames": [],
-                "exclude_globs": [],
-                "dot_whitelist": [],
-                "database": "wks.monitor",
-            },
-            "db": {"uri": "mongodb://localhost:27017/"},
-        }
+        config = build_config(
+            include_paths=["~/Documents"],
+            managed_directories={"~/Documents": 100},
+        )
         mock_client_instance = MagicMock()
         mock_db = MagicMock()
         mock_collection = MagicMock()

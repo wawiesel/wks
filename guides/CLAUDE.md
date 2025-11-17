@@ -37,7 +37,7 @@ The Wieselquist Knowledge System (WKS) is an AI-assisted file organization and k
 
 **NEVER link to obsidian from outside obsidian. Obsidian manages the links of our data.**
 
-- External files (in `~/YYYY-projectname/`, `~/Documents/`, etc.) should NOT contain links to `~/obsidian/` files
+- External files (in `~/YYYY-projectname/`, `~/Documents/`, etc.) should NOT contain links to `~/_vault/` files
 - Only Obsidian vault files may link to other Obsidian vault files
 - Links flow: Obsidian → Filesystem (one-way)
 - Obsidian notes can reference filesystem locations
@@ -87,7 +87,7 @@ Location: `~/Documents/YYYY-PresentationArchive/`
 - Markdown conversion: Use `docling file.pptx --to md` to convert to markdown
 - Store markdown alongside original presentation with same basename
 - Extract author and title from markdown (typically in first 10 lines)
-- Create People pages in `~/obsidian/People/` for each author
+- Create People pages in `~/_vault/People/` for each author
 - Link presentations to authors' People pages
 
 **Pre-2024 archives:**
@@ -128,7 +128,7 @@ Location: `~/Documents/2025-MeetingTranscripts/`
 - **Records/** - Trip reports, performance reviews, meetings
 - **Index.md** - Main dashboard
 
-### Obsidian Vault (`~/obsidian/`)
+### Obsidian Vault (`~/_vault/`)
 
 Knowledge graph and organizational layer containing:
 - Project descriptions and status
@@ -139,7 +139,7 @@ Knowledge graph and organizational layer containing:
 
 **Key capability:** Maintains coherence as filesystem evolves
 
-**Symlink structure:** `~/obsidian/_links/` mirrors home directory, containing symlinks to selected files. Internal to vault for managing embedded content.
+**Symlink structure:** `~/_vault/_links/` mirrors home directory, containing symlinks to selected files. Internal to vault for managing embedded content.
 
 **Note on refreshing:** External file modifications may require manual refresh (Cmd+R) in Obsidian. Edits within Obsidian refresh automatically.
 
@@ -152,7 +152,7 @@ Knowledge graph and organizational layer containing:
 
 ### Page Templates
 
-**People Pages** (`~/obsidian/People/`)
+**People Pages** (`~/_vault/People/`)
 
 ```markdown
 # [Full Name]
@@ -169,7 +169,7 @@ Knowledge graph and organizational layer containing:
 
 Create when: author on presentations, collaborator on projects, frequent correspondent.
 
-**Projects Pages** (`~/obsidian/Projects/`)
+**Projects Pages** (`~/_vault/Projects/`)
 
 ```markdown
 # [Project Name]
@@ -187,7 +187,7 @@ Create when: author on presentations, collaborator on projects, frequent corresp
 - [[Topics/TopicName]]
 ```
 
-**Topics Pages** (`~/obsidian/Topics/`)
+**Topics Pages** (`~/_vault/Topics/`)
 
 Create for: technical subjects spanning multiple projects, domain knowledge areas, cross-cutting methodologies.
 
@@ -252,9 +252,9 @@ Reserve Bash for actual system commands (git, npm, docker).
 ### New Project Setup
 
 1. Create directory: `~/YYYY-ProjectName/`
-2. Create Obsidian note: `~/obsidian/Projects/YYYY-ProjectName.md`
+2. Create Obsidian note: `~/_vault/Projects/YYYY-ProjectName.md`
 3. Link to related People and Topics
-4. Update `~/obsidian/Index.md` if major project
+4. Update `~/_vault/Index.md` if major project
 5. Consider Desktop symlink if immediate focus
 
 ### Document Organization
@@ -318,4 +318,4 @@ Large files may exceed Read tool limits (256KB):
 ---
 
 *Operational guidelines for AI assistants working with the Wieselquist Knowledge System*
-- any files named ~/Downloads/extractXX.txt where XX is a number I want you to read and add in the proper places in ~/obsidian
+- any files named ~/Downloads/extractXX.txt where XX is a number I want you to read and add in the proper places in ~/_vault

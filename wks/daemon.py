@@ -12,9 +12,12 @@ from .config_validator import validate_and_raise, ConfigValidationError
 from .mongoctl import MongoGuard, ensure_mongo_running
 from .mcp_bridge import MCPBroker
 from .mcp_paths import mcp_socket_path
-from .obsidian import ObsidianVault
+from .vault.obsidian import ObsidianVault
+from .vault.indexer import VaultLinkIndexer
 from .monitor import start_monitoring
-from .constants import WKS_HOME_EXT, WKS_DOT_DIRS, WKS_HOME_DISPLAY
+from .constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
+from .monitor_rules import MonitorRules
+from .monitor_controller import MonitorConfig
 from pymongo.collection import Collection
 from typing import Optional, Set, List, Dict, Any
 from pathlib import Path
@@ -95,12 +98,8 @@ class WKSDaemon:
         obsidian_destination_max_chars: int,
         obsidian_docs_keep: int,
         monitor_paths: list[Path],
+        monitor_rules: MonitorRules,
         auto_project_notes: bool = False,
-        ignore_dirnames: Optional[Set[str]] = None,
-        exclude_paths: Optional[List[Path]] = None,
-        ignore_patterns: Optional[Set[str]] = None,
-        ignore_globs: Optional[List[str]] = None,
-        dot_whitelist: Optional[Set[str]] = None,
         fs_rate_short_window_secs: float = 10.0,
         fs_rate_long_window_secs: float = 600.0,
         fs_rate_short_weight: float = 0.8,
@@ -124,23 +123,15 @@ class WKSDaemon:
             source_max_chars=obsidian_source_max_chars,
             destination_max_chars=obsidian_destination_max_chars,
         )
+        vault_cfg = config.get("vault", {})
+        self._vault_indexer = VaultLinkIndexer.from_config(self.vault, config)
+        self._vault_sync_interval = float(vault_cfg.get("update_frequency_seconds", 300.0))
+        self._last_vault_sync = 0.0
         self.docs_keep = int(obsidian_docs_keep)
-        self.monitor_paths = monitor_paths
-        # state_file removed - not needed
-        self.ignore_dirnames = ignore_dirnames if ignore_dirnames is not None else set()
-        self.exclude_paths = [Path(p).expanduser() for p in exclude_paths] if exclude_paths else []
-        self.ignore_patterns = ignore_patterns if ignore_patterns is not None else set()
+        self.monitor_paths = [Path(p).expanduser().resolve() for p in monitor_paths]
+        self.monitor_rules = monitor_rules
         self.observer = None
         self.auto_project_notes = auto_project_notes
-        self.ignore_globs = ignore_globs if ignore_globs is not None else []
-        whitelist = set(dot_whitelist or set())
-        for path in self.monitor_paths:
-            for part in path.parts:
-                if part in WKS_DOT_DIRS:
-                    continue
-                if part.startswith('.'):
-                    whitelist.add(part)
-        self.dot_whitelist = whitelist
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
         self._lock_fh = None
@@ -452,13 +443,8 @@ class WKSDaemon:
         self.observer = start_monitoring(
             directories=self.monitor_paths,
             state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",  # Temporary default
+            monitor_rules=self.monitor_rules,
             on_change=self.on_file_change,
-            ignore_dirs=self.ignore_dirnames,
-            ignore_patterns=self.ignore_patterns,
-            include_paths=self.monitor_paths,
-            exclude_paths=self.exclude_paths,
-            ignore_globs=self.ignore_globs,
-            dot_whitelist=self.dot_whitelist,
         )
 
         print(f"WKS daemon started, monitoring: {[str(p) for p in self.monitor_paths]}")
@@ -530,44 +516,11 @@ class WKSDaemon:
         except KeyboardInterrupt:
             self.stop()
 
-    def _within_any(self, path: Path, bases: list[Path]) -> bool:
-        for base in bases or []:
-            try:
-                path.resolve().relative_to(base.resolve())
-                return True
-            except Exception:
-                continue
-        return False
-
     def _should_ignore_by_rules(self, path: Path) -> bool:
-        # Outside include paths
-        if self.monitor_paths and not self._within_any(path, self.monitor_paths):
-            return True
-        # Inside exclude roots
-        if self.exclude_paths and any(self._within_any(path, [ex]) for ex in self.exclude_paths):
-            return True
-        # Dotfile segments (including .wks/.wkso artefacts)
-        for part in path.parts:
-            if part in WKS_DOT_DIRS:
-                return True
-            if part.startswith('.') and part not in self.dot_whitelist:
-                return True
-        # Named ignored directories
-        if self.ignore_dirnames:
-            for part in path.parts:
-                if part in self.ignore_dirnames:
-                    return True
-        # Glob-based ignores (full path and basename)
-        if self.ignore_globs:
-            import fnmatch as _fn
-            pstr = path.as_posix()
-            for g in self.ignore_globs:
-                try:
-                    if _fn.fnmatchcase(pstr, g) or _fn.fnmatchcase(path.name, g):
-                        return True
-                except Exception:
-                    continue
-        return False
+        try:
+            return not self.monitor_rules.allows(path)
+        except Exception:
+            return False
 
     def _maybe_prune_monitor_db(self):
         """Prune monitor database entries that are missing or match exclude rules."""
@@ -687,6 +640,19 @@ class WKSDaemon:
                     self._pending_mods.pop(pstr, None)
                 except Exception:
                     pass
+
+    def _maybe_sync_vault_links(self):
+        if not getattr(self, "_vault_indexer", None):
+            return
+        now = time.time()
+        if now - getattr(self, "_last_vault_sync", 0.0) < self._vault_sync_interval:
+            return
+        try:
+            self._vault_indexer.sync()
+        except Exception as exc:
+            self._set_error(f"vault_sync_error: {exc}")
+        finally:
+            self._last_vault_sync = now
 
     def _get_db_activity_info(self, now: float) -> tuple[Optional[str], Optional[str], Optional[str], int]:
         """Get DB activity information from summary and history.
@@ -941,30 +907,9 @@ if __name__ == "__main__":
         raise ValueError("vault.wks_dir is required in config (found: missing, expected: subdirectory name within vault, e.g., 'WKS')")
 
     # Monitor config
-    monitor_cfg = config.get("monitor")
-    if not monitor_cfg:
-        raise ValueError("monitor section is required in config (found: missing, expected: monitor section with include_paths, exclude_paths, etc.)")
-    include_paths_list = monitor_cfg.get("include_paths")
-    if not include_paths_list:
-        raise ValueError("monitor.include_paths is required in config (found: missing, expected: list of directory paths to monitor)")
-    include_paths = [expand_path(p) for p in include_paths_list]
-    exclude_paths_list = monitor_cfg.get("exclude_paths")
-    if exclude_paths_list is None:
-        raise ValueError("monitor.exclude_paths is required in config (found: missing, expected: list of directory paths to exclude, can be empty [])")
-    exclude_paths = [expand_path(p) for p in exclude_paths_list]
-    ignore_dirnames_list = monitor_cfg.get("ignore_dirnames")
-    if ignore_dirnames_list is None:
-        raise ValueError("monitor.ignore_dirnames is required in config (found: missing, expected: list of directory names to ignore, can be empty [])")
-    ignore_dirnames = set(ignore_dirnames_list)
-    ignore_patterns = set()  # deprecated
-    ignore_globs_list = monitor_cfg.get("ignore_globs")
-    if ignore_globs_list is None:
-        raise ValueError("monitor.ignore_globs is required in config (found: missing, expected: list of glob patterns to ignore, can be empty [])")
-    ignore_globs = list(ignore_globs_list)
-    dot_whitelist_list = monitor_cfg.get("dot_whitelist", [])
-    if not isinstance(dot_whitelist_list, list):
-        raise ValueError("monitor.dot_whitelist must be a list when provided (found: non-list value)")
-    dot_whitelist = set(str(entry).strip() for entry in dot_whitelist_list if str(entry).strip())
+    monitor_cfg_obj = MonitorConfig.from_config_dict(config)
+    monitor_rules = MonitorRules.from_config(monitor_cfg_obj)
+    include_paths = [expand_path(p) for p in monitor_cfg_obj.include_paths]
 
     # DB config
     db_cfg = config.get("db")
@@ -977,7 +922,7 @@ if __name__ == "__main__":
     ensure_mongo_running(mongo_uri, record_start=True)
 
     client = MongoClient(mongo_uri)
-    monitor_db_key = monitor_cfg.get("database")
+    monitor_db_key = monitor_cfg_obj.database
     if not monitor_db_key:
         raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
     if "." not in monitor_db_key:
@@ -1008,11 +953,7 @@ if __name__ == "__main__":
         obsidian_docs_keep=obsidian_docs_keep,
         auto_project_notes=auto_project_notes,
         monitor_paths=include_paths,
-        ignore_dirnames=ignore_dirnames,
-        exclude_paths=exclude_paths,
-        ignore_patterns=ignore_patterns,
-        ignore_globs=ignore_globs,
-        dot_whitelist=dot_whitelist,
+        monitor_rules=monitor_rules,
         mongo_uri=mongo_uri,
         monitor_collection=monitor_collection,
     )

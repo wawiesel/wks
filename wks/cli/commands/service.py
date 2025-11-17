@@ -358,6 +358,12 @@ def setup_service_parser(subparsers) -> None:
     svc = subparsers.add_parser("service", help="Install/start/stop the WKS daemon (macOS)")
     svcsub = svc.add_subparsers(dest="svc_cmd")
 
+    def _svc_help(args, parser=svc):
+        parser.print_help()
+        return 2
+
+    svc.set_defaults(func=_svc_help)
+
     svcinst = svcsub.add_parser("install", help="Install launchd agent (macOS)")
     svcinst.set_defaults(func=daemon_install)
 

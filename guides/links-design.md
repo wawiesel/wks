@@ -1,156 +1,91 @@
-# Link Maintenance Design
+# Vault Link Management Plan
 
-**Status:** Design phase (Phase 6)
-**Prerequisites:** Phase 5 (Related Documents) completion
+**Status:** Implementation planning (Phase 3 — Vault layer)<br>
+**Focus:** Canonical handling of external files referenced from the vault with a single Mongo database `wks.vault`.
 
-## Overview
+## Context Snapshot
 
-Automated maintenance of wiki links in Obsidian vault to keep references accurate as files move.
+- The Obsidian vault is the single place where links live; filesystem content must stay link-free per the vault policy in `guides/CLAUDE.md:40-44`. Vault notes reference projects, people, and topics with `[[…]]` links while `_links/` hosts symlinks that mirror curated filesystem paths (`guides/CLAUDE.md:120-144`).
+- `ObsidianVault` already knows how to mirror files (`link_file` / `_link_rel_for_source`) and to rewrite wiki links when a source path moves or is deleted (`wks/vault/obsidian.py#L410-L520`). The daemon can therefore react to monitor events without guessing how markdown should be edited.
+- The spec calls for a dedicated CLI surface (`wks0 vault …`) plus a Mongo collection (`wks_vault.links`) that tracks every edge from a vault note to either another note or an external target (`SPEC.md:260-294`).
 
-## Existing Infrastructure
+## Objectives
 
-Already implemented in `wks/obsidian.py`:
-- `update_vault_links_on_move(old_path, new_path)` - Rewrites `[[links]]` when files move
-- `mark_reference_deleted(path)` - Annotates notes referencing deleted files
-- `find_broken_links()` - Finds broken symlinks in `_links/`
-- `cleanup_broken_links()` - Removes broken symlinks
+1. Treat `_links/` as the canonical view of any filesystem artifact mentioned inside the vault—no absolute `~/2025-…` paths in markdown.
+2. Persist every edge in a single collection `wks.vault`, keyed by `(from_note, link_target_uri, link_line_number)` so syncs remain idempotent.
+3. Capture embedded artifacts via an `embed_link` pointing to `_external/checksum/<checksum>` (hard link snapshots) or `_external/uri/<path>` (symlinks that follow the source) so vault embeds are stable even when files move.
+4. Provide CLI + daemon entry points so link hygiene stays automated (create/update/detect problems) rather than ad-hoc audits.
 
-## New Commands
+## External Link Lifecycle
 
-### `wks0 links audit`
-Comprehensive link health check:
-- Scan all markdown files in vault
-- Find broken wiki links `[[path/to/file]]`
-- Find broken wikilink aliases `[[path|alias]]`
-- Find references to deleted files
-- Generate report of issues
+1. **Select a source file** — `wks0 vault link <path>` verifies the path is under one of the managed work roots, computes the `_links/…` destination via `ObsidianVault.link_file`, and records the pairing in Mongo.
+2. **Create / refresh the symlink** — `_links` mirrors home-relative structure (or falls back to the filename) so vault links look like `[[ _links/Documents/2025-Archive/file.pdf ]]`. If the user opts to embed, we also create `_external/checksum/<checksum>` (hard link) plus `_external/uri/<path>` (symlink) and store that path in `embed_link`. The command emits a snippet that can be pasted into the relevant note (Projects, Topics, Records, etc.).
+3. **Reference in markdown** — Editors insert only `_links/…` wiki links (optionally with aliases / embeds). Direct filesystem `file:///` URLs are banned by policy; HTTP(S) links remain unchanged but are classified as `external_url` in the DB.
+4. **Monitor-driven maintenance** — When `wks.monitor` reports a move, the daemon:
+   - Updates the symlink (`ObsidianVault.update_link_on_move`).
+   - Rewrites any wiki links (`update_vault_links_on_move`).
+   - Touches the Mongo records so downstream queries know the new real path + checksum.
+5. **Deletion flow** — On delete, the daemon calls `mark_reference_deleted` to annotate notes and sets the link status to `missing_target`. Separate cleanup removes broken symlinks when requested.
 
-### `wks0 links fix`
-Automated repair:
-- Fix references to moved files (using file operations log)
-- Update legacy `[[links/...]]` to `[[_links/...]]`
-- Remove references to permanently deleted files
-- Interactive confirmation mode
+## Database Layout (`wks.vault`)
 
-### `wks0 links report`
-Health dashboard:
-- Total links in vault
-- Broken link count
-- Recently updated links
-- Most-linked files
-- Orphaned files (no incoming links)
+`wks.vault` stores one document per link edge. `_id` is `sha256(from_note + link_target_uri + link_line_number)` so repeated syncs simply upsert.
 
-## Implementation Approach
+| Field | Description |
+| --- | --- |
+| `_id` | Deterministic checksum identifier |
+| `from_note` | `vault:///Projects/2025-NRC.md` style URI (note-relative) |
+| `link_line_number` / `section` | Optional precision for display |
+| `link_target_uri` | Target URI whether internal or external (`vault:///…`, `_links/...`, `https://…`, `file:///…`) |
+| `link_type` | `wikilink`, `embed`, `markdown_url`, `legacy_links` |
+| `embed_link` | `_external/checksum/<checksum>` for hard-link snapshots and `_external/uri/<path>` for symlinks that follow the real file |
+| `resolved_path` | Absolute realpath when `_links/…` resolves to the filesystem |
+| `resolved_checksum` | Short checksum for dedupe/health |
+| `resolved_priority` | Copy of latest monitor priority (if lookup succeeds) |
+| `link_status` | `ok`, `missing_target`, `missing_symlink`, `stale_embed`, etc. |
+| `first_seen` / `last_seen` | Sync timestamps |
 
-### New CLI Module: `wks/cli_links.py`
+This single table supplies everything we need: inbound/outbound link queries, health summaries, unused `_links`, and detection of legacy `[[links/...]]` markup.
 
-```python
-def cmd_links_audit(args):
-    """Audit all wiki links in vault."""
-    # 1. Scan vault markdown files
-    # 2. Extract all [[wikilinks]]
-    # 3. Verify targets exist
-    # 4. Report issues
+## Automation Flow
 
-def cmd_links_fix(args):
-    """Fix broken links automatically."""
-    # 1. Run audit
-    # 2. For each broken link:
-    #    - Check file_ops.jsonl for moves
-    #    - Suggest/apply fix
-    # 3. Confirm with user if interactive
+- The daemon owns link ingestion. Every few seconds (configurable via `vault.update_frequency_seconds`) it scans all vault markdown through `ObsidianVault.iter_markdown_files()`, extracts wiki links / embeds / `[text](http)` references, and upserts them into `wks.vault`.
+- Each record is keyed by `sha256(from_note + link_target_uri + line_number)` and stored with fields described above plus `first_seen` / `last_seen` timestamps. Links not seen in the current pass are deleted so the DB mirrors the vault exactly.
+- Symlink health is assessed during the scan:
+  - Missing `_links/...` entry ⇒ `link_status = "missing_symlink"`
+  - Symlink present but real file gone ⇒ `link_status = "missing_target"`
+  - Legacy `[[links/...]]` references ⇒ `link_status = "legacy_link"`
+  - Normal note links / URLs ⇒ `link_status = "ok"`
+- Summary metadata (scan duration, notes scanned, accumulated errors) is stored alongside the records (`_id = "__meta__"`), enabling status displays without re-parsing markdown.
+- Monitor events still call `update_link_on_move` / `mark_reference_deleted` for immediate correctness, but the canonical truth comes from the background scan + MongoDB.
 
-def cmd_links_report(args):
-    """Generate link health report."""
-    # 1. Count all links
-    # 2. Compute statistics
-    # 3. Format output
-```
+## Command Surface
 
-### Link Scanner
+Only two user-facing commands are required:
 
-```python
-def scan_vault_links(vault_path: Path) -> List[LinkRef]:
-    """Extract all wiki links from vault markdown files."""
-    # Parse [[target]] and [[target|alias]]
-    # Return list of (source_file, link_text, target_path)
-```
+| Command | Purpose |
+| --- | --- |
+| `wks0 vault status [--json]` | Renders the latest link health snapshot (totals, counts per status, and the top unhealthy links). Uses the same display approach as `monitor status`. |
+| `wks0 db vault [--filter …]` | Direct MongoDB access for power users. Mirrors `wks0 db monitor` but points at the vault collection so ad-hoc queries stay easy. |
 
-### Link Validator
+No manual “link creation” commands remain; the daemon continuously maintains `_links` and the `wks.vault` collection.
 
-```python
-def validate_link(link: LinkRef, vault: ObsidianVault) -> LinkStatus:
-    """Check if a link target exists and is accessible."""
-    # Return: Valid, Broken, MovedTo(new_path), Deleted
-```
+## Daemon Responsibilities
 
-## Integration with Daemon
+1. **On monitor event (move/rename)** — Continue updating `_links` targets and wiki references (`update_link_on_move`, `update_vault_links_on_move`) so the user never sees drift.
+2. **On delete** — Insert the 🗑️ callout via `mark_reference_deleted` and let the next scan drop or reclassify the record.
+3. **Periodic scan** — At `vault.update_frequency_seconds` cadence the daemon runs the link indexer:
+   - Traverse `_links/` for missing symlinks and report them via the DB.
+   - Parse markdown for every link type and upsert into `wks.vault`.
+   - Store scan metadata (`notes_scanned`, `scan_duration_ms`, `errors`) in the `__meta__` record.
 
-The daemon already updates links on move via:
-- `daemon.py:211` - `vault.update_vault_links_on_move(src, dest)`
+## Implementation Plan
 
-Enhancement: Add periodic audit task
-- Run `links audit` weekly
-- Surface issues in Health.md
-- Suggest running `links fix`
+1. **Infrastructure** — Mongo helpers for `wks.vault`, dataclasses for parsed links, CLI parser scaffolding.
+2. **Scanner** — Vault markdown iterator that classifies every `[[…]]`, `![[…]]`, and `[text](url)` into the four `target_kind` buckets while capturing line numbers.
+3. **Resolver** — `_links` resolution layer that maps wiki targets to absolute paths, checks existence + checksum, and looks up monitor metadata for priority.
+4. **Sync & Status Commands** — Implement `vault sync` (idempotent) and `vault status` (summary display) with unit tests that build a temp vault + Mongo stub.
+5. **Link Command** — `vault link` front-end that orchestrates symlink creation, DB writes, and snippet generation.
+6. **Daemon hooks** — Wire monitor callbacks so link data stays fresh without manual syncs; add health reporting.
 
-## Output Examples
-
-### Audit Output
-```
-Link Audit Report
-=================
-
-Scanned: 453 markdown files
-Total links: 1,247
-Broken links: 12
-
-Issues:
-  ~/obsidian/Projects/2025-NRC.md:15
-    [[_links/old/path/file.pdf]] → Target not found
-
-  ~/obsidian/Topics/Nuclear_Data.md:42
-    [[links/legacy/document.pdf]] → Legacy path (use _links)
-
-Run 'wks0 links fix' to repair automatically.
-```
-
-### Fix Output
-```
-Fixing broken links...
-
-~/obsidian/Projects/2025-NRC.md:15
-  [[_links/old/path/file.pdf]]
-  → File moved to: ~/Documents/2025-Archive/file.pdf
-  Fix: [[_links/Documents/2025-Archive/file.pdf]]
-  Apply? [Y/n]
-
-Fixed 8 of 12 issues.
-4 require manual review.
-```
-
-## Testing Strategy
-
-### Unit Tests
-- Link extraction regex
-- Link validation logic
-- Fix application
-
-### Integration Tests
-- Full vault scan
-- Repair broken links
-- Report generation
-
-### Manual Tests
-1. Create test vault with known broken links
-2. Run audit - verify all issues found
-3. Run fix - verify repairs applied
-4. Run report - verify statistics correct
-
-## Design Principles
-
-1. **Non-destructive** - Always confirm before changes
-2. **Traceable** - Log all link fixes
-3. **Reversible** - Maintain backup of originals
-4. **Informative** - Clear explanations of issues
-5. **Automated** - Minimize manual intervention
+Testing follows the strategy outlined in the spec: unit tests for parsing/resolution, integration tests for real vault scans, and CLI smoke tests to ensure display output remains consistent for both CLI and MCP modes.

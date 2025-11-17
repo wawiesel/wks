@@ -22,8 +22,10 @@ def test_valid_minimal_config(tmp_path):
         "monitor": {
             "include_paths": [str(include_path)],
             "exclude_paths": [],
-            "ignore_dirnames": [".git"],
-            "ignore_globs": ["*.tmp"],
+            "include_dirnames": [],
+            "exclude_dirnames": [".git"],
+            "include_globs": [],
+            "exclude_globs": ["*.tmp"],
             "touch_weight": 0.2,
         },
     }
@@ -87,8 +89,10 @@ def test_invalid_numeric_values():
         "monitor": {
             "include_paths": [],
             "exclude_paths": [],
-            "ignore_dirnames": [],
-            "ignore_globs": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
             "touch_weight": 0.2,
         },
     }
@@ -116,8 +120,10 @@ def test_touch_weight_validation(tmp_path):
         "monitor": {
             "include_paths": [str(include_path)],
             "exclude_paths": [],
-            "ignore_dirnames": [],
-            "ignore_globs": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
             "touch_weight": 0.0,
         },
     }
@@ -144,8 +150,10 @@ def test_similarity_validation():
         "monitor": {
             "include_paths": ["~"],
             "exclude_paths": [],
-            "ignore_dirnames": [],
-            "ignore_globs": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
             "touch_weight": 0.2,
         },
         "similarity": {
@@ -175,8 +183,10 @@ def test_validate_and_raise_success(tmp_path):
         "monitor": {
             "include_paths": [str(tmp_path)],
             "exclude_paths": [],
-            "ignore_dirnames": [],
-            "ignore_globs": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
             "touch_weight": 0.2,
         },
     }

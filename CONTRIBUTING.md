@@ -22,7 +22,7 @@
 
 ## Testing Guidelines
 - Use `pytest`; add tests under `tests/`, named `test_*.py`.
-- Prefer pure functions; mock filesystem/IO; avoid touching `~/obsidian` or `~/.wks`.
+- Prefer pure functions; mock filesystem/IO; avoid touching `~/_vault` or `~/.wks`.
 - Aim for reasonable coverage on changed code; document a brief test plan in PRs.
 
 ## Commit & Pull Request Guidelines

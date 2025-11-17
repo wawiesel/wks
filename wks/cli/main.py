@@ -14,6 +14,7 @@ from .commands.index import setup_index_parser
 from .commands.monitor import setup_monitor_parser
 from .commands.related import setup_related_parser
 from .commands.service import setup_service_parser
+from .commands.vault import setup_vault_parser
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -56,6 +57,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     setup_monitor_parser(sub)
     setup_index_parser(sub)
     setup_related_parser(sub)
+    setup_vault_parser(sub)
     
     # DB command (from cli_db module)
     from .. import cli_db
@@ -155,4 +157,3 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             print(f"Error: {e}")
         return 1
-

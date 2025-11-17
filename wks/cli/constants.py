@@ -3,7 +3,7 @@
 from ..constants import WKS_HOME_EXT, WKS_EXTRACT_EXT, WKS_HOME_DISPLAY
 
 DEFAULT_MONITOR_INCLUDE_PATHS = ["~"]
-DEFAULT_MONITOR_EXCLUDE_PATHS = ["~/Library", "~/obsidian", f"{WKS_HOME_DISPLAY}"]
+DEFAULT_MONITOR_EXCLUDE_PATHS = ["~/Library", f"{WKS_HOME_DISPLAY}"]
 DEFAULT_MONITOR_IGNORE_DIRS = [".git", "_build", WKS_HOME_EXT, WKS_EXTRACT_EXT]
 DEFAULT_MONITOR_IGNORE_GLOBS = ["*.tmp", "*~", "._*"]
 
@@ -44,4 +44,3 @@ DB_QUERY_MARKDOWN_TEMPLATE = """### {{ scope|capitalize }} query — {{ collecti
 _No documents found._
 {% endif %}
 """.strip()
-

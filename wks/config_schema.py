@@ -59,15 +59,16 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
 
     new_config["monitor"] = {
         "include_paths": old_monitor.get("include_paths", ["~"]),
-        "exclude_paths": old_monitor.get("exclude_paths", ["~/Library", "~/obsidian", "~/.wks"]),
-        "ignore_dirnames": old_monitor.get("ignore_dirnames", [
+        "exclude_paths": old_monitor.get("exclude_paths", ["~/Library", "~/.wks"]),
+        "include_dirnames": old_monitor.get("include_dirnames", []),
+        "exclude_dirnames": old_monitor.get("ignore_dirnames", [
             ".cache", ".venv", "__pycache__", "_build",
             "build", "dist", "node_modules", "venv"
         ]),
-        "ignore_globs": old_monitor.get("ignore_globs", [
+        "include_globs": old_monitor.get("include_globs", []),
+        "exclude_globs": old_monitor.get("ignore_globs", [
             "**/.DS_Store", "*.swp", "*.tmp", "*~", "._*", "~$*", ".~lock.*#"
         ]),
-        "dot_whitelist": old_monitor.get("dot_whitelist", []),
         # New: managed directories with priorities
         "managed_directories": {
             "~/Desktop": 150,
@@ -103,7 +104,9 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
 
     # === Vault section (from old obsidian section) ===
     old_obsidian = old_config.get("obsidian", {})
-    vault_path = old_config.get("vault_path", "~/obsidian")
+    vault_path = old_config.get("vault_path")
+    if not vault_path:
+        raise ValueError("vault_path is required in legacy config (found: missing)")
 
     new_config["vault"] = {
         "type": "obsidian",

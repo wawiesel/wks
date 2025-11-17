@@ -61,6 +61,28 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
     return uri, db_name, coll_name
 
 
+def get_vault_db_config(cfg: dict) -> Tuple[str, str, str]:
+    """Extract vault database configuration."""
+    vault_cfg = cfg.get("vault")
+    if not vault_cfg:
+        raise KeyError("vault section is required in config (found: missing, expected: vault section with database, wks_dir, etc.)")
+
+    db_config = cfg.get("db")
+    if not db_config:
+        raise KeyError("db section is required in config (found: missing, expected: db section with type and uri)")
+
+    uri = db_config.get("uri")
+    if not uri:
+        raise KeyError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
+
+    db_key = vault_cfg.get("database")
+    if not db_key:
+        raise KeyError("vault.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.vault')")
+
+    db_name, coll_name = parse_database_key(db_key)
+    return uri, db_name, coll_name
+
+
 def connect_to_mongo(uri: str, timeout_ms: int = 5000) -> MongoClient:
     """Connect to MongoDB with timeout.
 
