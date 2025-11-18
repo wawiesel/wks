@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ...config import get_config_path, load_config
 from ...constants import MAX_DISPLAY_WIDTH
-from ...monitor_controller import MonitorController, MonitorValidator
+from ...monitor import MonitorController, MonitorValidator
 
 SUPPORTED_MONITOR_LISTS = {
     "include_paths",
@@ -122,7 +122,7 @@ def get_last_touch_time(config: Dict[str, Any]) -> Optional[str]:
     try:
         from ...config import mongo_settings
         from pymongo import MongoClient
-        from ...monitor_controller import MonitorConfig
+        from ...monitor import MonitorConfig
 
         monitor_cfg = MonitorConfig.from_config_dict(config)
         mongo_config = mongo_settings(config)

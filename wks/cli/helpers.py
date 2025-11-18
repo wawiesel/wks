@@ -48,7 +48,7 @@ def file_checksum(path: Path) -> str:
 
 def iter_files(paths: List[str], include_exts: Optional[List[str]], cfg: Dict[str, Any]) -> List[Path]:
     """Iterate over files matching criteria."""
-    from ..monitor_controller import MonitorController
+    from ..monitor import MonitorController
 
     def _should_skip(p: Path) -> bool:
         """Check if path should be skipped based on monitor rules."""

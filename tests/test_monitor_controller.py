@@ -8,7 +8,7 @@ requiring CLI or display infrastructure.
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from wks.monitor_controller import MonitorController
+from wks.monitor import MonitorController
 
 
 def build_config(**monitor_overrides):
@@ -154,7 +154,7 @@ class TestMonitorController(unittest.TestCase):
         self.assertFalse(result["is_monitored"])
         self.assertIn("glob", result["reason"].lower())
 
-    @patch("wks.monitor_controller.MonitorRules.from_config")
+    @patch("wks.monitor.controller.MonitorRules.from_config")
     @patch("wks.uri_utils.uri_to_path")
     @patch("pymongo.MongoClient")
     def test_prune_ignored_files_deletes_matching_docs(self, mock_client, mock_uri_to_path, mock_rules):

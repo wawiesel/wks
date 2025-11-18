@@ -111,11 +111,6 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         config=config,
         vault_path=tmp_path,
         base_dir="WKS",
-        obsidian_log_max_entries=10,
-        obsidian_active_files_max_rows=5,
-        obsidian_source_max_chars=10,
-        obsidian_destination_max_chars=10,
-        obsidian_docs_keep=3,
         monitor_paths=[tmp_path],
         monitor_rules=monitor_rules,
         mongo_uri="mongodb://localhost:27017/",
@@ -156,6 +151,26 @@ def test_move_directory_drops_source_but_skips_destination(monkeypatch, tmp_path
     assert dest_dir.as_uri() not in coll.docs
 
 
+def test_move_tracked_file_updates_destination(monkeypatch, tmp_path):
+    coll = FakeCollection()
+    src = tmp_path / "reports" / "weekly.txt"
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text("old")
+    coll.docs[src.as_uri()] = {
+        "path": src.as_uri(),
+        "timestamp": datetime.now().isoformat(),
+    }
+    dest = tmp_path / "archive" / "weekly.txt"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("new")
+
+    daemon = _build_daemon(monkeypatch, tmp_path, coll)
+    daemon._handle_move_event(str(src), str(dest))
+
+    assert src.as_uri() not in coll.docs
+    assert dest.as_uri() in coll.docs
+
+
 def test_delete_event_only_tracks_known_paths(monkeypatch, tmp_path):
     coll = FakeCollection()
     daemon = _build_daemon(monkeypatch, tmp_path, coll)
@@ -173,3 +188,24 @@ def test_delete_event_only_tracks_known_paths(monkeypatch, tmp_path):
 
     daemon._handle_delete_event(tracked)
     assert tracked.resolve().as_posix() in daemon._pending_deletes
+
+
+def test_delete_event_flush_removes_db_row(monkeypatch, tmp_path):
+    coll = FakeCollection()
+    tracked = tmp_path / "remove.txt"
+    tracked.parent.mkdir(parents=True, exist_ok=True)
+    tracked.write_text("bye")
+    coll.docs[tracked.as_uri()] = {
+        "path": tracked.as_uri(),
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    daemon = _build_daemon(monkeypatch, tmp_path, coll)
+    daemon._delete_grace_secs = 0
+    daemon._handle_delete_event(tracked)
+    tracked.unlink()
+
+    daemon._maybe_flush_pending_deletes()
+
+    assert tracked.as_uri() not in coll.docs
+    assert tracked.resolve().as_posix() not in daemon._pending_deletes
