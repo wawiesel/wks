@@ -29,15 +29,10 @@ class MonitorConfig:
     max_documents: int = 1000000
     prune_interval_secs: float = 300.0
 
-    def __post_init__(self):
-        """Validate monitor configuration after initialization.
-
-        Collects all validation errors and raises a single ValidationError
-        with all errors, so the user can see everything that needs fixing.
-        """
+    def _validate_list_fields(self) -> List[str]:
+        """Validate that all list fields are actually lists."""
         errors = []
 
-        # Validate required fields are present and correct types
         if not isinstance(self.include_paths, list):
             errors.append(f"monitor.include_paths must be a list (found: {type(self.include_paths).__name__} = {self.include_paths!r}, expected: list)")
 
@@ -59,12 +54,24 @@ class MonitorConfig:
         if not isinstance(self.managed_directories, dict):
             errors.append(f"monitor.managed_directories must be a dict (found: {type(self.managed_directories).__name__} = {self.managed_directories!r}, expected: dict)")
 
+        return errors
+
+    def _validate_database_format(self) -> List[str]:
+        """Validate database string is in 'database.collection' format."""
+        errors = []
+
         if not isinstance(self.database, str) or "." not in self.database:
             errors.append(f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor')")
         elif isinstance(self.database, str):
             parts = self.database.split(".", 1)
             if len(parts) != 2 or not parts[0] or not parts[1]:
                 errors.append(f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor' with both parts non-empty)")
+
+        return errors
+
+    def _validate_numeric_fields(self) -> List[str]:
+        """Validate numeric fields are correct types and in valid ranges."""
+        errors = []
 
         if not isinstance(self.touch_weight, (int, float)) or self.touch_weight < 0.001 or self.touch_weight > 1.0:
             errors.append(f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(self.touch_weight).__name__} = {self.touch_weight!r}, expected: float between 0.001 and 1.0)")
@@ -74,6 +81,19 @@ class MonitorConfig:
 
         if not isinstance(self.prune_interval_secs, (int, float)) or self.prune_interval_secs <= 0:
             errors.append(f"monitor.prune_interval_secs must be a positive number (found: {type(self.prune_interval_secs).__name__} = {self.prune_interval_secs!r}, expected: float > 0)")
+
+        return errors
+
+    def __post_init__(self):
+        """Validate monitor configuration after initialization.
+
+        Collects all validation errors and raises a single ValidationError
+        with all errors, so the user can see everything that needs fixing.
+        """
+        errors = []
+        errors.extend(self._validate_list_fields())
+        errors.extend(self._validate_database_format())
+        errors.extend(self._validate_numeric_fields())
 
         if errors:
             raise ValidationError(errors)

@@ -69,82 +69,112 @@ def is_local_uri(uri: str) -> bool:
     return local_node(uri) is not None
 
 
-def ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
+def _validate_uri(uri: str) -> str:
+    """Validate and clean MongoDB URI."""
     uri = (uri or "").strip()
     if not uri:
         print("Fatal: MongoDB URI is empty; configure db.uri in config.json")
         raise SystemExit(2)
+    return uri
+
+
+def _setup_mongo_paths(host: str, port: int, record_start: bool) -> Tuple[str, Path, Path, Path, Path]:
+    """Setup MongoDB directories and return (bind_ip, dbroot, dbpath, logfile, pidfile)."""
+    bind_ip = "127.0.0.1" if host in ("localhost", "127.0.0.1") else host
+    dbroot = MONGO_ROOT
+    dbpath = dbroot / "db"
+    logfile = dbroot / "mongod.log"
+    pidfile = MONGO_PID_FILE if record_start else (dbroot / "mongod.pid.tmp")
+
+    dbroot.mkdir(parents=True, exist_ok=True)
+    dbpath.mkdir(parents=True, exist_ok=True)
+
+    # Clean up old pidfile
+    try:
+        if pidfile.exists():
+            pidfile.unlink()
+    except Exception:
+        pass
+
+    return bind_ip, dbroot, dbpath, logfile, pidfile
+
+
+def _start_mongod_process(bind_ip: str, port: int, dbpath: Path, logfile: Path, pidfile: Path) -> int:
+    """Start mongod process and return PID."""
+    try:
+        with open(logfile, "ab") as log_handle:
+            proc = subprocess.Popen(
+                [
+                    "mongod",
+                    "--dbpath",
+                    str(dbpath),
+                    "--logpath",
+                    str(logfile),
+                    "--logappend",
+                    "--bind_ip",
+                    bind_ip,
+                    "--port",
+                    str(port),
+                ],
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+        proc_pid = proc.pid
+        try:
+            pidfile.write_text(str(proc_pid))
+        except Exception:
+            pass
+        return proc_pid
+    except Exception as exc:
+        print(f"Fatal: failed to auto-start local mongod: {exc}")
+        raise SystemExit(2)
+
+
+def _wait_for_startup(uri: str, proc_pid: int, dbroot: Path, pidfile: Path, record_start: bool) -> None:
+    """Wait for MongoDB to become responsive after startup."""
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        if mongo_ping(uri, timeout_ms=1000):
+            if record_start:
+                if proc_pid:
+                    try:
+                        MONGO_MANAGED_FLAG.write_text(str(proc_pid))
+                    except Exception:
+                        pass
+            else:
+                try:
+                    pidfile.unlink()
+                except Exception:
+                    pass
+            return
+        time.sleep(0.3)
+
+    # Startup timeout - kill process and exit
+    print(f"Fatal: mongod started but MongoDB still unreachable; check logs in {dbroot}/mongod.log")
+    if proc_pid:
+        try:
+            os.kill(proc_pid, signal.SIGTERM)
+        except Exception:
+            pass
+    raise SystemExit(2)
+
+
+def ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
+    uri = _validate_uri(uri)
 
     if mongo_ping(uri):
         return
+
     local = local_node(uri)
     if local and shutil.which("mongod"):
         host, port = local
-        bind_ip = "127.0.0.1" if host in ("localhost", "127.0.0.1") else host
-        dbroot = MONGO_ROOT
-        dbpath = dbroot / "db"
-        logfile = dbroot / "mongod.log"
-        dbroot.mkdir(parents=True, exist_ok=True)
-        dbpath.mkdir(parents=True, exist_ok=True)
-        pidfile = MONGO_PID_FILE if record_start else (dbroot / "mongod.pid.tmp")
-        proc_pid: Optional[int] = None
-        try:
-            if pidfile.exists():
-                pidfile.unlink()
-        except Exception:
-            pass
-        try:
-            with open(logfile, "ab") as log_handle:
-                proc = subprocess.Popen(
-                    [
-                        "mongod",
-                        "--dbpath",
-                        str(dbpath),
-                        "--logpath",
-                        str(logfile),
-                        "--logappend",
-                        "--bind_ip",
-                        bind_ip,
-                        "--port",
-                        str(port),
-                    ],
-                    stdout=log_handle,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                )
-            proc_pid = proc.pid
-            try:
-                pidfile.write_text(str(proc_pid))
-            except Exception:
-                pass
-        except Exception as exc:
-            print(f"Fatal: failed to auto-start local mongod: {exc}")
-            raise SystemExit(2)
-        deadline = time.time() + 5.0
-        while time.time() < deadline:
-            if mongo_ping(uri, timeout_ms=1000):
-                if record_start:
-                    if proc_pid:
-                        try:
-                            MONGO_MANAGED_FLAG.write_text(str(proc_pid))
-                        except Exception:
-                            pass
-                else:
-                    try:
-                        pidfile.unlink()
-                    except Exception:
-                        pass
-                return
-            time.sleep(0.3)
-        print(f"Fatal: mongod started but MongoDB still unreachable; check logs in {dbroot}/mongod.log")
-        if proc_pid:
-            try:
-                os.kill(proc_pid, signal.SIGTERM)
-            except Exception:
-                pass
+        bind_ip, dbroot, dbpath, logfile, pidfile = _setup_mongo_paths(host, port, record_start)
+        proc_pid = _start_mongod_process(bind_ip, port, dbpath, logfile, pidfile)
+        _wait_for_startup(uri, proc_pid, dbroot, pidfile, record_start)
+    else:
+        print(f"Fatal: MongoDB not reachable at {uri}; start mongod and retry.")
         raise SystemExit(2)
-    print(f"Fatal: MongoDB not reachable at {uri}; start mongod and retry.")
-    raise SystemExit(2)
 
 
 def stop_managed_mongo() -> None:
