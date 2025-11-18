@@ -172,36 +172,24 @@ class MonitorController:
         )
 
     @staticmethod
-    def validate_config(config: dict) -> ConfigValidationResult:
-        """Validate monitor configuration for conflicts and issues.
-
-        Raises:
-            KeyError: If monitor section or required fields are missing
-        """
-        monitor_cfg = MonitorConfig.from_config_dict(config)
-        rules = MonitorRules.from_config(monitor_cfg)
-
-        include_map = _build_canonical_map(monitor_cfg.include_paths)
-        exclude_map = _build_canonical_map(monitor_cfg.exclude_paths)
+    def _validate_path_conflicts(include_map: Dict, exclude_map: Dict) -> List[str]:
+        """Validate paths aren't in both include and exclude lists."""
+        issues = []
         include_paths = set(include_map.keys())
         exclude_paths = set(exclude_map.keys())
-        managed_dirs = list(monitor_cfg.managed_directories.keys())
 
-        issues: List[str] = []
-        redundancies: List[str] = []
-        managed_directories: Dict[str, ManagedDirectoryInfo] = {}
-        include_dirname_validation: Dict[str, Dict[str, Any]] = {}
-        exclude_dirname_validation: Dict[str, Dict[str, Any]] = {}
-        include_glob_validation: Dict[str, Dict[str, Any]] = {}
-        exclude_glob_validation: Dict[str, Dict[str, Any]] = {}
-
-        # Paths present in both include/exclude lists
         for canonical in sorted(include_paths & exclude_paths):
             includes = include_map.get(canonical, [])
             excludes = exclude_map.get(canonical, [])
             issues.append(
                 f"Path listed in both include_paths and exclude_paths after resolving to {canonical}: include [{', '.join(includes)}], exclude [{', '.join(excludes)}]"
             )
+        return issues
+
+    @staticmethod
+    def _validate_path_redundancy(include_map: Dict, exclude_map: Dict, config: dict) -> List[str]:
+        """Validate duplicate canonical paths and auto-ignored paths."""
+        redundancies = []
 
         # Duplicate canonical entries within the same list
         for canonical, raw_paths in include_map.items():
@@ -224,7 +212,16 @@ class MonitorController:
                 for entry in exclude_map[vault_resolved]:
                     redundancies.append(f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately")
 
-        # Managed directory validation
+        return redundancies
+
+    @staticmethod
+    def _validate_managed_directories(monitor_cfg: MonitorConfig, rules: MonitorRules) -> Tuple[List[str], List[str], Dict[str, ManagedDirectoryInfo]]:
+        """Validate managed directories."""
+        issues = []
+        redundancies = []
+        managed_directories = {}
+        managed_dirs = list(monitor_cfg.managed_directories.keys())
+
         for path, priority in monitor_cfg.managed_directories.items():
             is_valid, error_msg = MonitorValidator.validate_managed_directory(path, rules)
             managed_directories[path] = ManagedDirectoryInfo(priority=priority, valid=is_valid, error=error_msg)
@@ -239,9 +236,18 @@ class MonitorController:
                 if p1 == p2:
                     redundancies.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to the same path")
 
-        # Dirname validations
+        return issues, redundancies, managed_directories
+
+    @staticmethod
+    def _validate_dirnames(monitor_cfg: MonitorConfig) -> Tuple[List[str], List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+        """Validate include/exclude dirnames."""
+        issues = []
+        redundancies = []
+        include_dirname_validation = {}
+        exclude_dirname_validation = {}
         include_dirname_set = set()
         exclude_dirname_set = set()
+
         for dirname in monitor_cfg.include_dirnames:
             is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
             include_dirname_set.add(dirname)
@@ -270,7 +276,15 @@ class MonitorController:
         for dirname in sorted(duplicates):
             issues.append(f"Directory name '{dirname}' appears in both include_dirnames and exclude_dirnames")
 
-        # Glob validations
+        return issues, redundancies, include_dirname_validation, exclude_dirname_validation
+
+    @staticmethod
+    def _validate_globs(monitor_cfg: MonitorConfig) -> Tuple[List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+        """Validate include/exclude glob patterns."""
+        issues = []
+        include_glob_validation = {}
+        exclude_glob_validation = {}
+
         for pattern in monitor_cfg.include_globs:
             is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
             include_glob_validation[pattern] = {"valid": is_valid, "error": error_msg}
@@ -282,6 +296,45 @@ class MonitorController:
             exclude_glob_validation[pattern] = {"valid": is_valid, "error": error_msg}
             if not is_valid:
                 issues.append(f"exclude_globs entry '{pattern}': {error_msg}")
+
+        return issues, include_glob_validation, exclude_glob_validation
+
+    @staticmethod
+    def validate_config(config: dict) -> ConfigValidationResult:
+        """Validate monitor configuration for conflicts and issues.
+
+        Raises:
+            KeyError: If monitor section or required fields are missing
+        """
+        monitor_cfg = MonitorConfig.from_config_dict(config)
+        rules = MonitorRules.from_config(monitor_cfg)
+
+        include_map = _build_canonical_map(monitor_cfg.include_paths)
+        exclude_map = _build_canonical_map(monitor_cfg.exclude_paths)
+
+        # Collect all validation results
+        issues = []
+        redundancies = []
+
+        # Path conflicts
+        issues.extend(MonitorController._validate_path_conflicts(include_map, exclude_map))
+
+        # Path redundancy
+        redundancies.extend(MonitorController._validate_path_redundancy(include_map, exclude_map, config))
+
+        # Managed directories
+        mgd_issues, mgd_redundancies, managed_directories = MonitorController._validate_managed_directories(monitor_cfg, rules)
+        issues.extend(mgd_issues)
+        redundancies.extend(mgd_redundancies)
+
+        # Dirnames
+        dir_issues, dir_redundancies, include_dirname_validation, exclude_dirname_validation = MonitorController._validate_dirnames(monitor_cfg)
+        issues.extend(dir_issues)
+        redundancies.extend(dir_redundancies)
+
+        # Globs
+        glob_issues, include_glob_validation, exclude_glob_validation = MonitorController._validate_globs(monitor_cfg)
+        issues.extend(glob_issues)
 
         return ConfigValidationResult(
             issues=issues,
