@@ -29,6 +29,61 @@ class MonitorOperations:
     """Operations for modifying monitor configuration."""
 
     @staticmethod
+    def _normalize_value(value: str, resolve_path: bool) -> tuple[str, str]:
+        """Normalize value and return (value_resolved, value_to_store)."""
+        if resolve_path:
+            value_resolved = _canonicalize_path(value)
+            # Preserve tilde notation if in home directory
+            home_dir = str(Path.home())
+            if value_resolved.startswith(home_dir):
+                value_to_store = "~" + value_resolved[len(home_dir):]
+            else:
+                value_to_store = value_resolved
+        else:
+            value_resolved = value
+            value_to_store = value
+        return value_resolved, value_to_store
+
+    @staticmethod
+    def _validate_dirname_entry(value: str, list_name: str, config_dict: dict) -> Optional[ListOperationResult]:
+        """Validate dirname entry. Returns ListOperationResult if validation fails, None if valid."""
+        entry = value.strip()
+        is_valid, error_msg = MonitorValidator.validate_dirname_entry(entry)
+        if not is_valid:
+            return ListOperationResult(success=False, message=error_msg or "Invalid directory name", validation_failed=True)
+
+        opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
+        if entry in config_dict["monitor"].get(opposite, []):
+            return ListOperationResult(
+                success=False,
+                message=f"Directory name '{entry}' already present in {opposite}",
+                validation_failed=True,
+            )
+        return None
+
+    @staticmethod
+    def _validate_glob_entry(value: str) -> Optional[ListOperationResult]:
+        """Validate glob entry. Returns ListOperationResult if validation fails, None if valid."""
+        entry = value.strip()
+        is_valid, error_msg = MonitorValidator.validate_glob_pattern(entry)
+        if not is_valid:
+            return ListOperationResult(success=False, message=error_msg or "Invalid glob pattern", validation_failed=True)
+        return None
+
+    @staticmethod
+    def _check_existing_entry(config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool) -> Optional[str]:
+        """Check if entry already exists. Returns existing entry if found, None otherwise."""
+        for item in config_dict["monitor"][list_name]:
+            if resolve_path:
+                item_resolved = _canonicalize_path(item)
+                if item_resolved == value_resolved:
+                    return item
+            else:
+                if item == value_resolved:
+                    return item
+        return None
+
+    @staticmethod
     def add_to_list(config_dict: dict, list_name: str, value: str, resolve_path: bool = True) -> ListOperationResult:
         """Add value to a monitor config list.
 
@@ -47,54 +102,27 @@ class MonitorOperations:
         if list_name not in config_dict["monitor"]:
             config_dict["monitor"][list_name] = []
 
-        # Normalize value if needed
-        if resolve_path:
-            value_resolved = _canonicalize_path(value)
-            # Preserve tilde notation if in home directory
-            home_dir = str(Path.home())
-            if value_resolved.startswith(home_dir):
-                value_to_store = "~" + value_resolved[len(home_dir):]
-            else:
-                value_to_store = value_resolved
-        else:
-            value_resolved = value
-            value_to_store = value
+        # Normalize value
+        value_resolved, value_to_store = MonitorOperations._normalize_value(value, resolve_path)
 
+        # Validate dirnames
         if list_name in ("include_dirnames", "exclude_dirnames"):
-            entry = value.strip()
-            is_valid, error_msg = MonitorValidator.validate_dirname_entry(entry)
-            if not is_valid:
-                return ListOperationResult(success=False, message=error_msg or "Invalid directory name", validation_failed=True)
-            opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
-            if entry in config_dict["monitor"].get(opposite, []):
-                return ListOperationResult(
-                    success=False,
-                    message=f"Directory name '{entry}' already present in {opposite}",
-                    validation_failed=True,
-                )
-            value_resolved = entry
-            value_to_store = entry
+            error_result = MonitorOperations._validate_dirname_entry(value, list_name, config_dict)
+            if error_result:
+                return error_result
+            value_resolved = value.strip()
+            value_to_store = value.strip()
+
+        # Validate globs
         elif list_name in ("include_globs", "exclude_globs"):
-            entry = value.strip()
-            is_valid, error_msg = MonitorValidator.validate_glob_pattern(entry)
-            if not is_valid:
-                return ListOperationResult(success=False, message=error_msg or "Invalid glob pattern", validation_failed=True)
-            value_resolved = entry
-            value_to_store = entry
+            error_result = MonitorOperations._validate_glob_entry(value)
+            if error_result:
+                return error_result
+            value_resolved = value.strip()
+            value_to_store = value.strip()
 
         # Check if already exists
-        existing = None
-        for item in config_dict["monitor"][list_name]:
-            if resolve_path:
-                item_resolved = _canonicalize_path(item)
-                if item_resolved == value_resolved:
-                    existing = item
-                    break
-            else:
-                if item == value_resolved:
-                    existing = item
-                    break
-
+        existing = MonitorOperations._check_existing_entry(config_dict, list_name, value_resolved, resolve_path)
         if existing:
             return ListOperationResult(
                 success=False,
