@@ -9,10 +9,6 @@ DEFAULT_MONITOR_IGNORE_GLOBS = ["*.tmp", "*~", "._*"]
 
 DEFAULT_OBSIDIAN_CONFIG = {
     "base_dir": "WKS",
-    "log_max_entries": 500,
-    "active_files_max_rows": 50,
-    "source_max_chars": 40,
-    "destination_max_chars": 40,
     "docs_keep": 99,
 }
 

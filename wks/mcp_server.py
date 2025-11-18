@@ -10,7 +10,7 @@ import sys
 from typing import Any, Dict, List, Optional, TextIO
 
 from .config import load_config
-from .monitor_controller import MonitorController
+from .monitor import MonitorController
 
 
 class MCPServer:

@@ -39,10 +39,6 @@ def test_cli_config_print_json(monkeypatch):
             "wks_dir": "WKS",
             "update_frequency_seconds": 60,
             "database": "wks.vault",
-            "log_max_entries": 500,
-            "active_files_max_rows": 50,
-            "source_max_chars": 40,
-            "destination_max_chars": 40,
         },
         "monitor": {
             "include_paths": ["~"],

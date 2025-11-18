@@ -308,12 +308,6 @@ A single metadata document (`_id = "__meta__"`, `doc_type = "meta"`) stores `las
 2. **Scanner loop** runs on `vault.update_frequency_seconds`, parses every markdown file, validates `_links/…`, writes deterministic documents, and drops rows whose `_id` wasn’t touched (links removed from the vault).
 3. **Status reporting** simply mirrors the persisted counts (`__meta__`) and lists unhealthy edges filtered by `status != "ok"`.
 
-**Generated Files**:
-- `WKS/Health.md` — daemon metrics
-- `WKS/Activity.md` — recently modified files
-- `WKS/FileOperations.md` — move/rename log
-- `WKS/Extractions/` — extracted content snapshots (keep latest N)
-
 **Commands** (diagnostics only):
 - `wks0 vault status` — summarize the most recent automated scan
 - `wks0 db vault` — query the underlying collection

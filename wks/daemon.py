@@ -17,7 +17,7 @@ from .vault.indexer import VaultLinkIndexer
 from .monitor import start_monitoring
 from .constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
 from .monitor_rules import MonitorRules
-from .monitor_controller import MonitorConfig
+from .monitor import MonitorConfig
 from pymongo.collection import Collection
 from typing import Optional, Set, List, Dict, Any
 from pathlib import Path
@@ -92,11 +92,6 @@ class WKSDaemon:
         config: Dict[str, Any],
         vault_path: Path,
         base_dir: str,
-        obsidian_log_max_entries: int,
-        obsidian_active_files_max_rows: int,
-        obsidian_source_max_chars: int,
-        obsidian_destination_max_chars: int,
-        obsidian_docs_keep: int,
         monitor_paths: list[Path],
         monitor_rules: MonitorRules,
         auto_project_notes: bool = False,
@@ -115,19 +110,11 @@ class WKSDaemon:
             monitor_paths: List of paths to monitor
         """
         self.config = config
-        self.vault = ObsidianVault(
-            vault_path,
-            base_dir=base_dir,
-            log_max_entries=obsidian_log_max_entries,
-            active_files_max_rows=obsidian_active_files_max_rows,
-            source_max_chars=obsidian_source_max_chars,
-            destination_max_chars=obsidian_destination_max_chars,
-        )
+        self.vault = ObsidianVault(vault_path, base_dir=base_dir)
         vault_cfg = config.get("vault", {})
         self._vault_indexer = VaultLinkIndexer.from_config(self.vault, config)
         self._vault_sync_interval = float(vault_cfg.get("update_frequency_seconds", 300.0))
         self._last_vault_sync = 0.0
-        self.docs_keep = int(obsidian_docs_keep)
         self.monitor_paths = [Path(p).expanduser().resolve() for p in monitor_paths]
         self.monitor_rules = monitor_rules
         self.observer = None
@@ -787,11 +774,7 @@ class WKSDaemon:
             with open(self.health_file, 'w') as f:
                 json.dump(health_data.to_dict(), f)
 
-            # Update Health landing page
-            try:
-                self.vault.write_health_page()
-            except Exception:
-                pass
+            # Vault health page disabled
         except Exception:
             pass
 
@@ -939,24 +922,12 @@ if __name__ == "__main__":
     monitor_db_name, monitor_coll_name = parts
     monitor_collection = client[monitor_db_name][monitor_coll_name]
 
-    # Vault settings from vault section (SPEC: vault.type="obsidian")
-    # Simplified: only base_dir, wks_dir, update_frequency_seconds, type, database
-    obsidian_log_max_entries = 500  # Default, not in vault section
-    obsidian_active_files_max_rows = 100  # Default, not in vault section
-    obsidian_source_max_chars = 40  # Default, not in vault section
-    obsidian_destination_max_chars = 40  # Default, not in vault section
-    obsidian_docs_keep = 50  # Default, not in vault section
     auto_project_notes = False  # Default, not in vault section
 
     daemon = WKSDaemon(
         config=config,
         vault_path=vault_path,
         base_dir=base_dir,
-        obsidian_log_max_entries=obsidian_log_max_entries,
-        obsidian_active_files_max_rows=obsidian_active_files_max_rows,
-        obsidian_source_max_chars=obsidian_source_max_chars,
-        obsidian_destination_max_chars=obsidian_destination_max_chars,
-        obsidian_docs_keep=obsidian_docs_keep,
         auto_project_notes=auto_project_notes,
         monitor_paths=include_paths,
         monitor_rules=monitor_rules,

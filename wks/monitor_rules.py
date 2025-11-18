@@ -9,7 +9,7 @@ import fnmatch
 from .constants import WKS_DOT_DIRS
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
-    from .monitor_controller import MonitorConfig
+    from .monitor import MonitorConfig
 
 def _matches_glob(patterns: List[str], path_obj: Path) -> bool:
     if not patterns:

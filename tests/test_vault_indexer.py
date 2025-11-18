@@ -29,10 +29,6 @@ def vault(vault_root):
     return ObsidianVault(
         vault_path=vault_root,
         base_dir="WKS",
-        log_max_entries=10,
-        active_files_max_rows=10,
-        source_max_chars=40,
-        destination_max_chars=40,
     )
 
 

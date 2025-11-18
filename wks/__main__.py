@@ -17,7 +17,7 @@ from .dbmeta import resolve_db_compatibility, IncompatibleDatabase
 from .config import load_config
 from .config_validator import validate_and_raise, ConfigValidationError
 from .utils import get_package_version, expand_path
-from .monitor_controller import MonitorConfig
+from .monitor import MonitorConfig
 from .monitor_rules import MonitorRules
 try:
     from .config import mongo_settings
@@ -49,21 +49,10 @@ if __name__ == "__main__":
     monitor_rules = MonitorRules.from_config(monitor_cfg_obj)
     include_paths = [expand_path(p) for p in monitor_cfg_obj.include_paths]
 
-    obsidian_cfg = config.get("obsidian", {})
-    base_dir = vault_cfg.get("wks_dir") or obsidian_cfg.get("base_dir")
+    base_dir = vault_cfg.get("wks_dir")
     if not base_dir:
-        print("Fatal: missing required config key: vault.wks_dir (or legacy obsidian.base_dir)")
+        print("Fatal: missing required config key: vault.wks_dir")
         raise SystemExit(2)
-    # Explicit obsidian logging settings
-    for k in ["log_max_entries", "active_files_max_rows", "source_max_chars", "destination_max_chars", "docs_keep"]:
-        if k not in obsidian_cfg:
-            print(f"Fatal: missing required config key: obsidian.{k}")
-            raise SystemExit(2)
-    log_max_entries = int(obsidian_cfg["log_max_entries"])
-    active_rows = int(obsidian_cfg["active_files_max_rows"])
-    src_max = int(obsidian_cfg["source_max_chars"])
-    dst_max = int(obsidian_cfg["destination_max_chars"])
-    docs_keep = int(obsidian_cfg["docs_keep"])
 
     metrics_cfg = config.get("metrics") or {}
     fs_short_window = float(metrics_cfg.get("fs_rate_short_window_secs", 10))
@@ -75,11 +64,6 @@ if __name__ == "__main__":
         config=config,
         vault_path=vault_path,
         base_dir=base_dir,
-        obsidian_log_max_entries=log_max_entries,
-        obsidian_active_files_max_rows=active_rows,
-        obsidian_source_max_chars=src_max,
-        obsidian_destination_max_chars=dst_max,
-        obsidian_docs_keep=docs_keep,
         monitor_paths=include_paths,
         monitor_rules=monitor_rules,
         mongo_uri=mongo_cfg.get("uri"),

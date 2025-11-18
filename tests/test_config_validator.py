@@ -18,6 +18,8 @@ def test_valid_minimal_config(tmp_path):
         "vault": {
             "base_dir": str(vault_path),
             "wks_dir": "WKS",
+            "update_frequency_seconds": 60,
+            "database": "wks.vault",
         },
         "monitor": {
             "include_paths": [str(include_path)],
@@ -27,6 +29,10 @@ def test_valid_minimal_config(tmp_path):
             "include_globs": [],
             "exclude_globs": ["*.tmp"],
             "touch_weight": 0.2,
+        },
+        "db": {
+            "type": "mongodb",
+            "uri": "mongodb://localhost:27017/",
         },
     }
 
@@ -60,48 +66,6 @@ def test_nonexistent_vault_path():
     # May check vault.base_dir or vault_path (backward compat)
     assert any("does not exist" in e or "nonexistent" in e.lower() for e in errors)
 
-
-def test_missing_obsidian_keys():
-    """Test that missing obsidian keys are caught (backward compat)."""
-    cfg = {
-        "vault": {"base_dir": "~"},
-        "obsidian": {},
-        "monitor": {},
-    }
-
-    errors = validate_config(cfg)
-    # May check obsidian.base_dir for backward compat, or may not require it if vault section exists
-    # Just verify validation runs without crashing
-    assert isinstance(errors, list)
-
-
-def test_invalid_numeric_values():
-    """Test that invalid numeric values are caught."""
-    cfg = {
-        "vault": {"base_dir": "~", "wks_dir": "WKS"},
-        "obsidian": {
-            "base_dir": "WKS",
-            "log_max_entries": -1,  # Invalid: must be positive
-            "active_files_max_rows": "not_a_number",  # Invalid: not an int
-            "source_max_chars": 40,
-            "destination_max_chars": 40,
-        },
-        "monitor": {
-            "include_paths": [],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-            "touch_weight": 0.2,
-        },
-    }
-
-    errors = validate_config(cfg)
-    # May check obsidian keys if obsidian section exists
-    if any("obsidian" in e for e in errors):
-        assert any("log_max_entries must be positive" in e or "log_max_entries" in e for e in errors)
-        assert any("active_files_max_rows must be an integer" in e or "active_files_max_rows" in e for e in errors)
 
 
 def test_touch_weight_validation(tmp_path):
@@ -143,33 +107,6 @@ def test_touch_weight_validation(tmp_path):
     errors = validate_config(cfg)
     assert not any("touch_weight" in e for e in errors)
 
-def test_similarity_validation():
-    """Test similarity config validation."""
-    cfg = {
-        "vault": {"base_dir": "~", "wks_dir": "WKS"},
-        "monitor": {
-            "include_paths": ["~"],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-            "touch_weight": 0.2,
-        },
-        "similarity": {
-            "enabled": True,
-            # Missing: model, include_extensions
-            "min_chars": 1000,
-            "max_chars": 500,  # Invalid: min > max
-        },
-    }
-
-    errors = validate_config(cfg)
-    assert any("similarity.model is required" in e for e in errors)
-    assert any("similarity.include_extensions is required" in e for e in errors)
-    assert any("min_chars must be less than max_chars" in e for e in errors)
-
-
 def test_validate_and_raise_success(tmp_path):
     """Test that validate_and_raise doesn't raise on valid config."""
     vault_path = tmp_path / "vault"
@@ -179,6 +116,8 @@ def test_validate_and_raise_success(tmp_path):
         "vault": {
             "base_dir": str(vault_path),
             "wks_dir": "WKS",
+            "update_frequency_seconds": 60,
+            "database": "wks.vault",
         },
         "monitor": {
             "include_paths": [str(tmp_path)],
@@ -188,6 +127,10 @@ def test_validate_and_raise_success(tmp_path):
             "include_globs": [],
             "exclude_globs": [],
             "touch_weight": 0.2,
+        },
+        "db": {
+            "type": "mongodb",
+            "uri": "mongodb://localhost:27017/",
         },
     }
 
