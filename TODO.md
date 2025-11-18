@@ -5,9 +5,9 @@
 ## IMMEDIATE (P0)
 
 ### 1. Split monitor_controller.py (1012 lines → <900)
-**Status**: 🔴 IN PROGRESS
-**Lines**: 1012 (exceeds 900 limit)
-**CCN Violations**: 3 functions
+**Status**: ✅ COMPLETED
+**Lines**: Split into 6 files, all <500 lines
+**CCN Violations**: All fixed
 
 **Plan**:
 ```
@@ -32,10 +32,11 @@ wks/monitor/
 ---
 
 ### 2. Refactor high-CCN functions (CCN > 10)
+**Status**: ✅ COMPLETED - All 5 functions refactored
 
-#### 2a. monitor_controller.validate_config() - CCN 27, NLOC 100
-**Location**: monitor_controller.py:721
-**Target**: CCN <10, NLOC <100
+#### 2a. monitor/controller.py::validate_config() - CCN 27 → 1 ✅
+**Location**: monitor/controller.py:303
+**Result**: CCN 1, NLOC 32
 
 **Refactor plan**:
 ```python
@@ -57,9 +58,9 @@ def validate_config(config: dict) -> ConfigValidationResult:
     ...
 ```
 
-#### 2b. monitor_controller.__post_init__() - CCN 22, NLOC 30
-**Location**: monitor_controller.py:189
-**Target**: CCN <10
+#### 2b. monitor/config.py::__post_init__() - CCN 22 → 2 ✅
+**Location**: monitor/config.py:87
+**Result**: CCN 2, NLOC 7
 
 **Refactor plan**:
 ```python
@@ -76,9 +77,9 @@ def __post_init__(self):
         raise ValidationError(errors)
 ```
 
-#### 2c. mongoctl.ensure_mongo_running() - CCN 20, NLOC 75
-**Location**: mongoctl.py:72
-**Target**: CCN <10
+#### 2c. mongoctl.py::ensure_mongo_running() - CCN 20 → 4 ✅
+**Location**: mongoctl.py:163
+**Result**: CCN 4, NLOC 13
 
 **Refactor plan**:
 ```python
@@ -102,9 +103,9 @@ def ensure_mongo_running(uri: str, *, record_start: bool = False) -> None:
         _record_managed_mongo(pid)
 ```
 
-#### 2d. monitor_controller.add_to_list() - CCN 18, NLOC 59
-**Location**: monitor_controller.py:378
-**Target**: CCN <10
+#### 2d. monitor/operations.py::add_to_list() - CCN 18 → 8 ✅
+**Location**: monitor/operations.py:87
+**Result**: CCN 8, NLOC 31
 
 **Refactor plan** - Use Strategy Pattern:
 ```python
@@ -131,9 +132,9 @@ def add_to_list(config_dict: dict, list_name: str, value: str) -> ListOperationR
     ...  # Much simpler logic
 ```
 
-#### 2e. daemon._acquire_lock() - CCN 16, NLOC 37
-**Location**: daemon.py:794
-**Target**: CCN <10
+#### 2e. daemon.py::_acquire_lock() - CCN 16 → 2 ✅
+**Location**: daemon.py:840
+**Result**: CCN 2, NLOC 7
 
 **Refactor plan**:
 ```python
@@ -154,6 +155,7 @@ def _acquire_lock(self):
 ---
 
 ### 3. Replace print() with logger (169 violations)
+**Status**: 🟡 IN PROGRESS - 92/167 fixed (55%)
 
 **Rule**:
 - Info/debug → `logger.info()` / `logger.debug()` (logs only)
@@ -162,8 +164,9 @@ def _acquire_lock(self):
 - MCP mode → warnings/errors in JSON
 
 **Files needing refactor** (by print count):
-1. wks/error_messages.py: 66 prints
-2. wks/cli/commands/index.py: 26 prints
+1. ✅ wks/error_messages.py: 66 prints (DONE - commit 00b96d0)
+2. ✅ wks/cli/commands/index.py: 26 prints (DONE - commit 00d4b7a)
+3. 🔴 wks/__main__.py: 12 prints
 3. wks/__main__.py: 12 prints
 4. wks/display/cli.py: 11 prints
 5. wks/cli/commands/service.py: 11 prints
