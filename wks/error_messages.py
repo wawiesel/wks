@@ -1,120 +1,154 @@
 """Helpful error messages for common WKS failure modes."""
 
+import logging
 import sys
 from typing import NoReturn
 
+logger = logging.getLogger(__name__)
+
+
+def _emit_error(*lines: str) -> None:
+    """Write error message lines to STDERR."""
+    for line in lines:
+        sys.stderr.write(line + "\n")
+
 
 def mongodb_connection_error(mongo_uri: str, original_error: Exception) -> NoReturn:
-    """Print helpful message for MongoDB connection failures and exit.
+    """Log and display helpful message for MongoDB connection failures and exit.
 
     Args:
         mongo_uri: The MongoDB URI that failed to connect
         original_error: The original exception
     """
-    print("\n" + "=" * 70)
-    print("MONGODB CONNECTION FAILED")
-    print("=" * 70)
-    print(f"\nCouldn't connect to MongoDB at: {mongo_uri}")
-    print(f"\nOriginal error: {original_error}")
-    print("\nPossible solutions:")
-    print("  1. Start MongoDB if it's not running:")
-    print("     - macOS: brew services start mongodb-community")
-    print("     - Linux: sudo systemctl start mongod")
-    print("     - Or use: wks0 daemon start (starts MongoDB automatically)")
-    print("\n  2. Check if MongoDB is running:")
-    print("     - macOS: brew services list | grep mongodb")
-    print("     - Linux: sudo systemctl status mongod")
-    print("\n  3. Verify the mongo.uri in ~/.wks/config.json")
-    print("     - Default: mongodb://localhost:27017/")
-    print("=" * 70 + "\n")
+    logger.error(f"MongoDB connection failed: {mongo_uri} - {original_error}")
+    _emit_error(
+        "",
+        "=" * 70,
+        "MONGODB CONNECTION FAILED",
+        "=" * 70,
+        f"\nCouldn't connect to MongoDB at: {mongo_uri}",
+        f"\nOriginal error: {original_error}",
+        "\nPossible solutions:",
+        "  1. Start MongoDB if it's not running:",
+        "     - macOS: brew services start mongodb-community",
+        "     - Linux: sudo systemctl start mongod",
+        "     - Or use: wks0 daemon start (starts MongoDB automatically)",
+        "\n  2. Check if MongoDB is running:",
+        "     - macOS: brew services list | grep mongodb",
+        "     - Linux: sudo systemctl status mongod",
+        "\n  3. Verify the mongo.uri in ~/.wks/config.json",
+        "     - Default: mongodb://localhost:27017/",
+        "=" * 70,
+        "",
+    )
     sys.exit(1)
 
 
 def missing_dependency_error(package_name: str, import_error: Exception) -> NoReturn:
-    """Print helpful message for missing dependencies and exit.
+    """Log and display helpful message for missing dependencies and exit.
 
     Args:
         package_name: Name of the missing package
         import_error: The original ImportError
     """
-    print("\n" + "=" * 70)
-    print(f"MISSING DEPENDENCY: {package_name}")
-    print("=" * 70)
-    print(f"\nCouldn't import required package: {package_name}")
-    print(f"\nOriginal error: {import_error}")
-    print("\nSolution:")
-    print(f"  Install WKS with all dependencies:")
-    print(f"     pip install -e '.[all]'")
-    print("\n  Or install specific package:")
-    print(f"     pip install {package_name}")
-    print("=" * 70 + "\n")
+    logger.error(f"Missing dependency: {package_name} - {import_error}")
+    _emit_error(
+        "",
+        "=" * 70,
+        f"MISSING DEPENDENCY: {package_name}",
+        "=" * 70,
+        f"\nCouldn't import required package: {package_name}",
+        f"\nOriginal error: {import_error}",
+        "\nSolution:",
+        "  Install WKS with all dependencies:",
+        "     pip install -e '.[all]'",
+        "\n  Or install specific package:",
+        f"     pip install {package_name}",
+        "=" * 70,
+        "",
+    )
     sys.exit(1)
 
 
 def file_permission_error(file_path: str, operation: str, original_error: Exception) -> NoReturn:
-    """Print helpful message for file permission errors and exit.
+    """Log and display helpful message for file permission errors and exit.
 
     Args:
         file_path: Path to the file that caused the error
         operation: Description of the operation (e.g., "read", "write", "delete")
         original_error: The original PermissionError
     """
-    print("\n" + "=" * 70)
-    print("FILE PERMISSION ERROR")
-    print("=" * 70)
-    print(f"\nCouldn't {operation}: {file_path}")
-    print(f"\nOriginal error: {original_error}")
-    print("\nPossible solutions:")
-    print("  1. Check file permissions:")
-    print(f"     ls -la '{file_path}'")
-    print("\n  2. Grant read/write permissions:")
-    print(f"     chmod u+rw '{file_path}'")
-    print("\n  3. Check directory permissions:")
-    print(f"     ls -la $(dirname '{file_path}')")
-    print("=" * 70 + "\n")
+    logger.error(f"File permission error: {operation} {file_path} - {original_error}")
+    _emit_error(
+        "",
+        "=" * 70,
+        "FILE PERMISSION ERROR",
+        "=" * 70,
+        f"\nCouldn't {operation}: {file_path}",
+        f"\nOriginal error: {original_error}",
+        "\nPossible solutions:",
+        "  1. Check file permissions:",
+        f"     ls -la '{file_path}'",
+        "\n  2. Grant read/write permissions:",
+        f"     chmod u+rw '{file_path}'",
+        "\n  3. Check directory permissions:",
+        f"     ls -la $(dirname '{file_path}')",
+        "=" * 70,
+        "",
+    )
     sys.exit(1)
 
 
 def vault_path_error(vault_path: str) -> NoReturn:
-    """Print helpful message when Obsidian vault path is invalid.
+    """Log and display helpful message when Obsidian vault path is invalid.
 
     Args:
         vault_path: The invalid vault path
     """
-    print("\n" + "=" * 70)
-    print("INVALID OBSIDIAN VAULT PATH")
-    print("=" * 70)
-    print(f"\nVault path does not exist: {vault_path}")
-    print("\nPlease verify:")
-    print("  1. ~/.wks/config.json includes either the new:")
-    print('       "vault": { "base_dir": "/path/to/vault", "wks_dir": "WKS", ... }')
-    print("     or the legacy:")
-    print('       "vault_path": "/path/to/vault"')
-    print("  2. The referenced directory exists and is accessible")
-    print("=" * 70 + "\n")
+    logger.error(f"Invalid Obsidian vault path: {vault_path}")
+    _emit_error(
+        "",
+        "=" * 70,
+        "INVALID OBSIDIAN VAULT PATH",
+        "=" * 70,
+        f"\nVault path does not exist: {vault_path}",
+        "\nPlease verify:",
+        "  1. ~/.wks/config.json includes either the new:",
+        '       "vault": { "base_dir": "/path/to/vault", "wks_dir": "WKS", ... }',
+        "     or the legacy:",
+        '       "vault_path": "/path/to/vault"',
+        "  2. The referenced directory exists and is accessible",
+        "=" * 70,
+        "",
+    )
     sys.exit(1)
 
 
 def model_download_error(model_name: str, original_error: Exception) -> NoReturn:
-    """Print helpful message for model download failures.
+    """Log and display helpful message for model download failures.
 
     Args:
         model_name: Name of the model that failed to download
         original_error: The original exception
     """
-    print("\n" + "=" * 70)
-    print("MODEL DOWNLOAD FAILED")
-    print("=" * 70)
-    print(f"\nCouldn't download model: {model_name}")
-    print(f"\nOriginal error: {original_error}")
-    print("\nPossible solutions:")
-    print("  1. Check internet connection")
-    print("  2. Verify HuggingFace is accessible:")
-    print("     curl -I https://huggingface.co")
-    print("\n  3. Try downloading manually:")
-    print(f"     python -c 'from sentence_transformers import SentenceTransformer; SentenceTransformer(\"{model_name}\")'")
-    print("\n  4. If behind proxy, set environment variables:")
-    print("     export HTTP_PROXY=http://proxy:port")
-    print("     export HTTPS_PROXY=http://proxy:port")
-    print("=" * 70 + "\n")
+    logger.error(f"Model download failed: {model_name} - {original_error}")
+    _emit_error(
+        "",
+        "=" * 70,
+        "MODEL DOWNLOAD FAILED",
+        "=" * 70,
+        f"\nCouldn't download model: {model_name}",
+        f"\nOriginal error: {original_error}",
+        "\nPossible solutions:",
+        "  1. Check internet connection",
+        "  2. Verify HuggingFace is accessible:",
+        "     curl -I https://huggingface.co",
+        "\n  3. Try downloading manually:",
+        f"     python -c 'from sentence_transformers import SentenceTransformer; SentenceTransformer(\"{model_name}\")'",
+        "\n  4. If behind proxy, set environment variables:",
+        "     export HTTP_PROXY=http://proxy:port",
+        "     export HTTPS_PROXY=http://proxy:port",
+        "=" * 70,
+        "",
+    )
     sys.exit(1)
