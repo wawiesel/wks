@@ -791,11 +791,8 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _acquire_lock(self):
-        """Acquire an exclusive file lock to ensure a single daemon instance."""
-        # Ensure directory exists
-        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
-        # Stale lock auto-clean: if lock exists but PID is not running, remove it
+    def _clean_stale_lock(self):
+        """Clean up stale lock file if process is no longer running."""
         try:
             if self.lock_file.exists():
                 try:
@@ -810,20 +807,22 @@ class WKSDaemon:
                         pass
         except Exception:
             pass
-        # If fcntl not available, fall back to a coarse PID file check
-        if fcntl is None:
-            if self.lock_file.exists():
-                # Read PID and check if running
-                try:
-                    pid = int(self.lock_file.read_text().strip().splitlines()[0])
-                except Exception:
-                    pid = None
-                if pid and pid > 0 and self._pid_running(pid):
-                    raise RuntimeError(f"Another WKS daemon is already running (PID {pid}).")
-            # Write current PID
-            self.lock_file.write_text(str(os.getpid()))
-            return
-        # POSIX advisory lock
+
+    def _try_pidfile_lock(self):
+        """Try to acquire lock using PID file (fallback when fcntl unavailable)."""
+        if self.lock_file.exists():
+            # Read PID and check if running
+            try:
+                pid = int(self.lock_file.read_text().strip().splitlines()[0])
+            except Exception:
+                pid = None
+            if pid and pid > 0 and self._pid_running(pid):
+                raise RuntimeError(f"Another WKS daemon is already running (PID {pid}).")
+        # Write current PID
+        self.lock_file.write_text(str(os.getpid()))
+
+    def _try_advisory_lock(self):
+        """Try to acquire POSIX advisory lock using fcntl."""
         try:
             self._lock_fh = open(self.lock_file, 'w')
             fcntl.flock(self._lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -837,6 +836,20 @@ class WKSDaemon:
             raise RuntimeError("Another WKS daemon instance is already running.")
         except Exception as e:
             raise RuntimeError(f"Failed to acquire daemon lock: {e}")
+
+    def _acquire_lock(self):
+        """Acquire an exclusive file lock to ensure a single daemon instance."""
+        # Ensure directory exists
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Clean up stale lock files
+        self._clean_stale_lock()
+
+        # Use PID file fallback if fcntl not available, otherwise use advisory lock
+        if fcntl is None:
+            self._try_pidfile_lock()
+        else:
+            self._try_advisory_lock()
 
     def _release_lock(self):
         """Release the single-instance lock."""
