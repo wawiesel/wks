@@ -1,11 +1,15 @@
 """Index and extract commands (Semantic Engines layer - higher than Monitor)."""
 
 import argparse
+import logging
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pymongo
+
+logger = logging.getLogger(__name__)
 
 from ..dataclasses import DatabaseSummary, FileSummary, FileTimings, IndexResult
 from ..helpers import (
@@ -36,8 +40,9 @@ def handle_similarity_import_error(e: Exception, require_enabled: bool) -> Tuple
         from ...error_messages import missing_dependency_error
         missing_dependency_error("docling", e)
     else:
-        print(f"\nSimilarity features not available: {e}")
-        print("Install with: pip install -e '.[all]'\n")
+        logger.error(f"Similarity features not available: {e}")
+        sys.stderr.write(f"\nSimilarity features not available: {e}\n")
+        sys.stderr.write("Install with: pip install -e '.[all]'\n\n")
     if require_enabled:
         raise SystemExit(2)
     return None, None
@@ -50,7 +55,8 @@ def try_build_similarity(cfg: Dict[str, Any], require_enabled: bool) -> Tuple[An
     except ImportError as e:
         return handle_similarity_import_error(e, require_enabled)
     except Exception as e:
-        print(f"Similarity not available: {e}")
+        logger.error(f"Similarity not available: {e}")
+        sys.stderr.write(f"Similarity not available: {e}\n")
         if require_enabled:
             raise SystemExit(2)
         return None, None
@@ -66,7 +72,8 @@ def try_build_similarity(cfg: Dict[str, Any], require_enabled: bool) -> Tuple[An
         )
         return db, sim_cfg
     except IncompatibleDatabase as exc:
-        print(exc)
+        logger.error(f"Incompatible database: {exc}")
+        sys.stderr.write(f"{exc}\n")
         if require_enabled:
             raise SystemExit(2)
         return None, None
@@ -89,7 +96,8 @@ def try_auto_start_mongod_and_build(
     mongo_uri = mongo_settings(cfg)["uri"]
     node = mongoctl.local_node(mongo_uri)
     if not (node and shutil.which("mongod")):
-        print(f"Failed to initialize similarity DB: {original_error}")
+        logger.error(f"Failed to initialize similarity DB: {original_error}")
+        sys.stderr.write(f"Failed to initialize similarity DB: {original_error}\n")
         if require_enabled:
             raise SystemExit(2)
         return None, None
@@ -114,12 +122,14 @@ def try_auto_start_mongod_and_build(
         )
         return db, sim_cfg
     except IncompatibleDatabase as exc2:
-        print(exc2)
+        logger.error(f"Incompatible database: {exc2}")
+        sys.stderr.write(f"{exc2}\n")
         if require_enabled:
             raise SystemExit(2)
         return None, None
     except Exception as e2:
-        print(f"Failed to auto-start local mongod: {e2}")
+        logger.error(f"Failed to auto-start local mongod: {e2}")
+        sys.stderr.write(f"Failed to auto-start local mongod: {e2}\n")
         if require_enabled:
             raise SystemExit(2)
         return None, None
@@ -171,7 +181,8 @@ def extract_cmd(args: argparse.Namespace) -> int:
     include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
     files = iter_files(args.paths, include_exts, cfg)
     if not files:
-        print("No files to extract (check paths/extensions)")
+        logger.info("No files to extract (check paths/extensions)")
+        sys.stderr.write("No files to extract (check paths/extensions)\n")
         return 0
     extractor = build_extractor(cfg)
     extracted = 0
@@ -193,8 +204,9 @@ def extract_cmd(args: argparse.Namespace) -> int:
             finally:
                 prog.update(f.name, advance=1)
     for src, artefact in outputs:
-        print(f"{src} -> {artefact}")
-    print(f"Extracted {extracted} file(s), skipped {skipped}, errors {errors}")
+        sys.stdout.write(f"{src} -> {artefact}\n")
+    logger.info(f"Extracted {extracted} file(s), skipped {skipped}, errors {errors}")
+    sys.stderr.write(f"Extracted {extracted} file(s), skipped {skipped}, errors {errors}\n")
     return 0
 
 
@@ -232,7 +244,8 @@ def handle_untrack_mode(files: List[Path], args: argparse.Namespace) -> int:
         "files": outcomes,
     }
     maybe_write_json(args, payload)
-    print(f"Untracked {removed} file(s), missing {missing}, errors {errors}")
+    logger.info(f"Untracked {removed} file(s), missing {missing}, errors {errors}")
+    sys.stderr.write(f"Untracked {removed} file(s), missing {missing}, errors {errors}\n")
     return 0
 
 
@@ -289,11 +302,14 @@ def handle_all_cached_case(
     )
     maybe_write_json(args, result.to_dict())
 
-    print("Nothing to index; all files already current.")
-    print(f"Indexed 0 file(s), skipped {skipped}, errors 0")
+    logger.info("Nothing to index; all files already current.")
+    sys.stderr.write("Nothing to index; all files already current.\n")
+    logger.info(f"Indexed 0 file(s), skipped {skipped}, errors 0")
+    sys.stderr.write(f"Indexed 0 file(s), skipped {skipped}, errors 0\n")
     if db_summary_obj:
-        print(
-            f"DB: {db_summary_obj.database}.{db_summary_obj.collection} total_files={db_summary_obj.total_files}"
+        logger.info(f"DB: {db_summary_obj.database}.{db_summary_obj.collection} total_files={db_summary_obj.total_files}")
+        sys.stderr.write(
+            f"DB: {db_summary_obj.database}.{db_summary_obj.collection} total_files={db_summary_obj.total_files}\n"
         )
     if cached_summaries:
         render_timing_summary_updated(cached_summaries, display_mode)
@@ -688,13 +704,13 @@ def render_plain_timing_table(entries: List[FileSummary], totals: Dict[str, floa
     details_rows.append(totals_row)
 
     # Simple table output
-    print("\nTiming Details")
-    print("=" * 80)
-    print(" | ".join(h.ljust(10) for h in header))
-    print("-" * 80)
+    sys.stdout.write("\nTiming Details\n")
+    sys.stdout.write("=" * 80 + "\n")
+    sys.stdout.write(" | ".join(h.ljust(10) for h in header) + "\n")
+    sys.stdout.write("-" * 80 + "\n")
     for row in details_rows:
-        print(" | ".join(str(cell).ljust(10)[:10] for cell in row))
-    print("=" * 80)
+        sys.stdout.write(" | ".join(str(cell).ljust(10)[:10] for cell in row) + "\n")
+    sys.stdout.write("=" * 80 + "\n")
 
 
 def render_timing_summary_updated(entries: List[FileSummary], display_mode: str) -> None:
@@ -717,7 +733,8 @@ def index_cmd(args: argparse.Namespace) -> int:
     include_exts = [e.lower() for e in (cfg.get('similarity', {}).get('include_extensions') or [])]
     files = iter_files(args.paths, include_exts, cfg)
     if not files:
-        print("No files to process (check paths/extensions)")
+        logger.info("No files to process (check paths/extensions)")
+        sys.stderr.write("No files to process (check paths/extensions)\n")
         return 0
 
     display_mode = args.display
@@ -784,7 +801,8 @@ def output_index_results(
     )
     maybe_write_json(args, result.to_dict())
 
-    print(f"Indexed {added} file(s), skipped {skipped}, errors {errors}")
+    logger.info(f"Indexed {added} file(s), skipped {skipped}, errors {errors}")
+    sys.stderr.write(f"Indexed {added} file(s), skipped {skipped}, errors {errors}\n")
 
     if summaries:
         render_timing_summary_updated(summaries, display_mode)
@@ -794,15 +812,15 @@ def output_index_results(
 
 
 def print_database_summary(db_summary_obj: DatabaseSummary) -> None:
-    """Print database summary information."""
+    """Print database summary information to STDERR."""
     if db_summary_obj.total_bytes is not None:
-        print(
-            f"DB: {db_summary_obj.database}.{db_summary_obj.collection} total_files={db_summary_obj.total_files} total_bytes={db_summary_obj.total_bytes}"
-        )
+        msg = f"DB: {db_summary_obj.database}.{db_summary_obj.collection} total_files={db_summary_obj.total_files} total_bytes={db_summary_obj.total_bytes}"
+        logger.info(msg)
+        sys.stderr.write(msg + "\n")
     else:
-        print(
-            f"DB: {db_summary_obj.database}.{db_summary_obj.collection} total_files={db_summary_obj.total_files}"
-        )
+        msg = f"DB: {db_summary_obj.database}.{db_summary_obj.collection} total_files={db_summary_obj.total_files}"
+        logger.info(msg)
+        sys.stderr.write(msg + "\n")
 
 
 def setup_index_parser(subparsers) -> None:
