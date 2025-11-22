@@ -626,16 +626,16 @@ class WKSDaemon:
 
                 self._remove_from_monitor_db(p)
 
-                # Only mark references deleted for files outside _links/ and .wks/
-                # (internal/temporary files don't need deletion markers)
-                parts = p.parts
-                skip_marker = any(part in ("_links", ".wks") for part in parts)
-                if not skip_marker:
-                    try:
+                # Only mark deletion if vault files actually reference this file
+                # Check: does this file participate in any vault links?
+                try:
+                    # Query vault database to see if any vault notes link to this file
+                    has_vault_refs = self.indexer.has_references_to(p)
+                    if has_vault_refs:
                         self.vault.mark_reference_deleted(p)
-                    except Exception as e:
-                        self._set_error(f"mark_ref_error: {e}")
-                        pass
+                except Exception as e:
+                    self._set_error(f"mark_ref_error: {e}")
+                    pass
                 self._pending_deletes.pop(pstr, None)
             except Exception:
                 # Best-effort
