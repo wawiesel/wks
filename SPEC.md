@@ -347,6 +347,66 @@ def uri_to_path(uri: str, vault_root: Path) -> Path:
         raise ValueError(f"Cannot convert {uri} to filesystem path")
 ```
 
+#### Order of Operations
+
+**Core Principle**: The vault database is the source of truth for link management. We only create/update/delete symlinks in `_links/` when the vault DB shows that vault notes reference those files. The monitor tracks all files in managed directories, but vault operations are **only triggered when the vault DB indicates a reference exists**.
+
+##### Scenario 1: New File in Managed Directory
+
+When a new file appears in a monitored directory (e.g., `~/2025-ProjectName/new_file.md`):
+
+1. **Monitor Detects Creation** — watchdog event → daemon callback
+2. **Coalesce Period** — file sits in `_pending_mods` for ~2 seconds
+3. **Flush to Monitor DB** — after coalesce, logged and stored in `wks.monitor`
+4. **No Vault Action** — **Critical:** No symlink created, no vault operations occur
+5. **Wait for Reference** — Only if user later adds `[[_links/...]]` in vault will symlink be created
+
+**Key Insight**: Monitoring ≠ Linking. Monitor tracks ALL files. Vault only acts on referenced files.
+
+##### Scenario 2: New Link in Vault
+
+When user adds a link in vault markdown (file:// URL, absolute path, or wikilink):
+
+**For file:// URLs or absolute paths**:
+
+1. **User Edits Note** — adds `[doc](file:///Users/ww5/report.pdf)` or `[[/absolute/path]]`
+2. **Git Detects Change** — vault note marked as modified
+3. **Periodic Vault Sync** — daemon runs `indexer.sync(incremental=True)` every ~5 minutes
+4. **Incremental Scan** — scanner processes only git-modified files
+5. **File URL Conversion** — if file:// URL found and target exists:
+   - Create symlink at `_links/<machine>/path/to/file`
+   - Record rewrite: `(note, line, old_url, new_wikilink)`
+6. **Link Record Created** — `VaultEdgeRecord` with status (ok/missing_symlink/missing_target)
+7. **Vault DB Updated** — batch upsert to `wks.vault` collection
+8. **Markdown Rewriting** — replace `file:///...` with `[[_links/...]]` in vault note
+9. **Symlink Active** — Obsidian can now preview/open the file
+
+**For direct wikilinks** (`[[_links/...]]`):
+- Same flow, but skips conversion
+- If symlink missing: status = `missing_symlink`
+- Run `wks vault fix-symlinks` to create
+
+**Key Insight**: Vault scan drives symlink creation. Scanner creates symlinks, records links in DB, and rewrites markdown for consistency.
+
+##### Scenario 3: Referenced File is Moved
+
+When a file that vault notes reference is moved:
+
+1. **Monitor Detects Move** — watchdog event `(src, dest)`
+2. **Update Symlink** — old `_links/.../old/path` deleted, new `_links/.../new/path` created
+3. **Update Vault DB** — all records where `to_uri = old_uri` updated to `to_uri = new_uri`
+4. **Rewrite Wikilinks** — scan vault notes, replace `[[_links/.../old/path]]` → `[[_links/.../new/path]]`
+5. **Update Monitor DB** — remove old path, add new path
+6. **No Deletion Marker** — `has_references_to(old_path)` returns false after updates
+
+**Atomic update across 4 layers**:
+- Symlinks: `_links/` points to new location
+- Vault DB: `to_uri` fields updated
+- Vault notes: wikilinks rewritten
+- Monitor DB: path tracking updated
+
+**Key Insight**: Move operations cascade through all layers to maintain consistency. No broken references after move.
+
 **Derive target_kind when needed**:
 ```python
 def derive_target_kind(to: str, to_uri: str) -> str:
