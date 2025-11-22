@@ -6,6 +6,8 @@ This module provides all monitor-related functionality:
 - MonitorStatus: Status reporting
 - MonitorValidator: Validation helpers
 - MonitorOperations: Add/remove operations
+- start_monitoring: Filesystem monitoring (re-exported from parent monitor.py)
+- WKSFileMonitor: Event handler (re-exported from parent monitor.py)
 
 All imports organized for easy access.
 """
@@ -21,6 +23,9 @@ from .status import (
     MonitorStatus,
 )
 from .validator import MonitorValidator
+
+# Import filesystem monitoring functionality from filesystem_monitor module
+from ..filesystem_monitor import start_monitoring, WKSFileMonitor
 
 __all__ = [
     # Config
@@ -38,4 +43,7 @@ __all__ = [
     "ManagedDirectoryInfo",
     # Validator
     "MonitorValidator",
+    # Filesystem monitoring (from parent monitor.py)
+    "start_monitoring",
+    "WKSFileMonitor",
 ]

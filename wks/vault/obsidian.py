@@ -113,6 +113,17 @@ class ObsidianVault:
 
     def _iter_vault_markdown(self):
         for md in self.vault_path.rglob("*.md"):
+            # Skip root-level _links/ directory (symlinked external files)
+            try:
+                rel_to_vault = md.relative_to(self.vault_path)
+                if rel_to_vault.parts[0] == "_links":
+                    continue
+            except (ValueError, IndexError):
+                # Path not relative to vault or no parts
+                continue
+            # Skip .wks/ directories (MongoDB internal data)
+            if ".wks" in md.parts:
+                continue
             try:
                 yield md
             except (OSError, PermissionError):
