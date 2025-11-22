@@ -241,11 +241,9 @@ def vault_validate_cmd(args: argparse.Namespace) -> int:
 
 def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
     """Auto-create missing _links/ symlinks for all vault references."""
-    from pathlib import Path
     from ...vault.obsidian import ObsidianVault
-    from ...vault.indexer import VaultLinkScanner
-    from ...vault.markdown_parser import parse_wikilinks
-    import platform
+    from ...vault.controller import VaultController
+    from ...utils import expand_path
 
     cfg = load_config()
     display = getattr(args, "display_obj", None)
@@ -261,106 +259,49 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
                 print("Error: vault.base_dir not configured")
             return 2
 
-        from ...utils import expand_path
         vault_path = expand_path(vault_path_str)
         base_dir = vault_cfg.get("wks_dir", "WKS")
 
         if display:
             display.info(f"Scanning vault for missing _links/ symlinks...")
 
+        # Initialize vault and controller
         vault = ObsidianVault(vault_path, base_dir=base_dir)
-        links_dir = vault.links_dir
-        machine = platform.node().split(".")[0]
+        controller = VaultController(vault)
 
-        # Collect all _links/ references
-        links_to_create = set()
-        notes_scanned = 0
+        # Execute business logic
+        result = controller.fix_symlinks()
 
-        for note_path in vault.iter_markdown_files():
-            notes_scanned += 1
-            try:
-                text = note_path.read_text(encoding="utf-8")
-                for link in parse_wikilinks(text):
-                    target = link.target
-                    if target.startswith("_links/"):
-                        # Extract relative path after _links/
-                        rel_path = target[len("_links/"):]
-                        symlink_path = links_dir / rel_path
-
-                        if not symlink_path.exists():
-                            links_to_create.add((rel_path, symlink_path))
-            except Exception:
-                continue
-
-        if not links_to_create:
+        # Display results
+        if result.links_found == 0:
             if display:
-                display.success(f"✓ All _links/ symlinks exist (scanned {notes_scanned} notes)")
+                display.success(f"✓ All _links/ symlinks exist (scanned {result.notes_scanned} notes)")
             else:
-                print(f"✓ All _links/ symlinks exist (scanned {notes_scanned} notes)")
+                print(f"✓ All _links/ symlinks exist (scanned {result.notes_scanned} notes)")
             return 0
 
         if display:
-            display.info(f"Found {len(links_to_create)} missing symlinks")
-
-        # Try to infer target paths and create symlinks
-        created = 0
-        failed = []
-
-        for rel_path, symlink_path in sorted(links_to_create):
-            # Try to infer the target path
-            # Format: machine/path or relative/path
-            parts = Path(rel_path).parts
-
-            if len(parts) > 0:
-                # Try machine-prefixed path first
-                if parts[0] == machine:
-                    # This is a machine-specific link: _links/machine/path/to/file
-                    target_path = Path("/") / Path(*parts[1:])
-                else:
-                    # Try as Pictures/ or Documents/ relative path
-                    # _links/Pictures/2025-DNCSH_Logos/png/file.png → ~/Pictures/2025-DNCSH_Logos/png/file.png
-                    if parts[0] in ["Pictures", "Documents", "Downloads", "Desktop"]:
-                        target_path = Path.home() / Path(*parts)
-                    else:
-                        # Unknown format, skip
-                        failed.append((rel_path, "Unknown path format"))
-                        continue
-
-                # Check if target exists (file or directory)
-                if target_path.exists():
-                    # Create symlink parent directories
-                    symlink_path.parent.mkdir(parents=True, exist_ok=True)
-                    try:
-                        symlink_path.symlink_to(target_path)
-                        created += 1
-                        if display:
-                            display.success(f"  Created: {rel_path}")
-                    except Exception as exc:
-                        failed.append((rel_path, str(exc)))
-                else:
-                    failed.append((rel_path, f"Target not found: {target_path}"))
-
-        # Display results
-        if display:
-            if created > 0:
-                display.success(f"\n✓ Created {created} symlink(s)")
-            if failed:
-                display.warning(f"\n✗ Failed to create {len(failed)} symlink(s):")
-                for rel_path, reason in failed[:10]:
+            display.info(f"Found {result.links_found} missing symlinks")
+            if result.created > 0:
+                display.success(f"\n✓ Created {result.created} symlink(s)")
+            if result.failed:
+                display.warning(f"\n✗ Failed to create {len(result.failed)} symlink(s):")
+                for rel_path, reason in result.failed[:10]:
                     display.info(f"  {rel_path}: {reason}")
-                if len(failed) > 10:
-                    display.info(f"  ... and {len(failed) - 10} more")
+                if len(result.failed) > 10:
+                    display.info(f"  ... and {len(result.failed) - 10} more")
         else:
-            if created > 0:
-                print(f"✓ Created {created} symlink(s)")
-            if failed:
-                print(f"✗ Failed to create {len(failed)} symlink(s):")
-                for rel_path, reason in failed[:10]:
+            print(f"Found {result.links_found} missing symlinks")
+            if result.created > 0:
+                print(f"✓ Created {result.created} symlink(s)")
+            if result.failed:
+                print(f"✗ Failed to create {len(result.failed)} symlink(s):")
+                for rel_path, reason in result.failed[:10]:
                     print(f"  {rel_path}: {reason}")
-                if len(failed) > 10:
-                    print(f"  ... and {len(failed) - 10} more")
+                if len(result.failed) > 10:
+                    print(f"  ... and {len(result.failed) - 10} more")
 
-        return 0 if not failed else 1
+        return 0 if not result.failed else 1
 
     except Exception as exc:
         if display:

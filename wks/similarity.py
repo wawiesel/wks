@@ -279,109 +279,133 @@ class SimilarityDB:
         record_db_activity("similarity.get_file_embedding", str(path))
         return doc.get("embedding")
 
-    def add_file(
-        self,
-        path: Path,
-        *,
-        extraction: Optional[ExtractResult] = None,
-        force: bool = False,
-        file_checksum: Optional[str] = None,
-        file_bytes: Optional[int] = None,
-    ) -> bool:
+    def _validate_file_path(self, path: Path) -> Optional[Dict[str, Any]]:
+        """Validate file path exists and is a file.
+
+        Returns:
+            None if valid, error dict if invalid
+        """
         path = path.expanduser().resolve()
         if not path.exists() or not path.is_file():
-            self._last_add_result = {
+            return {
                 "updated": False,
                 "path_local": str(path),
                 "error": "missing",
             }
-            return False
+        return None
 
-        file_uri = _as_file_uri(path)
-        path_local = str(path)
+    def _compute_checksum(
+        self, path: Path, file_checksum: Optional[str], file_bytes: Optional[int]
+    ) -> Tuple[str, int, float]:
+        """Compute file checksum if not provided.
 
-        timings: Dict[str, float] = {}
+        Returns:
+            (checksum, bytes, elapsed_time)
+        """
+        if file_checksum is not None and file_bytes is not None:
+            return file_checksum, file_bytes, 0.0
 
-        checksum_start = time.perf_counter()
-        computed_checksum = False
-        if file_checksum is None or file_bytes is None:
-            file_checksum, file_bytes = self._file_digest(path)
-            computed_checksum = True
-        timings["checksum"] = time.perf_counter() - checksum_start if computed_checksum else 0.0
+        start = time.perf_counter()
+        checksum, size = self._file_digest(path)
+        elapsed = time.perf_counter() - start
+        return checksum, size, elapsed
 
-        existing = (
-            self.collection.find_one({"path": file_uri})
-            or self.collection.find_one({"path_local": path_local})
-        )
-        rename_from_uri: Optional[str] = None
-        if not existing:
-            other = self.collection.find_one({"checksum": file_checksum})
-            if other and other.get("path") != file_uri:
-                rename_from_uri = other.get("path")
-                existing = other
+    def _find_existing_document(
+        self, file_uri: str, path_local: str, file_checksum: str
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """Find existing document by path or checksum.
 
-        rename_detected = bool(rename_from_uri and rename_from_uri != file_uri)
+        Returns:
+            (existing_doc, rename_from_uri)
+        """
+        # Try by URI first
+        existing = self.collection.find_one({"path": file_uri})
+        if existing:
+            return existing, None
 
-        if existing and not force and not rename_detected:
-            if existing.get("checksum") == file_checksum:
-                self._last_add_result = {
-                    "updated": False,
-                    "path": existing.get("path") or file_uri,
-                    "path_local": existing.get("path_local") or path_local,
-                    "checksum": file_checksum,
-                    "content_checksum": existing.get("content_checksum"),
-                    "content_hash": existing.get("content_checksum"),
-                }
-                return False
+        # Try by local path
+        existing = self.collection.find_one({"path_local": path_local})
+        if existing:
+            return existing, None
 
+        # Try by checksum (rename detection)
+        other = self.collection.find_one({"checksum": file_checksum})
+        if other and other.get("path") != file_uri:
+            return other, other.get("path")
+
+        return None, None
+
+    def _should_skip_unchanged(
+        self, existing: Optional[Dict[str, Any]], file_checksum: str,
+        rename_from_uri: Optional[str], force: bool
+    ) -> Optional[Dict[str, Any]]:
+        """Check if file is unchanged and can be skipped.
+
+        Returns:
+            Skip result dict if should skip, None otherwise
+        """
+        if not existing or force:
+            return None
+
+        rename_detected = bool(rename_from_uri and rename_from_uri != existing.get("path"))
+        if rename_detected:
+            return None
+
+        if existing.get("checksum") == file_checksum:
+            return {
+                "updated": False,
+                "path": existing.get("path"),
+                "path_local": existing.get("path_local"),
+                "checksum": file_checksum,
+                "content_checksum": existing.get("content_checksum"),
+                "content_hash": existing.get("content_checksum"),
+            }
+        return None
+
+    def _extract_content(
+        self, path: Path, file_uri: str, path_local: str,
+        extraction: Optional[ExtractResult], force: bool
+    ) -> Tuple[Optional[ExtractResult], Optional[Dict[str, Any]]]:
+        """Extract text content from file.
+
+        Returns:
+            (extraction_result, error_dict)
+        """
         try:
             result = extraction or self.extractor.extract(path, persist=True)
         except Exception as exc:
-            self._last_add_result = {
+            return None, {
                 "updated": False,
                 "path": file_uri,
                 "path_local": path_local,
                 "error": str(exc),
             }
-            return False
 
         text = (result.text or "").strip()
         if len(text) < self.min_chars and not force:
-            self._last_add_result = {
+            return None, {
                 "updated": False,
                 "path": file_uri,
                 "path_local": path_local,
                 "skipped": "min_chars",
             }
-            return False
 
-        content_path = str(result.content_path) if result.content_path else None
-        content_checksum = result.content_checksum
-        content_bytes = result.content_bytes
+        return result, None
 
-        prev_embedding = existing.get("embedding") if existing else None
-        prev_timestamp = existing.get("timestamp") if existing else None
-        prev_content_path = existing.get("content_path") if existing else None
+    def _build_document(
+        self, path: Path, file_uri: str, path_local: str, file_checksum: str,
+        file_bytes: int, extraction_result: ExtractResult, embedding: List[float],
+        chunk_docs: List[Dict[str, Any]], now_iso: str
+    ) -> Dict[str, Any]:
+        """Build MongoDB document from extraction and embedding.
 
-        now_iso = _utc_now_iso()
-        embed_start = time.perf_counter()
-        embedding, chunk_docs = self._embed_text(
-            file_uri=file_uri,
-            path_local=path_local,
-            text=result.text or "",
-            content_checksum=content_checksum,
-            timestamp=now_iso,
-        )
-        timings["embed"] = time.perf_counter() - embed_start
+        Returns:
+            Document dict ready for upsert
+        """
         angle = self.angle_from_empty(embedding)
+        content_path = str(extraction_result.content_path) if extraction_result.content_path else None
 
-        if file_bytes is None:
-            try:
-                file_bytes = path.stat().st_size
-            except Exception:
-                file_bytes = 0
-
-        doc_payload = {
+        return {
             "path": file_uri,
             "path_local": path_local,
             "filename": path.name,
@@ -391,75 +415,181 @@ class SimilarityDB:
             "checksum": file_checksum,
             "bytes": int(file_bytes),
             "content_path": content_path,
-            "content_checksum": content_checksum,
-            "content_hash": content_checksum,  # backwards compatibility
-            "content_bytes": int(content_bytes) if content_bytes is not None else None,
+            "content_checksum": extraction_result.content_checksum,
+            "content_hash": extraction_result.content_checksum,
+            "content_bytes": int(extraction_result.content_bytes) if extraction_result.content_bytes is not None else None,
             "embedding": embedding,
             "angle": angle,
-            "text_preview": (result.text or "")[:500],
+            "text_preview": (extraction_result.text or "")[:500],
             "num_chunks": len(chunk_docs),
             "chunk_chars": self.chunk_chars,
             "chunk_overlap": self.chunk_overlap,
         }
 
+    def _upsert_document_and_chunks(
+        self, file_uri: str, doc_payload: Dict[str, Any], chunk_docs: List[Dict[str, Any]],
+        existing: Optional[Dict[str, Any]]
+    ) -> Tuple[float, float]:
+        """Upsert main document and chunks to MongoDB.
+
+        Returns:
+            (db_elapsed, chunks_elapsed)
+        """
+        # Upsert main document
         target = {"_id": existing["_id"]} if existing and "_id" in existing else {"path": file_uri}
         db_start = time.perf_counter()
         self.collection.update_one(target, {"$set": doc_payload}, upsert=True)
-        timings["db_update"] = time.perf_counter() - db_start
-        record_db_activity("similarity.add_file", str(path))
+        db_elapsed = time.perf_counter() - db_start
 
-        if rename_from_uri and rename_from_uri != file_uri:
-            self._update_related_paths(rename_from_uri, file_uri, path_local)
-
+        # Update chunks
+        chunk_start = time.perf_counter()
         try:
-            chunk_start = time.perf_counter()
             self.chunks.delete_many({"file_path": file_uri})
             if chunk_docs:
                 self.chunks.insert_many(chunk_docs, ordered=False)
-            timings["chunks"] = time.perf_counter() - chunk_start
+            chunks_elapsed = time.perf_counter() - chunk_start
         except Exception:
-            timings.setdefault("chunks", 0.0)
-            pass
+            chunks_elapsed = 0.0
+
+        return db_elapsed, chunks_elapsed
+
+    def _record_embedding_change(
+        self, file_uri: str, prev_embedding: Optional[List[float]],
+        prev_timestamp: Optional[str], new_embedding: List[float], now_iso: str
+    ) -> None:
+        """Record embedding change for drift tracking."""
+        if not prev_embedding:
+            return
 
         try:
-            if prev_embedding:
-                prev_dt = _parse_iso(prev_timestamp) or datetime.now(timezone.utc)
-                now_dt = datetime.now(timezone.utc)
-                prev_vec = np.array(prev_embedding, dtype=float)
-                new_vec = np.array(embedding, dtype=float)
-                denom = float(np.linalg.norm(prev_vec) * np.linalg.norm(new_vec))
-                if denom > 0:
-                    cosv = float(np.dot(prev_vec, new_vec) / denom)
-                    cosv = max(-1.0, min(1.0, cosv))
-                    degrees = math.degrees(math.acos(cosv))
-                else:
-                    degrees = 0.0
-                seconds = max(1.0, (now_dt - prev_dt).total_seconds())
-                self.changes.insert_one(
-                    {
-                        "file_path": file_uri,
-                        "t_prev": prev_dt.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-                        "t_new": now_iso,
-                        "t_new_epoch": int(now_dt.timestamp()),
-                        "seconds": float(seconds),
-                        "degrees": float(degrees),
-                    }
-                )
+            prev_dt = _parse_iso(prev_timestamp) or datetime.now(timezone.utc)
+            now_dt = datetime.now(timezone.utc)
+            prev_vec = np.array(prev_embedding, dtype=float)
+            new_vec = np.array(new_embedding, dtype=float)
+
+            denom = float(np.linalg.norm(prev_vec) * np.linalg.norm(new_vec))
+            if denom > 0:
+                cosv = float(np.dot(prev_vec, new_vec) / denom)
+                cosv = max(-1.0, min(1.0, cosv))
+                degrees = math.degrees(math.acos(cosv))
+            else:
+                degrees = 0.0
+
+            seconds = max(1.0, (now_dt - prev_dt).total_seconds())
+            self.changes.insert_one({
+                "file_path": file_uri,
+                "t_prev": prev_dt.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                "t_new": now_iso,
+                "t_new_epoch": int(now_dt.timestamp()),
+                "seconds": float(seconds),
+                "degrees": float(degrees),
+            })
         except Exception:
             pass
 
-        if prev_content_path and prev_content_path != content_path:
-            self._cleanup_content_file(prev_content_path)
+    def add_file(
+        self,
+        path: Path,
+        *,
+        extraction: Optional[ExtractResult] = None,
+        force: bool = False,
+        file_checksum: Optional[str] = None,
+        file_bytes: Optional[int] = None,
+    ) -> bool:
+        """Add or update file in similarity index.
 
+        Args:
+            path: Path to file
+            extraction: Pre-computed extraction result (optional)
+            force: Force re-indexing even if unchanged
+            file_checksum: Pre-computed file checksum (optional)
+            file_bytes: Pre-computed file size (optional)
+
+        Returns:
+            True if file was indexed/updated, False otherwise
+        """
+        path = path.expanduser().resolve()
+        timings: Dict[str, float] = {}
+
+        # 1. Validate path
+        error = self._validate_file_path(path)
+        if error:
+            self._last_add_result = error
+            return False
+
+        file_uri = _as_file_uri(path)
+        path_local = str(path)
+
+        # 2. Compute checksum
+        file_checksum, file_bytes, checksum_time = self._compute_checksum(path, file_checksum, file_bytes)
+        timings["checksum"] = checksum_time
+
+        # 3. Find existing document
+        existing, rename_from_uri = self._find_existing_document(file_uri, path_local, file_checksum)
+
+        # 4. Check if we can skip
+        skip_result = self._should_skip_unchanged(existing, file_checksum, rename_from_uri, force)
+        if skip_result:
+            self._last_add_result = skip_result
+            return False
+
+        # 5. Extract content
+        extract_start = time.perf_counter()
+        extraction_result, extract_error = self._extract_content(path, file_uri, path_local, extraction, force)
+        if extract_error:
+            self._last_add_result = extract_error
+            return False
+        timings["extract"] = time.perf_counter() - extract_start
+
+        # 6. Generate embedding
+        now_iso = _utc_now_iso()
+        embed_start = time.perf_counter()
+        embedding, chunk_docs = self._embed_text(
+            file_uri=file_uri,
+            path_local=path_local,
+            text=extraction_result.text or "",
+            content_checksum=extraction_result.content_checksum,
+            timestamp=now_iso,
+        )
+        timings["embed"] = time.perf_counter() - embed_start
+
+        # 7. Build document
+        doc_payload = self._build_document(
+            path, file_uri, path_local, file_checksum, file_bytes,
+            extraction_result, embedding, chunk_docs, now_iso
+        )
+
+        # 8. Upsert to database
+        db_time, chunks_time = self._upsert_document_and_chunks(file_uri, doc_payload, chunk_docs, existing)
+        timings["db_update"] = db_time
+        timings["chunks"] = chunks_time
+        record_db_activity("similarity.add_file", str(path))
+
+        # 9. Handle rename
+        if rename_from_uri and rename_from_uri != file_uri:
+            self._update_related_paths(rename_from_uri, file_uri, path_local)
+
+        # 10. Record embedding change
+        prev_embedding = existing.get("embedding") if existing else None
+        prev_timestamp = existing.get("timestamp") if existing else None
+        self._record_embedding_change(file_uri, prev_embedding, prev_timestamp, embedding, now_iso)
+
+        # 11. Cleanup old content
+        if existing:
+            prev_content_path = existing.get("content_path")
+            if prev_content_path and prev_content_path != doc_payload.get("content_path"):
+                self._cleanup_content_file(prev_content_path)
+
+        # 12. Store result
         self._last_add_result = {
             "updated": True,
             "path": file_uri,
             "path_local": path_local,
             "checksum": file_checksum,
-            "content_checksum": content_checksum,
-            "content_hash": content_checksum,
-            "content_path": content_path,
-            "text": result.text,
+            "content_checksum": extraction_result.content_checksum,
+            "content_hash": extraction_result.content_checksum,
+            "content_path": str(extraction_result.content_path) if extraction_result.content_path else None,
+            "text": extraction_result.text,
             "timings": timings,
         }
         return True
