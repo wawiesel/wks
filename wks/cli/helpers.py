@@ -160,7 +160,7 @@ def display_status_table(
     row_tables = []
     for key, value in status_rows:
         row_table = Table(show_header=False, box=None, padding=(0, 1))
-        row_table.add_column("Key", justify="left", width=key_width, no_wrap=True)
+        row_table.add_column("Key", justify="left", width=key_width, overflow="fold")
         row_table.add_column("Value", justify="right", width=value_width)
         row_table.add_row(key, value)
         row_tables.append(row_table)
