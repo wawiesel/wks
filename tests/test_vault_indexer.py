@@ -6,6 +6,17 @@ import pytest
 from wks.vault.obsidian import ObsidianVault
 from wks.vault.indexer import VaultLinkIndexer
 from wks.vault.status_controller import VaultStatusController
+from wks.vault.config import VaultDatabaseConfig
+from wks.vault.link_resolver import LinkResolver
+from wks.vault.constants import (
+    STATUS_OK,
+    STATUS_LEGACY_LINK,
+    STATUS_MISSING_SYMLINK,
+    STATUS_MISSING_TARGET,
+    LINK_TYPE_WIKILINK,
+    LINK_TYPE_EMBED,
+    LINK_TYPE_MARKDOWN_URL,
+)
 
 
 @pytest.fixture()
@@ -50,14 +61,24 @@ def patched_mongo(monkeypatch):
 
 def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
     cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
-    indexer = VaultLinkIndexer(vault, mongo_uri=cfg["db"]["uri"], collection_key=cfg["vault"]["database"])
+    db_config = VaultDatabaseConfig.from_config(cfg)
+    indexer = VaultLinkIndexer(vault, db_config=db_config)
     result = indexer.sync()
     assert result.stats.edge_total == 2
     mongo_coll = patched_mongo["wks"]["vault"]
-    edge = mongo_coll.find_one({"doc_type": "link", "link_type": "wikilink"})
-    assert edge["note_path"] == "Projects/Demo.md"
-    assert edge["links_rel"] == "_links/papers/paper.pdf"
-    assert edge["status"] == "ok"
+    edge = mongo_coll.find_one({"doc_type": "link", "link_type": LINK_TYPE_WIKILINK})
+    assert edge["from"] == "Projects/Demo.md"
+    assert edge["from_uri"] == "vault:///Projects/Demo.md"
+    assert edge["to"] == "_links/papers/paper.pdf"
+    assert edge["raw_target"] == "_links/papers/paper.pdf"
+    assert edge["to_uri"].startswith("file:///")  # Resolved filesystem URI
+    assert edge["status"] == STATUS_OK
+    # Removed fields should not exist
+    assert "links_rel" not in edge
+    assert "resolved_path" not in edge
+    assert "resolved_exists" not in edge
+    assert "is_embed" not in edge
+    assert "target_kind" not in edge
     summary = VaultStatusController(cfg).summarize()
     assert summary.total_links == 2
     assert summary.external_urls == 1
@@ -67,3 +88,176 @@ def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
     summary = VaultStatusController(cfg).summarize()
     assert summary.missing_symlink >= 1
     assert summary.issues
+
+
+def test_legacy_links_detection(vault_root):
+    """Test legacy links/ path detection and status."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+    resolver = LinkResolver(vault.links_dir)
+
+    result = resolver.resolve("links/old/document.pdf")
+    assert result.status == STATUS_LEGACY_LINK
+    assert "legacy:///" in result.target_uri
+
+
+def test_wikilink_alias_parsing():
+    """Test [[target|alias]] parsing edge cases."""
+    vault_root = Path("/tmp/test_vault")
+    resolver = LinkResolver(vault_root / "_links")
+
+    # Standard alias
+    result = resolver.resolve("SomeNote|Display Text")
+    assert result.status == STATUS_OK
+
+    # Empty alias (after split, not handled by resolver)
+    result = resolver.resolve("SomeNote")
+    assert result.status == STATUS_OK
+
+
+def test_external_url_extraction(vault_root):
+    """Test external URL detection."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+    resolver = LinkResolver(vault.links_dir)
+
+    result = resolver.resolve("https://example.com/page")
+    assert result.status == STATUS_OK
+    assert result.target_uri == "https://example.com/page"
+
+
+def test_attachment_detection(vault_root):
+    """Test vault attachment (_prefix) detection."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+    resolver = LinkResolver(vault.links_dir)
+
+    result = resolver.resolve("_attachments/image.png")
+    assert result.status == STATUS_OK
+    assert result.target_uri == "vault:///_attachments/image.png"
+
+
+def test_symlink_missing_target(vault_root):
+    """Test broken symlink is detected as missing_symlink."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+
+    # Create a broken symlink (target doesn't exist)
+    symlink_path = vault.links_dir / "broken" / "link.pdf"
+    symlink_path.parent.mkdir(parents=True, exist_ok=True)
+    symlink_path.symlink_to("/nonexistent/file.pdf")
+
+    resolver = LinkResolver(vault.links_dir)
+    result = resolver.resolve("_links/broken/link.pdf")
+
+    # Broken symlinks are detected as missing_symlink since .exists() is False
+    assert result.status == STATUS_MISSING_SYMLINK
+
+
+def test_scanner_error_handling(vault_root, tmp_path):
+    """Test scanner continues on individual file errors."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+
+    # Create a valid note
+    note1 = vault_root / "Projects" / "Good.md"
+    note1.write_text("[[ValidLink]]")
+
+    # Create an unreadable note (simulate by using a directory)
+    bad_note_dir = vault_root / "Projects" / "Bad.md"
+    bad_note_dir.mkdir(exist_ok=True)
+
+    from wks.vault.indexer import VaultLinkScanner
+    scanner = VaultLinkScanner(vault)
+    records = scanner.scan()
+
+    # Should have scanned the good note despite bad one
+    assert scanner.stats.notes_scanned >= 1
+    assert len(scanner.stats.errors) >= 1
+
+
+def test_embed_vs_wikilink_distinction(vault_root):
+    """Test that embeds (![[...]]) are distinguished from regular wikilinks."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+    note = vault_root / "Projects" / "Test.md"
+    note.write_text("Regular: [[Link1]]\nEmbed: ![[Link2]]")
+
+    from wks.vault.indexer import VaultLinkScanner
+    scanner = VaultLinkScanner(vault)
+    records = scanner.scan()
+
+    # Find the two records
+    link_types = [r.link_type for r in records if r.note_path == "Projects/Test.md"]
+    assert LINK_TYPE_WIKILINK in link_types
+    assert LINK_TYPE_EMBED in link_types
+
+
+def test_markdown_url_extraction(vault_root):
+    """Test markdown [text](url) pattern matching."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+    note = vault_root / "Projects" / "URLs.md"
+    note.write_text(
+        "[GitHub](https://github.com)\n"
+        "[Docs](https://docs.example.com/page)"
+    )
+
+    from wks.vault.indexer import VaultLinkScanner
+    scanner = VaultLinkScanner(vault)
+    records = scanner.scan()
+
+    urls = [r.to_uri for r in records if r.link_type == LINK_TYPE_MARKDOWN_URL]
+    assert "https://github.com" in urls
+    assert "https://docs.example.com/page" in urls
+
+
+def test_batch_processing(vault, vault_root, patched_mongo):
+    """Test batch processing with small batch size."""
+    cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
+    db_config = VaultDatabaseConfig.from_config(cfg)
+
+    # Create multiple links
+    note = vault_root / "Projects" / "Many.md"
+    links = "\n".join([f"[[Link{i}]]" for i in range(50)])
+    note.write_text(links)
+
+    indexer = VaultLinkIndexer(vault, db_config=db_config)
+    result = indexer.sync(batch_size=10)
+
+    # Should have processed all records
+    assert result.stats.edge_total >= 50
+
+
+def test_config_validation_errors():
+    """Test that config validation raises appropriate errors."""
+    from wks.vault.config import VaultConfigError
+
+    # Missing db.uri
+    with pytest.raises(VaultConfigError, match="db.uri is required"):
+        VaultDatabaseConfig.from_config({"vault": {"database": "wks.vault"}})
+
+    # Missing vault.database
+    with pytest.raises(VaultConfigError, match="vault.database is required"):
+        VaultDatabaseConfig.from_config({"db": {"uri": "mongodb://localhost"}})
+
+
+def test_line_preview_truncation(vault_root):
+    """Test that long lines are truncated properly."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+
+    # Create a note with a very long line
+    long_line = "x" * 500 + "[[Link]]" + "y" * 500
+    note = vault_root / "Projects" / "Long.md"
+    note.write_text(long_line)
+
+    from wks.vault.indexer import VaultLinkScanner
+    scanner = VaultLinkScanner(vault)
+    records = scanner.scan()
+
+    # Line should be truncated
+    for record in records:
+        assert len(record.raw_line) <= 401  # MAX_LINE_PREVIEW + ellipsis
+
+
+def test_vault_note_default_resolution(vault_root):
+    """Test that unrecognized patterns default to vault_note."""
+    vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
+    resolver = LinkResolver(vault.links_dir)
+
+    result = resolver.resolve("SomeRandomNote")
+    assert result.status == STATUS_OK
+    assert result.target_uri == "vault:///SomeRandomNote"

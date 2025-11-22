@@ -99,13 +99,15 @@ class ObsidianVault:
         home = Path.home()
         try:
             relative_old = old_path.resolve().relative_to(home)
-        except ValueError:
+        except (ValueError, OSError):
+            # Path not relative to home or resolution failed
             return
         old_link = self.links_dir / relative_old
         if old_link.exists() and old_link.is_symlink():
             try:
                 old_link.unlink()
-            except Exception:
+            except (OSError, PermissionError):
+                # Cannot remove old link
                 return
             self.link_file(new_path)
 
@@ -113,7 +115,8 @@ class ObsidianVault:
         for md in self.vault_path.rglob("*.md"):
             try:
                 yield md
-            except Exception:
+            except (OSError, PermissionError):
+                # Skip files we don't have permission to access
                 continue
 
     def iter_markdown_files(self):
@@ -138,7 +141,7 @@ class ObsidianVault:
         for md in self._iter_vault_markdown():
             try:
                 content = md.read_text(encoding="utf-8")
-            except Exception:
+            except (IOError, OSError, UnicodeDecodeError, PermissionError):
                 continue
             original = content
             for a, b in patterns:
@@ -146,7 +149,7 @@ class ObsidianVault:
             if content != original:
                 try:
                     md.write_text(content, encoding="utf-8")
-                except Exception:
+                except (IOError, OSError, PermissionError):
                     pass
 
     def mark_reference_deleted(self, path: Path) -> None:
@@ -156,7 +159,7 @@ class ObsidianVault:
         for md in self._iter_vault_markdown():
             try:
                 content = md.read_text(encoding="utf-8")
-            except Exception:
+            except (IOError, OSError, UnicodeDecodeError, PermissionError):
                 continue
             if marker in content or legacy in content:
                 continue
@@ -164,7 +167,7 @@ class ObsidianVault:
             lines.insert(1, f"> {marker}")
             try:
                 md.write_text("\n".join(lines), encoding="utf-8")
-            except Exception:
+            except (IOError, OSError, PermissionError):
                 pass
 
     # ---------------------------------------------------------------- no-op stubs
@@ -183,7 +186,8 @@ class ObsidianVault:
     def _format_dt(self, dt: datetime) -> str:
         try:
             return dt.strftime(self.timestamp_format)
-        except Exception:
+        except (ValueError, TypeError):
+            # Invalid format string or datetime
             return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
 
     def write_doc_text(self, content_hash: str, source_path: Path, text: str, keep: int = 99):
@@ -198,16 +202,16 @@ class ObsidianVault:
         )
         try:
             doc_path.write_text(header + text, encoding="utf-8")
-        except Exception:
+        except (IOError, OSError, PermissionError):
             return
         try:
             entries = sorted(docs_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
             for old in entries[keep:]:
                 try:
                     old.unlink()
-                except Exception:
+                except (OSError, PermissionError):
                     pass
-        except Exception:
+        except (OSError, PermissionError):
             pass
 
     def create_project_note(self, project_path: Path, status: str = "Active", description: Optional[str] = None) -> Path:
@@ -258,6 +262,6 @@ class ObsidianVault:
         for link in broken:
             try:
                 link.unlink()
-            except Exception:
+            except (OSError, PermissionError):
                 pass
         return len(broken)

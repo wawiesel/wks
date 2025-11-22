@@ -269,47 +269,160 @@ Stored at `~/.wks/config.json`
 
 ### Vault Layer
 
-**Goal**: Keep vault markdown, `_links/` symlinks, and filesystem state aligned without manual intervention. The vault database is the bridge between the scanner and the monitor—no human-facing “fix it” commands exist.
+**Goal**: Keep vault markdown, `_links/` symlinks, and filesystem state aligned without manual intervention. The vault database is the bridge between the scanner and the monitor—no human-facing "fix it" commands exist.
 
 **Database**: `wks.vault`
 
-Each link becomes exactly one document (no optional fields; empty strings/zeros indicate “not applicable”). `_id` is `sha256(note_path + line_number + target_uri)` so repeated scans upsert deterministically. Fields are grouped as follows:
+**URI-First Design**: All links stored as cross-platform URIs. Local filesystem paths derived on-demand from URIs.
+
+#### Symlink Naming Convention
+
+External files are mirrored under `_links/<machine>/` to match filesystem structure:
+```
+_links/
+  mbp-2021/
+    Users/ww5/Documents/papers/paper.pdf → /Users/ww5/Documents/papers/paper.pdf
+    Users/ww5/2025-ProjectName/README.md → /Users/ww5/2025-ProjectName/README.md
+```
+
+**Benefits**:
+- Multi-machine vault sync (each machine has its own `_links/<machine>/` tree)
+- Mirrors actual filesystem for predictable paths
+- Enables automatic symlink management via monitor events
+
+#### Schema
+
+Each link becomes exactly one document. `_id` is `sha256(from + line_number + to_uri)` so repeated scans upsert deterministically. Fields are grouped as follows:
 
 1. **Source context**
-   - `note_path`: note path relative to the vault root (e.g., `Projects/Foo.md`).
-   - `line_number`: 1-based line that produced the link.
-   - `source_heading`: nearest markdown heading text (empty string if none).
-   - `raw_line`: full line content trimmed to a safe length for debugging.
+   - `from`: note path relative to vault root (e.g., `Projects/Foo.md`)
+   - `from_uri`: cross-platform URI to source note (e.g., `vault:///Projects/Foo.md`)
+   - `line_number`: 1-based line that produced the link
+   - `source_heading`: nearest markdown heading text (empty string if none)
+   - `raw_line`: full line content trimmed to a safe length for debugging
 
 2. **Link content**
-   - `link_type`: `wikilink`, `embed`, or `markdown_url`.
-   - `raw_target`: text inside the link (`[[…]]` target or `(…)` URL).
-   - `alias_or_text`: alias or `[text]` label (empty string when not supplied).
-   - `is_embed`: `true` only for `![[…]]`.
+   - `link_type`: `wikilink`, `embed`, or `markdown_url`
+   - `raw_target`: text inside the link (`[[…]]` target or `(…)` URL), including alias
+   - `alias_or_text`: alias or `[text]` label (empty string when not supplied)
 
-3. **Target resolution**
-   - `target_kind`: `vault_note`, `_links_symlink`, `external_url`, `attachment`, or `legacy_path`.
-   - `target_uri`: normalized identifier for the link destination (`vault:///…`, `vault-link:///_links/...`, `https://…`).
-   - `links_rel`: `_links/...` relative path when applicable, otherwise `""`.
-   - `resolved_path`: absolute filesystem path reached at last scan (or `""`).
-   - `resolved_exists`: boolean indicating whether the path existed.
-   - `monitor_doc_id`: `_id` of the matching `wks.monitor` document or `""` if not yet indexed.
+3. **Target resolution (URI-first)**
+   - `to`: target path relative to vault root (e.g., `_links/mbp-2021/Users/ww5/papers/paper.pdf`)
+   - `to_uri`: cross-platform URI to target resource
+     - Vault notes: `vault:///Projects/Demo.md`
+     - _links/ symlinks (resolved): `file:///Users/ww5/papers/paper.pdf`
+     - External URLs: `https://example.com`
+     - Attachments: `vault:///_attachments/image.png`
 
 4. **Health & lifecycle**
-   - `status`: `ok`, `missing_symlink`, `missing_target`, `legacy_link`, or `needs_monitor`.
-   - `first_seen`: ISO timestamp from the initial scan that created the document.
-   - `last_seen`: ISO timestamp from the latest scan that observed the link.
-   - `last_updated`: ISO timestamp of the most recent write (scan or monitor-triggered).
+   - `status`: `ok`, `missing_symlink`, `missing_target`, or `legacy_link`
+   - `first_seen`: ISO timestamp from the initial scan that created the document
+   - `last_seen`: ISO timestamp from the latest scan that observed the link
+   - `last_updated`: ISO timestamp of the most recent write (scan or monitor-triggered)
+
+**Removed Fields** (derivable from other fields):
+- `is_embed` — derive from `link_type == "embed"`
+- `target_kind` — derive from `to` pattern (starts with `_links/`, `_attachments/`, etc.)
+- `links_rel` — redundant with `to` for _links/ symlinks
+- `resolved_path` — derive from `to_uri` when needed via `urllib.parse.urlparse(to_uri).path`
+- `resolved_exists` — check on-demand, don't cache stale boolean
+- `monitor_doc_id` — query monitor DB when needed via `to_uri`
 
 A single metadata document (`_id = "__meta__"`, `doc_type = "meta"`) stores `last_scan_started_at`, `last_scan_duration_ms`, `notes_scanned`, `edges_written`, per-status counts, per-type counts, and the array `errors`. Status commands read this row instead of recomputing aggregates.
 
-**Automation Workflow**:
-1. **Monitor events** look up affected `resolved_path` values, rewrite markdown via `note_path`/`line_number`, refresh `_links/…`, and flip `status` plus `last_updated`.
-2. **Scanner loop** runs on `vault.update_frequency_seconds`, parses every markdown file, validates `_links/…`, writes deterministic documents, and drops rows whose `_id` wasn’t touched (links removed from the vault).
-3. **Status reporting** simply mirrors the persisted counts (`__meta__`) and lists unhealthy edges filtered by `status != "ok"`.
+#### URI Conversion
+
+**Derive filesystem paths when needed**:
+```python
+from pathlib import Path
+from urllib.parse import urlparse
+
+def uri_to_path(uri: str, vault_root: Path) -> Path:
+    if uri.startswith("file://"):
+        return Path(urlparse(uri).path)
+    elif uri.startswith("vault://"):
+        rel = uri.removeprefix("vault:///")
+        return vault_root / rel
+    else:
+        raise ValueError(f"Cannot convert {uri} to filesystem path")
+```
+
+**Derive target_kind when needed**:
+```python
+def derive_target_kind(to: str, to_uri: str) -> str:
+    if to.startswith("_links/"):
+        return "_links_symlink"
+    elif to.startswith("_") and not to.startswith("_links/"):
+        return "attachment"
+    elif not to_uri.startswith("vault://"):
+        return "external_url"
+    elif to.startswith("links/") or to.startswith("/"):
+        return "legacy_path"
+    else:
+        return "vault_note"
+```
+
+#### Automation Workflow
+
+**Monitor-Vault Integration** (event-driven):
+
+When filesystem monitor detects a file move:
+```python
+def on_file_moved(event):
+    old_path = event.src_path  # /Users/ww5/papers/paper.pdf
+    new_path = event.dest_path  # /Users/ww5/archive/paper.pdf
+
+    old_uri = Path(old_path).as_uri()  # file:///Users/ww5/papers/paper.pdf
+    new_uri = Path(new_path).as_uri()  # file:///Users/ww5/archive/paper.pdf
+    machine = get_machine_name()  # "mbp-2021"
+
+    # Update monitor DB
+    monitor_db.update_one(
+        {"path": old_uri},
+        {"$set": {"path": new_uri, ...}}
+    )
+
+    # Update vault DB (all links pointing to this file)
+    vault_db.update_many(
+        {"to_uri": old_uri},
+        {"$set": {
+            "to_uri": new_uri,
+            "to": f"_links/{machine}/{new_path}",
+            "status": "ok",
+            "last_updated": now_iso()
+        }}
+    )
+
+    # Move symlink to mirror new location
+    old_symlink = vault_root / "_links" / machine / old_path.strip("/")
+    new_symlink = vault_root / "_links" / machine / new_path.strip("/")
+    move_symlink(old_symlink, new_symlink, target=new_path)
+
+    # Update markdown files
+    for affected_note in vault_db.find({"to_uri": new_uri}):
+        update_markdown_link(
+            note_path=affected_note["from"],
+            line_number=affected_note["line_number"],
+            old_target=f"_links/{machine}/{old_path}",
+            new_target=f"_links/{machine}/{new_path}"
+        )
+```
+
+**Scanner Loop**:
+1. Runs every `vault.update_frequency_seconds` (default: 10)
+2. Scans all `.md` files in vault
+3. Parses wikilinks `[[...]]`, embeds `![[...]]`, markdown URLs `[]()`
+4. Resolves _links/ symlinks to get `file://` URIs
+5. Generates `from_uri` (vault:// for source) and `to_uri` (vault:// or file:// for target)
+6. Upserts link documents (deterministic `_id` from from + line_number + to_uri)
+7. Deletes stale links (not seen in current scan)
+8. Updates `__meta__` document with scan statistics
+
+**Status Reporting**: Reads persisted counts from `__meta__` and queries unhealthy edges by `status != "ok"`.
 
 **Commands** (diagnostics only):
-- `wks0 vault status` — summarize the most recent automated scan
+- `wks0 vault status` — summarize the most recent automated scan (supports `--live`)
+- `wks0 vault sync` — force immediate vault sync (normally automatic)
 - `wks0 db vault` — query the underlying collection
 
 ### Extract Layer

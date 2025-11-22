@@ -2,24 +2,55 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "VaultEdgeRecord",
+    "VaultScanStats",
+    "VaultSyncResult",
+    "VaultLinkScanner",
+    "VaultLinkIndexer",
+]
+
 import hashlib
-import re
+import logging
 import time
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional
 
 from pymongo import MongoClient, UpdateOne
+from pymongo.collection import Collection
 
-from ..db_helpers import parse_database_key
+import platform
+from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
+
 from ..config import load_config
 from .obsidian import ObsidianVault
-
-WIKILINK_PATTERN = re.compile(r"(!)?\[\[([^\]]+)\]\]")
-MARKDOWN_URL_PATTERN = re.compile(r"\[([^\]]+)\]\((https?://[^)]+)\)")
-_MAX_LINE_PREVIEW = 400
+from .config import VaultDatabaseConfig
+from .link_resolver import LinkResolver
+from .markdown_parser import parse_wikilinks, parse_markdown_urls, extract_headings
+from .constants import (
+    DOC_TYPE_LINK,
+    DOC_TYPE_META,
+    META_DOCUMENT_ID,
+    STATUS_OK,
+    STATUS_MISSING_SYMLINK,
+    STATUS_MISSING_TARGET,
+    STATUS_LEGACY_LINK,
+    LINK_TYPE_WIKILINK,
+    LINK_TYPE_EMBED,
+    LINK_TYPE_MARKDOWN_URL,
+    TARGET_KIND_VAULT_NOTE,
+    TARGET_KIND_LEGACY_PATH,
+    TARGET_KIND_LINKS_SYMLINK,
+    TARGET_KIND_ATTACHMENT,
+    TARGET_KIND_EXTERNAL_URL,
+    MAX_LINE_PREVIEW,
+)
 
 
 def _identity(note_path: str, line_number: int, target_uri: str) -> str:
@@ -33,46 +64,49 @@ def _now_iso() -> str:
 
 @dataclass
 class VaultEdgeRecord:
-    """Single vault edge flattened into the canonical schema."""
+    """Single vault edge with URI-first schema.
 
+    Uses cross-platform URIs as canonical identifiers.
+    Redundant fields removed - derive on-demand from URIs and patterns.
+    """
+
+    # Source context
     note_path: str
+    from_uri: str
     line_number: int
     source_heading: str
     raw_line: str
+
+    # Link content
     link_type: str
     raw_target: str
     alias_or_text: str
-    is_embed: bool
-    target_kind: str
-    target_uri: str
-    links_rel: str
-    resolved_path: str
-    resolved_exists: bool
+
+    # Target resolution (URI-first)
+    to_uri: str
     status: str
-    monitor_doc_id: str = ""
 
     @property
     def identity(self) -> str:
-        return _identity(self.note_path, self.line_number, self.target_uri)
+        return _identity(self.note_path, self.line_number, self.to_uri)
 
     def to_document(self, seen_at_iso: str) -> Dict[str, object]:
+        # Extract clean target without alias for 'to' field
+        target_clean = self.raw_target.split("|")[0].strip() if "|" in self.raw_target else self.raw_target
+
         return {
             "_id": self.identity,
-            "doc_type": "link",
-            "note_path": self.note_path,
+            "doc_type": DOC_TYPE_LINK,
+            "from": self.note_path,
+            "from_uri": self.from_uri,
+            "to": target_clean,
+            "to_uri": self.to_uri,
             "line_number": self.line_number,
             "source_heading": self.source_heading,
             "raw_line": self.raw_line,
             "link_type": self.link_type,
             "raw_target": self.raw_target,
             "alias_or_text": self.alias_or_text,
-            "is_embed": self.is_embed,
-            "target_kind": self.target_kind,
-            "target_uri": self.target_uri,
-            "links_rel": self.links_rel,
-            "resolved_path": self.resolved_path,
-            "resolved_exists": self.resolved_exists,
-            "monitor_doc_id": self.monitor_doc_id,
             "status": self.status,
             "last_seen": seen_at_iso,
             "last_updated": seen_at_iso,
@@ -98,8 +132,8 @@ class VaultSyncResult:
 
     def to_meta_document(self) -> Dict[str, object]:
         return {
-            "_id": "__meta__",
-            "doc_type": "meta",
+            "_id": META_DOCUMENT_ID,
+            "doc_type": DOC_TYPE_META,
             "last_scan_started_at": self.sync_started,
             "last_scan_duration_ms": self.sync_duration_ms,
             "notes_scanned": self.stats.notes_scanned,
@@ -115,22 +149,48 @@ class VaultLinkScanner:
 
     def __init__(self, vault: ObsidianVault):
         self.vault = vault
+        self.link_resolver = LinkResolver(vault.links_dir)
+        self._file_url_rewrites: List[tuple[Path, int, str, str]] = []  # (note_path, line_num, old_link, new_link)
 
-    def scan(self) -> List[VaultEdgeRecord]:
+    def scan(self, files: Optional[List[Path]] = None) -> List[VaultEdgeRecord]:
+        """Scan vault for links.
+
+        Args:
+            files: Optional list of specific files to scan. If None, scans all markdown files.
+
+        Returns:
+            List of VaultEdgeRecord objects
+        """
         records: List[VaultEdgeRecord] = []
         self._errors: List[str] = []
         self._notes_scanned = 0
         self._type_counts: Counter[str] = Counter()
         self._status_counts: Counter[str] = Counter()
+        self._file_url_rewrites = []  # Reset rewrites
 
-        for note_path in self.vault.iter_markdown_files():
+        # Determine which files to scan
+        if files is not None:
+            # Incremental scan - only scan specified files
+            files_to_scan = files
+        else:
+            # Full scan - scan all markdown files
+            files_to_scan = list(self.vault.iter_markdown_files())
+
+        for note_path in files_to_scan:
+            # Skip non-markdown files if specific files provided
+            if files is not None and note_path.suffix != ".md":
+                continue
+
             self._notes_scanned += 1
             try:
                 text = note_path.read_text(encoding="utf-8")
-            except Exception as exc:  # pragma: no cover - rare I/O issues
-                self._errors.append(f"{note_path}: {exc}")
+            except (IOError, OSError, UnicodeDecodeError, PermissionError) as exc:
+                self._errors.append(f"Cannot read {note_path}: {exc}")
                 continue
             records.extend(self._parse_note(note_path, text))
+
+        # Apply file:// URL rewrites (convert to wikilinks)
+        self._apply_file_url_rewrites()
 
         self._stats = VaultScanStats(
             notes_scanned=self._notes_scanned,
@@ -141,74 +201,97 @@ class VaultLinkScanner:
         )
         return records
 
+    def _apply_file_url_rewrites(self) -> None:
+        """Rewrite markdown files to convert file:// URLs to [[_links/...]] wikilinks."""
+        # Group rewrites by note_path
+        rewrites_by_note: Dict[Path, List[tuple[int, str, str]]] = {}
+        for note_path, line_num, old_link, new_link in self._file_url_rewrites:
+            if note_path not in rewrites_by_note:
+                rewrites_by_note[note_path] = []
+            rewrites_by_note[note_path].append((line_num, old_link, new_link))
+
+        # Apply rewrites to each note
+        for note_path, rewrites in rewrites_by_note.items():
+            try:
+                lines = note_path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+                # Apply each rewrite
+                for line_num, old_link, new_link in rewrites:
+                    if line_num <= len(lines):
+                        lines[line_num - 1] = lines[line_num - 1].replace(old_link, new_link)
+
+                # Write back
+                note_path.write_text("".join(lines), encoding="utf-8")
+
+            except Exception as exc:
+                self._errors.append(f"Failed to rewrite {note_path}: {exc}")
+
     @property
     def stats(self) -> VaultScanStats:
         return self._stats
 
     @staticmethod
     def _ensure_type_keys(counter: Counter[str]) -> Counter[str]:
-        for key in ("wikilink", "embed", "markdown_url"):
+        for key in (LINK_TYPE_WIKILINK, LINK_TYPE_EMBED, LINK_TYPE_MARKDOWN_URL):
             counter.setdefault(key, 0)
         return counter
 
     def _parse_note(self, note_path: Path, text: str) -> List[VaultEdgeRecord]:
-        rows: List[VaultEdgeRecord] = []
+        """Parse all links from a markdown note.
+
+        Args:
+            note_path: Path to the note file
+            text: Content of the note
+
+        Returns:
+            List of VaultEdgeRecord objects
+        """
+        records: List[VaultEdgeRecord] = []
+        headings = extract_headings(text)
         lines = text.splitlines()
-        heading = ""
-        for idx, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                heading = stripped.lstrip("#").strip()
-            for match in WIKILINK_PATTERN.finditer(line):
-                is_embed = bool(match.group(1))
-                raw_target = match.group(2).strip()
-                target, alias = self._split_alias(raw_target)
-                record = self._build_wikilink_record(
-                    note_path=note_path,
-                    line_number=idx,
-                    raw_line=line,
-                    heading=heading,
-                    target=target,
-                    alias=alias,
-                    is_embed=is_embed,
-                    raw_target=raw_target,
-                )
-                rows.append(record)
-                self._record_counts(record)
-            for match in MARKDOWN_URL_PATTERN.finditer(line):
-                url = match.group(2).strip()
-                alias = match.group(1).strip()
-                record = self._build_url_record(
-                    note_path=note_path,
-                    line_number=idx,
-                    raw_line=line,
-                    heading=heading,
-                    url=url,
-                    alias=alias,
-                )
-                rows.append(record)
-                self._record_counts(record)
-        return rows
+
+        # Parse wiki links and embeds
+        for wiki_link in parse_wikilinks(text):
+            record = self._build_wikilink_record(
+                note_path=note_path,
+                line_number=wiki_link.line_number,
+                raw_line=lines[wiki_link.line_number - 1],
+                heading=headings[wiki_link.line_number],
+                target=wiki_link.target,
+                alias=wiki_link.alias,
+                is_embed=wiki_link.is_embed,
+                raw_target=wiki_link.raw_target,
+            )
+            records.append(record)
+            self._record_counts(record)
+
+        # Parse markdown URLs
+        for md_url in parse_markdown_urls(text):
+            record = self._build_url_record(
+                note_path=note_path,
+                line_number=md_url.line_number,
+                raw_line=lines[md_url.line_number - 1],
+                heading=headings[md_url.line_number],
+                url=md_url.url,
+                alias=md_url.text,
+            )
+            records.append(record)
+            self._record_counts(record)
+
+        return records
 
     def _record_counts(self, record: VaultEdgeRecord) -> None:
         self._type_counts[record.link_type] += 1
         self._status_counts[record.status] += 1
-
-    @staticmethod
-    def _split_alias(target: str) -> tuple[str, str]:
-        if "|" in target:
-            core, alias = target.split("|", 1)
-            return core.strip(), alias.strip()
-        return target.strip(), ""
 
     def _note_path(self, note_path: Path) -> str:
         return note_path.relative_to(self.vault.vault_path).as_posix()
 
     def _preview_line(self, line: str) -> str:
         clean = line.rstrip("\n")
-        if len(clean) <= _MAX_LINE_PREVIEW:
+        if len(clean) <= MAX_LINE_PREVIEW:
             return clean
-        return f"{clean[:_MAX_LINE_PREVIEW]}…"
+        return f"{clean[:MAX_LINE_PREVIEW]}…"
 
     def _build_wikilink_record(
         self,
@@ -222,74 +305,75 @@ class VaultLinkScanner:
         raw_target: str,
     ) -> VaultEdgeRecord:
         note_rel = self._note_path(note_path)
-        metadata = self._resolve_wikilink_target(target)
+        metadata = self.link_resolver.resolve(target)
         return VaultEdgeRecord(
             note_path=note_rel,
+            from_uri=f"vault:///{note_rel}",
             line_number=line_number,
             source_heading=heading,
             raw_line=self._preview_line(raw_line),
-            link_type="embed" if is_embed else "wikilink",
+            link_type=LINK_TYPE_EMBED if is_embed else LINK_TYPE_WIKILINK,
             raw_target=raw_target,
             alias_or_text=alias,
-            is_embed=is_embed,
-            target_kind=metadata["target_kind"],
-            target_uri=metadata["target_uri"],
-            links_rel=metadata["links_rel"],
-            resolved_path=metadata["resolved_path"],
-            resolved_exists=metadata["resolved_exists"],
-            status=metadata["status"],
+            to_uri=metadata.target_uri,
+            status=metadata.status,
         )
 
-    def _resolve_wikilink_target(self, target: str) -> Dict[str, object]:
-        target = target.strip()
-        lowered = target.lower()
-        data: Dict[str, object] = {
-            "target_kind": "vault_note",
-            "target_uri": f"vault:///{target}",
-            "links_rel": "",
-            "resolved_path": "",
-            "resolved_exists": False,
-            "status": "ok",
-        }
-        if lowered.startswith("links/"):
-            normalized = target[target.lower().index("links/") + len("links/") :]
-            data["target_kind"] = "legacy_path"
-            data["target_uri"] = f"legacy:///{normalized}"
-            data["status"] = "legacy_link"
-            return data
-        if target.startswith("_links/"):
-            rel = target[len("_links/") :]
-            symlink_path = self.vault.links_dir / rel
-            data["target_kind"] = "_links_symlink"
-            data["target_uri"] = f"vault-link:///{target}"
-            data["links_rel"] = target
-            data["resolved_path"] = str(symlink_path)
+    def _convert_file_url_to_symlink(self, url: str, note_path: Path, line_number: int, alias: str) -> Optional[str]:
+        """Convert file:// URL to _links/ symlink and record for rewriting.
+
+        Only converts files, not directories. Directories stay as file:// URLs so they're clickable.
+
+        Args:
+            url: The file:// URL
+            note_path: Path to the note containing the link
+            line_number: Line number in the note
+            alias: Link text/alias
+
+        Returns:
+            Symlink target path like "_links/<machine>/path/to/file" or None if conversion fails/skipped
+        """
+        if not url.startswith("file://"):
+            return None
+
+        try:
+            # Parse file:// URL to get filesystem path
+            parsed = urlparse(url)
+            file_path = Path(parsed.path)
+
+            if not file_path.exists():
+                self._errors.append(f"File URL points to non-existent path: {url}")
+                return None
+
+            # Skip directories - keep them as file:// URLs so they're clickable in Obsidian
+            if file_path.is_dir():
+                logger.debug(f"Skipping directory conversion to wikilink: {url}")
+                return None
+
+            # Get machine name
+            machine = platform.node().split(".")[0]  # e.g., "lap139160"
+
+            # Create symlink path: _links/<machine>/path/to/file
+            # Strip leading / from path
+            rel_path = str(file_path).lstrip("/")
+            symlink_target = f"_links/{machine}/{rel_path}"
+            symlink_path = self.vault.links_dir / machine / rel_path
+
+            # Create symlink if it doesn't exist
             if not symlink_path.exists():
-                data["status"] = "missing_symlink"
-            else:
-                try:
-                    resolved = symlink_path.resolve(strict=False)
-                except Exception:
-                    resolved = symlink_path
-                data["resolved_path"] = str(resolved)
-                data["resolved_exists"] = resolved.exists()
-                if not data["resolved_exists"]:
-                    data["status"] = "missing_target"
-            return data
-        if target.startswith("_"):
-            data["target_kind"] = "attachment"
-            data["target_uri"] = f"vault:///{target}"
-            return data
-        if "://" in target:
-            data["target_kind"] = "external_url"
-            data["target_uri"] = target
-            return data
-        if target.startswith("/"):
-            data["target_kind"] = "legacy_path"
-            data["target_uri"] = f"legacy:///{target}"
-            data["status"] = "legacy_link"
-            return data
-        return data
+                symlink_path.parent.mkdir(parents=True, exist_ok=True)
+                symlink_path.symlink_to(file_path)
+
+            # Record markdown rewrite needed
+            old_markdown = f"[{alias}]({url})"
+            new_markdown = f"[[{symlink_target}]]"
+            self._file_url_rewrites.append((note_path, line_number, old_markdown, new_markdown))
+
+            return symlink_target
+
+        except Exception as exc:
+            self._errors.append(f"Failed to convert file URL {url}: {exc}")
+            return None
 
     def _build_url_record(
         self,
@@ -300,21 +384,39 @@ class VaultLinkScanner:
         url: str,
         alias: str,
     ) -> VaultEdgeRecord:
+        note_rel = self._note_path(note_path)
+
+        # Handle file:// URLs specially - convert to symlink
+        if url.startswith("file://"):
+            symlink_target = self._convert_file_url_to_symlink(url, note_path, line_number, alias)
+            if symlink_target:
+                # Return a wikilink record pointing to the symlink
+                metadata = self.link_resolver.resolve(symlink_target)
+                return VaultEdgeRecord(
+                    note_path=note_rel,
+                    from_uri=f"vault:///{note_rel}",
+                    line_number=line_number,
+                    source_heading=heading,
+                    raw_line=self._preview_line(raw_line),
+                    link_type=LINK_TYPE_WIKILINK,  # Convert to wikilink type
+                    raw_target=symlink_target,
+                    alias_or_text=alias,
+                    to_uri=metadata.target_uri,
+                    status=metadata.status,
+                )
+
+        # Regular external URL (https://)
         return VaultEdgeRecord(
-            note_path=self._note_path(note_path),
+            note_path=note_rel,
+            from_uri=f"vault:///{note_rel}",
             line_number=line_number,
             source_heading=heading,
             raw_line=self._preview_line(raw_line),
-            link_type="markdown_url",
+            link_type=LINK_TYPE_MARKDOWN_URL,
             raw_target=url,
             alias_or_text=alias,
-            is_embed=False,
-            target_kind="external_url",
-            target_uri=url,
-            links_rel="",
-            resolved_path="",
-            resolved_exists=False,
-            status="ok",
+            to_uri=url,
+            status=STATUS_OK,
         )
 
 
@@ -325,75 +427,152 @@ class VaultLinkIndexer:
         self,
         vault: ObsidianVault,
         *,
-        mongo_uri: str,
-        collection_key: str,
+        db_config: VaultDatabaseConfig,
     ):
-        if not mongo_uri:
-            raise ValueError("db.uri is required to sync vault links")
-        if not collection_key:
-            raise ValueError("vault.database is required to sync vault links")
-        db_name, coll_name = parse_database_key(collection_key)
         self.vault = vault
-        self.mongo_uri = mongo_uri
-        self.db_name = db_name
-        self.coll_name = coll_name
+        self.mongo_uri = db_config.mongo_uri
+        self.db_name = db_config.db_name
+        self.coll_name = db_config.coll_name
+
+    @contextmanager
+    def _mongo_connection(self) -> Iterator[Collection]:
+        """Context manager for MongoDB connections with automatic cleanup.
+
+        Yields:
+            MongoDB collection object
+
+        Ensures client is closed even if exceptions occur.
+        """
+        client = MongoClient(
+            self.mongo_uri,
+            serverSelectionTimeoutMS=5000,
+            retryWrites=True,
+            retryReads=True,
+        )
+        try:
+            yield client[self.db_name][self.coll_name]
+        finally:
+            client.close()
 
     @classmethod
     def from_config(cls, vault: ObsidianVault, cfg: Optional[Dict[str, object]] = None) -> "VaultLinkIndexer":
         config = cfg or load_config()
-        db_cfg = config.get("db")
-        if not db_cfg or not db_cfg.get("uri"):
-            raise KeyError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
-        vault_cfg = config.get("vault")
-        if not vault_cfg or not vault_cfg.get("database"):
-            raise KeyError("vault.database is required in config (found: missing, expected: 'database.collection' value)")
-        return cls(
-            vault=vault,
-            mongo_uri=db_cfg["uri"],
-            collection_key=vault_cfg["database"],
-        )
+        db_config = VaultDatabaseConfig.from_config(config)
+        return cls(vault=vault, db_config=db_config)
 
-    def sync(self) -> VaultSyncResult:
+    def _batch_records(self, records: List[VaultEdgeRecord], batch_size: int) -> Iterator[List[VaultEdgeRecord]]:
+        """Yield successive batches of records."""
+        for i in range(0, len(records), batch_size):
+            yield records[i:i + batch_size]
+
+    def update_links_on_file_move(self, old_uri: str, new_uri: str) -> int:
+        """Update vault DB when a file moves.
+
+        Args:
+            old_uri: Old file:// URI
+            new_uri: New file:// URI
+
+        Returns:
+            Number of links updated
+        """
+        with self._mongo_connection() as collection:
+            result = collection.update_many(
+                {"to_uri": old_uri},
+                {
+                    "$set": {
+                        "to_uri": new_uri,
+                        "status": STATUS_OK,  # Clear any missing_target status
+                        "last_updated": _now_iso(),
+                    }
+                },
+            )
+            return result.modified_count
+
+    def sync(self, batch_size: int = 1000, incremental: bool = False) -> VaultSyncResult:
+        """Sync vault links to MongoDB with batch processing.
+
+        Args:
+            batch_size: Number of records to process per batch (default 1000).
+                       Larger batches are faster but use more memory.
+                       Smaller batches are safer for very large vaults.
+            incremental: If True, use git to detect changed files and only scan those.
+                        If False, scan all files (default).
+
+        Returns:
+            VaultSyncResult with sync statistics
+        """
         scanner = VaultLinkScanner(self.vault)
-        records = scanner.scan()
+
+        # Determine which files to scan
+        files_to_scan = None
+        if incremental:
+            try:
+                from .git_watcher import GitVaultWatcher
+                watcher = GitVaultWatcher(self.vault.vault_path)
+                changes = watcher.get_changes()
+
+                if changes.has_changes:
+                    files_to_scan = list(changes.all_affected_files)
+                    logger.info(f"Git incremental scan: {len(files_to_scan)} changed files")
+                else:
+                    # No changes detected, return empty result
+                    logger.debug("No git changes detected, skipping scan")
+                    return VaultSyncResult(
+                        stats=VaultScanStats(
+                            notes_scanned=0,
+                            edge_total=0,
+                            type_counts={},
+                            status_counts={},
+                            errors=[],
+                        ),
+                        sync_started=_now_iso(),
+                        sync_duration_ms=0,
+                        deleted_records=0,
+                        upserts=0,
+                    )
+            except Exception as exc:
+                logger.warning(f"Git incremental scan failed, falling back to full scan: {exc}")
+                incremental = False
+
+        records = scanner.scan(files=files_to_scan)
         stats = scanner.stats
         started = time.perf_counter()
         started_iso = _now_iso()
 
-        client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
-        collection = client[self.db_name][self.coll_name]
+        with self._mongo_connection() as collection:
+            total_upserts = 0
 
-        ops: List[UpdateOne] = []
-        for record in records:
-            doc = record.to_document(seen_at_iso=started_iso)
-            ops.append(
-                UpdateOne(
-                    {"_id": record.identity},
-                    {
-                        "$set": doc,
-                        "$setOnInsert": {"first_seen": started_iso},
-                    },
-                    upsert=True,
-                )
+            # Process records in batches to avoid memory issues
+            for batch in self._batch_records(records, batch_size):
+                ops: List[UpdateOne] = []
+                for record in batch:
+                    doc = record.to_document(seen_at_iso=started_iso)
+                    ops.append(
+                        UpdateOne(
+                            {"_id": record.identity},
+                            {
+                                "$set": doc,
+                                "$setOnInsert": {"first_seen": started_iso},
+                            },
+                            upsert=True,
+                        )
+                    )
+
+                if ops:
+                    result = collection.bulk_write(ops, ordered=False)
+                    total_upserts += result.upserted_count + result.modified_count
+
+            deleted = collection.delete_many(
+                {"doc_type": DOC_TYPE_LINK, "last_seen": {"$lt": started_iso}}
+            ).deleted_count
+
+            result_summary = VaultSyncResult(
+                stats=stats,
+                sync_started=started_iso,
+                sync_duration_ms=int((time.perf_counter() - started) * 1000),
+                deleted_records=deleted,
+                upserts=total_upserts,
             )
-
-        upserts = 0
-        if ops:
-            result = collection.bulk_write(ops, ordered=False)
-            upserts = result.upserted_count + result.modified_count
-
-        deleted = collection.delete_many(
-            {"doc_type": "link", "last_seen": {"$lt": started_iso}}
-        ).deleted_count
-
-        result_summary = VaultSyncResult(
-            stats=stats,
-            sync_started=started_iso,
-            sync_duration_ms=int((time.perf_counter() - started) * 1000),
-            deleted_records=deleted,
-            upserts=upserts,
-        )
-        collection.replace_one({"_id": "__meta__"}, result_summary.to_meta_document(), upsert=True)
-        client.close()
+            collection.replace_one({"_id": META_DOCUMENT_ID}, result_summary.to_meta_document(), upsert=True)
 
         return result_summary
