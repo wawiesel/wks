@@ -14,10 +14,10 @@ from .mcp_bridge import MCPBroker
 from .mcp_paths import mcp_socket_path
 from .vault.obsidian import ObsidianVault
 from .vault.indexer import VaultLinkIndexer
-from .monitor import start_monitoring
+from .monitor import start_monitoring  # Filesystem monitoring (via monitor package)
 from .constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
 from .monitor_rules import MonitorRules
-from .monitor import MonitorConfig
+from .monitor import MonitorConfig  # Config class (from monitor package)
 from pymongo.collection import Collection
 from typing import Optional, Set, List, Dict, Any
 from pathlib import Path
