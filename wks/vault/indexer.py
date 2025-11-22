@@ -465,6 +465,27 @@ class VaultLinkIndexer:
         for i in range(0, len(records), batch_size):
             yield records[i:i + batch_size]
 
+    def has_references_to(self, file_path: Path) -> bool:
+        """Check if any vault notes reference this file.
+
+        Args:
+            file_path: Path to check for references
+
+        Returns:
+            True if vault has links pointing to this file
+        """
+        try:
+            # Convert path to the _links/ format used in vault
+            rel_path = self.vault._link_rel_for_source(file_path)
+            vault_uri = f"vault:///{rel_path}"
+
+            with self._mongo_connection() as coll:
+                # Check if any links point TO this file
+                count = coll.count_documents({"to_uri": vault_uri}, limit=1)
+                return count > 0
+        except Exception:
+            return False
+
     def update_links_on_file_move(self, old_uri: str, new_uri: str) -> int:
         """Update vault DB when a file moves.
 
