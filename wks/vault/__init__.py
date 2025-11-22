@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Type
 from ..config import load_config
 from ..constants import WKS_HOME_DISPLAY
 from ..utils import expand_path
+from .controller import VaultController
 from .obsidian import ObsidianVault
 
 VaultType = ObsidianVault  # Future types can extend Protocols/ABC
@@ -52,4 +53,4 @@ def load_vault(cfg: Optional[Dict[str, Any]] = None) -> ObsidianVault:
     raise SystemExit(f"Fatal: unsupported vault.type '{vault_type}'")
 
 
-__all__ = ["ObsidianVault", "load_vault"]
+__all__ = ["ObsidianVault", "VaultController", "load_vault"]

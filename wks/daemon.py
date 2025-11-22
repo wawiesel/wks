@@ -113,7 +113,8 @@ class WKSDaemon:
         self.vault = ObsidianVault(vault_path, base_dir=base_dir)
         vault_cfg = config.get("vault", {})
         self._vault_indexer = VaultLinkIndexer.from_config(self.vault, config)
-        self._vault_sync_interval = float(vault_cfg.get("update_frequency_seconds", 300.0))
+        # Git-based incremental scanning is fast, so we can check more frequently
+        self._vault_sync_interval = float(vault_cfg.get("update_frequency_seconds", 10.0))
         self._last_vault_sync = 0.0
         self.monitor_paths = [Path(p).expanduser().resolve() for p in monitor_paths]
         self.monitor_rules = monitor_rules
@@ -331,6 +332,36 @@ class WKSDaemon:
         except Exception:
             pass
 
+        # Update monitor DB - atomic move from old URI to new URI
+        if self.monitor_collection is not None and dest_is_file:
+            try:
+                old_uri = src.resolve().as_uri()
+                new_uri = dest.resolve().as_uri()
+
+                # Check if old URI exists in monitor DB
+                old_doc = self.monitor_collection.find_one({"path": old_uri})
+                if old_doc:
+                    # Update path to new URI (preserving other fields)
+                    self.monitor_collection.update_one(
+                        {"path": old_uri},
+                        {"$set": {"path": new_uri}},
+                    )
+                # If dest exists, ensure it's in monitor DB
+                self._update_monitor_db(dest)
+            except Exception as exc:
+                self._set_error(f"monitor_db_update_error: {exc}")
+
+        # Update vault DB - links pointing to moved file
+        if hasattr(self, "_vault_indexer") and self._vault_indexer and dest_is_file:
+            try:
+                old_uri = src.resolve().as_uri()
+                new_uri = dest.resolve().as_uri()
+                updated_count = self._vault_indexer.update_links_on_file_move(old_uri, new_uri)
+                if updated_count > 0:
+                    self._set_info(f"Updated {updated_count} vault links for moved file")
+            except Exception as exc:
+                self._set_error(f"vault_link_update_error: {exc}")
+
         # Update wiki links inside vault
         try:
             self.vault.update_vault_links_on_move(src, dest)
@@ -433,6 +464,9 @@ class WKSDaemon:
         self._acquire_lock()
         self.vault.ensure_structure()
 
+        # Install git hooks for vault link validation
+        self._install_vault_git_hooks()
+
         self.observer = start_monitoring(
             directories=self.monitor_paths,
             state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",  # Temporary default
@@ -504,6 +538,7 @@ class WKSDaemon:
                 # Flush pending deletes and periodic maintenance
                 self._maybe_flush_pending_deletes()
                 self._maybe_flush_pending_mods()
+                self._maybe_sync_vault_links()
                 self._write_health()
                 time.sleep(1)
         except KeyboardInterrupt:
@@ -641,7 +676,8 @@ class WKSDaemon:
         if now - getattr(self, "_last_vault_sync", 0.0) < self._vault_sync_interval:
             return
         try:
-            self._vault_indexer.sync()
+            # Use incremental git-based scanning for efficiency
+            self._vault_indexer.sync(incremental=True)
         except Exception as exc:
             self._set_error(f"vault_sync_error: {exc}")
         finally:
@@ -882,6 +918,31 @@ class WKSDaemon:
             except Exception:
                 return 0
         return 0
+
+    def _install_vault_git_hooks(self):
+        """Install git hooks for vault link validation."""
+        try:
+            from .vault.git_hooks import install_hooks, is_hook_installed
+
+            vault_path = self.vault.vault_path
+
+            # Check if already installed
+            if is_hook_installed(vault_path):
+                logger.debug("Git hooks already installed")
+                return
+
+            # Install hooks
+            if install_hooks(vault_path):
+                logger.info("Installed git hooks for vault link validation")
+            else:
+                logger.warning("Failed to install git hooks")
+
+        except RuntimeError as exc:
+            # Not a git repo - that's okay, just skip hook installation
+            logger.debug(f"Skipping git hook installation: {exc}")
+        except Exception as exc:
+            # Other errors - log but don't fail daemon startup
+            logger.warning(f"Error installing git hooks: {exc}")
 
 
 if __name__ == "__main__":

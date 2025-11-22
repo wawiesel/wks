@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, TextIO
 
 from .config import load_config
 from .monitor import MonitorController
+from .vault import VaultController
 
 
 class MCPServer:
@@ -160,13 +161,34 @@ class MCPServer:
                     },
                     "required": ["path", "priority"]
                 }
+            },
+            "wks_vault_status": {
+                "description": "Get vault link status summary including link counts, issues, and errors",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            "wks_vault_sync": {
+                "description": "Sync vault links to MongoDB with optional batch size",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "batch_size": {
+                            "type": "integer",
+                            "description": "Number of records to process per batch (default 1000)"
+                        }
+                    },
+                    "required": []
+                }
             }
         }
         self.resources = [
             {
                 "uri": "mcp://wks/tools",
-                "name": "wks-monitor-tools",
-                "description": "WKS monitor tooling available via tools/call",
+                "name": "wks-tools",
+                "description": "WKS monitor and vault tooling available via tools/call",
                 "type": "tool-collection"
             }
         ]
@@ -312,6 +334,10 @@ class MCPServer:
             ),
             "wks_monitor_managed_set_priority": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_set_priority(config, args["path"], args["priority"])
+            ),
+            "wks_vault_status": lambda config, args: self._tool_vault_status(config),
+            "wks_vault_sync": lambda config, args: self._tool_vault_sync(
+                config, args.get("batch_size", 1000)
             ),
         }
 
@@ -490,6 +516,14 @@ class MCPServer:
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
+
+    def _tool_vault_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute wks_vault_status tool."""
+        return VaultController.get_status(config)
+
+    def _tool_vault_sync(self, config: Dict[str, Any], batch_size: int) -> Dict[str, Any]:
+        """Execute wks_vault_sync tool."""
+        return VaultController.sync_vault(config, batch_size)
 
     def run(self) -> None:
         """Run MCP server main loop."""
