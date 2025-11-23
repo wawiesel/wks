@@ -83,6 +83,20 @@ def get_vault_db_config(cfg: dict) -> Tuple[str, str, str]:
     return uri, db_name, coll_name
 
 
+def get_transform_db_config(cfg: dict) -> Tuple[str, str, str]:
+    """Extract transform database configuration."""
+    db_config = cfg.get("db")
+    if not db_config:
+        raise KeyError("db section is required in config (found: missing, expected: db section with type and uri)")
+
+    uri = db_config.get("uri")
+    if not uri:
+        raise KeyError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
+
+    # Transform always uses wks.transform collection
+    return uri, "wks", "transform"
+
+
 def connect_to_mongo(uri: str, timeout_ms: int = 5000) -> MongoClient:
     """Connect to MongoDB with timeout.
 

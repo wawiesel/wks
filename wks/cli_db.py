@@ -2,7 +2,8 @@
 
 Per SPEC.md, database commands are organized by layer:
 - wks0 db monitor    -- Query filesystem monitoring database
-- wks0 db vault      -- Query knowledge graph links (future)
+- wks0 db vault      -- Query knowledge graph links
+- wks0 db transform  -- Query transform cache metadata
 - wks0 db related    -- Query similarity embeddings (future)
 - wks0 db index      -- Query search indices (future)
 """
@@ -14,6 +15,7 @@ from typing import Optional
 from .config import load_config
 from .db_helpers import (
     get_monitor_db_config,
+    get_transform_db_config,
     get_vault_db_config,
     connect_to_mongo,
 )
@@ -136,6 +138,13 @@ def _db_vault(args: argparse.Namespace) -> int:
     return _query_collection(uri, db_name, coll_name, args)
 
 
+def _db_transform(args: argparse.Namespace) -> int:
+    """Query the transform cache database."""
+    cfg = load_config()
+    uri, db_name, coll_name = get_transform_db_config(cfg)
+    return _query_collection(uri, db_name, coll_name, args)
+
+
 def _fetch_last_timestamp(coll) -> str:
     """Return the most recent timestamp-like field from a collection."""
     doc = coll.find_one({}, sort=[("$natural", -1)])
@@ -209,6 +218,10 @@ def setup_db_parser(subparsers) -> argparse.ArgumentParser:
     vault = dbsub.add_parser("vault", help="Query Obsidian vault link database")
     _add_query_args(vault)
     vault.set_defaults(func=_db_vault)
+
+    transform = dbsub.add_parser("transform", help="Query transform cache database")
+    _add_query_args(transform)
+    transform.set_defaults(func=_db_transform)
 
     status = dbsub.add_parser("status", help="Show configured database statistics")
     status.set_defaults(func=_db_status)
