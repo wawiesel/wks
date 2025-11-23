@@ -15,6 +15,7 @@ from .mcp_paths import mcp_socket_path
 from .vault.obsidian import ObsidianVault
 from .vault.indexer import VaultLinkIndexer
 from .monitor import start_monitoring  # Filesystem monitoring (via monitor package)
+from .transform import TransformController
 from .constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
 from .monitor_rules import MonitorRules
 from .monitor import MonitorConfig  # Config class (from monitor package)
@@ -152,6 +153,20 @@ class WKSDaemon:
         self.monitor_collection = monitor_collection
         self._mcp_broker: Optional[MCPBroker] = None
         self._mcp_socket = mcp_socket_path()
+
+        # Initialize transform controller if transform config exists
+        self._transform_controller: Optional[TransformController] = None
+        if mongo_uri and "transform" in config:
+            try:
+                from .db import get_db
+                transform_cfg = config["transform"]
+                cache_cfg = transform_cfg.get("cache", {})
+                cache_location = expand_path(cache_cfg.get("location", ".wks/transform/cache"))
+                max_size_bytes = cache_cfg.get("max_size_bytes", 1073741824)
+                db = get_db(config)
+                self._transform_controller = TransformController(db, cache_location, max_size_bytes)
+            except Exception:
+                pass
 
     @staticmethod
     def _get_touch_weight(raw_weight: Any) -> float:
@@ -361,6 +376,17 @@ class WKSDaemon:
                     self._set_info(f"Updated {updated_count} vault links for moved file")
             except Exception as exc:
                 self._set_error(f"vault_link_update_error: {exc}")
+
+        # Update transform DB - file URI changed
+        if self._transform_controller and dest_is_file:
+            try:
+                old_uri = src.resolve().as_uri()
+                new_uri = dest.resolve().as_uri()
+                updated_count = self._transform_controller.update_uri(old_uri, new_uri)
+                if updated_count > 0:
+                    self._set_info(f"Updated {updated_count} transform cache entries for moved file")
+            except Exception as exc:
+                self._set_error(f"transform_db_update_error: {exc}")
 
         # Update wiki links inside vault
         try:
@@ -626,6 +652,16 @@ class WKSDaemon:
 
                 self._remove_from_monitor_db(p)
 
+                # Remove from transform DB - file no longer exists
+                if self._transform_controller:
+                    try:
+                        file_uri = p.resolve().as_uri()
+                        removed_count = self._transform_controller.remove_by_uri(file_uri)
+                        if removed_count > 0:
+                            self._set_info(f"Removed {removed_count} transform cache entries for deleted file")
+                    except Exception as exc:
+                        self._set_error(f"transform_db_delete_error: {exc}")
+
                 # Only mark deletion if vault files actually reference this file
                 # Check: does this file participate in any vault links?
                 try:
@@ -667,6 +703,16 @@ class WKSDaemon:
                     except Exception as e:
                         self._set_error(f"ops_log_error: {e}")
                     self._update_monitor_db(p)
+
+                    # Remove from transform DB if modified - content changed invalidates cache
+                    if etype == "modified" and self._transform_controller:
+                        try:
+                            file_uri = p.resolve().as_uri()
+                            removed_count = self._transform_controller.remove_by_uri(file_uri)
+                            if removed_count > 0:
+                                self._set_info(f"Removed {removed_count} transform cache entries for modified file")
+                        except Exception as exc:
+                            self._set_error(f"transform_db_modified_error: {exc}")
                 self._pending_mods.pop(pstr, None)
             except Exception:
                 try:

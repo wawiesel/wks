@@ -125,7 +125,7 @@ Stored at `~/.wks/config.json`
 
   "diff": {
     "engines": {
-      "bdiff3": {
+      "bsdiff3": {
         "enabled": true
       },
       "myers": {
@@ -521,7 +521,7 @@ def on_file_moved(event):
 
 **Engine Classes**:
 1. **Binary** — Operates on bytes directly
-   - `bdiff3` — Binary diff using bsdiff3 algorithm
+   - `bsdiff3` — Binary diff using bsdiff3 algorithm
    - No content type requirements
 
 2. **Text** — Operates on text with supported encodings
@@ -530,7 +530,7 @@ def on_file_moved(event):
    - Fails fast if file is not text/supported type
 
 **Commands**:
-- `wks0 diff bdiff3 file1.bin file2.bin` — binary diff
+- `wks0 diff bsdiff3 file1.bin file2.bin` — binary diff
 - `wks0 diff myers file1.txt file2.txt` — text diff
 - `wks0 diff myers <checksum_a> <checksum_b>` — diff cached transforms
 - `wks0 diff myers $(wks0 transform docling a.pdf) $(wks0 transform docling b.pdf)` — compose with transform
