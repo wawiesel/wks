@@ -24,8 +24,14 @@ WKS is built as a stack of independent, composable layers:
                          ↓
 ┌─────────────────────────────────────────────────────┐
 │  Semantic Engines (pluggable)                        │
-│  Related | Diff | Extract                            │
+│  Related | Diff                                      │
 │  Each with _router for engine selection              │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│  Transform Layer                                     │
+│  Binary → Text conversion with caching               │
+│  DB: wks.transform, Cache: 1GB LRU                   │
 └─────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────┐
@@ -101,53 +107,31 @@ Stored at `~/.wks/config.json`
     "uri": "mongodb://localhost:27017/"
   },
 
-  "extract": {
-    "output_dir_rules": {
-      "resolve_symlinks": true,
-      "git_parent": true,
-      "underscore_sibling": true
+  "transform": {
+    "cache": {
+      "max_size_bytes": 1073741824,
+      "location": ".wks/transform/cache"
     },
     "engines": {
       "docling": {
         "enabled": true,
-        "is_default": true,
         "ocr": false,
         "timeout_secs": 30,
+        "max_chars": -1,
         "write_extension": "md"
-      },
-      "builtin": {
-        "enabled": true,
-        "max_chars": 200000
       }
-    },
-    "_router": {
-      "rules": [
-        {"extensions": [".pdf", ".docx", ".pptx"], "engine": "docling"},
-        {"extensions": [".txt", ".md", ".py"], "engine": "builtin"}
-      ],
-      "fallback": "builtin"
     }
   },
 
   "diff": {
     "engines": {
-      "bdiff": {
-        "enabled": true,
-        "is_default": true,
-        "algorithm": "bsdiff"
+      "bdiff3": {
+        "enabled": true
       },
-      "text": {
+      "myers": {
         "enabled": true,
-        "algorithm": "unified",
         "context_lines": 3
       }
-    },
-    "_router": {
-      "rules": [
-        {"extensions": [".txt", ".md", ".py", ".json"], "engine": "text"},
-        {"mime_prefix": "text/", "engine": "text"}
-      ],
-      "fallback": "bdiff"
     }
   },
 
@@ -485,43 +469,83 @@ def on_file_moved(event):
 - `wks0 vault sync` — force immediate vault sync (normally automatic)
 - `wks0 db vault` — query the underlying collection
 
-### Extract Layer
+### Transform Layer
 
-**Purpose**: Convert documents to plain text with pluggable engines
+**Purpose**: Binary → Text conversion with caching (not extraction)
+
+**Database**: `wks.transform` collection
+- `file_uri` — File URI (file:// scheme)
+- `checksum` — SHA-256 of original file content
+- `size_bytes` — Original file size
+- `last_accessed` — ISO timestamp of last cache access
+- `created_at` — ISO timestamp of transform creation
+- `engine` — Transform engine name (e.g., "docling")
+- `options_hash` — Hash of engine options used
+- `cache_location` — Path to cached transformed file
+
+**Cache**:
+- Location: `.wks/transform/cache/`
+- Max size: 1GB (configurable via `transform.cache.max_size_bytes`)
+- Eviction: LRU (least recently used)
+- Cache key: `hash(file_content + engine + options)`
+- Format: `<cache_dir>/<checksum>.<extension>`
+
+**Cache Management**:
+- Simple JSON file (`.wks/transform/cache.json`) tracks total cache size
+- On new transform: check if adding size exceeds limit
+- If would exceed: query DB for oldest files (by `last_accessed`), evict until space available
+- Update JSON with new total size
 
 **Engines**:
 - `docling` — PDF, DOCX, PPTX via IBM Docling
-- `builtin` — Plain text files
+  - Config: `max_chars: -1` (infinite for full documents)
+  - Default output: markdown
 
-**Router**: `_router` selects engine based on file extension
-
-**Output Location Rules** (applied in order):
-1. **Resolve symlinks**: Get real path before applying other rules
-2. **Git parent**: If file is in git repo, place `.wkso/` above repo root
-3. **Underscore sibling**: If any path component starts with `_`, place `.wkso/` as sibling to topmost `_`-prefixed directory
-4. **Default**: Place `.wkso/` as sibling to source file
-
-**Output Format**: `<.wkso_dir>/<checksum>.<extension>`
+**Monitor Integration**:
+- File moved: update `file_uri` in transform DB
+- File modified/deleted: remove entry from transform DB
 
 **Commands**:
-- `wks0 extract <file>` — extract file with default engine
-- `wks0 extract <file> --engine builtin` — force specific engine
+- `wks0 transform docling file.pdf` — transform and output cache checksum
+- `wks0 transform docling file.pdf -o output.md` — transform and write to file
+- `wks0 db transform` — query transform database
 
-**MCP Integration**: Extract engines can be exposed as MCP tools
+**Notes**:
+- No router, no defaults — explicit engine required
+- Transform is cached conversion, not data extraction
+- Each engine supports different options
 
 ### Diff Layer
 
 **Purpose**: Calculate differences between file versions
 
-**Engines**:
-- `bdiff` — Binary diff (bsdiff algorithm)
-- `text` — Unified text diff
+**Engine Classes**:
+1. **Binary** — Operates on bytes directly
+   - `bdiff3` — Binary diff using bsdiff3 algorithm
+   - No content type requirements
 
-**Router**: `_router` selects engine based on file type
+2. **Text** — Operates on text with supported encodings
+   - `myers` — Text diff using Myers algorithm
+   - Requires text content or supported encoding
+   - Fails fast if file is not text/supported type
 
 **Commands**:
-- `wks0 diff <file1> <file2>` — diff with default engine
-- `wks0 diff <file1> <file2> --engine text` — force specific engine
+- `wks0 diff bdiff3 file1.bin file2.bin` — binary diff
+- `wks0 diff myers file1.txt file2.txt` — text diff
+- `wks0 diff myers <checksum_a> <checksum_b>` — diff cached transforms
+- `wks0 diff myers $(wks0 transform docling a.pdf) $(wks0 transform docling b.pdf)` — compose with transform
+
+**Engine Options**:
+- Each engine supports different options
+- Examples: `--context-lines`, `--output-format`
+- No standard diff result format (engine-specific)
+
+**Notes**:
+- No auto-transform — explicit engine and files only
+- No router, no defaults
+- Fail immediately if content type doesn't match engine requirements
+- No database for diff operations
+- Diff operates on original file formats or explicit transforms
 
 **MCP Integration**: Diff engines can be exposed as MCP tools
 
@@ -587,12 +611,14 @@ All layers store data in MongoDB:
 # Query databases
 wks0 db monitor              # Filesystem state
 wks0 db vault                # Knowledge graph links
+wks0 db transform            # Transform cache metadata
 wks0 db related              # Similarity embeddings
 wks0 db index                # Search indices
 
 # Reset databases (destructive)
 wks0 db reset monitor        # Clear filesystem state
 wks0 db reset vault          # Clear link graph
+wks0 db reset transform      # Clear transform cache and DB
 wks0 db reset related        # Clear embeddings
 wks0 db reset index          # Clear all indices
 ```
@@ -702,13 +728,13 @@ All write operations save to config file and notify to restart service.
 
 ### Semantic Engine Tools
 
-**Extract Tools**:
-- `wks_extract` — extract document to plain text
-- Parameters: `path`, `engine` (optional)
+**Transform Tools**:
+- `wks_transform` — transform document to text
+- Parameters: `path`, `engine` (required), `output` (optional)
 
 **Diff Tools**:
 - `wks_diff` — compare two files
-- Parameters: `path1`, `path2`, `engine` (optional)
+- Parameters: `path1`, `path2`, `engine` (required)
 
 **Related Tools**:
 - `wks_related` — find similar documents
