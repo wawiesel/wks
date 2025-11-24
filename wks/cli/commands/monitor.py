@@ -168,94 +168,33 @@ def build_monitor_status_table_data(
     Returns:
         List of (key, value) tuples for monitor status data, including files and last touch
     """
-    # Color constants for consistent styling
-    COLOR_FILES_KEY = "bold purple"
-    COLOR_FILES_VALUE = "purple"
-    COLOR_LAST_TOUCH_KEY = "bold green"
-    COLOR_LAST_TOUCH_VALUE = "green"
-    COLOR_HEADING = "bold cyan"
-    COLOR_PATH_BG = "on gray30"
+    from .monitor_status_helpers import (
+        MonitorStatusDisplayData,
+        build_files_and_touch_rows,
+        build_managed_dirs_rows,
+        build_paths_rows,
+        build_dirnames_globs_rows,
+    )
 
     # Get last touch time
     last_touch = get_last_touch_time(config) or "Never"
 
-    rows = []
-    # Add files and last touch at the top
-    rows.append((f"[{COLOR_FILES_KEY}]files[/{COLOR_FILES_KEY}]", f"[{COLOR_FILES_VALUE}]{str(total_files)}[/{COLOR_FILES_VALUE}]"))
-    rows.append((f"[{COLOR_LAST_TOUCH_KEY}]last touch[/{COLOR_LAST_TOUCH_KEY}]", f"[{COLOR_LAST_TOUCH_VALUE}]{last_touch}[/{COLOR_LAST_TOUCH_VALUE}]"))
-    rows.append(("", ""))  # Empty row separator
-
-    # Managed directories
-    rows.append((f"[{COLOR_HEADING}]managed_directories[/{COLOR_HEADING}]", str(len(managed_dirs_dict))))
+    # Calculate problematic paths and alignment once
     red_paths, yellow_paths = build_problematic_paths(issues, redundancies, managed_dirs_dict, include_paths, exclude_paths)
     max_pip_count, max_num_width = calculate_priority_alignment(managed_dirs_dict)
-
-    # Ensure we have minimum values to avoid division by zero
     max_pip_count = max(max_pip_count, 1)
     max_num_width = max(max_num_width, 1)
 
-    for path, path_info in sorted(managed_dirs_dict.items(), key=lambda x: -x[1].priority):
-        priority = path_info.priority
-        is_valid = path_info.valid
-        error_msg = path_info.error
-
-        pip_count = 1 if priority <= 1 else int(math.log10(priority)) + 1
-        pips = "▪" * pip_count
-        status_symbol = MonitorValidator.status_symbol(error_msg, is_valid)
-        priority_display = f"{pips.ljust(max_pip_count)} {str(priority).rjust(max_num_width)} {status_symbol}"
-        rows.append((f"  [{COLOR_PATH_BG}]{path}[/{COLOR_PATH_BG}]", priority_display))
-
-    rows.append(("", ""))
-
-    # Include paths
-    rows.append((f"[{COLOR_HEADING}]include_paths[/{COLOR_HEADING}]", str(len(include_paths))))
-    for path in sorted(include_paths):
-        error_msg = None if path not in (red_paths | yellow_paths) else "issue"
-        is_valid = path not in red_paths
-        rows.append((f"  [{COLOR_PATH_BG}]{path}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
-
-    rows.append(("", ""))
-
-    # Exclude paths
-    rows.append((f"[{COLOR_HEADING}]exclude_paths[/{COLOR_HEADING}]", str(len(exclude_paths))))
-    for path in sorted(exclude_paths):
-        error_msg = None if path not in (red_paths | yellow_paths) else "issue"
-        is_valid = path not in red_paths
-        rows.append((f"  [{COLOR_PATH_BG}]{path}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
-
-    rows.append(("", ""))
-
-    # Directory rules
-    rows.append((f"[{COLOR_HEADING}]include_dirnames[/{COLOR_HEADING}]", str(len(status_data.include_dirnames))))
-    for dirname in status_data.include_dirnames:
-        validation_info = status_data.include_dirname_validation.get(dirname, {})
-        error_msg = validation_info.get("error")
-        is_valid = validation_info.get("valid", True)
-        rows.append((f"  [{COLOR_PATH_BG}]{dirname}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
-
-    rows.append(("", ""))
-    rows.append((f"[{COLOR_HEADING}]exclude_dirnames[/{COLOR_HEADING}]", str(len(status_data.exclude_dirnames))))
-    for dirname in status_data.exclude_dirnames:
-        validation_info = status_data.exclude_dirname_validation.get(dirname, {})
-        error_msg = validation_info.get("error")
-        is_valid = validation_info.get("valid", True)
-        rows.append((f"  [{COLOR_PATH_BG}]{dirname}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
-
-    rows.append(("", ""))
-    rows.append((f"[{COLOR_HEADING}]include_globs[/{COLOR_HEADING}]", str(len(status_data.include_globs))))
-    for pattern in status_data.include_globs:
-        validation_info = status_data.include_glob_validation.get(pattern, {})
-        error_msg = validation_info.get("error")
-        is_valid = validation_info.get("valid", True)
-        rows.append((f"  [{COLOR_PATH_BG}]{pattern}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
-
-    rows.append(("", ""))
-    rows.append((f"[{COLOR_HEADING}]exclude_globs[/{COLOR_HEADING}]", str(len(status_data.exclude_globs))))
-    for pattern in status_data.exclude_globs:
-        validation_info = status_data.exclude_glob_validation.get(pattern, {})
-        error_msg = validation_info.get("error")
-        is_valid = validation_info.get("valid", True)
-        rows.append((f"  [{COLOR_PATH_BG}]{pattern}[/{COLOR_PATH_BG}]", MonitorValidator.status_symbol(error_msg, is_valid)))
+    # Build all sections
+    rows = []
+    rows.extend(build_files_and_touch_rows(total_files, last_touch))
+    rows.extend(build_managed_dirs_rows(managed_dirs_dict, red_paths, yellow_paths, max_pip_count, max_num_width))
+    rows.extend(build_paths_rows(include_paths, "include_paths", red_paths, yellow_paths))
+    rows.extend(build_paths_rows(exclude_paths, "exclude_paths", red_paths, yellow_paths))
+    rows.extend(build_dirnames_globs_rows(status_data.include_dirnames, "include_dirnames", status_data.include_dirname_validation))
+    rows.extend(build_dirnames_globs_rows(status_data.exclude_dirnames, "exclude_dirnames", status_data.exclude_dirname_validation))
+    rows.extend(build_dirnames_globs_rows(status_data.include_globs, "include_globs", status_data.include_glob_validation))
+    rows.extend(build_dirnames_globs_rows(status_data.exclude_globs, "exclude_globs", status_data.exclude_glob_validation))
 
     return rows
 
