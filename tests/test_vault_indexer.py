@@ -67,11 +67,11 @@ def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
     assert result.stats.edge_total == 2
     mongo_coll = patched_mongo["wks"]["vault"]
     edge = mongo_coll.find_one({"doc_type": "link", "link_type": LINK_TYPE_WIKILINK})
-    assert edge["from"] == "Projects/Demo.md"
     assert edge["from_uri"] == "vault:///Projects/Demo.md"
-    assert edge["to"] == "_links/papers/paper.pdf"
     assert edge["raw_target"] == "_links/papers/paper.pdf"
     assert edge["to_uri"].startswith("file:///")  # Resolved filesystem URI
+    assert "from" not in edge
+    assert "to" not in edge
     assert edge["status"] == STATUS_OK
     # Removed fields should not exist
     assert "links_rel" not in edge

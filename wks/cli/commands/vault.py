@@ -239,6 +239,216 @@ def vault_validate_cmd(args: argparse.Namespace) -> int:
         return 2
 
 
+def vault_links_cmd(args: argparse.Namespace) -> int:
+    """Show all links to and from a specific file."""
+    from pathlib import Path
+    from ...utils import expand_path
+    from ...db_helpers import get_vault_db_config, connect_to_mongo
+    from ...uri_utils import convert_to_uri
+    from ...monitor import MonitorController
+
+    cfg = load_config()
+    display = getattr(args, "display_obj", None)
+
+    try:
+        # Get vault configuration
+        vault_cfg = cfg.get("vault", {})
+        vault_path_str = vault_cfg.get("base_dir")
+        if not vault_path_str:
+            if display:
+                display.error("vault.base_dir not configured")
+            else:
+                print("Error: vault.base_dir not configured")
+            return 2
+
+        vault_path = expand_path(vault_path_str)
+
+        # Expand and normalize the file path
+        file_path = expand_path(args.file_path)
+
+        # Check if file exists
+        if not file_path.exists():
+            if display:
+                display.error(f"File does not exist: {file_path}")
+            else:
+                print(f"Error: File does not exist: {file_path}")
+            return 2
+
+        # Check if file is monitored
+        try:
+            monitor_info = MonitorController.check_path(cfg, str(file_path))
+            is_monitored = monitor_info.get("is_monitored", False)
+            priority = monitor_info.get("priority", 0) if is_monitored else None
+        except Exception as e:
+            # If monitoring check fails, just skip it
+            is_monitored = False
+            priority = None
+
+        # Convert to URI using central conversion function
+        target_uri = convert_to_uri(file_path, vault_path)
+
+        # Determine if target is external (non-vault)
+        is_external = not target_uri.startswith("vault:///")
+
+        # Also get version without .md extension for fallback matching
+        if target_uri.endswith('.md'):
+            target_uri_no_ext = target_uri[:-3]
+        else:
+            target_uri_no_ext = target_uri
+
+        # Connect to database
+        uri, db_name, coll_name = get_vault_db_config(cfg)
+        client = connect_to_mongo(uri)
+        coll = client[db_name][coll_name]
+
+        # Query for links FROM this file (only for vault files)
+        links_from = []
+        show_from = (not args.to_only) and (not is_external)
+        if show_from:
+            from_query = {
+                "doc_type": "link",
+                "$or": [
+                    {"from_uri": target_uri},
+                    {"from_uri": target_uri_no_ext}
+                ]
+            }
+            links_from = list(coll.find(from_query))
+
+        # Query for links TO this file (URI-only, no legacy path fallbacks)
+        links_to = []
+        show_to = not args.from_only
+        if show_to:
+            to_query = {
+                "doc_type": "link",
+                "$or": [
+                    {"to_uri": target_uri},
+                    {"to_uri": target_uri_no_ext}
+                ]
+            }
+            links_to = list(coll.find(to_query))
+
+        client.close()
+
+        # Fallback: if DB has no matches, scan vault markdown directly (avoids stale DB)
+        need_fallback = (show_from and not links_from) or (show_to and not links_to)
+        if need_fallback:
+            try:
+                from ...vault.obsidian import ObsidianVault
+                from ...vault.indexer import VaultLinkScanner
+
+                fallback_vault = ObsidianVault(vault_path, base_dir=vault_cfg.get("wks_dir", "WKS"))
+                scanner = VaultLinkScanner(fallback_vault)
+                records = scanner.scan()
+
+                if show_from and not links_from:
+                    links_from = [
+                        {
+                            "to_uri": rec.to_uri,
+                            "link_type": rec.link_type,
+                            "line_number": rec.line_number,
+                            "alias_or_text": rec.alias_or_text,
+                            "source_heading": rec.source_heading,
+                            "raw_line": rec.raw_line,
+                        }
+                        for rec in records
+                        if rec.from_uri in (target_uri, target_uri_no_ext)
+                    ]
+
+                if show_to and not links_to:
+                    links_to = [
+                        {
+                            "from_uri": rec.from_uri,
+                            "link_type": rec.link_type,
+                            "line_number": rec.line_number,
+                            "source_heading": rec.source_heading,
+                            "raw_line": rec.raw_line,
+                        }
+                        for rec in records
+                        if rec.to_uri in (target_uri, target_uri_no_ext)
+                    ]
+            except Exception:
+                pass
+
+        # Display results
+        if display:
+            display.info(f"Links for: {target_uri}")
+            if is_monitored and priority is not None:
+                display.success(f"✓ File IS monitored (priority: {priority})")
+            else:
+                display.warning(f"✗ File NOT monitored")
+            display.info("")
+
+            if show_from:
+                display.info(f"Links FROM this file ({len(links_from)}):")
+                if links_from:
+                    for link in links_from:
+                        to_display = link.get('to_uri', '-')
+                        link_type = link.get('link_type', '-')
+                        line_num = link.get('line_number', '-')
+                        alias = link.get('alias_or_text', '')
+                        alias_str = f" (alias: {alias})" if alias else ""
+                        display.info(f"  → {to_display} [{link_type}] (line {line_num}){alias_str}")
+                else:
+                    display.warning("  (no outgoing links)")
+
+            if show_to:
+                display.info(f"\nLinks TO this file ({len(links_to)}):")
+                if links_to:
+                    for link in links_to:
+                        from_display = link.get('from_uri', '-')
+                        link_type = link.get('link_type', '-')
+                        line_num = link.get('line_number', '-')
+                        heading = link.get('source_heading', '')
+                        heading_str = f" (in section: {heading})" if heading else ""
+                        display.info(f"  ← {from_display} [{link_type}] (line {line_num}){heading_str}")
+                else:
+                    display.warning("  (no incoming links)")
+
+        else:
+            # Plain text output
+            print(f"Links for: {target_uri}")
+            if is_monitored and priority is not None:
+                print(f"✓ File IS monitored (priority: {priority})")
+            else:
+                print(f"✗ File NOT monitored")
+            print()
+
+            if show_from:
+                print(f"Links FROM this file ({len(links_from)}):")
+                if links_from:
+                    for link in links_from:
+                        to_display = link.get('to_uri', '-')
+                        link_type = link.get('link_type', '-')
+                        line_num = link.get('line_number', '-')
+                        alias = link.get('alias_or_text', '')
+                        alias_str = f" (alias: {alias})" if alias else ""
+                        print(f"  → {to_display} [{link_type}] (line {line_num}){alias_str}")
+                else:
+                    print("  (no outgoing links)")
+
+            if show_to:
+                print(f"\nLinks TO this file ({len(links_to)}):")
+                if links_to:
+                    for link in links_to:
+                        from_display = link.get('from_uri', '-')
+                        link_type = link.get('link_type', '-')
+                        line_num = link.get('line_number', '-')
+                        heading = link.get('source_heading', '')
+                        heading_str = f" (in section: {heading})" if heading else ""
+                        print(f"  ← {from_display} [{link_type}] (line {line_num}){heading_str}")
+                else:
+                    print("  (no incoming links)")
+
+        return 0
+
+    except Exception as exc:
+        if display:
+            display.error(f"Failed to query links: {exc}")
+        else:
+            print(f"Error: {exc}")
+        return 2
+
+
 def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
     """Auto-create missing _links/ symlinks for all vault references."""
     from ...vault.obsidian import ObsidianVault
@@ -339,6 +549,12 @@ def setup_vault_parser(subparsers) -> None:
 
     fix_symlinks = vault_sub.add_parser("fix-symlinks", help="Auto-create missing _links/ symlinks")
     fix_symlinks.set_defaults(func=vault_fix_symlinks_cmd)
+
+    links = vault_sub.add_parser("links", help="Show all links to and from a specific file")
+    links.add_argument("file_path", help="Path to the vault file (e.g., ~/_vault/Projects/XYZ.md)")
+    links.add_argument("--to", dest="to_only", action="store_true", help="Show only links TO this file")
+    links.add_argument("--from", dest="from_only", action="store_true", help="Show only links FROM this file")
+    links.set_defaults(func=vault_links_cmd)
 
 
 def _build_status_rows(summary):

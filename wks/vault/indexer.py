@@ -91,15 +91,10 @@ class VaultEdgeRecord:
         return _identity(self.note_path, self.line_number, self.to_uri)
 
     def to_document(self, seen_at_iso: str) -> Dict[str, object]:
-        # Extract clean target without alias for 'to' field
-        target_clean = self.raw_target.split("|")[0].strip() if "|" in self.raw_target else self.raw_target
-
         return {
             "_id": self.identity,
             "doc_type": DOC_TYPE_LINK,
-            "from": self.note_path,
             "from_uri": self.from_uri,
-            "to": target_clean,
             "to_uri": self.to_uri,
             "line_number": self.line_number,
             "source_heading": self.source_heading,
@@ -489,15 +484,18 @@ class VaultLinkIndexer:
     def update_links_on_file_move(self, old_uri: str, new_uri: str) -> int:
         """Update vault DB when a file moves.
 
+        Updates both from_uri and to_uri fields where they reference the moved file.
+
         Args:
-            old_uri: Old file:// URI
-            new_uri: New file:// URI
+            old_uri: Old file:// or vault:/// URI
+            new_uri: New file:// or vault:/// URI
 
         Returns:
             Number of links updated
         """
         with self._mongo_connection() as collection:
-            result = collection.update_many(
+            # Update links TO the moved file
+            result_to = collection.update_many(
                 {"to_uri": old_uri},
                 {
                     "$set": {
@@ -507,7 +505,19 @@ class VaultLinkIndexer:
                     }
                 },
             )
-            return result.modified_count
+
+            # Update links FROM the moved file
+            result_from = collection.update_many(
+                {"from_uri": old_uri},
+                {
+                    "$set": {
+                        "from_uri": new_uri,
+                        "last_updated": _now_iso(),
+                    }
+                },
+            )
+
+            return result_to.modified_count + result_from.modified_count
 
     def sync(self, batch_size: int = 1000, incremental: bool = False) -> VaultSyncResult:
         """Sync vault links to MongoDB with batch processing.

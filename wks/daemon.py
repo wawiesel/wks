@@ -158,12 +158,15 @@ class WKSDaemon:
         self._transform_controller: Optional[TransformController] = None
         if mongo_uri and "transform" in config:
             try:
-                from .db import get_db
+                from pymongo import MongoClient
+                from .db_helpers import get_transform_db_config
                 transform_cfg = config["transform"]
                 cache_cfg = transform_cfg.get("cache", {})
                 cache_location = expand_path(cache_cfg.get("location", ".wks/transform/cache"))
                 max_size_bytes = cache_cfg.get("max_size_bytes", 1073741824)
-                db = get_db(config)
+                uri, db_name, coll_name = get_transform_db_config(config)
+                client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+                db = client[db_name]
                 self._transform_controller = TransformController(db, cache_location, max_size_bytes)
             except Exception:
                 pass
@@ -347,30 +350,42 @@ class WKSDaemon:
         except Exception:
             pass
 
+        # Convert paths to appropriate URIs (vault:/// for vault files, file:/// otherwise)
+        from .uri_utils import convert_to_uri
+        vault_base = None
+        try:
+            vault_cfg = self.config.get("vault", {})
+            if vault_cfg.get("base_dir"):
+                vault_base = Path(vault_cfg["base_dir"]).expanduser().resolve()
+        except Exception:
+            pass
+
+        old_uri = convert_to_uri(src, vault_base)
+        new_uri = convert_to_uri(dest, vault_base)
+
         # Update monitor DB - atomic move from old URI to new URI
         if self.monitor_collection is not None and dest_is_file:
             try:
-                old_uri = src.resolve().as_uri()
-                new_uri = dest.resolve().as_uri()
+                # Monitor DB always uses file:/// URIs
+                old_file_uri = src.resolve().as_uri()
+                new_file_uri = dest.resolve().as_uri()
 
                 # Check if old URI exists in monitor DB
-                old_doc = self.monitor_collection.find_one({"path": old_uri})
+                old_doc = self.monitor_collection.find_one({"path": old_file_uri})
                 if old_doc:
                     # Update path to new URI (preserving other fields)
                     self.monitor_collection.update_one(
-                        {"path": old_uri},
-                        {"$set": {"path": new_uri}},
+                        {"path": old_file_uri},
+                        {"$set": {"path": new_file_uri}},
                     )
                 # If dest exists, ensure it's in monitor DB
                 self._update_monitor_db(dest)
             except Exception as exc:
                 self._set_error(f"monitor_db_update_error: {exc}")
 
-        # Update vault DB - links pointing to moved file
+        # Update vault DB - links pointing to/from moved file
         if hasattr(self, "_vault_indexer") and self._vault_indexer and dest_is_file:
             try:
-                old_uri = src.resolve().as_uri()
-                new_uri = dest.resolve().as_uri()
                 updated_count = self._vault_indexer.update_links_on_file_move(old_uri, new_uri)
                 if updated_count > 0:
                     self._set_info(f"Updated {updated_count} vault links for moved file")
@@ -380,9 +395,10 @@ class WKSDaemon:
         # Update transform DB - file URI changed
         if self._transform_controller and dest_is_file:
             try:
-                old_uri = src.resolve().as_uri()
-                new_uri = dest.resolve().as_uri()
-                updated_count = self._transform_controller.update_uri(old_uri, new_uri)
+                # Transform DB uses file:/// URIs
+                old_file_uri = src.resolve().as_uri()
+                new_file_uri = dest.resolve().as_uri()
+                updated_count = self._transform_controller.update_uri(old_file_uri, new_file_uri)
                 if updated_count > 0:
                     self._set_info(f"Updated {updated_count} transform cache entries for moved file")
             except Exception as exc:

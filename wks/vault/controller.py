@@ -34,6 +34,9 @@ class VaultController:
     def _collect_missing_links(self) -> Tuple[Set[Tuple[str, Path]], int]:
         """Scan vault and collect missing _links/ references.
 
+        Ensures every link is normalized to include the machine prefix by
+        rewriting notes in-place when necessary.
+
         Returns:
             (set of (rel_path, symlink_path), notes_scanned)
         """
@@ -44,17 +47,60 @@ class VaultController:
             notes_scanned += 1
             try:
                 text = note_path.read_text(encoding="utf-8")
-                for link in parse_wikilinks(text):
-                    target = link.target
-                    if target.startswith("_links/"):
-                        # Extract relative path after _links/
-                        rel_path = target[len("_links/"):]
-                        symlink_path = self.vault.links_dir / rel_path
-
-                        if not symlink_path.exists():
-                            links_to_create.add((rel_path, symlink_path))
             except Exception:
                 continue
+
+            lines = text.splitlines()
+            updated = False
+
+            for link in parse_wikilinks(text):
+                target = link.target
+                if not target.startswith("_links/"):
+                    continue
+
+                rel_path = target[len("_links/"):]
+                normalized_rel = rel_path.lstrip("/")
+
+                # Always prefix with this machine name
+                if not normalized_rel.startswith(f"{self.machine}/"):
+                    normalized_rel = f"{self.machine}/{normalized_rel}"
+
+                remainder = Path(*Path(normalized_rel).parts[1:])
+                root_like = {"Users", "private", "var", "tmp"}
+                if remainder.parts and remainder.parts[0] not in root_like:
+                    home_rel = Path.home().relative_to(Path("/"))
+                    remainder = home_rel / remainder
+                    normalized_rel = f"{self.machine}/{remainder.as_posix()}"
+
+                # Rebuild the wikilink target (preserve alias) if changed
+                desired_target = f"_links/{normalized_rel}"
+                new_inner = desired_target
+                if link.alias:
+                    new_inner = f"{new_inner}|{link.alias}"
+
+                old_markup = f"{'!' if link.is_embed else ''}[[{link.raw_target}]]"
+                new_markup = f"{'!' if link.is_embed else ''}[[{new_inner}]]"
+                if old_markup != new_markup:
+                    line_idx = link.line_number - 1
+                    if 0 <= line_idx < len(lines):
+                        if old_markup in lines[line_idx]:
+                            lines[line_idx] = lines[line_idx].replace(old_markup, new_markup)
+                        else:
+                            # Fallback: replace inner target if markup shape differed
+                            lines[line_idx] = lines[line_idx].replace(link.raw_target, new_inner)
+                        updated = True
+
+                symlink_path = self.vault.links_dir / normalized_rel
+
+                if not symlink_path.exists():
+                    links_to_create.add((normalized_rel, symlink_path))
+
+            if updated:
+                try:
+                    note_path.write_text("\n".join(lines), encoding="utf-8")
+                except Exception:
+                    # Best effort; continue processing other files
+                    pass
 
         return links_to_create, notes_scanned
 
@@ -62,27 +108,26 @@ class VaultController:
         """Infer filesystem target path from _links/ relative path.
 
         Args:
-            rel_path: Relative path like "machine/path/to/file" or "Pictures/file.png"
+            rel_path: Relative path like "machine/path/to/file"
 
         Returns:
             Absolute target path or None if cannot infer
         """
         parts = Path(rel_path).parts
-        if len(parts) == 0:
+        if len(parts) < 2:
             return None
 
-        # Try machine-prefixed path first
-        if parts[0] == self.machine:
-            # This is a machine-specific link: _links/machine/path/to/file
-            return Path("/") / Path(*parts[1:])
+        if parts[0] != self.machine:
+            return None
 
-        # Try as Pictures/ or Documents/ relative path
-        if parts[0] in ["Pictures", "Documents", "Downloads", "Desktop"]:
-            # _links/Pictures/file.png → ~/Pictures/file.png
-            return Path.home() / Path(*parts)
+        remainder = Path(*parts[1:])
 
-        # Unknown format
-        return None
+        root_like = {"Users", "private", "var", "tmp"}
+        if remainder.parts and remainder.parts[0] not in root_like:
+            home_rel = Path.home().relative_to(Path("/"))
+            remainder = home_rel / remainder
+
+        return Path("/") / remainder
 
     def _create_symlink(self, rel_path: str, symlink_path: Path, target_path: Path) -> Tuple[bool, Optional[str]]:
         """Create symlink to target.
@@ -146,3 +191,29 @@ class VaultController:
             created=created,
             failed=failed
         )
+
+    # ------------------------------------------------------------------ sync helper
+    @staticmethod
+    def sync_vault(cfg: Optional[dict] = None, batch_size: int = 1000, incremental: bool = False) -> dict:
+        """Sync vault links to MongoDB (wrapper for CLI/MCP)."""
+        from ..config import load_config
+        from ..utils import expand_path
+        from .indexer import VaultLinkIndexer
+
+        cfg = cfg or load_config()
+        vault_cfg = cfg.get("vault", {}) or {}
+        base_dir = vault_cfg.get("base_dir")
+        wks_dir = vault_cfg.get("wks_dir", "WKS")
+        if not base_dir:
+            raise ValueError("vault.base_dir not configured")
+
+        vault = ObsidianVault(expand_path(base_dir), base_dir=wks_dir)
+        indexer = VaultLinkIndexer.from_config(vault, cfg)
+        result = indexer.sync(batch_size=batch_size, incremental=incremental)
+
+        return {
+            "notes_scanned": result.stats.notes_scanned,
+            "edges_written": result.stats.edge_total,
+            "sync_duration_ms": result.sync_duration_ms,
+            "errors": result.stats.errors,
+        }

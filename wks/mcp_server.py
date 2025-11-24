@@ -182,6 +182,24 @@ class MCPServer:
                     },
                     "required": []
                 }
+            },
+            "wks_vault_links": {
+                "description": "Get all links to and from a specific vault file",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Path to the vault file (e.g., ~/_vault/Projects/XYZ.md)"
+                        },
+                        "direction": {
+                            "type": "string",
+                            "description": "Link direction filter: 'both' (default), 'to' (incoming only), or 'from' (outgoing only)",
+                            "enum": ["both", "to", "from"]
+                        }
+                    },
+                    "required": ["file_path"]
+                }
             }
         }
         self.resources = [
@@ -338,6 +356,11 @@ class MCPServer:
             "wks_vault_status": lambda config, args: self._tool_vault_status(config),
             "wks_vault_sync": lambda config, args: self._tool_vault_sync(
                 config, args.get("batch_size", 1000)
+            ),
+            "wks_vault_links": _require_params("file_path")(
+                lambda config, args: self._tool_vault_links(
+                    config, args["file_path"], args.get("direction", "both")
+                )
             ),
         }
 
@@ -524,6 +547,85 @@ class MCPServer:
     def _tool_vault_sync(self, config: Dict[str, Any], batch_size: int) -> Dict[str, Any]:
         """Execute wks_vault_sync tool."""
         return VaultController.sync_vault(config, batch_size)
+
+    def _tool_vault_links(self, config: Dict[str, Any], file_path: str, direction: str = "both") -> Dict[str, Any]:
+        """Execute wks_vault_links tool."""
+        from pathlib import Path
+        from .utils import expand_path
+        from .db_helpers import get_vault_db_config, connect_to_mongo
+        from .uri_utils import convert_to_uri
+
+        # Get vault configuration
+        vault_cfg = config.get("vault", {})
+        vault_path_str = vault_cfg.get("base_dir")
+        if not vault_path_str:
+            return {"error": "vault.base_dir not configured"}
+
+        vault_path = expand_path(vault_path_str)
+
+        # Expand and normalize the file path
+        file_path_expanded = expand_path(file_path)
+
+        # Check if file exists
+        if not file_path_expanded.exists():
+            return {"error": f"File does not exist: {file_path_expanded}"}
+
+        # Check if file is monitored
+        try:
+            monitor_info = MonitorController.check_path(config, str(file_path_expanded))
+            is_monitored = monitor_info.get("is_monitored", False)
+            priority = monitor_info.get("priority", 0) if is_monitored else None
+        except Exception:
+            is_monitored = False
+            priority = None
+
+        # Convert to URI using central conversion function
+        target_uri = convert_to_uri(file_path_expanded, vault_path)
+
+        # Also get version without .md extension for fallback matching
+        if target_uri.endswith('.md'):
+            target_uri_no_ext = target_uri[:-3]
+        else:
+            target_uri_no_ext = target_uri
+
+        # Connect to database
+        uri, db_name, coll_name = get_vault_db_config(config)
+        client = connect_to_mongo(uri)
+        coll = client[db_name][coll_name]
+
+        result = {
+            "file": target_uri,
+            "is_monitored": is_monitored,
+            "priority": priority if is_monitored else None
+        }
+
+        # Query for links FROM this file (URI-only, no legacy path fallbacks)
+        is_external = not target_uri.startswith("vault://")
+        if direction in ("both", "from") and not is_external:
+            from_query = {
+                "doc_type": "link",
+                "$or": [
+                    {"from_uri": target_uri},
+                    {"from_uri": target_uri_no_ext}
+                ]
+            }
+            links_from = list(coll.find(from_query, {"_id": 0}))
+            result["links_from"] = links_from
+
+        # Query for links TO this file (URI-only, no legacy path fallbacks)
+        if direction in ("both", "to"):
+            to_query = {
+                "doc_type": "link",
+                "$or": [
+                    {"to_uri": target_uri},
+                    {"to_uri": target_uri_no_ext}
+                ]
+            }
+            links_to = list(coll.find(to_query, {"_id": 0}))
+            result["links_to"] = links_to
+
+        client.close()
+        return result
 
     def run(self) -> None:
         """Run MCP server main loop."""

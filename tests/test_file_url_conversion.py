@@ -132,7 +132,6 @@ def test_file_url_with_indexer(test_setup):
     assert link_doc["to_uri"].startswith("file://")
     print(f"✓ Database indexed with:")
     print(f"  link_type: {link_doc['link_type']}")
-    print(f"  to: {link_doc['to']}")
     print(f"  to_uri: {link_doc['to_uri']}")
 
 

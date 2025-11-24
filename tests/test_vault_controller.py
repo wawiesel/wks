@@ -36,44 +36,37 @@ class TestInferTargetPath:
         target = controller._infer_target_path("mbp/Users/test/file.txt")
         assert target == Path("/Users/test/file.txt")
 
-    def test_pictures_relative_path(self):
-        """Infer Pictures/ relative path."""
+    def test_machine_prefixed_home_relative(self):
+        """Infer path relative to home when Users/ is not provided."""
         vault = Mock(spec=ObsidianVault)
         controller = VaultController(vault, machine_name="mbp")
 
-        target = controller._infer_target_path("Pictures/2025-Test/image.png")
-        assert target == Path.home() / "Pictures/2025-Test/image.png"
+        target = controller._infer_target_path("mbp/2025-WKS/README.md")
+        assert target == Path("/") / Path.home().relative_to(Path("/")) / "2025-WKS/README.md"
 
-    def test_documents_relative_path(self):
-        """Infer Documents/ relative path."""
+    def test_machine_prefixed_pictures_relative(self):
+        """Infer Pictures path relative to home."""
         vault = Mock(spec=ObsidianVault)
         controller = VaultController(vault, machine_name="mbp")
 
-        target = controller._infer_target_path("Documents/file.pdf")
-        assert target == Path.home() / "Documents/file.pdf"
+        target = controller._infer_target_path("mbp/Pictures/Logos/image.png")
+        assert target == Path("/") / Path.home().relative_to(Path("/")) / "Pictures/Logos/image.png"
 
-    def test_downloads_relative_path(self):
-        """Infer Downloads/ relative path."""
+
+    def test_rejects_non_machine_prefix(self):
+        """Reject paths that do not start with the machine name."""
         vault = Mock(spec=ObsidianVault)
         controller = VaultController(vault, machine_name="mbp")
 
-        target = controller._infer_target_path("Downloads/file.zip")
-        assert target == Path.home() / "Downloads/file.zip"
+        target = controller._infer_target_path("other_machine/Users/test/file.txt")
+        assert target is None
 
-    def test_desktop_relative_path(self):
-        """Infer Desktop/ relative path."""
+    def test_requires_path_after_machine(self):
+        """Machine prefix alone is not enough."""
         vault = Mock(spec=ObsidianVault)
         controller = VaultController(vault, machine_name="mbp")
 
-        target = controller._infer_target_path("Desktop/project/file.txt")
-        assert target == Path.home() / "Desktop/project/file.txt"
-
-    def test_unknown_format(self):
-        """Unknown path format returns None."""
-        vault = Mock(spec=ObsidianVault)
-        controller = VaultController(vault, machine_name="mbp")
-
-        target = controller._infer_target_path("unknown/path/file.txt")
+        target = controller._infer_target_path("mbp")
         assert target is None
 
     def test_empty_path(self):
@@ -182,8 +175,15 @@ class TestCollectMissingLinks:
         vault.iter_markdown_files = Mock(return_value=[note_path])
         vault.links_dir = links_dir
 
-        controller = VaultController(vault)
-        links, notes_scanned = controller._collect_missing_links()
+        with patch("wks.vault.controller.Path.home", return_value=tmp_path / "home"):
+            controller = VaultController(vault, machine_name="mbp")
+
+            home_rel = (tmp_path / "home").relative_to(Path("/"))
+            existing_symlink = links_dir / f"mbp/{home_rel}/test/file.txt"
+            existing_symlink.parent.mkdir(parents=True, exist_ok=True)
+            existing_symlink.touch()
+
+            links, notes_scanned = controller._collect_missing_links()
 
         assert len(links) == 0
         assert notes_scanned == 1
@@ -198,14 +198,16 @@ class TestCollectMissingLinks:
         vault.iter_markdown_files = Mock(return_value=[note_path])
         vault.links_dir = links_dir
 
-        controller = VaultController(vault)
-        links, notes_scanned = controller._collect_missing_links()
+        with patch("wks.vault.controller.Path.home", return_value=tmp_path / "home"):
+            controller = VaultController(vault, machine_name="mbp")
+            links, notes_scanned = controller._collect_missing_links()
 
         assert len(links) == 1
         assert notes_scanned == 1
         rel_path, symlink_path = list(links)[0]
-        assert rel_path == "test/missing.txt"
-        assert symlink_path == links_dir / "test/missing.txt"
+        home_rel = (tmp_path / "home").relative_to(Path("/"))
+        assert rel_path == f"mbp/{home_rel}/test/missing.txt"
+        assert symlink_path == links_dir / f"mbp/{home_rel}/test/missing.txt"
 
     def test_multiple_notes_multiple_links(self, tmp_path):
         """Multiple notes with multiple links."""
@@ -264,8 +266,9 @@ class TestFixSymlinks:
         vault.iter_markdown_files = Mock(return_value=[note])
         vault.links_dir = links_dir
 
-        controller = VaultController(vault, machine_name="mbp")
-        result = controller.fix_symlinks()
+        with patch("wks.vault.controller.Path.home", return_value=tmp_path / "home"):
+            controller = VaultController(vault, machine_name="mbp")
+            result = controller.fix_symlinks()
 
         assert result.notes_scanned == 1
         assert result.links_found == 1
@@ -319,7 +322,7 @@ class TestFixSymlinks:
         assert result.links_found == 1
         assert result.created == 0
         assert len(result.failed) == 1
-        assert "Unknown path format" in result.failed[0][1]
+        assert "Target not found" in result.failed[0][1]
 
     def test_mixed_success_and_failure(self, tmp_path):
         """Some links succeed, some fail."""
@@ -345,3 +348,57 @@ class TestFixSymlinks:
         assert result.links_found == 2
         assert result.created == 1
         assert len(result.failed) == 1
+
+    def test_normalizes_links_without_machine_prefix(self, tmp_path):
+        """Links that skip the machine prefix are normalized and fixed."""
+        vault_dir = tmp_path / "vault"
+        vault_dir.mkdir()
+        note = vault_dir / "note.md"
+        note.write_text("[[_links/Pictures/2025-Test/image.png]]")
+
+        links_dir = vault_dir / "_links"
+
+        vault = Mock(spec=ObsidianVault)
+        vault.iter_markdown_files = Mock(return_value=[note])
+        vault.links_dir = links_dir
+        vault.machine = "mbp"
+
+        with patch("wks.vault.controller.Path.home", return_value=tmp_path / "home"):
+            target_file = tmp_path / "home" / "Pictures/2025-Test/image.png"
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            target_file.write_text("content")
+
+            controller = VaultController(vault, machine_name="mbp")
+            result = controller.fix_symlinks()
+
+        assert result.notes_scanned == 1
+        assert result.links_found == 1
+        assert result.created == 1
+        assert len(result.failed) == 0
+
+        # Symlink created under machine namespace
+        home_rel = (tmp_path / "home").relative_to(Path("/"))
+        symlink_path = links_dir / f"mbp/{home_rel}/Pictures/2025-Test/image.png"
+        assert symlink_path.exists()
+        assert symlink_path.is_symlink()
+
+        # Note rewritten to include machine prefix
+        content = note.read_text()
+        assert f"[[_links/mbp/{home_rel}/Pictures/2025-Test/image.png]]" in content
+
+
+class TestMarkReferenceDeleted:
+    """Ensure deletion markers are not written to content."""
+
+    def test_mark_reference_deleted_noop(self, tmp_path):
+        vault_dir = tmp_path / "vault"
+        vault_dir.mkdir()
+        links_dir = vault_dir / "_links" / "lap" / "Users" / "ww5" / "Pictures"
+        links_dir.mkdir(parents=True, exist_ok=True)
+        target = links_dir / "171-Santorini_Harbor.md"
+        target.write_text("Original content")
+
+        vault = ObsidianVault(vault_dir, base_dir="WKS")
+        vault.mark_reference_deleted(target)
+
+        assert target.read_text() == "Original content"

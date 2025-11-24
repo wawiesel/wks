@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from pymongo import MongoClient
 
 from ...config import load_config
-from ...db import get_db
+from ...db_helpers import get_transform_db_config, connect_to_mongo
 from ...transform import TransformController
 from ...utils import expand_path
 
@@ -63,8 +64,12 @@ def transform_cmd(args: argparse.Namespace) -> int:
         if args.output:
             output_path = Path(args.output)
 
+        # Connect to database
+        uri, db_name, coll_name = get_transform_db_config(cfg)
+        client = connect_to_mongo(uri)
+        db = client[db_name]
+
         # Initialize controller
-        db = get_db(cfg)
         controller = TransformController(db, cache_location, max_size_bytes)
 
         # Perform transform

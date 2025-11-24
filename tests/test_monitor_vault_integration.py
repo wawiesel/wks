@@ -76,8 +76,7 @@ def test_monitor_vault_sync_on_file_move(test_env):
     collection = mongo_client["wks"]["vault"]
     link_doc = collection.find_one({"doc_type": "link"})
     assert link_doc is not None
-    assert link_doc["from"] == "Projects/Research.md"
-    assert link_doc["to"] == "_links/mbp-2021/external/paper.pdf"
+    assert link_doc["from_uri"] == "vault:///Projects/Research.md"
     old_uri = link_doc["to_uri"]
     assert old_uri == external_file.as_uri()
     print(f"✓ Initial link indexed with URI: {old_uri}")
@@ -101,8 +100,7 @@ def test_monitor_vault_sync_on_file_move(test_env):
     # Verify vault DB was updated
     updated_doc = collection.find_one({"doc_type": "link"})
     assert updated_doc is not None
-    assert updated_doc["from"] == "Projects/Research.md"
-    assert updated_doc["to"] == "_links/mbp-2021/external/paper.pdf"  # to stays same
+    assert updated_doc["from_uri"] == "vault:///Projects/Research.md"
     assert updated_doc["to_uri"] == new_uri_str  # to_uri updated!
     assert updated_doc["status"] == "ok"
     print(f"✓ Vault DB updated with new URI: {updated_doc['to_uri']}")

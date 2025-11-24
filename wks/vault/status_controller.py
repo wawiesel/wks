@@ -118,7 +118,7 @@ class VaultStatusController:
         issues_cursor = collection.find(
             {"doc_type": DOC_TYPE_LINK, "status": {"$ne": STATUS_OK}},
             {
-                "from": 1,
+                "from_uri": 1,
                 "line_number": 1,
                 "to_uri": 1,
                 "status": 1,
@@ -129,7 +129,7 @@ class VaultStatusController:
         ).sort("last_updated", -1).limit(limit)
         return [
             VaultIssue(
-                note_path=doc.get("from", ""),
+                note_path=(doc.get("from_uri", "") or "").replace("vault:///", ""),
                 line_number=doc.get("line_number", 0),
                 target_uri=doc.get("to_uri", ""),
                 status=doc.get("status", ""),
