@@ -153,83 +153,34 @@ def vault_sync_cmd(args: argparse.Namespace) -> int:
 
 def vault_validate_cmd(args: argparse.Namespace) -> int:
     """Validate all vault links (check for broken links)."""
-    from pathlib import Path
-    from ...vault.obsidian import ObsidianVault
-    from ...vault.indexer import VaultLinkScanner
+    from .vault_links_helpers import (
+        prepare_vault_for_validation,
+        scan_vault_for_broken_links,
+        display_validation_results_rich,
+        display_validation_results_plain,
+    )
 
     cfg = load_config()
     display = getattr(args, "display_obj", None)
 
     try:
-        # Get vault configuration
-        vault_cfg = cfg.get("vault", {})
-        vault_path_str = vault_cfg.get("base_dir")
-        if not vault_path_str:
-            if display:
-                display.error("vault.base_dir not configured")
-            else:
-                print("Error: vault.base_dir not configured")
+        # Prepare vault
+        vault_info = prepare_vault_for_validation(cfg, display)
+        if not vault_info:
             return 2
-
-        from ...utils import expand_path
-        vault_path = expand_path(vault_path_str)
-        base_dir = vault_cfg.get("wks_dir", "WKS")
+        vault_path, base_dir = vault_info
 
         if display:
             display.info(f"Validating vault links in {vault_path}...")
 
-        # Create vault and scanner
-        vault = ObsidianVault(vault_path, base_dir=base_dir)
-        scanner = VaultLinkScanner(vault)
-
-        # Scan for links
-        records = scanner.scan()
-        stats = scanner.stats
-
-        # Count broken links
-        broken_links = [r for r in records if r.status != "ok"]
-        broken_by_status = {}
-        for record in broken_links:
-            broken_by_status.setdefault(record.status, []).append(record)
+        # Scan for broken links
+        records, stats, broken_links, broken_by_status = scan_vault_for_broken_links(vault_path, base_dir)
 
         # Display results
         if display:
-            display.info(f"Scanned {stats.notes_scanned} notes, found {stats.edge_total} links")
-
-            if not broken_links:
-                display.success("✓ All links valid!")
-                return 0
-
-            # Show broken links by status
-            display.error(f"✗ Found {len(broken_links)} broken link(s)")
-
-            for status, links in broken_by_status.items():
-                display.warning(f"\n{status.upper()} ({len(links)} links):")
-                for link in links[:10]:  # Limit to 10 per status
-                    display.info(f"  {link.note_path}:{link.line_number} → [[{link.raw_target}]]")
-                if len(links) > 10:
-                    display.info(f"  ... and {len(links) - 10} more")
-
-            return 1  # Exit code 1 for validation failure
-
+            return display_validation_results_rich(display, stats, broken_links, broken_by_status)
         else:
-            # Plain text output
-            print(f"Scanned {stats.notes_scanned} notes, found {stats.edge_total} links")
-
-            if not broken_links:
-                print("✓ All links valid!")
-                return 0
-
-            print(f"✗ Found {len(broken_links)} broken link(s)")
-
-            for status, links in broken_by_status.items():
-                print(f"\n{status.upper()} ({len(links)} links):")
-                for link in links[:10]:
-                    print(f"  {link.note_path}:{link.line_number} → [[{link.raw_target}]]")
-                if len(links) > 10:
-                    print(f"  ... and {len(links) - 10} more")
-
-            return 1
+            return display_validation_results_plain(stats, broken_links, broken_by_status)
 
     except Exception as exc:
         if display:
