@@ -134,14 +134,29 @@ def vault_sync_cmd(args: argparse.Namespace) -> int:
     display = getattr(args, "display_obj", None)
 
     try:
+        # Step 1: Say what we're doing
         if display:
-            display.info("Syncing vault links to MongoDB...")
+            display.status("Syncing vault links to MongoDB...")
+
+        # Step 2: Start spinner for indeterminate operation
+        spinner = None
+        if display:
+            spinner = display.spinner_start("Scanning vault and syncing links...")
+
+        # Perform the operation
         result = VaultController.sync_vault(cfg, batch_size=1000, incremental=False)
 
+        # Step 2 finish: Stop spinner
+        if spinner and display:
+            display.spinner_finish(spinner)
+
+        # Step 3: Say what we did and any problems
         if display:
             display.success(f"Synced {result['notes_scanned']} notes, {result['edges_written']} edges in {result['sync_duration_ms']}ms")
             if result.get("errors"):
                 display.warning(f"{len(result['errors'])} errors during sync")
+
+        # Step 4: Output result (JSON if needed, handled by display)
         return 0
     except Exception as exc:
         if display:
@@ -170,13 +185,23 @@ def vault_validate_cmd(args: argparse.Namespace) -> int:
             return 2
         vault_path, base_dir = vault_info
 
+        # Step 1: Say what we're doing
         if display:
-            display.info(f"Validating vault links in {vault_path}...")
+            display.status(f"Validating vault links in {vault_path}...")
+
+        # Step 2: Start spinner
+        spinner = None
+        if display:
+            spinner = display.spinner_start("Scanning vault for broken links...")
 
         # Scan for broken links
         records, stats, broken_links, broken_by_status = scan_vault_for_broken_links(vault_path, base_dir)
 
-        # Display results
+        # Step 2 finish: Stop spinner
+        if spinner and display:
+            display.spinner_finish(spinner)
+
+        # Step 3 & 4: Display results (handled by display helpers)
         if display:
             return display_validation_results_rich(display, stats, broken_links, broken_by_status)
         else:
@@ -279,8 +304,14 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
         vault_path = expand_path(vault_path_str)
         base_dir = vault_cfg.get("wks_dir", "WKS")
 
+        # Step 1: Say what we're doing
         if display:
-            display.info(f"Rebuilding _links/ from vault DB...")
+            display.status("Rebuilding _links/ from vault DB...")
+
+        # Step 2: Start spinner
+        spinner = None
+        if display:
+            spinner = display.spinner_start("Querying vault DB and recreating symlinks...")
 
         # Initialize vault and controller
         vault = ObsidianVault(vault_path, base_dir=base_dir)
@@ -289,20 +320,24 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
         # Execute business logic
         result = controller.fix_symlinks()
 
-        # Display results
+        # Step 2 finish: Stop spinner
+        if spinner and display:
+            display.spinner_finish(spinner)
+
+        # Step 3: Say what we did and any problems
         if result.links_found == 0:
             if display:
-                display.success(f"✓ No file:// links found in vault DB")
+                display.success("✓ No file:// links found in vault DB")
             else:
-                print(f"✓ No file:// links found in vault DB")
+                print("✓ No file:// links found in vault DB")
             return 0
 
         if display:
             display.info(f"Found {result.links_found} file:// links in vault DB")
             if result.created > 0:
-                display.success(f"\n✓ Created {result.created} symlink(s)")
+                display.success(f"✓ Created {result.created} symlink(s)")
             if result.failed:
-                display.warning(f"\n✗ Failed to create {len(result.failed)} symlink(s):")
+                display.warning(f"✗ Failed to create {len(result.failed)} symlink(s):")
                 for rel_path, reason in result.failed[:10]:
                     display.info(f"  {rel_path}: {reason}")
                 if len(result.failed) > 10:
@@ -318,6 +353,7 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
                 if len(result.failed) > 10:
                     print(f"  ... and {len(result.failed) - 10} more")
 
+        # Step 4: Output handled by messages above
         return 0 if not result.failed else 1
 
     except Exception as exc:
