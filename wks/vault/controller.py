@@ -31,163 +31,100 @@ class VaultController:
         self.vault = vault
         self.machine = machine_name or platform.node().split(".")[0]
 
-    def _collect_missing_links(self) -> Tuple[Set[Tuple[str, Path]], int]:
-        """Scan vault and collect missing _links/ references.
-
-        Ensures every link is normalized to include the machine prefix by
-        rewriting notes in-place when necessary.
-
-        Returns:
-            (set of (rel_path, symlink_path), notes_scanned)
-        """
-        links_to_create: Set[Tuple[str, Path]] = set()
-        notes_scanned = 0
-
-        for note_path in self.vault.iter_markdown_files():
-            notes_scanned += 1
-            try:
-                text = note_path.read_text(encoding="utf-8")
-            except Exception:
-                continue
-
-            lines = text.splitlines()
-            updated = False
-
-            for link in parse_wikilinks(text):
-                target = link.target
-                if not target.startswith("_links/"):
-                    continue
-
-                rel_path = target[len("_links/"):]
-                normalized_rel = rel_path.lstrip("/")
-
-                # Always prefix with this machine name
-                if not normalized_rel.startswith(f"{self.machine}/"):
-                    normalized_rel = f"{self.machine}/{normalized_rel}"
-
-                remainder = Path(*Path(normalized_rel).parts[1:])
-                root_like = {"Users", "private", "var", "tmp"}
-                if remainder.parts and remainder.parts[0] not in root_like:
-                    home_rel = Path.home().relative_to(Path("/"))
-                    remainder = home_rel / remainder
-                    normalized_rel = f"{self.machine}/{remainder.as_posix()}"
-
-                # Rebuild the wikilink target (preserve alias) if changed
-                desired_target = f"_links/{normalized_rel}"
-                new_inner = desired_target
-                if link.alias:
-                    new_inner = f"{new_inner}|{link.alias}"
-
-                old_markup = f"{'!' if link.is_embed else ''}[[{link.raw_target}]]"
-                new_markup = f"{'!' if link.is_embed else ''}[[{new_inner}]]"
-                if old_markup != new_markup:
-                    line_idx = link.line_number - 1
-                    if 0 <= line_idx < len(lines):
-                        if old_markup in lines[line_idx]:
-                            lines[line_idx] = lines[line_idx].replace(old_markup, new_markup)
-                        else:
-                            # Fallback: replace inner target if markup shape differed
-                            lines[line_idx] = lines[line_idx].replace(link.raw_target, new_inner)
-                        updated = True
-
-                symlink_path = self.vault.links_dir / normalized_rel
-
-                if not symlink_path.exists():
-                    links_to_create.add((normalized_rel, symlink_path))
-
-            if updated:
-                try:
-                    note_path.write_text("\n".join(lines), encoding="utf-8")
-                except Exception:
-                    # Best effort; continue processing other files
-                    pass
-
-        return links_to_create, notes_scanned
-
-    def _infer_target_path(self, rel_path: str) -> Optional[Path]:
-        """Infer filesystem target path from _links/ relative path.
-
-        Args:
-            rel_path: Relative path like "machine/path/to/file"
-
-        Returns:
-            Absolute target path or None if cannot infer
-        """
-        parts = Path(rel_path).parts
-        if len(parts) < 2:
-            return None
-
-        if parts[0] != self.machine:
-            return None
-
-        remainder = Path(*parts[1:])
-
-        root_like = {"Users", "private", "var", "tmp"}
-        if remainder.parts and remainder.parts[0] not in root_like:
-            home_rel = Path.home().relative_to(Path("/"))
-            remainder = home_rel / remainder
-
-        return Path("/") / remainder
-
-    def _create_symlink(self, rel_path: str, symlink_path: Path, target_path: Path) -> Tuple[bool, Optional[str]]:
-        """Create symlink to target.
-
-        Args:
-            rel_path: Relative path for error reporting
-            symlink_path: Symlink path to create
-            target_path: Target path to link to
-
-        Returns:
-            (success: bool, error_msg: Optional[str])
-        """
-        if not target_path.exists():
-            return False, f"Target not found: {target_path}"
-
-        try:
-            symlink_path.parent.mkdir(parents=True, exist_ok=True)
-            symlink_path.symlink_to(target_path)
-            return True, None
-        except Exception as exc:
-            return False, str(exc)
 
     def fix_symlinks(self) -> SymlinkFixResult:
-        """Find and create missing _links/ symlinks.
+        """Rebuild _links/<machine>/ from vault DB.
+
+        Deletes entire _links/<machine>/ directory and recreates all symlinks
+        based on vault DB records where to_uri starts with file://.
 
         Returns:
             SymlinkFixResult with operation statistics
         """
-        # 1. Collect missing links
-        links_to_create, notes_scanned = self._collect_missing_links()
+        from pymongo import MongoClient
+        from ..config import load_config
+        from .config import VaultDatabaseConfig
+        import shutil
 
-        if not links_to_create:
-            return SymlinkFixResult(
-                notes_scanned=notes_scanned,
-                links_found=0,
-                created=0,
-                failed=[]
+        # 1. Delete entire _links/<machine>/ directory
+        machine_links_dir = self.vault.links_dir / self.machine
+        if machine_links_dir.exists():
+            try:
+                shutil.rmtree(machine_links_dir)
+            except Exception as exc:
+                return SymlinkFixResult(
+                    notes_scanned=0,
+                    links_found=0,
+                    created=0,
+                    failed=[("_links/" + self.machine, f"Failed to delete: {exc}")]
+                )
+
+        # 2. Query vault DB for all file:// links
+        cfg = load_config()
+        db_config = VaultDatabaseConfig.from_config(cfg)
+
+        try:
+            client = MongoClient(
+                db_config.mongo_uri,
+                serverSelectionTimeoutMS=5000,
+                retryWrites=True,
+                retryReads=True,
+            )
+            collection = client[db_config.db_name][db_config.coll_name]
+
+            # Find all links where to_uri is file://
+            cursor = collection.find(
+                {"to_uri": {"$regex": "^file://"}},
+                {"to_uri": 1}
             )
 
-        # 2. Create symlinks
+            file_uris = set(doc["to_uri"] for doc in cursor)
+            client.close()
+
+        except Exception as exc:
+            return SymlinkFixResult(
+                notes_scanned=0,
+                links_found=0,
+                created=0,
+                failed=[("vault_db", f"Failed to query: {exc}")]
+            )
+
+        # 3. Create symlinks for each unique file:// URI
         created = 0
         failed: List[Tuple[str, str]] = []
 
-        for rel_path, symlink_path in sorted(links_to_create):
-            # Infer target path
-            target_path = self._infer_target_path(rel_path)
-            if target_path is None:
-                failed.append((rel_path, "Unknown path format"))
+        for file_uri in sorted(file_uris):
+            if not file_uri.startswith("file://"):
+                continue
+
+            # Parse file:// URI to filesystem path
+            from urllib.parse import urlparse
+            parsed = urlparse(file_uri)
+            target_path = Path(parsed.path)
+
+            if not target_path.exists():
+                failed.append((file_uri, "Target file not found"))
+                continue
+
+            # Build symlink path: _links/<machine>/path/to/file
+            try:
+                relative = target_path.resolve().relative_to(Path("/"))
+                symlink_path = self.vault.links_dir / self.machine / relative
+            except Exception as exc:
+                failed.append((file_uri, f"Cannot create relative path: {exc}"))
                 continue
 
             # Create symlink
-            success, error = self._create_symlink(rel_path, symlink_path, target_path)
-            if success:
+            try:
+                symlink_path.parent.mkdir(parents=True, exist_ok=True)
+                symlink_path.symlink_to(target_path)
                 created += 1
-            else:
-                failed.append((rel_path, error))
+            except Exception as exc:
+                failed.append((str(symlink_path), f"Failed to create symlink: {exc}"))
 
         return SymlinkFixResult(
-            notes_scanned=notes_scanned,
-            links_found=len(links_to_create),
+            notes_scanned=0,  # We queried DB, not markdown files
+            links_found=len(file_uris),
             created=created,
             failed=failed
         )

@@ -682,7 +682,7 @@ class WKSDaemon:
                 # Check: does this file participate in any vault links?
                 try:
                     # Query vault database to see if any vault notes link to this file
-                    has_vault_refs = self.indexer.has_references_to(p)
+                    has_vault_refs = self._vault_indexer.has_references_to(p) if self._vault_indexer else False
                     if has_vault_refs:
                         self.vault.mark_reference_deleted(p)
                 except Exception as e:

@@ -15,7 +15,7 @@ import logging
 import time
 from collections import Counter
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional
@@ -115,6 +115,7 @@ class VaultScanStats:
     type_counts: Dict[str, int]
     status_counts: Dict[str, int]
     errors: List[str]
+    scanned_files: set[str] = field(default_factory=set)  # Relative paths of scanned files
 
 
 @dataclass
@@ -159,6 +160,7 @@ class VaultLinkScanner:
         records: List[VaultEdgeRecord] = []
         self._errors: List[str] = []
         self._notes_scanned = 0
+        self._scanned_file_paths: set[str] = set()  # Track which files were scanned
         self._type_counts: Counter[str] = Counter()
         self._status_counts: Counter[str] = Counter()
         self._file_url_rewrites = []  # Reset rewrites
@@ -177,6 +179,14 @@ class VaultLinkScanner:
                 continue
 
             self._notes_scanned += 1
+
+            # Track relative path of scanned file
+            try:
+                rel_path = note_path.relative_to(self.vault.vault_path).as_posix()
+                self._scanned_file_paths.add(rel_path)
+            except ValueError:
+                pass
+
             try:
                 text = note_path.read_text(encoding="utf-8")
             except (IOError, OSError, UnicodeDecodeError, PermissionError) as exc:
@@ -193,6 +203,7 @@ class VaultLinkScanner:
             type_counts=dict(self._ensure_type_keys(self._type_counts)),
             status_counts=dict(self._status_counts),
             errors=self._errors,
+            scanned_files=self._scanned_file_paths,
         )
         return records
 
@@ -593,9 +604,14 @@ class VaultLinkIndexer:
                     result = collection.bulk_write(ops, ordered=False)
                     total_upserts += result.upserted_count + result.modified_count
 
-            deleted = collection.delete_many(
-                {"doc_type": DOC_TYPE_LINK, "last_seen": {"$lt": started_iso}}
-            ).deleted_count
+            # Only delete stale links from files that were actually scanned in this run
+            # This prevents incremental scans from wiping out links from non-scanned files
+            delete_query = {
+                "doc_type": DOC_TYPE_LINK,
+                "last_seen": {"$lt": started_iso},
+                "from": {"$in": list(stats.scanned_files)} if stats.scanned_files else []
+            }
+            deleted = collection.delete_many(delete_query).deleted_count
 
             result_summary = VaultSyncResult(
                 stats=stats,
