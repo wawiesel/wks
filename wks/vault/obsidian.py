@@ -7,7 +7,9 @@ tables are intentionally disabled until those features are needed again.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
+import platform
 from pathlib import Path
 from typing import Optional
 
@@ -17,11 +19,12 @@ from ..config import load_config, timestamp_format, DEFAULT_TIMESTAMP_FORMAT
 class ObsidianVault:
     """Minimal interface to an Obsidian vault for link maintenance."""
 
-    def __init__(self, vault_path: Path, *, base_dir: str):
+    def __init__(self, vault_path: Path, *, base_dir: str, machine_name: Optional[str] = None):
         self.vault_path = Path(vault_path)
         if not base_dir or not str(base_dir).strip():
             raise ValueError("vault.wks_dir is required in configuration")
         self.base_dir = str(base_dir).strip("/")
+        self.machine = (machine_name or platform.node().split(".")[0]).strip()
         self._recompute_paths()
         try:
             cfg = load_config()
@@ -68,27 +71,26 @@ class ObsidianVault:
 
     def _link_rel_for_source(self, source_file: Path, preserve_structure: bool = True) -> str:
         if preserve_structure:
-            home = Path.home()
             try:
-                relative = source_file.resolve().relative_to(home)
-                return f"_links/{relative.as_posix()}"
+                # Mirror absolute path (minus leading slash) under machine prefix
+                relative = source_file.resolve().relative_to(Path("/"))
+                return f"_links/{self.machine}/{relative.as_posix()}"
             except Exception:
-                return f"_links/{source_file.name}"
-        return f"_links/{source_file.name}"
+                return f"_links/{self.machine}/{source_file.name}"
+        return f"_links/{self.machine}/{source_file.name}"
 
     def link_file(self, source_file: Path, preserve_structure: bool = True) -> Optional[Path]:
         if not source_file.exists():
             return None
 
         if preserve_structure:
-            home = Path.home()
             try:
-                relative = source_file.resolve().relative_to(home)
-                link_path = self.links_dir / relative
+                relative = source_file.resolve().relative_to(Path("/"))
+                link_path = self.links_dir / self.machine / relative
             except ValueError:
-                link_path = self.links_dir / source_file.name
+                link_path = self.links_dir / self.machine / source_file.name
         else:
-            link_path = self.links_dir / source_file.name
+            link_path = self.links_dir / self.machine / source_file.name
 
         link_path.parent.mkdir(parents=True, exist_ok=True)
         if not link_path.exists():
@@ -164,22 +166,13 @@ class ObsidianVault:
                     pass
 
     def mark_reference_deleted(self, path: Path) -> None:
-        rel = self._link_rel_for_source(path)
-        marker = f"🗑️ deleted: [[{rel}]]"
-        legacy = rel.replace("_links/", "links/")
-        for md in self._iter_vault_markdown():
-            try:
-                content = md.read_text(encoding="utf-8")
-            except (IOError, OSError, UnicodeDecodeError, PermissionError):
-                continue
-            if marker in content or legacy in content:
-                continue
-            lines = content.splitlines()
-            lines.insert(1, f"> {marker}")
-            try:
-                md.write_text("\n".join(lines), encoding="utf-8")
-            except (IOError, OSError, PermissionError):
-                pass
+        """No-op: avoid writing deletion markers into vault content.
+
+        Historical behavior injected "deleted" markers into markdown files,
+        including files mirrored under _links/. That created churn and
+        circular edits. We intentionally disable it here and log instead.
+        """
+        logging.getLogger(__name__).info("Reference deleted: %s", path)
 
     # ---------------------------------------------------------------- no-op stubs
 

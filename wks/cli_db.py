@@ -145,15 +145,34 @@ def _db_transform(args: argparse.Namespace) -> int:
     return _query_collection(uri, db_name, coll_name, args)
 
 
-def _fetch_last_timestamp(coll) -> str:
-    """Return the most recent timestamp-like field from a collection."""
+def _fetch_last_timestamp(coll, timestamp_format: str) -> str:
+    """Return the most recent timestamp-like field from a collection, formatted.
+
+    Args:
+        coll: MongoDB collection
+        timestamp_format: strftime format string from config
+
+    Returns:
+        Formatted timestamp string or "-" if not found
+    """
+    from datetime import datetime
+
     doc = coll.find_one({}, sort=[("$natural", -1)])
     if not doc:
         return "-"
     for field in _LAST_FIELDS:
         value = doc.get(field)
         if value:
-            return value
+            # Parse ISO format timestamp and format according to user preference
+            if isinstance(value, str):
+                try:
+                    dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                    return dt.strftime(timestamp_format)
+                except (ValueError, AttributeError):
+                    return value  # Return as-is if parsing fails
+            elif hasattr(value, 'strftime'):  # datetime object
+                return value.strftime(timestamp_format)
+            return str(value)
     return "-"
 
 
@@ -161,8 +180,16 @@ def _db_status(args: argparse.Namespace) -> int:
     """Show basic statistics for configured databases."""
     cfg = load_config()
     display = args.display_obj
+
+    # Get timestamp format from config
+    timestamp_format = cfg.get("display", {}).get("timestamp_format", "%Y-%m-%d %H:%M:%S")
+
     scopes = []
-    for scope, getter in (("monitor", get_monitor_db_config), ("vault", get_vault_db_config)):
+    for scope, getter in (
+        ("monitor", get_monitor_db_config),
+        ("vault", get_vault_db_config),
+        ("transform", get_transform_db_config),
+    ):
         try:
             uri, db_name, coll_name = getter(cfg)
         except Exception as exc:
@@ -176,7 +203,7 @@ def _db_status(args: argparse.Namespace) -> int:
         try:
             coll = client[db_name][coll_name]
             total = coll.count_documents({})
-            last_ts = _fetch_last_timestamp(coll)
+            last_ts = _fetch_last_timestamp(coll, timestamp_format)
             scopes.append(
                 {
                     "Scope": scope,
