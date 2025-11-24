@@ -1,7 +1,7 @@
-"""Helper functions for vault links command - reduces complexity."""
+"""Helper functions for vault commands - reduces complexity."""
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def prepare_file_and_vault_paths(args, cfg, display) -> Optional[Tuple[Path, Path, Path]]:
@@ -218,6 +218,92 @@ def display_links_plain_text(target_uri: str, is_monitored: bool, priority: Opti
                 line_num = link.get('line_number', '-')
                 heading = link.get('source_heading', '')
                 heading_str = f" (in section: {heading})" if heading else ""
-                print(f"  ← {from_display} [{link_type}] (line {line_num}){heading_str}")
+                print(f"  ← {from_display} [{link_type}] (line {link_num}){heading_str}")
         else:
             print("  (no incoming links)")
+
+
+# Vault validation helpers
+
+def prepare_vault_for_validation(cfg: Dict, display: Any) -> Optional[Tuple[Path, str]]:
+    """Prepare vault path and base_dir for validation.
+
+    Returns:
+        Tuple of (vault_path, base_dir) or None if validation fails
+    """
+    from ...utils import expand_path
+
+    vault_cfg = cfg.get("vault", {})
+    vault_path_str = vault_cfg.get("base_dir")
+    if not vault_path_str:
+        if display:
+            display.error("vault.base_dir not configured")
+        else:
+            print("Error: vault.base_dir not configured")
+        return None
+
+    vault_path = expand_path(vault_path_str)
+    base_dir = vault_cfg.get("wks_dir", "WKS")
+    return vault_path, base_dir
+
+
+def scan_vault_for_broken_links(vault_path: Path, base_dir: str) -> Tuple[Any, Any, List[Any], Dict[str, List[Any]]]:
+    """Scan vault and collect broken links.
+
+    Returns:
+        Tuple of (records, stats, broken_links, broken_by_status)
+    """
+    from ...vault.obsidian import ObsidianVault
+    from ...vault.indexer import VaultLinkScanner
+
+    vault = ObsidianVault(vault_path, base_dir=base_dir)
+    scanner = VaultLinkScanner(vault)
+    records = scanner.scan()
+    stats = scanner.stats
+
+    broken_links = [r for r in records if r.status != "ok"]
+    broken_by_status = {}
+    for record in broken_links:
+        broken_by_status.setdefault(record.status, []).append(record)
+
+    return records, stats, broken_links, broken_by_status
+
+
+def display_validation_results_rich(display: Any, stats: Any, broken_links: List, broken_by_status: Dict) -> int:
+    """Display validation results using display object."""
+    display.info(f"Scanned {stats.notes_scanned} notes, found {stats.edge_total} links")
+
+    if not broken_links:
+        display.success("✓ All links valid!")
+        return 0
+
+    display.error(f"✗ Found {len(broken_links)} broken link(s)")
+
+    for status, links in broken_by_status.items():
+        display.warning(f"\n{status.upper()} ({len(links)} links):")
+        for link in links[:10]:  # Limit to 10 per status
+            display.info(f"  {link.note_path}:{link.line_number} → [[{link.raw_target}]]")
+        if len(links) > 10:
+            display.info(f"  ... and {len(links) - 10} more")
+
+    return 1
+
+
+def display_validation_results_plain(stats: Any, broken_links: List, broken_by_status: Dict) -> int:
+    """Display validation results as plain text."""
+    print(f"Scanned {stats.notes_scanned} notes, found {stats.edge_total} links")
+
+    if not broken_links:
+        print("✓ All links valid!")
+        return 0
+
+    print(f"✗ Found {len(broken_links)} broken link(s)")
+
+    for status, links in broken_by_status.items():
+        print(f"\n{status.upper()} ({len(links)} links):")
+        for link in links[:10]:
+            print(f"  {link.note_path}:{link.line_number} → [[{link.raw_target}]]")
+        if len(links) > 10:
+            print(f"  ... and {len(links) - 10} more")
+
+    return 1
