@@ -136,7 +136,7 @@ def vault_sync_cmd(args: argparse.Namespace) -> int:
     try:
         if display:
             display.info("Syncing vault links to MongoDB...")
-        result = VaultController.sync_vault(cfg, batch_size=1000)
+        result = VaultController.sync_vault(cfg, batch_size=1000, incremental=False)
 
         if display:
             display.success(f"Synced {result['notes_scanned']} notes, {result['edges_written']} edges in {result['sync_duration_ms']}ms")
@@ -450,7 +450,7 @@ def vault_links_cmd(args: argparse.Namespace) -> int:
 
 
 def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
-    """Auto-create missing _links/ symlinks for all vault references."""
+    """Rebuild _links/<machine>/ from vault DB (deletes and recreates all symlinks)."""
     from ...vault.obsidian import ObsidianVault
     from ...vault.controller import VaultController
     from ...utils import expand_path
@@ -473,7 +473,7 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
         base_dir = vault_cfg.get("wks_dir", "WKS")
 
         if display:
-            display.info(f"Scanning vault for missing _links/ symlinks...")
+            display.info(f"Rebuilding _links/ from vault DB...")
 
         # Initialize vault and controller
         vault = ObsidianVault(vault_path, base_dir=base_dir)
@@ -485,13 +485,13 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
         # Display results
         if result.links_found == 0:
             if display:
-                display.success(f"✓ All _links/ symlinks exist (scanned {result.notes_scanned} notes)")
+                display.success(f"✓ No file:// links found in vault DB")
             else:
-                print(f"✓ All _links/ symlinks exist (scanned {result.notes_scanned} notes)")
+                print(f"✓ No file:// links found in vault DB")
             return 0
 
         if display:
-            display.info(f"Found {result.links_found} missing symlinks")
+            display.info(f"Found {result.links_found} file:// links in vault DB")
             if result.created > 0:
                 display.success(f"\n✓ Created {result.created} symlink(s)")
             if result.failed:
@@ -501,7 +501,7 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
                 if len(result.failed) > 10:
                     display.info(f"  ... and {len(result.failed) - 10} more")
         else:
-            print(f"Found {result.links_found} missing symlinks")
+            print(f"Found {result.links_found} file:// links in vault DB")
             if result.created > 0:
                 print(f"✓ Created {result.created} symlink(s)")
             if result.failed:
@@ -547,7 +547,7 @@ def setup_vault_parser(subparsers) -> None:
     validate = vault_sub.add_parser("validate", help="Validate all vault links (check for broken links)")
     validate.set_defaults(func=vault_validate_cmd)
 
-    fix_symlinks = vault_sub.add_parser("fix-symlinks", help="Auto-create missing _links/ symlinks")
+    fix_symlinks = vault_sub.add_parser("fix-symlinks", help="Rebuild _links/<machine>/ from vault DB")
     fix_symlinks.set_defaults(func=vault_fix_symlinks_cmd)
 
     links = vault_sub.add_parser("links", help="Show all links to and from a specific file")
