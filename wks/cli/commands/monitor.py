@@ -408,14 +408,26 @@ def monitor_validate_cmd(args: argparse.Namespace) -> int:
     """Check for configuration inconsistencies."""
     display = args.display_obj
     cfg = load_config()
-    include_paths = set(monitor_config.get("include_paths", []))
-    exclude_paths = set(monitor_config.get("exclude_paths", []))
-    managed_dirs = set(monitor_config.get("managed_directories", {}).keys())
 
-    issues = check_path_conflicts(include_paths, exclude_paths)
-    warnings = check_duplicate_managed_dirs(managed_dirs)
+    # Use MonitorController for validation
+    result = MonitorController.validate_config(cfg)
 
-    return display_validation_results(display, issues, warnings)
+    # Display results
+    if not result.issues and not result.redundancies:
+        display.success("✓ No configuration issues found")
+        return 0
+
+    if result.issues:
+        display.error(f"Found {len(result.issues)} issue(s):")
+        for issue in result.issues:
+            display.info(f"  • {issue}")
+
+    if result.redundancies:
+        display.warning(f"Found {len(result.redundancies)} redundanc(y/ies):")
+        for redundancy in result.redundancies:
+            display.info(f"  • {redundancy}")
+
+    return 1 if result.issues else 0
 
 
 def monitor_check_cmd(args: argparse.Namespace) -> int:
