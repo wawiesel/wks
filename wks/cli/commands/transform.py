@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from pymongo import MongoClient
 
@@ -20,19 +21,19 @@ def transform_cmd(args: argparse.Namespace) -> int:
 
     Returns:
         Exit code (0 for success, non-zero for error)
+
+    Note:
+        All messages go to stderr, only cache key goes to stdout.
+        This allows piping the checksum while seeing progress.
     """
     cfg = load_config()
-    display = getattr(args, "display_obj", None)
 
     try:
         # Get file path
         file_path = expand_path(args.file_path)
 
         if not file_path.exists():
-            if display:
-                display.error(f"File not found: {file_path}")
-            else:
-                print(f"Error: File not found: {file_path}")
+            print(f"Error: File not found: {file_path}", file=sys.stderr)
             return 2
 
         # Get engine name
@@ -49,10 +50,7 @@ def transform_cmd(args: argparse.Namespace) -> int:
 
         # Check if engine is enabled
         if not engine_cfg.get("enabled", False):
-            if display:
-                display.error(f"Engine '{engine_name}' is not enabled")
-            else:
-                print(f"Error: Engine '{engine_name}' is not enabled")
+            print(f"Error: Engine '{engine_name}' is not enabled", file=sys.stderr)
             return 2
 
         # Build options from config and CLI args
@@ -72,43 +70,28 @@ def transform_cmd(args: argparse.Namespace) -> int:
         # Initialize controller
         controller = TransformController(db, cache_location, max_size_bytes)
 
-        # Perform transform
-        if display:
-            display.info(f"Transforming {file_path.name} using {engine_name}...")
+        # Perform transform (status message to stderr)
+        print(f"Transforming {file_path.name} using {engine_name}...", file=sys.stderr)
 
         cache_key = controller.transform(file_path, engine_name, options, output_path)
 
-        # Output results
+        # Output results: cache key to stdout, messages to stderr
         if output_path:
-            if display:
-                display.success(f"Transformed to {output_path}")
-                display.info(f"Cache key: {cache_key}")
-            else:
-                print(f"Transformed to {output_path}")
-                print(f"Cache key: {cache_key}")
-        else:
-            # Just output cache key
-            print(cache_key)
+            print(f"Transformed to {output_path}", file=sys.stderr)
+
+        # Always output cache key to stdout
+        print(cache_key)
 
         return 0
 
     except ValueError as exc:
-        if display:
-            display.error(str(exc))
-        else:
-            print(f"Error: {exc}")
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
     except RuntimeError as exc:
-        if display:
-            display.error(f"Transform failed: {exc}")
-        else:
-            print(f"Error: Transform failed: {exc}")
+        print(f"Error: Transform failed: {exc}", file=sys.stderr)
         return 2
     except Exception as exc:
-        if display:
-            display.error(f"Unexpected error: {exc}")
-        else:
-            print(f"Error: {exc}")
+        print(f"Error: {exc}", file=sys.stderr)
         return 2
 
 
