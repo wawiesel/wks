@@ -148,14 +148,14 @@ class TestStartMonitoring(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
-    @patch("wks.monitor.PollingObserver")
-    @patch("wks.monitor.KqueueObserver")
-    @patch("wks.monitor.FSEventsObserver")
-    @patch("wks.monitor.Observer")
+    @patch("wks.filesystem_monitor.PollingObserver")
+    @patch("wks.filesystem_monitor.KqueueObserver")
+    @patch("wks.filesystem_monitor.FSEventsObserver")
+    @patch("wks.filesystem_monitor.Observer")
     def test_start_monitoring_selects_available_observer(
         self, mock_observer, mock_fsevents, mock_kqueue, mock_polling
     ):
-        import wks.monitor as monitor_mod
+        import wks.filesystem_monitor as monitor_mod
 
         monitor_mod.FSEventsObserver = mock_fsevents
         monitor_mod.KqueueObserver = mock_kqueue
