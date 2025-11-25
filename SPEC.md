@@ -732,37 +732,55 @@ Complete parity between CLI and MCP for filesystem monitoring:
 
 All write operations save to config file and notify to restart service.
 
-### Semantic Engine Tools
+### Vault Tools
 
-**Transform Tools**:
-- `wks_transform` — transform document to text
-- Parameters: `path`, `engine` (required), `output` (optional)
+Complete parity between CLI and MCP for Obsidian vault link tracking:
 
-**Diff Tools**:
-- `wks_diff` — compare two files
-- Parameters: `path1`, `path2`, `engine` (required)
+**Status and Reporting**:
+- `wks_vault_status` — Get vault link status summary (`wks0 vault status`)
+  - Returns: total_links, ok_links, missing_symlink, missing_target, legacy_links, external_urls, embeds, wiki_links, last_sync
+- `wks_vault_links` — Get all links to/from a specific file (`wks0 vault links <path>`)
+  - Parameters: `file_path`, `direction` (both/to/from, default: both)
+  - Returns: file URI, monitor status, links_from, links_to
+- `wks_vault_sync` — Sync vault links to MongoDB (`wks0 vault sync`)
+  - Parameters: `batch_size` (optional, default: 1000)
+  - Returns: sync statistics and status
 
-**Related Tools**:
-- `wks_related` — find similar documents
-- Parameters: `path`, `limit`, `min_similarity`, `engine` (optional)
-
-**Search Tools**:
-- `wks_search` — semantic search across indices
-- Parameters: `query`, `index` (optional), `limit`
+All vault tools use VaultController and VaultStatusController business logic.
 
 ### Architecture
 
-**MonitorController Methods** (in `monitor_controller.py`):
+**MonitorController Methods** (in `wks/monitor/monitor_controller.py`):
 - Read-only: `get_status()`, `get_list()`, `get_managed_directories()`, `validate_config()`, `check_path()`
 - Write operations: `add_to_list()`, `remove_from_list()`, `add_managed_directory()`, `remove_managed_directory()`, `set_managed_priority()`
 
-**MCP Server Responsibilities**:
-1. JSON-RPC protocol (stdio transport)
-2. Loading/saving configuration file
-3. Routing tool calls to controllers
-4. Formatting responses
+**VaultController Methods** (in `wks/vault/controller.py`):
+- `sync_vault()` — Sync vault links to database
+- `fix_symlinks()` — Fix legacy file:// links to vault:// URIs
 
-**Implementation**: All functionality tested via unit tests (`test_monitor_controller.py`) and integration tests (`test_mcp_tools.py`).
+**VaultStatusController Methods** (in `wks/vault/status_controller.py`):
+- `summarize()` — Get vault status summary with link counts and issues
+
+**MCP Server** (in `wks/mcp_server.py`):
+1. JSON-RPC 2.0 protocol (stdio transport with Content-Length framing)
+2. Loads configuration via `load_config()`
+3. Routes tool calls to controller methods
+4. Formats responses as structured JSON
+5. Handles config file updates for write operations
+
+**Installation**:
+```bash
+wks0 mcp install              # Install to all supported clients
+wks0 mcp install --client cursor --client claude
+```
+
+**Running**:
+```bash
+wks0 mcp run                  # Proxies to background daemon broker
+wks0 mcp run --direct         # Run inline for debugging
+```
+
+**Testing**: All MCP tools verified working via integration tests.
 
 ## Patterns (CLAUDE.md)
 
