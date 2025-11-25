@@ -61,7 +61,53 @@ wks0 vault sync
 
 # View vault links
 wks0 vault links ~/vault/Index.md
+
+# Compare two files
+wks0 diff myers file1.txt file2.txt
+
+# Transform PDF to Markdown
+wks0 transform docling document.pdf -o output.md
 ```
+
+## MCP Server
+
+WKS includes a Model Context Protocol (MCP) server for AI assistant integration.
+
+### Installation
+
+```bash
+# Install MCP server configuration for all supported clients
+wks0 mcp install
+
+# Install for specific clients only
+wks0 mcp install --client cursor --client claude
+```
+
+### Usage
+
+The MCP server runs automatically when the WKS service is active:
+
+```bash
+wks0 service start    # Starts daemon with embedded MCP broker
+wks0 mcp run          # Proxies to the running service
+```
+
+### Available Tools
+
+**Filesystem Monitoring:**
+- `wks_monitor_status` - Get monitoring status and configuration
+- `wks_monitor_check` - Check if path would be monitored
+- `wks_monitor_validate` - Validate configuration for conflicts
+- `wks_monitor_list` - Get configuration list contents
+- `wks_monitor_add/remove` - Modify configuration lists
+- `wks_monitor_managed_*` - Manage directory priorities
+
+**Vault Link Tracking:**
+- `wks_vault_status` - Get vault link status summary
+- `wks_vault_links` - Get all links to/from a specific file
+- `wks_vault_sync` - Sync vault links to MongoDB
+
+All tools return structured JSON and use the same business logic as CLI commands.
 
 ## Documentation
 
@@ -109,9 +155,10 @@ lizard wks/ -l python -C 15
 **v0.3.7 (2025-01-24)**
 - ✅ Core monitoring and vault features stable
 - ✅ All 139 tests passing
-- ✅ Code complexity reduced (CCN < 15 for all functions except similarity)
+- ✅ Code complexity reduced (CCN < 15 for all functions)
+- ✅ MCP server fully functional and documented
+- ✅ Diff and transform commands working
 - 🚧 Similarity features disabled (under redesign)
-- 🚧 MCP server functional but needs documentation
 
 ## License
 
