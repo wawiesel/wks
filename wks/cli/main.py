@@ -9,6 +9,7 @@ from ..display.context import add_display_argument, get_display
 from ..mcp_client import proxy_stdio_to_socket
 from ..mcp_paths import mcp_socket_path
 from ..utils import get_package_version
+from .commands.cat import setup_cat_parser
 from .commands.config import show_config
 from .commands.diff import setup_diff_parser
 from .commands.monitor import setup_monitor_parser
@@ -55,6 +56,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Setup command parsers
     setup_service_parser(sub)
     setup_monitor_parser(sub)
+    setup_cat_parser(sub)
     setup_diff_parser(sub)
     setup_transform_parser(sub)
     setup_vault_parser(sub)
