@@ -2,6 +2,7 @@
 
 import hashlib
 import subprocess
+import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -63,33 +64,44 @@ class DoclingEngine(TransformEngine):
         Raises:
             RuntimeError: If docling command fails
         """
-        cmd = ["docling", str(input_path), "--to", "md"]
+        # Docling writes to an output directory, not stdout
+        # Use temp directory and copy result
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_output = Path(temp_dir)
 
-        # Add OCR flag if enabled
-        if options.get("ocr", False):
-            cmd.append("--ocr")
+            cmd = ["docling", str(input_path), "--to", "md", "--output", str(temp_output)]
 
-        # Set timeout
-        timeout = options.get("timeout_secs", 30)
+            # Add OCR flag if enabled
+            if options.get("ocr", False):
+                cmd.append("--ocr")
 
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                check=True
-            )
+            # Set timeout
+            timeout = options.get("timeout_secs", 30)
 
-            # Write output to file
-            output_path.write_text(result.stdout, encoding="utf-8")
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    check=True
+                )
 
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(f"Docling timed out after {timeout}s") from exc
-        except subprocess.CalledProcessError as exc:
-            raise RuntimeError(f"Docling failed: {exc.stderr}") from exc
-        except Exception as exc:
-            raise RuntimeError(f"Docling error: {exc}") from exc
+                # Docling writes <input_stem>.md to output directory
+                expected_output = temp_output / f"{input_path.stem}.md"
+
+                if not expected_output.exists():
+                    raise RuntimeError(f"Docling did not create expected output: {expected_output}")
+
+                # Copy to final destination
+                output_path.write_bytes(expected_output.read_bytes())
+
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(f"Docling timed out after {timeout}s") from exc
+            except subprocess.CalledProcessError as exc:
+                raise RuntimeError(f"Docling failed: {exc.stderr}") from exc
+            except Exception as exc:
+                raise RuntimeError(f"Docling error: {exc}") from exc
 
     def get_extension(self, options: Dict[str, Any]) -> str:
         """Get output file extension.
