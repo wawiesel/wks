@@ -1,6 +1,6 @@
 # WKS (Wieselquist Knowledge System)
 
-**Version:** 0.3.7
+**Version:** 0.4.0
 **Status:** Production-ready core features, similarity features under rework
 
 AI-assisted file organization and knowledge management system with Obsidian vault integration.
@@ -152,7 +152,7 @@ lizard wks/ -l python -C 15
 
 ## Current Status
 
-**v0.3.7 (2025-01-24)**
+**v0.4.0 (2025-11-24)**
 - ✅ Core monitoring and vault features stable
 - ✅ All 139 tests passing
 - ✅ Code complexity reduced (CCN < 15 for all functions)

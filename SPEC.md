@@ -1,6 +1,6 @@
 # WKS Command-Line Utility (wks0)
 
-**Version:** 0.3.7 (2025-01-24)
+**Version:** 0.4.0 (2025-11-24)
 
 This spec documents the wks0 CLI: a layered architecture for filesystem monitoring, knowledge graph management, and semantic indexing.
 
