@@ -1,6 +1,10 @@
 # WKS Command-Line Utility (wks0)
 
+**Version:** 0.3.7 (2025-01-24)
+
 This spec documents the wks0 CLI: a layered architecture for filesystem monitoring, knowledge graph management, and semantic indexing.
+
+> **Status Note:** This specification describes the complete WKS architecture. Currently implemented and stable: Monitor Layer, Vault Layer, Transform Layer, Diff Layer, Service Management, and MCP Integration. The Related/Similarity features and Index Layer are under redesign and temporarily disabled.
 
 ## Architecture Overview
 
@@ -551,9 +555,11 @@ def on_file_moved(event):
 
 ### Related Layer
 
+> **⚠️ UNDER REDESIGN**: This layer is temporarily disabled while being redesigned for better performance and accuracy.
+
 **Purpose**: Find semantically similar documents
 
-**Engines**:
+**Engines** (planned):
 - `embedding` — Sentence transformer embeddings (all-MiniLM-L6-v2)
 - `diff_based` — Similarity based on diff size
 
@@ -561,12 +567,12 @@ def on_file_moved(event):
 
 **Database**: Each engine has its own database/collection
 
-**Commands**:
+**Commands** (planned):
 - `wks0 related <file>` — find similar files
 - `wks0 related <file> --limit 10 --min-similarity 0.5`
 - `wks0 related <file> --engine embedding`
 
-**MCP Integration**: Related engines can be exposed as MCP tools
+**MCP Integration**: Related engines can be exposed as MCP tools (when reimplemented)
 
 ### Index Layer
 
