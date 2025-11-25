@@ -11,9 +11,7 @@ from ..mcp_paths import mcp_socket_path
 from ..utils import get_package_version
 from .commands.config import show_config
 from .commands.diff import setup_diff_parser
-from .commands.index import setup_index_parser
 from .commands.monitor import setup_monitor_parser
-from .commands.related import setup_related_parser
 from .commands.service import setup_service_parser
 from .commands.transform import setup_transform_parser
 from .commands.vault import setup_vault_parser
@@ -57,8 +55,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Setup command parsers
     setup_service_parser(sub)
     setup_monitor_parser(sub)
-    setup_index_parser(sub)
-    setup_related_parser(sub)
     setup_diff_parser(sub)
     setup_transform_parser(sub)
     setup_vault_parser(sub)
