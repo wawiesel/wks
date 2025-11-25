@@ -319,6 +319,64 @@ class WKSDaemon:
         while self._fs_events_long and self._fs_events_long[0] < cutoff_long:
             self._fs_events_long.popleft()
 
+    def _update_monitor_db_on_move(self, src: Path, dest: Path) -> None:
+        """Update monitor database when file is moved."""
+        if self.monitor_collection is None:
+            return
+
+        try:
+            old_file_uri = src.resolve().as_uri()
+            new_file_uri = dest.resolve().as_uri()
+
+            # Check if old URI exists in monitor DB
+            old_doc = self.monitor_collection.find_one({"path": old_file_uri})
+            if old_doc:
+                # Update path to new URI (preserving other fields)
+                self.monitor_collection.update_one(
+                    {"path": old_file_uri},
+                    {"$set": {"path": new_file_uri}},
+                )
+            # If dest exists, ensure it's in monitor DB
+            self._update_monitor_db(dest)
+        except Exception as exc:
+            self._set_error(f"monitor_db_update_error: {exc}")
+
+    def _update_vault_db_on_move(self, old_uri: str, new_uri: str) -> None:
+        """Update vault database links when file is moved."""
+        if not (hasattr(self, "_vault_indexer") and self._vault_indexer):
+            return
+
+        try:
+            updated_count = self._vault_indexer.update_links_on_file_move(old_uri, new_uri)
+            if updated_count > 0:
+                self._set_info(f"Updated {updated_count} vault links for moved file")
+        except Exception as exc:
+            self._set_error(f"vault_link_update_error: {exc}")
+
+    def _update_transform_db_on_move(self, src: Path, dest: Path) -> None:
+        """Update transform cache when file is moved."""
+        if not self._transform_controller:
+            return
+
+        try:
+            old_file_uri = src.resolve().as_uri()
+            new_file_uri = dest.resolve().as_uri()
+            updated_count = self._transform_controller.update_uri(old_file_uri, new_file_uri)
+            if updated_count > 0:
+                self._set_info(f"Updated {updated_count} transform cache entries for moved file")
+        except Exception as exc:
+            self._set_error(f"transform_db_update_error: {exc}")
+
+    def _get_vault_base_path(self) -> Path | None:
+        """Get vault base directory path if configured."""
+        try:
+            vault_cfg = self.config.get("vault", {})
+            if vault_cfg.get("base_dir"):
+                return Path(vault_cfg["base_dir"]).expanduser().resolve()
+        except Exception:
+            pass
+        return None
+
     def _handle_move_event(self, src_path: str, dest_path: str):
         """Handle file move event."""
         src = Path(src_path)
@@ -337,6 +395,7 @@ class WKSDaemon:
         except Exception:
             dest_is_file = False
 
+        # Log operation
         if tracked_src or dest_is_file:
             try:
                 self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
@@ -350,59 +409,17 @@ class WKSDaemon:
         except Exception:
             pass
 
-        # Convert paths to appropriate URIs (vault:/// for vault files, file:/// otherwise)
+        # Convert paths to appropriate URIs
         from .uri_utils import convert_to_uri
-        vault_base = None
-        try:
-            vault_cfg = self.config.get("vault", {})
-            if vault_cfg.get("base_dir"):
-                vault_base = Path(vault_cfg["base_dir"]).expanduser().resolve()
-        except Exception:
-            pass
-
+        vault_base = self._get_vault_base_path()
         old_uri = convert_to_uri(src, vault_base)
         new_uri = convert_to_uri(dest, vault_base)
 
-        # Update monitor DB - atomic move from old URI to new URI
-        if self.monitor_collection is not None and dest_is_file:
-            try:
-                # Monitor DB always uses file:/// URIs
-                old_file_uri = src.resolve().as_uri()
-                new_file_uri = dest.resolve().as_uri()
-
-                # Check if old URI exists in monitor DB
-                old_doc = self.monitor_collection.find_one({"path": old_file_uri})
-                if old_doc:
-                    # Update path to new URI (preserving other fields)
-                    self.monitor_collection.update_one(
-                        {"path": old_file_uri},
-                        {"$set": {"path": new_file_uri}},
-                    )
-                # If dest exists, ensure it's in monitor DB
-                self._update_monitor_db(dest)
-            except Exception as exc:
-                self._set_error(f"monitor_db_update_error: {exc}")
-
-        # Update vault DB - links pointing to/from moved file
-        if hasattr(self, "_vault_indexer") and self._vault_indexer and dest_is_file:
-            try:
-                updated_count = self._vault_indexer.update_links_on_file_move(old_uri, new_uri)
-                if updated_count > 0:
-                    self._set_info(f"Updated {updated_count} vault links for moved file")
-            except Exception as exc:
-                self._set_error(f"vault_link_update_error: {exc}")
-
-        # Update transform DB - file URI changed
-        if self._transform_controller and dest_is_file:
-            try:
-                # Transform DB uses file:/// URIs
-                old_file_uri = src.resolve().as_uri()
-                new_file_uri = dest.resolve().as_uri()
-                updated_count = self._transform_controller.update_uri(old_file_uri, new_file_uri)
-                if updated_count > 0:
-                    self._set_info(f"Updated {updated_count} transform cache entries for moved file")
-            except Exception as exc:
-                self._set_error(f"transform_db_update_error: {exc}")
+        # Update all databases if destination is a file
+        if dest_is_file:
+            self._update_monitor_db_on_move(src, dest)
+            self._update_vault_db_on_move(old_uri, new_uri)
+            self._update_transform_db_on_move(src, dest)
 
         # Update wiki links inside vault
         try:

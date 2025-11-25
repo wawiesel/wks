@@ -60,6 +60,55 @@ def _validate_vault_config(vault: Dict[str, Any]) -> List[str]:
     return errors
 
 
+def _validate_monitor_include_paths(mon: Dict[str, Any]) -> List[str]:
+    """Validate monitor.include_paths."""
+    errors = []
+    if "include_paths" not in mon:
+        return errors
+
+    if not isinstance(mon["include_paths"], list):
+        errors.append(f"monitor.include_paths must be an array (found: {type(mon['include_paths']).__name__} = {mon['include_paths']!r}, expected: list of path strings)")
+    else:
+        for idx, path_str in enumerate(mon["include_paths"]):
+            path = Path(str(path_str)).expanduser()
+            if not path.exists():
+                errors.append(f"monitor.include_paths[{idx}] does not exist (found: {path!r}, expected: existing directory path)")
+    return errors
+
+
+def _validate_monitor_list_fields(mon: Dict[str, Any]) -> List[str]:
+    """Validate monitor list fields (exclude_paths, dirnames, globs)."""
+    errors = []
+
+    if "exclude_paths" in mon and not isinstance(mon["exclude_paths"], list):
+        errors.append(f"monitor.exclude_paths must be an array (found: {type(mon['exclude_paths']).__name__} = {mon['exclude_paths']!r}, expected: list of path strings)")
+
+    for key in ("include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"):
+        if key in mon and not isinstance(mon[key], list):
+            errors.append(f"monitor.{key} must be an array when provided (found: {type(mon[key]).__name__} = {mon[key]!r}, expected: list of strings)")
+
+    return errors
+
+
+def _validate_monitor_touch_weight(mon: Dict[str, Any]) -> List[str]:
+    """Validate monitor.touch_weight."""
+    errors = []
+    if "touch_weight" not in mon:
+        return errors
+
+    try:
+        weight_val = float(mon.get("touch_weight"))
+    except (TypeError, ValueError):
+        errors.append(
+            f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(mon.get('touch_weight')).__name__} = {mon.get('touch_weight')!r}, expected: float between 0.001 and 1.0)"
+        )
+    else:
+        if weight_val < 0.001 or weight_val > 1.0:
+            errors.append(f"monitor.touch_weight must be between 0.001 and 1 (found: {weight_val}, expected: 0.001 <= value <= 1.0)")
+
+    return errors
+
+
 def _validate_monitor_config(mon: Dict[str, Any]) -> List[str]:
     """Validate monitor configuration section."""
     errors = []
@@ -70,6 +119,7 @@ def _validate_monitor_config(mon: Dict[str, Any]) -> List[str]:
     if "database" in mon:
         errors.extend(_validate_database_key(mon["database"], "monitor"))
 
+    # Check required fields
     required_mon = [
         "include_paths",
         "exclude_paths",
@@ -83,32 +133,10 @@ def _validate_monitor_config(mon: Dict[str, Any]) -> List[str]:
         if key not in mon:
             errors.append(f"monitor.{key} is required")
 
-    if "include_paths" in mon:
-        if not isinstance(mon["include_paths"], list):
-            errors.append(f"monitor.include_paths must be an array (found: {type(mon['include_paths']).__name__} = {mon['include_paths']!r}, expected: list of path strings)")
-        else:
-            for idx, path_str in enumerate(mon["include_paths"]):
-                path = Path(str(path_str)).expanduser()
-                if not path.exists():
-                    errors.append(f"monitor.include_paths[{idx}] does not exist (found: {path!r}, expected: existing directory path)")
-
-    if "exclude_paths" in mon and not isinstance(mon["exclude_paths"], list):
-        errors.append(f"monitor.exclude_paths must be an array (found: {type(mon['exclude_paths']).__name__} = {mon['exclude_paths']!r}, expected: list of path strings)")
-
-    for key in ("include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"):
-        if key in mon and not isinstance(mon[key], list):
-            errors.append(f"monitor.{key} must be an array when provided (found: {type(mon[key]).__name__} = {mon[key]!r}, expected: list of strings)")
-
-    if "touch_weight" in mon:
-        try:
-            weight_val = float(mon.get("touch_weight"))
-        except (TypeError, ValueError):
-            errors.append(
-                f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(mon.get('touch_weight')).__name__} = {mon.get('touch_weight')!r}, expected: float between 0.001 and 1.0)"
-            )
-        else:
-            if weight_val < 0.001 or weight_val > 1.0:
-                errors.append(f"monitor.touch_weight must be between 0.001 and 1 (found: {weight_val}, expected: 0.001 <= value <= 1.0)")
+    # Validate specific fields
+    errors.extend(_validate_monitor_include_paths(mon))
+    errors.extend(_validate_monitor_list_fields(mon))
+    errors.extend(_validate_monitor_touch_weight(mon))
 
     return errors
 
