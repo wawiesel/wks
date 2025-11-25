@@ -1,8 +1,28 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented in this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
+
+## [0.3.7] - 2025-01-24
+### Changed
+- Refactored high-complexity functions (daemon.py, config_validator.py, vault.py) for better maintainability (CCN < 15)
+- Improved code organization with extracted helper methods
+- All tests passing (139 total)
+
+### Fixed
+- monitor validate command NameError (undefined monitor_config variable)
+- Now properly uses MonitorController.validate_config()
+
+### Removed
+- Similarity/related functionality temporarily disabled for redesign
+- Deleted obsolete test files (test_cli_related.py, test_similarity_add_file.py, test_space_db.py, test_cli_db_info.py, test_vault_controller.py obsolete tests)
+- Removed 1,537 lines of obsolete test code
+
+### Documentation
+- Updated README.md with current architecture, quick start guide, and status
+- Added status notes to SPEC.md marking similarity features as under redesign
+- Comprehensive smoke tests for all wks0 commands
 
 ## [0.2.8] - 2025-11-03
 ### Added
