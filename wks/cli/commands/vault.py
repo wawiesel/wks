@@ -281,6 +281,44 @@ def vault_links_cmd(args: argparse.Namespace) -> int:
         return 2
 
 
+def _show_fix_symlinks_results(result, display) -> None:
+    """Display results of fix_symlinks operation."""
+    if result.links_found == 0:
+        if display:
+            display.success("✓ No file:// links found in vault DB")
+        else:
+            print("✓ No file:// links found in vault DB")
+        return
+
+    # Show count of links found
+    if display:
+        display.info(f"Found {result.links_found} file:// links in vault DB")
+    else:
+        print(f"Found {result.links_found} file:// links in vault DB")
+
+    # Show successful creations
+    if result.created > 0:
+        if display:
+            display.success(f"✓ Created {result.created} symlink(s)")
+        else:
+            print(f"✓ Created {result.created} symlink(s)")
+
+    # Show failures
+    if result.failed:
+        if display:
+            display.warning(f"✗ Failed to create {len(result.failed)} symlink(s):")
+            for rel_path, reason in result.failed[:10]:
+                display.info(f"  {rel_path}: {reason}")
+            if len(result.failed) > 10:
+                display.info(f"  ... and {len(result.failed) - 10} more")
+        else:
+            print(f"✗ Failed to create {len(result.failed)} symlink(s):")
+            for rel_path, reason in result.failed[:10]:
+                print(f"  {rel_path}: {reason}")
+            if len(result.failed) > 10:
+                print(f"  ... and {len(result.failed) - 10} more")
+
+
 def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
     """Rebuild _links/<machine>/ from vault DB (deletes and recreates all symlinks)."""
     from ...vault.obsidian import ObsidianVault
@@ -304,57 +342,28 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
         vault_path = expand_path(vault_path_str)
         base_dir = vault_cfg.get("wks_dir", "WKS")
 
-        # Step 1: Say what we're doing
+        # Say what we're doing
         if display:
             display.status("Rebuilding _links/ from vault DB...")
 
-        # Step 2: Start spinner
+        # Start spinner
         spinner = None
         if display:
             spinner = display.spinner_start("Querying vault DB and recreating symlinks...")
 
-        # Initialize vault and controller
+        # Execute business logic
         vault = ObsidianVault(vault_path, base_dir=base_dir)
         controller = VaultController(vault)
-
-        # Execute business logic
         result = controller.fix_symlinks()
 
-        # Step 2 finish: Stop spinner
+        # Stop spinner
         if spinner and display:
             display.spinner_finish(spinner)
 
-        # Step 3: Say what we did and any problems
-        if result.links_found == 0:
-            if display:
-                display.success("✓ No file:// links found in vault DB")
-            else:
-                print("✓ No file:// links found in vault DB")
-            return 0
+        # Show results
+        _show_fix_symlinks_results(result, display)
 
-        if display:
-            display.info(f"Found {result.links_found} file:// links in vault DB")
-            if result.created > 0:
-                display.success(f"✓ Created {result.created} symlink(s)")
-            if result.failed:
-                display.warning(f"✗ Failed to create {len(result.failed)} symlink(s):")
-                for rel_path, reason in result.failed[:10]:
-                    display.info(f"  {rel_path}: {reason}")
-                if len(result.failed) > 10:
-                    display.info(f"  ... and {len(result.failed) - 10} more")
-        else:
-            print(f"Found {result.links_found} file:// links in vault DB")
-            if result.created > 0:
-                print(f"✓ Created {result.created} symlink(s)")
-            if result.failed:
-                print(f"✗ Failed to create {len(result.failed)} symlink(s):")
-                for rel_path, reason in result.failed[:10]:
-                    print(f"  {rel_path}: {reason}")
-                if len(result.failed) > 10:
-                    print(f"  ... and {len(result.failed) - 10} more")
-
-        # Step 4: Output handled by messages above
-        return 0 if not result.failed else 1
+        return 0 if result.links_found == 0 or not result.failed else 1
 
     except Exception as exc:
         if display:
