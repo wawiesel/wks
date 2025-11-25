@@ -18,10 +18,10 @@ def test_mongodb_connection_error(capsys):
     assert exc_info.value.code == 1
 
     captured = capsys.readouterr()
-    assert "MONGODB CONNECTION FAILED" in captured.out
-    assert "mongodb://localhost:27017/" in captured.out
-    assert "Connection timeout" in captured.out
-    assert "brew services start mongodb-community" in captured.out
+    assert "MONGODB CONNECTION FAILED" in captured.err
+    assert "mongodb://localhost:27017/" in captured.err
+    assert "Connection timeout" in captured.err
+    assert "brew services start mongodb-community" in captured.err
 
 
 def test_missing_dependency_error(capsys):
@@ -36,8 +36,8 @@ def test_missing_dependency_error(capsys):
     assert exc_info.value.code == 1
 
     captured = capsys.readouterr()
-    assert "MISSING DEPENDENCY: sentence-transformers" in captured.out
-    assert "pip install -e '.[all]'" in captured.out
+    assert "MISSING DEPENDENCY: sentence-transformers" in captured.err
+    assert "pip install -e '.[all]'" in captured.err
 
 
 def test_file_permission_error(capsys):
@@ -52,10 +52,10 @@ def test_file_permission_error(capsys):
     assert exc_info.value.code == 1
 
     captured = capsys.readouterr()
-    assert "FILE PERMISSION ERROR" in captured.out
-    assert "/path/to/file.txt" in captured.out
-    assert "read" in captured.out
-    assert "chmod u+rw" in captured.out
+    assert "FILE PERMISSION ERROR" in captured.err
+    assert "/path/to/file.txt" in captured.err
+    assert "read" in captured.err
+    assert "chmod u+rw" in captured.err
 
 
 def test_vault_path_error(capsys):
@@ -68,9 +68,9 @@ def test_vault_path_error(capsys):
     assert exc_info.value.code == 1
 
     captured = capsys.readouterr()
-    assert "INVALID OBSIDIAN VAULT PATH" in captured.out
-    assert "/nonexistent/vault" in captured.out
-    assert "vault_path" in captured.out
+    assert "INVALID OBSIDIAN VAULT PATH" in captured.err
+    assert "/nonexistent/vault" in captured.err
+    assert "vault_path" in captured.err
 
 
 def test_model_download_error(capsys):
@@ -85,7 +85,7 @@ def test_model_download_error(capsys):
     assert exc_info.value.code == 1
 
     captured = capsys.readouterr()
-    assert "MODEL DOWNLOAD FAILED" in captured.out
-    assert "all-MiniLM-L6-v2" in captured.out
-    assert "Connection refused" in captured.out
-    assert "huggingface.co" in captured.out
+    assert "MODEL DOWNLOAD FAILED" in captured.err
+    assert "all-MiniLM-L6-v2" in captured.err
+    assert "Connection refused" in captured.err
+    assert "huggingface.co" in captured.err

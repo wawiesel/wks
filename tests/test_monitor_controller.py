@@ -61,14 +61,14 @@ class TestMonitorController(unittest.TestCase):
         self.assertIsInstance(result.exclude_dirnames, list)
 
     def test_get_status_detects_vault_redundancy(self):
-        """Test that vault_path in exclude_paths triggers redundancy warning."""
+        """Test that vault.base_dir in exclude_paths triggers redundancy warning."""
         config = build_config(exclude_paths=["/vault"])
-        config["vault_path"] = "/vault"
+        config["vault"] = {"base_dir": "/vault"}
 
         result = MonitorController.get_status(config)
 
         # Should detect redundancy
-        self.assertTrue(any("vault_path is automatically ignored" in r for r in result.redundancies))
+        self.assertTrue(any("vault.base_dir is managed separately" in r for r in result.redundancies))
 
     def test_get_status_detects_wks_home_redundancy(self):
         """Test that ~/.wks in exclude_paths triggers redundancy warning."""
@@ -101,7 +101,7 @@ class TestMonitorController(unittest.TestCase):
         result = MonitorController.validate_config(config)
 
         self.assertGreater(len(result.issues), 0)
-        self.assertTrue(any("both include and exclude" in issue for issue in result.issues))
+        self.assertTrue(any("both include_paths and exclude_paths" in issue for issue in result.issues))
 
     def test_check_path_included(self):
         """Test check_path for an included path."""

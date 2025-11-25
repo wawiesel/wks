@@ -216,8 +216,6 @@ def test_cli_vault_status_json(monkeypatch):
             return cls()
 
     monkeypatch.setattr(vault_cmd, "load_config", lambda: {"db": {}, "vault": {}})
-    monkeypatch.setattr(vault_cmd, "load_vault", lambda cfg: object())
-    monkeypatch.setattr(vault_cmd, "VaultLinkIndexer", FakeIndexer)
     monkeypatch.setattr(vault_cmd, "VaultStatusController", lambda cfg: FakeController(cfg))
 
     rc, out, _ = run_cli(['--display', 'mcp', 'vault', 'status', '--json'])
