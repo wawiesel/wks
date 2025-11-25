@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this project will be d
 
 The format is based on Keep a Changelog, and this project adheres to Semantic Versioning (SemVer).
 
+## [0.4.0] - 2025-11-24
+
+### Added
+- Full diff and transform engine configuration with proper defaults
+- Diff engines: myers (text diff with context lines), bsdiff3 (binary diff)
+- Transform engines: docling (PDF/DOCX/PPTX to Markdown with OCR, timeout, caching)
+- Transform cache system with checksum-based keys (file + engine + options)
+- Comprehensive MCP server documentation in SPEC.md and README.md
+- MCP usage examples showing installation and available tools
+
+### Fixed
+- MCP vault_status tool now uses VaultStatusController (was calling non-existent method)
+- All 13 MCP tools verified working via integration tests
+
+### Changed
+- Removed obsolete extract, index, and related CLI commands (similarity features under redesign)
+- MCP server tools focus on monitor and vault operations only
+- Updated README status: MCP server fully functional and documented
+
+### Documentation
+- SPEC.md: Added Vault Tools section, removed obsolete tool references, documented architecture
+- README.md: Added MCP Server section with installation/usage, tool listing, command examples
+- All version numbers updated to 0.4.0
+
 ## [0.3.7] - 2025-01-24
 ### Changed
 - Refactored high-complexity functions (daemon.py, config_validator.py, vault.py) for better maintainability (CCN < 15)
