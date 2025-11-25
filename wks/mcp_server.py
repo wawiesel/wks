@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, TextIO
 from .config import load_config
 from .monitor import MonitorController
 from .vault import VaultController
+from .vault.status_controller import VaultStatusController
 
 
 class MCPServer:
@@ -542,7 +543,9 @@ class MCPServer:
 
     def _tool_vault_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Execute wks_vault_status tool."""
-        return VaultController.get_status(config)
+        controller = VaultStatusController(config)
+        summary = controller.summarize()
+        return summary.to_dict()
 
     def _tool_vault_sync(self, config: Dict[str, Any], batch_size: int) -> Dict[str, Any]:
         """Execute wks_vault_sync tool."""
