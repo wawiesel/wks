@@ -120,14 +120,12 @@ def extract_monitor_status_data(status_data: Any) -> Tuple[int, List[str], List[
 def get_last_touch_time(config: Dict[str, Any]) -> Optional[str]:
     """Get the most recent timestamp from the monitor database."""
     try:
-        from ...config import mongo_settings
-        from pymongo import MongoClient
         from ...monitor import MonitorConfig
 
         monitor_cfg = MonitorConfig.from_config_dict(config)
-        mongo_config = mongo_settings(config)
+        mongo_uri = config.get("db", {}).get("uri", "mongodb://localhost:27017/")
 
-        client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
         client.server_info()
         db_name, coll_name = monitor_cfg.database.split(".", 1)
         db = client[db_name]

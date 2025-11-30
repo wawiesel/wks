@@ -1,113 +1,168 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from .constants import WKS_HOME_EXT
 from .utils import wks_home_path, get_wks_home
+from .monitor.config import MonitorConfig, ValidationError as MonitorValidationError
 
 DEFAULT_MONGO_URI = "mongodb://localhost:27017/"
-DEFAULT_SPACE_DATABASE = "wks_similarity"
-DEFAULT_SPACE_COLLECTION = "file_embeddings"
-DEFAULT_TIME_COLLECTION = "file_snapshots"
 DEFAULT_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-def mongo_settings(cfg: Dict[str, Any]) -> Dict[str, str]:
-    """Normalize Mongo connection settings from config.
-    
-    Uses 'db' section for URI, 'related' section for database/collection names.
-    """
-    db_cfg = cfg.get("db", {})
-    related_cfg = cfg.get("related", {})
-    embedding_cfg = related_cfg.get("engines", {}).get("embedding", {})
-
-    def _norm(value, default):
-        return str(value) if value and value != "" else default
-
-    uri = _norm(db_cfg.get("uri"), DEFAULT_MONGO_URI)
-    space_db = _norm(embedding_cfg.get("database"), DEFAULT_SPACE_DATABASE)
-    space_coll = _norm(embedding_cfg.get("collection"), DEFAULT_SPACE_COLLECTION)
-    time_db = _norm(embedding_cfg.get("database"), DEFAULT_SPACE_DATABASE)
-    time_coll = _norm(embedding_cfg.get("snapshots_collection"), DEFAULT_TIME_COLLECTION)
-    
-    return {
-        "uri": uri,
-        "space_database": space_db,
-        "space_collection": space_coll,
-        "time_database": time_db,
-        "time_collection": time_coll,
-    }
+class ConfigError(Exception):
+    """Base exception for configuration errors."""
+    pass
 
 
-def apply_similarity_mongo_defaults(sim_cfg: Dict[str, Any], mongo_cfg: Dict[str, str]) -> Dict[str, Any]:
-    """Ensure similarity config contains the canonical Mongo keys."""
-    sim = dict(sim_cfg)
-    sim.setdefault("mongo_uri", mongo_cfg["uri"])
-    sim.setdefault("database", mongo_cfg["space_database"])
-    sim.setdefault("collection", mongo_cfg["space_collection"])
-    sim.setdefault("snapshots_collection", mongo_cfg["time_collection"])
-    return sim
+@dataclass
+class MongoSettings:
+    """Normalized MongoDB connection settings."""
+    uri: str
+
+    def __post_init__(self):
+        if not self.uri:
+            self.uri = DEFAULT_MONGO_URI
+        if not self.uri.startswith("mongodb://") and not self.uri.startswith("mongodb+srv://"):
+             if not self.uri.startswith("mongodb"):
+                raise ConfigError(f"db.uri must start with 'mongodb://' (found: {self.uri!r})")
+
+    @classmethod
+    def from_config(cls, cfg: Dict[str, Any]) -> "MongoSettings":
+        db_cfg = cfg.get("db", {})
+        return cls(
+            uri=db_cfg.get("uri", DEFAULT_MONGO_URI),
+        )
 
 
-def timestamp_format(cfg: Dict[str, Any]) -> str:
-    disp = cfg.get("display", {})
-    fmt = disp.get("timestamp_format")
-    return fmt if isinstance(fmt, str) and fmt.strip() else DEFAULT_TIMESTAMP_FORMAT
+@dataclass
+class VaultConfig:
+    """Vault configuration."""
+    base_dir: Path
+    wks_dir: str = ".wks"
+    update_frequency_seconds: int = 3600
+    database: str = "wks.vault"
+
+    def __post_init__(self):
+        if not isinstance(self.base_dir, Path):
+            self.base_dir = Path(self.base_dir)
+        
+        if self.base_dir.is_absolute() and not self.base_dir.exists():
+             pass
+
+    @classmethod
+    def from_config(cls, cfg: Dict[str, Any]) -> "VaultConfig":
+        vault_cfg = cfg.get("vault", {})
+        if "base_dir" not in vault_cfg:
+             raise ConfigError("vault.base_dir is required")
+        
+        return cls(
+            base_dir=Path(vault_cfg["base_dir"]),
+            wks_dir=vault_cfg.get("wks_dir", ".wks"),
+            update_frequency_seconds=vault_cfg.get("update_frequency_seconds", 3600),
+            database=vault_cfg.get("database", "wks.vault"),
+        )
 
 
-def get_config_path() -> Path:
-    """Get path to WKS config file.
+@dataclass
+class MetricsConfig:
+    """Metrics configuration."""
+    fs_rate_short_window_secs: float = 10.0
+    fs_rate_long_window_secs: float = 600.0
+    fs_rate_short_weight: float = 0.8
+    fs_rate_long_weight: float = 0.2
 
-    Calls get_wks_home() to determine WKS home directory (checking WKS_HOME env var),
-    then returns path to config.json within that directory.
-
-    Returns:
-        Path to config.json file
-
-    Examples:
-        >>> # WKS_HOME not set
-        >>> get_config_path()
-        Path("/Users/user/.wks/config.json")
-        >>> # WKS_HOME="/custom/path"
-        >>> get_config_path()
-        Path("/custom/path/config.json")
-    """
-    return get_wks_home() / "config.json"
+    @classmethod
+    def from_config(cls, cfg: Dict[str, Any]) -> "MetricsConfig":
+        metrics_cfg = cfg.get("metrics", {})
+        return cls(
+            fs_rate_short_window_secs=float(metrics_cfg.get("fs_rate_short_window_secs", 10.0)),
+            fs_rate_long_window_secs=float(metrics_cfg.get("fs_rate_long_window_secs", 600.0)),
+            fs_rate_short_weight=float(metrics_cfg.get("fs_rate_short_weight", 0.8)),
+            fs_rate_long_weight=float(metrics_cfg.get("fs_rate_long_weight", 0.2)),
+        )
 
 
-def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
-    """Load WKS configuration from JSON file.
+@dataclass
+class WKSConfig:
+    """Top-level WKS configuration."""
+    vault: VaultConfig
+    monitor: MonitorConfig
+    mongo: MongoSettings
+    metrics: MetricsConfig = field(default_factory=MetricsConfig)
+    transform: Dict[str, Any] = field(default_factory=dict)
+    display: Dict[str, Any] = field(default_factory=dict)
 
-    If path is None, calls get_config_path() to determine the default config location
-    by checking WKS_HOME environment variable and defaulting to ~/.wks/config.json.
+    @classmethod
+    def load(cls, path: Optional[Path] = None) -> "WKSConfig":
+        """Load and validate config from file."""
+        if path is None:
+            path = get_config_path()
 
-    Args:
-        path: Optional explicit path to config file. If None, uses get_config_path().
+        if not path.exists():
+            raise ConfigError(f"Configuration file not found at {path}")
 
-    Returns:
-        Configuration dictionary, or empty dict if file doesn't exist or can't be loaded.
-
-    Examples:
-        >>> # Load from default location
-        >>> config = load_config()
-        >>> # Load from custom location
-        >>> config = load_config(Path("/custom/config.json"))
-    """
-    if path is None:
-        path = get_config_path()
-
-    if path.exists():
         try:
             with open(path, "r") as fh:
-                return json.load(fh)
-        except Exception:
-            return {}
-    return {}
+                raw = json.load(fh)
+        except json.JSONDecodeError as e:
+            raise ConfigError(f"Invalid JSON in config file {path}: {e}")
 
+        try:
+            mongo = MongoSettings.from_config(raw)
+            monitor = MonitorConfig.from_config_dict(raw)
+            vault = VaultConfig.from_config(raw)
+            metrics = MetricsConfig.from_config(raw)
+            
+            return cls(
+                vault=vault,
+                monitor=monitor,
+                mongo=mongo,
+                metrics=metrics,
+                transform=raw.get("transform", {}),
+                display=raw.get("display", {}),
+            )
+        except (MonitorValidationError, KeyError, ValueError) as e:
+            raise ConfigError(f"Configuration validation failed: {e}")
 
-# Backwards compatibility alias
-def load_user_config() -> Dict[str, Any]:
-    """DEPRECATED: Use load_config() instead."""
-    return load_config()
+def get_config_path() -> Path:
+    """Get path to WKS config file."""
+    return get_wks_home() / "config.json"
+
+# Backwards compatibility - DEPRECATED
+def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
+    """DEPRECATED: Use WKSConfig.load() instead.
+    
+    Returns a dict representation for temporary compatibility.
+    """
+    try:
+        cfg = WKSConfig.load(path)
+        return {
+            "vault": {
+                "base_dir": str(cfg.vault.base_dir),
+                "wks_dir": cfg.vault.wks_dir,
+                "update_frequency_seconds": cfg.vault.update_frequency_seconds,
+                "database": cfg.vault.database,
+            },
+            "monitor": {
+                "include_paths": cfg.monitor.include_paths,
+                "exclude_paths": cfg.monitor.exclude_paths,
+                "include_dirnames": cfg.monitor.include_dirnames,
+                "exclude_dirnames": cfg.monitor.exclude_dirnames,
+                "include_globs": cfg.monitor.include_globs,
+                "exclude_globs": cfg.monitor.exclude_globs,
+                "database": cfg.monitor.database,
+                "managed_directories": cfg.monitor.managed_directories,
+                "touch_weight": cfg.monitor.touch_weight,
+                "priority": cfg.monitor.priority,
+                "max_documents": cfg.monitor.max_documents,
+                "prune_interval_secs": cfg.monitor.prune_interval_secs,
+            },
+            "db": {"uri": cfg.mongo.uri},
+            "display": cfg.display,
+        }
+    except ConfigError:
+        return {}
