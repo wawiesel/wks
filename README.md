@@ -13,11 +13,31 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 - **MCP Server**: AI assistant integration via Model Context Protocol
 - **Service Daemon**: Background monitoring with automatic sync
 
-## Quick Start
+## Install
+
+### Requirements
+
+- Python 3.10+
+- MongoDB 4.0+
+- macOS/Linux
+
+### From Source
 
 ```bash
-# Install
+# Clone and setup
+git clone <repo-url>
+cd 2025-WKS
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
 pip install -e '.[all]'
+
+# Optional: Install docling for PDF/Office transformation
+pipx runpip wks0 install docling
+```
 
 # Initialize configuration
 wks0 config
