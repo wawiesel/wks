@@ -42,8 +42,7 @@ class VaultController:
             SymlinkFixResult with operation statistics
         """
         from pymongo import MongoClient
-        from ..config import load_config
-        from .config import VaultDatabaseConfig
+        from ..config import WKSConfig
         import shutil
 
         # 1. Delete entire _links/<machine>/ directory
@@ -60,17 +59,27 @@ class VaultController:
                 )
 
         # 2. Query vault DB for all file:// links
-        cfg = load_config()
-        db_config = VaultDatabaseConfig.from_config(cfg)
+        try:
+            config = WKSConfig.load()
+            mongo_uri = config.mongo.uri
+            db_name = config.vault.database.split(".")[0]
+            coll_name = config.vault.database.split(".")[1]
+        except Exception as e:
+             return SymlinkFixResult(
+                notes_scanned=0,
+                links_found=0,
+                created=0,
+                failed=[("config", f"Failed to load config: {e}")]
+            )
 
         try:
             client = MongoClient(
-                db_config.mongo_uri,
+                mongo_uri,
                 serverSelectionTimeoutMS=5000,
                 retryWrites=True,
                 retryReads=True,
             )
-            collection = client[db_config.db_name][db_config.coll_name]
+            collection = client[db_name][coll_name]
 
             # Find all links where to_uri is file://
             cursor = collection.find(
@@ -133,19 +142,18 @@ class VaultController:
     @staticmethod
     def sync_vault(cfg: Optional[dict] = None, batch_size: int = 1000, incremental: bool = False) -> dict:
         """Sync vault links to MongoDB (wrapper for CLI/MCP)."""
-        from ..config import load_config
+        from ..config import WKSConfig
         from ..utils import expand_path
         from .indexer import VaultLinkIndexer
 
-        cfg = cfg or load_config()
-        vault_cfg = cfg.get("vault", {}) or {}
-        base_dir = vault_cfg.get("base_dir")
-        wks_dir = vault_cfg.get("wks_dir", "WKS")
+        config = WKSConfig.load()
+        base_dir = config.vault.base_dir
+        wks_dir = config.vault.wks_dir
         if not base_dir:
             raise ValueError("vault.base_dir not configured")
 
         vault = ObsidianVault(expand_path(base_dir), base_dir=wks_dir)
-        indexer = VaultLinkIndexer.from_config(vault, cfg)
+        indexer = VaultLinkIndexer.from_config(vault, config)
         result = indexer.sync(batch_size=batch_size, incremental=incremental)
 
         return {

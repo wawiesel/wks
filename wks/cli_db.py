@@ -4,8 +4,7 @@ Per SPEC.md, database commands are organized by layer:
 - wks0 db monitor    -- Query filesystem monitoring database
 - wks0 db vault      -- Query knowledge graph links
 - wks0 db transform  -- Query transform cache metadata
-- wks0 db related    -- Query similarity embeddings (future)
-- wks0 db index      -- Query search indices (future)
+- wks0 db transform  -- Query transform cache metadata
 """
 
 import argparse

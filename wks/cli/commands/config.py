@@ -52,11 +52,8 @@ def _build_config_table_data(config_data: Dict[str, Any]) -> List[Dict[str, str]
         ("Monitor", "monitor"),
         ("Vault", "vault"),
         ("DB", "db"),
-        ("Extract", "extract"),
+        ("Transform", "transform"),
         ("Diff", "diff"),
-        ("Related", "related"),
-        ("Index", "index"),
-        ("Search", "search"),
         ("Display", "display"),
     ]
 

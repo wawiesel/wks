@@ -36,10 +36,6 @@ def is_old_config(config: Dict[str, Any]) -> bool:
         if "managed_directories" in monitor:
             return False  # Definitely new format
 
-    # Check for old similarity vs new related
-    if has_similarity and "related" not in config:
-        return True
-
     return False
 
 
@@ -124,36 +120,12 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
         "uri": old_mongo.get("uri", "mongodb://localhost:27017/")
     }
 
-    # === Extract section ===
+    # === Transform section ===
     old_extract = old_config.get("extract", {})
     old_engine = old_extract.get("engine", "docling")
 
-    new_config["extract"] = {
-        "output_dir_rules": {
-            "resolve_symlinks": True,
-            "git_parent": True,
-            "underscore_sibling": True
-        },
-        "engines": {
-            "docling": {
-                "enabled": old_engine == "docling",
-                "is_default": old_engine == "docling",
-                "ocr": old_extract.get("ocr", False),
-                "timeout_secs": old_extract.get("timeout_secs", 30),
-                "write_extension": old_extract.get("write_extension", "md")
-            },
-            "builtin": {
-                "enabled": True,
-                "max_chars": 200000
-            }
-        },
-        "_router": {
-            "rules": [
-                {"extensions": [".pdf", ".docx", ".pptx"], "engine": "docling"},
-                {"extensions": [".txt", ".md", ".py"], "engine": "builtin"}
-            ],
-            "fallback": "builtin"
-        }
+    new_config["transform"] = {
+        "cache_location": ".wks/cache"
     }
 
     # === Diff section (new) ===
@@ -179,79 +151,7 @@ def migrate_config(old_config: Dict[str, Any]) -> Dict[str, Any]:
         }
     }
 
-    # === Related section (from old similarity) ===
-    old_similarity = old_config.get("similarity", {})
 
-    new_config["related"] = {
-        "engines": {
-            "embedding": {
-                "enabled": old_similarity.get("enabled", True),
-                "is_default": True,
-                "model": old_similarity.get("model", "all-MiniLM-L6-v2"),
-                "min_chars": old_similarity.get("min_chars", 10),
-                "max_chars": old_similarity.get("max_chars", 200000),
-                "chunk_chars": old_similarity.get("chunk_chars", 1500),
-                "chunk_overlap": old_similarity.get("chunk_overlap", 200),
-                "offline": old_similarity.get("offline", True),
-                # Use old mongo settings if they exist
-                "database": old_similarity.get("database",
-                                               old_mongo.get("space_database", "wks_similarity")),
-                "collection": old_similarity.get("collection",
-                                                 old_mongo.get("space_collection", "file_embeddings"))
-            },
-            "diff_based": {
-                "enabled": False,
-                "threshold": 0.7,
-                "database": "wks_similarity",
-                "collection": "diff_similarity"
-            }
-        },
-        "_router": {
-            "default": "embedding",
-            "rules": [
-                {"priority_min": 50, "engine": "embedding"}
-            ]
-        }
-    }
-
-    # === Index section ===
-    new_config["index"] = {
-        "indices": {
-            "main": {
-                "enabled": True,
-                "type": "embedding",
-                "include_extensions": old_similarity.get("include_extensions", [
-                    ".md", ".txt", ".py", ".ipynb", ".tex",
-                    ".docx", ".pptx", ".pdf", ".html",
-                    ".csv", ".xlsx"
-                ]),
-                "respect_monitor_ignores": old_similarity.get("respect_monitor_ignores", False),
-                "respect_priority": True,
-                "database": old_mongo.get("space_database", "wks_index_main"),
-                "collection": old_mongo.get("space_collection", "documents")
-            },
-            "code": {
-                "enabled": False,
-                "type": "ast",
-                "include_extensions": [".py", ".js", ".ts", ".cpp"],
-                "database": "wks_index_code",
-                "collection": "code_blocks"
-            }
-        }
-    }
-
-    # === Search section (new) ===
-    new_config["search"] = {
-        "default_index": "main",
-        "combine": {
-            "enabled": False,
-            "indices": ["main", "code"],
-            "weights": {
-                "main": 0.7,
-                "code": 0.3
-            }
-        }
-    }
 
     # === Display section ===
     old_display = old_config.get("display", {})

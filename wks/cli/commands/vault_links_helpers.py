@@ -12,8 +12,7 @@ def prepare_file_and_vault_paths(args, cfg, display) -> Optional[Tuple[Path, Pat
     """
     from ...utils import expand_path
 
-    vault_cfg = cfg.get("vault", {})
-    vault_path_str = vault_cfg.get("base_dir")
+    vault_path_str = cfg.vault.base_dir
     if not vault_path_str:
         if display:
             display.error("vault.base_dir not configured")
@@ -113,7 +112,7 @@ def fallback_scan_vault(vault_path: Path, vault_cfg: Dict, target_uri: str, targ
     from ...vault.indexer import VaultLinkScanner
 
     try:
-        fallback_vault = ObsidianVault(vault_path, base_dir=vault_cfg.get("wks_dir", "WKS"))
+        fallback_vault = ObsidianVault(vault_path, base_dir=vault_cfg.vault.wks_dir)
         scanner = VaultLinkScanner(fallback_vault)
         records = scanner.scan()
 
@@ -233,8 +232,7 @@ def prepare_vault_for_validation(cfg: Dict, display: Any) -> Optional[Tuple[Path
     """
     from ...utils import expand_path
 
-    vault_cfg = cfg.get("vault", {})
-    vault_path_str = vault_cfg.get("base_dir")
+    vault_path_str = cfg.vault.base_dir
     if not vault_path_str:
         if display:
             display.error("vault.base_dir not configured")
@@ -243,7 +241,7 @@ def prepare_vault_for_validation(cfg: Dict, display: Any) -> Optional[Tuple[Path
         return None
 
     vault_path = expand_path(vault_path_str)
-    base_dir = vault_cfg.get("wks_dir", "WKS")
+    base_dir = cfg.vault.wks_dir
     return vault_path, base_dir
 
 

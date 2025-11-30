@@ -1,59 +1,60 @@
 # WKS Command-Line Utility (wks0)
 
-**Version:** 0.4.0 (2025-11-24)
-
 This spec documents the wks0 CLI: a layered architecture for filesystem monitoring, knowledge graph management, and semantic indexing.
-
-> **Status Note:** This specification describes the complete WKS architecture. Currently implemented and stable: Monitor Layer, Vault Layer, Transform Layer, Diff Layer, Service Management, and MCP Integration. The Related/Similarity features and Index Layer are under redesign and temporarily disabled.
 
 ## Architecture Overview
 
 WKS is built as a stack of independent, composable layers:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Patterns (CLAUDE.md)                                │
-│  Organizational guidance, not configuration          │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Search Layer                                        │
-│  Combines indices with weights                       │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Index Layer                                         │
-│  Multiple independent indices (RAG, AST, etc.)       │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Semantic Engines (pluggable)                        │
-│  Related | Diff                                      │
-│  Each with _router for engine selection              │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Transform Layer                                     │
-│  Binary → Text conversion with caching               │
-│  DB: wks.transform, Cache: 1GB LRU                   │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Vault Layer (Obsidian)                              │
-│  Knowledge graph: links only                         │
-│  DB: wks.vault                                       │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Monitor Layer                                       │
-│  Filesystem state: paths, checksums, priorities      │
-│  DB: wks.monitor                                     │
-└─────────────────────────────────────────────────────┘
+                    ┌──────────────────────────────────────────┐
+                    │  Patterns Layer                          │
+                    │  AI agents executing organizational      │
+                    │  patterns for knowledge management       │
+                    └──────────────────────────────────────────┘
+                                      ↓
+                    ┌──────────────────────────────────────────┐
+                    │  Search Layer                            │
+                    │  Semantic + keyword search combining     │
+                    │  multiple indices with weighted results  │
+                    └──────────────────────────────────────────┘
+                                      ↓
+                    ┌──────────────────────────────────────────┐
+                    │  Diff Layer                              │
+                    │  Pluggable comparison engines            │
+                    │  (myers, bsdiff3, ...)                   │
+                    └──────────────────────────────────────────┘
+                                      ↓
+                    ┌──────────────────────────────────────────┐
+                    │  Transform Layer                         │
+                    │  Multi-engine document conversion        │
+                    │  Docling (PDF/DOCX/PPTX → Markdown)      │
+                    │  Extensible converter plugin system      │
+                    └──────────────────────────────────────────┘
+                                      ↓
+                    ┌──────────────────────────────────────────┐
+                    │  Vault Layer                             │
+                    │  Knowledge graph link tracking           │
+                    │  Obsidian + extensible vault types       │
+                    │  Symlinks: _links/<machine>/             │
+                    └──────────────────────────────────────────┘
+                                      ↓
+                    ┌──────────────────────────────────────────┐
+                    │  Monitor Layer                           │
+                    │  Filesystem tracking + priority scoring  │
+                    │  Paths, checksums, modification times    │
+                    └──────────────────────────────────────────┘
 ```
+
+**Design Principles**:
+- **Config-First**: All defaults defined in `~/.wks/config.json`
+- **Override Anywhere**: CLI and MCP can override any config parameter
+- **Engine Plugins**: Each layer supports multiple engines with dedicated configuration
+- **Zero Duplication**: CLI and MCP share identical business logic via controllers
 
 ## Installation
 - Recommended: `pipx install .`
-- Optional: `pipx runpip wks0 install docling` (for PDF/Office extraction)
+- Optional: `pipx runpip wks0 install docling` (for PDF/Office transformation)
 - Python: 3.10+
 
 ## Configuration
@@ -91,8 +92,7 @@ Stored at `~/.wks/config.json`
         ".pptx": 1.3,
         ".pdf": 1.1,
         "default": 1.0
-      },
-      "auto_index_min": 2
+      }
     },
     "database": "wks.monitor",
     "log_file": "~/.wks/monitor.log"
@@ -136,35 +136,6 @@ Stored at `~/.wks/config.json`
         "enabled": true,
         "context_lines": 3
       }
-    }
-  },
-
-  "related": {
-    "engines": {
-      "embedding": {
-        "enabled": true,
-        "is_default": true,
-        "model": "all-MiniLM-L6-v2",
-        "min_chars": 10,
-        "max_chars": 200000,
-        "chunk_chars": 1500,
-        "chunk_overlap": 200,
-        "offline": true,
-        "database": "wks_similarity",
-        "collection": "file_embeddings"
-      },
-      "diff_based": {
-        "enabled": false,
-        "threshold": 0.7,
-        "database": "wks_similarity",
-        "collection": "diff_similarity"
-      }
-    },
-    "_router": {
-      "default": "embedding",
-      "rules": [
-        {"priority_min": 50, "engine": "embedding"}
-      ]
     }
   },
 
@@ -553,61 +524,83 @@ def on_file_moved(event):
 
 **MCP Integration**: Diff engines can be exposed as MCP tools
 
-### Related Layer
+### Search Layer
 
-> **⚠️ UNDER REDESIGN**: This layer is temporarily disabled while being redesigned for better performance and accuracy.
+**Purpose**: Query interface for finding files and content across the knowledge base
 
-**Purpose**: Find semantically similar documents
+**Capabilities**:
+- Natural language search across indexed documents
+- Semantic similarity search
+- Combined weighted search across multiple indices
+- Filter by file type, priority, vault membership
 
-**Engines** (planned):
-- `embedding` — Sentence transformer embeddings (all-MiniLM-L6-v2)
-- `diff_based` — Similarity based on diff size
+**Query Interface**:
+```bash
+wks0 search "machine learning papers"
+wks0 search "related to project Alpha" --vault-only
+wks0 search "python functions using asyncio" --index code
+```
 
-**Router**: `_router` selects engine based on context
+**Architecture**:
+- Builds on Index Layer for actual search execution
+- Combines results from multiple indices with configurable weights
+- Respects monitor priority for result ranking
+- Uses transform layer for searchable content extraction
 
-**Database**: Each engine has its own database/collection
-
-**Commands** (planned):
-- `wks0 related <file>` — find similar files
-- `wks0 related <file> --limit 10 --min-similarity 0.5`
-- `wks0 related <file> --engine embedding`
-
-**MCP Integration**: Related engines can be exposed as MCP tools (when reimplemented)
+**Index Integration**:
+- `--index main` - Search document embeddings (default)
+- `--index code` - Search code structure/AST
+- `--combine` - Weighted combination of all enabled indices
 
 ### Index Layer
 
-**Purpose**: Multiple independent indices for different use cases
+**Purpose**: Maintain searchable indices of file content and structure
 
-**Indices**:
-- `main` — General embedding-based index for documents
-- `code` — AST-based index for code (optional)
+**Index Types**:
+- **Document Index (RAG)**: Embedding-based semantic search
+  - Text extraction via Transform Layer
+  - Chunk-based indexing with overlap
+  - Vector similarity search
+  
+- **Code Index (AST)**: Structure-aware code search
+  - Parse source files into AST
+  - Index functions, classes, imports
+  - Symbol-level search and navigation
 
-**No Router**: Indexing is a decision, not routed automatically
+**Architecture**:
+- Each index is independent with its own database
+- Indices built on top of Transform and Monitor layers
+- Transform provides content extraction
+- Monitor provides file discovery and priorities
 
-**Schema** (per index):
-- `path` — file URI
-- `content_path` — extracted text location
-- `embedding` — vector representation
-- `angle` — degrees from empty string embedding
-- `metadata` — index-specific metadata
+**Database Schema** (per index):
+```python
+{
+  "file_uri": "file:///path/to/file",
+  "checksum": "sha256...",
+  "chunks": [...],
+  "embedding": [...],
+  "metadata": {
+    "priority": 95,
+    "vault_member": false,
+    "index_name": "main"
+  }
+}
+```
 
 **Commands**:
-- `wks0 index <file>` — index with default index
-- `wks0 index <file> --index code` — use specific index
-- `wks0 index --untrack <file>` — remove from all indices
+```bash
+wks0 index build main          # Build/rebuild main index
+wks0 index build code          # Build code index
+wks0 index status              # Show index statistics
+wks0 db index                  # Query index database
+```
 
-### Search Layer
-
-**Purpose**: Query indices with optional combination
-
-**Features**:
-- Single index search (default)
-- Multi-index search with weighted combination
-
-**Commands**:
-- `wks0 search <query>` — search default index
-- `wks0 search <query> --index code` — search specific index
-- `wks0 search <query> --combine` — search all indices with weights
+**Integration**:
+- Monitor events trigger incremental index updates
+- Transform layer provides searchable content
+- Vault membership affects index priority
+- MCP tools expose search capabilities to AI assistants
 
 ## Database Commands
 
@@ -618,15 +611,11 @@ All layers store data in MongoDB:
 wks0 db monitor              # Filesystem state
 wks0 db vault                # Knowledge graph links
 wks0 db transform            # Transform cache metadata
-wks0 db related              # Similarity embeddings
-wks0 db index                # Search indices
 
 # Reset databases (destructive)
 wks0 db reset monitor        # Clear filesystem state
 wks0 db reset vault          # Clear link graph
 wks0 db reset transform      # Clear transform cache and DB
-wks0 db reset related        # Clear embeddings
-wks0 db reset index          # Clear all indices
 ```
 
 ## Service Management
@@ -646,30 +635,18 @@ wks0 service status          # Show status and metrics (supports --live for auto
 wks0 config                  # Print effective config (table in CLI, JSON in MCP)
 ```
 
-## Extraction Artefact Rules
-
-Files extracted by the Extract layer are stored in `.wkso/` directories:
-
-1. **Symlinks**: Resolve all symlinks before applying other rules
-2. **Git repositories**: Place `.wkso/` one level above repository root (parent of `.git/`)
-3. **Underscore-prefixed paths**: When any component starts with `_`, place `.wkso/` as sibling to topmost `_`-prefixed component
-   - Example: `/Users/ww5/Documents/projects/_old/_previous/file.txt` → `/Users/ww5/Documents/projects/.wkso/`
-4. **Default**: Place `.wkso/` as sibling to source file
-
-When file checksum changes or file moves, old extraction files are removed.
-
 ## Priority Scoring Details
 
 ### Managed Directory Mapping
 
-| Directory | Priority | Purpose |
-|-----------|----------|---------|
-| `~/Desktop` | 150 | Current week's work (symlinks) |
-| `~/deadlines` | 120 | Time-sensitive deliverables |
-| `~` | 100 | Active year-scoped projects |
-| `~/Documents` | 100 | Finalized materials and archives |
-| `~/Pictures` | 80 | Visual assets (memes, figures) |
-| `~/Downloads` | 50 | Temporary/unorganized staging |
+| Directory       | Priority        | Purpose                          |
+|-----------------|-----------------|----------------------------------|
+| `~/Desktop`     | 150             | Current week's work (symlinks)   |
+| `~/deadlines`   | 120             | Time-sensitive deliverables      |
+| `~`             | 100             | Active year-scoped projects      |
+| `~/Documents`   | 100             | Finalized materials and archives |
+| `~/Pictures`    | 80              | Visual assets (memes, figures)   |
+| `~/Downloads`   | 50              | Temporary/unorganized staging    |
 
 ### Calculation Examples
 
@@ -694,11 +671,10 @@ When file checksum changes or file moves, old extraction files are removed.
 - Extension `.txt`: 22.5 × 1.0 = 22.5
 - **Priority: 23**
 
-### Auto-Indexing Rules
-
-- Files with priority < `auto_index_min` (default 2) are NOT auto-indexed
-- Files inside `_/` subdirectories typically have priority 1
-- Manual indexing via `wks0 index <path>` always succeeds regardless of priority
+**Priority-Based Organization**:
+- Files with higher priority scores are more accessible/discoverable
+- Priority affects search ranking (when implemented)
+- Underscore prefixes (`_old/`, `_drafts/`) automatically reduce priority
 
 ## MCP Integration
 
@@ -790,15 +766,10 @@ Organizational patterns are documented separately in `CLAUDE.md`. They describe:
 - When to archive (`_old/YYYY/`)
 - How to organize content types (presentations, emails, etc.)
 
-**Patterns do NOT duplicate system mechanics like**:
-- Priority calculation (defined in config)
-- Indexing rules (defined in config)
-- Extraction rules (defined in config)
-
 **Patterns provide organizational guidance**:
 - Use `~/deadlines/YYYY_MM_DD-Name/` for time-sensitive work
 - Use `~/YYYY-ProjectName/` for active projects
 - Use `_old/YYYY/` for hierarchical archiving
 - Use `_drafts/` to deprioritize working documents
 
-The system calculates priorities and handles indexing automatically based on where files are placed.
+The system calculates priorities automatically based on file placement.

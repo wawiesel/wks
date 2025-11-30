@@ -1,10 +1,10 @@
 """Constants for CLI commands."""
 
-from ..constants import WKS_HOME_EXT, WKS_EXTRACT_EXT, WKS_HOME_DISPLAY
+from ..constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
 
 DEFAULT_MONITOR_INCLUDE_PATHS = ["~"]
 DEFAULT_MONITOR_EXCLUDE_PATHS = ["~/Library", f"{WKS_HOME_DISPLAY}"]
-DEFAULT_MONITOR_IGNORE_DIRS = [".git", "_build", WKS_HOME_EXT, WKS_EXTRACT_EXT]
+DEFAULT_MONITOR_IGNORE_DIRS = [".git", "_build", WKS_HOME_EXT, ".wkso"]
 DEFAULT_MONITOR_IGNORE_GLOBS = ["*.tmp", "*~", "._*"]
 
 DEFAULT_OBSIDIAN_CONFIG = {

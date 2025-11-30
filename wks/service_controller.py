@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import mongoctl
-from .config import load_config, mongo_settings
+from .config import WKSConfig, load_config
 from .constants import WKS_HOME_EXT
 
 
@@ -124,7 +124,12 @@ def daemon_status_launchd() -> int:
 
 
 def default_mongo_uri() -> str:
-    return mongo_settings(load_config())["uri"]
+    try:
+        config = WKSConfig.load()
+        return config.mongo.uri
+    except Exception:
+        # Fallback for very old configs or bootstrap issues
+        return "mongodb://localhost:27017"
 
 
 @dataclass
@@ -248,6 +253,7 @@ class ServiceStatusData:
         rows = []
         rows.extend(self._build_health_rows())
         rows.extend(self._build_filesystem_rows())
+        rows.extend(self._build_launch_rows())
         return rows
 
 

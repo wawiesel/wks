@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..constants import WKS_EXTRACT_EXT
-from ..extractor import Extractor
+
+
 from ..utils import file_checksum as _file_checksum_util
 
 
@@ -27,18 +27,7 @@ def as_file_uri_local(path: Path) -> str:
         return "file://" + path.expanduser().resolve().as_posix()
 
 
-def build_extractor(cfg: Dict[str, Any]) -> Extractor:
-    """Build extractor from config."""
-    ext = cfg.get("extract") or {}
-    sim = cfg.get("related", {}).get("engines", {}).get("embedding", {}) or cfg.get("similarity") or {}
-    return Extractor(
-        engine=ext.get("engine", "docling"),
-        ocr=bool(ext.get("ocr", False)),
-        timeout_secs=int(ext.get("timeout_secs", 30)),
-        options=dict(ext.get("options") or {}),
-        max_chars=int(sim.get("max_chars", 200000)),
-        write_extension=ext.get("write_extension"),
-    )
+
 
 
 def file_checksum(path: Path) -> str:

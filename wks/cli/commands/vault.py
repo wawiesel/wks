@@ -7,7 +7,7 @@ import json
 import time
 from datetime import datetime, timezone
 
-from ...config import load_config
+from ...config import WKSConfig
 from ...constants import MAX_DISPLAY_WIDTH
 from ...vault.status_controller import VaultStatusController
 from ..helpers import display_status_table
@@ -45,7 +45,7 @@ def _render_vault_status_panel(cfg: dict, title: str = "Vault Status") -> "Panel
     from rich.table import Table
     from rich.columns import Columns
 
-    controller = VaultStatusController(cfg)
+    controller = VaultStatusController()
     summary = controller.summarize()
     summary_rows = _build_status_rows(summary)
 
@@ -66,11 +66,11 @@ def _render_vault_status_panel(cfg: dict, title: str = "Vault Status") -> "Panel
 
 def vault_status_cmd(args: argparse.Namespace) -> int:
     """Render vault status summary."""
-    cfg = load_config()
+    # cfg = load_config() # No longer needed here as controllers load it internally
 
     # JSON output mode
     if getattr(args, "json", False):
-        controller = VaultStatusController(cfg)
+        controller = VaultStatusController()
         try:
             summary = controller.summarize()
         except Exception as exc:
@@ -88,7 +88,7 @@ def vault_status_cmd(args: argparse.Namespace) -> int:
         console = Console(width=MAX_DISPLAY_WIDTH)
 
         def _render_status():
-            return _render_vault_status_panel(cfg, title="Vault Status (Live)")
+            return _render_vault_status_panel({}, title="Vault Status (Live)")
 
         try:
             with Live(_render_status(), refresh_per_second=0.5, screen=False, console=console) as live_display:
@@ -107,7 +107,7 @@ def vault_status_cmd(args: argparse.Namespace) -> int:
 
     # Static mode
     display = getattr(args, "display_obj", None)
-    controller = VaultStatusController(cfg)
+    controller = VaultStatusController()
     try:
         summary = controller.summarize()
     except Exception as exc:
@@ -130,7 +130,7 @@ def vault_sync_cmd(args: argparse.Namespace) -> int:
     """Force immediate vault sync to MongoDB."""
     from ...vault import VaultController
 
-    cfg = load_config()
+    # cfg = load_config()
     display = getattr(args, "display_obj", None)
 
     try:
@@ -144,7 +144,7 @@ def vault_sync_cmd(args: argparse.Namespace) -> int:
             spinner = display.spinner_start("Scanning vault and syncing links...")
 
         # Perform the operation
-        result = VaultController.sync_vault(cfg, batch_size=1000, incremental=False)
+        result = VaultController.sync_vault(batch_size=1000, incremental=False)
 
         # Step 2 finish: Stop spinner
         if spinner and display:
@@ -175,12 +175,15 @@ def vault_validate_cmd(args: argparse.Namespace) -> int:
         display_validation_results_plain,
     )
 
-    cfg = load_config()
+    config = WKSConfig.load()
     display = getattr(args, "display_obj", None)
 
     try:
         # Prepare vault
-        vault_info = prepare_vault_for_validation(cfg, display)
+        # TODO: Update prepare_vault_for_validation to use WKSConfig
+        # For now, we might need to pass config or update helper
+        # Let's assume helper needs update or we pass config
+        vault_info = prepare_vault_for_validation(config, display)
         if not vault_info:
             return 2
         vault_path, base_dir = vault_info
@@ -228,18 +231,18 @@ def vault_links_cmd(args: argparse.Namespace) -> int:
         display_links_plain_text,
     )
 
-    cfg = load_config()
+    config = WKSConfig.load()
     display = getattr(args, "display_obj", None)
 
     try:
         # Prepare and validate paths
-        paths = prepare_file_and_vault_paths(args, cfg, display)
+        paths = prepare_file_and_vault_paths(args, config, display)
         if not paths:
             return 2
         file_path, vault_path_str, vault_path = paths
 
         # Check monitoring status
-        is_monitored, priority = check_monitoring_status(cfg, file_path)
+        is_monitored, priority = check_monitoring_status(config, file_path)
 
         # Convert to URIs
         target_uri, target_uri_no_ext, is_external = prepare_target_uris(file_path, vault_path)
@@ -249,7 +252,10 @@ def vault_links_cmd(args: argparse.Namespace) -> int:
         show_to = not args.from_only
 
         # Query database
-        uri, db_name, coll_name = get_vault_db_config(cfg)
+        # TODO: Update get_vault_db_config to use WKSConfig or extract
+        uri = config.mongo.uri
+        db_name = config.vault.database.split(".")[0]
+        coll_name = config.vault.database.split(".")[1]
         client = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
@@ -259,9 +265,9 @@ def vault_links_cmd(args: argparse.Namespace) -> int:
         # Fallback to direct scan if DB has no matches
         need_fallback = (show_from and not links_from) or (show_to and not links_to)
         if need_fallback:
-            vault_cfg = cfg.get("vault", {})
+            # vault_cfg = cfg.get("vault", {})
             links_from, links_to = fallback_scan_vault(
-                vault_path, vault_cfg, target_uri, target_uri_no_ext,
+                vault_path, config, target_uri, target_uri_no_ext,
                 show_from, show_to, links_from, links_to
             )
 
@@ -325,13 +331,12 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
     from ...vault.controller import VaultController
     from ...utils import expand_path
 
-    cfg = load_config()
+    config = WKSConfig.load()
     display = getattr(args, "display_obj", None)
 
     try:
         # Get vault configuration
-        vault_cfg = cfg.get("vault", {})
-        vault_path_str = vault_cfg.get("base_dir")
+        vault_path_str = config.vault.base_dir
         if not vault_path_str:
             if display:
                 display.error("vault.base_dir not configured")
@@ -340,7 +345,7 @@ def vault_fix_symlinks_cmd(args: argparse.Namespace) -> int:
             return 2
 
         vault_path = expand_path(vault_path_str)
-        base_dir = vault_cfg.get("wks_dir", "WKS")
+        base_dir = config.vault.wks_dir
 
         # Say what we're doing
         if display:

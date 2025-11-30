@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, Optional, List
 
@@ -85,7 +85,30 @@ class MetricsConfig:
             fs_rate_long_weight=float(metrics_cfg.get("fs_rate_long_weight", 0.2)),
         )
 
+@dataclass
+class DisplayConfig:
+    """Display configuration."""
+    timestamp_format: str = DEFAULT_TIMESTAMP_FORMAT
 
+    @classmethod
+    def from_config(cls, cfg: Dict[str, Any]) -> "DisplayConfig":
+        display_cfg = cfg.get("display", {})
+        return cls(
+            timestamp_format=display_cfg.get("timestamp_format", DEFAULT_TIMESTAMP_FORMAT),
+        )
+
+
+@dataclass
+class TransformConfig:
+    """Transform configuration."""
+    cache_location: str = ".wks/cache"
+    
+    @classmethod
+    def from_config(cls, cfg: Dict[str, Any]) -> "TransformConfig":
+        transform_cfg = cfg.get("transform", {})
+        return cls(
+            cache_location=transform_cfg.get("cache_location", ".wks/cache"),
+        )
 @dataclass
 class WKSConfig:
     """Top-level WKS configuration."""
@@ -93,8 +116,8 @@ class WKSConfig:
     monitor: MonitorConfig
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
-    transform: Dict[str, Any] = field(default_factory=dict)
-    display: Dict[str, Any] = field(default_factory=dict)
+    transform: TransformConfig = field(default_factory=TransformConfig)
+    display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @classmethod
     def load(cls, path: Optional[Path] = None) -> "WKSConfig":
@@ -117,13 +140,16 @@ class WKSConfig:
             vault = VaultConfig.from_config(raw)
             metrics = MetricsConfig.from_config(raw)
             
+            transform = TransformConfig.from_config(raw)
+            display = DisplayConfig.from_config(raw)
+            
             return cls(
                 vault=vault,
                 monitor=monitor,
                 mongo=mongo,
                 metrics=metrics,
-                transform=raw.get("transform", {}),
-                display=raw.get("display", {}),
+                transform=transform,
+                display=display,
             )
         except (MonitorValidationError, KeyError, ValueError) as e:
             raise ConfigError(f"Configuration validation failed: {e}")
@@ -140,29 +166,6 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     """
     try:
         cfg = WKSConfig.load(path)
-        return {
-            "vault": {
-                "base_dir": str(cfg.vault.base_dir),
-                "wks_dir": cfg.vault.wks_dir,
-                "update_frequency_seconds": cfg.vault.update_frequency_seconds,
-                "database": cfg.vault.database,
-            },
-            "monitor": {
-                "include_paths": cfg.monitor.include_paths,
-                "exclude_paths": cfg.monitor.exclude_paths,
-                "include_dirnames": cfg.monitor.include_dirnames,
-                "exclude_dirnames": cfg.monitor.exclude_dirnames,
-                "include_globs": cfg.monitor.include_globs,
-                "exclude_globs": cfg.monitor.exclude_globs,
-                "database": cfg.monitor.database,
-                "managed_directories": cfg.monitor.managed_directories,
-                "touch_weight": cfg.monitor.touch_weight,
-                "priority": cfg.monitor.priority,
-                "max_documents": cfg.monitor.max_documents,
-                "prune_interval_secs": cfg.monitor.prune_interval_secs,
-            },
-            "db": {"uri": cfg.mongo.uri},
-            "display": cfg.display,
-        }
-    except ConfigError:
+        return asdict(cfg)
+    except Exception:
         return {}
