@@ -7,8 +7,7 @@ Adds support for ~/.wks/config.json with include/exclude path control.
 from .uri_utils import uri_to_path
 from .priority import calculate_priority
 from .utils import get_package_version, expand_path, file_checksum
-from .config import load_config
-from .config_validator import validate_and_raise, ConfigValidationError
+from .config import WKSConfig, ConfigError
 from .mongoctl import MongoGuard, ensure_mongo_running
 from .mcp_bridge import MCPBroker
 from .mcp_paths import mcp_socket_path
@@ -75,7 +74,6 @@ class HealthData:
 
 
 try:
-    from .config import mongo_settings
     from .status import load_db_activity_summary, load_db_activity_history
 except Exception:
     def load_db_activity_summary():  # type: ignore
@@ -90,7 +88,7 @@ class WKSDaemon:
 
     def __init__(
         self,
-        config: Dict[str, Any],
+        config: WKSConfig,
         vault_path: Path,
         base_dir: str,
         monitor_paths: list[Path],
@@ -100,7 +98,6 @@ class WKSDaemon:
         fs_rate_long_window_secs: float = 600.0,
         fs_rate_short_weight: float = 0.8,
         fs_rate_long_weight: float = 0.2,
-        mongo_uri: Optional[str] = None,
         monitor_collection: Optional[Collection] = None,
     ):
         """
@@ -112,10 +109,10 @@ class WKSDaemon:
         """
         self.config = config
         self.vault = ObsidianVault(vault_path, base_dir=base_dir)
-        vault_cfg = config.get("vault", {})
+        
         self._vault_indexer = VaultLinkIndexer.from_config(self.vault, config)
         # Git-based incremental scanning is fast, so we can check more frequently
-        self._vault_sync_interval = float(vault_cfg.get("update_frequency_seconds", 10.0))
+        self._vault_sync_interval = float(self.config.vault.update_frequency_seconds)
         self._last_vault_sync = 0.0
         self.monitor_paths = [Path(p).expanduser().resolve() for p in monitor_paths]
         self.monitor_rules = monitor_rules
@@ -127,8 +124,7 @@ class WKSDaemon:
         # Maintenance (periodic tasks)
         self._last_prune_check = 0.0
         # Read prune interval from config, default to 5 minutes (300 seconds)
-        monitor_cfg = config.get("monitor", {})
-        self._prune_interval_secs = float(monitor_cfg.get("prune_interval_secs", 300.0))
+        self._prune_interval_secs = self.config.monitor.prune_interval_secs
         # Coalesce delete events to avoid temp-file save false positives
         self._pending_deletes: Dict[str, float] = {}
         self._delete_grace_secs = 2.0
@@ -148,7 +144,7 @@ class WKSDaemon:
         self.fs_rate_long_weight = float(fs_rate_long_weight)
         self._fs_events_short: deque[float] = deque()
         self._fs_events_long: deque[float] = deque()
-        self.mongo_uri = str(mongo_uri or "")
+        self.mongo_uri = self.config.mongo.uri
         self._mongo_guard: Optional[MongoGuard] = None
         self.monitor_collection = monitor_collection
         self._mcp_broker: Optional[MCPBroker] = None
@@ -156,33 +152,26 @@ class WKSDaemon:
 
         # Initialize transform controller if transform config exists
         self._transform_controller: Optional[TransformController] = None
-        if mongo_uri and "transform" in config:
+        if self.mongo_uri and self.config.transform:
             try:
                 from pymongo import MongoClient
                 from .db_helpers import get_transform_db_config
-                transform_cfg = config["transform"]
+                transform_cfg = self.config.transform
                 cache_cfg = transform_cfg.get("cache", {})
                 cache_location = expand_path(cache_cfg.get("location", ".wks/transform/cache"))
                 max_size_bytes = cache_cfg.get("max_size_bytes", 1073741824)
-                uri, db_name, coll_name = get_transform_db_config(config)
-                client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+                
+                client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
+                db_name = transform_cfg.get("database", "wks_transform")
                 db = client[db_name]
                 self._transform_controller = TransformController(db, cache_location, max_size_bytes)
             except Exception:
                 pass
 
     @staticmethod
-    def _get_touch_weight(raw_weight: Any) -> float:
+    def _get_touch_weight(weight: float) -> float:
         min_weight = 0.001
         max_weight = 1.0
-
-        if raw_weight is None:
-            raise ValueError("monitor.touch_weight is required in config (found: missing, expected: float between 0.001 and 1.0)")
-
-        try:
-            weight = float(raw_weight)
-        except (TypeError, ValueError):
-            raise ValueError(f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(raw_weight).__name__} = {raw_weight!r}, expected: float between 0.001 and 1.0)")
 
         if weight < min_weight:
             logger.warning("monitor.touch_weight %.6f below %.3f; using %.3f", weight, min_weight, min_weight)
@@ -233,15 +222,11 @@ class WKSDaemon:
             stat = path.stat()
             checksum = file_checksum(path)
             now = datetime.now()
-            monitor_config = self.config.get("monitor", {})
-            managed_dirs = monitor_config.get("managed_directories", {})
-            priority_config = monitor_config.get("priority", {})
-
-            try:
-                touch_weight = self._get_touch_weight(monitor_config.get("touch_weight"))
-            except ValueError as exc:
-                self._set_error(f"monitor_config_error: {exc}")
-                return
+            
+            managed_dirs = self.config.monitor.managed_directories
+            priority_config = self.config.monitor.priority
+            touch_weight = self._get_touch_weight(self.config.monitor.touch_weight)
+            
             priority = calculate_priority(path, managed_dirs, priority_config)
 
             path_uri = path.as_uri()
@@ -287,8 +272,7 @@ class WKSDaemon:
             return
 
         try:
-            monitor_config = self.config.get("monitor", {})
-            max_docs = monitor_config.get("max_documents", 1000000)
+            max_docs = self.config.monitor.max_documents
 
             count = self.monitor_collection.count_documents({})
             if count <= max_docs:
@@ -370,9 +354,7 @@ class WKSDaemon:
     def _get_vault_base_path(self) -> Path | None:
         """Get vault base directory path if configured."""
         try:
-            vault_cfg = self.config.get("vault", {})
-            if vault_cfg.get("base_dir"):
-                return Path(vault_cfg["base_dir"]).expanduser().resolve()
+            return self.config.vault.base_dir
         except Exception:
             pass
         return None
@@ -911,6 +893,10 @@ class WKSDaemon:
         except Exception:
             pass
 
+    def _set_info(self, msg: str):
+        # Placeholder for info logging to health/status if needed
+        pass
+
     def _clean_stale_lock(self):
         """Clean up stale lock file if process is no longer running."""
         try:
@@ -1034,50 +1020,29 @@ if __name__ == "__main__":
     from pymongo import MongoClient
 
     # Load and validate config
-    config = load_config()
     try:
-        validate_and_raise(config)
-    except ConfigValidationError as e:
+        config = WKSConfig.load()
+    except ConfigError as e:
         print(str(e))
         raise SystemExit(2)
 
-    # Vault config (new structure)
-    vault_cfg = config.get("vault")
-    if not vault_cfg:
-        raise ValueError("vault section is required in config (found: missing, expected: vault section with base_dir, wks_dir, etc.)")
-    vault_path_str = vault_cfg.get("base_dir")
-    if not vault_path_str:
-        raise ValueError("vault.base_dir is required in config (found: missing, expected: path to Obsidian vault directory)")
-    vault_path = expand_path(vault_path_str)
-    base_dir = vault_cfg.get("wks_dir")
-    if not base_dir:
-        raise ValueError("vault.wks_dir is required in config (found: missing, expected: subdirectory name within vault, e.g., 'WKS')")
+    # Vault config
+    vault_path = config.vault.base_dir
+    base_dir = config.vault.wks_dir
 
     # Monitor config
-    monitor_cfg_obj = MonitorConfig.from_config_dict(config)
+    monitor_cfg_obj = config.monitor
     monitor_rules = MonitorRules.from_config(monitor_cfg_obj)
     include_paths = [expand_path(p) for p in monitor_cfg_obj.include_paths]
 
     # DB config
-    db_cfg = config.get("db")
-    if not db_cfg:
-        raise ValueError("db section is required in config (found: missing, expected: db section with type and uri)")
-    mongo_uri = db_cfg.get("uri")
-    if not mongo_uri:
-        raise ValueError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
-    mongo_uri = str(mongo_uri)
+    mongo_uri = config.mongo.uri
     ensure_mongo_running(mongo_uri, record_start=True)
 
     client = MongoClient(mongo_uri)
     monitor_db_key = monitor_cfg_obj.database
-    if not monitor_db_key:
-        raise ValueError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
-    if "." not in monitor_db_key:
-        raise ValueError(f"monitor.database must be in format 'database.collection' (found: {monitor_db_key!r}, expected: format like 'wks.monitor')")
-    parts = monitor_db_key.split(".", 1)
-    if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"monitor.database must be in format 'database.collection' (found: {monitor_db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
-    monitor_db_name, monitor_coll_name = parts
+    # Validation already done in MonitorConfig
+    monitor_db_name, monitor_coll_name = monitor_db_key.split(".", 1)
     monitor_collection = client[monitor_db_name][monitor_coll_name]
 
     auto_project_notes = False  # Default, not in vault section
@@ -1089,7 +1054,6 @@ if __name__ == "__main__":
         auto_project_notes=auto_project_notes,
         monitor_paths=include_paths,
         monitor_rules=monitor_rules,
-        mongo_uri=mongo_uri,
         monitor_collection=monitor_collection,
     )
 

@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
@@ -461,9 +461,29 @@ class VaultLinkIndexer:
             client.close()
 
     @classmethod
-    def from_config(cls, vault: ObsidianVault, cfg: Optional[Dict[str, object]] = None) -> "VaultLinkIndexer":
-        config = cfg or load_config()
-        db_config = VaultDatabaseConfig.from_config(config)
+    def from_config(cls, vault: ObsidianVault, cfg: Optional[Any] = None) -> "VaultLinkIndexer":
+        if cfg is None:
+            config = load_config()
+        else:
+            config = cfg
+
+        if hasattr(config, "mongo") and hasattr(config, "vault"):
+            # WKSConfig object
+            from ..db_helpers import parse_database_key
+            
+            mongo_uri = config.mongo.uri
+            db_key = config.vault.database
+            db_name, coll_name = parse_database_key(db_key)
+            
+            db_config = VaultDatabaseConfig(
+                mongo_uri=mongo_uri,
+                db_name=db_name,
+                coll_name=coll_name
+            )
+        else:
+            # Dictionary config
+            db_config = VaultDatabaseConfig.from_config(config)
+            
         return cls(vault=vault, db_config=db_config)
 
     def _batch_records(self, records: List[VaultEdgeRecord], batch_size: int) -> Iterator[List[VaultEdgeRecord]]:

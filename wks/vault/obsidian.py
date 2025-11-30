@@ -13,7 +13,8 @@ import platform
 from pathlib import Path
 from typing import Optional
 
-from ..config import load_config, timestamp_format, DEFAULT_TIMESTAMP_FORMAT
+from ..config import load_config
+from ..constants import DEFAULT_TIMESTAMP_FORMAT
 
 
 class ObsidianVault:
@@ -28,7 +29,7 @@ class ObsidianVault:
         self._recompute_paths()
         try:
             cfg = load_config()
-            self.timestamp_format = timestamp_format(cfg)
+            self.timestamp_format = cfg.get("display", {}).get("timestamp_format", DEFAULT_TIMESTAMP_FORMAT)
         except Exception:
             self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
 
