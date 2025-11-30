@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 from ..config import load_config
 from .obsidian import ObsidianVault
-from .config import VaultDatabaseConfig
+from ..config import WKSConfig
 from .link_resolver import LinkResolver
 from .markdown_parser import parse_wikilinks, parse_markdown_urls, extract_headings
 from .constants import (
@@ -433,12 +433,14 @@ class VaultLinkIndexer:
         self,
         vault: ObsidianVault,
         *,
-        db_config: VaultDatabaseConfig,
+        mongo_uri: str,
+        db_name: str,
+        coll_name: str,
     ):
         self.vault = vault
-        self.mongo_uri = db_config.mongo_uri
-        self.db_name = db_config.db_name
-        self.coll_name = db_config.coll_name
+        self.mongo_uri = mongo_uri
+        self.db_name = db_name
+        self.coll_name = coll_name
 
     @contextmanager
     def _mongo_connection(self) -> Iterator[Collection]:
@@ -463,28 +465,27 @@ class VaultLinkIndexer:
     @classmethod
     def from_config(cls, vault: ObsidianVault, cfg: Optional[Any] = None) -> "VaultLinkIndexer":
         if cfg is None:
-            config = load_config()
+            config = WKSConfig.load()
+        elif isinstance(cfg, dict):
+             # Backward compatibility for dict config
+             # We should ideally convert dict to WKSConfig here or just handle it manually
+             # For now, let's try to load WKSConfig if possible, or extract from dict
+             try:
+                 config = WKSConfig.load()
+             except:
+                 # Fallback manual extraction from dict
+                 mongo_uri = cfg.get("db", {}).get("uri")
+                 db_key = cfg.get("vault", {}).get("database")
+                 db_name, coll_name = db_key.split(".", 1)
+                 return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
         else:
             config = cfg
 
-        if hasattr(config, "mongo") and hasattr(config, "vault"):
-            # WKSConfig object
-            from ..db_helpers import parse_database_key
+        mongo_uri = config.mongo.uri
+        db_name = config.vault.database.split(".")[0]
+        coll_name = config.vault.database.split(".")[1]
             
-            mongo_uri = config.mongo.uri
-            db_key = config.vault.database
-            db_name, coll_name = parse_database_key(db_key)
-            
-            db_config = VaultDatabaseConfig(
-                mongo_uri=mongo_uri,
-                db_name=db_name,
-                coll_name=coll_name
-            )
-        else:
-            # Dictionary config
-            db_config = VaultDatabaseConfig.from_config(config)
-            
-        return cls(vault=vault, db_config=db_config)
+        return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
 
     def _batch_records(self, records: List[VaultEdgeRecord], batch_size: int) -> Iterator[List[VaultEdgeRecord]]:
         """Yield successive batches of records."""

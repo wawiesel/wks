@@ -2,6 +2,7 @@
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -159,3 +160,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         else:
             print(f"Error: {e}")
         return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

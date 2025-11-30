@@ -1,164 +1,72 @@
 # WKS (Wieselquist Knowledge System)
 
-**Version:** 0.4.0
-**Status:** Production-ready core features, similarity features under rework
-
 AI-assisted file organization and knowledge management system with Obsidian vault integration.
 
-## Features
+## Overview
 
-- **Filesystem Monitoring**: Track and index files with priority-based weighting
+WKS provides intelligent filesystem monitoring, vault link tracking, and document transformation capabilities. Built as a layered architecture with MongoDB backend and Model Context Protocol (MCP) integration for AI assistants.
+
+**Core Capabilities**:
+- **Filesystem Monitoring**: Priority-based file tracking with automatic indexing
 - **Vault Link Management**: Bidirectional link tracking for Obsidian vaults
-- **Transform Cache**: Document conversion (PDF → Markdown) with caching
-- **Database Integration**: MongoDB for metadata and link storage
+- **Transform Layer**: Document conversion (PDF → Markdown) with intelligent caching
+- **MCP Server**: AI assistant integration via Model Context Protocol
 - **Service Daemon**: Background monitoring with automatic sync
-- **MCP Server**: Model Context Protocol integration for AI assistants
-
-## Install
-
-### From Source
-
-```bash
-# Clone and setup
-git clone <repo-url>
-cd 2025-WKS
-
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -e '.[all]'
-```
-
-### System Installation
-
-```bash
-# Install globally with pipx
-pipx install .
-
-# Or install in development mode
-pipx install --force --editable .
-```
 
 ## Quick Start
 
 ```bash
-# Check version
-wks0 --version
+# Install
+pip install -e '.[all]'
 
-# View configuration
+# Initialize configuration
 wks0 config
 
-# Start monitoring service
+# Start background service
 wks0 service start
 
-# Check service status
+# Check status
 wks0 service status
 
 # Sync vault links
 wks0 vault sync
 
 # View vault links
-wks0 vault links ~/vault/Index.md
-
-# Compare two files
-wks0 diff myers file1.txt file2.txt
-
-# Transform PDF to Markdown
-wks0 transform docling document.pdf -o output.md
+wks0 vault links ~/vault/Note.md
 ```
 
-## MCP Server
+## MCP Integration
 
-WKS includes a Model Context Protocol (MCP) server for AI assistant integration.
-
-### Installation
-
+Install for AI assistants:
 ```bash
-# Install MCP server configuration for all supported clients
-wks0 mcp install
-
-# Install for specific clients only
+wks0 mcp install  # Install for all clients
 wks0 mcp install --client cursor --client claude
 ```
 
-### Usage
-
-The MCP server runs automatically when the WKS service is active:
-
-```bash
-wks0 service start    # Starts daemon with embedded MCP broker
-wks0 mcp run          # Proxies to the running service
-```
-
-### Available Tools
-
-**Filesystem Monitoring:**
-- `wks_monitor_status` - Get monitoring status and configuration
-- `wks_monitor_check` - Check if path would be monitored
-- `wks_monitor_validate` - Validate configuration for conflicts
-- `wks_monitor_list` - Get configuration list contents
-- `wks_monitor_add/remove` - Modify configuration lists
-- `wks_monitor_managed_*` - Manage directory priorities
-
-**Vault Link Tracking:**
-- `wks_vault_status` - Get vault link status summary
-- `wks_vault_links` - Get all links to/from a specific file
-- `wks_vault_sync` - Sync vault links to MongoDB
-
-All tools return structured JSON and use the same business logic as CLI commands.
-
-## Documentation
-
-- **User Guide**: `SPEC.md` - System specification and usage
-- **Contributing**: `CONTRIBUTING.md` - Development guidelines
-- **Roadmap**: `ROADMAP.md` - Future development plans
-- **Changelog**: `CHANGELOG.md` - Version history
-- **AI Agent Guide**: `guides/CLAUDE.md` - Instructions for AI assistants
+Available tools: `wks_monitor_*`, `wks_vault_*` (see [SPEC.md](SPEC.md) for details)
 
 ## Architecture
 
-```
-wks/
-├── cli/              # Command-line interface
-├── monitor/          # Filesystem monitoring
-├── vault/            # Obsidian vault integration
-├── transform/        # Document transformation
-├── service/          # Background daemon
-└── mcp/              # Model Context Protocol server
-```
+See [SPEC.md](SPEC.md) for complete system specification.
+
+**Key Layers**:
+- **Monitor Layer**: Filesystem state tracking
+- **Vault Layer**: Knowledge graph links
+- **Transform Layer**: Document conversion
+- **Diff Layer**: File comparison engines
+- **Service Layer**: Background daemon
+
+## Documentation
+
+- **[SPEC.md](SPEC.md)**: Complete system specification
+- **[NEXT.md](NEXT.md)**: Current development priorities
+- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Development guide, testing strategy
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - MongoDB 4.0+
-- macOS/Linux (tested on macOS)
-
-## Testing
-
-```bash
-# Run all tests
-pytest tests/ -v
-
-# Run specific test file
-pytest tests/test_vault_indexer.py -v
-
-# Check code quality
-python -m mypy wks/
-python -m pylint wks/
-lizard wks/ -l python -C 15
-```
-
-## Current Status
-
-**v0.4.0 (2025-11-24)**
-- ✅ Core monitoring and vault features stable
-- ✅ All 139 tests passing
-- ✅ Code complexity reduced (CCN < 15 for all functions)
-- ✅ MCP server fully functional and documented
-- ✅ Diff and transform commands working
-- 🚧 Similarity features disabled (under redesign)
+- macOS/Linux
 
 ## License
 

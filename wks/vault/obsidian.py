@@ -13,7 +13,7 @@ import platform
 from pathlib import Path
 from typing import Optional
 
-from ..config import load_config
+from ..config import WKSConfig
 from ..constants import DEFAULT_TIMESTAMP_FORMAT
 
 
@@ -28,8 +28,8 @@ class ObsidianVault:
         self.machine = (machine_name or platform.node().split(".")[0]).strip()
         self._recompute_paths()
         try:
-            cfg = load_config()
-            self.timestamp_format = cfg.get("display", {}).get("timestamp_format", DEFAULT_TIMESTAMP_FORMAT)
+            cfg = WKSConfig.load()
+            self.timestamp_format = cfg.display.timestamp_format
         except Exception:
             self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
 

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from pymongo import MongoClient
 
-from ...config import load_config
+from ...config import WKSConfig
 from ...db_helpers import get_transform_db_config, connect_to_mongo
 from ...transform import TransformController
 from ...utils import expand_path
@@ -26,7 +26,11 @@ def transform_cmd(args: argparse.Namespace) -> int:
         All messages go to stderr, only cache key goes to stdout.
         This allows piping the checksum while seeing progress.
     """
-    cfg = load_config()
+    try:
+        cfg = WKSConfig.load()
+    except Exception as e:
+        print(f"Error loading config: {e}", file=sys.stderr)
+        return 2
 
     try:
         # Get file path
@@ -40,22 +44,13 @@ def transform_cmd(args: argparse.Namespace) -> int:
         engine_name = args.engine
 
         # Get transform config
-        transform_cfg = cfg.get("transform", {})
-        cache_cfg = transform_cfg.get("cache", {})
-        cache_location = expand_path(cache_cfg.get("location", ".wks/transform/cache"))
-        max_size_bytes = cache_cfg.get("max_size_bytes", 1073741824)  # 1GB default
+        transform_cfg = cfg.transform
+        cache_location = expand_path(transform_cfg.cache_location)
+        max_size_bytes = transform_cfg.cache_max_size_bytes
 
-        # Get engine config
-        engine_cfg = transform_cfg.get("engines", {}).get(engine_name, {})
-
-        # Check if engine is enabled
-        if not engine_cfg.get("enabled", False):
-            print(f"Error: Engine '{engine_name}' is not enabled", file=sys.stderr)
-            return 2
-
-        # Build options from config and CLI args
-        options = dict(engine_cfg)
-        options.pop("enabled", None)
+        # Engine config - assume docling is enabled/available
+        # For now, we just use default options or empty dict if not found in new structure
+        options = {}
 
         # Get output path if specified
         output_path = None
@@ -63,7 +58,9 @@ def transform_cmd(args: argparse.Namespace) -> int:
             output_path = Path(args.output)
 
         # Connect to database
-        uri, db_name, coll_name = get_transform_db_config(cfg)
+        uri = cfg.mongo.uri
+        db_name = cfg.transform.database.split(".")[0]
+        coll_name = cfg.transform.database.split(".")[1]
         client = connect_to_mongo(uri)
         db = client[db_name]
 

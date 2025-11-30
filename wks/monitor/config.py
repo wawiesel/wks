@@ -127,4 +127,4 @@ class MonitorConfig:
             ]
             raise ValidationError(errors)
 
-        return cls(**{k: monitor_config[k] for k in allowed})
+        return cls(**{k: monitor_config[k] for k in allowed if k in monitor_config})

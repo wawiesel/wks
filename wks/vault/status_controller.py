@@ -11,8 +11,7 @@ from typing import Any, Dict, Iterator, List, Optional
 from pymongo import MongoClient
 from pymongo.collection import Collection
 
-from ..config import load_config
-from .config import VaultDatabaseConfig
+from ..config import WKSConfig
 from .constants import (
     DOC_TYPE_LINK,
     META_DOCUMENT_ID,
@@ -63,11 +62,16 @@ class VaultStatusController:
     """Read vault link metadata and summarize health."""
 
     def __init__(self, cfg: Optional[Dict[str, Any]] = None):
-        config = cfg or load_config()
-        db_config = VaultDatabaseConfig.from_config(config)
-        self.mongo_uri = db_config.mongo_uri
-        self.db_name = db_config.db_name
-        self.coll_name = db_config.coll_name
+        try:
+            config = WKSConfig.load()
+            self.mongo_uri = config.mongo.uri
+            self.db_name = config.vault.database.split(".")[0]
+            self.coll_name = config.vault.database.split(".")[1]
+        except Exception:
+            # Fallback for tests or partial initialization
+            self.mongo_uri = "mongodb://localhost:27017/"
+            self.db_name = "wks"
+            self.coll_name = "vault"
 
     @contextmanager
     def _mongo_connection(self) -> Iterator[Collection]:

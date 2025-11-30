@@ -133,15 +133,22 @@ class MonitorController:
         Raises:
             KeyError: If monitor section is missing
         """
-        from ..config import mongo_settings
+        from ..config import WKSConfig
         from pymongo import MongoClient
 
-        monitor_cfg = MonitorConfig.from_config_dict(config)
-        mongo_config = mongo_settings(config)
+        if hasattr(config, "monitor"):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+        try:
+            wks_config = WKSConfig.load()
+            mongo_uri = wks_config.mongo.uri
+        except Exception:
+            mongo_uri = "mongodb://localhost:27017"
 
         # Get total tracked files
         try:
-            client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
+            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]
@@ -361,7 +368,12 @@ class MonitorController:
         """
         from ..priority import calculate_priority
 
-        monitor_cfg = MonitorConfig.from_config_dict(config)
+        from ..config import WKSConfig
+        
+        if isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
         rules = MonitorRules.from_config(monitor_cfg)
 
         # Resolve path
@@ -413,15 +425,22 @@ class MonitorController:
     @staticmethod
     def prune_ignored_files(config: dict) -> dict:
         """Prune ignored files from the monitor database."""
-        from ..config import mongo_settings
+        from ..config import WKSConfig
         from ..uri_utils import uri_to_path
         from pymongo import MongoClient
 
-        monitor_cfg = MonitorConfig.from_config_dict(config)
-        mongo_config = mongo_settings(config)
+        if isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+        try:
+            wks_config = WKSConfig.load()
+            mongo_uri = wks_config.mongo.uri
+        except Exception:
+            mongo_uri = "mongodb://localhost:27017"
 
         try:
-            client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
+            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()  # Will raise an exception if connection fails
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]
@@ -468,15 +487,22 @@ class MonitorController:
     @staticmethod
     def prune_deleted_files(config: dict) -> dict:
         """Prune deleted files from the monitor database."""
-        from ..config import mongo_settings
+        from ..config import WKSConfig
         from ..uri_utils import uri_to_path
         from pymongo import MongoClient
 
-        monitor_cfg = MonitorConfig.from_config_dict(config)
-        mongo_config = mongo_settings(config)
+        if isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+        try:
+            wks_config = WKSConfig.load()
+            mongo_uri = wks_config.mongo.uri
+        except Exception:
+            mongo_uri = "mongodb://localhost:27017"
 
         try:
-            client = MongoClient(mongo_config["uri"], serverSelectionTimeoutMS=5000)
+            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]

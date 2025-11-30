@@ -58,8 +58,8 @@ class MonitorValidator:
         if managed_resolved == wks_home or str(managed_resolved).startswith(str(wks_home) + "/"):
             return False, "In WKS home directory (automatically ignored)"
 
-        if ".wkso" in managed_resolved.parts:
-            return False, "Contains .wkso directory (automatically ignored)"
+        if ".wks" in managed_resolved.parts:
+            return False, "Contains .wks directory (automatically ignored)"
 
         allowed, trace = rules.explain(managed_resolved)
         if allowed:
