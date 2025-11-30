@@ -45,6 +45,7 @@ class FakeCollection:
 
 def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     from wks import daemon as daemon_mod
+    from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings, DisplayConfig, TransformConfig, MetricsConfig
 
     class DummyVault:
         def __init__(self, *args, **kwargs):
@@ -99,6 +100,9 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
             "managed_directories": {str(tmp_path): 100},
             "touch_weight": 0.5,
             "database": "wks.monitor",
+            "max_documents": 1000000,
+            "priority": {},
+            "prune_interval_secs": 300.0,
         },
         "vault": {
             "base_dir": str(tmp_path),
@@ -107,13 +111,29 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         },
     }
 
+    # Construct WKSConfig
+    monitor_cfg = MonitorConfig.from_config_dict(config)
+    vault_cfg = VaultConfig.from_config(config)
+    mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
+    display_cfg = DisplayConfig()
+    transform_cfg = TransformConfig()
+    metrics_cfg = MetricsConfig()
+    
+    wks_config = WKSConfig(
+        monitor=monitor_cfg,
+        vault=vault_cfg,
+        mongo=mongo_cfg,
+        display=display_cfg,
+        transform=transform_cfg,
+        metrics=metrics_cfg
+    )
+
     return daemon_mod.WKSDaemon(
-        config=config,
+        config=wks_config,
         vault_path=tmp_path,
         base_dir="WKS",
         monitor_paths=[tmp_path],
         monitor_rules=monitor_rules,
-        mongo_uri="mongodb://localhost:27017/",
         monitor_collection=collection,
     )
 

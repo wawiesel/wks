@@ -129,7 +129,6 @@ class TestConfigMigration:
         new_config = {
             "monitor": {"managed_directories": {"~": 100}},
             "vault": {"base_dir": "~/_vault"},
-            "related": {"engines": {}},
         }
         assert is_old_config(new_config) is False
 
@@ -156,11 +155,8 @@ class TestConfigMigration:
         assert "monitor" in new_config
         assert "vault" in new_config
         assert "db" in new_config
-        assert "related" in new_config
-        assert "extract" in new_config
+        assert "transform" in new_config
         assert "diff" in new_config
-        assert "index" in new_config
-        assert "search" in new_config
 
         # Check monitor has new fields
         assert "managed_directories" in new_config["monitor"]
@@ -170,10 +166,7 @@ class TestConfigMigration:
         assert new_config["vault"]["base_dir"] == "~/_vault"
         assert new_config["vault"]["wks_dir"] == "WKS"
 
-        # Check related converted from similarity
-        assert "engines" in new_config["related"]
-        assert "embedding" in new_config["related"]["engines"]
-        assert new_config["related"]["engines"]["embedding"]["model"] == "all-MiniLM-L6-v2"
+
 
     def test_validate_config(self):
         """Test config validation."""

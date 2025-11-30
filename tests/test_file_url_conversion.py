@@ -7,7 +7,7 @@ import pytest
 
 from wks.vault.obsidian import ObsidianVault
 from wks.vault.indexer import VaultLinkIndexer, VaultLinkScanner
-from wks.vault.config import VaultDatabaseConfig
+
 
 
 @pytest.fixture()
@@ -105,9 +105,12 @@ def test_file_url_with_indexer(test_setup):
 
     # Setup vault and indexer
     vault = ObsidianVault(vault_path=vault_root, base_dir="Projects")
-    cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
-    db_config = VaultDatabaseConfig.from_config(cfg)
-    indexer = VaultLinkIndexer(vault, db_config=db_config)
+    indexer = VaultLinkIndexer(
+        vault=vault,
+        mongo_uri="mongodb://localhost:27017",
+        db_name="test_wks",
+        coll_name="test_vault"
+    )
 
     print(f"\n✓ Original markdown: {note.read_text()}")
 
@@ -125,7 +128,7 @@ def test_file_url_with_indexer(test_setup):
     print(f"✓ Markdown rewritten: {new_content}")
 
     # Verify database
-    collection = mongo_client["wks"]["vault"]
+    collection = mongo_client["test_wks"]["test_vault"]
     link_doc = collection.find_one({"doc_type": "link"})
     assert link_doc is not None
     assert link_doc["link_type"] == "wikilink"

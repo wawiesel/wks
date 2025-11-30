@@ -189,6 +189,25 @@ class TestDoclingEngine:
 
         # Mock successful docling run
         mock_run.return_value = Mock(stdout="# Transformed\n\nContent", returncode=0)
+        
+        # The DoclingEngine creates a temp directory and expects docling to write to it.
+        # We need to intercept the subprocess.run call, find the temp directory argument,
+        # and create the output file there.
+        
+        def create_output(cmd, *args, **kwargs):
+            # cmd is like ["docling", input_path, "--to", "md", "--output", temp_dir]
+            # Find output dir (it's after --output)
+            try:
+                output_idx = cmd.index("--output")
+                temp_dir = Path(cmd[output_idx + 1])
+                # Create the expected output file: <input_stem>.md
+                expected_file = temp_dir / f"{input_path.stem}.md"
+                expected_file.write_text("# Transformed\n\nContent")
+            except (ValueError, IndexError):
+                pass
+            return Mock(stdout="Done", returncode=0)
+            
+        mock_run.side_effect = create_output
 
         engine.transform(input_path, output_path, {"ocr": False, "timeout_secs": 30})
 
