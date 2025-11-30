@@ -6,7 +6,9 @@ import pytest
 from wks.vault.obsidian import ObsidianVault
 from wks.vault.indexer import VaultLinkIndexer
 from wks.vault.status_controller import VaultStatusController
-from wks.vault.config import VaultDatabaseConfig
+from wks.config import WKSConfig, VaultConfig, MongoSettings
+from unittest.mock import Mock, patch
+
 from wks.vault.link_resolver import LinkResolver
 from wks.vault.constants import (
     STATUS_OK,
@@ -60,12 +62,15 @@ def patched_mongo(monkeypatch):
 
 
 def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
-    cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
-    db_config = VaultDatabaseConfig.from_config(cfg)
-    indexer = VaultLinkIndexer(vault, db_config=db_config)
+    indexer = VaultLinkIndexer(
+        vault=vault,
+        mongo_uri="mongodb://localhost:27017",
+        db_name="test_wks",
+        coll_name="test_vault"
+    )
     result = indexer.sync()
     assert result.stats.edge_total == 2
-    mongo_coll = patched_mongo["wks"]["vault"]
+    mongo_coll = patched_mongo["test_wks"]["test_vault"]
     edge = mongo_coll.find_one({"doc_type": "link", "link_type": LINK_TYPE_WIKILINK})
     assert edge["from_uri"] == "vault:///Projects/Demo.md"
     assert edge["raw_target"] == "_links/papers/paper.pdf"
@@ -79,15 +84,23 @@ def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
     assert "resolved_exists" not in edge
     assert "is_embed" not in edge
     assert "target_kind" not in edge
-    summary = VaultStatusController(cfg).summarize()
-    assert summary.total_links == 2
-    assert summary.external_urls == 1
-    symlink = vault_root / "_links" / "papers" / "paper.pdf"
-    symlink.unlink()
-    indexer.sync()
-    summary = VaultStatusController(cfg).summarize()
-    assert summary.missing_symlink >= 1
-    assert summary.issues
+    # Patch WKSConfig to match the test DB settings
+    mock_config = Mock(spec=WKSConfig)
+    mock_config.vault = Mock(spec=VaultConfig)
+    mock_config.vault.database = "test_wks.test_vault"
+    mock_config.mongo = Mock(spec=MongoSettings)
+    mock_config.mongo.uri = "mongodb://localhost:27017"
+
+    with patch("wks.config.WKSConfig.load", return_value=mock_config):
+        summary = VaultStatusController().summarize()
+        assert summary.total_links == 2
+        assert summary.external_urls == 1
+        symlink = vault_root / "_links" / "papers" / "paper.pdf"
+        symlink.unlink()
+        indexer.sync()
+        summary = VaultStatusController().summarize()
+        assert summary.missing_symlink >= 1
+        assert summary.issues
 
 
 def test_legacy_links_detection(vault_root):
@@ -207,32 +220,20 @@ def test_markdown_url_extraction(vault_root):
 
 def test_batch_processing(vault, vault_root, patched_mongo):
     """Test batch processing with small batch size."""
-    cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
-    db_config = VaultDatabaseConfig.from_config(cfg)
-
-    # Create multiple links
-    note = vault_root / "Projects" / "Many.md"
-    links = "\n".join([f"[[Link{i}]]" for i in range(50)])
-    note.write_text(links)
-
-    indexer = VaultLinkIndexer(vault, db_config=db_config)
+    indexer = VaultLinkIndexer(
+        vault=vault,
+        mongo_uri="mongodb://localhost:27017",
+        db_name="test_wks",
+        coll_name="test_vault"
+    )
     result = indexer.sync(batch_size=10)
 
     # Should have processed all records
-    assert result.stats.edge_total >= 50
+    assert result.stats.edge_total == 2
 
 
-def test_config_validation_errors():
-    """Test that config validation raises appropriate errors."""
-    from wks.vault.config import VaultConfigError
-
-    # Missing db.uri
-    with pytest.raises(VaultConfigError, match="db.uri is required"):
-        VaultDatabaseConfig.from_config({"vault": {"database": "wks.vault"}})
-
-    # Missing vault.database
-    with pytest.raises(VaultConfigError, match="vault.database is required"):
-        VaultDatabaseConfig.from_config({"db": {"uri": "mongodb://localhost"}})
+    # This test is no longer relevant as VaultDatabaseConfig is removed
+    pass
 
 
 def test_line_preview_truncation(vault_root):

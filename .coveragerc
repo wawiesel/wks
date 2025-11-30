@@ -1,0 +1,36 @@
+# Coverage.py configuration for WKS project
+
+[run]
+source = wks
+omit = 
+    */tests/*
+    */.venv/*
+    */setup.py
+    */wks/__pycache__/*
+
+[report]
+# Show lines that weren't covered
+show_missing = True
+
+# Exclude lines with pragma: no cover
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abc.abstractmethod
+
+# Precision for coverage percentage
+precision = 2
+
+# Minimum coverage threshold (fail if below)
+fail_under = 100
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml

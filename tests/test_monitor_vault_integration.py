@@ -6,7 +6,7 @@ import pytest
 
 from wks.vault.obsidian import ObsidianVault
 from wks.vault.indexer import VaultLinkIndexer
-from wks.vault.config import VaultDatabaseConfig
+
 
 
 @pytest.fixture()
@@ -64,9 +64,12 @@ def test_monitor_vault_sync_on_file_move(test_env):
 
     # Setup vault and indexer
     vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
-    cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
-    db_config = VaultDatabaseConfig.from_config(cfg)
-    indexer = VaultLinkIndexer(vault, db_config=db_config)
+    indexer = VaultLinkIndexer(
+        vault=vault,
+        mongo_uri="mongodb://localhost:27017",
+        db_name="wks",
+        coll_name="vault"
+    )
 
     # Initial sync - index the link
     result = indexer.sync()
@@ -135,9 +138,12 @@ def test_multiple_links_to_same_file(test_env):
 
     # Setup and sync
     vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
-    cfg = {"vault": {"database": "wks.vault"}, "db": {"uri": "mongodb://localhost:27017/"}}
-    db_config = VaultDatabaseConfig.from_config(cfg)
-    indexer = VaultLinkIndexer(vault, db_config=db_config)
+    indexer = VaultLinkIndexer(
+        vault=vault,
+        mongo_uri="mongodb://localhost:27017",
+        db_name="wks",
+        coll_name="vault"
+    )
 
     result = indexer.sync()
     # Original link from Research.md + 3 new links = 4 total

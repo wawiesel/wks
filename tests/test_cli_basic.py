@@ -185,6 +185,17 @@ def test_cli_service_status_mcp(monkeypatch):
         notes=["ok"],
     )
     monkeypatch.setattr(svc.ServiceController, "get_status", lambda: status)
+    
+    # Mock WKSConfig.load to avoid file not found error
+    from wks.config import WKSConfig
+    monkeypatch.setattr(WKSConfig, "load", lambda path=None: None)
+
+    # Mock ServiceController.get_status in the command module as well if it's imported there
+    from wks.cli.commands import service as service_cmd
+    monkeypatch.setattr(service_cmd.ServiceController, "get_status", lambda: status)
+    
+    # Also mock default_mongo_uri to avoid WKSConfig.load call
+    monkeypatch.setattr(svc, "default_mongo_uri", lambda: "mongodb://localhost:27017")
 
     rc, out, _ = run_cli(['--display', 'mcp', 'service', 'status'])
     assert rc == 0
@@ -215,8 +226,11 @@ def test_cli_vault_status_json(monkeypatch):
         def from_config(cls, vault, cfg):
             return cls()
 
-    monkeypatch.setattr(vault_cmd, "load_config", lambda: {"db": {}, "vault": {}})
-    monkeypatch.setattr(vault_cmd, "VaultStatusController", lambda cfg: FakeController(cfg))
+    monkeypatch.setattr(vault_cmd, "VaultStatusController", lambda cfg=None: FakeController(cfg))
+    
+    # Mock WKSConfig.load to avoid file not found error
+    from wks.config import WKSConfig
+    monkeypatch.setattr(WKSConfig, "load", lambda path=None: None)
 
     rc, out, _ = run_cli(['--display', 'mcp', 'vault', 'status', '--json'])
     assert rc == 0

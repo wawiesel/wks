@@ -2,9 +2,10 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from wks.vault.controller import VaultController
 from wks.vault.obsidian import ObsidianVault
+from wks.config import WKSConfig, VaultConfig
 
 
 class TestVaultController:
@@ -30,5 +31,12 @@ class TestSyncVault:
 
     def test_sync_vault_requires_vault_base_dir(self):
         """sync_vault raises error if vault.base_dir not configured."""
-        with pytest.raises(ValueError, match="vault.base_dir not configured"):
-            VaultController.sync_vault(cfg={"vault": {}})
+        # Mock WKSConfig to return empty base_dir
+        mock_config = Mock(spec=WKSConfig)
+        mock_config.vault = Mock(spec=VaultConfig)
+        mock_config.vault.base_dir = ""
+        mock_config.vault.wks_dir = "WKS"
+        
+        with patch("wks.config.WKSConfig.load", return_value=mock_config):
+            with pytest.raises(ValueError, match="vault.base_dir not configured"):
+                VaultController.sync_vault()

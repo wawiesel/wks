@@ -93,7 +93,7 @@ class TestWKSFileMonitor(unittest.TestCase):
 
     def test_reserved_dot_directories_always_ignored(self):
         monitor = self._build_monitor()
-        path = self.temp_dir / ".wkso" / "artifact.txt"
+        path = self.temp_dir / ".wks" / "artifact.txt"
         path.parent.mkdir(exist_ok=True)
         path.touch()
         self.assertTrue(monitor._should_ignore(str(path)))
