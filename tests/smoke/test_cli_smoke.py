@@ -14,7 +14,8 @@ from pathlib import Path
 import pytest
 
 # Path to the wks executable or module
-WKS_CMD = [sys.executable, "-m", "wks.cli.main"]
+WKS_CMD = [sys.executable, "-m", "wks.cli"]
+
 
 @pytest.fixture(scope="module")
 def smoke_env(tmp_path_factory):
@@ -22,11 +23,11 @@ def smoke_env(tmp_path_factory):
     env_dir = tmp_path_factory.mktemp("smoke_env")
     home_dir = env_dir / "home"
     home_dir.mkdir()
-    
+
     # Set HOME to the temp dir to isolate config
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
-    
+
     # Create a dummy vault
     vault_dir = home_dir / "Vault"
     vault_dir.mkdir()
@@ -68,8 +69,9 @@ def smoke_env(tmp_path_factory):
     # Add project root to PYTHONPATH
     project_root = str(Path(__file__).parents[2])
     env["PYTHONPATH"] = project_root
-    
+
     return {"home": home_dir, "vault": vault_dir, "env": env}
+
 
 def run_wks(args, env_dict, check=True):
     """Run WKS CLI command."""
@@ -88,22 +90,24 @@ def run_wks(args, env_dict, check=True):
     return result
 
 
-
 def test_cli_config_show(smoke_env):
     """Test 'wks config'."""
     result = run_wks(["config"], smoke_env)
     assert "Monitor" in result.stdout
     assert "Vault" in result.stdout
 
+
 def test_cli_monitor_status(smoke_env):
     """Test 'wks monitor status'."""
     result = run_wks(["monitor", "status"], smoke_env)
     assert "Monitor Status" in result.stdout
 
+
 def test_cli_vault_status(smoke_env):
     """Test 'wks vault status'."""
     result = run_wks(["vault", "status"], smoke_env)
     assert "Vault Status" in result.stdout
+
 
 def test_cli_service_status(smoke_env):
     """Test 'wks service status'."""
@@ -111,12 +115,14 @@ def test_cli_service_status(smoke_env):
     assert "Health" in result.stdout
 
 # @pytest.mark.skip(reason="Transform command needs engine implementation")
+
+
 def test_cli_transform(smoke_env):
     """Test 'wks transform'."""
     # Create a test file
     test_file = smoke_env["home"] / "test.txt"
     test_file.write_text("Hello World")
-    
+
     # Run transform
     result = run_wks(["transform", "test", str(test_file)], smoke_env)
 
@@ -124,7 +130,8 @@ def test_cli_transform(smoke_env):
     cache_key = result.stdout.strip()
     assert len(cache_key) == 64
     assert cache_key.isalnum()  # Should be hex (alphanumeric)
-    
+
+
 def test_cli_cat(smoke_env):
     """Test 'wks cat'."""
     test_file = smoke_env["home"] / "test.txt"
@@ -141,13 +148,15 @@ def test_cli_cat(smoke_env):
     assert "Transformed: Hello World" in cat_result.stdout
 
 # @pytest.mark.skip(reason="Diff engine 'unified' not implemented")
+
+
 def test_cli_diff(smoke_env):
     """Test 'wks diff'."""
     file1 = smoke_env["home"] / "file1.txt"
     file1.write_text("Hello")
     file2 = smoke_env["home"] / "file2.txt"
     file2.write_text("World")
-    
+
     result = run_wks(["diff", "unified", str(file1), str(file2)], smoke_env)
     assert "---" in result.stdout
     assert "+++" in result.stdout

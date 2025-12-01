@@ -1,18 +1,17 @@
 """WKS CLI - Database commands
 
 Per SPEC.md, database commands are organized by layer:
-- wks0 db monitor    -- Query filesystem monitoring database
-- wks0 db vault      -- Query knowledge graph links
-- wks0 db transform  -- Query transform cache metadata
-- wks0 db transform  -- Query transform cache metadata
+- wksc db monitor    -- Query filesystem monitoring database
+- wksc db vault      -- Query knowledge graph links
+- wksc db transform  -- Query transform cache metadata
 """
 
 import argparse
 import json
 from typing import Optional
 
-from .config import load_config
-from .db_helpers import (
+from ...config import load_config
+from ...db_helpers import (
     get_monitor_db_config,
     get_transform_db_config,
     get_vault_db_config,
@@ -230,7 +229,7 @@ def setup_db_parser(subparsers) -> argparse.ArgumentParser:
     dbp = subparsers.add_parser("db", help="Database helpers: query and stats")
     dbsub = dbp.add_subparsers(dest="db_cmd", required=False)
 
-    # wks0 db monitor
+    # wksc db monitor
     def _add_query_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--filter", help='JSON filter, e.g. {"priority": {"$gte": 100}}')
         parser.add_argument("--projection", help='JSON projection, e.g. {"path":1,"priority":1}')

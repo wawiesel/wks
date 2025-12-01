@@ -34,14 +34,14 @@ class TestMCPServerNewTools:
     """Test new MCP tools."""
 
     def test_wks_config(self, mock_server, mock_config):
-        """Test wks_config tool."""
+        """Test wksm_config tool."""
         result = mock_server._tool_config(mock_config)
         assert result == mock_config
 
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     def test_wks_transform(self, mock_controller_cls, mock_connect, mock_server, mock_config):
-        """Test wks_transform tool."""
+        """Test wksm_transform tool."""
         mock_controller = mock_controller_cls.return_value
         mock_controller.transform.return_value = "checksum123"
         
@@ -53,7 +53,7 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     def test_wks_cat(self, mock_controller_cls, mock_connect, mock_server, mock_config):
-        """Test wks_cat tool."""
+        """Test wksm_cat tool."""
         mock_controller = mock_controller_cls.return_value
         mock_controller.get_content.return_value = "content"
         
@@ -66,7 +66,7 @@ class TestMCPServerNewTools:
     @patch("wks.transform.TransformController")
     @patch("wks.diff.DiffController")
     def test_wks_diff(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):
-        """Test wks_diff tool."""
+        """Test wksm_diff tool."""
         mock_diff = mock_diff_cls.return_value
         mock_diff.diff.return_value = "diff result"
         
@@ -78,7 +78,7 @@ class TestMCPServerNewTools:
     @patch("wks.vault.load_vault")
     @patch("wks.vault.VaultController")
     def test_wks_vault_validate(self, mock_controller_cls, mock_load_vault, mock_server, mock_config):
-        """Test wks_vault_validate tool."""
+        """Test wksm_vault_validate tool."""
         mock_controller = mock_controller_cls.return_value
         mock_controller.validate_vault.return_value = {"status": "ok"}
         
@@ -91,7 +91,7 @@ class TestMCPServerNewTools:
     @patch("wks.vault.load_vault")
     @patch("wks.vault.VaultController")
     def test_wks_vault_fix_symlinks(self, mock_controller_cls, mock_load_vault, mock_server, mock_config):
-        """Test wks_vault_fix_symlinks tool."""
+        """Test wksm_vault_fix_symlinks tool."""
         mock_controller = mock_controller_cls.return_value
         # Mock result object
         mock_result = MagicMock()
@@ -114,7 +114,7 @@ class TestMCPServerNewTools:
 
     @patch("wks.db_helpers.connect_to_mongo")
     def test_wks_db_query(self, mock_connect, mock_server, mock_config):
-        """Test wks_db_* tools."""
+        """Test wksm_db_* tools."""
         mock_client = mock_connect.return_value
         mock_coll = mock_client["wks"]["monitor"]
         mock_coll.find.return_value.limit.return_value = [{"path": "/a"}]

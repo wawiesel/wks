@@ -68,7 +68,7 @@ def test_cli_version_flag():
     rc, out, _ = run_cli(['--version'])
     assert rc == 0
     expected = importlib_metadata.version('wks')
-    assert f"wks0 {expected}" in out
+    assert f"wksc {expected}" in out
 
 
 def test_cli_db_monitor_outputs_documents(monkeypatch):
