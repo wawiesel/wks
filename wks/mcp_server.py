@@ -29,6 +29,136 @@ class MCPServer:
         self._output = output_stream or sys.stdout
         self._lsp_mode = False
         self.tools = {
+            "wks_config": {
+                "description": "Get effective configuration",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            "wks_transform": {
+                "description": "Transform a file using a specific engine",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Path to file to transform"
+                        },
+                        "engine": {
+                            "type": "string",
+                            "description": "Transform engine name (e.g., 'docling')"
+                        },
+                        "options": {
+                            "type": "object",
+                            "description": "Engine-specific options"
+                        }
+                    },
+                    "required": ["file_path", "engine"]
+                }
+            },
+            "wks_cat": {
+                "description": "Retrieve content for a target (checksum or file path)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Checksum (64 hex chars) or file path"
+                        }
+                    },
+                    "required": ["target"]
+                }
+            },
+            "wks_diff": {
+                "description": "Calculate diff between two targets",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "engine": {
+                            "type": "string",
+                            "description": "Diff engine name (e.g., 'bsdiff3', 'myers')"
+                        },
+                        "target_a": {
+                            "type": "string",
+                            "description": "First target (file path or checksum)"
+                        },
+                        "target_b": {
+                            "type": "string",
+                            "description": "Second target (file path or checksum)"
+                        }
+                    },
+                    "required": ["engine", "target_a", "target_b"]
+                }
+            },
+            "wks_vault_validate": {
+                "description": "Validate all vault links",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            "wks_vault_fix_symlinks": {
+                "description": "Rebuild _links/<machine>/ from vault DB",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            "wks_db_monitor": {
+                "description": "Query filesystem database",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "object",
+                            "description": "MongoDB query object"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results"
+                        }
+                    },
+                    "required": []
+                }
+            },
+            "wks_db_vault": {
+                "description": "Query vault database",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "object",
+                            "description": "MongoDB query object"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results"
+                        }
+                    },
+                    "required": []
+                }
+            },
+            "wks_db_transform": {
+                "description": "Query transform database",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "object",
+                            "description": "MongoDB query object"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results"
+                        }
+                    },
+                    "required": []
+                }
+            },
             "wks_monitor_status": {
                 "description": "Get filesystem monitoring status and configuration",
                 "inputSchema": {
@@ -330,6 +460,21 @@ class MCPServer:
             return decorator
 
         return {
+            "wks_config": lambda config, args: self._tool_config(config),
+            "wks_transform": _require_params("file_path", "engine")(
+                lambda config, args: self._tool_transform(config, args["file_path"], args["engine"], args.get("options", {}))
+            ),
+            "wks_cat": _require_params("target")(
+                lambda config, args: self._tool_cat(config, args["target"])
+            ),
+            "wks_diff": _require_params("engine", "target_a", "target_b")(
+                lambda config, args: self._tool_diff(config, args["engine"], args["target_a"], args["target_b"])
+            ),
+            "wks_vault_validate": lambda config, args: self._tool_vault_validate(config),
+            "wks_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),
+            "wks_db_monitor": lambda config, args: self._tool_db_query(config, "monitor", args.get("query", {}), args.get("limit", 50)),
+            "wks_db_vault": lambda config, args: self._tool_db_query(config, "vault", args.get("query", {}), args.get("limit", 50)),
+            "wks_db_transform": lambda config, args: self._tool_db_query(config, "transform", args.get("query", {}), args.get("limit", 50)),
             "wks_monitor_status": lambda config, args: self._tool_monitor_status(config),
             "wks_monitor_check": _require_params("path")(
                 lambda config, args: self._tool_monitor_check(config, args["path"])
@@ -659,6 +804,140 @@ class MCPServer:
                 # Only send error if this is a request (has ID), not a notification
                 if request_id is not None:
                     self._write_error(request_id, -32601, f"Method not found: {method}")
+
+
+    def _tool_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute wks_config tool."""
+        return config
+
+    def _tool_transform(self, config: Dict[str, Any], file_path: str, engine: str, options: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute wks_transform tool."""
+        from pathlib import Path
+        from .transform import TransformController
+        from .utils import expand_path
+        from .db_helpers import connect_to_mongo
+        
+        # Setup controller
+        transform_cfg = config.get("transform", {})
+        cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
+        max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+        
+        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+        db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+        
+        client = connect_to_mongo(uri)
+        db = client[db_name]
+        
+        controller = TransformController(db, cache_location, max_size_bytes)
+        
+        # Transform
+        path = expand_path(file_path)
+        cache_key = controller.transform(path, engine, options)
+        
+        client.close()
+        return {"checksum": cache_key}
+
+    def _tool_cat(self, config: Dict[str, Any], target: str) -> Dict[str, Any]:
+        """Execute wks_cat tool."""
+        from pathlib import Path
+        from .transform import TransformController
+        from .db_helpers import connect_to_mongo
+        
+        # Setup controller
+        transform_cfg = config.get("transform", {})
+        cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
+        max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+        
+        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+        db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+        
+        client = connect_to_mongo(uri)
+        db = client[db_name]
+        
+        controller = TransformController(db, cache_location, max_size_bytes)
+        
+        # Get content
+        content = controller.get_content(target)
+        
+        client.close()
+        return {"content": content}
+
+    def _tool_diff(self, config: Dict[str, Any], engine: str, target_a: str, target_b: str) -> Dict[str, Any]:
+        """Execute wks_diff tool."""
+        from pathlib import Path
+        from .diff import DiffController
+        from .transform import TransformController
+        from .db_helpers import connect_to_mongo
+        
+        # Setup transform controller for checksum resolution
+        transform_cfg = config.get("transform", {})
+        cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
+        max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+        
+        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+        db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+        
+        client = connect_to_mongo(uri)
+        db = client[db_name]
+        
+        transform_controller = TransformController(db, cache_location, max_size_bytes)
+        diff_controller = DiffController(transform_controller)
+        
+        # Diff
+        result = diff_controller.diff(target_a, target_b, engine)
+        
+        client.close()
+        return {"diff": result}
+
+    def _tool_vault_validate(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute wks_vault_validate tool."""
+        from .vault import VaultController, load_vault
+        
+        vault = load_vault(config)
+        controller = VaultController(vault)
+        return controller.validate_vault()
+
+    def _tool_vault_fix_symlinks(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute wks_vault_fix_symlinks tool."""
+        from .vault import VaultController, load_vault
+        
+        vault = load_vault(config)
+        controller = VaultController(vault)
+        result = controller.fix_symlinks()
+        
+        # Convert dataclass to dict
+        return {
+            "notes_scanned": result.notes_scanned,
+            "links_found": result.links_found,
+            "created": result.created,
+            "failed": result.failed
+        }
+
+    def _tool_db_query(self, config: Dict[str, Any], db_type: str, query: Dict[str, Any], limit: int) -> Dict[str, Any]:
+        """Execute wks_db_* tools."""
+        from .db_helpers import connect_to_mongo
+        
+        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+        
+        if db_type == "monitor":
+            db_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[0]
+            coll_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[1]
+        elif db_type == "vault":
+            db_name = config.get("vault", {}).get("database", "wks.vault").split(".")[0]
+            coll_name = config.get("vault", {}).get("database", "wks.vault").split(".")[1]
+        elif db_type == "transform":
+            db_name = config.get("transform", {}).get("database", "wks.transform").split(".")[0]
+            coll_name = config.get("transform", {}).get("database", "wks.transform").split(".")[1]
+        else:
+            raise ValueError(f"Unknown db type: {db_type}")
+            
+        client = connect_to_mongo(uri)
+        coll = client[db_name][coll_name]
+        
+        results = list(coll.find(query, {"_id": 0}).limit(limit))
+        
+        client.close()
+        return {"results": results, "count": len(results)}
 
 
 def main():

@@ -50,12 +50,13 @@ def mock_display(monkeypatch):
 def mock_controller(monkeypatch):
     """Mock controllers."""
     diff_controller = MagicMock()
-    monkeypatch.setattr("wks.cli.commands.diff.DiffController", lambda: diff_controller)
+    monkeypatch.setattr("wks.cli.commands.diff.DiffController", lambda *args: diff_controller)
     
     transform_controller = MagicMock()
-    # transform.py imports TransformController
+    # Patch globally for runtime imports
+    monkeypatch.setattr("wks.transform.TransformController", lambda *args: transform_controller)
+    # Patch in modules where it is imported at top level
     monkeypatch.setattr("wks.cli.commands.transform.TransformController", lambda *args: transform_controller)
-    # cat.py imports TransformController
     monkeypatch.setattr("wks.cli.commands.cat.TransformController", lambda *args: transform_controller)
     
     return {"diff": diff_controller, "transform": transform_controller}
@@ -65,20 +66,18 @@ def mock_controller(monkeypatch):
 def mock_mongo(monkeypatch):
     """Mock MongoDB connection."""
     client = MagicMock()
-    monkeypatch.setattr("wks.cli.commands.transform.connect_to_mongo", lambda uri: client)
-    monkeypatch.setattr("wks.cli.commands.cat.connect_to_mongo", lambda uri: client)
+    monkeypatch.setattr("wks.db_helpers.connect_to_mongo", lambda uri: client)
     return client
 
 
 class TestDiffCommand:
     """Test diff command."""
 
-    def test_diff_success(self, mock_config, mock_controller, tmp_path, capsys):
+    def test_diff_success(self, mock_config, mock_controller, mock_mongo, tmp_path, capsys):
         """Test successful diff."""
+        # We don't need real files if we mock the controller
         file1 = tmp_path / "file1.txt"
-        file1.write_text("content1")
         file2 = tmp_path / "file2.txt"
-        file2.write_text("content2")
 
         mock_controller["diff"].diff.return_value = "Diff result"
 
@@ -96,34 +95,19 @@ class TestDiffCommand:
         assert "Diff result" in captured.out
         mock_controller["diff"].diff.assert_called_once()
 
-    def test_diff_file_not_found(self, mock_config, mock_controller, tmp_path):
-        """Test diff with missing file."""
-        file1 = tmp_path / "file1.txt"
-        file1.write_text("content1")
-        
-        args = argparse.Namespace(
-            engine="unified",
-            file1=str(file1),
-            file2=str(tmp_path / "missing.txt"),
-            display_obj=None
-        )
-
-        rc = diff_cmd(args)
-        assert rc == 2
-
-    def test_diff_error(self, mock_config, mock_controller, tmp_path):
+    # Removed test_diff_file_not_found because validation is now inside controller
+    # and we are mocking the controller.
+    # If we want to test controller validation, we should test controller directly.
+    # Or we can make the mock raise error.
+    
+    def test_diff_error(self, mock_config, mock_controller, mock_mongo, tmp_path):
         """Test diff execution error."""
-        file1 = tmp_path / "file1.txt"
-        file1.write_text("content1")
-        file2 = tmp_path / "file2.txt"
-        file2.write_text("content2")
-
         mock_controller["diff"].diff.side_effect = RuntimeError("Diff failed")
 
         args = argparse.Namespace(
             engine="unified",
-            file1=str(file1),
-            file2=str(file2),
+            file1="file1",
+            file2="file2",
             display_obj=None
         )
 
@@ -190,70 +174,50 @@ class TestTransformCommand:
 class TestCatCommand:
     """Test cat command."""
 
-    def test_cat_checksum_success(self, mock_config, mock_controller, mock_mongo, tmp_path, capsys):
+    def test_cat_checksum_success(self, mock_config, mock_controller, mock_mongo, capsys):
         """Test cat with checksum."""
         checksum = "a" * 64
-        cache_dir = tmp_path / ".wks" / "cache"
-        cache_dir.mkdir(parents=True)
-        (cache_dir / f"{checksum}.md").write_text("Cached content")
+        mock_controller["transform"].get_content.return_value = "Cached content"
 
-        # Mock expand_path to return our temp cache dir
-        with patch("wks.cli.commands.cat.expand_path", return_value=cache_dir):
-            args = argparse.Namespace(
-                input=checksum,
-                output=None
-            )
+        args = argparse.Namespace(
+            input=checksum,
+            output=None
+        )
 
-            rc = cat_cmd(args)
+        rc = cat_cmd(args)
 
-            assert rc == 0
-            captured = capsys.readouterr()
-            assert "Cached content" in captured.out
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Cached content" in captured.out
+        mock_controller["transform"].get_content.assert_called_with(checksum, None)
 
-    def test_cat_checksum_not_found(self, mock_config, mock_controller, mock_mongo, tmp_path):
+    def test_cat_checksum_not_found(self, mock_config, mock_controller, mock_mongo):
         """Test cat with missing checksum."""
         checksum = "a" * 64
-        cache_dir = tmp_path / ".wks" / "cache"
-        cache_dir.mkdir(parents=True)
+        mock_controller["transform"].get_content.side_effect = ValueError("Not found")
 
-        with patch("wks.cli.commands.cat.expand_path", return_value=cache_dir):
-            args = argparse.Namespace(
-                input=checksum,
-                output=None
-            )
+        args = argparse.Namespace(
+            input=checksum,
+            output=None
+        )
 
-            rc = cat_cmd(args)
-            assert rc == 2
+        rc = cat_cmd(args)
+        assert rc == 2
 
     def test_cat_file_success(self, mock_config, mock_controller, mock_mongo, tmp_path, capsys):
-        """Test cat with file path (transforms first)."""
-        file_path = tmp_path / "test.pdf"
-        file_path.write_text("content")
-        
-        checksum = "b" * 64
-        cache_dir = tmp_path / ".wks" / "cache"
-        cache_dir.mkdir(parents=True)
-        (cache_dir / f"{checksum}.md").write_text("Transformed content")
+        """Test cat with file path."""
+        file_path = str(tmp_path / "test.pdf")
+        mock_controller["transform"].get_content.return_value = "Transformed content"
 
-        mock_controller["transform"].transform.return_value = checksum
+        args = argparse.Namespace(
+            input=file_path,
+            output=None
+        )
 
-        # We need to mock expand_path carefully:
-        # 1. For cache_location -> cache_dir
-        # 2. For input_arg -> file_path
-        def side_effect(path):
-            if str(path).endswith("cache"):
-                return cache_dir
-            return Path(path)
+        rc = cat_cmd(args)
 
-        with patch("wks.cli.commands.cat.expand_path", side_effect=side_effect):
-            args = argparse.Namespace(
-                input=str(file_path),
-                output=None
-            )
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Transformed content" in captured.out
+        mock_controller["transform"].get_content.assert_called_with(file_path, None)
 
-            rc = cat_cmd(args)
-
-            assert rc == 0
-            captured = capsys.readouterr()
-            assert "Transformed content" in captured.out
-            mock_controller["transform"].transform.assert_called_once()

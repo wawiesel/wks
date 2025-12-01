@@ -145,6 +145,7 @@ class MyersEngine(DiffEngine):
 ENGINES = {
     "bsdiff3": Bsdiff3Engine(),
     "myers": MyersEngine(),
+    "unified": MyersEngine(),
 }
 
 
