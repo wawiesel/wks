@@ -37,6 +37,57 @@
   - **MCP**: Send warning/errors in the JSON packet.
   - **CLI**: Emit warnings/errors to STDERR. Info/debug goes to logs only.
 
+## Architecture & Design Principles
+
+### Layered Architecture
+
+WKS follows a three-layer architecture with clear separation of concerns:
+
+1. **Python API (Core Business Logic)**
+   - Controllers, business logic, data structures
+   - Beautiful, well-tested code with 100% test coverage
+   - No UI concerns, no protocol-specific code
+   - Located in `wks/` package modules (e.g., `wks.monitor.controller`, `wks.transform.controller`)
+   - Pure Python functions/classes that can be imported and used directly
+
+2. **MCP Server Layer (Thin Protocol Wrapper)**
+   - Thin layer on top of the Python API
+   - Translates MCP protocol requests to API calls
+   - Returns structured results via `MCPResult` (with data, messages, errors)
+   - MCP is the **source of truth** for all errors, warnings, and messages
+   - Located in `wks/mcp.py` and `wks/mcp/`
+   - All MCP tools call the Python API, never duplicate business logic
+
+3. **CLI Layer (Thin User Interface Wrapper)**
+   - Thin layer that **only** calls MCP tools
+   - Formats MCP results for human-readable output
+   - Handles stdin/stdout/stderr according to CLI guidelines
+   - Located in `wks/cli/`
+   - **All** CLI commands call MCP tools via `call_tool()` - zero business logic in CLI
+   - No exceptions: every CLI command is just argument parsing + MCP call + output formatting
+
+**Design Decisions:**
+- **MCP as Source of Truth**: CLI calls MCP tools rather than duplicating logic. This ensures consistency and makes MCP the authoritative interface.
+- **No Business Logic in CLI**: CLI is strictly argument parsing, MCP tool calls, and output formatting. All business logic is in the Python API, called by MCP.
+- **Structured Results**: MCP tools return `MCPResult` objects with structured data, messages, errors, and warnings. CLI consumes and formats these.
+- **Zero Duplication**: Business logic exists only in the Python API. MCP and CLI are thin wrappers.
+- **Testability**: The Python API can be tested independently of MCP or CLI protocols.
+- **Flow**: `CLI → MCP → API` - CLI never calls API directly, MCP never contains business logic
+
+### Error Handling & Logging (Architecture)
+
+**Single Source of Truth**: All errors, warnings, and messages originate in MCP tools (which call the Python API).
+- MCP tools return structured `MCPResult` objects with:
+  - `success`: bool
+  - `data`: dict (actual result data)
+  - `messages`: list of structured messages (error, warning, info, status)
+  - `log`: optional list of log entries for debugging
+- CLI consumes `MCPResult` and formats messages appropriately:
+  - Errors/Warnings/Info → STDERR
+  - Status messages → STDERR  
+  - Result data → STDOUT (if success)
+- MCP protocol sends warnings/errors in JSON-RPC response packets
+
 ### Design Patterns
 - **Strategy Pattern**: Use for display modes and engine implementations.
 - **Controller Pattern**: Centralize business logic in controllers shared by CLI and MCP.

@@ -67,12 +67,12 @@ class TestServiceHelpers:
 
     def test_agent_label(self):
         """Test agent label."""
-        assert agent_label() == "com.wieselquist.wks0"
+        assert agent_label() == "com.wieselquist.wksc"
 
     def test_agent_plist_path(self):
         """Test agent plist path."""
         path = agent_plist_path()
-        assert path.name == "com.wieselquist.wks0.plist"
+        assert path.name == "com.wieselquist.wksc.plist"
         assert "LaunchAgents" in str(path)
 
     @patch("platform.system")

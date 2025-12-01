@@ -3,6 +3,9 @@ MCP Server for WKS - Model Context Protocol integration.
 
 Exposes WKS functionality as MCP tools via stdio transport.
 Uses existing controllers for zero code duplication per SPEC.md.
+
+MCP is the source of truth for all errors, warnings, and messages.
+All MCP tools return structured MCPResult objects.
 """
 
 import json
@@ -13,6 +16,7 @@ from .config import load_config
 from .monitor import MonitorController
 from .vault import VaultController
 from .vault.status_controller import VaultStatusController
+from .mcp.result import MCPResult
 
 
 class MCPServer:
@@ -29,7 +33,7 @@ class MCPServer:
         self._output = output_stream or sys.stdout
         self._lsp_mode = False
         self.tools = {
-            "wks_config": {
+            "wksm_config": {
                 "description": "Get effective configuration",
                 "inputSchema": {
                     "type": "object",
@@ -37,7 +41,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_transform": {
+            "wksm_transform": {
                 "description": "Transform a file using a specific engine",
                 "inputSchema": {
                     "type": "object",
@@ -58,7 +62,7 @@ class MCPServer:
                     "required": ["file_path", "engine"]
                 }
             },
-            "wks_cat": {
+            "wksm_cat": {
                 "description": "Retrieve content for a target (checksum or file path)",
                 "inputSchema": {
                     "type": "object",
@@ -71,7 +75,7 @@ class MCPServer:
                     "required": ["target"]
                 }
             },
-            "wks_diff": {
+            "wksm_diff": {
                 "description": "Calculate diff between two targets",
                 "inputSchema": {
                     "type": "object",
@@ -92,7 +96,7 @@ class MCPServer:
                     "required": ["engine", "target_a", "target_b"]
                 }
             },
-            "wks_vault_validate": {
+            "wksm_vault_validate": {
                 "description": "Validate all vault links",
                 "inputSchema": {
                     "type": "object",
@@ -100,7 +104,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_vault_fix_symlinks": {
+            "wksm_vault_fix_symlinks": {
                 "description": "Rebuild _links/<machine>/ from vault DB",
                 "inputSchema": {
                     "type": "object",
@@ -108,7 +112,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_db_monitor": {
+            "wksm_db_monitor": {
                 "description": "Query filesystem database",
                 "inputSchema": {
                     "type": "object",
@@ -125,7 +129,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_db_vault": {
+            "wksm_db_vault": {
                 "description": "Query vault database",
                 "inputSchema": {
                     "type": "object",
@@ -142,7 +146,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_db_transform": {
+            "wksm_db_transform": {
                 "description": "Query transform database",
                 "inputSchema": {
                     "type": "object",
@@ -159,7 +163,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_monitor_status": {
+            "wksm_monitor_status": {
                 "description": "Get filesystem monitoring status and configuration",
                 "inputSchema": {
                     "type": "object",
@@ -167,7 +171,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_monitor_check": {
+            "wksm_monitor_check": {
                 "description": "Check if a path would be monitored and calculate its priority",
                 "inputSchema": {
                     "type": "object",
@@ -180,7 +184,7 @@ class MCPServer:
                     "required": ["path"]
                 }
             },
-            "wks_monitor_validate": {
+            "wksm_monitor_validate": {
                 "description": "Validate monitor configuration for conflicts and issues",
                 "inputSchema": {
                     "type": "object",
@@ -188,7 +192,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_monitor_list": {
+            "wksm_monitor_list": {
                 "description": "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)",
                 "inputSchema": {
                     "type": "object",
@@ -202,7 +206,7 @@ class MCPServer:
                     "required": ["list_name"]
                 }
             },
-            "wks_monitor_add": {
+            "wksm_monitor_add": {
                 "description": "Add a value to a monitor configuration list",
                 "inputSchema": {
                     "type": "object",
@@ -220,7 +224,7 @@ class MCPServer:
                     "required": ["list_name", "value"]
                 }
             },
-            "wks_monitor_remove": {
+            "wksm_monitor_remove": {
                 "description": "Remove a value from a monitor configuration list",
                 "inputSchema": {
                     "type": "object",
@@ -238,7 +242,7 @@ class MCPServer:
                     "required": ["list_name", "value"]
                 }
             },
-            "wks_monitor_managed_list": {
+            "wksm_monitor_managed_list": {
                 "description": "Get all managed directories with their priorities",
                 "inputSchema": {
                     "type": "object",
@@ -246,7 +250,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_monitor_managed_add": {
+            "wksm_monitor_managed_add": {
                 "description": "Add a managed directory with priority",
                 "inputSchema": {
                     "type": "object",
@@ -263,7 +267,7 @@ class MCPServer:
                     "required": ["path", "priority"]
                 }
             },
-            "wks_monitor_managed_remove": {
+            "wksm_monitor_managed_remove": {
                 "description": "Remove a managed directory",
                 "inputSchema": {
                     "type": "object",
@@ -276,7 +280,7 @@ class MCPServer:
                     "required": ["path"]
                 }
             },
-            "wks_monitor_managed_set_priority": {
+            "wksm_monitor_managed_set_priority": {
                 "description": "Update priority for a managed directory",
                 "inputSchema": {
                     "type": "object",
@@ -293,7 +297,7 @@ class MCPServer:
                     "required": ["path", "priority"]
                 }
             },
-            "wks_vault_status": {
+            "wksm_vault_status": {
                 "description": "Get vault link status summary including link counts, issues, and errors",
                 "inputSchema": {
                     "type": "object",
@@ -301,7 +305,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_vault_sync": {
+            "wksm_vault_sync": {
                 "description": "Sync vault links to MongoDB with optional batch size",
                 "inputSchema": {
                     "type": "object",
@@ -314,7 +318,7 @@ class MCPServer:
                     "required": []
                 }
             },
-            "wks_vault_links": {
+            "wksm_vault_links": {
                 "description": "Get all links to and from a specific vault file",
                 "inputSchema": {
                     "type": "object",
@@ -460,50 +464,50 @@ class MCPServer:
             return decorator
 
         return {
-            "wks_config": lambda config, args: self._tool_config(config),
-            "wks_transform": _require_params("file_path", "engine")(
+            "wksm_config": lambda config, args: self._tool_config(config),
+            "wksm_transform": _require_params("file_path", "engine")(
                 lambda config, args: self._tool_transform(config, args["file_path"], args["engine"], args.get("options", {}))
             ),
-            "wks_cat": _require_params("target")(
+            "wksm_cat": _require_params("target")(
                 lambda config, args: self._tool_cat(config, args["target"])
             ),
-            "wks_diff": _require_params("engine", "target_a", "target_b")(
+            "wksm_diff": _require_params("engine", "target_a", "target_b")(
                 lambda config, args: self._tool_diff(config, args["engine"], args["target_a"], args["target_b"])
             ),
-            "wks_vault_validate": lambda config, args: self._tool_vault_validate(config),
-            "wks_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),
-            "wks_db_monitor": lambda config, args: self._tool_db_query(config, "monitor", args.get("query", {}), args.get("limit", 50)),
-            "wks_db_vault": lambda config, args: self._tool_db_query(config, "vault", args.get("query", {}), args.get("limit", 50)),
-            "wks_db_transform": lambda config, args: self._tool_db_query(config, "transform", args.get("query", {}), args.get("limit", 50)),
-            "wks_monitor_status": lambda config, args: self._tool_monitor_status(config),
-            "wks_monitor_check": _require_params("path")(
+            "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),
+            "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),
+            "wksm_db_monitor": lambda config, args: self._tool_db_query(config, "monitor", args.get("query", {}), args.get("limit", 50)),
+            "wksm_db_vault": lambda config, args: self._tool_db_query(config, "vault", args.get("query", {}), args.get("limit", 50)),
+            "wksm_db_transform": lambda config, args: self._tool_db_query(config, "transform", args.get("query", {}), args.get("limit", 50)),
+            "wksm_monitor_status": lambda config, args: self._tool_monitor_status(config),
+            "wksm_monitor_check": _require_params("path")(
                 lambda config, args: self._tool_monitor_check(config, args["path"])
             ),
-            "wks_monitor_validate": lambda config, args: self._tool_monitor_validate(config),
-            "wks_monitor_list": _require_params("list_name")(
+            "wksm_monitor_validate": lambda config, args: self._tool_monitor_validate(config),
+            "wksm_monitor_list": _require_params("list_name")(
                 lambda config, args: self._tool_monitor_list(config, args["list_name"])
             ),
-            "wks_monitor_add": _require_params("list_name", "value")(
+            "wksm_monitor_add": _require_params("list_name", "value")(
                 lambda config, args: self._tool_monitor_add(config, args["list_name"], args["value"])
             ),
-            "wks_monitor_remove": _require_params("list_name", "value")(
+            "wksm_monitor_remove": _require_params("list_name", "value")(
                 lambda config, args: self._tool_monitor_remove(config, args["list_name"], args["value"])
             ),
-            "wks_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),
-            "wks_monitor_managed_add": _require_params("path", "priority")(
+            "wksm_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),
+            "wksm_monitor_managed_add": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_add(config, args["path"], args["priority"])
             ),
-            "wks_monitor_managed_remove": _require_params("path")(
+            "wksm_monitor_managed_remove": _require_params("path")(
                 lambda config, args: self._tool_monitor_managed_remove(config, args["path"])
             ),
-            "wks_monitor_managed_set_priority": _require_params("path", "priority")(
+            "wksm_monitor_managed_set_priority": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_set_priority(config, args["path"], args["priority"])
             ),
-            "wks_vault_status": lambda config, args: self._tool_vault_status(config),
-            "wks_vault_sync": lambda config, args: self._tool_vault_sync(
+            "wksm_vault_status": lambda config, args: self._tool_vault_status(config),
+            "wksm_vault_sync": lambda config, args: self._tool_vault_sync(
                 config, args.get("batch_size", 1000)
             ),
-            "wks_vault_links": _require_params("file_path")(
+            "wksm_vault_links": _require_params("file_path")(
                 lambda config, args: self._tool_vault_links(
                     config, args["file_path"], args.get("direction", "both")
                 )
@@ -807,87 +811,167 @@ class MCPServer:
 
 
     def _tool_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute wks_config tool."""
-        return config
+        """Execute wksm_config tool."""
+        result = MCPResult(success=True, data=config)
+        result.add_success("Configuration loaded successfully")
+        return result.to_dict()
 
     def _tool_transform(self, config: Dict[str, Any], file_path: str, engine: str, options: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute wks_transform tool."""
+        """Execute wksm_transform tool."""
         from pathlib import Path
         from .transform import TransformController
         from .utils import expand_path
         from .db_helpers import connect_to_mongo
         
-        # Setup controller
-        transform_cfg = config.get("transform", {})
-        cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-        max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+        result = MCPResult(success=False, data={})
         
-        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-        db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
-        
-        client = connect_to_mongo(uri)
-        db = client[db_name]
-        
-        controller = TransformController(db, cache_location, max_size_bytes)
-        
-        # Transform
-        path = expand_path(file_path)
-        cache_key = controller.transform(path, engine, options)
-        
-        client.close()
-        return {"checksum": cache_key}
+        try:
+            # Validate file exists
+            path = expand_path(file_path)
+            if not path.exists():
+                return result.error_result(
+                    f"File not found: {path}",
+                    data={}
+                ).to_dict()
+            
+            # Setup controller
+            transform_cfg = config.get("transform", {})
+            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
+            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            
+            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            
+            client = connect_to_mongo(uri)
+            db = client[db_name]
+            
+            controller = TransformController(db, cache_location, max_size_bytes)
+            
+            # Transform
+            result.add_status(f"Transforming {path.name} using {engine}...")
+            cache_key = controller.transform(path, engine, options)
+            
+            client.close()
+            
+            return result.success_result(
+                {"checksum": cache_key},
+                f"Transform completed successfully"
+            ).to_dict()
+            
+        except ValueError as e:
+            return result.error_result(
+                f"Invalid input: {str(e)}",
+                data={}
+            ).to_dict()
+        except RuntimeError as e:
+            return result.error_result(
+                f"Transform failed: {str(e)}",
+                data={}
+            ).to_dict()
+        except Exception as e:
+            return result.error_result(
+                f"Unexpected error: {str(e)}",
+                details=str(e),
+                data={}
+            ).to_dict()
 
     def _tool_cat(self, config: Dict[str, Any], target: str) -> Dict[str, Any]:
-        """Execute wks_cat tool."""
+        """Execute wksm_cat tool."""
         from pathlib import Path
         from .transform import TransformController
         from .db_helpers import connect_to_mongo
         
-        # Setup controller
-        transform_cfg = config.get("transform", {})
-        cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-        max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+        result = MCPResult(success=False, data={})
         
-        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-        db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
-        
-        client = connect_to_mongo(uri)
-        db = client[db_name]
-        
-        controller = TransformController(db, cache_location, max_size_bytes)
-        
-        # Get content
-        content = controller.get_content(target)
-        
-        client.close()
-        return {"content": content}
+        try:
+            # Setup controller
+            transform_cfg = config.get("transform", {})
+            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
+            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            
+            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            
+            client = connect_to_mongo(uri)
+            db = client[db_name]
+            
+            controller = TransformController(db, cache_location, max_size_bytes)
+            
+            # Get content
+            content = controller.get_content(target)
+            
+            client.close()
+            
+            return result.success_result(
+                {"content": content},
+                "Content retrieved successfully"
+            ).to_dict()
+            
+        except FileNotFoundError as e:
+            return result.error_result(
+                f"File or cache entry not found: {target}",
+                details=str(e),
+                data={}
+            ).to_dict()
+        except Exception as e:
+            return result.error_result(
+                f"Failed to retrieve content: {str(e)}",
+                details=str(e),
+                data={}
+            ).to_dict()
 
     def _tool_diff(self, config: Dict[str, Any], engine: str, target_a: str, target_b: str) -> Dict[str, Any]:
-        """Execute wks_diff tool."""
+        """Execute wksm_diff tool."""
         from pathlib import Path
         from .diff import DiffController
         from .transform import TransformController
         from .db_helpers import connect_to_mongo
         
-        # Setup transform controller for checksum resolution
-        transform_cfg = config.get("transform", {})
-        cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-        max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+        result = MCPResult(success=False, data={})
         
-        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-        db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
-        
-        client = connect_to_mongo(uri)
-        db = client[db_name]
-        
-        transform_controller = TransformController(db, cache_location, max_size_bytes)
-        diff_controller = DiffController(transform_controller)
-        
-        # Diff
-        result = diff_controller.diff(target_a, target_b, engine)
-        
-        client.close()
-        return {"diff": result}
+        try:
+            # Setup transform controller for checksum resolution
+            transform_cfg = config.get("transform", {})
+            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
+            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            
+            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            
+            client = connect_to_mongo(uri)
+            db = client[db_name]
+            
+            transform_controller = TransformController(db, cache_location, max_size_bytes)
+            diff_controller = DiffController(transform_controller)
+            
+            # Diff
+            diff_result = diff_controller.diff(target_a, target_b, engine)
+            
+            client.close()
+            
+            return result.success_result(
+                {"diff": diff_result},
+                f"Diff computed successfully using {engine}"
+            ).to_dict()
+            
+        except ValueError as e:
+            return result.error_result(
+                f"Invalid input: {str(e)}",
+                details=str(e),
+                data={}
+            ).to_dict()
+        except RuntimeError as e:
+            return result.error_result(
+                f"Diff failed: {str(e)}",
+                details=str(e),
+                data={}
+            ).to_dict()
+        except Exception as e:
+            return result.error_result(
+                f"Unexpected error: {str(e)}",
+                details=str(e),
+                data={}
+            ).to_dict()
 
     def _tool_vault_validate(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Execute wks_vault_validate tool."""
@@ -938,6 +1022,46 @@ class MCPServer:
         
         client.close()
         return {"results": results, "count": len(results)}
+
+
+def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Call an MCP tool programmatically (for CLI use).
+    
+    This allows CLI to use MCP tools as the source of truth, ensuring
+    zero duplication between CLI and MCP interfaces.
+    
+    MCP tools return structured MCPResult dictionaries with:
+    - success: bool
+    - data: dict (actual result data)
+    - messages: list of structured messages (errors, warnings, info, status)
+    - log: optional list of log entries
+    
+    Args:
+        tool_name: Name of the tool to call (e.g., "wksm_transform")
+        arguments: Tool arguments as a dictionary
+        
+    Returns:
+        MCPResult as a dictionary with success, data, messages, and optionally log
+        
+    Raises:
+        KeyError: If tool name is not found
+        ValueError: If required parameters are missing (from tool validation)
+    """
+    config = load_config()
+    server = MCPServer()
+    registry = server._build_tool_registry()
+    
+    if tool_name not in registry:
+        from .mcp.result import MCPResult
+        error_result = MCPResult.error_result(
+            f"Tool not found: {tool_name}",
+            data={}
+        )
+        return error_result.to_dict()
+    
+    handler = registry[tool_name]
+    return handler(config, arguments)
 
 
 def main():

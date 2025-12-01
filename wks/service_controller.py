@@ -2,7 +2,7 @@
 Service Controller - shared service/daemon status logic for CLI and MCP.
 
 This module encapsulates all data gathering needed to report service status so
-that both the CLI (`wks0 service status`) and the MCP server can reuse the same
+that both the CLI (`wksc service status`) and the MCP server can reuse the same
 implementation without duplicating code. Helper utilities around launchd
 integration are also centralised here.
 """
@@ -77,7 +77,7 @@ def stop_managed_mongo() -> None:
 
 
 def agent_label() -> str:
-    return "com.wieselquist.wks0"
+    return "com.wieselquist.wksc"
 
 
 def agent_plist_path() -> Path:

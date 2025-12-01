@@ -33,7 +33,7 @@ def _resolve_command(command_override: Optional[str]) -> tuple[str, List[str]]:
         cmd_path = Path(command_override).expanduser()
         return str(cmd_path), ["mcp", "run"]
 
-    resolved = shutil.which("wks0")
+    resolved = shutil.which("wksc")
     if resolved:
         return resolved, ["mcp", "run"]
 
@@ -126,5 +126,3 @@ def install_mcp_configs(
 
 
 __all__ = ["install_mcp_configs", "InstallResult", "MCP_CONFIG_TARGETS"]
-
-
