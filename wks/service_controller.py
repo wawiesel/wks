@@ -28,41 +28,6 @@ from .constants import WKS_HOME_EXT
 LOCK_FILE = Path.home() / WKS_HOME_EXT / "daemon.lock"
 
 
-def _fmt_bool(value: Optional[bool], color: bool = False) -> str:
-    if value is None:
-        return "-"
-    if color:
-        # Return Rich markup for coloring
-        return "[green]true[/green]" if value else "[red]false[/red]"
-    return "true" if value else "false"
-
-
-def _format_timestamp_value(value: Optional[Any], fmt: str) -> str:
-    if value is None:
-        return ""
-    text = str(value).strip()
-    if not text:
-        return ""
-    from datetime import datetime
-
-    try:
-        s = text
-        if s.endswith("Z"):
-            s = s[:-1] + "+00:00"
-        s = s.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s)
-    except Exception:
-        try:
-            fallback = text.replace("T", " ").replace("Z", "")
-            dt = datetime.fromisoformat(fallback)
-        except Exception:
-            return text
-    try:
-        return dt.strftime(fmt)
-    except Exception:
-        return text
-
-
 def _pid_running(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -201,62 +166,6 @@ class ServiceStatusData:
             "notes": list(self.notes),
         }
 
-    def _build_health_rows(self) -> List[Tuple[str, str]]:
-        """Build Health section rows."""
-        return [
-            ("[bold cyan]Health[/bold cyan]", ""),
-            ("  Running", _fmt_bool(self.running, color=True)),
-            ("  Uptime", self.uptime or "-"),
-            ("  PID", str(self.pid) if self.pid is not None else "-"),
-            ("  OK", _fmt_bool(self.ok, color=True)),
-            ("  Lock", _fmt_bool(self.lock, color=True)),
-            (
-                "  Type",
-                self.launch.type
-                if (self.launch and self.launch.present() and self.launch.type)
-                else "LaunchAgent",
-            ),
-        ]
-
-    def _build_filesystem_rows(self) -> List[Tuple[str, str]]:
-        """Build File System section rows."""
-        rows: List[Tuple[str, str]] = [("[bold cyan]File System[/bold cyan]", "")]
-        rows.append(("  Pending deletes", str(self.pending_deletes) if self.pending_deletes is not None else "-"))
-        rows.append(("  Pending mods", str(self.pending_mods) if self.pending_mods is not None else "-"))
-
-        if self.fs_rate_weighted is not None:
-            rows.append(("  Ops (last min)", str(int(self.fs_rate_weighted * 60))))
-        if self.fs_rate_short is not None:
-            rows.append(("  Ops/sec (10s)", f"{self.fs_rate_short:.2f}"))
-        if self.fs_rate_long is not None:
-            rows.append(("  Ops/sec (10m)", f"{self.fs_rate_long:.2f}"))
-        if self.fs_rate_weighted is not None:
-            rows.append(("  Ops/sec (weighted)", f"{self.fs_rate_weighted:.2f}"))
-
-        return rows
-
-    def _build_launch_rows(self) -> List[Tuple[str, str]]:
-        """Build Launch section rows."""
-        if not self.launch.present():
-            return []
-
-        return [
-            ("[bold cyan]Launch[/bold cyan]", ""),
-            ("  Program", self.launch.arguments or self.launch.program or "-"),
-            ("  Stdout", self.launch.stdout or "-"),
-            ("  Stderr", self.launch.stderr or "-"),
-            ("  Path", self.launch.path or "-"),
-            ("  Type", self.launch.type or "-"),
-        ]
-
-    def to_rows(self) -> List[Tuple[str, str]]:
-        """Return rows grouped by section: Health, File System, Launch."""
-        rows = []
-        rows.extend(self._build_health_rows())
-        rows.extend(self._build_filesystem_rows())
-        rows.extend(self._build_launch_rows())
-        return rows
-
 
 class ServiceController:
     """Business logic for service status inspection."""
@@ -290,13 +199,11 @@ class ServiceController:
                 pid=_find(r"\n\s*pid =\s*(\d+)"),
                 last_exit=_find(r"\n\s*last exit code =\s*(\d+)"),
             )
-            try:
-                args_block = re.search(r"arguments = \{([^}]*)\}", launch_text, re.DOTALL)
-                if args_block:
-                    lines = [ln.strip() for ln in args_block.group(1).splitlines() if ln.strip()]
-                    launch.arguments = " ".join(lines)
-            except Exception:
-                pass
+            # Parse arguments block if present
+            args_block = re.search(r"arguments = \{([^}]*)\}", launch_text, re.DOTALL)
+            if args_block:
+                lines = [ln.strip() for ln in args_block.group(1).splitlines() if ln.strip()]
+                launch.arguments = " ".join(lines)
             return launch
         except Exception:
             return None
@@ -383,4 +290,5 @@ __all__ = [
     "default_mongo_uri",
     "is_macos",
     "stop_managed_mongo",
+    "_pid_running",
 ]

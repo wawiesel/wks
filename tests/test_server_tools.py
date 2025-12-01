@@ -31,48 +31,57 @@ def mock_config():
     }
 
 class TestMCPServerNewTools:
-    """Test new MCP tools."""
+    """Test new MCP tools - verify MCPResult structure."""
 
     def test_wks_config(self, mock_server, mock_config):
-        """Test wksm_config tool."""
+        """Test wksm_config tool returns MCPResult format."""
         result = mock_server._tool_config(mock_config)
-        assert result == mock_config
+        assert result["success"] is True
+        assert result["data"] == mock_config
+        assert "messages" in result
 
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
-    def test_wks_transform(self, mock_controller_cls, mock_connect, mock_server, mock_config):
-        """Test wksm_transform tool."""
+    def test_wks_transform(self, mock_controller_cls, mock_connect, mock_server, mock_config, tmp_path):
+        """Test wksm_transform tool returns MCPResult format."""
         mock_controller = mock_controller_cls.return_value
         mock_controller.transform.return_value = "checksum123"
         
-        result = mock_server._tool_transform(mock_config, "file.pdf", "docling", {})
+        # Create a test file that exists
+        test_file = tmp_path / "file.pdf"
+        test_file.write_bytes(b"PDF content")
         
-        assert result == {"checksum": "checksum123"}
+        result = mock_server._tool_transform(mock_config, str(test_file), "docling", {})
+        
+        assert result["success"] is True
+        assert result["data"]["checksum"] == "checksum123"
         mock_controller.transform.assert_called_once()
 
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     def test_wks_cat(self, mock_controller_cls, mock_connect, mock_server, mock_config):
-        """Test wksm_cat tool."""
+        """Test wksm_cat tool returns MCPResult format."""
         mock_controller = mock_controller_cls.return_value
         mock_controller.get_content.return_value = "content"
         
         result = mock_server._tool_cat(mock_config, "checksum123")
         
-        assert result == {"content": "content"}
+        assert result["success"] is True
+        assert result["data"]["content"] == "content"
         mock_controller.get_content.assert_called_once_with("checksum123")
 
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.diff.DiffController")
     def test_wks_diff(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):
-        """Test wksm_diff tool."""
+        """Test wksm_diff tool returns MCPResult format."""
         mock_diff = mock_diff_cls.return_value
         mock_diff.diff.return_value = "diff result"
         
         result = mock_server._tool_diff(mock_config, "unified", "a", "b")
         
-        assert result == {"diff": "diff result"}
+        assert result["success"] is True
+        assert result["data"]["diff"] == "diff result"
         mock_diff.diff.assert_called_once_with("a", "b", "unified")
 
     @patch("wks.vault.load_vault")
