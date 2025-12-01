@@ -9,7 +9,11 @@
 - Updated CONTRIBUTING.md: "Dataclasses over Dicts" - pass dataclasses between layers, use `to_dict()` only at serialization boundaries
 - Cleaned up obsolete test files (`test_cli_commands.py`, `test_cli_helpers.py`)
 - Fixed `test_server_tools.py` to expect MCPResult structure (`success`, `data`, `messages`)
-- All 253 non-smoke tests passing
+- Added `wksc db {monitor,vault,transform}` CLI commands that call `wksm_db_*` MCP tools (no duplicated DB logic in CLI)
+- Updated CONTRIBUTING.md to ban internal backwards-compatibility shims and require fail-fast, explicit errors
+- Tightened `wks/config.py::load_config` to normalize `db.uri` and transform settings via dataclasses
+- Added cache-location fallback in `TransformController.get_content` to bridge old/new cache layouts while we finish refactoring
+- Smoke tests mostly passing; `test_cli_cat` is still failing due to cache path migration and will be addressed next
 
 **What was useful:**
 - Test naming convention `test_wks_<module>.py` makes it clear what code each test file covers
@@ -30,7 +34,7 @@ Make MCP consistent with CLI for all commands through "diff" in @SPEC.md.
 - wksm_transform (needs review)
 - wksm_cat (needs review)
 - wksm_diff (needs review)
-- wksm_db (needs review)
+- wksm_db ✓ (MCP tools and CLI wrappers implemented and tested)
 - wksm_service ✓ (service_controller tests at 100%)
 
 There should be no code that is not used by the MCP or CLI. There should be 100% code coverage in unit tests. There should be smoke tests for the MCP and CLI. 

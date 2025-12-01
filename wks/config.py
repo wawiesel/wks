@@ -29,7 +29,7 @@ class MongoSettings:
         if not self.uri:
             self.uri = DEFAULT_MONGO_URI
         if not self.uri.startswith("mongodb://") and not self.uri.startswith("mongodb+srv://"):
-             if not self.uri.startswith("mongodb"):
+            if not self.uri.startswith("mongodb"):
                 raise ConfigError(f"db.uri must start with 'mongodb://' (found: {self.uri!r})")
 
     @classmethod
@@ -58,6 +58,7 @@ class MetricsConfig:
             fs_rate_long_weight=float(metrics_cfg.get("fs_rate_long_weight", 0.2)),
         )
 
+
 @dataclass
 class DisplayConfig:
     """Display configuration."""
@@ -78,7 +79,7 @@ class WKSConfig:
     monitor: MonitorConfig
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
-    transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={})) # Placeholder default
+    transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={}))  # Placeholder default
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @classmethod
@@ -101,10 +102,10 @@ class WKSConfig:
             monitor = MonitorConfig.from_config_dict(raw)
             vault = VaultConfig.from_config_dict(raw)
             metrics = MetricsConfig.from_config(raw)
-            
+
             transform = TransformConfig.from_config_dict(raw)
             display = DisplayConfig.from_config(raw)
-            
+
             return cls(
                 vault=vault,
                 monitor=monitor,
@@ -118,18 +119,39 @@ class WKSConfig:
             # Ideally we should import them to catch specifically, but ConfigError wrapper is fine.
             raise ConfigError(f"Configuration validation failed: {e}")
 
+
 def get_config_path() -> Path:
     """Get path to WKS config file."""
     return get_wks_home() / "config.json"
 
 # Backwards compatibility - DEPRECATED
+
+
 def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
-    """DEPRECATED: Use WKSConfig.load() instead.
-    
-    Returns a dict representation for temporary compatibility.
+    """Compatibility wrapper returning a dict-shaped config for legacy callers.
+
+    New code should prefer WKSConfig.load() and dataclasses directly. This
+    function exists so older modules (MCP tools, vault helpers, etc.) that
+    still expect a plain dict can continue to operate without duplicating
+    config parsing logic.
     """
     try:
         cfg = WKSConfig.load(path)
-        return asdict(cfg)
     except Exception:
+        # Preserve previous behaviour – callers must handle empty config.
         return {}
+
+    data: Dict[str, Any] = asdict(cfg)
+
+    # Provide a normalized DB section for helpers that expect "db.uri".
+    data["db"] = {"uri": cfg.mongo.uri}
+
+    # Provide legacy, flattened transform keys expected by MCP tools and tests.
+    t_cfg = cfg.transform
+    t_dict = data.setdefault("transform", {})
+    t_dict["cache_location"] = str(t_cfg.cache.location)
+    t_dict["cache_max_size_bytes"] = t_cfg.cache.max_size_bytes
+    t_dict.setdefault("database", t_cfg.database)
+    t_dict.setdefault("default_engine", t_cfg.default_engine)
+
+    return data
