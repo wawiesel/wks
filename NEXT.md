@@ -1,15 +1,37 @@
+## Progress Notes
+
+### Session: 2025-12-01
+
+**What was accomplished:**
+- Created test files with clear naming convention: `test_wks_<module>.py`
+- Achieved 100% coverage for: `wks/config.py`, `wks/monitor/config.py`, `wks/service_controller.py`, `wks/display/service.py`
+- Moved display logic from `service_controller.py` to `wks/display/service.py` (follows CONTRIBUTING.md layered architecture)
+- Updated CONTRIBUTING.md: "Dataclasses over Dicts" - pass dataclasses between layers, use `to_dict()` only at serialization boundaries
+- Cleaned up obsolete test files (`test_cli_commands.py`, `test_cli_helpers.py`)
+- Fixed `test_server_tools.py` to expect MCPResult structure (`success`, `data`, `messages`)
+- All 253 non-smoke tests passing
+
+**What was useful:**
+- Test naming convention `test_wks_<module>.py` makes it clear what code each test file covers
+- Running `pytest --cov=wks.<module> --cov-report=term-missing` to identify exact missing lines
+- Removing defensive exception handlers that are impossible to trigger (e.g., `try/except pass` around string operations that can't fail) - cleaner code, achievable coverage
+- The display module pattern: controller returns dataclass → display layer accepts dataclass and formats with Rich markup
+- When tests fail on missing modules, check if code was refactored - delete obsolete tests rather than fixing them
+
+---
+
 ## Priority 1
 
 Make MCP consistent with CLI for all commands through "diff" in @SPEC.md.
 
-- wksm_config (was wks_config)
-- wksm_monitor (was wks_monitor)
-- wksm_vault (was wks_vault)
-- wksm_transform (was wks_transform)
-- wksm_cat (was wks_cat)
-- wksm_diff (was wks_diff)
-- wksm_db 
-- wksm_service
+- wksm_config ✓ (tests at 100%)
+- wksm_monitor (config tests at 100%, controller needs review)
+- wksm_vault (needs review)
+- wksm_transform (needs review)
+- wksm_cat (needs review)
+- wksm_diff (needs review)
+- wksm_db (needs review)
+- wksm_service ✓ (service_controller tests at 100%)
 
 There should be no code that is not used by the MCP or CLI. There should be 100% code coverage in unit tests. There should be smoke tests for the MCP and CLI. 
 Follow @CONTRIBUTING.md for contribution guidelines.
