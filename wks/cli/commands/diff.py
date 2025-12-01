@@ -37,11 +37,11 @@ def diff_cmd(args: argparse.Namespace) -> int:
         # Initialize TransformController for checksum resolution
         # We need to set up DB connection and cache config
         transform_cfg = cfg.transform
-        cache_location = expand_path(transform_cfg.cache_location)
-        max_size_bytes = transform_cfg.cache_max_size_bytes
+        cache_location = expand_path(transform_cfg.cache.location)
+        max_size_bytes = transform_cfg.cache.max_size_bytes
 
         uri = cfg.mongo.uri
-        db_name = cfg.transform.database.split(".")[0]
+        db_name = cfg.transform.database
         # coll_name = cfg.transform.database.split(".")[1] # Not needed for controller init
         
         from ...db_helpers import connect_to_mongo

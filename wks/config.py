@@ -7,6 +7,8 @@ from typing import Any, Dict, Optional, List
 
 from .constants import WKS_HOME_EXT
 from .utils import wks_home_path, get_wks_home
+from .transform.config import TransformConfig
+from .vault.config import VaultConfig
 from .monitor.config import MonitorConfig, ValidationError as MonitorValidationError
 
 DEFAULT_MONGO_URI = "mongodb://localhost:27017/"
@@ -35,35 +37,6 @@ class MongoSettings:
         db_cfg = cfg.get("db", {})
         return cls(
             uri=db_cfg.get("uri", DEFAULT_MONGO_URI),
-        )
-
-
-@dataclass
-class VaultConfig:
-    """Vault configuration."""
-    base_dir: Path
-    wks_dir: str = ".wks"
-    update_frequency_seconds: int = 3600
-    database: str = "wks.vault"
-
-    def __post_init__(self):
-        if not isinstance(self.base_dir, Path):
-            self.base_dir = Path(self.base_dir)
-        
-        if self.base_dir.is_absolute() and not self.base_dir.exists():
-             pass
-
-    @classmethod
-    def from_config(cls, cfg: Dict[str, Any]) -> "VaultConfig":
-        vault_cfg = cfg.get("vault", {})
-        if "base_dir" not in vault_cfg:
-             raise ConfigError("vault.base_dir is required")
-        
-        return cls(
-            base_dir=Path(vault_cfg["base_dir"]),
-            wks_dir=vault_cfg.get("wks_dir", ".wks"),
-            update_frequency_seconds=vault_cfg.get("update_frequency_seconds", 3600),
-            database=vault_cfg.get("database", "wks.vault"),
         )
 
 
@@ -99,28 +72,13 @@ class DisplayConfig:
 
 
 @dataclass
-class TransformConfig:
-    """Transform configuration."""
-    cache_location: str = ".wks/cache"
-    cache_max_size_bytes: int = 1024 * 1024 * 1024
-    database: str = "wks.transform"
-    
-    @classmethod
-    def from_config(cls, cfg: Dict[str, Any]) -> "TransformConfig":
-        transform_cfg = cfg.get("transform", {})
-        return cls(
-            cache_location=transform_cfg.get("cache_location", ".wks/cache"),
-            cache_max_size_bytes=transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024),
-            database=transform_cfg.get("database", "wks.transform"),
-        )
-@dataclass
 class WKSConfig:
     """Top-level WKS configuration."""
     vault: VaultConfig
     monitor: MonitorConfig
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
-    transform: TransformConfig = field(default_factory=TransformConfig)
+    transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={})) # Placeholder default
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @classmethod
@@ -141,10 +99,10 @@ class WKSConfig:
         try:
             mongo = MongoSettings.from_config(raw)
             monitor = MonitorConfig.from_config_dict(raw)
-            vault = VaultConfig.from_config(raw)
+            vault = VaultConfig.from_config_dict(raw)
             metrics = MetricsConfig.from_config(raw)
             
-            transform = TransformConfig.from_config(raw)
+            transform = TransformConfig.from_config_dict(raw)
             display = DisplayConfig.from_config(raw)
             
             return cls(
@@ -155,7 +113,9 @@ class WKSConfig:
                 transform=transform,
                 display=display,
             )
-        except (MonitorValidationError, KeyError, ValueError) as e:
+        except (MonitorValidationError, KeyError, ValueError, Exception) as e:
+            # Catching Exception to cover VaultConfigError/TransformConfigError if they bubble up
+            # Ideally we should import them to catch specifically, but ConfigError wrapper is fine.
             raise ConfigError(f"Configuration validation failed: {e}")
 
 def get_config_path() -> Path:

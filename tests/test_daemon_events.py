@@ -79,7 +79,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
 
     monkeypatch.setattr(daemon_mod, "ObsidianVault", DummyVault)
     monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", DummyIndexer)
-    monkeypatch.setattr(daemon_mod.WKSDaemon, "_enforce_monitor_db_limit", lambda self: None)
+    # monkeypatch.setattr(daemon_mod.WKSDaemon, "_enforce_monitor_db_limit", lambda self: None)
 
     monitor_rules = MonitorRules(
         include_paths=[str(tmp_path)],
@@ -113,10 +113,22 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
 
     # Construct WKSConfig
     monitor_cfg = MonitorConfig.from_config_dict(config)
-    vault_cfg = VaultConfig.from_config(config)
+    vault_cfg = VaultConfig(
+        base_dir=config["vault"]["base_dir"],
+        wks_dir=config["vault"]["wks_dir"],
+        update_frequency_seconds=config["vault"]["update_frequency_seconds"],
+        database="wks.vault",
+        vault_type="obsidian"
+    )
     mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
-    transform_cfg = TransformConfig()
+    from wks.transform.config import CacheConfig
+    from pathlib import Path
+    transform_cfg = TransformConfig(
+        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024*1024*100),
+        engines={},
+        database="wks.transform"
+    )
     metrics_cfg = MetricsConfig()
     
     wks_config = WKSConfig(

@@ -28,12 +28,12 @@ class CacheConfig:
     max_size_bytes: int
 
     def _validate_cache_location(self) -> List[str]:
-        """Validate cache location is a non-empty string."""
+        """Validate cache location is a non-empty string or Path."""
         errors = []
 
-        if not isinstance(self.location, str) or not self.location:
+        if not isinstance(self.location, (str, Path)) or not str(self.location):
             errors.append(
-                f"transform.cache.location must be a non-empty string "
+                f"transform.cache.location must be a non-empty string or Path "
                 f"(found: {type(self.location).__name__} = {self.location!r}, "
                 f"expected: path string like '.wks/transform/cache')"
             )
@@ -127,6 +127,8 @@ class TransformConfig:
 
     cache: CacheConfig
     engines: Dict[str, EngineConfig]
+    database: str
+    default_engine: str = "docling"
 
     def _validate_cache(self) -> List[str]:
         """Validate cache configuration."""
@@ -197,6 +199,8 @@ class TransformConfig:
                 "(found: missing, expected: transform section with cache and engines)"
             ])
 
+        database = transform_config.get("database", "wks_transform")
+
         # Extract cache config
         cache_config = transform_config.get("cache", {})
         cache_location = cache_config.get("location", ".wks/transform/cache")
@@ -229,4 +233,6 @@ class TransformConfig:
                 options=options
             )
 
-        return cls(cache=cache, engines=engines)
+        default_engine = transform_config.get("default_engine", "docling")
+
+        return cls(cache=cache, engines=engines, database=database, default_engine=default_engine)

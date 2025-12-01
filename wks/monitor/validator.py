@@ -22,6 +22,8 @@ class MonitorValidator:
             return False, "Directory name cannot be empty"
         if any(ch in dirname for ch in "*?[]"):
             return False, "Directory names cannot contain wildcard characters (*, ?, [)"
+        if "/" in dirname or "\\" in dirname:
+            return False, "Directory names cannot contain path separators"
         return True, None
 
     @staticmethod

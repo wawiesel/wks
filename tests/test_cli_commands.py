@@ -17,23 +17,29 @@ from wks.config import WKSConfig, TransformConfig, MongoSettings
 def mock_config(monkeypatch):
     """Mock WKSConfig.load()."""
     config = MagicMock(spec=WKSConfig)
-    config.transform = TransformConfig(cache_location=".wks/cache")
+    
+    # Create valid TransformConfig structure
+    from wks.transform.config import CacheConfig
+    config.transform = TransformConfig(
+        cache=CacheConfig(location=".wks/cache", max_size_bytes=1024*1024*100),
+        engines={},
+        database="wks.transform"
+    )
     config.mongo = MongoSettings(uri="mongodb://localhost:27017")
     
     # Mock database config strings
-    config.transform.database = "wks.transform"
+    config.transform.database = "wks_transform"
     
-    # Mock cache_max_size_bytes which is not in TransformConfig but accessed in commands
-    # We should probably add it to TransformConfig or mock it here if it's dynamic
-    # Looking at code: max_size_bytes = transform_cfg.cache_max_size_bytes
-    # TransformConfig definition in config.py doesn't have cache_max_size_bytes, 
-    # so the code in commands might be broken or I missed something.
-    # Let's check config.py again.
-    # Ah, TransformConfig only has cache_location.
-    # The commands access transform_cfg.cache_max_size_bytes. 
-    # This suggests a bug in the commands or the config definition.
-    # I will assume for now I need to mock it.
-    config.transform.cache_max_size_bytes = 1024 * 1024 * 100
+    # Mock cache_max_size_bytes access if commands still use it directly
+    # The commands should be updated to use config.transform.cache.max_size_bytes
+    # but for now let's ensure the mock has what's needed.
+    # If commands access config.transform.cache_max_size_bytes, we can mock it:
+    # config.transform.cache_max_size_bytes = ... 
+    # But TransformConfig is a dataclass, so we can't easily add attributes unless we mock the instance.
+    # However, config.transform IS a real instance here.
+    # Let's check if we need to patch the commands or if they use the new structure.
+    # The commands use TransformController which takes cache_dir and max_size_bytes.
+    # They get these from config.transform.cache.location etc.
     
     monkeypatch.setattr(WKSConfig, "load", lambda path=None: config)
     return config
@@ -66,7 +72,11 @@ def mock_controller(monkeypatch):
 def mock_mongo(monkeypatch):
     """Mock MongoDB connection."""
     client = MagicMock()
+    # Patch original source (for diff command which imports inside function)
     monkeypatch.setattr("wks.db_helpers.connect_to_mongo", lambda uri: client)
+    # Patch in modules where it is imported at top level
+    monkeypatch.setattr("wks.cli.commands.transform.connect_to_mongo", lambda uri: client)
+    monkeypatch.setattr("wks.cli.commands.cat.connect_to_mongo", lambda uri: client)
     return client
 
 

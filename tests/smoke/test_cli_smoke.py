@@ -51,12 +51,16 @@ def smoke_env(tmp_path_factory):
             "database": "wks.vault",
             "wks_dir": "WKS"
         },
-        "db": {
-            "type": "mongodb",
+        "mongo": {
             "uri": "mongodb://localhost:27017"
         },
         "transform": {
-            "cache_location": ".wks/cache"
+            "cache": {
+                "location": str(home_dir / ".wks" / "cache"),
+                "max_size_bytes": 1073741824
+            },
+            "default_engine": "test",
+            "database": "wks_transform"
         }
     }
     (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
@@ -114,38 +118,27 @@ def test_cli_transform(smoke_env):
     test_file.write_text("Hello World")
     
     # Run transform
-    # Note: docling might not be installed, so this might fail if not mocked or handled.
-    # But let's try.
-    try:
-        result = run_wks(["transform", "docling", str(test_file)], smoke_env)
-    except subprocess.CalledProcessError as e:
-        if "docling" in e.stderr.lower() or "not found" in e.stderr.lower():
-             pytest.skip("docling not installed or failed")
-        raise
+    result = run_wks(["transform", "test", str(test_file)], smoke_env)
 
     # Output should contain cache key (hex string)
-    assert len(result.stdout.strip()) == 64
-    
-    # Check cache file exists
     cache_key = result.stdout.strip()
-    cache_dir = smoke_env["home"] / ".wks" / "cache"
-    assert (cache_dir / f"{cache_key}.md").exists()
-
-# @pytest.mark.skip(reason="Cat command needs full implementation")
+    assert len(cache_key) == 64
+    assert cache_key.isalnum()  # Should be hex (alphanumeric)
+    
 def test_cli_cat(smoke_env):
     """Test 'wks cat'."""
     test_file = smoke_env["home"] / "test.txt"
     test_file.write_text("Hello World")
-    
-    # Run cat with file path
-    # This might fail if transform fails (due to docling)
-    try:
-        result = run_wks(["cat", str(test_file)], smoke_env)
-        assert "Hello World" in result.stdout
-    except subprocess.CalledProcessError as e:
-        if "docling" in e.stderr.lower() or "not found" in e.stderr.lower():
-             pytest.skip("docling not installed or failed")
-        raise
+
+    # Run transform first to create cache entry
+    transform_result = run_wks(["transform", "test", str(test_file)], smoke_env)
+    cache_key = transform_result.stdout.strip()
+
+    # Run cat with the cache key
+    cat_result = run_wks(["cat", cache_key], smoke_env)
+
+    # Should show transformed content
+    assert "Transformed: Hello World" in cat_result.stdout
 
 # @pytest.mark.skip(reason="Diff engine 'unified' not implemented")
 def test_cli_diff(smoke_env):

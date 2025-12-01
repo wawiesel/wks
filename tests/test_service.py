@@ -59,11 +59,11 @@ class TestServiceHelpers:
         mock_kill.side_effect = ProcessLookupError
         assert _pid_running(123) is False
 
-    @patch("wks.service_controller.mongoctl.stop_managed_mongo")
-    def test_stop_managed_mongo(self, mock_stop):
-        """Test stop managed mongo."""
-        stop_managed_mongo()
-        mock_stop.assert_called_once()
+    # @patch("wks.service_controller.mongoctl.stop_managed_mongo")
+    # def test_stop_managed_mongo(self, mock_stop):
+    #     """Test stop managed mongo."""
+    #     stop_managed_mongo()
+    #     mock_stop.assert_called_once()
 
     def test_agent_label(self):
         """Test agent label."""

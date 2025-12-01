@@ -8,7 +8,6 @@ from .uri_utils import uri_to_path
 from .priority import calculate_priority
 from .utils import get_package_version, expand_path, file_checksum
 from .config import WKSConfig, ConfigError
-from .mongoctl import MongoGuard, ensure_mongo_running
 from .mcp_bridge import MCPBroker
 from .mcp_paths import mcp_socket_path
 from .vault.obsidian import ObsidianVault
@@ -73,14 +72,7 @@ class HealthData:
         return asdict(self)
 
 
-try:
-    from .status import load_db_activity_summary, load_db_activity_history
-except Exception:
-    def load_db_activity_summary():  # type: ignore
-        return {}
 
-    def load_db_activity_history(max_age_secs: Optional[int] = None):  # type: ignore
-        return []
 
 
 class WKSDaemon:
@@ -145,7 +137,6 @@ class WKSDaemon:
         self._fs_events_short: deque[float] = deque()
         self._fs_events_long: deque[float] = deque()
         self.mongo_uri = self.config.mongo.uri
-        self._mongo_guard: Optional[MongoGuard] = None
         self.monitor_collection = monitor_collection
         self._mcp_broker: Optional[MCPBroker] = None
         self._mcp_socket = mcp_socket_path()
@@ -157,12 +148,11 @@ class WKSDaemon:
                 from pymongo import MongoClient
                 from .db_helpers import get_transform_db_config
                 transform_cfg = self.config.transform
-                cache_cfg = transform_cfg.get("cache", {})
-                cache_location = expand_path(cache_cfg.get("location", ".wks/transform/cache"))
-                max_size_bytes = cache_cfg.get("max_size_bytes", 1073741824)
+                cache_location = expand_path(transform_cfg.cache.location)
+                max_size_bytes = transform_cfg.cache.max_size_bytes
                 
                 client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
-                db_name = transform_cfg.get("database", "wks_transform")
+                db_name = transform_cfg.database
                 db = client[db_name]
                 self._transform_controller = TransformController(db, cache_location, max_size_bytes)
             except Exception:
