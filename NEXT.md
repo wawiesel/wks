@@ -13,8 +13,6 @@ There should be no code that is not used by the MCP or CLI. There should be 100%
 Follow @CONTRIBUTING.md for contribution guidelines.
 Follow @.cursor/rules/important.mdc for important rules.
 
-## Priority 2
-
 Refactor code to remove duplication and have better structure.
 Delete all unused code.
 
@@ -29,7 +27,9 @@ and then accessible via wks.<x> where <x> is something like "transform" or "moni
 Rename the command line `wksc` instead of `wks0`. 
 
 Rename the MCP to `wksm_*` instead of `wks_*`.
-## Priority 3
+
+
+## Priority 2
 
 Revisit all the existing test code to make it more beautiful.
 
@@ -37,10 +37,10 @@ Tests should be simple and easy to read.
 If the tests, pass then the capability referenced in @SPEC.md has been implemented successfully. If the tests fail then the capability referenced in @SPEC.md has not been implemented successfully. There must be logical equivalence between these. 
 Do this only for the commands that are implemented, i.e. not index, search, or patterns.
 
-## Priority 4
+## Priority 3
 
 Implement the commands of index and search.
 
-## Priority 5
+## Priority 4
 
 Implement the patterns capability.
