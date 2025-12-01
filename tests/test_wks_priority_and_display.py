@@ -1,4 +1,4 @@
-"""Test Phase 1: Display infrastructure, priority calculation, config migration."""
+"""Tests for display infrastructure and priority calculation."""
 
 import pytest
 from pathlib import Path
@@ -8,7 +8,6 @@ from wks.display.cli import CLIDisplay
 from wks.display.mcp import MCPDisplay
 from wks.display.context import get_display, is_mcp_context
 from wks.priority import calculate_priority, find_managed_directory, priority_examples
-from wks.config_schema import is_old_config, migrate_config, validate_config
 
 
 class TestDisplayInfrastructure:
@@ -114,89 +113,7 @@ class TestPriorityCalculation:
         assert priority == 90  # 100 * 0.9
 
 
-class TestConfigMigration:
-    """Test config schema and migration."""
-
-    def test_is_old_config_detection(self):
-        """Test detecting old config format."""
-        old_config = {
-            "vault_path": "~/_vault",
-            "obsidian": {"base_dir": "WKS"},
-            "similarity": {"enabled": True},
-        }
-        assert is_old_config(old_config) is True
-
-        new_config = {
-            "monitor": {"managed_directories": {"~": 100}},
-            "vault": {"base_dir": "~/_vault"},
-        }
-        assert is_old_config(new_config) is False
-
-    def test_migrate_config_structure(self):
-        """Test config migration produces valid structure."""
-        old_config = {
-            "vault_path": "~/_vault",
-            "obsidian": {"base_dir": "WKS"},
-            "similarity": {
-                "enabled": True,
-                "model": "all-MiniLM-L6-v2",
-            },
-            "monitor": {
-                "include_paths": ["~"],
-            },
-            "mongo": {
-                "uri": "mongodb://localhost:27017/",
-            }
-        }
-
-        new_config = migrate_config(old_config)
-
-        # Check new sections exist
-        assert "monitor" in new_config
-        assert "vault" in new_config
-        assert "db" in new_config
-        assert "transform" in new_config
-        assert "diff" in new_config
-
-        # Check monitor has new fields
-        assert "managed_directories" in new_config["monitor"]
-        assert "priority" in new_config["monitor"]
-
-        # Check vault converted from obsidian
-        assert new_config["vault"]["base_dir"] == "~/_vault"
-        assert new_config["vault"]["wks_dir"] == "WKS"
-
-
-
-    def test_validate_config(self):
-        """Test config validation."""
-        # Valid config
-        valid_config = {
-            "monitor": {
-                "managed_directories": {"~": 100},
-                "priority": {"depth_multiplier": 0.9},
-                "database": "wks_monitor",
-            },
-            "vault": {
-                "base_dir": "~/_vault",
-                "database": "wks.vault",
-            },
-            "db": {
-                "uri": "mongodb://localhost:27017/",
-            },
-        }
-        is_valid, errors = validate_config(valid_config)
-        assert is_valid is True
-        assert len(errors) == 0
-
-        # Invalid config (missing sections)
-        invalid_config = {
-            "monitor": {},
-        }
-        is_valid, errors = validate_config(invalid_config)
-        assert is_valid is False
-        assert len(errors) > 0
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+

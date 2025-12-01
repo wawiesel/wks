@@ -924,6 +924,7 @@ class MCPServer:
         """Execute wksm_diff tool."""
         from pathlib import Path
         from .diff import DiffController
+        from .diff.config import DiffConfig
         from .transform import TransformController
         from .db_helpers import connect_to_mongo
         
@@ -940,9 +941,12 @@ class MCPServer:
             
             client = connect_to_mongo(uri)
             db = client[db_name]
-            
+
             transform_controller = TransformController(db, cache_location, max_size_bytes)
-            diff_controller = DiffController(transform_controller)
+
+            # Load diff configuration and construct controller
+            diff_config = DiffConfig.from_config_dict(config)
+            diff_controller = DiffController(diff_config, transform_controller)
             
             # Diff
             diff_result = diff_controller.diff(target_a, target_b, engine)

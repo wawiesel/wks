@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, List
 from .constants import WKS_HOME_EXT
 from .utils import wks_home_path, get_wks_home
 from .transform.config import TransformConfig
+from .diff.config import DiffConfig
 from .vault.config import VaultConfig
 from .monitor.config import MonitorConfig, ValidationError as MonitorValidationError
 
@@ -79,6 +80,7 @@ class WKSConfig:
     monitor: MonitorConfig
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
+    diff: DiffConfig = field(default_factory=lambda: DiffConfig(engines={}, router=None))  # Will be fully validated in load()
     transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={}))  # Placeholder default
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
@@ -102,7 +104,7 @@ class WKSConfig:
             monitor = MonitorConfig.from_config_dict(raw)
             vault = VaultConfig.from_config_dict(raw)
             metrics = MetricsConfig.from_config(raw)
-
+            diff = DiffConfig.from_config_dict(raw)
             transform = TransformConfig.from_config_dict(raw)
             display = DisplayConfig.from_config(raw)
 
@@ -111,6 +113,7 @@ class WKSConfig:
                 monitor=monitor,
                 mongo=mongo,
                 metrics=metrics,
+                diff=diff,
                 transform=transform,
                 display=display,
             )
