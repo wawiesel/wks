@@ -3,7 +3,7 @@
 A layered architecture for filesystem monitoring, knowledge graph management, and semantic indexing.
 
 **Primary Interface**: The **MCP Server** is the source of truth for all capabilities, allowing AI agents to fully control the system.
-**Secondary Interface**: The `wks0` CLI provides human-friendly equivalents for all MCP tools.
+**Secondary Interface**: The `wksc` CLI provides human-friendly equivalents for all MCP tools.
 
 ## Architecture Overview
 
@@ -66,7 +66,7 @@ export WKS_HOME="/custom/path"  # Config at /custom/path/config.json
 
 **Viewing Configuration**:
 ```bash
-wks0 config    # Print effective config (table in CLI, JSON in MCP)
+wksc config    # Print effective config (table in CLI, JSON in MCP)
 ```
 
 **Top-Level Structure**:
@@ -115,31 +115,31 @@ wks0 config    # Print effective config (table in CLI, JSON in MCP)
 
 Complete control over monitoring configuration and status.
 
-- `wks_monitor_status` — Get monitoring status and configuration
-- `wks_monitor_validate` — Validate configuration for conflicts
-- `wks_monitor_check(path)` — Check if path would be monitored
-- `wks_monitor_list(list_name)` — Get contents of configuration list
-- `wks_monitor_add(list_name, value)` — Add value to list
-- `wks_monitor_remove(list_name, value)` — Remove value from list
-- `wks_monitor_managed_list` — List managed directories
-- `wks_monitor_managed_add(path, priority)` — Add managed directory
-- `wks_monitor_managed_remove(path)` — Remove managed directory
-- `wks_monitor_managed_set_priority(path, priority)` — Update directory priority
-- `wks_db_monitor()` — Query filesystem database
+- `wksm_monitor_status` — Get monitoring status and configuration
+- `wksm_monitor_validate` — Validate configuration for conflicts
+- `wksm_monitor_check(path)` — Check if path would be monitored
+- `wksm_monitor_list(list_name)` — Get contents of configuration list
+- `wksm_monitor_add(list_name, value)` — Add value to list
+- `wksm_monitor_remove(list_name, value)` — Remove value from list
+- `wksm_monitor_managed_list` — List managed directories
+- `wksm_monitor_managed_add(path, priority)` — Add managed directory
+- `wksm_monitor_managed_remove(path)` — Remove managed directory
+- `wksm_monitor_managed_set_priority(path, priority)` — Update directory priority
+- `wksm_db_monitor()` — Query filesystem database
 
 ### CLI Interface (Secondary)
 
 Human-friendly wrappers for the MCP tools.
 
-- `wks0 monitor status` — show monitoring statistics (supports `--live`)
-- `wks0 monitor include_paths {add,remove} <path>` — manage explicit inclusions
-- `wks0 monitor exclude_paths {add,remove} <path>` — manage explicit exclusions
-- `wks0 monitor include_dirnames {add,remove} <name>` — manage directory name inclusions
-- `wks0 monitor exclude_dirnames {add,remove} <name>` — manage directory name exclusions
-- `wks0 monitor include_globs {add,remove} <pattern>` — manage glob pattern inclusions
-- `wks0 monitor exclude_globs {add,remove} <pattern>` — manage glob pattern exclusions
-- `wks0 monitor managed {add,remove,set-priority}` — manage directory priorities
-- `wks0 db monitor` — query filesystem database
+- `wksc monitor status` — show monitoring statistics (supports `--live`)
+- `wksc monitor include_paths {add,remove} <path>` — manage explicit inclusions
+- `wksc monitor exclude_paths {add,remove} <path>` — manage explicit exclusions
+- `wksc monitor include_dirnames {add,remove} <name>` — manage directory name inclusions
+- `wksc monitor exclude_dirnames {add,remove} <name>` — manage directory name exclusions
+- `wksc monitor include_globs {add,remove} <pattern>` — manage glob pattern inclusions
+- `wksc monitor exclude_globs {add,remove} <pattern>` — manage glob pattern exclusions
+- `wksc monitor managed {add,remove,set-priority}` — manage directory priorities
+- `wksc db monitor` — query filesystem database
 
 ## Vault Layer
 
@@ -193,26 +193,26 @@ Each link becomes exactly one document. `_id` is `sha256(note_path + line_number
 
 ### MCP Interface (Primary)
 
-- `wks_vault_status` — Get vault link status summary
+- `wksm_vault_status` — Get vault link status summary
   - Returns: total_links, ok_links, missing_symlink, missing_target, legacy_links, external_urls, embeds, wiki_links, last_sync
-- `wks_vault_links(file_path, direction)` — Get all links to/from a specific file
+- `wksm_vault_links(file_path, direction)` — Get all links to/from a specific file
   - Parameters: `file_path`, `direction` (both/to/from, default: both)
   - Returns: file URI, monitor status, links_from, links_to
-- `wks_vault_sync(batch_size)` — Sync vault links to MongoDB
+- `wksm_vault_sync(batch_size)` — Sync vault links to MongoDB
   - Parameters: `batch_size` (optional, default: 1000)
   - Returns: sync statistics and status
-- `wks_vault_validate()` — Validate all vault links
-- `wks_vault_fix_symlinks()` — Rebuild _links/<machine>/ from vault DB
-- `wks_db_vault()` — Query vault database
+- `wksm_vault_validate()` — Validate all vault links
+- `wksm_vault_fix_symlinks()` — Rebuild _links/<machine>/ from vault DB
+- `wksm_db_vault()` — Query vault database
 
 ### CLI Interface (Secondary)
 
-- `wks0 vault status` — summarize the most recent automated scan (supports `--live`)
-- `wks0 vault sync` — force immediate vault sync (normally automatic)
-- `wks0 vault validate` — validate all vault links (check for broken links)
-- `wks0 vault fix-symlinks` — rebuild _links/<machine>/ from vault DB
-- `wks0 vault links <path>` — show all links to and from a specific file
-- `wks0 db vault` — query the underlying collection
+- `wksc vault status` — summarize the most recent automated scan (supports `--live`)
+- `wksc vault sync` — force immediate vault sync (normally automatic)
+- `wksc vault validate` — validate all vault links (check for broken links)
+- `wksc vault fix-symlinks` — rebuild _links/<machine>/ from vault DB
+- `wksc vault links <path>` — show all links to and from a specific file
+- `wksc db vault` — query the underlying collection
 
 ## Transform Layer
 
@@ -245,15 +245,15 @@ Collection: `wks.transform`
 
 ### MCP Interface (Primary)
 
-- `wks_transform(file_path, engine, options)` — Transform a file using a specific engine. Returns checksum.
-- `wks_cat(target)` — Retrieve content. `target` can be a checksum or a file path (auto-transforms if needed).
-- `wks_db_transform()` — Query transform database.
+- `wksm_transform(file_path, engine, options)` — Transform a file using a specific engine. Returns checksum.
+- `wksm_cat(target)` — Retrieve content. `target` can be a checksum or a file path (auto-transforms if needed).
+- `wksm_db_transform()` — Query transform database.
 
 ### CLI Interface (Secondary)
 
-- `wks0 transform` — Transform a file (e.g., `wks0 transform docling file.pdf`)
-- `wks0 cat` — Retrieve content (e.g., `wks0 cat <checksum>` or `wks0 cat <file>`)
-- `wks0 db transform` — Query transform database
+- `wksc transform` — Transform a file (e.g., `wksc transform docling file.pdf`)
+- `wksc cat` — Retrieve content (e.g., `wksc cat <checksum>` or `wksc cat <file>`)
+- `wksc db transform` — Query transform database
 
 ## Diff Layer
 
@@ -277,18 +277,18 @@ we consider a binary and text diff.
    - Fails fast if file is not code/supported language
 
 **Diffing Transformed Content**:
-Since transformations (e.g., PDF to Markdown) create new representations of content, the diff layer explicitly supports diffing via checksums. These checksums are returned by the Transform Layer (`wks_transform`) and refer to the cached transformed content. This allows comparing different transformations of a document.
+Since transformations (e.g., PDF to Markdown) create new representations of content, the diff layer explicitly supports diffing via checksums. These checksums are returned by the Transform Layer (`wksm_transform`) and refer to the cached transformed content. This allows comparing different transformations of a document.
 
 **Diffing Indices**:
 Indices (e.g., Code AST, Document Embeddings) can be diffed to reveal semantic or structural changes. For example, diffing two Code AST indices can show which functions were added or modified, ignoring formatting changes.
 
 ### MCP Interface (Primary)
 
-- `wks_diff(engine, target_a, target_b)` — Calculate diff between two targets (files, checksums, or indices).
+- `wksm_diff(engine, target_a, target_b)` — Calculate diff between two targets (files, checksums, or indices).
 
 ### CLI Interface (Secondary)
 
-- `wks0 diff` — Calculate diff (e.g., `wks0 diff <engine> <file_a> <file_b>` or `wks0 diff <engine> <checksum_a> <checksum_b>`)
+- `wksc diff` — Calculate diff (e.g., `wksc diff <engine> <file_a> <file_b>` or `wksc diff <engine> <checksum_a> <checksum_b>`)
 
 ## Index Layer
 
@@ -307,27 +307,27 @@ We will also support the BM25 index for simple text search.
 
 ### MCP Interface (Primary)
 
-- `wks_index_list()` — List available indices
-- `wks_index_create(index_name, index_type)` — Create a new index
-- `wks_index_add(index_name, file_path)` — Add a specific file to the index
-- `wks_index_build(index_name)` — Build/rebuild index
-- `wks_index_status(index_name)` — Show index statistics
-- `wks_index_rule_add(index_name, pattern, engine)` — Add indexing rule
-- `wks_index_rule_remove(index_name, pattern)` — Remove indexing rule
-- `wks_index_rule_list(index_name)` — List indexing rules
-- `wks_db_index(index_name)` — Query index database
+- `wksm_index_list()` — List available indices
+- `wksm_index_create(index_name, index_type)` — Create a new index
+- `wksm_index_add(index_name, file_path)` — Add a specific file to the index
+- `wksm_index_build(index_name)` — Build/rebuild index
+- `wksm_index_status(index_name)` — Show index statistics
+- `wksm_index_rule_add(index_name, pattern, engine)` — Add indexing rule
+- `wksm_index_rule_remove(index_name, pattern)` — Remove indexing rule
+- `wksm_index_rule_list(index_name)` — List indexing rules
+- `wksm_db_index(index_name)` — Query index database
 
 ### CLI Interface (Secondary)
 
-- `wks0 index list` — List available indices
-- `wks0 index create <index_name> <index_type>` — Create a new index
-- `wks0 index add <index_name> <file>` — Add a specific file to the index
-- `wks0 index build <index_name>` — Build/rebuild index
-- `wks0 index status <index_name>` — Show index statistics
-- `wks0 index rule add <index_name> <pattern> <engine>` — Add indexing rule
-- `wks0 index rule remove <index_name> <pattern>` — Remove indexing rule
-- `wks0 index rule list <index_name>` — List indexing rules
-- `wks0 db index <index_name>` — Query index database
+- `wksc index list` — List available indices
+- `wksc index create <index_name> <index_type>` — Create a new index
+- `wksc index add <index_name> <file>` — Add a specific file to the index
+- `wksc index build <index_name>` — Build/rebuild index
+- `wksc index status <index_name>` — Show index statistics
+- `wksc index rule add <index_name> <pattern> <engine>` — Add indexing rule
+- `wksc index rule remove <index_name> <pattern>` — Remove indexing rule
+- `wksc index rule list <index_name>` — List indexing rules
+- `wksc db index <index_name>` — Query index database
 
 ## Search Layer
 
@@ -342,13 +342,13 @@ Multiple search types are supported but the main new search type is through Vesp
 
 ### MCP Interface (Primary)
 
-- `wks_search(query, indices, limit)` — Execute search query
+- `wksm_search(query, indices, limit)` — Execute search query
 
 ### CLI Interface (Secondary)
 
-- `wks0 search "machine learning papers"`
-- `wks0 search "related to project Alpha" --vault-only`
-- `wks0 search "python functions using asyncio" --index <index_name>`
+- `wksc search "machine learning papers"`
+- `wksc search "related to project Alpha" --vault-only`
+- `wksc search "python functions using asyncio" --index <index_name>`
 
 ## Patterns Layer
 
@@ -366,15 +366,15 @@ Multiple search types are supported but the main new search type is through Vesp
 
 ### MCP Interface (Primary)
 
-- `wks_pattern_list()` — List available patterns
-- `wks_pattern_run(name, args)` — Execute a pattern script
-- `wks_pattern_show(name)` — Show pattern documentation
+- `wksm_pattern_list()` — List available patterns
+- `wksm_pattern_run(name, args)` — Execute a pattern script
+- `wksm_pattern_show(name)` — Show pattern documentation
 
 ### CLI Interface (Secondary)
 
-- `wks0 pattern list` — List available patterns
-- `wks0 pattern run <name> [args...]` — Execute a pattern script
-- `wks0 pattern show <name>` — Show pattern documentation
+- `wksc pattern list` — List available patterns
+- `wksc pattern run <name> [args...]` — Execute a pattern script
+- `wksc pattern show <name>` — Show pattern documentation
 
 ## Infrastructure
 
@@ -384,28 +384,28 @@ All layers store data in MongoDB:
 
 ```bash
 # Query databases
-wks0 db monitor              # Filesystem state
-wks0 db vault                # Knowledge graph links
-wks0 db transform            # Transform cache metadata
+wksc db monitor              # Filesystem state
+wksc db vault                # Knowledge graph links
+wksc db transform            # Transform cache metadata
 
 # Reset databases (destructive)
-wks0 db reset monitor        # Clear filesystem state
-wks0 db reset vault          # Clear link graph
-wks0 db reset transform      # Clear transform cache and DB
+wksc db reset monitor        # Clear filesystem state
+wksc db reset vault          # Clear link graph
+wksc db reset transform      # Clear transform cache and DB
 
 ### Service
 
 **MCP Interface**:
-- `wks_service(action)` — Manage service (start, stop, restart, status, install, uninstall)
+- `wksm_service(action)` — Manage service (start, stop, restart, status, install, uninstall)
 
 **CLI Interface**:
 ```bash
-wks0 service install         # Install launchd service (macOS)
-wks0 service uninstall       # Remove service
-wks0 service start           # Start daemon
-wks0 service stop            # Stop daemon
-wks0 service restart         # Restart daemon
-wks0 service status          # Show status and metrics (supports --live for auto-updating display)
+wksc service install         # Install launchd service (macOS)
+wksc service uninstall       # Remove service
+wksc service start           # Start daemon
+wksc service stop            # Stop daemon
+wksc service restart         # Restart daemon
+wksc service status          # Show status and metrics (supports --live for auto-updating display)
 ```
 
 ### MCP Server
@@ -414,12 +414,12 @@ WKS exposes layers as MCP tools for AI assistant integration. Following SPEC pri
 
 **Installation**:
 ```bash
-wks0 mcp install              # Install to all supported clients
-wks0 mcp install --client cursor --client claude
+wksc mcp install              # Install to all supported clients
+wksc mcp install --client cursor --client claude
 ```
 
 **Running**:
 ```bash
-wks0 mcp run                  # Proxies to background daemon broker
-wks0 mcp run --direct         # Run inline for debugging
+wksc mcp run                  # Proxies to background daemon broker
+wksc mcp run --direct         # Run inline for debugging
 ```

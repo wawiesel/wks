@@ -1,16 +1,14 @@
-"""Main CLI entry point - thin wrapper on top of MCP tools.
+"""CLI - thin wrapper on MCP tools.
 
-CLI is a thin user interface layer that:
-- Parses command-line arguments
-- Calls MCP tools (source of truth for all business logic)
-- Formats MCP results for human-readable output
+Per CONTRIBUTING.md: CLI → MCP → API (CLI never calls API directly)
 """
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..display.context import add_display_argument, get_display
 from ..mcp_client import proxy_stdio_to_socket
@@ -18,213 +16,284 @@ from ..mcp_paths import mcp_socket_path
 from ..utils import expand_path, get_package_version
 
 
-def _handle_mcp_result(result: dict) -> tuple[int, dict]:
-    """Handle structured MCP result and display messages.
-
-    MCP is the source of truth for all errors, warnings, and messages.
-    This function displays them to stderr and returns the data.
-
-    Returns:
-        Tuple of (exit_code, data dict)
-    """
-    success = result.get("success", False)
-    data = result.get("data", {})
-    messages = result.get("messages", [])
-
-    # Display all messages to stderr (MCP is source of truth)
-    for msg in messages:
-        msg_type = msg.get("type", "info")
-        msg_text = msg.get("text", "")
-        msg_details = msg.get("details")
-
-        if msg_type == "error":
-            print(f"Error: {msg_text}", file=sys.stderr)
-            if msg_details:
-                print(f"  Details: {msg_details}", file=sys.stderr)
-        elif msg_type == "warning":
-            print(f"Warning: {msg_text}", file=sys.stderr)
-            if msg_details:
-                print(f"  Details: {msg_details}", file=sys.stderr)
-        elif msg_type == "status":
-            print(f"{msg_text}", file=sys.stderr)
-        elif msg_type == "info":
-            print(f"Info: {msg_text}", file=sys.stderr)
-        elif msg_type == "success":
-            print(f"Success: {msg_text}", file=sys.stderr)
-
-    exit_code = 0 if success else 2
-    return exit_code, data
-
-
-# Simple MCP-wrapped commands
-def _cmd_transform(args: argparse.Namespace) -> int:
-    """Transform file using specified engine."""
+def _call(tool: str, args: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Call MCP tool."""
     from ..mcp_server import call_tool
+    return call_tool(tool, args or {})
 
-    file_path = expand_path(args.file_path)
-    if not file_path.exists():
-        print(f"Error: File not found: {file_path}", file=sys.stderr)
+
+def _out(data: Any, display) -> None:
+    """Output result."""
+    if isinstance(data, dict):
+        display.json_output(data)
+    else:
+        print(data)
+
+
+def _err(result: Dict) -> int:
+    """Print errors, return exit code."""
+    for msg in result.get("messages", []):
+        print(f"{msg.get('type', 'error')}: {msg.get('text', '')}", file=sys.stderr)
+    return 0 if result.get("success", True) else 1
+
+
+# =============================================================================
+# Commands: config, transform, cat, diff
+# =============================================================================
+
+def _cmd_config(args: argparse.Namespace) -> int:
+    r = _call("wksm_config")
+    _out(r.get("data", r), args.display_obj)
+    return _err(r)
+
+
+def _cmd_transform(args: argparse.Namespace) -> int:
+    path = expand_path(args.file_path)
+    if not path.exists():
+        print(f"Error: File not found: {path}", file=sys.stderr)
         return 2
-
-    result_dict = call_tool("wksm_transform", {
-        "file_path": str(file_path),
-        "engine": args.engine,
-        "options": {}
-    })
-
-    exit_code, data = _handle_mcp_result(result_dict)
-    if exit_code != 0:
-        return exit_code
-
-    checksum = data.get("checksum", "")
-    if args.output:
-        print(f"Note: --output not yet supported via MCP, cache key: {checksum}", file=sys.stderr)
-    elif checksum:
-        print(checksum)
-
-    return exit_code
+    r = _call("wksm_transform", {"file_path": str(path), "engine": args.engine, "options": {}})
+    if r.get("success"):
+        print(r.get("data", {}).get("checksum", ""))
+    return _err(r)
 
 
 def _cmd_cat(args: argparse.Namespace) -> int:
-    """Display or save transformed content."""
-    from ..mcp_server import call_tool
-
-    result_dict = call_tool("wksm_cat", {"target": args.input})
-
-    exit_code, data = _handle_mcp_result(result_dict)
-    if exit_code != 0:
-        return exit_code
-
-    content = data.get("content", "")
-    if args.output:
-        Path(args.output).write_text(content)
-        print(f"Saved to {args.output}", file=sys.stderr)
-    else:
-        print(content)
-
-    return exit_code
+    r = _call("wksm_cat", {"target": args.input})
+    if r.get("success"):
+        content = r.get("data", {}).get("content", "")
+        if args.output:
+            Path(args.output).write_text(content)
+            print(f"Saved to {args.output}", file=sys.stderr)
+        else:
+            print(content)
+    return _err(r)
 
 
 def _cmd_diff(args: argparse.Namespace) -> int:
-    """Compare two files using specified diff engine."""
-    from ..mcp_server import call_tool
+    r = _call("wksm_diff", {"engine": args.engine, "target_a": args.file1, "target_b": args.file2})
+    if r.get("success"):
+        print(r.get("data", {}).get("diff", ""))
+    return _err(r)
 
-    result_dict = call_tool("wksm_diff", {
-        "engine": args.engine,
-        "target_a": args.file1,
-        "target_b": args.file2
-    })
 
-    exit_code, data = _handle_mcp_result(result_dict)
-    if exit_code != 0:
-        return exit_code
+# =============================================================================
+# Monitor commands
+# =============================================================================
 
-    diff_result = data.get("diff", "")
-    if diff_result:
-        print(diff_result)
+def _cmd_monitor_status(args: argparse.Namespace) -> int:
+    _out(_call("wksm_monitor_status"), args.display_obj)
+    return 0
 
-    return exit_code
+
+def _cmd_monitor_check(args: argparse.Namespace) -> int:
+    _out(_call("wksm_monitor_check", {"path": args.path}), args.display_obj)
+    return 0
+
+
+def _cmd_monitor_validate(args: argparse.Namespace) -> int:
+    r = _call("wksm_monitor_validate")
+    _out(r, args.display_obj)
+    return 1 if r.get("issues") else 0
+
+
+def _cmd_monitor_list(args: argparse.Namespace) -> int:
+    _out(_call("wksm_monitor_list", {"list_name": args.list_name}), args.display_obj)
+    return 0
+
+
+def _cmd_monitor_add(args: argparse.Namespace) -> int:
+    r = _call("wksm_monitor_add", {"list_name": args.list_name, "value": args.value})
+    print(f"{'Added' if r.get('success') else 'Failed'}: {args.value}", file=sys.stderr)
+    return 0 if r.get("success") else 1
+
+
+def _cmd_monitor_remove(args: argparse.Namespace) -> int:
+    r = _call("wksm_monitor_remove", {"list_name": args.list_name, "value": args.value})
+    print(f"{'Removed' if r.get('success') else 'Failed'}: {args.value}", file=sys.stderr)
+    return 0 if r.get("success") else 1
+
+
+def _cmd_monitor_managed_list(args: argparse.Namespace) -> int:
+    _out(_call("wksm_monitor_managed_list"), args.display_obj)
+    return 0
+
+
+def _cmd_monitor_managed_add(args: argparse.Namespace) -> int:
+    r = _call("wksm_monitor_managed_add", {"path": args.path, "priority": args.priority})
+    print(f"{'Added' if r.get('success') else 'Failed'}", file=sys.stderr)
+    return 0 if r.get("success") else 1
+
+
+def _cmd_monitor_managed_remove(args: argparse.Namespace) -> int:
+    r = _call("wksm_monitor_managed_remove", {"path": args.path})
+    print(f"{'Removed' if r.get('success') else 'Failed'}", file=sys.stderr)
+    return 0 if r.get("success") else 1
+
+
+def _cmd_monitor_managed_priority(args: argparse.Namespace) -> int:
+    r = _call("wksm_monitor_managed_set_priority", {"path": args.path, "priority": args.priority})
+    print(f"{'Updated' if r.get('success') else 'Failed'}", file=sys.stderr)
+    return 0 if r.get("success") else 1
+
+
+# =============================================================================
+# Vault commands
+# =============================================================================
+
+def _cmd_vault_status(args: argparse.Namespace) -> int:
+    _out(_call("wksm_vault_status"), args.display_obj)
+    return 0
+
+
+def _cmd_vault_sync(args: argparse.Namespace) -> int:
+    r = _call("wksm_vault_sync", {"batch_size": getattr(args, "batch_size", 1000)})
+    _out(r, args.display_obj)
+    return 0
+
+
+def _cmd_vault_validate(args: argparse.Namespace) -> int:
+    _out(_call("wksm_vault_validate"), args.display_obj)
+    return 0
+
+
+def _cmd_vault_fix_symlinks(args: argparse.Namespace) -> int:
+    _out(_call("wksm_vault_fix_symlinks"), args.display_obj)
+    return 0
+
+
+def _cmd_vault_links(args: argparse.Namespace) -> int:
+    r = _call("wksm_vault_links", {"file_path": args.path, "direction": getattr(args, "direction", "both")})
+    _out(r, args.display_obj)
+    return 0
+
+
+# =============================================================================
+# Parser setup
+# =============================================================================
+
+def _setup_monitor(sub):
+    LISTS = ["include_paths", "exclude_paths", "include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"]
+
+    mon = sub.add_parser("monitor", help="Monitor operations")
+    m = mon.add_subparsers(dest="monitor_cmd")
+
+    m.add_parser("status").set_defaults(func=_cmd_monitor_status)
+    p = m.add_parser("check")
+    p.add_argument("path")
+    p.set_defaults(func=_cmd_monitor_check)
+    m.add_parser("validate").set_defaults(func=_cmd_monitor_validate)
+
+    for name in LISTS:
+        p = m.add_parser(name)
+        s = p.add_subparsers(dest=f"{name}_cmd")
+        s.add_parser("list").set_defaults(func=_cmd_monitor_list, list_name=name)
+        a = s.add_parser("add")
+        a.add_argument("value")
+        a.set_defaults(func=_cmd_monitor_add, list_name=name)
+        r = s.add_parser("remove")
+        r.add_argument("value")
+        r.set_defaults(func=_cmd_monitor_remove, list_name=name)
+
+    mg = m.add_parser("managed")
+    ms = mg.add_subparsers(dest="managed_cmd")
+    ms.add_parser("list").set_defaults(func=_cmd_monitor_managed_list)
+    a = ms.add_parser("add")
+    a.add_argument("path")
+    a.add_argument("priority", type=int)
+    a.set_defaults(func=_cmd_monitor_managed_add)
+    r = ms.add_parser("remove")
+    r.add_argument("path")
+    r.set_defaults(func=_cmd_monitor_managed_remove)
+    p = ms.add_parser("set-priority")
+    p.add_argument("path")
+    p.add_argument("priority", type=int)
+    p.set_defaults(func=_cmd_monitor_managed_priority)
+
+
+def _setup_vault(sub):
+    v = sub.add_parser("vault", help="Vault operations")
+    s = v.add_subparsers(dest="vault_cmd")
+
+    s.add_parser("status").set_defaults(func=_cmd_vault_status)
+    p = s.add_parser("sync")
+    p.add_argument("--batch-size", type=int, default=1000)
+    p.set_defaults(func=_cmd_vault_sync)
+    s.add_parser("validate").set_defaults(func=_cmd_vault_validate)
+    s.add_parser("fix-symlinks").set_defaults(func=_cmd_vault_fix_symlinks)
+    p = s.add_parser("links")
+    p.add_argument("path")
+    p.add_argument("--direction", choices=["both", "to", "from"], default="both")
+    p.set_defaults(func=_cmd_vault_links)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Main CLI entry point."""
-    parser = argparse.ArgumentParser(prog="wksc", description="WKS management CLI")
+    parser = argparse.ArgumentParser(prog="wksc", description="WKS CLI")
     sub = parser.add_subparsers(dest="cmd")
 
     # Version
-    pkg_version = get_package_version()
-    git_sha = ""
+    v = get_package_version()
     try:
-        repo_root = Path(__file__).resolve().parents[2]
-        out = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL,
-            cwd=str(repo_root),
-        )
-        git_sha = out.decode("utf-8", errors="ignore").strip()
+        sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL, cwd=str(Path(__file__).resolve().parents[2])).decode().strip()
+        v = f"{v} ({sha})"
     except Exception:
-        git_sha = ""
-    version_str = f"wksc {pkg_version}"
-    if git_sha:
-        version_str = f"{version_str} ({git_sha})"
-    parser.add_argument("--version", action="version", version=version_str)
-
-    # Display mode
+        pass
+    parser.add_argument("--version", action="version", version=f"wksc {v}")
     add_display_argument(parser)
 
-    # Simple MCP-wrapped commands
-    transform_parser = sub.add_parser("transform", help="Transform file using specified engine")
-    transform_parser.add_argument("engine", help="Transform engine name (e.g., 'docling')")
-    transform_parser.add_argument("file_path", help="Path to file to transform")
-    transform_parser.add_argument("-o", "--output", help="Output file path")
-    transform_parser.set_defaults(func=_cmd_transform)
+    # Simple commands
+    sub.add_parser("config", help="Show config").set_defaults(func=_cmd_config)
 
-    cat_parser = sub.add_parser("cat", help="Display or save transformed content")
-    cat_parser.add_argument("input", help="File path or cache checksum")
-    cat_parser.add_argument("-o", "--output", help="Output file path")
-    cat_parser.set_defaults(func=_cmd_cat)
+    p = sub.add_parser("transform", help="Transform file")
+    p.add_argument("engine")
+    p.add_argument("file_path")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=_cmd_transform)
+    p = sub.add_parser("cat", help="Display content")
+    p.add_argument("input")
+    p.add_argument("-o", "--output")
+    p.set_defaults(func=_cmd_cat)
+    p = sub.add_parser("diff", help="Compare files")
+    p.add_argument("engine")
+    p.add_argument("file1")
+    p.add_argument("file2")
+    p.set_defaults(func=_cmd_diff)
 
-    diff_parser = sub.add_parser("diff", help="Compare two files using diff engine")
-    diff_parser.add_argument("engine", help="Diff engine name (e.g., 'bsdiff3', 'myers')")
-    diff_parser.add_argument("file1", help="First file path")
-    diff_parser.add_argument("file2", help="Second file path")
-    diff_parser.set_defaults(func=_cmd_diff)
+    _setup_monitor(sub)
+    _setup_vault(sub)
 
-    # Commands with more complex logic (imported from cli_commands)
-    from ..cli_commands.commands.config import show_config
-    from ..cli_commands.commands.monitor import setup_monitor_parser
-    from ..cli_commands.commands.service import setup_service_parser
-    from ..cli_commands.commands.vault import setup_vault_parser
+    # MCP server
+    mcp = sub.add_parser("mcp", help="MCP server")
+    ms = mcp.add_subparsers(dest="mcp_cmd")
+    run = ms.add_parser("run")
+    run.add_argument("--direct", action="store_true")
 
-    cfg = sub.add_parser("config", help="Show configuration file")
-    cfg.set_defaults(func=show_config)
-
-    setup_service_parser(sub)
-    setup_monitor_parser(sub)
-    setup_vault_parser(sub)
-
-    # DB command (has subcommands)
-    from .commands.db import setup_db_parser
-    db_parser = setup_db_parser(sub)
-
-    # MCP server command
-    mcp = sub.add_parser("mcp", help="MCP server for AI integration")
-    mcpsub = mcp.add_subparsers(dest="mcp_cmd")
-    mcprun = mcpsub.add_parser("run", help="Start MCP server")
-    mcprun.add_argument("--direct", action="store_true", help="Run server inline")
-
-    def mcp_run(args: argparse.Namespace) -> int:
-        if not args.direct:
-            socket_path = mcp_socket_path()
-            if proxy_stdio_to_socket(socket_path):
-                return 0
+    def mcp_run(args):
+        if not args.direct and proxy_stdio_to_socket(mcp_socket_path()):
+            return 0
         from ..mcp_server import main as mcp_main
         mcp_main()
         return 0
-    mcprun.set_defaults(func=mcp_run)
+    run.set_defaults(func=mcp_run)
 
-    mcpinstall = mcpsub.add_parser("install", help="Register MCP server with clients")
-    mcpinstall.add_argument("--command-path", dest="command_path", help="Override executable path")
-    mcpinstall.add_argument("--client", dest="clients", action="append", choices=["cursor", "claude", "gemini"])
+    inst = ms.add_parser("install")
+    inst.add_argument("--command-path")
+    inst.add_argument("--client", dest="clients", action="append", choices=["cursor", "claude", "gemini"])
 
-    def mcp_install(args: argparse.Namespace) -> int:
+    def mcp_install(args):
         from ..mcp_setup import install_mcp_configs
-        results = install_mcp_configs(clients=args.clients, command_override=args.command_path)
-        for res in results:
-            print(f"[{res.client}] {res.status.upper()}: {res.message or ''}".rstrip())
+        for r in install_mcp_configs(clients=args.clients, command_override=args.command_path):
+            print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")
         return 0
-    mcpinstall.set_defaults(func=mcp_install)
+    inst.set_defaults(func=mcp_install)
 
     # Parse and execute
     args = parser.parse_args(argv)
-    if not hasattr(args, "display") or args.display is None:
-        args.display = "cli"
+    args.display = getattr(args, "display", None) or "cli"
     args.display_obj = get_display(args.display)
 
     if not hasattr(args, "func"):
-        if hasattr(args, "cmd") and args.cmd == "config":
-            cfg.print_help()
-            return 2
         parser.print_help()
         return 2
 
@@ -233,10 +302,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     except KeyboardInterrupt:
         return 130
     except Exception as e:
-        if args.display_obj:
-            args.display_obj.error(f"Command failed: {e}")
-        else:
-            print(f"Error: {e}")
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
 

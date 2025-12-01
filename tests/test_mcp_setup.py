@@ -5,7 +5,7 @@ import wks.mcp_setup as mcp_setup
 
 
 def _fake_command(tmp_path: Path):
-    fake_bin = tmp_path / "bin" / "wks0"
+    fake_bin = tmp_path / "bin" / "wksc"
     fake_bin.parent.mkdir(parents=True, exist_ok=True)
     fake_bin.write_text("#!/bin/sh\n")
     fake_bin.chmod(0o755)
@@ -24,7 +24,7 @@ def test_install_creates_configs(tmp_path, monkeypatch):
     results = mcp_setup.install_mcp_configs()
     assert results[0].status == "created"
     data = json.loads(cursor_path.read_text())
-    assert data["mcpServers"]["wks"]["command"].endswith("wks0")
+    assert data["mcpServers"]["wks"]["command"].endswith("wksc")
     assert data["mcpServers"]["wks"]["args"] == ["mcp", "run"]
 
 
