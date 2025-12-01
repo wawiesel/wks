@@ -26,7 +26,7 @@
 
 ### Type Safety & Data Structures
 - **Strong Typing**: Favor strong typing over dynamic typing.
-- **Dataclasses**: Use `dataclasses` for configuration and data transfer objects. Avoid dictionaries.
+- **Dataclasses over Dicts**: Use `dataclasses` for all structured data (configuration, DTOs, API responses). Pass dataclasses between layers, not dictionaries. Use `to_dict()` only at serialization boundaries (JSON output, MCP responses).
 - **Validation**: Validate strictly on load (`__post_init__`). Fail immediately if data is invalid.
 
 ### Error Handling

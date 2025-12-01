@@ -9,6 +9,7 @@ Make MCP consistent with CLI for all commands through "diff" in @SPEC.md.
 - wksm_cat (was wks_cat)
 - wksm_diff (was wks_diff)
 - wksm_db 
+- wksm_service
 
 There should be no code that is not used by the MCP or CLI. There should be 100% code coverage in unit tests. There should be smoke tests for the MCP and CLI. 
 Follow @CONTRIBUTING.md for contribution guidelines.
