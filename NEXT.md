@@ -8,6 +8,7 @@ Make MCP consistent with CLI for all commands through "diff" in @SPEC.md.
 - wksm_transform (was wks_transform)
 - wksm_cat (was wks_cat)
 - wksm_diff (was wks_diff)
+- wksm_db 
 
 There should be no code that is not used by the MCP or CLI. There should be 100% code coverage in unit tests. There should be smoke tests for the MCP and CLI. 
 Follow @CONTRIBUTING.md for contribution guidelines.
@@ -17,11 +18,6 @@ Refactor code to remove duplication and have better structure.
 Delete all unused code.
 
 ### Code Organization
-
-**Architecture Layers:**
-1. **Python API** (`wks/` modules): All business logic in controllers (e.g., `wks.monitor.controller`, `wks.transform.controller`, `wks.vault.controller`, `wks.diff.controller`)
-2. **MCP Layer** (`wks/mcp_server.py`): Thin wrapper that calls API, returns structured `MCPResult`
-3. **CLI Layer** (`wks/cli/`): Thin wrapper that calls MCP tools, formats output
 
 **Organization:**
 - CLI: `wks/cli/__init__.py` contains all simple MCP-wrapped commands (transform, cat, diff, etc.)

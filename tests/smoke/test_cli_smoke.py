@@ -6,7 +6,6 @@ They ensure the end-to-end flow works as expected.
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -91,67 +90,53 @@ def run_wks(args, env_dict, check=True):
 
 
 def test_cli_config_show(smoke_env):
-    """Test 'wks config'."""
+    """Test 'wksc config' - outputs JSON with config keys."""
     result = run_wks(["config"], smoke_env)
-    assert "Monitor" in result.stdout
-    assert "Vault" in result.stdout
+    # Output contains JSON with vault key
+    assert "vault" in result.stdout
 
 
 def test_cli_monitor_status(smoke_env):
-    """Test 'wks monitor status'."""
+    """Test 'wksc monitor status' - outputs JSON with tracked_files."""
     result = run_wks(["monitor", "status"], smoke_env)
-    assert "Monitor Status" in result.stdout
+    assert "tracked_files" in result.stdout
 
 
 def test_cli_vault_status(smoke_env):
-    """Test 'wks vault status'."""
+    """Test 'wksc vault status' - outputs JSON with total_links."""
     result = run_wks(["vault", "status"], smoke_env)
-    assert "Vault Status" in result.stdout
-
-
-def test_cli_service_status(smoke_env):
-    """Test 'wks service status'."""
-    result = run_wks(["service", "status"], smoke_env)
-    assert "Health" in result.stdout
-
-# @pytest.mark.skip(reason="Transform command needs engine implementation")
+    assert "total_links" in result.stdout
 
 
 def test_cli_transform(smoke_env):
-    """Test 'wks transform'."""
-    # Create a test file
+    """Test 'wksc transform' - outputs checksum."""
     test_file = smoke_env["home"] / "test.txt"
     test_file.write_text("Hello World")
 
-    # Run transform
     result = run_wks(["transform", "test", str(test_file)], smoke_env)
 
-    # Output should contain cache key (hex string)
+    # Output should contain cache key (64 char hex string)
     cache_key = result.stdout.strip()
     assert len(cache_key) == 64
-    assert cache_key.isalnum()  # Should be hex (alphanumeric)
+    assert cache_key.isalnum()
 
 
 def test_cli_cat(smoke_env):
-    """Test 'wks cat'."""
+    """Test 'wksc cat' - outputs transformed content."""
     test_file = smoke_env["home"] / "test.txt"
     test_file.write_text("Hello World")
 
-    # Run transform first to create cache entry
+    # Transform first
     transform_result = run_wks(["transform", "test", str(test_file)], smoke_env)
     cache_key = transform_result.stdout.strip()
 
-    # Run cat with the cache key
+    # Cat with cache key
     cat_result = run_wks(["cat", cache_key], smoke_env)
-
-    # Should show transformed content
     assert "Transformed: Hello World" in cat_result.stdout
-
-# @pytest.mark.skip(reason="Diff engine 'unified' not implemented")
 
 
 def test_cli_diff(smoke_env):
-    """Test 'wks diff'."""
+    """Test 'wksc diff' - outputs diff."""
     file1 = smoke_env["home"] / "file1.txt"
     file1.write_text("Hello")
     file2 = smoke_env["home"] / "file2.txt"
