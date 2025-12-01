@@ -30,7 +30,7 @@ def smoke_env(tmp_path_factory):
     # Create a dummy vault
     vault_dir = home_dir / "Vault"
     vault_dir.mkdir()
-    # Create config
+    # Create config in current WKSConfig / DiffConfig format
     (home_dir / ".wks").mkdir()
     config = {
         "monitor": {
@@ -44,24 +44,34 @@ def smoke_env(tmp_path_factory):
             "priority": {"depth_multiplier": 0.9},
             "database": "wks.monitor",
             "max_documents": 10000,
-            "prune_interval_secs": 3600
+            "prune_interval_secs": 3600,
         },
         "vault": {
             "base_dir": str(home_dir / "Vault"),
             "database": "wks.vault",
-            "wks_dir": "WKS"
+            "wks_dir": "WKS",
+            "update_frequency_seconds": 3600,
         },
-        "mongo": {
+        "db": {
             "uri": "mongodb://localhost:27017"
         },
         "transform": {
             "cache": {
                 "location": str(home_dir / ".wks" / "cache"),
-                "max_size_bytes": 1073741824
+                "max_size_bytes": 1073741824,
             },
-            "default_engine": "test",
-            "database": "wks_transform"
-        }
+            "database": "wks.transform",
+            "engines": {},
+        },
+        "diff": {
+            "engines": {
+                "myers": {"enabled": True, "is_default": True},
+            },
+            "_router": {
+                "rules": [],
+                "fallback": "myers",
+            },
+        },
     }
     (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
 
