@@ -11,11 +11,12 @@ from .config import DiffConfig
 class DiffController:
     """Business logic for diff operations."""
 
-    def __init__(self, config: DiffConfig, transform_controller: Optional[Any] = None):
+    def __init__(self, config: Optional[DiffConfig] = None, transform_controller: Optional[Any] = None):
         """Initialize diff controller.
 
         Args:
-            config: DiffConfig with engine configuration
+            config: Optional DiffConfig with engine configuration. When provided,
+                engine names are validated against this configuration.
             transform_controller: Optional TransformController for resolving checksums
         """
         self.config = config
@@ -52,17 +53,18 @@ class DiffController:
         if not file2.exists():
             raise ValueError(f"File not found: {file2}")
 
-        # Validate engine against configuration before resolving implementation.
-        engine_cfg = self.config.engines.get(engine_name)
-        if not engine_cfg or not engine_cfg.enabled:
-            enabled = sorted(
-                name for name, eng in self.config.engines.items() if eng.enabled
-            )
-            enabled_list = ", ".join(enabled) if enabled else "none"
-            raise ValueError(
-                f"Unknown or disabled diff engine: {engine_name!r} "
-                f"(enabled engines: {enabled_list})"
-            )
+        # If configuration is available, validate the engine name against it.
+        if self.config is not None:
+            engine_cfg = self.config.engines.get(engine_name)
+            if not engine_cfg or not engine_cfg.enabled:
+                enabled = sorted(
+                    name for name, eng in self.config.engines.items() if eng.enabled
+                )
+                enabled_list = ", ".join(enabled) if enabled else "none"
+                raise ValueError(
+                    f"Unknown engine: {engine_name!r} "
+                    f"(enabled engines: {enabled_list})"
+                )
 
         # Get engine implementation
         engine = get_engine(engine_name)

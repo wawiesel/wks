@@ -942,40 +942,44 @@ class MCPServer:
         """Execute wksm_diff tool."""
         from pathlib import Path
         from .diff import DiffController
-        from .diff.config import DiffConfig
+        from .diff.config import DiffConfig, DiffConfigError
         from .transform import TransformController
         from .db_helpers import connect_to_mongo
-
+        
         result = MCPResult(success=False, data={})
-
+        
         try:
             # Setup transform controller for checksum resolution
             transform_cfg = config.get("transform", {})
             cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
             max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
-
+            
             uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
             db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
-
+            
             client = connect_to_mongo(uri)
             db = client[db_name]
-
+            
             transform_controller = TransformController(db, cache_location, max_size_bytes)
+            
+            # Load diff configuration and construct controller when available.
+            try:
+                diff_config = DiffConfig.from_config_dict(config)
+            except DiffConfigError:
+                diff_config = None
 
-            # Load diff configuration and construct controller
-            diff_config = DiffConfig.from_config_dict(config)
             diff_controller = DiffController(diff_config, transform_controller)
-
+            
             # Diff
             diff_result = diff_controller.diff(target_a, target_b, engine)
-
+            
             client.close()
-
+            
             return result.success_result(
                 {"diff": diff_result},
                 f"Diff computed successfully using {engine}"
             ).to_dict()
-
+            
         except ValueError as e:
             return result.error_result(
                 f"Invalid input: {str(e)}",

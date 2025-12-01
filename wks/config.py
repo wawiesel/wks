@@ -75,13 +75,20 @@ class DisplayConfig:
 
 @dataclass
 class WKSConfig:
-    """Top-level WKS configuration."""
+    """Top-level configuration for all WKS layers.
+
+    Diff configuration is optional. When a ``\"diff\"`` section is present in the
+    raw config it is validated and attached as a :class:`DiffConfig`. If that
+    section is omitted entirely, ``diff`` is left as ``None`` and diff-specific
+    features are simply unavailable.
+    """
+
     vault: VaultConfig
     monitor: MonitorConfig
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
-    diff: DiffConfig = field(default_factory=lambda: DiffConfig(engines={}, router=None))  # Will be fully validated in load()
-    transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={}))  # Placeholder default
+    diff: Optional[DiffConfig] = None
+    transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={}))
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @classmethod
@@ -104,7 +111,7 @@ class WKSConfig:
             monitor = MonitorConfig.from_config_dict(raw)
             vault = VaultConfig.from_config_dict(raw)
             metrics = MetricsConfig.from_config(raw)
-            diff = DiffConfig.from_config_dict(raw)
+            diff = DiffConfig.from_config_dict(raw) if "diff" in raw else None
             transform = TransformConfig.from_config_dict(raw)
             display = DisplayConfig.from_config(raw)
 
