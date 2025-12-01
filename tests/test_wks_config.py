@@ -113,6 +113,15 @@ class TestWKSConfig:
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
                 "engines": {}
+            },
+            "diff": {
+                "engines": {
+                    "myers": {"enabled": True, "is_default": True},
+                },
+                "_router": {
+                    "rules": [],
+                    "fallback": "myers",
+                },
             }
         }
         config_path = tmp_path / "config.json"
@@ -166,6 +175,15 @@ class TestWKSConfig:
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
                 "engines": {}
+            },
+            "diff": {
+                "engines": {
+                    "myers": {"enabled": True, "is_default": True},
+                },
+                "_router": {
+                    "rules": [],
+                    "fallback": "myers",
+                },
             }
         }
         (tmp_path / ".wks" / "config.json").write_text(json.dumps(config))

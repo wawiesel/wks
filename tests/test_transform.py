@@ -278,16 +278,18 @@ class TestTransformController:
         db.transform = Mock()
 
         # Mock cached entry exists
-        db.transform.find_one.return_value = {
-            "file_uri": "file:///test.pdf",
-            "checksum": "abc123",
-            "size_bytes": 1024,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-            "engine": "docling",
-            "options_hash": "def456",
-            "cache_location": str(tmp_path / "cache" / "key123.md")
-        }
+        db.transform.find.return_value = [
+            {
+                "file_uri": "file:///test.pdf",
+                "checksum": "abc123",
+                "size_bytes": 1024,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "engine": "docling",
+                "options_hash": "def456",
+                "cache_location": str(tmp_path / "cache" / "key123.md"),
+            }
+        ]
 
         # Create cached file
         cache_dir = tmp_path / "cache"

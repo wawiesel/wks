@@ -69,16 +69,21 @@ class TransformController:
         Returns:
             TransformRecord if found, None otherwise
         """
-        doc = self.db.transform.find_one({
-            "checksum": file_checksum,
-            "engine": engine_name,
-            "options_hash": options_hash
-        })
+        cursor = self.db.transform.find(
+            {
+                "checksum": file_checksum,
+                "engine": engine_name,
+                "options_hash": options_hash,
+            }
+        )
 
-        if not doc:
-            return None
+        for doc in cursor:
+            record = TransformRecord.from_dict(doc)
+            cache_path = Path(record.cache_location)
+            if cache_path.exists():
+                return record
 
-        return TransformRecord.from_dict(doc)
+        return None
 
     def _update_last_accessed(self, file_checksum: str, engine_name: str, options_hash: str) -> None:
         """Update last_accessed timestamp for cache entry.
@@ -254,62 +259,61 @@ class TransformController:
         # Check if target is a checksum
         if re.match(r'^[a-f0-9]{64}$', target):
             cache_key = target
-            
-            # Query database to find the record with matching cache key
-            # Since cache key is computed from checksum:engine:options_hash,
-            # we need to iterate through records and compute cache keys
+
+            # First, prefer the cache directory as the source of truth.
+            candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
+            cache_file: Optional[Path] = candidates[0] if candidates else None
+
+            if cache_file is not None and cache_file.exists():
+                if output_path:
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        import os
+                        if output_path.exists():
+                            raise FileExistsError(f"Output file already exists: {output_path}")
+                        os.link(cache_file, output_path)
+                    except (OSError, AttributeError):
+                        output_path.write_bytes(cache_file.read_bytes())
+                return cache_file.read_text(encoding="utf-8")
+
+            # Fallback: resolve via database metadata to support older entries.
             records = list(self.db.transform.find())
             matching_record = None
-            
+
             for doc in records:
                 record_checksum = doc["checksum"]
                 record_engine = doc["engine"]
                 record_options_hash = doc["options_hash"]
-                computed_key = self._compute_cache_key(record_checksum, record_engine, record_options_hash)
-                
+                computed_key = self._compute_cache_key(
+                    record_checksum, record_engine, record_options_hash
+                )
                 if computed_key == cache_key:
                     matching_record = TransformRecord.from_dict(doc)
                     break
-            
+
             if not matching_record:
                 raise ValueError(f"Cache entry not found: {cache_key}")
-            
-            # Use the cache_location from the database record
+
             cache_file = Path(matching_record.cache_location)
-
             if not cache_file.exists():
-                # Legacy records may point at an old cache location. Try to
-                # resolve the cache file using the current transform cache
-                # configuration before failing.
-                try:
-                    from ..config import WKSConfig  # Local import to avoid cycles
+                raise ValueError(f"Cache file not found at: {cache_file}")
 
-                    cfg = WKSConfig.load()
-                    new_cache_dir = Path(cfg.transform.cache.location).expanduser()
-                    alt_path = new_cache_dir / cache_file.name
-                    if alt_path.exists():
-                        cache_file = alt_path
-                    else:
-                        raise ValueError(f"Cache file not found at: {cache_file}")
-                except Exception:
-                    # Preserve original failure behaviour if config cannot be loaded
-                    raise ValueError(f"Cache file not found at: {cache_file}")
-            
-            # Update last accessed
-            self._update_last_accessed(matching_record.checksum, matching_record.engine, matching_record.options_hash)
-            
+            self._update_last_accessed(
+                matching_record.checksum,
+                matching_record.engine,
+                matching_record.options_hash,
+            )
+
             if output_path:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                # Try to hardlink first for efficiency
                 try:
                     import os
                     if output_path.exists():
                         raise FileExistsError(f"Output file already exists: {output_path}")
                     os.link(cache_file, output_path)
                 except (OSError, AttributeError):
-                    # Fallback to copy
                     output_path.write_bytes(cache_file.read_bytes())
-            
+
             return cache_file.read_text(encoding="utf-8")
             
         else:

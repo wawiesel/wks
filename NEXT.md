@@ -13,7 +13,10 @@
 - Updated CONTRIBUTING.md to ban internal backwards-compatibility shims and require fail-fast, explicit errors
 - Tightened `wks/config.py::load_config` to normalize `db.uri` and transform settings via dataclasses
 - Added cache-location fallback in `TransformController.get_content` to bridge old/new cache layouts while we finish refactoring
-- Smoke tests mostly passing; `test_cli_cat` is still failing due to cache path migration and will be addressed next
+- Integrated `wks/diff/config.py` into `WKSConfig` and `wksm_diff` so diff engines and routing are configured via dataclasses
+- Deleted legacy config/db migration code (`wks/dbmeta.py`, `wks/config_schema.py`, `tests/test_dbmeta.py`) and removed the old migration tests from `test_phase1.py`
+- Renamed generic phase-1 tests into clearer module-focused tests (`tests/test_wks_priority_and_display.py`, `tests/test_diff_config.py`)
+- Smoke tests mostly passing; `test_cli_cat` and `test_cli_config_show` still need work to align with new config/transform behavior
 
 **What was useful:**
 - Test naming convention `test_wks_<module>.py` makes it clear what code each test file covers
