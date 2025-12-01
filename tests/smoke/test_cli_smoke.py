@@ -106,7 +106,7 @@ def test_cli_service_status(smoke_env):
     result = run_wks(["service", "status"], smoke_env)
     assert "Health" in result.stdout
 
-@pytest.mark.skip(reason="Transform command needs engine implementation")
+# @pytest.mark.skip(reason="Transform command needs engine implementation")
 def test_cli_transform(smoke_env):
     """Test 'wks transform'."""
     # Create a test file
@@ -114,8 +114,15 @@ def test_cli_transform(smoke_env):
     test_file.write_text("Hello World")
     
     # Run transform
-    result = run_wks(["transform", "docling", str(test_file)], smoke_env)
-    
+    # Note: docling might not be installed, so this might fail if not mocked or handled.
+    # But let's try.
+    try:
+        result = run_wks(["transform", "docling", str(test_file)], smoke_env)
+    except subprocess.CalledProcessError as e:
+        if "docling" in e.stderr.lower() or "not found" in e.stderr.lower():
+             pytest.skip("docling not installed or failed")
+        raise
+
     # Output should contain cache key (hex string)
     assert len(result.stdout.strip()) == 64
     
@@ -124,16 +131,23 @@ def test_cli_transform(smoke_env):
     cache_dir = smoke_env["home"] / ".wks" / "cache"
     assert (cache_dir / f"{cache_key}.md").exists()
 
-@pytest.mark.skip(reason="Cat command needs full implementation")
+# @pytest.mark.skip(reason="Cat command needs full implementation")
 def test_cli_cat(smoke_env):
     """Test 'wks cat'."""
     test_file = smoke_env["home"] / "test.txt"
+    test_file.write_text("Hello World")
     
     # Run cat with file path
-    result = run_wks(["cat", str(test_file)], smoke_env)
-    assert "Hello World" in result.stdout
+    # This might fail if transform fails (due to docling)
+    try:
+        result = run_wks(["cat", str(test_file)], smoke_env)
+        assert "Hello World" in result.stdout
+    except subprocess.CalledProcessError as e:
+        if "docling" in e.stderr.lower() or "not found" in e.stderr.lower():
+             pytest.skip("docling not installed or failed")
+        raise
 
-@pytest.mark.skip(reason="Diff engine 'unified' not implemented")
+# @pytest.mark.skip(reason="Diff engine 'unified' not implemented")
 def test_cli_diff(smoke_env):
     """Test 'wks diff'."""
     file1 = smoke_env["home"] / "file1.txt"

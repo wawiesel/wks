@@ -280,7 +280,17 @@ def display_validation_results_rich(display: Any, stats: Any, broken_links: List
     for status, links in broken_by_status.items():
         display.warning(f"\n{status.upper()} ({len(links)} links):")
         for link in links[:10]:  # Limit to 10 per status
-            display.info(f"  {link.note_path}:{link.line_number} → [[{link.raw_target}]]")
+            # Handle both object and dict
+            if isinstance(link, dict):
+                note_path = link["note_path"]
+                line_number = link["line_number"]
+                raw_target = link["raw_target"]
+            else:
+                note_path = link.note_path
+                line_number = link.line_number
+                raw_target = link.raw_target
+                
+            display.info(f"  {note_path}:{line_number} → [[{raw_target}]]")
         if len(links) > 10:
             display.info(f"  ... and {len(links) - 10} more")
 
@@ -300,7 +310,17 @@ def display_validation_results_plain(stats: Any, broken_links: List, broken_by_s
     for status, links in broken_by_status.items():
         print(f"\n{status.upper()} ({len(links)} links):")
         for link in links[:10]:
-            print(f"  {link.note_path}:{link.line_number} → [[{link.raw_target}]]")
+            # Handle both object and dict
+            if isinstance(link, dict):
+                note_path = link["note_path"]
+                line_number = link["line_number"]
+                raw_target = link["raw_target"]
+            else:
+                note_path = link.note_path
+                line_number = link.line_number
+                raw_target = link.raw_target
+
+            print(f"  {note_path}:{line_number} → [[{raw_target}]]")
         if len(links) > 10:
             print(f"  ... and {len(links) - 10} more")
 

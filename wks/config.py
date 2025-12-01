@@ -102,12 +102,16 @@ class DisplayConfig:
 class TransformConfig:
     """Transform configuration."""
     cache_location: str = ".wks/cache"
+    cache_max_size_bytes: int = 1024 * 1024 * 1024
+    database: str = "wks.transform"
     
     @classmethod
     def from_config(cls, cfg: Dict[str, Any]) -> "TransformConfig":
         transform_cfg = cfg.get("transform", {})
         return cls(
             cache_location=transform_cfg.get("cache_location", ".wks/cache"),
+            cache_max_size_bytes=transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024),
+            database=transform_cfg.get("database", "wks.transform"),
         )
 @dataclass
 class WKSConfig:

@@ -1,7 +1,8 @@
 """Diff controller with business logic."""
 
+import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 from .engines import get_engine
 
@@ -9,19 +10,27 @@ from .engines import get_engine
 class DiffController:
     """Business logic for diff operations."""
 
+    def __init__(self, transform_controller: Optional[Any] = None):
+        """Initialize diff controller.
+
+        Args:
+            transform_controller: Optional TransformController for resolving checksums
+        """
+        self.transform_controller = transform_controller
+
     def diff(
         self,
-        file1: Path,
-        file2: Path,
+        target1: str,
+        target2: str,
         engine_name: str,
         options: Optional[dict] = None
     ) -> str:
-        """Compute diff between two files.
+        """Compute diff between two targets (files or checksums).
 
         Args:
-            file1: First file path (or cache checksum)
-            file2: Second file path (or cache checksum)
-            engine_name: Diff engine name (e.g., "bdiff3", "myers")
+            target1: First file path or cache checksum
+            target2: Second file path or cache checksum
+            engine_name: Diff engine name (e.g., "bsdiff3", "myers")
             options: Engine-specific options
 
         Returns:
@@ -31,9 +40,8 @@ class DiffController:
             ValueError: If files don't exist or engine not found
             RuntimeError: If diff operation fails
         """
-        # Resolve paths
-        file1 = Path(file1).resolve()
-        file2 = Path(file2).resolve()
+        file1 = self._resolve_target(target1)
+        file2 = self._resolve_target(target2)
 
         if not file1.exists():
             raise ValueError(f"File not found: {file1}")
@@ -49,3 +57,38 @@ class DiffController:
         # Perform diff
         options = options or {}
         return engine.diff(file1, file2, options)
+
+    def _resolve_target(self, target: str) -> Path:
+        """Resolve target to a file path.
+
+        Args:
+            target: File path or checksum
+
+        Returns:
+            Path object
+        """
+        # Convert to string if it's a Path
+        target_str = str(target)
+
+        # Check if target is a checksum
+        if re.match(r'^[a-f0-9]{64}$', target_str):
+            if not self.transform_controller:
+                raise ValueError("TransformController required to resolve checksums")
+            
+            # Use transform controller to find cache file
+            cache_dir = self.transform_controller.cache_manager.cache_dir
+            
+            # Try to find file with any extension
+            cache_file = cache_dir / f"{target_str}.md"
+            if not cache_file.exists():
+                 matches = list(cache_dir.glob(f"{target_str}.*"))
+                 if matches:
+                     cache_file = matches[0]
+                 else:
+                     raise ValueError(f"Cache entry not found: {target_str}")
+            
+            return cache_file
+            
+        else:
+            # Assume file path
+            return Path(target).resolve()

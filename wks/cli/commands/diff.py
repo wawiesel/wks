@@ -27,36 +27,36 @@ def diff_cmd(args: argparse.Namespace) -> int:
     display = getattr(args, "display_obj", None)
 
     try:
-        # Get file paths
-        file1 = expand_path(args.file1)
-        file2 = expand_path(args.file2)
-
-        if not file1.exists():
-            if display:
-                display.error(f"File not found: {file1}")
-            else:
-                print(f"Error: File not found: {file1}")
-            return 2
-
-        if not file2.exists():
-            if display:
-                display.error(f"File not found: {file2}")
-            else:
-                print(f"Error: File not found: {file2}")
-            return 2
+        # Get targets (files or checksums)
+        target1 = args.file1
+        target2 = args.file2
 
         # Get engine name
         engine_name = args.engine
 
-        # Get diff config (not yet in WKSConfig dataclass, so we might need to add it or skip validation for now)
-        # For now, we'll proceed without strict config validation for diff engines as they are stateless
-        options = {}
+        # Initialize TransformController for checksum resolution
+        # We need to set up DB connection and cache config
+        transform_cfg = cfg.transform
+        cache_location = expand_path(transform_cfg.cache_location)
+        max_size_bytes = transform_cfg.cache_max_size_bytes
 
-        # Initialize controller
-        controller = DiffController()
+        uri = cfg.mongo.uri
+        db_name = cfg.transform.database.split(".")[0]
+        # coll_name = cfg.transform.database.split(".")[1] # Not needed for controller init
+        
+        from ...db_helpers import connect_to_mongo
+        client = connect_to_mongo(uri)
+        db = client[db_name]
+        
+        from ...transform import TransformController
+        transform_controller = TransformController(db, cache_location, max_size_bytes)
+
+        # Initialize DiffController
+        controller = DiffController(transform_controller)
 
         # Perform diff
-        result = controller.diff(file1, file2, engine_name, options)
+        options = {}
+        result = controller.diff(target1, target2, engine_name, options)
 
         # Output result
         print(result)

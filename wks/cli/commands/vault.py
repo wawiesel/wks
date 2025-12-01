@@ -168,9 +168,8 @@ def vault_sync_cmd(args: argparse.Namespace) -> int:
 
 def vault_validate_cmd(args: argparse.Namespace) -> int:
     """Validate all vault links (check for broken links)."""
+    from ...vault import VaultController, load_vault
     from .vault_links_helpers import (
-        prepare_vault_for_validation,
-        scan_vault_for_broken_links,
         display_validation_results_rich,
         display_validation_results_plain,
     )
@@ -179,18 +178,9 @@ def vault_validate_cmd(args: argparse.Namespace) -> int:
     display = getattr(args, "display_obj", None)
 
     try:
-        # Prepare vault
-        # TODO: Update prepare_vault_for_validation to use WKSConfig
-        # For now, we might need to pass config or update helper
-        # Let's assume helper needs update or we pass config
-        vault_info = prepare_vault_for_validation(config, display)
-        if not vault_info:
-            return 2
-        vault_path, base_dir = vault_info
-
         # Step 1: Say what we're doing
         if display:
-            display.status(f"Validating vault links in {vault_path}...")
+            display.status(f"Validating vault links...")
 
         # Step 2: Start spinner
         spinner = None
@@ -198,13 +188,50 @@ def vault_validate_cmd(args: argparse.Namespace) -> int:
             spinner = display.spinner_start("Scanning vault for broken links...")
 
         # Scan for broken links
-        records, stats, broken_links, broken_by_status = scan_vault_for_broken_links(vault_path, base_dir)
+        vault = load_vault(config)
+        controller = VaultController(vault)
+        result = controller.validate_vault()
+        
+        # Unpack result for display helpers
+        # display helpers expect: stats, broken_links, broken_by_status
+        # result has: notes_scanned, links_found, broken_count, broken_by_status
+        
+        # We need to adapt the result to what display helpers expect or update display helpers.
+        # Let's update display helpers to accept dict or adapt here.
+        # Display helpers take 'stats' object which has 'notes_scanned' and 'edge_total'.
+        # Let's create a dummy stats object.
+        class Stats:
+            def __init__(self, n, e):
+                self.notes_scanned = n
+                self.edge_total = e
+        
+        stats = Stats(result["notes_scanned"], result["links_found"])
+        broken_by_status = result["broken_by_status"]
+        
+        # Reconstruct broken_links list from broken_by_status for display helper
+        # Actually display helper takes broken_links list just for length check.
+        # We can pass a dummy list of correct length.
+        broken_links = [None] * result["broken_count"]
+        
+        # Wait, display helper iterates broken_links if broken_by_status is empty? No.
+        # It uses broken_links to check if empty.
+        
+        # But wait, display_validation_results_rich iterates broken_by_status.
+        # And it expects link objects with note_path, line_number, raw_target.
+        # My validate_vault returns dicts, not objects.
+        # So I need to update display helpers to handle dicts too.
+        
+        # Or I can make validate_vault return objects? No, MCP needs serializable.
+        # So display helpers should handle dicts.
+        
+        # Let's update display helpers in next step.
+        # For now, let's assume I will update them.
 
         # Step 2 finish: Stop spinner
         if spinner and display:
             display.spinner_finish(spinner)
 
-        # Step 3 & 4: Display results (handled by display helpers)
+        # Step 3 & 4: Display results
         if display:
             return display_validation_results_rich(display, stats, broken_links, broken_by_status)
         else:

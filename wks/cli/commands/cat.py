@@ -39,9 +39,6 @@ def cat_cmd(args: argparse.Namespace) -> int:
         input_arg = args.input
         output_path = Path(args.output) if args.output else None
 
-        # Determine if input is a checksum (64 hex chars) or file path
-        is_checksum = bool(re.match(r'^[a-f0-9]{64}$', input_arg))
-
         # Get transform config
         transform_cfg = cfg.transform
         cache_location = expand_path(transform_cfg.cache_location)
@@ -56,71 +53,16 @@ def cat_cmd(args: argparse.Namespace) -> int:
 
         controller = TransformController(db, cache_location, max_size_bytes)
 
-        if is_checksum:
-            # Input is a checksum - retrieve from cache
-            cache_key = input_arg
-            cache_file = cache_location / f"{cache_key}.md"
-
-            if not cache_file.exists():
-                print(f"Error: Cache entry not found: {cache_key}", file=sys.stderr)
-                return 2
-
-            # Output to file or stdout
-            if output_path:
-                # Create hardlink for efficiency
-                try:
-                    os.link(cache_file, output_path)
-                    print(f"Hardlinked to {output_path}", file=sys.stderr)
-                except FileExistsError:
-                    print(f"Error: Output file already exists: {output_path}", file=sys.stderr)
-                    return 2
-                except Exception as exc:
-                    print(f"Error creating hardlink: {exc}", file=sys.stderr)
-                    return 2
-            else:
-                # Display to stdout
-                print(cache_file.read_text(encoding="utf-8"))
-
+        # Use the controller to get content
+        content = controller.get_content(input_arg, output_path)
+        
+        # If output path was specified, controller handled writing/linking.
+        # We just print a message to stderr.
+        if output_path:
+             print(f"Saved to {output_path}", file=sys.stderr)
         else:
-            # Input is a file path - transform it
-            file_path = expand_path(input_arg)
-
-            if not file_path.exists():
-                print(f"Error: File not found: {file_path}", file=sys.stderr)
-                return 2
-
-            # Use docling engine (default)
-            engine_name = "docling"
-            # In new config structure, we assume docling is always available/enabled if not explicitly disabled
-            # For now, we just use default options or empty dict if not found in new structure
-            options = {}
-
-            # Transform to cache
-            print(f"Transforming {file_path.name}...", file=sys.stderr)
-            cache_key = controller.transform(file_path, engine_name, options, output_path=None)
-
-            # Get cache file location
-            cache_file = cache_location / f"{cache_key}.md"
-
-            if not cache_file.exists():
-                print(f"Error: Transform failed to create cache file", file=sys.stderr)
-                return 2
-
-            # Output to file or stdout
-            if output_path:
-                # Create hardlink for efficiency
-                try:
-                    os.link(cache_file, output_path)
-                    print(f"Hardlinked to {output_path}", file=sys.stderr)
-                except FileExistsError:
-                    print(f"Error: Output file already exists: {output_path}", file=sys.stderr)
-                    return 2
-                except Exception as exc:
-                    print(f"Error creating hardlink: {exc}", file=sys.stderr)
-                    return 2
-            else:
-                # Display to stdout
-                print(cache_file.read_text(encoding="utf-8"))
+             # Otherwise print content to stdout
+             print(content)
 
         return 0
 

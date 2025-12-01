@@ -1,6 +1,7 @@
 """Transform controller with business logic."""
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Dict, Any, Optional
 from pymongo.database import Database
@@ -230,3 +231,76 @@ class TransformController:
             {"$set": {"file_uri": new_uri}}
         )
         return result.modified_count
+
+    def get_content(
+        self,
+        target: str,
+        output_path: Optional[Path] = None
+    ) -> str:
+        """Retrieve content for a target (checksum or file path).
+
+        Args:
+            target: Checksum (64 hex chars) or file path
+            output_path: Optional output file path
+
+        Returns:
+            Content as string
+
+        Raises:
+            ValueError: If target not found or invalid
+        """
+        # Check if target is a checksum
+        if re.match(r'^[a-f0-9]{64}$', target):
+            cache_key = target
+            
+            # Try to find the file in cache dir
+            # Default to .md but check for others
+            cache_file = self.cache_manager.cache_dir / f"{cache_key}.md"
+            
+            if not cache_file.exists():
+                 # Try to find by globbing
+                 matches = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
+                 if matches:
+                     cache_file = matches[0]
+                 else:
+                     raise ValueError(f"Cache entry not found: {cache_key}")
+            
+            if output_path:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                # Try to hardlink first for efficiency
+                try:
+                    import os
+                    if output_path.exists():
+                        raise FileExistsError(f"Output file already exists: {output_path}")
+                    os.link(cache_file, output_path)
+                except (OSError, AttributeError):
+                    # Fallback to copy
+                    output_path.write_bytes(cache_file.read_bytes())
+            
+            return cache_file.read_text(encoding="utf-8")
+            
+        else:
+            # Target is a file path
+            # We need to expand user if it's a path string, but here we expect absolute path or handle it
+            # The controller usually expects Path objects or absolute strings. 
+            # Let's assume the caller handles expansion if it's a CLI arg, 
+            # but for robustness we can try to expand if it looks like a path.
+            
+            # However, in MCP context, paths should be absolute.
+            # In CLI context, they are expanded before calling.
+            # But let's be safe.
+            from ..utils import expand_path
+            try:
+                file_path = expand_path(target)
+            except Exception:
+                file_path = Path(target).resolve()
+            
+            if not file_path.exists():
+                raise ValueError(f"File not found: {file_path}")
+                
+            # Transform it (using default engine/options for now)
+            # This ensures we have the content in cache
+            cache_key = self.transform(file_path, "docling", {})
+            
+            # Now recurse to get the content from cache
+            return self.get_content(cache_key, output_path)

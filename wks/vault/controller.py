@@ -138,6 +138,36 @@ class VaultController:
             failed=failed
         )
 
+    def validate_vault(self) -> dict:
+        """Validate all vault links (check for broken links).
+
+        Returns:
+            Dictionary with validation results
+        """
+        from .indexer import VaultLinkScanner
+
+        scanner = VaultLinkScanner(self.vault)
+        records = scanner.scan()
+        stats = scanner.stats
+
+        broken_links = [r for r in records if r.status != "ok"]
+        broken_by_status = {}
+        for record in broken_links:
+            broken_by_status.setdefault(record.status, []).append({
+                "note_path": str(record.note_path),
+                "line_number": record.line_number,
+                "raw_target": record.raw_target,
+                "status": record.status
+            })
+
+        return {
+            "notes_scanned": stats.notes_scanned,
+            "links_found": stats.edge_total,
+            "broken_count": len(broken_links),
+            "broken_by_status": broken_by_status,
+            "is_valid": len(broken_links) == 0
+        }
+
     # ------------------------------------------------------------------ sync helper
     @staticmethod
     def sync_vault(cfg: Optional[dict] = None, batch_size: int = 1000, incremental: bool = False) -> dict:
