@@ -17,6 +17,7 @@
 - **DRY (Don't Repeat Yourself)**: Zero code duplication between CLI and MCP.
 - **KISS (Keep It Simple, Stupid)**: Eliminate unnecessary features and complexity.
 - **No Hedging**: Remove fallback logic. No silent defaults or implicit substitutions. Fail fast and visibly.
+- **No Internal Backwards Compatibility Shims**: Do not add compatibility wrappers or legacy code paths inside this repository to support older call sites (e.g., "compat" helpers that quietly reshape configs or emulate old behavior). Instead, update all callers to the new interfaces and raise clear, actionable errors when inputs are invalid or incomplete.
 
 ### Code Metrics
 - **Complexity**: Use `lizard` to measure metrics.

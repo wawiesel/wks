@@ -276,9 +276,24 @@ class TransformController:
             
             # Use the cache_location from the database record
             cache_file = Path(matching_record.cache_location)
-            
+
             if not cache_file.exists():
-                raise ValueError(f"Cache file not found at: {cache_file}")
+                # Legacy records may point at an old cache location. Try to
+                # resolve the cache file using the current transform cache
+                # configuration before failing.
+                try:
+                    from ..config import WKSConfig  # Local import to avoid cycles
+
+                    cfg = WKSConfig.load()
+                    new_cache_dir = Path(cfg.transform.cache.location).expanduser()
+                    alt_path = new_cache_dir / cache_file.name
+                    if alt_path.exists():
+                        cache_file = alt_path
+                    else:
+                        raise ValueError(f"Cache file not found at: {cache_file}")
+                except Exception:
+                    # Preserve original failure behaviour if config cannot be loaded
+                    raise ValueError(f"Cache file not found at: {cache_file}")
             
             # Update last accessed
             self._update_last_accessed(matching_record.checksum, matching_record.engine, matching_record.options_hash)

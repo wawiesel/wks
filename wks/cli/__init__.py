@@ -169,6 +169,31 @@ def _cmd_vault_links(args: argparse.Namespace) -> int:
 
 
 # =============================================================================
+# DB commands
+# =============================================================================
+
+def _cmd_db_monitor(args: argparse.Namespace) -> int:
+    """Query monitor database via MCP."""
+    r = _call("wksm_db_monitor", {})
+    _out(r, args.display_obj)
+    return _err(r)
+
+
+def _cmd_db_vault(args: argparse.Namespace) -> int:
+    """Query vault database via MCP."""
+    r = _call("wksm_db_vault", {})
+    _out(r, args.display_obj)
+    return _err(r)
+
+
+def _cmd_db_transform(args: argparse.Namespace) -> int:
+    """Query transform database via MCP."""
+    r = _call("wksm_db_transform", {})
+    _out(r, args.display_obj)
+    return _err(r)
+
+
+# =============================================================================
 # Parser setup
 # =============================================================================
 
@@ -227,6 +252,15 @@ def _setup_vault(sub):
     p.set_defaults(func=_cmd_vault_links)
 
 
+def _setup_db(sub):
+    db = sub.add_parser("db", help="Database queries")
+    s = db.add_subparsers(dest="db_cmd")
+
+    s.add_parser("monitor").set_defaults(func=_cmd_db_monitor)
+    s.add_parser("vault").set_defaults(func=_cmd_db_vault)
+    s.add_parser("transform").set_defaults(func=_cmd_db_transform)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(prog="wksc", description="WKS CLI")
@@ -262,6 +296,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     _setup_monitor(sub)
     _setup_vault(sub)
+    _setup_db(sub)
 
     # MCP server
     mcp = sub.add_parser("mcp", help="MCP server")
