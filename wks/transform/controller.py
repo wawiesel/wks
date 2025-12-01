@@ -294,9 +294,20 @@ class TransformController:
             if not matching_record:
                 raise ValueError(f"Cache entry not found: {cache_key}")
 
-            cache_file = Path(matching_record.cache_location)
+            # Reconstruct cache file path in current cache directory using stored extension
+            # This avoids using old absolute paths from previous test runs
+            stored_path = Path(matching_record.cache_location)
+            extension = stored_path.suffix.lstrip('.') or 'md'  # Default to .md if no extension
+            cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
+            
+            # If file doesn't exist, try globbing one more time (in case extension differs)
             if not cache_file.exists():
-                raise ValueError(f"Cache file not found at: {cache_file}")
+                candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
+                if candidates:
+                    cache_file = candidates[0]
+            
+            if not cache_file.exists():
+                raise ValueError(f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}")
 
             self._update_last_accessed(
                 matching_record.checksum,
