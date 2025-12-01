@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
 
-from ..config import load_config
+# from ..config import load_config
 from ..constants import WKS_HOME_DISPLAY
 from ..utils import expand_path
 from .controller import VaultController
@@ -39,7 +39,10 @@ def _resolve_obsidian_settings(cfg: Dict[str, Any]) -> Dict[str, Any]:
 
 def load_vault(cfg: Optional[Dict[str, Any]] = None) -> ObsidianVault:
     """Build the configured vault implementation."""
-    cfg = cfg or load_config()
+    if cfg is None:
+        from ..config import load_config
+        cfg = load_config()
+    # cfg = cfg or load_config()
     vault_cfg = cfg.get("vault", {})
     vault_type = (vault_cfg.get("type") or "obsidian").lower()
     if vault_type not in _VAULT_CLASSES:

@@ -25,7 +25,7 @@ from ...service_controller import (
 )
 from ..display_strategies import get_display_strategy
 from ..helpers import maybe_write_json
-from ... import mongoctl
+# from ... import mongoctl
 from ...mcp_setup import install_mcp_configs
 
 
@@ -97,7 +97,7 @@ def _ensure_mcp_registration() -> None:
 def daemon_start(_: argparse.Namespace):
     """Start daemon in background or via launchd if installed."""
     _ensure_mcp_registration()
-    mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+    # mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
     if is_macos() and agent_installed():
         daemon_start_launchd()
         return
@@ -171,7 +171,8 @@ def daemon_restart(args: argparse.Namespace):
     # macOS launchd-managed restart
     if is_macos() and agent_installed():
         try:
-            mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+            # mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+            pass
         except Exception:
             pass
         try:
@@ -189,7 +190,8 @@ def daemon_restart(args: argparse.Namespace):
         pass
     time.sleep(0.5)
     try:
-        mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+        # mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+        pass
     except Exception:
         pass
     daemon_start(args)
@@ -248,7 +250,7 @@ def daemon_install(args: argparse.Namespace):
     from ..helpers import make_progress
     with make_progress(total=6, display=args.display) as prog:
         prog.update("ensure mongo")
-        mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+        # mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
         prog.update("bootout legacy")
         # Only bootout immediate predecessor if it exists
         old_plist = Path.home() / "Library" / "LaunchAgents" / "com.wieselquist.wkso.plist"
@@ -338,7 +340,8 @@ def service_reset(args: argparse.Namespace) -> int:
     stop_managed_mongo()
 
     try:
-        mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+        # mongoctl.ensure_mongo_running(default_mongo_uri(), record_start=True)
+        pass
     except SystemExit:
         return 2
 

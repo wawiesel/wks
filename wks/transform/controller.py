@@ -14,16 +14,18 @@ from .engines import get_engine
 class TransformController:
     """Business logic for transform operations."""
 
-    def __init__(self, db: Database, cache_dir: Path, max_size_bytes: int):
+    def __init__(self, db: Database, cache_dir: Path, max_size_bytes: int, default_engine: str = "docling"):
         """Initialize transform controller.
 
         Args:
             db: MongoDB database instance
             cache_dir: Directory for cached transforms
             max_size_bytes: Maximum cache size in bytes
+            default_engine: Default engine to use for transforms
         """
         self.db = db
         self.cache_manager = CacheManager(cache_dir, max_size_bytes, db)
+        self.default_engine = default_engine
 
     def _compute_file_checksum(self, file_path: Path) -> str:
         """Compute SHA-256 checksum of file.
@@ -253,17 +255,33 @@ class TransformController:
         if re.match(r'^[a-f0-9]{64}$', target):
             cache_key = target
             
-            # Try to find the file in cache dir
-            # Default to .md but check for others
-            cache_file = self.cache_manager.cache_dir / f"{cache_key}.md"
+            # Query database to find the record with matching cache key
+            # Since cache key is computed from checksum:engine:options_hash,
+            # we need to iterate through records and compute cache keys
+            records = list(self.db.transform.find())
+            matching_record = None
+            
+            for doc in records:
+                record_checksum = doc["checksum"]
+                record_engine = doc["engine"]
+                record_options_hash = doc["options_hash"]
+                computed_key = self._compute_cache_key(record_checksum, record_engine, record_options_hash)
+                
+                if computed_key == cache_key:
+                    matching_record = TransformRecord.from_dict(doc)
+                    break
+            
+            if not matching_record:
+                raise ValueError(f"Cache entry not found: {cache_key}")
+            
+            # Use the cache_location from the database record
+            cache_file = Path(matching_record.cache_location)
             
             if not cache_file.exists():
-                 # Try to find by globbing
-                 matches = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
-                 if matches:
-                     cache_file = matches[0]
-                 else:
-                     raise ValueError(f"Cache entry not found: {cache_key}")
+                raise ValueError(f"Cache file not found at: {cache_file}")
+            
+            # Update last accessed
+            self._update_last_accessed(matching_record.checksum, matching_record.engine, matching_record.options_hash)
             
             if output_path:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -300,7 +318,7 @@ class TransformController:
                 
             # Transform it (using default engine/options for now)
             # This ensures we have the content in cache
-            cache_key = self.transform(file_path, "docling", {})
+            cache_key = self.transform(file_path, self.default_engine, {})
             
             # Now recurse to get the content from cache
             return self.get_content(cache_key, output_path)

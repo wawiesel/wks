@@ -45,8 +45,8 @@ def transform_cmd(args: argparse.Namespace) -> int:
 
         # Get transform config
         transform_cfg = cfg.transform
-        cache_location = expand_path(transform_cfg.cache_location)
-        max_size_bytes = transform_cfg.cache_max_size_bytes
+        cache_location = expand_path(transform_cfg.cache.location)
+        max_size_bytes = transform_cfg.cache.max_size_bytes
 
         # Engine config - assume docling is enabled/available
         # For now, we just use default options or empty dict if not found in new structure
@@ -59,13 +59,14 @@ def transform_cmd(args: argparse.Namespace) -> int:
 
         # Connect to database
         uri = cfg.mongo.uri
-        db_name = cfg.transform.database.split(".")[0]
-        coll_name = cfg.transform.database.split(".")[1]
+        db_name = cfg.transform.database
+        # coll_name = cfg.transform.database.split(".")[1] # Not needed
         client = connect_to_mongo(uri)
         db = client[db_name]
 
         # Initialize controller
-        controller = TransformController(db, cache_location, max_size_bytes)
+        default_engine = transform_cfg.default_engine
+        controller = TransformController(db, cache_location, max_size_bytes, default_engine)
 
         # Perform transform (status message to stderr)
         print(f"Transforming {file_path.name} using {engine_name}...", file=sys.stderr)

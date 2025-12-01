@@ -115,9 +115,22 @@ class DoclingEngine(TransformEngine):
         return options.get("write_extension", "md")
 
 
+class TestEngine(TransformEngine):
+    """Test engine that copies content."""
+
+    def transform(self, input_path: Path, output_path: Path, options: Dict[str, Any]) -> None:
+        """Copy input to output."""
+        content = input_path.read_text()
+        output_path.write_text(f"Transformed: {content}")
+
+    def get_extension(self, options: Dict[str, Any]) -> str:
+        """Get extension."""
+        return "md"
+
 # Registry of available engines
 ENGINES: Dict[str, TransformEngine] = {
     "docling": DoclingEngine(),
+    "test": TestEngine(),
 }
 
 

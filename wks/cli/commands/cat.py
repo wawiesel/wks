@@ -41,17 +41,19 @@ def cat_cmd(args: argparse.Namespace) -> int:
 
         # Get transform config
         transform_cfg = cfg.transform
-        cache_location = expand_path(transform_cfg.cache_location)
-        max_size_bytes = transform_cfg.cache_max_size_bytes
+        cache_location = expand_path(transform_cfg.cache.location)
+        max_size_bytes = transform_cfg.cache.max_size_bytes
 
         # Connect to database
         uri = cfg.mongo.uri
-        db_name = cfg.transform.database.split(".")[0]
-        coll_name = cfg.transform.database.split(".")[1]
+        db_name = cfg.transform.database
+        # coll_name = cfg.transform.database.split(".")[1]
         client = connect_to_mongo(uri)
         db = client[db_name]
 
-        controller = TransformController(db, cache_location, max_size_bytes)
+        default_engine = transform_cfg.default_engine
+
+        controller = TransformController(db, cache_location, max_size_bytes, default_engine)
 
         # Use the controller to get content
         content = controller.get_content(input_arg, output_path)

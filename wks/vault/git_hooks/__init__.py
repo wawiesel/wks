@@ -31,7 +31,7 @@ def is_hook_installed(vault_path: Path) -> bool:
         True if hook is installed and executable
     """
     hook_path = get_hook_install_path(vault_path)
-    return hook_path.exists() and hook_path.stat().st_mode & 0o111
+    return bool(hook_path.exists() and hook_path.stat().st_mode & 0o111)
 
 
 def install_hooks(vault_path: Path, force: bool = False) -> bool:

@@ -20,7 +20,7 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import mongoctl
+# from . import mongoctl
 from .config import WKSConfig, load_config
 from .constants import WKS_HOME_EXT
 
@@ -72,7 +72,8 @@ def _pid_running(pid: int) -> bool:
 
 
 def stop_managed_mongo() -> None:
-    mongoctl.stop_managed_mongo()
+    # mongoctl.stop_managed_mongo()
+    pass
 
 
 def agent_label() -> str:

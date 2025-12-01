@@ -86,6 +86,8 @@ def convert_to_uri(path_or_uri: Union[str, Path], vault_path: Optional[Path] = N
 
     # If vault_path provided, check if path is within vault
     if vault_path is not None:
+        if isinstance(vault_path, str):
+            vault_path = Path(vault_path)
         vault_path = vault_path.expanduser().resolve()
         try:
             rel_path = path.relative_to(vault_path)
