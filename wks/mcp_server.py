@@ -840,6 +840,7 @@ class MCPServer:
         from .transform import TransformController
         from .utils import expand_path
         from .db_helpers import connect_to_mongo
+        from .config import WKSConfig
 
         result = MCPResult(success=False, data={})
 
@@ -852,13 +853,13 @@ class MCPServer:
                     data={}
                 ).to_dict()
 
-            # Setup controller
-            transform_cfg = config.get("transform", {})
-            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            # Load config dataclass for proper cache location resolution
+            wks_cfg = WKSConfig.load()
+            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
+            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
-            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            uri = wks_cfg.mongo.uri
+            db_name = wks_cfg.transform.database.split(".")[0]
 
             client = connect_to_mongo(uri)
             db = client[db_name]
@@ -898,17 +899,18 @@ class MCPServer:
         from pathlib import Path
         from .transform import TransformController
         from .db_helpers import connect_to_mongo
+        from .config import WKSConfig
 
         result = MCPResult(success=False, data={})
 
         try:
-            # Setup controller
-            transform_cfg = config.get("transform", {})
-            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            # Load config dataclass for proper cache location resolution
+            wks_cfg = WKSConfig.load()
+            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
+            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
-            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            uri = wks_cfg.mongo.uri
+            db_name = wks_cfg.transform.database.split(".")[0]
 
             client = connect_to_mongo(uri)
             db = client[db_name]
