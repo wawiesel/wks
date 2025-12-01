@@ -194,6 +194,18 @@ def _cmd_db_transform(args: argparse.Namespace) -> int:
 
 
 # =============================================================================
+# Service commands
+# =============================================================================
+
+
+def _cmd_service_status(args: argparse.Namespace) -> int:
+    """Show daemon/service status via MCP."""
+    r = _call("wksm_service", {})
+    _out(r.get("data", r), args.display_obj)
+    return _err(r)
+
+
+# =============================================================================
 # Parser setup
 # =============================================================================
 
@@ -261,6 +273,13 @@ def _setup_db(sub):
     s.add_parser("transform").set_defaults(func=_cmd_db_transform)
 
 
+def _setup_service(sub):
+    svc = sub.add_parser("service", help="Service operations")
+    s = svc.add_subparsers(dest="service_cmd")
+
+    s.add_parser("status").set_defaults(func=_cmd_service_status)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(prog="wksc", description="WKS CLI")
@@ -297,6 +316,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     _setup_monitor(sub)
     _setup_vault(sub)
     _setup_db(sub)
+    _setup_service(sub)
 
     # MCP server
     mcp = sub.add_parser("mcp", help="MCP server")
