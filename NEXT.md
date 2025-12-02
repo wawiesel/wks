@@ -1,5 +1,18 @@
 ## Progress Notes
 
+### Session: 2025-12-02
+
+**What was accomplished:**
+- ✓ Fixed syntax warning in `wks/vault/markdown_parser.py:37` (invalid escape sequence `\|` → `\\|`)
+- Set up git worktrees structure at `~/2025-WKS-Worktrees/` for isolated issue work
+- Merged syntax fix to master via worktree workflow
+
+**What was useful:**
+- Git worktrees allow parallel development on different issues without affecting main workspace
+- Quick wins (syntax fixes) can be done in dedicated branches and merged back immediately
+
+---
+
 ### Session: 2025-12-01
 
 **What was accomplished:**
