@@ -1,4 +1,10 @@
-# Directives
+---
+alwaysApply: true
+---
+
+# Directives for AI
+
+If you are an AI agent doing coding, here is some help for you. For everyone, see @CONTRIBUTING.md.
 
 * Use the virtual environment. If it doesn't exist create one in .venv. You can install whatever you want there.
 * Eliminate unnecessary features and legacy code wherever possible—remove complexity, redundant state, backward compatibility, and unused paths.
@@ -8,7 +14,7 @@
 * Remove fallback logic (“hedging”); no silent defaults or implicit substitutions.
 * Represent databases as `<collection>.<database>` and fail hard if not found.
 * Include clear validation and precise error reporting with explicit paths, found values, and expected values.
-* For user-facing commands such as `wkso service status`, support a **live-updating display** with the `--live` flag.
+* For user-facing commands such as `wksc service status`, support a **live-updating display** with the `--live` flag.
 * Use colorized output—red for false or failed states—and show OK/FAIL status before the last error.
 * Keep tables simple and grouped by logical sections when appropriate.
 * Apply **DRY**, **KISS**, and no-hedge principles throughout.
