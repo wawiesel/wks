@@ -674,3 +674,209 @@ class TestTransformController:
 
                 assert content == "Cached content"
 
+    def test_get_content_with_checksum_db_resolution_finds_matching_record(self, tmp_path):
+        """get_content finds matching record in database by computing cache key."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        cache_file = cache_dir / f"{checksum}.txt"
+        cache_file.write_text("Cached content from DB")
+
+        # Mock database record - need to match the computed cache key
+        file_checksum = "file_checksum_123"
+        engine = "test"
+        options_hash = "opts_hash_456"
+        
+        # Compute what the cache key should be
+        controller = TransformController(db, cache_dir, 1024)
+        expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
+
+        # Use the computed key as the checksum
+        cache_file_with_key = cache_dir / f"{expected_cache_key}.txt"
+        cache_file_with_key.write_text("Cached content from DB")
+
+        db.transform.find.return_value = [{
+            "checksum": file_checksum,
+            "engine": engine,
+            "options_hash": options_hash,
+            "cache_location": str(cache_file_with_key),
+            "file_uri": "file:///test.pdf",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+        }]
+
+        with patch.object(controller, '_update_last_accessed'):
+            content = controller.get_content(expected_cache_key)
+
+            assert content == "Cached content from DB"
+
+    def test_get_content_with_checksum_db_resolution_glob_fallback(self, tmp_path):
+        """get_content uses glob when reconstructed path doesn't exist."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        file_checksum = "file_checksum_123"
+        engine = "test"
+        options_hash = "opts_hash_456"
+        
+        controller = TransformController(db, cache_dir, 1024)
+        expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
+
+        # Create file with .md extension (different from stored .txt)
+        cache_file = cache_dir / f"{expected_cache_key}.md"
+        cache_file.write_text("Cached content")
+
+        # Store path with .txt extension but file is .md
+        db.transform.find.return_value = [{
+            "checksum": file_checksum,
+            "engine": engine,
+            "options_hash": options_hash,
+            "cache_location": f"/some/path/{expected_cache_key}.txt",  # Different extension
+            "file_uri": "file:///test.pdf",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+        }]
+
+        with patch.object(controller, '_update_last_accessed'):
+            content = controller.get_content(expected_cache_key)
+
+            assert content == "Cached content"
+
+    def test_get_content_with_checksum_db_resolution_output_path(self, tmp_path):
+        """get_content handles output_path when resolving via database."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        file_checksum = "file_checksum_123"
+        engine = "test"
+        options_hash = "opts_hash_456"
+        
+        controller = TransformController(db, cache_dir, 1024)
+        expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
+
+        cache_file = cache_dir / f"{expected_cache_key}.md"
+        cache_file.write_text("Cached content")
+
+        output_path = tmp_path / "output" / "result.md"
+        
+        db.transform.find.return_value = [{
+            "checksum": file_checksum,
+            "engine": engine,
+            "options_hash": options_hash,
+            "cache_location": str(cache_file),
+            "file_uri": "file:///test.pdf",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+        }]
+
+        with patch.object(controller, '_update_last_accessed'):
+            content = controller.get_content(expected_cache_key, output_path=output_path)
+
+            assert content == "Cached content"
+            assert output_path.exists()
+            assert output_path.read_text() == "Cached content"
+
+    def test_get_content_with_checksum_db_resolution_output_path_exists_overwrites(self, tmp_path):
+        """get_content overwrites output_path when it exists (FileExistsError is caught)."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        file_checksum = "file_checksum_123"
+        engine = "test"
+        options_hash = "opts_hash_456"
+        
+        controller = TransformController(db, cache_dir, 1024)
+        expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
+
+        cache_file = cache_dir / f"{expected_cache_key}.md"
+        cache_file.write_text("Cached content")
+
+        output_path = tmp_path / "output.md"
+        output_path.write_text("Existing content")
+        
+        db.transform.find.return_value = [{
+            "checksum": file_checksum,
+            "engine": engine,
+            "options_hash": options_hash,
+            "cache_location": str(cache_file),
+            "file_uri": "file:///test.pdf",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+        }]
+
+        with patch.object(controller, '_update_last_accessed'):
+            # FileExistsError is raised but caught, then file is overwritten
+            content = controller.get_content(expected_cache_key, output_path=output_path)
+
+            assert content == "Cached content"
+            assert output_path.read_text() == "Cached content"  # Overwritten
+
+    def test_get_content_with_checksum_db_resolution_no_matching_record(self, tmp_path):
+        """get_content raises when no matching record found in database."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        
+        db.transform.find.return_value = [{
+            "checksum": "different_checksum",
+            "engine": "test",
+            "options_hash": "opts_hash",
+            "cache_location": "/some/path",
+        }]
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        with pytest.raises(ValueError, match="Cache entry not found"):
+            controller.get_content(checksum)
+
+    def test_get_content_with_checksum_db_resolution_cache_file_not_found(self, tmp_path):
+        """get_content raises when cache file not found after DB resolution."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        
+        file_checksum = "file_checksum_123"
+        engine = "test"
+        options_hash = "opts_hash_456"
+        
+        controller = TransformController(db, cache_dir, 1024)
+        expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
+
+        # Don't create the cache file
+        db.transform.find.return_value = [{
+            "checksum": file_checksum,
+            "engine": engine,
+            "options_hash": options_hash,
+            "cache_location": str(cache_dir / f"{expected_cache_key}.md"),
+            "file_uri": "file:///test.pdf",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+        }]
+
+        with pytest.raises(ValueError, match="Cache file not found"):
+            controller.get_content(expected_cache_key)
+
