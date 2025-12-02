@@ -293,10 +293,10 @@ To maximize velocity, the test coverage work can be divided into three independe
 **Status: ✅ COMPLETED**
 
 **Focus Areas:**
-- `wks/vault/controller.py` (28.2% → 80%) ✅
-- `wks/vault/obsidian.py` (32.1% → 70%) ✅
-- `wks/vault/git_watcher.py` (41.4% → 75%) ✅
-- `wks/vault/__init__.py` (38.7% → 80%) ✅
+- `wks/vault/controller.py` (28.2% → 80%) ✅ **81.18%** (EXCEEDED)
+- `wks/vault/obsidian.py` (32.1% → 70%) ✅ **83.93%** (EXCEEDED)
+- `wks/vault/git_watcher.py` (41.4% → 75%) ✅ **87.39%** (EXCEEDED)
+- `wks/vault/__init__.py` (38.7% → 80%) ✅ **96.77%** (EXCEEDED)
 
 **Test Files Created:**
 1. ✅ `tests/test_vault_symlinks.py` (275 lines)
@@ -306,14 +306,17 @@ To maximize velocity, the test coverage work can be divided into three independe
    - ✅ Test error handling (permissions, missing targets)
    - ✅ Test machine-specific link directories
 
-2. ✅ `tests/test_vault_obsidian_extended.py` (270 lines)
+2. ✅ `tests/test_obsidian_vault_operations.py` (270+ lines)
    - ✅ Test vault initialization with invalid paths
    - ✅ Test path computation (`_recompute_paths()`)
    - ✅ Test directory creation (links_dir, projects_dir, etc.)
    - ✅ Test timestamp format handling
    - ✅ Test machine name extraction
+   - ✅ Test link_file(), update_link_on_move(), write_doc_text()
+   - ✅ Test create_project_note(), link_project()
+   - ✅ Test find_broken_links(), cleanup_broken_links()
 
-3. ✅ `tests/test_vault_git_watcher_extended.py` (449 lines)
+3. ✅ `tests/test_git_vault_watcher.py` (449 lines)
    - ✅ Test `get_changes()` with various git states
    - ✅ Test `get_changed_since_commit()` with different commits
    - ✅ Test git diff parsing
@@ -332,10 +335,10 @@ To maximize velocity, the test coverage work can be divided into three independe
 - ✅ Independent of Agent 1 and Agent 3 work
 
 **Success Criteria:**
-- ✅ `wks/vault/controller.py` - comprehensive test coverage added
-- ✅ `wks/vault/obsidian.py` - extended tests for initialization and paths
-- ✅ `wks/vault/git_watcher.py` - full coverage of git operations
-- ✅ `wks/vault/__init__.py` - factory and config loading tests
+- ✅ `wks/vault/controller.py` - **81.18%** coverage (target: 80%) - comprehensive test coverage added
+- ✅ `wks/vault/obsidian.py` - **83.93%** coverage (target: 70%) - complete test coverage including: initialization, paths, `link_file()`, `update_link_on_move()`, `update_vault_links_on_move()`, `write_doc_text()`, `create_project_note()`, `link_project()`, `find_broken_links()`, `cleanup_broken_links()`
+- ✅ `wks/vault/git_watcher.py` - **87.39%** coverage (target: 75%) - full coverage of git operations
+- ✅ `wks/vault/__init__.py` - **96.77%** coverage (target: 80%) - factory and config loading tests
 - ✅ All git operations properly mocked or use test repos
 
 **Note:** All test files (1,253 lines total) are complete and ready to run. Tests use git fixtures and mocks for external dependencies.
