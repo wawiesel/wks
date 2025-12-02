@@ -34,7 +34,7 @@ class WikiLink:
     def split_alias(target: str) -> tuple[str, str]:
         """Split target|alias into components.
 
-        Handles both regular pipes (|) and escaped pipes (\|) used in tables.
+        Handles both regular pipes (|) and escaped pipes (\\|) used in tables.
         """
         # Handle escaped pipe (\|) - common in markdown tables
         if "\\|" in target:
