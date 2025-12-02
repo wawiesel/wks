@@ -238,8 +238,192 @@ Based on coverage gaps, these scenarios likely lack tests:
 | transform/controller.py | 46.0% | 80% | P2 |
 | **Overall** | **69.4%** | **80%** | - |
 
+## Parallel Execution Plan (3 Agents)
+
+To maximize velocity, the test coverage work can be divided into three independent tracks that operate on completely separate files. Each agent works on distinct modules with no overlap, avoiding merge conflicts and allowing simultaneous progress.
+
+### Agent 1: Daemon & Database Infrastructure
+**Estimated Coverage Gain: +8-10%**
+
+**Focus Areas:**
+- `wks/daemon.py` (37.7% → 70%)
+- `wks/db_helpers.py` (13.7% → 95%)
+- `wks/cli/__main__.py` (0% → 100%)
+
+**Test Files to Create:**
+1. `tests/test_db_helpers.py`
+   - Test `parse_database_key()` with valid/invalid formats
+   - Test `get_monitor_db_config()` with missing sections
+   - Test `get_vault_db_config()` with invalid keys
+   - Test `get_transform_db_config()` extraction
+   - Test `connect_to_mongo()` with timeouts and failures
+
+2. `tests/test_daemon_lifecycle.py`
+   - Test daemon initialization with various configs
+   - Test daemon start/stop/restart scenarios
+   - Test health data collection and serialization
+   - Test lock file management
+   - Mock MongoDB and filesystem operations
+
+3. `tests/test_daemon_health.py`
+   - Test health metrics calculation (uptime, rates, beats)
+   - Test error tracking and timestamps
+   - Test database operation logging
+   - Test filesystem rate calculations (short/long windows)
+
+4. `tests/test_cli_main.py`
+   - Test entry point imports and execution
+   - Integration test for full CLI invocation
+
+**Dependencies:** None (uses mocks for all external dependencies)
+
+**Success Criteria:**
+- `wks/db_helpers.py` reaches 95%+ coverage
+- `wks/daemon.py` reaches 70%+ coverage
+- All tests pass independently
+- No MongoDB/filesystem dependencies (use mocks)
+
+---
+
+### Agent 2: Vault Operations & Git Integration
+**Estimated Coverage Gain: +6-8%**
+
+**Focus Areas:**
+- `wks/vault/controller.py` (28.2% → 80%)
+- `wks/vault/obsidian.py` (32.1% → 70%)
+- `wks/vault/git_watcher.py` (41.4% → 75%)
+- `wks/vault/__init__.py` (38.7% → 80%)
+
+**Test Files to Create:**
+1. `tests/test_vault_symlinks.py`
+   - Test `fix_symlinks()` operation end-to-end
+   - Test symlink creation with various vault states
+   - Test symlink deletion and recreation
+   - Test error handling (permissions, missing targets)
+   - Test machine-specific link directories
+
+2. `tests/test_vault_obsidian_extended.py`
+   - Test vault initialization with invalid paths
+   - Test path computation (`_recompute_paths()`)
+   - Test directory creation (links_dir, projects_dir, etc.)
+   - Test timestamp format handling
+   - Test machine name extraction
+
+3. `tests/test_vault_git_watcher_extended.py`
+   - Test `get_changed_files()` with various git states
+   - Test git diff parsing
+   - Test handling of renamed/moved files
+   - Test error cases (not a git repo, invalid refs)
+   - Test integration with vault indexer
+
+4. `tests/test_vault_init.py`
+   - Test vault package initialization
+   - Test factory functions for creating vault instances
+   - Test configuration loading and validation
+
+**Dependencies:**
+- Requires git repository fixtures
+- Uses mock MongoDB for database operations
+- Independent of Agent 1 and Agent 3 work
+
+**Success Criteria:**
+- `wks/vault/controller.py` reaches 80%+ coverage
+- `wks/vault/obsidian.py` reaches 70%+ coverage
+- `wks/vault/git_watcher.py` reaches 75%+ coverage
+- All git operations properly mocked or use test repos
+
+---
+
+### Agent 3: Display, Transform & Integration
+**Estimated Coverage Gain: +6-8%**
+
+**Focus Areas:**
+- `wks/display/cli.py` (43.9% → 75%)
+- `wks/display/mcp.py` (36.2% → 75%)
+- `wks/transform/controller.py` (46.0% → 80%)
+- Integration tests across modules
+
+**Test Files to Create:**
+1. `tests/test_display_formats.py`
+   - Test `CLIDisplay` progress tracking
+   - Test table formatting with various data types
+   - Test error rendering with details and metadata
+   - Test color output (with/without terminal support)
+   - Test truncation and wrapping behavior
+
+2. `tests/test_display_mcp_extended.py`
+   - Test `MCPDisplay` JSON output variants
+   - Test progress state tracking
+   - Test warning and info message formatting
+   - Test structured data in success/error responses
+   - Test timestamp formatting
+
+3. `tests/test_transform_controller_extended.py`
+   - Test database query operations (find, update, delete)
+   - Test cache invalidation on file changes
+   - Test concurrent transform requests
+   - Test error recovery and cleanup
+   - Test transform record lifecycle management
+
+4. `tests/integration/test_end_to_end.py`
+   - Test file monitoring → vault update workflow
+   - Test transform → cat → display workflow
+   - Test monitor status → display formatting
+   - Test error propagation through layers
+   - Use real file fixtures, mock MongoDB
+
+5. `tests/test_pytest_markers.py`
+   - Add pytest marker infrastructure
+   - Configure `pytest.ini` with custom markers
+   - Document marker usage
+
+**Dependencies:**
+- Independent of Agent 1 and Agent 2
+- Uses existing fixtures from smoke tests
+- May create shared test utilities
+
+**Success Criteria:**
+- Display modules reach 75%+ coverage
+- `wks/transform/controller.py` reaches 80%+ coverage
+- Integration tests validate end-to-end workflows
+- Pytest markers enable selective test execution
+
+---
+
+### Coordination & Merge Strategy
+
+**File Ownership (No Conflicts):**
+- Agent 1: `tests/test_db_*.py`, `tests/test_daemon_*.py`, `tests/test_cli_main.py`
+- Agent 2: `tests/test_vault_*.py` (new files only)
+- Agent 3: `tests/test_display_*.py`, `tests/test_transform_controller_extended.py`, `tests/integration/`
+
+**Shared Resources:**
+- `pytest.ini`: Agent 3 updates for markers (others don't touch)
+- `tests/conftest.py`: Each agent can add fixtures in separate sections (mark with comments)
+- `requirements-dev.txt`: Agents coordinate on Slack before adding dependencies
+
+**Validation:**
+Each agent must:
+1. Run `pytest tests/ --cov=wks --cov-report=term` before committing
+2. Ensure their specific modules show coverage gains
+3. Verify no regressions in existing tests (all 300+ tests still pass)
+4. Run `pytest tests/ -x` to catch failures early
+
+**Timeline:**
+- Each track estimated at 4-6 hours of focused work
+- All three agents working in parallel = 1 day to completion
+- Sequential would take 3 days
+
+**Expected Final Coverage:**
+- Agent 1 contribution: +8-10% (daemon, db_helpers)
+- Agent 2 contribution: +6-8% (vault operations)
+- Agent 3 contribution: +6-8% (display, transform, integration)
+- **Total: 69.4% → 89-95%** (exceeds 80% target)
+
 ## Conclusion
 
 The test suite has a solid foundation with excellent coverage of core business logic (config, service controller, monitors). However, critical gaps exist in daemon operations, vault management, and integration scenarios. Addressing Priority 1 recommendations would increase coverage to ~75-80% and significantly reduce production risk.
 
 The test quality is generally high with good use of mocks, fixtures, and clear test organization. Adding pytest markers and integration tests would make the suite more maintainable and easier to run in CI/CD pipelines.
+
+With the parallel execution plan outlined above, three independent agents can simultaneously address the coverage gaps, achieving 80%+ coverage in a single day of coordinated effort.
