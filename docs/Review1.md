@@ -310,7 +310,8 @@ To maximize velocity, the test coverage work can be divided into three independe
    - Test machine name extraction
 
 3. `tests/test_vault_git_watcher_extended.py`
-   - Test `get_changed_files()` with various git states
+   - Test `get_changes()` with various git states
+   - Test `get_changed_since_commit()` with different commits
    - Test git diff parsing
    - Test handling of renamed/moved files
    - Test error cases (not a git repo, invalid refs)
