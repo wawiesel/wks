@@ -71,8 +71,8 @@ class TransformController:
         """
         cursor = self.db.transform.find(
             {
-                "checksum": file_checksum,
-                "engine": engine_name,
+            "checksum": file_checksum,
+            "engine": engine_name,
                 "options_hash": options_hash,
             }
         )
@@ -83,7 +83,7 @@ class TransformController:
             if cache_path.exists():
                 return record
 
-        return None
+            return None
 
     def _update_last_accessed(self, file_checksum: str, engine_name: str, options_hash: str) -> None:
         """Update last_accessed timestamp for cache entry.
@@ -259,7 +259,7 @@ class TransformController:
         # Check if target is a checksum
         if re.match(r'^[a-f0-9]{64}$', target):
             cache_key = target
-
+            
             # First, prefer the cache directory as the source of truth.
             candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
             cache_file: Optional[Path] = candidates[0] if candidates else None
@@ -279,7 +279,7 @@ class TransformController:
             # Fallback: resolve via database metadata to support older entries.
             records = list(self.db.transform.find())
             matching_record = None
-
+            
             for doc in records:
                 record_checksum = doc["checksum"]
                 record_engine = doc["engine"]
@@ -290,10 +290,10 @@ class TransformController:
                 if computed_key == cache_key:
                     matching_record = TransformRecord.from_dict(doc)
                     break
-
+            
             if not matching_record:
                 raise ValueError(f"Cache entry not found: {cache_key}")
-
+            
             # Reconstruct cache file path in current cache directory using stored extension
             # This avoids using old absolute paths from previous test runs
             stored_path = Path(matching_record.cache_location)
@@ -314,7 +314,7 @@ class TransformController:
                 matching_record.engine,
                 matching_record.options_hash,
             )
-
+            
             if output_path:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 try:
@@ -324,7 +324,7 @@ class TransformController:
                     os.link(cache_file, output_path)
                 except (OSError, AttributeError):
                     output_path.write_bytes(cache_file.read_bytes())
-
+            
             return cache_file.read_text(encoding="utf-8")
             
         else:

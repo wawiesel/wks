@@ -43,10 +43,19 @@ class TestMCPServerNewTools:
         assert result["data"] == mock_config
         assert "messages" in result
 
+    @patch("wks.config.WKSConfig")
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
-    def test_wks_transform(self, mock_controller_cls, mock_connect, mock_server, mock_config, tmp_path):
+    def test_wks_transform(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path):
         """Test wksm_transform tool returns MCPResult format."""
+        # Mock WKSConfig.load()
+        mock_cfg = MagicMock()
+        mock_cfg.transform.cache.location = "~/.wks/cache"
+        mock_cfg.transform.cache.max_size_bytes = 1000
+        mock_cfg.transform.database = "wks.transform"
+        mock_cfg.mongo.uri = "mongodb://localhost:27017"
+        mock_wks_config.load.return_value = mock_cfg
+        
         mock_controller = mock_controller_cls.return_value
         mock_controller.transform.return_value = "checksum123"
 
@@ -60,10 +69,19 @@ class TestMCPServerNewTools:
         assert result["data"]["checksum"] == "checksum123"
         mock_controller.transform.assert_called_once()
 
+    @patch("wks.config.WKSConfig")
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
-    def test_wks_cat(self, mock_controller_cls, mock_connect, mock_server, mock_config):
+    def test_wks_cat(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config):
         """Test wksm_cat tool returns MCPResult format."""
+        # Mock WKSConfig.load()
+        mock_cfg = MagicMock()
+        mock_cfg.transform.cache.location = "~/.wks/cache"
+        mock_cfg.transform.cache.max_size_bytes = 1000
+        mock_cfg.transform.database = "wks.transform"
+        mock_cfg.mongo.uri = "mongodb://localhost:27017"
+        mock_wks_config.load.return_value = mock_cfg
+        
         mock_controller = mock_controller_cls.return_value
         mock_controller.get_content.return_value = "content"
 
