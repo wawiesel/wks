@@ -62,6 +62,12 @@ def get_wks_home() -> Path:
     wks_home_env = os.environ.get("WKS_HOME")
     if wks_home_env:
         return Path(wks_home_env).expanduser().resolve()
+
+    # Check HOME environment variable (for test isolation)
+    home_env = os.environ.get("HOME")
+    if home_env:
+        return Path(home_env) / WKS_HOME_EXT
+
     return Path.home() / WKS_HOME_EXT
 
 

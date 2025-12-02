@@ -1,11 +1,10 @@
-"""Tests for Transform layer."""
+"""Tests for Transform layer (controller, models, cache)."""
 
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 from wks.transform.models import TransformRecord, now_iso
 from wks.transform.cache import CacheManager
-from wks.transform.engines import DoclingEngine, get_engine
 from wks.transform.controller import TransformController
 
 
@@ -148,105 +147,6 @@ class TestCacheManager:
         assert manager.get_current_size() == 312
 
 
-class TestDoclingEngine:
-    """Test DoclingEngine."""
-
-    def test_get_extension_default(self):
-        """DoclingEngine returns default extension."""
-        engine = DoclingEngine()
-
-        ext = engine.get_extension({})
-
-        assert ext == "md"
-
-    def test_get_extension_custom(self):
-        """DoclingEngine returns custom extension."""
-        engine = DoclingEngine()
-
-        ext = engine.get_extension({"write_extension": "txt"})
-
-        assert ext == "txt"
-
-    def test_compute_options_hash(self):
-        """DoclingEngine computes consistent options hash."""
-        engine = DoclingEngine()
-
-        hash1 = engine.compute_options_hash({"ocr": True, "timeout_secs": 30})
-        hash2 = engine.compute_options_hash({"timeout_secs": 30, "ocr": True})
-
-        assert hash1 == hash2  # Order doesn't matter
-        assert len(hash1) == 16  # Truncated to 16 chars
-
-    @patch("subprocess.run")
-    def test_transform_success(self, mock_run, tmp_path):
-        """DoclingEngine transforms successfully."""
-        engine = DoclingEngine()
-
-        input_path = tmp_path / "test.pdf"
-        input_path.write_bytes(b"PDF content")
-
-        output_path = tmp_path / "output.md"
-
-        # Mock successful docling run
-        mock_run.return_value = Mock(stdout="# Transformed\n\nContent", returncode=0)
-        
-        # The DoclingEngine creates a temp directory and expects docling to write to it.
-        # We need to intercept the subprocess.run call, find the temp directory argument,
-        # and create the output file there.
-        
-        def create_output(cmd, *args, **kwargs):
-            # cmd is like ["docling", input_path, "--to", "md", "--output", temp_dir]
-            # Find output dir (it's after --output)
-            try:
-                output_idx = cmd.index("--output")
-                temp_dir = Path(cmd[output_idx + 1])
-                # Create the expected output file: <input_stem>.md
-                expected_file = temp_dir / f"{input_path.stem}.md"
-                expected_file.write_text("# Transformed\n\nContent")
-            except (ValueError, IndexError):
-                pass
-            return Mock(stdout="Done", returncode=0)
-            
-        mock_run.side_effect = create_output
-
-        engine.transform(input_path, output_path, {"ocr": False, "timeout_secs": 30})
-
-        assert output_path.exists()
-        assert "Transformed" in output_path.read_text()
-        mock_run.assert_called_once()
-
-    @patch("subprocess.run")
-    def test_transform_timeout(self, mock_run, tmp_path):
-        """DoclingEngine raises on timeout."""
-        engine = DoclingEngine()
-
-        input_path = tmp_path / "test.pdf"
-        input_path.write_bytes(b"PDF content")
-        output_path = tmp_path / "output.md"
-
-        # Mock timeout
-        import subprocess
-        mock_run.side_effect = subprocess.TimeoutExpired("docling", 30)
-
-        with pytest.raises(RuntimeError, match="timed out"):
-            engine.transform(input_path, output_path, {"timeout_secs": 30})
-
-
-class TestEngineRegistry:
-    """Test engine registry."""
-
-    def test_get_engine_docling(self):
-        """Get docling engine."""
-        engine = get_engine("docling")
-
-        assert engine is not None
-        assert isinstance(engine, DoclingEngine)
-
-    def test_get_engine_unknown(self):
-        """Get unknown engine returns None."""
-        engine = get_engine("unknown")
-
-        assert engine is None
 
 
 class TestTransformController:
@@ -280,15 +180,15 @@ class TestTransformController:
         # Mock cached entry exists
         db.transform.find.return_value = [
             {
-                "file_uri": "file:///test.pdf",
-                "checksum": "abc123",
-                "size_bytes": 1024,
-                "last_accessed": "2025-01-01T00:00:00+00:00",
-                "created_at": "2025-01-01T00:00:00+00:00",
-                "engine": "docling",
-                "options_hash": "def456",
+            "file_uri": "file:///test.pdf",
+            "checksum": "abc123",
+            "size_bytes": 1024,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+            "engine": "docling",
+            "options_hash": "def456",
                 "cache_location": str(tmp_path / "cache" / "key123.md"),
-            }
+        }
         ]
 
         # Create cached file
@@ -360,3 +260,417 @@ class TestTransformController:
             {"file_uri": "file:///old.pdf"},
             {"$set": {"file_uri": "file:///new.pdf"}}
         )
+
+    @patch("wks.transform.controller.get_engine")
+    def test_transform_not_cached_with_output_path(self, mock_get_engine, tmp_path):
+        """Transform when not cached and output_path provided."""
+        db = Mock()
+        db.transform = Mock()
+        db.transform.find.return_value = []  # Not cached
+        db.transform.insert_one = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"content")
+
+        output_path = tmp_path / "output.md"
+
+        # Mock engine
+        mock_engine = Mock()
+        mock_engine.compute_options_hash.return_value = "optshash"
+        mock_engine.get_extension.return_value = "md"
+        
+        def transform_side_effect(input_path, output_path_internal, options):
+            output_path_internal.write_text("Transformed content")
+        mock_engine.transform.side_effect = transform_side_effect
+        mock_get_engine.return_value = mock_engine
+
+        cache_key = controller.transform(test_file, "test", {}, output_path)
+
+        assert cache_key is not None
+        assert output_path.exists()
+        assert output_path.read_text() == "Transformed content"
+        db.transform.insert_one.assert_called_once()
+
+    @patch("wks.transform.controller.get_engine")
+    def test_transform_not_cached_no_output_path(self, mock_get_engine, tmp_path):
+        """Transform when not cached without output_path."""
+        db = Mock()
+        db.transform = Mock()
+        db.transform.find.return_value = []  # Not cached
+        db.transform.insert_one = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"content")
+
+        # Mock engine
+        mock_engine = Mock()
+        mock_engine.compute_options_hash.return_value = "optshash"
+        mock_engine.get_extension.return_value = "md"
+        
+        def transform_side_effect(input_path, output_path_internal, options):
+            output_path_internal.write_text("Transformed content")
+        mock_engine.transform.side_effect = transform_side_effect
+        mock_get_engine.return_value = mock_engine
+
+        cache_key = controller.transform(test_file, "test")
+
+        assert cache_key is not None
+        db.transform.insert_one.assert_called_once()
+
+    @patch("wks.transform.controller.get_engine")
+    def test_transform_cached_with_output_path(self, mock_get_engine, tmp_path):
+        """Transform uses cached result and copies to output_path."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        cache_file = cache_dir / "key123.md"
+        cache_file.write_text("Cached content")
+
+        # Mock cached entry
+        db.transform.find.return_value = [{
+            "file_uri": f"file://{tmp_path / 'test.pdf'}",
+            "checksum": "abc123",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+            "engine": "test",
+            "options_hash": "def456",
+            "cache_location": str(cache_file),
+        }]
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"content")
+
+        output_path = tmp_path / "output.md"
+
+        # Mock engine
+        mock_engine = Mock()
+        mock_engine.compute_options_hash.return_value = "def456"
+        mock_get_engine.return_value = mock_engine
+
+        cache_key = controller.transform(test_file, "test", {}, output_path)
+
+        assert cache_key is not None
+        assert output_path.exists()
+        assert output_path.read_text() == "Cached content"
+        mock_engine.transform.assert_not_called()  # Used cache
+
+    def test_get_content_with_checksum_found_in_cache_dir(self, tmp_path):
+        """get_content finds checksum file directly in cache directory."""
+        db = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        cache_file = cache_dir / f"{checksum}.md"
+        cache_file.write_text("Cached content")
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        content = controller.get_content(checksum)
+
+        assert content == "Cached content"
+
+    def test_get_content_with_checksum_with_output_path(self, tmp_path):
+        """get_content with checksum and output_path creates hard link or copies."""
+        db = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        cache_file = cache_dir / f"{checksum}.md"
+        cache_file.write_text("Cached content")
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        output_path = tmp_path / "output.md"
+
+        content = controller.get_content(checksum, output_path)
+
+        assert content == "Cached content"
+        assert output_path.exists()
+        assert output_path.read_text() == "Cached content"
+
+    def test_get_content_with_checksum_not_found(self, tmp_path):
+        """get_content raises when checksum not found."""
+        db = Mock()
+        db.transform = Mock()
+        db.transform.find.return_value = []  # No matching records
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        checksum = "a" * 64
+
+        with pytest.raises(ValueError, match="Cache entry not found"):
+            controller.get_content(checksum)
+
+    def test_get_content_with_checksum_from_db_metadata(self, tmp_path):
+        """get_content resolves checksum via database metadata."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        cache_file = cache_dir / f"{checksum}.md"
+        cache_file.write_text("Cached content")
+
+        # Mock database record that matches the checksum
+        computed_key = checksum  # Simplified - in real code this would be computed
+        db.transform.find.return_value = [{
+            "checksum": "file_checksum",
+            "engine": "test",
+            "options_hash": "opts_hash",
+            "cache_location": str(cache_file),
+        }]
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        # Mock the _compute_cache_key to return our checksum
+        with patch.object(controller, '_compute_cache_key', return_value=checksum):
+            content = controller.get_content(checksum)
+
+            assert content == "Cached content"
+
+    def test_get_content_with_checksum_output_path_exists_overwrites(self, tmp_path):
+        """get_content overwrites existing output_path (FileExistsError is caught)."""
+        db = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        cache_file = cache_dir / f"{checksum}.md"
+        cache_file.write_text("Cached content")
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        output_path = tmp_path / "output.md"
+        output_path.write_text("existing")
+
+        # FileExistsError is caught and file is copied instead
+        content = controller.get_content(checksum, output_path)
+
+        assert content == "Cached content"
+        assert output_path.read_text() == "Cached content"
+
+    def test_get_content_with_file_path_transforms(self, tmp_path):
+        """get_content with file path transforms and returns content."""
+        db = Mock()
+        db.transform = Mock()
+        db.transform.find.return_value = []  # Not cached
+        db.transform.insert_one = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        controller = TransformController(db, cache_dir, 1024, default_engine="test")
+
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("Original content")
+
+        with patch("wks.transform.controller.get_engine") as mock_get_engine:
+            mock_engine = Mock()
+            mock_engine.compute_options_hash.return_value = "optshash"
+            mock_engine.get_extension.return_value = "md"
+            
+            def transform_side_effect(input_path, output_path_internal, options):
+                output_path_internal.write_text("Transformed: Original content")
+            mock_engine.transform.side_effect = transform_side_effect
+            mock_get_engine.return_value = mock_engine
+
+            content = controller.get_content(str(test_file))
+
+            assert "Transformed: Original content" in content
+            db.transform.insert_one.assert_called_once()
+
+    def test_get_content_with_file_path_not_found(self, tmp_path):
+        """get_content raises when file path doesn't exist."""
+        db = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        with pytest.raises(ValueError, match="File not found"):
+            controller.get_content(str(tmp_path / "nonexistent.txt"))
+
+    def test_get_content_with_checksum_glob_fallback(self, tmp_path):
+        """get_content uses glob to find file when extension differs."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        # Create file with different extension
+        cache_file = cache_dir / f"{checksum}.txt"
+        cache_file.write_text("Cached content")
+
+        # Mock database record
+        db.transform.find.return_value = [{
+            "checksum": "file_checksum",
+            "engine": "test",
+            "options_hash": "opts_hash",
+            "cache_location": str(cache_file),
+        }]
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        with patch.object(controller, '_compute_cache_key', return_value=checksum):
+            content = controller.get_content(checksum)
+
+            assert content == "Cached content"
+
+    @patch("wks.transform.controller.get_engine")
+    def test_transform_cached_cache_path_not_exists(self, mock_get_engine, tmp_path):
+        """Transform handles cached entry where cache file doesn't exist."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        # Mock cached entry but file doesn't exist
+        db.transform.find.return_value = [{
+            "file_uri": f"file://{tmp_path / 'test.pdf'}",
+            "checksum": "abc123",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+            "engine": "test",
+            "options_hash": "def456",
+            "cache_location": str(cache_dir / "nonexistent.md"),
+        }]
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"content")
+
+        # Mock engine - should transform since cache file missing
+        mock_engine = Mock()
+        mock_engine.compute_options_hash.return_value = "def456"
+        mock_engine.get_extension.return_value = "md"
+        
+        def transform_side_effect(input_path, output_path_internal, options):
+            output_path_internal.write_text("Transformed content")
+        mock_engine.transform.side_effect = transform_side_effect
+        mock_get_engine.return_value = mock_engine
+
+        # Should still work - will transform since cache file missing
+        db.transform.find.return_value = []  # Treat as not cached
+        db.transform.insert_one = Mock()
+        
+        cache_key = controller.transform(test_file, "test")
+
+        assert cache_key is not None
+
+    def test_find_cached_transform_not_found_returns_none(self, tmp_path):
+        """_find_cached_transform returns None when cache file doesn't exist."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        # Mock database entry but cache file doesn't exist
+        db.transform.find.return_value = [{
+            "file_uri": "file:///test.pdf",
+            "checksum": "abc123",
+            "size_bytes": 100,
+            "last_accessed": "2025-01-01T00:00:00+00:00",
+            "created_at": "2025-01-01T00:00:00+00:00",
+            "engine": "test",
+            "options_hash": "def456",
+            "cache_location": str(cache_dir / "nonexistent.md"),
+        }]
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        result = controller._find_cached_transform("abc123", "test", "def456")
+
+        assert result is None
+
+    def test_get_content_with_file_path_expand_path_fails(self, tmp_path):
+        """get_content falls back to Path.resolve when expand_path fails."""
+        db = Mock()
+        db.transform = Mock()
+        db.transform.find.return_value = []
+        db.transform.insert_one = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        controller = TransformController(db, cache_dir, 1024, default_engine="test")
+
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("Original content")
+
+        with patch("wks.utils.expand_path") as mock_expand:
+            mock_expand.side_effect = Exception("expand failed")
+            
+            with patch("wks.transform.controller.get_engine") as mock_get_engine:
+                mock_engine = Mock()
+                mock_engine.compute_options_hash.return_value = "optshash"
+                mock_engine.get_extension.return_value = "md"
+                
+                def transform_side_effect(input_path, output_path_internal, options):
+                    output_path_internal.write_text("Transformed: Original content")
+                mock_engine.transform.side_effect = transform_side_effect
+                mock_get_engine.return_value = mock_engine
+
+                content = controller.get_content(str(test_file))
+
+                assert "Transformed: Original content" in content
+
+    def test_get_content_with_checksum_db_resolution_extension_default(self, tmp_path):
+        """get_content uses default .md extension when stored path has no extension."""
+        db = Mock()
+        db.transform = Mock()
+
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+
+        checksum = "a" * 64
+        cache_file = cache_dir / f"{checksum}.md"
+        cache_file.write_text("Cached content")
+
+        # Mock database record with no extension in cache_location
+        db.transform.find.return_value = [{
+            "checksum": "file_checksum",
+            "engine": "test",
+            "options_hash": "opts_hash",
+            "cache_location": "/some/path/with/no/extension",
+        }]
+
+        controller = TransformController(db, cache_dir, 1024)
+
+        with patch.object(controller, '_compute_cache_key', return_value=checksum):
+            with patch.object(controller, '_update_last_accessed'):
+                content = controller.get_content(checksum)
+
+                assert content == "Cached content"
+
