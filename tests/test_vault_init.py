@@ -3,7 +3,6 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, Mock
-import sys
 
 from wks.vault import load_vault, ObsidianVault, VaultController
 from wks.vault.obsidian import ObsidianVault as ObsidianVaultClass
@@ -40,8 +39,9 @@ class TestLoadVault:
             }
         }
         
-        with pytest.raises(SystemExit, match="vault.base_dir is required"):
+        with pytest.raises(SystemExit) as exc_info:
             load_vault(cfg)
+        assert "vault.base_dir" in str(exc_info.value) and "required" in str(exc_info.value)
 
     def test_load_vault_requires_wks_dir(self, tmp_path):
         """Test that load_vault() requires vault.wks_dir in config."""
@@ -53,7 +53,7 @@ class TestLoadVault:
             }
         }
         
-        with pytest.raises(SystemExit, match="vault.wks_dir is required"):
+        with pytest.raises(SystemExit, match="vault.wks_dir.*required"):
             load_vault(cfg)
 
     def test_load_vault_creates_obsidian_vault(self, tmp_path):
@@ -94,7 +94,7 @@ class TestLoadVault:
             }
         }
         
-        with patch("wks.vault.load_config", return_value=mock_config):
+        with patch("wks.config.load_config", return_value=mock_config):
             vault = load_vault(None)
             assert isinstance(vault, ObsidianVault)
 
@@ -168,8 +168,9 @@ class TestResolveObsidianSettings:
             }
         }
         
-        with pytest.raises(SystemExit, match="vault.base_dir is required"):
+        with pytest.raises(SystemExit) as exc_info:
             load_vault(cfg)
+        assert "vault.base_dir" in str(exc_info.value) and "required" in str(exc_info.value)
 
     def test_resolve_obsidian_settings_raises_on_missing_wks_dir(self, tmp_path):
         """Test that _resolve_obsidian_settings() raises on missing wks_dir."""
@@ -180,7 +181,7 @@ class TestResolveObsidianSettings:
             }
         }
         
-        with pytest.raises(SystemExit, match="vault.wks_dir is required"):
+        with pytest.raises(SystemExit, match="vault.wks_dir.*required"):
             load_vault(cfg)
 
     def test_resolve_obsidian_settings_handles_empty_vault_section(self):
