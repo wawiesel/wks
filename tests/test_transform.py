@@ -146,6 +146,40 @@ class TestCacheManager:
 
         assert manager.get_current_size() == 312
 
+    def test_load_cache_size_json_error(self, tmp_path):
+        """Test _load_cache_size handles JSON load error."""
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        db = Mock()
+
+        manager = CacheManager(cache_dir, 1024, db)
+
+        # Create invalid JSON file
+        manager.cache_json.write_text("invalid json {")
+
+        # Should return 0 on error
+        size = manager._load_cache_size()
+        assert size == 0
+
+    def test_ensure_space_no_entries_to_evict(self, tmp_path):
+        """Test ensure_space returns None when no entries to evict."""
+        cache_dir = tmp_path / "cache"
+        cache_dir.mkdir()
+        db = Mock()
+        db.transform = Mock()
+
+        manager = CacheManager(cache_dir, 1000, db)
+
+        # Set current size above limit but no entries in DB
+        manager._save_cache_size(1200)
+
+        # Mock empty database result
+        db.transform.find.return_value.sort.return_value = []
+
+        # Should return None when no entries to evict
+        result = manager.ensure_space(100)
+        assert result is None
+
 
 
 
