@@ -3,7 +3,6 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, Mock
-import sys
 
 from wks.vault import load_vault, ObsidianVault, VaultController
 from wks.vault.obsidian import ObsidianVault as ObsidianVaultClass
@@ -94,7 +93,7 @@ class TestLoadVault:
             }
         }
         
-        with patch("wks.vault.load_config", return_value=mock_config):
+        with patch("wks.config.load_config", return_value=mock_config):
             vault = load_vault(None)
             assert isinstance(vault, ObsidianVault)
 
