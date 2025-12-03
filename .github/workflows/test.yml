@@ -5,6 +5,7 @@ on:
     branches: [ master, main ]
   pull_request:
     branches: [ master, main ]
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   test:
@@ -30,6 +31,7 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest tests/ -v --tb=short
+        continue-on-error: false
 
       - name: Check imports
         run: |
