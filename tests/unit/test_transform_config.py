@@ -9,6 +9,7 @@ from wks.transform.config import (
 )
 
 
+@pytest.mark.unit
 class TestTransformConfigError:
     """Test TransformConfigError exception."""
 
@@ -27,6 +28,7 @@ class TestTransformConfigError:
         assert "Single error" in str(error)
 
 
+@pytest.mark.unit
 class TestTransformConfigValidation:
     """Test TransformConfig validation."""
 
@@ -93,6 +95,7 @@ class TestTransformConfigValidation:
         assert config.database == "wks.transform"
 
 
+@pytest.mark.unit
 class TestTransformConfigFromDict:
     """Test TransformConfig.from_config_dict."""
 
@@ -196,6 +199,7 @@ class TestTransformConfigFromDict:
         assert config.engines["docling"].options == {"option1": "value1"}
 
 
+@pytest.mark.unit
 class TestCacheConfigValidation:
     """Test CacheConfig validation."""
 
@@ -228,6 +232,7 @@ class TestCacheConfigValidation:
         assert "location" in str(exc_info.value).lower()
 
 
+@pytest.mark.unit
 class TestEngineConfigValidation:
     """Test EngineConfig validation."""
 

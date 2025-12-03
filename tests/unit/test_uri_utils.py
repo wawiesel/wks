@@ -5,6 +5,7 @@ import pytest
 from wks.uri_utils import convert_to_uri, path_to_uri, uri_to_path
 
 
+@pytest.mark.unit
 class TestPathToUri:
     """Test path_to_uri function."""
 
@@ -31,6 +32,7 @@ class TestPathToUri:
         assert uri.endswith("test.txt")
 
 
+@pytest.mark.unit
 class TestUriToPath:
     """Test uri_to_path function."""
 
@@ -62,6 +64,7 @@ class TestUriToPath:
         assert str(path) == path_str
 
 
+@pytest.mark.unit
 class TestConvertToUri:
     """Test convert_to_uri function."""
 

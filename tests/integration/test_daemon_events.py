@@ -2,83 +2,37 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from wks.monitor_rules import MonitorRules
 
-
-class FakeCollection:
-    def __init__(self):
-        self.docs: dict[str, dict] = {}
-        self.deleted: list[str] = []
-
-    def count_documents(self, filt, limit=None):
-        path = filt.get("path")
-        if isinstance(path, dict) and "$in" in path:
-            return sum(1 for candidate in path["$in"] if candidate in self.docs)
-        if isinstance(path, str):
-            return 1 if path in self.docs else 0
-        return len(self.docs)
-
-    def find_one(self, filt, projection=None):
-        path = filt.get("path")
-        if not isinstance(path, str):
-            return None
-        doc = self.docs.get(path)
-        if not doc:
-            return None
-        if projection:
-            return {key: doc.get(key) for key in projection if key in doc}
-        return doc
-
-    def update_one(self, filt, update, upsert=False):
-        path = filt.get("path")
-        if not isinstance(path, str):
-            return
-        doc = update.get("$set", {})
-        self.docs[path] = dict(doc)
-
-    def delete_one(self, filt):
-        path = filt.get("path")
-        if isinstance(path, str):
-            self.docs.pop(path, None)
-            self.deleted.append(path)
+# Import shared fixtures
+from tests.integration.conftest import FakeCollection, FakeVault, FakeIndexer
 
 
 def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     from wks import daemon as daemon_mod
     from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings, DisplayConfig, TransformConfig, MetricsConfig
 
-    class DummyVault:
+    monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
+    monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
+    
+    # Mock MongoGuard and other dependencies
+    class MockMongoGuard:
         def __init__(self, *args, **kwargs):
             pass
-
-        def ensure_structure(self):
+        def start(self, *args, **kwargs):
             pass
-
-        def log_file_operation(self, *args, **kwargs):
+        def stop(self):
             pass
-
-        def update_link_on_move(self, *args, **kwargs):
-            pass
-
-        def update_vault_links_on_move(self, *args, **kwargs):
-            pass
-
-        def mark_reference_deleted(self, *args, **kwargs):
-            pass
-
-    class DummyIndexer:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        @classmethod
-        def from_config(cls, vault, cfg):
-            return cls()
-
-        def sync(self):
-            pass
-
-    monkeypatch.setattr(daemon_mod, "ObsidianVault", DummyVault)
-    monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", DummyIndexer)
+    monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
+    
+    from unittest.mock import MagicMock
+    mock_broker = MagicMock()
+    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *a, **k: mock_broker)
+    monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *a, **k: MagicMock())
+    monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
+    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])
     # monkeypatch.setattr(daemon_mod.WKSDaemon, "_enforce_monitor_db_limit", lambda self: None)
 
     monitor_rules = MonitorRules(
@@ -150,6 +104,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     )
 
 
+@pytest.mark.integration
 def test_move_into_tracked_directory_records_file(monkeypatch, tmp_path):
     coll = FakeCollection()
     daemon = _build_daemon(monkeypatch, tmp_path, coll)
@@ -165,6 +120,7 @@ def test_move_into_tracked_directory_records_file(monkeypatch, tmp_path):
     assert dest.as_uri() in coll.docs
 
 
+@pytest.mark.integration
 def test_move_directory_drops_source_but_skips_destination(monkeypatch, tmp_path):
     coll = FakeCollection()
     src = tmp_path / "projects" / "results.txt"
@@ -183,6 +139,7 @@ def test_move_directory_drops_source_but_skips_destination(monkeypatch, tmp_path
     assert dest_dir.as_uri() not in coll.docs
 
 
+@pytest.mark.integration
 def test_move_tracked_file_updates_destination(monkeypatch, tmp_path):
     coll = FakeCollection()
     src = tmp_path / "reports" / "weekly.txt"
@@ -203,6 +160,7 @@ def test_move_tracked_file_updates_destination(monkeypatch, tmp_path):
     assert dest.as_uri() in coll.docs
 
 
+@pytest.mark.integration
 def test_delete_event_only_tracks_known_paths(monkeypatch, tmp_path):
     coll = FakeCollection()
     daemon = _build_daemon(monkeypatch, tmp_path, coll)
@@ -222,6 +180,7 @@ def test_delete_event_only_tracks_known_paths(monkeypatch, tmp_path):
     assert tracked.resolve().as_posix() in daemon._pending_deletes
 
 
+@pytest.mark.integration
 def test_delete_event_flush_removes_db_row(monkeypatch, tmp_path):
     coll = FakeCollection()
     tracked = tmp_path / "remove.txt"

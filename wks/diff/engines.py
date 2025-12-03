@@ -5,6 +5,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
+try:
+    import bsdiff4
+    BSDIFF4_AVAILABLE = True
+except ImportError:
+    BSDIFF4_AVAILABLE = False
+    bsdiff4 = None
+
 
 class DiffEngine(ABC):
     """Base class for diff engines."""
@@ -29,10 +36,10 @@ class DiffEngine(ABC):
 
 
 class Bsdiff3Engine(DiffEngine):
-    """Binary diff engine using bsdiff3."""
+    """Binary diff engine using bsdiff4 Python package."""
 
     def diff(self, file1: Path, file2: Path, options: dict) -> str:
-        """Compute binary diff using bsdiff3.
+        """Compute binary diff using bsdiff4.
 
         Args:
             file1: First file path
@@ -40,20 +47,45 @@ class Bsdiff3Engine(DiffEngine):
             options: Options (currently unused for binary diff)
 
         Returns:
-            Diff output (patch info)
+            Diff output (patch info or binary patch size)
 
         Raises:
-            RuntimeError: If bsdiff3 command fails
+            RuntimeError: If bsdiff4 is not available or diff operation fails
         """
-        # For now, return basic file comparison info
-        # TODO: Implement actual bsdiff3 integration
-        size1 = file1.stat().st_size
-        size2 = file2.stat().st_size
+        if not BSDIFF4_AVAILABLE:
+            raise RuntimeError(
+                "bsdiff4 package is required for binary diff. Install with: pip install bsdiff4"
+            )
 
-        if file1.read_bytes() == file2.read_bytes():
+        # Read file contents
+        try:
+            old_data = file1.read_bytes()
+            new_data = file2.read_bytes()
+        except Exception as exc:
+            raise RuntimeError(f"Failed to read files: {exc}") from exc
+
+        # Check if files are identical
+        if old_data == new_data:
             return "Files are identical (binary comparison)"
 
-        return f"Files differ:\n  {file1.name}: {size1} bytes\n  {file2.name}: {size2} bytes"
+        # Generate binary patch
+        try:
+            patch = bsdiff4.diff(old_data, new_data)
+            patch_size = len(patch)
+            
+            size1 = len(old_data)
+            size2 = len(new_data)
+            
+            # Return informative diff summary
+            return (
+                f"Binary diff (bsdiff4 patch):\n"
+                f"  {file1.name}: {size1} bytes\n"
+                f"  {file2.name}: {size2} bytes\n"
+                f"  Patch size: {patch_size} bytes\n"
+                f"  Compression ratio: {patch_size / max(size1, size2) * 100:.1f}%"
+            )
+        except Exception as exc:
+            raise RuntimeError(f"bsdiff4 diff operation failed: {exc}") from exc
 
 
 class MyersEngine(DiffEngine):

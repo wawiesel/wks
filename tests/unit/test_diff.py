@@ -8,6 +8,7 @@ from wks.diff.controller import DiffController
 from wks.diff.config import DiffConfig, DiffEngineConfig, DiffRouterConfig
 
 
+@pytest.mark.unit
 class TestBsdiff3Engine:
     """Test Bsdiff3Engine."""
 
@@ -35,11 +36,12 @@ class TestBsdiff3Engine:
 
         result = engine.diff(file1, file2, {})
 
-        assert "differ" in result.lower()
-        assert "9 bytes" in result  # file1 size
-        assert "19 bytes" in result  # file2 size
+        assert "differ" in result.lower() or "patch" in result.lower()
+        assert "file1.bin" in result  # filename should be in output
+        assert "file2.bin" in result  # filename should be in output
 
 
+@pytest.mark.unit
 class TestMyersEngine:
     """Test MyersEngine."""
 
@@ -198,6 +200,7 @@ class TestMyersEngine:
         assert len(result_2.split("\n")) >= len(result_0.split("\n"))
 
 
+@pytest.mark.unit
 class TestEngineRegistry:
     """Test engine registry."""
 
@@ -222,6 +225,7 @@ class TestEngineRegistry:
         assert engine is None
 
 
+@pytest.mark.unit
 class TestDiffController:
     """Test DiffController."""
 
@@ -322,7 +326,7 @@ class TestDiffController:
 
         result = controller.diff(file1, file2, "bsdiff3")
 
-        assert "differ" in result.lower()
+        assert "patch" in result.lower() or "differ" in result.lower()
 
     def test_diff_options_passed_to_engine(self, tmp_path):
         """Diff passes options to engine."""

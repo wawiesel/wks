@@ -90,4 +90,3 @@ test_mcp_connection.py
 
 # MCP test scripts (temporary)
 demo_*.py
-test_mcp_*.py

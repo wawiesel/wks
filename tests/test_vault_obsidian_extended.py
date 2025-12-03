@@ -176,7 +176,7 @@ class TestTimestampFormat:
 
     def test_timestamp_format_defaults_when_config_fails(self, tmp_path):
         """Test that DEFAULT_TIMESTAMP_FORMAT is used when config fails."""
-        with patch("wks.vault.obsidian.WKSConfig.load", side_effect=Exception("Config error")):
+        with patch("wks.config.WKSConfig.load", side_effect=Exception("Config error")):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
@@ -188,7 +188,7 @@ class TestTimestampFormat:
         mock_config = Mock()
         mock_config.display.timestamp_format = "%Y-%m-%d %H:%M:%S"
 
-        with patch("wks.vault.obsidian.WKSConfig.load", return_value=mock_config):
+        with patch("wks.config.WKSConfig.load", return_value=mock_config):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
@@ -200,7 +200,7 @@ class TestTimestampFormat:
         mock_config = Mock()
         mock_config.display.timestamp_format = "%Y-%m-%d"
 
-        with patch("wks.vault.obsidian.WKSConfig.load", return_value=mock_config):
+        with patch("wks.config.WKSConfig.load", return_value=mock_config):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
@@ -214,15 +214,17 @@ class TestTimestampFormat:
         mock_config = Mock()
         mock_config.display.timestamp_format = "%invalid"
 
-        with patch("wks.vault.obsidian.WKSConfig.load", return_value=mock_config):
+        with patch("wks.config.WKSConfig.load", return_value=mock_config):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
             )
             dt = datetime(2024, 1, 15, 10, 30, 45)
             formatted = vault._format_dt(dt)
-            # Should use DEFAULT_TIMESTAMP_FORMAT
-            assert formatted != "%invalid"
+            # The code should detect invalid format and fall back to DEFAULT_TIMESTAMP_FORMAT
+            from wks.constants import DEFAULT_TIMESTAMP_FORMAT
+            expected = dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
+            assert formatted == expected
             assert len(formatted) > 0
 
     def test_format_dt_handles_invalid_datetime(self, tmp_path):
@@ -232,11 +234,9 @@ class TestTimestampFormat:
             base_dir="WKS"
         )
 
-        # Pass None (invalid)
-        with patch("wks.vault.obsidian.DEFAULT_TIMESTAMP_FORMAT", "%Y-%m-%d"):
-            # This should not raise, but return a default formatted string
-            result = vault._format_dt(None)
-            # Should fall back to default format handling
+        # Pass None (invalid) - the code handles None and returns empty string
+        result = vault._format_dt(None)
+        assert result == ""
 
 
 class TestMachineNameExtraction:
