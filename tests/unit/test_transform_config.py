@@ -268,4 +268,3 @@ class TestEngineConfigValidation:
         assert config.name == "docling"
         assert config.enabled is True
         assert config.options == {"option1": "value1"}
-

@@ -53,7 +53,7 @@ Make MCP consistent with CLI for all commands through "diff" in @SPEC.md.
 - wksm_db ✓ (MCP tools and CLI wrappers implemented and tested)
 - wksm_service ✓ (service_controller tests at 100%)
 
-There should be no code that is not used by the MCP or CLI. There should be 100% code coverage in unit tests. There should be smoke tests for the MCP and CLI. 
+There should be no code that is not used by the MCP or CLI. There should be 100% code coverage in unit tests. There should be smoke tests for the MCP and CLI.
 Follow @CONTRIBUTING.md for contribution guidelines.
 Follow @.cursor/rules/important.mdc for important rules.
 
@@ -158,7 +158,7 @@ CLI arguments, MCP parameters, and config defaults must be defined in ONE place.
 Revisit all the existing test code to make it more beautiful.
 
 Tests should be simple and easy to read.
-If the tests, pass then the capability referenced in @SPEC.md has been implemented successfully. If the tests fail then the capability referenced in @SPEC.md has not been implemented successfully. There must be logical equivalence between these. 
+If the tests, pass then the capability referenced in @SPEC.md has been implemented successfully. If the tests fail then the capability referenced in @SPEC.md has not been implemented successfully. There must be logical equivalence between these.
 Do this only for the commands that are implemented, i.e. not index, search, or patterns.
 
 ## Priority 3

@@ -24,4 +24,3 @@ def test_get_engine_unknown():
     engine = get_engine("unknown")
 
     assert engine is None
-

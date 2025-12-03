@@ -24,7 +24,7 @@ class Message:
     type: MessageType
     text: str
     details: Optional[str] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         result = {
@@ -40,10 +40,10 @@ class Message:
 class MCPResult:
     """
     Structured result from an MCP tool.
-    
+
     MCP is the source of truth for all errors, warnings, and messages.
     CLI consumes this structure and formats/displays appropriately.
-    
+
     Attributes:
         success: Whether the operation succeeded
         data: The actual result data (dict)
@@ -54,28 +54,28 @@ class MCPResult:
     data: Dict[str, Any]
     messages: List[Message] = field(default_factory=list)
     log: List[str] = field(default_factory=list)
-    
+
     def add_error(self, text: str, details: Optional[str] = None) -> None:
         """Add an error message."""
         self.success = False
         self.messages.append(Message(MessageType.ERROR, text, details))
-    
+
     def add_warning(self, text: str, details: Optional[str] = None) -> None:
         """Add a warning message."""
         self.messages.append(Message(MessageType.WARNING, text, details))
-    
+
     def add_info(self, text: str, details: Optional[str] = None) -> None:
         """Add an info message."""
         self.messages.append(Message(MessageType.INFO, text, details))
-    
+
     def add_status(self, text: str, details: Optional[str] = None) -> None:
         """Add a status message."""
         self.messages.append(Message(MessageType.STATUS, text, details))
-    
+
     def add_success(self, text: str, details: Optional[str] = None) -> None:
         """Add a success message."""
         self.messages.append(Message(MessageType.SUCCESS, text, details))
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {
@@ -86,7 +86,7 @@ class MCPResult:
         if self.log:
             result["log"] = self.log
         return result
-    
+
     @classmethod
     def success_result(cls, data: Dict[str, Any], message: Optional[str] = None) -> "MCPResult":
         """Create a successful result."""
@@ -94,11 +94,10 @@ class MCPResult:
         if message:
             result.add_success(message)
         return result
-    
+
     @classmethod
     def error_result(cls, error_text: str, details: Optional[str] = None, data: Optional[Dict[str, Any]] = None) -> "MCPResult":
         """Create an error result."""
         result = cls(success=False, data=data or {})
         result.add_error(error_text, details)
         return result
-

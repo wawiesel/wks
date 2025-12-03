@@ -156,7 +156,7 @@ def daemon_config(tmp_path):
         database="wks.transform"
     )
     metrics_cfg = MetricsConfig()
-    
+
     return WKSConfig(
         monitor=monitor_cfg,
         vault=vault_cfg,

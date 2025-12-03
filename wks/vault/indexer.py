@@ -484,7 +484,7 @@ class VaultLinkIndexer:
         mongo_uri = config.mongo.uri
         db_name = config.vault.database.split(".")[0]
         coll_name = config.vault.database.split(".")[1]
-            
+
         return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
 
     def _batch_records(self, records: List[VaultEdgeRecord], batch_size: int) -> Iterator[List[VaultEdgeRecord]]:

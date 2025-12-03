@@ -213,9 +213,9 @@ class TestMonitorController(unittest.TestCase):
     def test_get_list_include_paths(self):
         """Test get_list for include_paths."""
         config = build_config(include_paths=["~/Documents", "~/Projects"])
-        
+
         result = MonitorController.get_list(config, "include_paths")
-        
+
         self.assertEqual(result["list_name"], "include_paths")
         self.assertEqual(result["count"], 2)
         self.assertEqual(set(result["items"]), {"~/Documents", "~/Projects"})
@@ -223,10 +223,10 @@ class TestMonitorController(unittest.TestCase):
     def test_get_list_unknown_list_name(self):
         """Test get_list raises ValueError for unknown list_name."""
         config = build_config()
-        
+
         with self.assertRaises(ValueError) as cm:
             MonitorController.get_list(config, "unknown_list")
-        
+
         self.assertIn("Unknown list_name", str(cm.exception))
 
     def test_get_list_with_dirname_validation(self):
@@ -235,9 +235,9 @@ class TestMonitorController(unittest.TestCase):
             include_dirnames=["node_modules", "invalid/.dirname"],
             include_globs=["**/node_modules/**"]
         )
-        
+
         result = MonitorController.get_list(config, "include_dirnames")
-        
+
         self.assertEqual(result["list_name"], "include_dirnames")
         self.assertIn("validation", result)
         self.assertIsInstance(result["validation"], dict)
@@ -245,9 +245,9 @@ class TestMonitorController(unittest.TestCase):
     def test_get_list_with_glob_validation(self):
         """Test get_list includes validation for glob lists."""
         config = build_config(exclude_globs=["*.tmp", "[invalid"])
-        
+
         result = MonitorController.get_list(config, "exclude_globs")
-        
+
         self.assertEqual(result["list_name"], "exclude_globs")
         self.assertIn("validation", result)
         self.assertIsInstance(result["validation"], dict)
@@ -257,9 +257,9 @@ class TestMonitorController(unittest.TestCase):
         config = build_config(
             managed_directories={"~/Documents": 100, "~/Projects": 200}
         )
-        
+
         result = MonitorController.get_managed_directories(config)
-        
+
         self.assertEqual(result.count, 2)
         self.assertIn("~/Documents", result.managed_directories)
         self.assertIn("~/Projects", result.managed_directories)
@@ -269,9 +269,9 @@ class TestMonitorController(unittest.TestCase):
     def test_get_managed_directories_empty(self):
         """Test get_managed_directories with no managed directories."""
         config = build_config(managed_directories={})
-        
+
         result = MonitorController.get_managed_directories(config)
-        
+
         self.assertEqual(result.count, 0)
         self.assertEqual(len(result.managed_directories), 0)
 

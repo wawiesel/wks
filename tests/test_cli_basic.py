@@ -72,7 +72,7 @@ def test_cli_transform_success(mock_call, tmp_path):
     test_file = tmp_path / "test.pdf"
     test_file.write_bytes(b"PDF content")
     mock_call.return_value = {"success": True, "data": {"checksum": "abc123"}, "messages": []}
-    
+
     rc, out, err = run_cli(["transform", "docling", str(test_file)])
     assert rc == 0
     assert "abc123" in out
@@ -85,7 +85,7 @@ def test_cli_transform_error(mock_call, tmp_path):
     test_file = tmp_path / "test.pdf"
     test_file.write_bytes(b"PDF content")
     mock_call.return_value = {"success": False, "messages": [{"type": "error", "text": "Transform failed"}]}
-    
+
     rc, out, err = run_cli(["transform", "docling", str(test_file)])
     assert rc == 1
     assert "error:" in err.lower() or "Transform failed" in err
@@ -179,7 +179,7 @@ def test_cli_monitor_validate_no_issues(mock_call):
 def test_cli_monitor_list_operations(mock_call):
     """Test wksc monitor list operations."""
     mock_call.return_value = {"success": True, "data": {"items": []}, "messages": []}
-    
+
     for list_name in ["include_paths", "exclude_paths", "include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"]:
         rc, out, err = run_cli(["monitor", list_name, "list"])
         assert rc == 0
@@ -309,7 +309,7 @@ def test_cli_out_with_string(mock_call):
     """Test _out function with non-dict (string) output."""
     from wks.cli import _out
     from wks.display.cli import CLIDisplay
-    
+
     out_buf = io.StringIO()
     with redirect_stdout(out_buf):
         _out("plain string", CLIDisplay())
@@ -320,7 +320,7 @@ def test_cli_out_with_string(mock_call):
 def test_cli_err_with_error_messages(mock_call):
     """Test _err function with error messages."""
     from wks.cli import _err
-    
+
     err_buf = io.StringIO()
     result = {
         "success": False,
@@ -329,10 +329,10 @@ def test_cli_err_with_error_messages(mock_call):
             {"type": "warning", "text": "Warning message"}
         ]
     }
-    
+
     with redirect_stderr(err_buf):
         rc = _err(result)
-    
+
     assert rc == 1
     err_output = err_buf.getvalue()
     assert "error:" in err_output.lower()
@@ -343,7 +343,7 @@ def test_cli_err_with_error_messages(mock_call):
 def test_cli_keyboard_interrupt(mock_call):
     """Test CLI handles KeyboardInterrupt."""
     mock_call.side_effect = KeyboardInterrupt()
-    
+
     # Use a real command that will trigger _call
     rc, out, err = run_cli(["config"])
     assert rc == 130
@@ -353,11 +353,11 @@ def test_cli_keyboard_interrupt(mock_call):
 def test_cli_exception_handling(mock_call):
     """Test CLI handles general exceptions."""
     mock_call.side_effect = ValueError("Test error")
-    
+
     err_buf = io.StringIO()
     with redirect_stderr(err_buf):
         rc, out, err = run_cli(["config"])
-    
+
     assert rc == 1
     assert "Error:" in err
 
@@ -366,7 +366,7 @@ def test_cli_exception_handling(mock_call):
 def test_cli_version_with_git_sha(mock_check_output):
     """Test --version flag includes git SHA when available."""
     mock_check_output.return_value = b"abc123\n"
-    
+
     rc, out, _ = run_cli(['--version'])
     assert rc == 0
     # Should contain version and git SHA
@@ -378,7 +378,7 @@ def test_cli_version_with_git_sha(mock_check_output):
 def test_cli_version_without_git_sha(mock_check_output):
     """Test --version flag handles git exception gracefully."""
     mock_check_output.side_effect = Exception("git not available")
-    
+
     rc, out, _ = run_cli(['--version'])
     assert rc == 0
     # Should still show version without git SHA
@@ -391,7 +391,7 @@ def test_cli_mcp_run_with_proxy(mock_socket_path, mock_proxy, tmp_path):
     """Test wksc mcp run with proxy (not --direct)."""
     mock_socket_path.return_value = tmp_path / "socket"
     mock_proxy.return_value = True  # Proxy succeeds
-    
+
     rc, out, err = run_cli(["mcp", "run"])
     assert rc == 0
     mock_proxy.assert_called_once()
@@ -402,7 +402,7 @@ def test_cli_mcp_run_with_proxy(mock_socket_path, mock_proxy, tmp_path):
 def test_cli_mcp_run_direct(mock_mcp_main, mock_proxy):
     """Test wksc mcp run --direct bypasses proxy."""
     mock_proxy.return_value = False
-    
+
     rc, out, err = run_cli(["mcp", "run", "--direct"])
     assert rc == 0
     mock_mcp_main.assert_called_once()
@@ -415,11 +415,11 @@ def test_cli_mcp_install(mock_install):
     """Test wksc mcp install command."""
     from wks.mcp_setup import InstallResult
     from pathlib import Path
-    
+
     mock_install.return_value = [
         InstallResult("cursor", Path("/path/to/cursor"), "created", "Registered MCP server")
     ]
-    
+
     rc, out, err = run_cli(["mcp", "install", "--client", "cursor"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor"], command_override=None)
@@ -431,11 +431,11 @@ def test_cli_mcp_install_with_command_path(mock_install):
     """Test wksc mcp install with --command-path."""
     from wks.mcp_setup import InstallResult
     from pathlib import Path
-    
+
     mock_install.return_value = [
         InstallResult("cursor", Path("/path/to/cursor"), "updated", "Updated MCP server entry")
     ]
-    
+
     rc, out, err = run_cli(["mcp", "install", "--client", "cursor", "--command-path", "/custom/path"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor"], command_override="/custom/path")
@@ -446,12 +446,12 @@ def test_cli_mcp_install_multiple_clients(mock_install):
     """Test wksc mcp install with multiple clients."""
     from wks.mcp_setup import InstallResult
     from pathlib import Path
-    
+
     mock_install.return_value = [
         InstallResult("cursor", Path("/path/to/cursor"), "created", ""),
         InstallResult("claude", Path("/path/to/claude"), "updated", "")
     ]
-    
+
     rc, out, err = run_cli(["mcp", "install", "--client", "cursor", "--client", "claude"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor", "claude"], command_override=None)

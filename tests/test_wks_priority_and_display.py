@@ -47,7 +47,7 @@ class TestDisplayInfrastructure:
         monkeypatch.delenv("MCP_MODE", raising=False)
         monkeypatch.delenv("MCP_SERVER", raising=False)
         monkeypatch.setenv("TERM", "xterm")
-        
+
         display = get_display()
         assert isinstance(display, CLIDisplay)
 
@@ -55,7 +55,7 @@ class TestDisplayInfrastructure:
         """Test get_display auto-detects MCP context."""
         # Set MCP environment
         monkeypatch.setenv("MCP_MODE", "1")
-        
+
         display = get_display()
         assert isinstance(display, MCPDisplay)
 
@@ -67,14 +67,14 @@ class TestDisplayInfrastructure:
     def test_is_mcp_context_env_var_mcp_mode(self, monkeypatch):
         """Test is_mcp_context detects MCP_MODE env var."""
         monkeypatch.setenv("MCP_MODE", "1")
-        
+
         assert is_mcp_context() is True
 
     def test_is_mcp_context_env_var_mcp_server(self, monkeypatch):
         """Test is_mcp_context detects MCP_SERVER env var."""
         monkeypatch.setenv("MCP_SERVER", "true")
         monkeypatch.delenv("MCP_MODE", raising=False)
-        
+
         assert is_mcp_context() is True
 
     def test_is_mcp_context_no_term(self, monkeypatch):
@@ -82,15 +82,15 @@ class TestDisplayInfrastructure:
         monkeypatch.delenv("MCP_MODE", raising=False)
         monkeypatch.delenv("MCP_SERVER", raising=False)
         monkeypatch.delenv("TERM", raising=False)
-        
+
         # Mock stdout.isatty to return False
         import sys
         original_isatty = sys.stdout.isatty
-        
+
         def mock_isatty():
             return False
         sys.stdout.isatty = mock_isatty
-        
+
         try:
             result = is_mcp_context()
             assert result is True
@@ -102,16 +102,16 @@ class TestDisplayInfrastructure:
         monkeypatch.delenv("MCP_MODE", raising=False)
         monkeypatch.delenv("MCP_SERVER", raising=False)
         monkeypatch.setenv("TERM", "xterm")
-        
+
         assert is_mcp_context() is False
 
     def test_add_display_argument(self):
         """Test add_display_argument adds --display arg."""
         import argparse
-        
+
         parser = argparse.ArgumentParser()
         add_display_argument(parser)
-        
+
         # Parse with --display
         args = parser.parse_args(["--display", "mcp"])
         assert args.display == "mcp"
@@ -190,5 +190,3 @@ class TestPriorityCalculation:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-

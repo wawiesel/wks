@@ -7,12 +7,12 @@ class TestTransformConfig:
         # Valid
         c = CacheConfig(location=".wks/cache", max_size_bytes=100)
         assert c.location == ".wks/cache"
-        
+
         # Invalid location
         with pytest.raises(TransformConfigError) as exc:
             CacheConfig(location="", max_size_bytes=100)
         assert "location must be a non-empty string" in str(exc.value)
-        
+
         # Invalid size
         with pytest.raises(TransformConfigError) as exc:
             CacheConfig(location="loc", max_size_bytes=0)
@@ -22,15 +22,15 @@ class TestTransformConfig:
         # Valid
         e = EngineConfig(name="test", enabled=True, options={})
         assert e.name == "test"
-        
+
         # Invalid name
         with pytest.raises(TransformConfigError):
             EngineConfig(name="", enabled=True, options={})
-            
+
         # Invalid enabled
         with pytest.raises(TransformConfigError):
             EngineConfig(name="test", enabled="yes", options={})
-            
+
         # Invalid options
         with pytest.raises(TransformConfigError):
             EngineConfig(name="test", enabled=True, options="opts")
@@ -53,7 +53,7 @@ class TestTransformConfig:
         # Missing transform section
         with pytest.raises(TransformConfigError):
             TransformConfig.from_config_dict({})
-            
+
         # Invalid engine dict
         cfg["transform"]["engines"]["docling"] = "not a dict"
         with pytest.raises(TransformConfigError):
@@ -70,7 +70,7 @@ class TestVaultConfig:
             database="wks.vault"
         )
         assert v.vault_type == "obsidian"
-        
+
         # Invalid type
         with pytest.raises(VaultConfigError) as exc:
             VaultConfig(
@@ -81,7 +81,7 @@ class TestVaultConfig:
                 database="wks.vault"
             )
         assert "vault.type must be 'obsidian'" in str(exc.value)
-        
+
         # Invalid database format
         with pytest.raises(VaultConfigError) as exc:
             VaultConfig(
@@ -105,7 +105,7 @@ class TestVaultConfig:
         assert vc.base_dir == "/tmp/vault"
         assert vc.database == "db.coll"
         assert vc.vault_type == "obsidian" # default
-        
+
         # Missing vault section
         with pytest.raises(VaultConfigError):
             VaultConfig.from_config_dict({})

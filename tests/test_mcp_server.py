@@ -46,7 +46,7 @@ class TestMCPServer:
     def test_initialize(self, mcp_server):
         """Test initialize request."""
         server, input_stream, output_stream = mcp_server
-        
+
         # Prepare request
         request = {
             "jsonrpc": "2.0",
@@ -56,35 +56,35 @@ class TestMCPServer:
         }
         input_stream.write(json.dumps(request) + "\n")
         input_stream.seek(0)
-        
+
         # Run one iteration
         with patch.object(server, '_read_message', side_effect=[request, None]):
             server.run()
-            
+
         # Check response
         output = output_stream.getvalue()
         response = json.loads(output)
-        
+
         assert response["id"] == 1
         assert response["result"]["serverInfo"]["name"] == "wks-mcp-server"
 
     def test_list_tools(self, mcp_server):
         """Test tools/list request."""
         server, input_stream, output_stream = mcp_server
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "tools/list",
             "params": {}
         }
-        
+
         with patch.object(server, '_read_message', side_effect=[request, None]):
             server.run()
-            
+
         output = output_stream.getvalue()
         response = json.loads(output)
-        
+
         assert response["id"] == 2
         tools = response["result"]["tools"]
         assert len(tools) > 0
@@ -96,11 +96,11 @@ class TestMCPServer:
         """Test calling wksm_monitor_status tool."""
         server, input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
-        
+
         mock_status = MagicMock()
         mock_status.to_dict.return_value = {"tracked_files": 100}
         mock_controller.get_status.return_value = mock_status
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": 3,
@@ -110,13 +110,13 @@ class TestMCPServer:
                 "arguments": {}
             }
         }
-        
+
         with patch.object(server, '_read_message', side_effect=[request, None]):
             server.run()
-            
+
         output = output_stream.getvalue()
         response = json.loads(output)
-        
+
         assert response["id"] == 3
         content = json.loads(response["result"]["content"][0]["text"])
         assert content["tracked_files"] == 100
@@ -127,9 +127,9 @@ class TestMCPServer:
         """Test calling wksm_monitor_check tool."""
         server, input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
-        
+
         mock_controller.check_path.return_value = {"is_monitored": True}
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": 4,
@@ -139,13 +139,13 @@ class TestMCPServer:
                 "arguments": {"path": "/tmp/test.txt"}
             }
         }
-        
+
         with patch.object(server, '_read_message', side_effect=[request, None]):
             server.run()
-            
+
         output = output_stream.getvalue()
         response = json.loads(output)
-        
+
         assert response["id"] == 4
         content = json.loads(response["result"]["content"][0]["text"])
         assert content["is_monitored"] is True
@@ -153,7 +153,7 @@ class TestMCPServer:
     def test_call_unknown_tool(self, mcp_server):
         """Test calling unknown tool."""
         server, input_stream, output_stream = mcp_server
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": 5,
@@ -163,13 +163,13 @@ class TestMCPServer:
                 "arguments": {}
             }
         }
-        
+
         with patch.object(server, '_read_message', side_effect=[request, None]):
             server.run()
-            
+
         output = output_stream.getvalue()
         response = json.loads(output)
-        
+
         assert response["id"] == 5
         assert "error" in response
         assert response["error"]["code"] == -32601
@@ -180,7 +180,7 @@ class TestMCPServer:
         """Test calling tool with missing params."""
         server, input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": 6,
@@ -190,13 +190,13 @@ class TestMCPServer:
                 "arguments": {}  # Missing 'path'
             }
         }
-        
+
         with patch.object(server, '_read_message', side_effect=[request, None]):
             server.run()
-            
+
         output = output_stream.getvalue()
         response = json.loads(output)
-        
+
         assert response["id"] == 6
         assert "error" in response
         assert "Missing required parameters" in response["error"]["message"]
@@ -204,19 +204,19 @@ class TestMCPServer:
     def test_lsp_mode_framing(self, mcp_server):
         """Test LSP-style Content-Length framing."""
         server, input_stream, output_stream = mcp_server
-        
+
         payload = json.dumps({
             "jsonrpc": "2.0",
             "id": 7,
             "method": "ping"
         })
         message = f"Content-Length: {len(payload)}\r\n\r\n{payload}"
-        
+
         input_stream.write(message)
         input_stream.seek(0)
-        
+
         server.run()
-        
+
         output = output_stream.getvalue()
         # Response should also be framed
         assert "Content-Length:" in output

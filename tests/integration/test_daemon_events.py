@@ -16,7 +16,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
 
     monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
     monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
-    
+
     # Mock MongoGuard and other dependencies
     class MockMongoGuard:
         def __init__(self, *args, **kwargs):
@@ -26,7 +26,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         def stop(self):
             pass
     monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
-    
+
     from unittest.mock import MagicMock
     mock_broker = MagicMock()
     monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *a, **k: mock_broker)
@@ -84,7 +84,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         database="wks.transform"
     )
     metrics_cfg = MetricsConfig()
-    
+
     wks_config = WKSConfig(
         monitor=monitor_cfg,
         vault=vault_cfg,

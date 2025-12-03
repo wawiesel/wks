@@ -22,15 +22,15 @@ def mcp_process(tmp_path_factory):
     env_dir = tmp_path_factory.mktemp("mcp_env")
     home_dir = env_dir / "home"
     home_dir.mkdir()
-    
+
     # Set HOME to the temp dir to isolate config
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
-    
+
     # Add project root to PYTHONPATH
     project_root = str(Path(__file__).parents[2])
     env["PYTHONPATH"] = project_root
-    
+
     # Create config in current WKSConfig / DiffConfig format
     (home_dir / ".wks").mkdir()
     config = {
@@ -76,7 +76,7 @@ def mcp_process(tmp_path_factory):
         },
     }
     (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
-    
+
     # Start process
     process = subprocess.Popen(
         WKS_CMD,
@@ -87,9 +87,9 @@ def mcp_process(tmp_path_factory):
         text=True,
         bufsize=0 # Unbuffered
     )
-    
+
     yield process
-    
+
     process.terminate()
     process.wait()
 
@@ -101,16 +101,16 @@ def send_request(process, method, params=None, req_id=1):
         "method": method,
         "params": params or {}
     }
-    
+
     # Write request
     process.stdin.write(json.dumps(request) + "\n")
     process.stdin.flush()
-    
+
     # Read response
     line = process.stdout.readline()
     if not line:
         return None
-    
+
     return json.loads(line)
 
 def test_mcp_initialize(mcp_process):
@@ -130,7 +130,7 @@ def test_mcp_call_monitor_status(mcp_process):
         "name": "wksm_monitor_status",
         "arguments": {}
     }, req_id=3)
-    
+
     content = json.loads(response["result"]["content"][0]["text"])
     assert "tracked_files" in content
 
@@ -140,6 +140,6 @@ def test_mcp_call_monitor_check(mcp_process):
         "name": "wksm_monitor_check",
         "arguments": {"path": "/tmp"}
     }, req_id=4)
-    
+
     content = json.loads(response["result"]["content"][0]["text"])
     assert "is_monitored" in content

@@ -317,7 +317,7 @@ class TestTransformController:
         mock_engine = Mock()
         mock_engine.compute_options_hash.return_value = "optshash"
         mock_engine.get_extension.return_value = "md"
-        
+
         def transform_side_effect(input_path, output_path_internal, options):
             output_path_internal.write_text("Transformed content")
         mock_engine.transform.side_effect = transform_side_effect
@@ -350,7 +350,7 @@ class TestTransformController:
         mock_engine = Mock()
         mock_engine.compute_options_hash.return_value = "optshash"
         mock_engine.get_extension.return_value = "md"
-        
+
         def transform_side_effect(input_path, output_path_internal, options):
             output_path_internal.write_text("Transformed content")
         mock_engine.transform.side_effect = transform_side_effect
@@ -527,7 +527,7 @@ class TestTransformController:
             mock_engine = Mock()
             mock_engine.compute_options_hash.return_value = "optshash"
             mock_engine.get_extension.return_value = "md"
-            
+
             def transform_side_effect(input_path, output_path_internal, options):
                 output_path_internal.write_text("Transformed: Original content")
             mock_engine.transform.side_effect = transform_side_effect
@@ -608,7 +608,7 @@ class TestTransformController:
         mock_engine = Mock()
         mock_engine.compute_options_hash.return_value = "def456"
         mock_engine.get_extension.return_value = "md"
-        
+
         def transform_side_effect(input_path, output_path_internal, options):
             output_path_internal.write_text("Transformed content")
         mock_engine.transform.side_effect = transform_side_effect
@@ -617,7 +617,7 @@ class TestTransformController:
         # Should still work - will transform since cache file missing
         db.transform.find.return_value = []  # Treat as not cached
         db.transform.insert_one = Mock()
-        
+
         cache_key = controller.transform(test_file, "test")
 
         assert cache_key is not None
@@ -665,12 +665,12 @@ class TestTransformController:
 
         with patch("wks.utils.expand_path") as mock_expand:
             mock_expand.side_effect = Exception("expand failed")
-            
+
             with patch("wks.transform.controller.get_engine") as mock_get_engine:
                 mock_engine = Mock()
                 mock_engine.compute_options_hash.return_value = "optshash"
                 mock_engine.get_extension.return_value = "md"
-                
+
                 def transform_side_effect(input_path, output_path_internal, options):
                     output_path_internal.write_text("Transformed: Original content")
                 mock_engine.transform.side_effect = transform_side_effect
@@ -724,7 +724,7 @@ class TestTransformController:
         file_checksum = "file_checksum_123"
         engine = "test"
         options_hash = "opts_hash_456"
-        
+
         # Compute what the cache key should be
         controller = TransformController(db, cache_dir, 1024)
         expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
@@ -760,7 +760,7 @@ class TestTransformController:
         file_checksum = "file_checksum_123"
         engine = "test"
         options_hash = "opts_hash_456"
-        
+
         controller = TransformController(db, cache_dir, 1024)
         expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
 
@@ -796,7 +796,7 @@ class TestTransformController:
         file_checksum = "file_checksum_123"
         engine = "test"
         options_hash = "opts_hash_456"
-        
+
         controller = TransformController(db, cache_dir, 1024)
         expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
 
@@ -804,7 +804,7 @@ class TestTransformController:
         cache_file.write_text("Cached content")
 
         output_path = tmp_path / "output" / "result.md"
-        
+
         db.transform.find.return_value = [{
             "checksum": file_checksum,
             "engine": engine,
@@ -834,7 +834,7 @@ class TestTransformController:
         file_checksum = "file_checksum_123"
         engine = "test"
         options_hash = "opts_hash_456"
-        
+
         controller = TransformController(db, cache_dir, 1024)
         expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
 
@@ -843,7 +843,7 @@ class TestTransformController:
 
         output_path = tmp_path / "output.md"
         output_path.write_text("Existing content")
-        
+
         db.transform.find.return_value = [{
             "checksum": file_checksum,
             "engine": engine,
@@ -871,7 +871,7 @@ class TestTransformController:
         cache_dir.mkdir()
 
         checksum = "a" * 64
-        
+
         db.transform.find.return_value = [{
             "checksum": "different_checksum",
             "engine": "test",
@@ -891,11 +891,11 @@ class TestTransformController:
 
         cache_dir = tmp_path / "cache"
         cache_dir.mkdir()
-        
+
         file_checksum = "file_checksum_123"
         engine = "test"
         options_hash = "opts_hash_456"
-        
+
         controller = TransformController(db, cache_dir, 1024)
         expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
 
@@ -913,4 +913,3 @@ class TestTransformController:
 
         with pytest.raises(ValueError, match="Cache file not found"):
             controller.get_content(expected_cache_key)
-

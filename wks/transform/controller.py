@@ -259,7 +259,7 @@ class TransformController:
         # Check if target is a checksum
         if re.match(r'^[a-f0-9]{64}$', target):
             cache_key = target
-            
+
             # First, prefer the cache directory as the source of truth.
             candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
             cache_file: Optional[Path] = candidates[0] if candidates else None
@@ -279,7 +279,7 @@ class TransformController:
             # Fallback: resolve via database metadata to support older entries.
             records = list(self.db.transform.find())
             matching_record = None
-            
+
             for doc in records:
                 record_checksum = doc["checksum"]
                 record_engine = doc["engine"]
@@ -290,22 +290,22 @@ class TransformController:
                 if computed_key == cache_key:
                     matching_record = TransformRecord.from_dict(doc)
                     break
-            
+
             if not matching_record:
                 raise ValueError(f"Cache entry not found: {cache_key}")
-            
+
             # Reconstruct cache file path in current cache directory using stored extension
             # This avoids using old absolute paths from previous test runs
             stored_path = Path(matching_record.cache_location)
             extension = stored_path.suffix.lstrip('.') or 'md'  # Default to .md if no extension
             cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
-            
+
             # If file doesn't exist, try globbing one more time (in case extension differs)
             if not cache_file.exists():
                 candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
                 if candidates:
                     cache_file = candidates[0]
-            
+
             if not cache_file.exists():
                 raise ValueError(f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}")
 
@@ -314,7 +314,7 @@ class TransformController:
                 matching_record.engine,
                 matching_record.options_hash,
             )
-            
+
             if output_path:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 try:
@@ -324,16 +324,16 @@ class TransformController:
                     os.link(cache_file, output_path)
                 except (OSError, AttributeError):
                     output_path.write_bytes(cache_file.read_bytes())
-            
+
             return cache_file.read_text(encoding="utf-8")
-            
+
         else:
             # Target is a file path
             # We need to expand user if it's a path string, but here we expect absolute path or handle it
-            # The controller usually expects Path objects or absolute strings. 
-            # Let's assume the caller handles expansion if it's a CLI arg, 
+            # The controller usually expects Path objects or absolute strings.
+            # Let's assume the caller handles expansion if it's a CLI arg,
             # but for robustness we can try to expand if it looks like a path.
-            
+
             # However, in MCP context, paths should be absolute.
             # In CLI context, they are expanded before calling.
             # But let's be safe.
@@ -342,13 +342,13 @@ class TransformController:
                 file_path = expand_path(target)
             except Exception:
                 file_path = Path(target).resolve()
-            
+
             if not file_path.exists():
                 raise ValueError(f"File not found: {file_path}")
-                
+
             # Transform it (using default engine/options for now)
             # This ensures we have the content in cache
             cache_key = self.transform(file_path, self.default_engine, {})
-            
+
             # Now recurse to get the content from cache
             return self.get_content(cache_key, output_path)

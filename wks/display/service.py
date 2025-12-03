@@ -12,11 +12,11 @@ if TYPE_CHECKING:
 
 def fmt_bool(value: Optional[bool], color: bool = False) -> str:
     """Format a boolean for display.
-    
+
     Args:
         value: Boolean value or None
         color: If True, wrap in Rich color markup
-    
+
     Returns:
         Formatted string: "true", "false", or "-" for None
     """
@@ -29,11 +29,11 @@ def fmt_bool(value: Optional[bool], color: bool = False) -> str:
 
 def format_timestamp(value: Optional[Any], fmt: str) -> str:
     """Format a timestamp value for display.
-    
+
     Args:
         value: Timestamp string (ISO format) or None
         fmt: strftime format string
-    
+
     Returns:
         Formatted timestamp or original text on parse failure
     """
@@ -42,9 +42,9 @@ def format_timestamp(value: Optional[Any], fmt: str) -> str:
     text = str(value).strip()
     if not text:
         return ""
-    
+
     from datetime import datetime
-    
+
     # Try ISO format parsing
     try:
         s = text
@@ -59,21 +59,21 @@ def format_timestamp(value: Optional[Any], fmt: str) -> str:
             dt = datetime.fromisoformat(fallback)
         except Exception:
             return text
-    
+
     return dt.strftime(fmt)
 
 
 def build_status_rows(status: "ServiceStatusData") -> List[Tuple[str, str]]:
     """Build display rows from ServiceStatusData dataclass.
-    
+
     Args:
         status: ServiceStatusData dataclass instance
-    
+
     Returns:
         List of (label, value) tuples for table display
     """
     rows: List[Tuple[str, str]] = []
-    
+
     # Health section
     rows.append(("[bold cyan]Health[/bold cyan]", ""))
     rows.append(("  Running", fmt_bool(status.running, color=True)))
@@ -81,16 +81,16 @@ def build_status_rows(status: "ServiceStatusData") -> List[Tuple[str, str]]:
     rows.append(("  PID", str(status.pid) if status.pid is not None else "-"))
     rows.append(("  OK", fmt_bool(status.ok, color=True)))
     rows.append(("  Lock", fmt_bool(status.lock, color=True)))
-    
+
     # Launch type from launch agent or default
     launch_type = status.launch.type if status.launch.present() else "LaunchAgent"
     rows.append(("  Type", launch_type or "LaunchAgent"))
-    
+
     # File System section
     rows.append(("[bold cyan]File System[/bold cyan]", ""))
     rows.append(("  Pending deletes", str(status.pending_deletes) if status.pending_deletes is not None else "-"))
     rows.append(("  Pending mods", str(status.pending_mods) if status.pending_mods is not None else "-"))
-    
+
     if status.fs_rate_weighted is not None:
         rows.append(("  Ops (last min)", str(int(status.fs_rate_weighted * 60))))
     if status.fs_rate_short is not None:
@@ -99,7 +99,7 @@ def build_status_rows(status: "ServiceStatusData") -> List[Tuple[str, str]]:
         rows.append(("  Ops/sec (10m)", f"{status.fs_rate_long:.2f}"))
     if status.fs_rate_weighted is not None:
         rows.append(("  Ops/sec (weighted)", f"{status.fs_rate_weighted:.2f}"))
-    
+
     # Launch section (only if present)
     if status.launch.present():
         rows.append(("[bold cyan]Launch[/bold cyan]", ""))
@@ -108,6 +108,5 @@ def build_status_rows(status: "ServiceStatusData") -> List[Tuple[str, str]]:
         rows.append(("  Stderr", status.launch.stderr or "-"))
         rows.append(("  Path", status.launch.path or "-"))
         rows.append(("  Type", status.launch.type or "-"))
-    
-    return rows
 
+    return rows

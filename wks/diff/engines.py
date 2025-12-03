@@ -72,10 +72,10 @@ class Bsdiff3Engine(DiffEngine):
         try:
             patch = bsdiff4.diff(old_data, new_data)
             patch_size = len(patch)
-            
+
             size1 = len(old_data)
             size2 = len(new_data)
-            
+
             # Return informative diff summary
             return (
                 f"Binary diff (bsdiff4 patch):\n"

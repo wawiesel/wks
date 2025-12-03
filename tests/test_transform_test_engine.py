@@ -46,4 +46,3 @@ class TestTestEngine:
         assert content.startswith("Transformed: ")
         assert "Original content" in content
         assert "With multiple lines" in content
-

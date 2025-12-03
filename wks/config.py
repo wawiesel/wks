@@ -114,7 +114,7 @@ class WKSConfig:
             diff = DiffConfig.from_config_dict(raw) if "diff" in raw else None
             transform = TransformConfig.from_config_dict(raw)
             display = DisplayConfig.from_config(raw)
-            
+
             return cls(
                 vault=vault,
                 monitor=monitor,
@@ -139,7 +139,7 @@ def get_config_path() -> Path:
 
 def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     """Compatibility wrapper returning a dict-shaped config for legacy callers.
-    
+
     New code should prefer WKSConfig.load() and dataclasses directly. This
     function exists so older modules (MCP tools, vault helpers, etc.) that
     still expect a plain dict can continue to operate without duplicating

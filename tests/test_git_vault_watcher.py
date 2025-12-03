@@ -16,7 +16,7 @@ class TestGetChanges:
         """Create a temporary git repository."""
         repo_path = tmp_path / "vault"
         repo_path.mkdir()
-        
+
         # Initialize git repo
         subprocess.run(
             ["git", "init"],
@@ -45,13 +45,13 @@ class TestGetChanges:
         test_file.write_text("original")
         subprocess.run(["git", "add", "note.md"], cwd=git_repo, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=git_repo, capture_output=True)
-        
+
         # Modify the file
         test_file.write_text("modified")
-        
+
         watcher = GitVaultWatcher(git_repo)
         changes = watcher.get_changes()
-        
+
         assert changes.has_changes
         assert len(changes.modified) == 1
         assert any(p.name == "note.md" for p in changes.modified)
@@ -60,10 +60,10 @@ class TestGetChanges:
         """Test get_changes() detects new untracked markdown files."""
         new_file = git_repo / "new.md"
         new_file.write_text("new content")
-        
+
         watcher = GitVaultWatcher(git_repo)
         changes = watcher.get_changes()
-        
+
         assert changes.has_changes
         assert len(changes.added) == 1
         assert any(p.name == "new.md" for p in changes.added)
@@ -75,14 +75,14 @@ class TestGetChanges:
         test_file.write_text("content")
         subprocess.run(["git", "add", "note.md"], cwd=git_repo, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Add note"], cwd=git_repo, capture_output=True)
-        
+
         # Delete the file
         test_file.unlink()
         subprocess.run(["git", "add", "note.md"], cwd=git_repo, capture_output=True)
-        
+
         watcher = GitVaultWatcher(git_repo)
         changes = watcher.get_changes()
-        
+
         assert changes.has_changes
         assert len(changes.deleted) == 1
         assert any(p.name == "note.md" for p in changes.deleted)
@@ -94,14 +94,14 @@ class TestGetChanges:
         old_file.write_text("content")
         subprocess.run(["git", "add", "old.md"], cwd=git_repo, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Add old"], cwd=git_repo, capture_output=True)
-        
+
         # Rename the file
         new_file = git_repo / "new.md"
         subprocess.run(["git", "mv", "old.md", "new.md"], cwd=git_repo, capture_output=True)
-        
+
         watcher = GitVaultWatcher(git_repo)
         changes = watcher.get_changes()
-        
+
         assert changes.has_changes
         assert len(changes.renamed) == 1
         old_path, new_path = changes.renamed[0]
@@ -113,10 +113,10 @@ class TestGetChanges:
         # Create non-markdown files
         (git_repo / "file.txt").write_text("text")
         (git_repo / "file.py").write_text("python")
-        
+
         watcher = GitVaultWatcher(git_repo)
         changes = watcher.get_changes()
-        
+
         # Should not include non-markdown files
         assert len(changes.added) == 0
         assert len(changes.modified) == 0
@@ -124,20 +124,20 @@ class TestGetChanges:
     def test_get_changes_handles_git_status_error(self, git_repo):
         """Test error handling when git status fails."""
         watcher = GitVaultWatcher(git_repo)
-        
+
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 10)):
             changes = watcher.get_changes()
-            
+
         # Should return empty changes on error
         assert not changes.has_changes
 
     def test_get_changes_handles_timeout(self, git_repo):
         """Test that get_changes() handles command timeout."""
         watcher = GitVaultWatcher(git_repo)
-        
+
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 10)):
             changes = watcher.get_changes()
-            
+
         assert not changes.has_changes
 
 
@@ -149,7 +149,7 @@ class TestGetChangedSinceCommit:
         """Create a git repo with commit history."""
         repo_path = tmp_path / "vault"
         repo_path.mkdir()
-        
+
         subprocess.run(["git", "init"], cwd=repo_path, capture_output=True, check=True)
         subprocess.run(
             ["git", "config", "user.email", "test@example.com"],
@@ -163,22 +163,22 @@ class TestGetChangedSinceCommit:
             capture_output=True,
             check=True
         )
-        
+
         # Create initial commit
         (repo_path / "file1.md").write_text("content1")
         subprocess.run(["git", "add", "file1.md"], cwd=repo_path, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=repo_path, capture_output=True)
-        
+
         return repo_path
 
     def test_get_changed_since_commit_modified(self, git_repo_with_history):
         """Test get_changed_since_commit() detects modified files."""
         # Modify existing file
         (git_repo_with_history / "file1.md").write_text("modified")
-        
+
         watcher = GitVaultWatcher(git_repo_with_history)
         changes = watcher.get_changed_since_commit("HEAD")
-        
+
         # Should detect modification
         assert changes.has_changes or len(changes.modified) >= 0
 
@@ -188,7 +188,7 @@ class TestGetChangedSinceCommit:
         (git_repo_with_history / "file2.md").write_text("new")
         subprocess.run(["git", "add", "file2.md"], cwd=git_repo_with_history, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Add file2"], cwd=git_repo_with_history, capture_output=True)
-        
+
         watcher = GitVaultWatcher(git_repo_with_history)
         # Compare with initial commit
         result = subprocess.run(
@@ -206,7 +206,7 @@ class TestGetChangedSinceCommit:
         """Test error handling with invalid commit reference."""
         watcher = GitVaultWatcher(git_repo_with_history)
         changes = watcher.get_changed_since_commit("invalid-ref-12345")
-        
+
         # Should return empty changes on error
         assert not changes.has_changes
 
@@ -223,7 +223,7 @@ class TestGetChangedSinceCommit:
             cwd=git_repo_with_history,
             capture_output=True
         )
-        
+
         watcher = GitVaultWatcher(git_repo_with_history)
         result = subprocess.run(
             ["git", "rev-parse", "HEAD~1"],
@@ -248,7 +248,7 @@ class TestGitDiffParsing:
             mock_result.returncode = 0
             mock_result.stdout = "M\tfile.md\n"
             mock_run.return_value = mock_result
-            
+
             # Mock git rev-parse for initialization
             def side_effect(*args, **kwargs):
                 if "rev-parse" in args[0]:
@@ -256,12 +256,12 @@ class TestGitDiffParsing:
                     m.returncode = 0
                     return m
                 return mock_result
-            
+
             mock_run.side_effect = side_effect
-            
+
             watcher = GitVaultWatcher(tmp_path)
             changes = watcher.get_changed_since_commit("HEAD~1")
-            
+
             # Should parse modified status
             assert len(changes.modified) >= 0
 
@@ -271,19 +271,19 @@ class TestGitDiffParsing:
             mock_result = MagicMock()
             mock_result.returncode = 0
             mock_result.stdout = "A\tnew.md\n"
-            
+
             def side_effect(*args, **kwargs):
                 if "rev-parse" in args[0]:
                     m = MagicMock()
                     m.returncode = 0
                     return m
                 return mock_result
-            
+
             mock_run.side_effect = side_effect
-            
+
             watcher = GitVaultWatcher(tmp_path)
             changes = watcher.get_changed_since_commit("HEAD~1")
-            
+
             assert len(changes.added) >= 0
 
     def test_parse_deleted_status(self, tmp_path):
@@ -292,19 +292,19 @@ class TestGitDiffParsing:
             mock_result = MagicMock()
             mock_result.returncode = 0
             mock_result.stdout = "D\tdeleted.md\n"
-            
+
             def side_effect(*args, **kwargs):
                 if "rev-parse" in args[0]:
                     m = MagicMock()
                     m.returncode = 0
                     return m
                 return mock_result
-            
+
             mock_run.side_effect = side_effect
-            
+
             watcher = GitVaultWatcher(tmp_path)
             changes = watcher.get_changed_since_commit("HEAD~1")
-            
+
             assert len(changes.deleted) >= 0
 
 
@@ -336,9 +336,9 @@ class TestErrorCases:
             cwd=tmp_path,
             capture_output=True
         )
-        
+
         watcher = GitVaultWatcher(tmp_path)
-        
+
         with patch("subprocess.run", side_effect=Exception("Unexpected error")):
             changes = watcher.get_changes()
             assert not changes.has_changes
@@ -356,9 +356,9 @@ class TestErrorCases:
             cwd=tmp_path,
             capture_output=True
         )
-        
+
         (tmp_path / "file.md").write_text("content")
-        
+
         watcher = GitVaultWatcher(tmp_path)
         assert watcher.has_uncommitted_changes()
 
@@ -375,11 +375,11 @@ class TestErrorCases:
             cwd=tmp_path,
             capture_output=True
         )
-        
+
         (tmp_path / "file.md").write_text("content")
         subprocess.run(["git", "add", "file.md"], cwd=tmp_path, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=tmp_path, capture_output=True)
-        
+
         watcher = GitVaultWatcher(tmp_path)
         assert not watcher.has_uncommitted_changes()
 
@@ -396,9 +396,9 @@ class TestErrorCases:
             cwd=tmp_path,
             capture_output=True
         )
-        
+
         watcher = GitVaultWatcher(tmp_path)
-        
+
         with patch("subprocess.run", side_effect=Exception("Error")):
             result = watcher.has_uncommitted_changes()
             # Should return False on error

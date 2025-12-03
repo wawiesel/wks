@@ -19,7 +19,7 @@ def test_install_creates_configs(tmp_path, monkeypatch):
     cursor_path = tmp_path / "cursor" / "mcp.json"
     # Ensure parent directory exists
     cursor_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     monkeypatch.setattr(
         mcp_setup,
         "MCP_CONFIG_TARGETS",
@@ -60,4 +60,3 @@ def test_install_recovers_from_invalid_json(tmp_path, monkeypatch):
     data = json.loads(config_path.read_text())
     assert "mcpServers" in data, "mcpServers key missing"
     assert "wks" in data["mcpServers"], "wks server config missing"
-

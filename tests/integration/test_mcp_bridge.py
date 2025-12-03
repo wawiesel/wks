@@ -64,4 +64,3 @@ def test_proxy_stdio_to_socket():
 
     output = stdout.getvalue()
     assert '"id": 1' in output
-

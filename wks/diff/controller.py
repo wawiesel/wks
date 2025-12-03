@@ -91,10 +91,10 @@ class DiffController:
         if re.match(r'^[a-f0-9]{64}$', target_str):
             if not self.transform_controller:
                 raise ValueError("TransformController required to resolve checksums")
-            
+
             # Use transform controller to find cache file
             cache_dir = self.transform_controller.cache_manager.cache_dir
-            
+
             # Try to find file with any extension
             cache_file = cache_dir / f"{target_str}.md"
             if not cache_file.exists():
@@ -103,9 +103,9 @@ class DiffController:
                      cache_file = matches[0]
                  else:
                      raise ValueError(f"Cache entry not found: {target_str}")
-            
+
             return cache_file
-            
+
         else:
             # Assume file path
             return Path(target).resolve()

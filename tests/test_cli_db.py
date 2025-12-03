@@ -54,5 +54,3 @@ def test_cli_db_transform(mock_call):
     assert rc == 0
     mock_call.assert_called_once_with("wksm_db_transform", {})
     assert out.strip() != "" or err.strip() != ""
-
-

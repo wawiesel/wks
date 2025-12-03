@@ -369,7 +369,7 @@ class MonitorController:
         from ..priority import calculate_priority
 
         from ..config import WKSConfig
-        
+
         if isinstance(config, WKSConfig):
             monitor_cfg = config.monitor
         else:

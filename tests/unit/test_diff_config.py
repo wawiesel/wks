@@ -99,5 +99,3 @@ class TestDiffConfig:
         with pytest.raises(DiffConfigError) as exc:
             DiffConfig.from_config_dict(cfg)
         assert "at least one engine with is_default=true" in str(exc.value)
-
-

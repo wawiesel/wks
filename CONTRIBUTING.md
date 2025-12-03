@@ -113,7 +113,7 @@ WKS follows a three-layer architecture with clear separation of concerns:
   - `log`: optional list of log entries for debugging
 - CLI consumes `MCPResult` and formats messages appropriately:
   - Errors/Warnings/Info → STDERR
-  - Status messages → STDERR  
+  - Status messages → STDERR
   - Result data → STDOUT (if success)
 - MCP protocol sends warnings/errors in JSON-RPC response packets
 

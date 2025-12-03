@@ -39,7 +39,7 @@ class TestServiceHelpers:
         """Test PID check."""
         mock_kill.return_value = None
         assert _pid_running(123) is True
-        
+
         mock_kill.side_effect = ProcessLookupError
         assert _pid_running(123) is False
 
@@ -58,7 +58,7 @@ class TestServiceHelpers:
         """Test is_macos."""
         mock_system.return_value = "Darwin"
         assert is_macos() is True
-        
+
         mock_system.return_value = "Linux"
         assert is_macos() is False
 
@@ -67,7 +67,7 @@ class TestServiceHelpers:
         """Test agent installed check."""
         mock_exists.return_value = True
         assert agent_installed() is True
-        
+
         mock_exists.return_value = False
         assert agent_installed() is False
 
@@ -77,9 +77,9 @@ class TestServiceHelpers:
         mock_config = MagicMock(spec=WKSConfig)
         mock_config.mongo = MongoSettings(uri="mongodb://test:27017")
         mock_load.return_value = mock_config
-        
+
         assert default_mongo_uri() == "mongodb://test:27017"
-        
+
         mock_load.side_effect = Exception("Config error")
         assert default_mongo_uri() == "mongodb://localhost:27017"
 
@@ -112,12 +112,12 @@ class TestLaunchdControl:
     def test_daemon_start_launchd(self, mock_uid, mock_call):
         """Test starting daemon via launchd."""
         mock_uid.return_value = 501
-        
+
         # Case 1: kickstart succeeds
         mock_call.return_value = 0
         daemon_start_launchd()
         assert mock_call.call_count == 1
-        
+
         # Case 2: kickstart fails, full restart sequence
         mock_call.reset_mock()
         mock_call.side_effect = [1, 0, 0, 0, 0]  # kickstart fails, then bootout, bootstrap, enable, kickstart
@@ -141,10 +141,10 @@ class TestLaunchdControl:
         """Test getting daemon status via launchd."""
         mock_uid.return_value = 501
         mock_call.return_value = 0
-        
+
         assert daemon_status_launchd() == 0
         mock_call.assert_called_once()
-        
+
         mock_call.side_effect = Exception("Error")
         assert daemon_status_launchd() == 3
 
@@ -183,7 +183,7 @@ class TestServiceStatusData:
             pid=123,
             launch=ServiceStatusLaunch(state="running")
         )
-        
+
         d = data.to_dict()
         assert d["service"]["running"] is True
         assert d["service"]["pid"] == 123
@@ -208,7 +208,7 @@ class TestServiceController:
             program = /path/to/python
             pid = 12345
         """
-        
+
         launch = ServiceController._read_launch_agent()
         assert launch is not None
         assert launch.active_count == "1"
@@ -230,7 +230,7 @@ class TestServiceController:
                 wks
             }
         """
-        
+
         launch = ServiceController._read_launch_agent()
         assert launch is not None
         assert launch.arguments == "/usr/bin/python3 -m wks"
@@ -242,7 +242,7 @@ class TestServiceController:
         """Test reading health from file."""
         # Mock health.json exists
         mock_exists.side_effect = lambda: True  # health.json exists
-        
+
         health_data = {
             "lock_present": True,
             "uptime_hms": "2h",
@@ -250,10 +250,10 @@ class TestServiceController:
             "fs_rate_short": 1.5
         }
         mock_file.return_value.read.return_value = json.dumps(health_data)
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.running is True
         assert status.pid == 12345
         assert status.fs_rate_short == 1.5
@@ -261,18 +261,18 @@ class TestServiceController:
     def test_read_health_lock_file_fallback(self, tmp_path, monkeypatch):
         """Test fallback to lock file when health.json missing."""
         import wks.service_controller as sc
-        
+
         # No health.json exists
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
-        
+
         # Create lock file with PID
         lock_file = tmp_path / "daemon.lock"
         lock_file.write_text("99999\n")  # Non-existent PID
         monkeypatch.setattr(sc, "LOCK_FILE", lock_file)
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.lock is True
         assert status.pid == 99999
         assert status.running is False  # PID doesn't exist
@@ -280,14 +280,14 @@ class TestServiceController:
     def test_read_health_no_lock_file(self, tmp_path, monkeypatch):
         """Test when neither health.json nor lock file exists."""
         import wks.service_controller as sc
-        
+
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
         lock_file = tmp_path / "daemon.lock"
         monkeypatch.setattr(sc, "LOCK_FILE", lock_file)
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.lock is False
         assert status.running is False
         assert "not running" in status.notes[0]
@@ -295,24 +295,24 @@ class TestServiceController:
     def test_read_health_bad_lock_file(self, tmp_path, monkeypatch):
         """Test when lock file has bad content."""
         import wks.service_controller as sc
-        
+
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
         lock_file = tmp_path / "daemon.lock"
         lock_file.write_text("not a number\n")
         monkeypatch.setattr(sc, "LOCK_FILE", lock_file)
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.lock is True
         assert "PID unavailable" in status.notes[0]
 
     def test_read_health_from_json(self, tmp_path, monkeypatch):
         """Test reading health from health.json."""
         import wks.service_controller as sc
-        
+
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
-        
+
         health_data = {
             "lock_present": True,
             "uptime_hms": "2h 30m",
@@ -326,10 +326,10 @@ class TestServiceController:
         }
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.running is True
         assert status.pid == 12345
         assert status.ok is True
@@ -338,70 +338,70 @@ class TestServiceController:
     def test_read_health_json_with_bad_pid(self, tmp_path, monkeypatch):
         """Test health.json with non-integer pid."""
         import wks.service_controller as sc
-        
+
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
-        
+
         health_data = {
             "lock_present": True,
             "pid": "not_a_number"
         }
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.pid is None
 
     def test_read_health_json_with_last_error(self, tmp_path, monkeypatch):
         """Test health.json with last_error set."""
         import wks.service_controller as sc
-        
+
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
-        
+
         health_data = {
             "lock_present": True,
             "last_error": "Something went wrong"
         }
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.ok is False
         assert status.last_error == "Something went wrong"
 
     def test_read_health_json_with_bad_rate(self, tmp_path, monkeypatch):
         """Test health.json with invalid fs_rate values."""
         import wks.service_controller as sc
-        
+
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
-        
+
         health_data = {
             "lock_present": True,
             "fs_rate_short": "invalid"
         }
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert status.fs_rate_short is None
 
     def test_read_health_json_parse_error(self, tmp_path, monkeypatch):
         """Test when health.json contains invalid JSON."""
         import wks.service_controller as sc
-        
+
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
-        
+
         health_path = tmp_path / "health.json"
         health_path.write_text("not valid json {")
-        
+
         status = ServiceStatusData()
         ServiceController._read_health(status)
-        
+
         assert "Failed to read health metrics" in status.notes[0]
 
     @patch("wks.service_controller.ServiceController._read_launch_agent")
@@ -409,9 +409,9 @@ class TestServiceController:
     def test_get_status(self, mock_read_health, mock_read_launch):
         """Test get_status orchestration."""
         mock_read_launch.return_value = ServiceStatusLaunch(state="running")
-        
+
         status = ServiceController.get_status()
-        
+
         assert status.launch.state == "running"
         mock_read_health.assert_called_once_with(status)
 

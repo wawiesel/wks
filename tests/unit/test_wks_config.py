@@ -191,7 +191,7 @@ class TestWKSConfig:
             }
         }
         (tmp_path / ".wks" / "config.json").write_text(json.dumps(config))
-        
+
         # Call without path argument - should use default
         cfg = WKSConfig.load()
         assert cfg.monitor.database == "wks.monitor"
@@ -235,7 +235,7 @@ class TestLoadConfig:
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
-        
+
         result = load_config(config_path)
         assert isinstance(result, dict)
         assert "monitor" in result
@@ -244,4 +244,3 @@ class TestLoadConfig:
     def test_returns_empty_on_error(self, tmp_path):
         result = load_config(tmp_path / "nonexistent.json")
         assert result == {}
-

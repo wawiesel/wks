@@ -180,4 +180,3 @@ class TestWksHomePath:
         assert isinstance(path, Path)
         assert path.parts[-1] == "data"
         assert path.parts[-2] == "mongodb"
-

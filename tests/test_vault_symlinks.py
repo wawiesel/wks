@@ -38,7 +38,7 @@ def controller(vault):
 def mock_mongo_collection():
     """Mock MongoDB collection with file:// links."""
     collection = MagicMock(spec=Collection)
-    
+
     # Mock cursor with file:// URIs
     mock_cursor = [
         {"to_uri": "file:///Users/test/file1.pdf"},
@@ -86,7 +86,7 @@ class TestFixSymlinks:
                     {"to_uri": f"file://{target3}"},
                 ]
                 mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
-                
+
                 result = controller.fix_symlinks()
 
         # Verify results
@@ -101,7 +101,7 @@ class TestFixSymlinks:
         rel_path1 = target1.resolve().relative_to(Path("/"))
         rel_path2 = target2.resolve().relative_to(Path("/"))
         rel_path3 = target3.resolve().relative_to(Path("/"))
-        
+
         assert (machine_links_dir / rel_path1).is_symlink()
         assert (machine_links_dir / rel_path2).is_symlink()
         assert (machine_links_dir / rel_path3).is_symlink()

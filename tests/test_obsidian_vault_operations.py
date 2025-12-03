@@ -117,7 +117,7 @@ class TestPathComputation:
         vault.set_base_dir("/Custom/")
         assert vault.base_dir == "Custom"
         assert vault.docs_dir == tmp_path / "Custom" / "Docs"
-        
+
         # Test with spaces and slashes - both are stripped
         vault.set_base_dir("  /Custom/  ")
         assert vault.base_dir == "Custom"
@@ -287,14 +287,14 @@ class TestLinkFile:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Create a source file
         source_file = tmp_path / "source" / "document.pdf"
         source_file.parent.mkdir(parents=True, exist_ok=True)
         source_file.write_text("content")
-        
+
         link_path = vault.link_file(source_file)
-        
+
         assert link_path is not None
         assert link_path.is_symlink()
         assert link_path.resolve() == source_file.resolve()
@@ -305,10 +305,10 @@ class TestLinkFile:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         missing_file = tmp_path / "nonexistent.pdf"
         link_path = vault.link_file(missing_file)
-        
+
         assert link_path is None
 
     def test_link_file_preserves_structure(self, tmp_path):
@@ -317,13 +317,13 @@ class TestLinkFile:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         source_file = tmp_path / "deep" / "nested" / "file.pdf"
         source_file.parent.mkdir(parents=True, exist_ok=True)
         source_file.write_text("content")
-        
+
         link_path = vault.link_file(source_file, preserve_structure=True)
-        
+
         # Should create link preserving the absolute path structure
         assert link_path is not None
         machine_links_dir = vault.links_dir / vault.machine
@@ -335,13 +335,13 @@ class TestLinkFile:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         source_file = tmp_path / "deep" / "nested" / "file.pdf"
         source_file.parent.mkdir(parents=True, exist_ok=True)
         source_file.write_text("content")
-        
+
         link_path = vault.link_file(source_file, preserve_structure=False)
-        
+
         assert link_path is not None
         assert link_path.name == "file.pdf"
         assert link_path.parent == vault.links_dir / vault.machine
@@ -352,11 +352,11 @@ class TestLinkFile:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Create a file that can't be resolved relative to root
         source_file = tmp_path / "file.pdf"
         source_file.write_text("content")
-        
+
         # Mock resolve to raise ValueError
         with patch("pathlib.Path.resolve", side_effect=ValueError("Cannot resolve")):
             link_path = vault.link_file(source_file, preserve_structure=True)
@@ -374,22 +374,22 @@ class TestUpdateLinkOnMove:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         home = Path.home()
         old_path = home / "old_file.pdf"
         new_path = home / "new_file.pdf"
-        
+
         # Create old file and symlink
         old_path.write_text("content")
         old_link = vault.links_dir / old_path.relative_to(home)
         old_link.parent.mkdir(parents=True, exist_ok=True)
         old_link.symlink_to(old_path)
-        
+
         # Move file
         old_path.rename(new_path)
-        
+
         vault.update_link_on_move(old_path, new_path)
-        
+
         # Old link should be gone, new link should exist
         assert not old_link.exists() or not old_link.is_symlink()
         new_link = vault.links_dir / new_path.relative_to(home)
@@ -402,10 +402,10 @@ class TestUpdateLinkOnMove:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         old_path = tmp_path / "old.pdf"
         new_path = tmp_path / "new.pdf"
-        
+
         # Should return without error even if path not in home
         vault.update_link_on_move(old_path, new_path)
         # No assertion needed - just should not raise
@@ -420,22 +420,22 @@ class TestUpdateVaultLinksOnMove:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Create files that will be linked
         old_path = Path("/old/path.pdf")
         new_path = Path("/new/path.pdf")
-        
+
         # Compute what the link paths would be
         old_rel = vault._link_rel_for_source(old_path)
         new_rel = vault._link_rel_for_source(new_path)
-        
+
         # Create a note with the old link format
         note = tmp_path / "Projects" / "Test.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text(f"See [[{old_rel}]]")
-        
+
         vault.update_vault_links_on_move(old_path, new_path)
-        
+
         # Check that the link was updated
         content = note.read_text()
         assert new_rel in content or old_rel not in content
@@ -446,22 +446,22 @@ class TestUpdateVaultLinksOnMove:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         old_path = Path("/old/path.pdf")
         new_path = Path("/new/path.pdf")
-        
+
         # Compute link paths
         old_rel = vault._link_rel_for_source(old_path)
         old_rel_legacy = old_rel.replace("_links/", "links/")
         new_rel = vault._link_rel_for_source(new_path)
-        
+
         # Create a note with legacy link format
         note = tmp_path / "Projects" / "Test.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text(f"See [[{old_rel_legacy}]]")
-        
+
         vault.update_vault_links_on_move(old_path, new_path)
-        
+
         content = note.read_text()
         # Should update legacy links to new format
         # The method replaces [[links/old/path.pdf]] with [[_links/machine/new/path.pdf]]
@@ -477,13 +477,13 @@ class TestWriteDocText:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         source_path = tmp_path / "source.pdf"
         content_hash = "abc123"
         text = "Extracted text content"
-        
+
         vault.write_doc_text(content_hash, source_path, text)
-        
+
         doc_path = vault.docs_dir / f"{content_hash}.md"
         assert doc_path.exists()
         content = doc_path.read_text()
@@ -496,11 +496,11 @@ class TestWriteDocText:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         source_path = tmp_path / "source.pdf"
         content_hash = "abc123"
         text = "content"
-        
+
         # Mock write_text to raise error
         with patch("pathlib.Path.write_text", side_effect=PermissionError("Cannot write")):
             vault.write_doc_text(content_hash, source_path, text)
@@ -512,11 +512,11 @@ class TestWriteDocText:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Create more than keep limit files
         for i in range(5):
             vault.write_doc_text(f"hash{i}", tmp_path / f"file{i}.pdf", f"text{i}")
-        
+
         # Should only keep keep=99 files (default), but with 5 files, all should exist
         files = list(vault.docs_dir.glob("*.md"))
         assert len(files) == 5
@@ -531,15 +531,15 @@ class TestCreateProjectNote:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Ensure Projects directory exists
         vault.projects_dir.mkdir(parents=True, exist_ok=True)
-        
+
         project_path = tmp_path / "my-project"
         project_path.mkdir()
-        
+
         note_path = vault.create_project_note(project_path, status="Active", description="Test project")
-        
+
         assert note_path.exists()
         assert note_path.name == "my-project.md"
         content = note_path.read_text()
@@ -553,15 +553,15 @@ class TestCreateProjectNote:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Ensure Projects directory exists
         vault.projects_dir.mkdir(parents=True, exist_ok=True)
-        
+
         project_path = tmp_path / "2024-01-project"
         project_path.mkdir()
-        
+
         note_path = vault.create_project_note(project_path)
-        
+
         assert note_path.exists()
         assert note_path.name == "2024-01-project.md"
         content = note_path.read_text()
@@ -578,17 +578,17 @@ class TestLinkProject:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         project_path = tmp_path / "my-project"
         project_path.mkdir()
-        
+
         # Create project files
         (project_path / "README.md").write_text("# Project")
         (project_path / "SPEC.md").write_text("# Spec")
         (project_path / "TODO.md").write_text("# Todo")
-        
+
         links = vault.link_project(project_path)
-        
+
         assert len(links) == 3
         assert all(link.is_symlink() for link in links)
 
@@ -598,15 +598,15 @@ class TestLinkProject:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         project_path = tmp_path / "my-project"
         project_path.mkdir()
-        
+
         # Only create README
         (project_path / "README.md").write_text("# Project")
-        
+
         links = vault.link_project(project_path)
-        
+
         assert len(links) == 1
         assert links[0].name == "README.md"
 
@@ -620,14 +620,14 @@ class TestFindBrokenLinks:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Create a broken symlink
         broken_link = vault.links_dir / "broken.pdf"
         broken_link.parent.mkdir(parents=True, exist_ok=True)
         broken_link.symlink_to("/nonexistent/file.pdf")
-        
+
         broken = vault.find_broken_links()
-        
+
         assert len(broken) >= 1
         assert broken_link in broken
 
@@ -637,16 +637,16 @@ class TestFindBrokenLinks:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Create a valid symlink
         target = tmp_path / "target.pdf"
         target.write_text("content")
         valid_link = vault.links_dir / "valid.pdf"
         valid_link.parent.mkdir(parents=True, exist_ok=True)
         valid_link.symlink_to(target)
-        
+
         broken = vault.find_broken_links()
-        
+
         assert valid_link not in broken
 
 
@@ -659,16 +659,16 @@ class TestCleanupBrokenLinks:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         # Create broken symlinks
         broken1 = vault.links_dir / "broken1.pdf"
         broken2 = vault.links_dir / "broken2.pdf"
         broken1.parent.mkdir(parents=True, exist_ok=True)
         broken1.symlink_to("/nonexistent1.pdf")
         broken2.symlink_to("/nonexistent2.pdf")
-        
+
         count = vault.cleanup_broken_links()
-        
+
         assert count >= 2
         assert not broken1.exists()
         assert not broken2.exists()
@@ -679,11 +679,11 @@ class TestCleanupBrokenLinks:
             vault_path=tmp_path,
             base_dir="WKS"
         )
-        
+
         broken_link = vault.links_dir / "broken.pdf"
         broken_link.parent.mkdir(parents=True, exist_ok=True)
         broken_link.symlink_to("/nonexistent.pdf")
-        
+
         # Mock unlink to raise permission error
         with patch("pathlib.Path.unlink", side_effect=PermissionError("Cannot delete")):
             count = vault.cleanup_broken_links()

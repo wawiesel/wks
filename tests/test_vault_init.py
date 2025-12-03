@@ -14,7 +14,7 @@ class TestVaultPackageInitialization:
     def test_package_exports(self):
         """Test that package exports expected symbols."""
         from wks.vault import ObsidianVault, VaultController, load_vault
-        
+
         assert ObsidianVault is not None
         assert VaultController is not None
         assert load_vault is not None
@@ -38,7 +38,7 @@ class TestLoadVault:
                 # Missing base_dir
             }
         }
-        
+
         with pytest.raises(SystemExit, match="vault.base_dir.*required"):
             load_vault(cfg)
 
@@ -51,7 +51,7 @@ class TestLoadVault:
                 # Missing wks_dir
             }
         }
-        
+
         with pytest.raises(SystemExit, match="vault.wks_dir.*required"):
             load_vault(cfg)
 
@@ -64,7 +64,7 @@ class TestLoadVault:
                 "wks_dir": "WKS"
             }
         }
-        
+
         vault = load_vault(cfg)
         assert isinstance(vault, ObsidianVault)
         assert vault.vault_path == Path(tmp_path)
@@ -79,7 +79,7 @@ class TestLoadVault:
                 # type not specified
             }
         }
-        
+
         vault = load_vault(cfg)
         assert isinstance(vault, ObsidianVault)
 
@@ -92,7 +92,7 @@ class TestLoadVault:
                 "wks_dir": "WKS"
             }
         }
-        
+
         with patch("wks.config.load_config", return_value=mock_config):
             vault = load_vault(None)
             assert isinstance(vault, ObsidianVault)
@@ -106,7 +106,7 @@ class TestLoadVault:
                 "wks_dir": "WKS"
             }
         }
-        
+
         with pytest.raises(SystemExit, match="unsupported vault.type"):
             load_vault(cfg)
 
@@ -115,7 +115,7 @@ class TestLoadVault:
         # Use ~ for home directory expansion
         home = Path.home()
         relative_path = tmp_path.relative_to(home) if tmp_path.is_relative_to(home) else tmp_path
-        
+
         cfg = {
             "vault": {
                 "type": "obsidian",
@@ -123,7 +123,7 @@ class TestLoadVault:
                 "wks_dir": "WKS"
             }
         }
-        
+
         vault = load_vault(cfg)
         assert vault.vault_path.exists() or str(vault.vault_path).startswith(str(home))
 
@@ -136,7 +136,7 @@ class TestLoadVault:
                 "wks_dir": "WKS"
             }
         }
-        
+
         vault = load_vault(cfg)
         assert vault.vault_path.is_absolute()
 
@@ -152,7 +152,7 @@ class TestResolveObsidianSettings:
                 "wks_dir": "WKS"
             }
         }
-        
+
         # Call load_vault which uses _resolve_obsidian_settings internally
         vault = load_vault(cfg)
         assert vault.vault_path == Path(tmp_path)
@@ -166,7 +166,7 @@ class TestResolveObsidianSettings:
                 # Missing base_dir
             }
         }
-        
+
         with pytest.raises(SystemExit, match="vault.base_dir.*required"):
             load_vault(cfg)
 
@@ -178,7 +178,7 @@ class TestResolveObsidianSettings:
                 # Missing wks_dir
             }
         }
-        
+
         with pytest.raises(SystemExit, match="vault.wks_dir.*required"):
             load_vault(cfg)
 
@@ -187,14 +187,14 @@ class TestResolveObsidianSettings:
         cfg = {
             "vault": {}
         }
-        
+
         with pytest.raises(SystemExit):
             load_vault(cfg)
 
     def test_resolve_obsidian_settings_handles_missing_vault_section(self):
         """Test that _resolve_obsidian_settings() handles missing vault section."""
         cfg = {}
-        
+
         with pytest.raises(SystemExit):
             load_vault(cfg)
 
@@ -211,10 +211,10 @@ class TestVaultFactoryFunctions:
                 "wks_dir": "WKS"
             }
         }
-        
+
         vault = load_vault(cfg)
         controller = VaultController(vault)
-        
+
         assert controller.vault == vault
         assert isinstance(controller.vault, ObsidianVault)
 
@@ -227,9 +227,9 @@ class TestVaultFactoryFunctions:
                 "wks_dir": "WKS"
             }
         }
-        
+
         vault = load_vault(cfg)
-        
+
         # Check required attributes exist
         assert hasattr(vault, "vault_path")
         assert hasattr(vault, "base_dir")
@@ -246,13 +246,13 @@ class TestVaultFactoryFunctions:
                 "wks_dir": "WKS"
             }
         }
-        
+
         # Create a markdown file
         (tmp_path / "note.md").write_text("# Test")
-        
+
         vault = load_vault(cfg)
         files = list(vault.iter_markdown_files())
-        
+
         # Should find the markdown file
         assert len(files) >= 1
         assert any(f.name == "note.md" for f in files)

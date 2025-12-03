@@ -156,4 +156,3 @@ class TestConvertToUri:
         result = convert_to_uri(test_file, vault_path=None)
 
         assert result.startswith("file://")
-

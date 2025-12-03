@@ -841,9 +841,9 @@ class MCPServer:
         from .utils import expand_path
         from .db_helpers import connect_to_mongo
         from .config import WKSConfig
-        
+
         result = MCPResult(success=False, data={})
-        
+
         try:
             # Validate file exists
             path = expand_path(file_path)
@@ -852,31 +852,31 @@ class MCPServer:
                     f"File not found: {path}",
                     data={}
                 ).to_dict()
-            
+
             # Load config dataclass for proper cache location resolution
             wks_cfg = WKSConfig.load()
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
-            
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
-            
+
             client = connect_to_mongo(uri)
             db = client[db_name]
-            
+
             controller = TransformController(db, cache_location, max_size_bytes)
-            
+
             # Transform
             result.add_status(f"Transforming {path.name} using {engine}...")
             cache_key = controller.transform(path, engine, options)
-            
+
             client.close()
-            
+
             return result.success_result(
                 {"checksum": cache_key},
                 f"Transform completed successfully"
             ).to_dict()
-            
+
         except ValueError as e:
             return result.error_result(
                 f"Invalid input: {str(e)}",
@@ -900,33 +900,33 @@ class MCPServer:
         from .transform import TransformController
         from .db_helpers import connect_to_mongo
         from .config import WKSConfig
-        
+
         result = MCPResult(success=False, data={})
-        
+
         try:
             # Load config dataclass for proper cache location resolution
             wks_cfg = WKSConfig.load()
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
-            
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
-            
+
             client = connect_to_mongo(uri)
             db = client[db_name]
-            
+
             controller = TransformController(db, cache_location, max_size_bytes)
-            
+
             # Get content
             content = controller.get_content(target)
-            
+
             client.close()
-            
+
             return result.success_result(
                 {"content": content},
                 "Content retrieved successfully"
             ).to_dict()
-            
+
         except FileNotFoundError as e:
             return result.error_result(
                 f"File or cache entry not found: {target}",
@@ -947,23 +947,23 @@ class MCPServer:
         from .diff.config import DiffConfig, DiffConfigError
         from .transform import TransformController
         from .db_helpers import connect_to_mongo
-        
+
         result = MCPResult(success=False, data={})
-        
+
         try:
             # Setup transform controller for checksum resolution
             transform_cfg = config.get("transform", {})
             cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
             max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
-            
+
             uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
             db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
-            
+
             client = connect_to_mongo(uri)
             db = client[db_name]
-            
+
             transform_controller = TransformController(db, cache_location, max_size_bytes)
-            
+
             # Load diff configuration and construct controller when available.
             try:
                 diff_config = DiffConfig.from_config_dict(config)
@@ -971,17 +971,17 @@ class MCPServer:
                 diff_config = None
 
             diff_controller = DiffController(diff_config, transform_controller)
-            
+
             # Diff
             diff_result = diff_controller.diff(target_a, target_b, engine)
-            
+
             client.close()
-            
+
             return result.success_result(
                 {"diff": diff_result},
                 f"Diff computed successfully using {engine}"
             ).to_dict()
-            
+
         except ValueError as e:
             return result.error_result(
                 f"Invalid input: {str(e)}",
@@ -1004,7 +1004,7 @@ class MCPServer:
     def _tool_vault_validate(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
-        
+
         vault = load_vault(config)
         controller = VaultController(vault)
         return controller.validate_vault()
@@ -1012,11 +1012,11 @@ class MCPServer:
     def _tool_vault_fix_symlinks(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
-        
+
         vault = load_vault(config)
         controller = VaultController(vault)
         result = controller.fix_symlinks()
-        
+
         # Convert dataclass to dict
         return {
             "notes_scanned": result.notes_scanned,
@@ -1028,9 +1028,9 @@ class MCPServer:
     def _tool_db_query(self, config: Dict[str, Any], db_type: str, query: Dict[str, Any], limit: int) -> Dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
-        
+
         uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-        
+
         if db_type == "monitor":
             db_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[0]
             coll_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[1]
@@ -1042,12 +1042,12 @@ class MCPServer:
             coll_name = config.get("transform", {}).get("database", "wks.transform").split(".")[1]
         else:
             raise ValueError(f"Unknown db type: {db_type}")
-            
+
         client = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
-        
+
         results = list(coll.find(query, {"_id": 0}).limit(limit))
-        
+
         client.close()
         return {"results": results, "count": len(results)}
 
@@ -1055,23 +1055,23 @@ class MCPServer:
 def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """
     Call an MCP tool programmatically (for CLI use).
-    
+
     This allows CLI to use MCP tools as the source of truth, ensuring
     zero duplication between CLI and MCP interfaces.
-    
+
     MCP tools return structured MCPResult dictionaries with:
     - success: bool
     - data: dict (actual result data)
     - messages: list of structured messages (errors, warnings, info, status)
     - log: optional list of log entries
-    
+
     Args:
         tool_name: Name of the tool to call (e.g., "wksm_transform")
         arguments: Tool arguments as a dictionary
-        
+
     Returns:
         MCPResult as a dictionary with success, data, messages, and optionally log
-        
+
     Raises:
         KeyError: If tool name is not found
         ValueError: If required parameters are missing (from tool validation)
@@ -1079,7 +1079,7 @@ def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     config = load_config()
     server = MCPServer()
     registry = server._build_tool_registry()
-    
+
     if tool_name not in registry:
         from .mcp.result import MCPResult
         error_result = MCPResult.error_result(
@@ -1087,7 +1087,7 @@ def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
             data={}
         )
         return error_result.to_dict()
-    
+
     handler = registry[tool_name]
     return handler(config, arguments)
 

@@ -19,6 +19,7 @@ setup(
         "pytest>=7.0",        # Testing framework
         "pytest-timeout>=2.1",  # Test timeouts
         "pytest-xdist>=3.0",  # Parallel test execution
+        "pre-commit",         # Git hook management
     ],
     entry_points={
         "console_scripts": [

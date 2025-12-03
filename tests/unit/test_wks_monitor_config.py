@@ -183,4 +183,3 @@ class TestValidationError:
         assert "Validation failed" in str(exc)
         assert "error1" in str(exc)
         assert "error2" in str(exc)
-

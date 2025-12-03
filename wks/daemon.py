@@ -122,7 +122,7 @@ class WKSDaemon:
         """
         self.config = config
         self.vault = ObsidianVault(vault_path, base_dir=base_dir)
-        
+
         self._vault_indexer = VaultLinkIndexer.from_config(self.vault, config)
         # Git-based incremental scanning is fast, so we can check more frequently
         self._vault_sync_interval = float(self.config.vault.update_frequency_seconds)
@@ -172,7 +172,7 @@ class WKSDaemon:
                 transform_cfg = self.config.transform
                 cache_location = expand_path(transform_cfg.cache.location)
                 max_size_bytes = transform_cfg.cache.max_size_bytes
-                
+
                 client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
                 db_name = transform_cfg.database
                 db = client[db_name]
@@ -234,11 +234,11 @@ class WKSDaemon:
             stat = path.stat()
             checksum = file_checksum(path)
             now = datetime.now()
-            
+
             managed_dirs = self.config.monitor.managed_directories
             priority_config = self.config.monitor.priority
             touch_weight = self._get_touch_weight(self.config.monitor.touch_weight)
-            
+
             priority = calculate_priority(path, managed_dirs, priority_config)
 
             path_uri = path.as_uri()

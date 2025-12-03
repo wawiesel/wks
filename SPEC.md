@@ -143,7 +143,7 @@ Human-friendly wrappers for the MCP tools.
 
 ## Vault Layer
 
-**Goal**: Manage a knowledge vault that links transient priorities to monitored file system resources. 
+**Goal**: Manage a knowledge vault that links transient priorities to monitored file system resources.
 
 **Database**: `wks.vault`
 
@@ -152,7 +152,7 @@ Human-friendly wrappers for the MCP tools.
 ### Symlink Naming Convention
 
 The notes within the vault links the knowledge managed contained in the file system. The vault should not have significant knowledge but focus on connecting things. It changes with time and this is managed within git within the repo.
-There should be git hooks that are deployed by WKS to help manage snapshots of the vault. For example, we do not commit files until we are sure all the links are healthy. Obsidian is the prototype vault and for any files external to the vault, we create a symlink within the vault so that the files and directories can be treated like internal files to the vault. 
+There should be git hooks that are deployed by WKS to help manage snapshots of the vault. For example, we do not commit files until we are sure all the links are healthy. Obsidian is the prototype vault and for any files external to the vault, we create a symlink within the vault so that the files and directories can be treated like internal files to the vault.
 
 External files are mirrored under `_links/<machine>/` to match filesystem structure:
 ```

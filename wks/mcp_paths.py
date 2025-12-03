@@ -11,4 +11,3 @@ def mcp_socket_path() -> Path:
 
 
 __all__ = ["mcp_socket_path"]
-

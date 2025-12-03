@@ -37,5 +37,3 @@ def test_cli_service_status(mock_call):
     assert rc == 0
     mock_call.assert_called_once_with("wksm_service", {})
     # We don't assert on formatted output here; display layer is tested separately.
-
-
