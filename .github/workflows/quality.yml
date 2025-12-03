@@ -22,7 +22,11 @@ jobs:
           pip install -e '.[all]'
           pip install ruff mypy lizard types-requests types-PyYAML types-setuptools
 
-      - name: Run Quality Checks
-        run: |
-          chmod +x scripts/check_quality.py
-          ./scripts/check_quality.py
+      - name: Check Formatting & Linting
+        run: ./scripts/check_format.py
+
+      - name: Check Types
+        run: ./scripts/check_types.py
+
+      - name: Check Complexity
+        run: ./scripts/check_complexity.py
