@@ -10,6 +10,7 @@ from wks.diff.config import (
 )
 
 
+@pytest.mark.unit
 class TestDiffEngineConfig:
     """Tests for DiffEngineConfig validation."""
 
@@ -36,6 +37,7 @@ class TestDiffEngineConfig:
             DiffEngineConfig(name="myers", enabled=True, is_default=False, options="opts")
 
 
+@pytest.mark.unit
 class TestDiffRouterConfig:
     """Tests for DiffRouterConfig validation."""
 
@@ -56,6 +58,7 @@ class TestDiffRouterConfig:
             DiffRouterConfig(rules=[], fallback="")
 
 
+@pytest.mark.unit
 class TestDiffConfig:
     """Tests for DiffConfig.from_config_dict and validation."""
 

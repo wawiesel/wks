@@ -6,6 +6,7 @@ from wks.display.cli import CLIDisplay
 from rich.console import Console
 
 
+@pytest.mark.unit
 class TestCLIDisplayProgressExtended:
     """Extended tests for progress tracking."""
 
@@ -42,6 +43,7 @@ class TestCLIDisplayProgressExtended:
         display.progress_finish(handle2)
 
 
+@pytest.mark.unit
 class TestCLIDisplayTableExtended:
     """Extended tests for table rendering."""
 
@@ -99,6 +101,7 @@ class TestCLIDisplayTableExtended:
         assert captured.out
 
 
+@pytest.mark.unit
 class TestCLIDisplayErrorDetails:
     """Extended tests for error rendering with details."""
 
@@ -133,6 +136,7 @@ class TestCLIDisplayErrorDetails:
         assert "Multiple errors" in captured.out
 
 
+@pytest.mark.unit
 class TestCLIDisplaySpinnerExtended:
     """Extended tests for spinner functionality."""
 
@@ -156,6 +160,7 @@ class TestCLIDisplaySpinnerExtended:
         # Should complete without error
 
 
+@pytest.mark.unit
 class TestCLIDisplayTreeExtended:
     """Extended tests for tree rendering."""
 
@@ -208,6 +213,7 @@ class TestCLIDisplayTreeExtended:
         assert "config" in captured.out
 
 
+@pytest.mark.unit
 class TestCLIDisplayJSON:
     """Tests for JSON output."""
 
@@ -252,6 +258,7 @@ class TestCLIDisplayJSON:
         assert "Bob" in captured.out
 
 
+@pytest.mark.unit
 class TestCLIDisplayPanel:
     """Tests for panel rendering."""
 

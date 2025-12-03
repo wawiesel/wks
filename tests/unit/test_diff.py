@@ -8,6 +8,7 @@ from wks.diff.controller import DiffController
 from wks.diff.config import DiffConfig, DiffEngineConfig, DiffRouterConfig
 
 
+@pytest.mark.unit
 class TestBsdiff3Engine:
     """Test Bsdiff3Engine."""
 
@@ -40,6 +41,7 @@ class TestBsdiff3Engine:
         assert "19 bytes" in result  # file2 size
 
 
+@pytest.mark.unit
 class TestMyersEngine:
     """Test MyersEngine."""
 
@@ -198,6 +200,7 @@ class TestMyersEngine:
         assert len(result_2.split("\n")) >= len(result_0.split("\n"))
 
 
+@pytest.mark.unit
 class TestEngineRegistry:
     """Test engine registry."""
 
@@ -222,6 +225,7 @@ class TestEngineRegistry:
         assert engine is None
 
 
+@pytest.mark.unit
 class TestDiffController:
     """Test DiffController."""
 

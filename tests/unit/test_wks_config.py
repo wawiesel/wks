@@ -18,6 +18,7 @@ from wks.config import (
 )
 
 
+@pytest.mark.unit
 class TestMongoSettings:
     """Tests for MongoSettings dataclass."""
 
@@ -48,6 +49,7 @@ class TestMongoSettings:
         assert s.uri == DEFAULT_MONGO_URI
 
 
+@pytest.mark.unit
 class TestMetricsConfig:
     """Tests for MetricsConfig dataclass."""
 
@@ -72,6 +74,7 @@ class TestMetricsConfig:
         assert m.fs_rate_short_window_secs == 10.0
 
 
+@pytest.mark.unit
 class TestDisplayConfig:
     """Tests for DisplayConfig dataclass."""
 
@@ -89,6 +92,7 @@ class TestDisplayConfig:
         assert d.timestamp_format == DEFAULT_TIMESTAMP_FORMAT
 
 
+@pytest.mark.unit
 class TestWKSConfig:
     """Tests for WKSConfig.load()."""
 
@@ -193,6 +197,7 @@ class TestWKSConfig:
         assert cfg.monitor.database == "wks.monitor"
 
 
+@pytest.mark.unit
 class TestGetConfigPath:
     """Tests for get_config_path()."""
 
@@ -203,6 +208,7 @@ class TestGetConfigPath:
         assert ".wks" in str(path)
 
 
+@pytest.mark.unit
 class TestLoadConfig:
     """Tests for load_config() deprecated function."""
 
