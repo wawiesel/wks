@@ -4,4 +4,4 @@ The campaign documents (see campaigns/README.md)
 The specification documents (see specifications/wks.md)
 Other documents (see other/).
 
-Implementation notes live in the code and tests; there are no per-module README files under wks/.
+Implementation notes live alongside the code in `wks/*/README.md`.

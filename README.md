@@ -2,6 +2,10 @@
 # WKS (!!!ALPHA STATUS!!!)
 ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
 
+## Status
+- Alpha: monitor, vault, transform, diff layers are under active development; CLI and MCP may change without notice.
+- Upcoming priorities and ideas: [docs/campaigns/NEXT.md](docs/campaigns/NEXT.md).
+
 AI-assisted file organization and knowledge management system.
 
 ## Overview
@@ -67,13 +71,13 @@ wksc mcp install  # Install for all clients
 wksc mcp install --client cursor --client claude
 ```
 
-Available tools: `wks_monitor_*`, `wks_vault_*` (see [SPEC.md](SPEC.md) for details)
+Available tools: `wksm_*` (see [docs/specifications/wks.md](docs/specifications/wks.md) for details)
 
 ## Architecture
 
 The system's architecture is designed in layers, with core functionality currently implemented and under revision up to the **Indexing Layer** as described in the specifications.
 
-See [docs/specifications/index.md](docs/specifications/index.md) for complete system specification.
+See [docs/specifications/wks.md](docs/specifications/wks.md) for the complete system specification.
 
 **Key Layers (Implemented & Under Revision)**:
 - **Monitor Layer**: Filesystem state tracking

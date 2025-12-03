@@ -5,8 +5,6 @@ A layered architecture for filesystem monitoring, knowledge graph management, an
 **Primary Interface**: The **MCP Server** is the source of truth for all capabilities, allowing AI agents to fully control the system.
 **Secondary Interface**: The `wksc` CLI provides human-friendly equivalents for all MCP tools.
 
-**Status**: Monitor, Vault, Transform, and Diff layers are active; Index, Search, and Patterns are future work and currently tracked as roadmap items.
-
 ## Architecture Overview
 
 WKS is built as a stack of independent, composable layers:
