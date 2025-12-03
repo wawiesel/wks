@@ -4,6 +4,7 @@ import pytest
 from wks.monitor.config import MonitorConfig, ValidationError
 
 
+@pytest.mark.unit
 class TestMonitorConfig:
     """Tests for MonitorConfig dataclass and validation."""
 
@@ -167,6 +168,7 @@ class TestMonitorConfig:
         assert cfg.priority == {}
 
 
+@pytest.mark.unit
 class TestValidationError:
     """Tests for ValidationError exception."""
 

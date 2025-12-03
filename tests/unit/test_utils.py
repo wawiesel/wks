@@ -14,6 +14,7 @@ from wks.utils import (
 )
 
 
+@pytest.mark.unit
 class TestFileChecksum:
     """Test file_checksum function."""
 
@@ -49,6 +50,7 @@ class TestFileChecksum:
         assert len(checksum) == 64
 
 
+@pytest.mark.unit
 class TestGetPackageVersion:
     """Test get_package_version function."""
 
@@ -80,6 +82,7 @@ class TestGetPackageVersion:
         assert version1 == version2
 
 
+@pytest.mark.unit
 class TestExpandPath:
     """Test expand_path function."""
 
@@ -96,6 +99,7 @@ class TestExpandPath:
         assert "~" not in str(path)
 
 
+@pytest.mark.unit
 class TestGetWksHome:
     """Test get_wks_home function."""
 
@@ -141,6 +145,7 @@ class TestGetWksHome:
         assert wks_home == wks_home_custom.resolve()
 
 
+@pytest.mark.unit
 class TestWksHomePath:
     """Test wks_home_path function."""
 
