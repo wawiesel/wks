@@ -112,12 +112,14 @@ def test_cli_monitor_status(smoke_env):
     assert "tracked_files" in result.stdout
 
 
+@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
 def test_cli_vault_status(smoke_env):
     """Test 'wksc vault status' - outputs JSON with total_links."""
     result = run_wks(["vault", "status"], smoke_env)
     assert "total_links" in result.stdout
 
 
+@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
 def test_cli_transform(smoke_env):
     """Test 'wksc transform' - outputs checksum."""
     test_file = smoke_env["home"] / "test.txt"
@@ -131,6 +133,7 @@ def test_cli_transform(smoke_env):
     assert cache_key.isalnum()
 
 
+@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
 def test_cli_cat(smoke_env):
     """Test 'wksc cat' - outputs transformed content."""
     test_file = smoke_env["home"] / "test.txt"
@@ -145,6 +148,7 @@ def test_cli_cat(smoke_env):
     assert "Transformed: Hello World" in cat_result.stdout
 
 
+@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
 def test_cli_diff(smoke_env):
     """Test 'wksc diff' - outputs diff."""
     file1 = smoke_env["home"] / "file1.txt"

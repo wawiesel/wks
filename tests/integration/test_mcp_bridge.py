@@ -13,12 +13,17 @@ from wks.mcp_client import proxy_stdio_to_socket
 
 
 def _tmp_socket() -> Path:
-    return Path("/tmp") / f"wks-mcp-test-{uuid4().hex}.sock"
+    # Use shorter path to avoid AF_UNIX path length limits in CI
+    # Linux limit is 108 chars, so use /tmp with minimal name
+    return Path("/tmp") / f"w{uuid4().hex[:8]}.sock"
 
 
 @pytest.mark.integration
 def test_mcp_broker_handles_requests():
     sock_path = _tmp_socket()
+    # Skip if path too long (AF_UNIX limit is 108 chars on Linux)
+    if len(str(sock_path)) > 100:
+        pytest.skip(f"Socket path too long: {sock_path}")
     broker = MCPBroker(sock_path)
     broker.start()
 
@@ -42,6 +47,9 @@ def test_mcp_broker_handles_requests():
 @pytest.mark.integration
 def test_proxy_stdio_to_socket():
     sock_path = _tmp_socket()
+    # Skip if path too long (AF_UNIX limit is 108 chars on Linux)
+    if len(str(sock_path)) > 100:
+        pytest.skip(f"Socket path too long: {sock_path}")
     broker = MCPBroker(sock_path)
     broker.start()
 
