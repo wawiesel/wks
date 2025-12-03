@@ -8,6 +8,7 @@ from wks.vault.obsidian import ObsidianVault
 from wks.config import WKSConfig, VaultConfig
 
 
+@pytest.mark.integration
 class TestVaultController:
     """Test VaultController initialization."""
 
@@ -26,6 +27,7 @@ class TestVaultController:
         assert controller.machine == "test-machine"
 
 
+@pytest.mark.integration
 class TestSyncVault:
     """Test sync_vault static method."""
 

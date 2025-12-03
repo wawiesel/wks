@@ -7,6 +7,7 @@ from wks.vault.controller import VaultController, SymlinkFixResult
 from wks.vault.obsidian import ObsidianVault
 
 
+@pytest.mark.integration
 class TestFixSymlinks:
     """Test fix_symlinks method - lines 35-140."""
 
@@ -121,6 +122,7 @@ class TestFixSymlinks:
                 assert "Target file not found" in result.failed[0][1]
 
 
+@pytest.mark.integration
 class TestValidateVault:
     """Test validate_vault method - lines 141-172."""
 
@@ -191,6 +193,7 @@ class TestValidateVault:
             assert len(result["broken_by_status"]["missing_target"]) == 2
 
 
+@pytest.mark.integration
 class TestSyncVault:
     """Test sync_vault static method - lines 173-189."""
 
@@ -237,6 +240,7 @@ class TestSyncVault:
                 VaultController.sync_vault()
 
 
+@pytest.mark.integration
 class TestFixSymlinksEdgeCases:
     """Test edge cases in fix_symlinks to reach 100% coverage."""
 

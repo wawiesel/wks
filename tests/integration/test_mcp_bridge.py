@@ -6,6 +6,8 @@ import socket
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
+
 from wks.mcp_bridge import MCPBroker
 from wks.mcp_client import proxy_stdio_to_socket
 
@@ -14,6 +16,7 @@ def _tmp_socket() -> Path:
     return Path("/tmp") / f"wks-mcp-test-{uuid4().hex}.sock"
 
 
+@pytest.mark.integration
 def test_mcp_broker_handles_requests():
     sock_path = _tmp_socket()
     broker = MCPBroker(sock_path)
@@ -36,6 +39,7 @@ def test_mcp_broker_handles_requests():
     assert not sock_path.exists()
 
 
+@pytest.mark.integration
 def test_proxy_stdio_to_socket():
     sock_path = _tmp_socket()
     broker = MCPBroker(sock_path)

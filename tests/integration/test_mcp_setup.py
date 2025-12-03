@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 import wks.mcp_setup as mcp_setup
 
 
@@ -12,6 +14,7 @@ def _fake_command(tmp_path: Path):
     return str(fake_bin)
 
 
+@pytest.mark.integration
 def test_install_creates_configs(tmp_path, monkeypatch):
     cursor_path = tmp_path / "cursor" / "mcp.json"
     monkeypatch.setattr(
@@ -28,6 +31,7 @@ def test_install_creates_configs(tmp_path, monkeypatch):
     assert data["mcpServers"]["wks"]["args"] == ["mcp", "run"]
 
 
+@pytest.mark.integration
 def test_install_recovers_from_invalid_json(tmp_path, monkeypatch):
     config_path = tmp_path / "claude" / "mcp.json"
     config_path.parent.mkdir(parents=True, exist_ok=True)

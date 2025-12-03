@@ -26,6 +26,7 @@ from wks.service_controller import (
 from wks.config import WKSConfig, MongoSettings
 
 
+@pytest.mark.integration
 class TestServiceHelpers:
     """Test helper functions."""
 
@@ -83,6 +84,7 @@ class TestServiceHelpers:
         assert default_mongo_uri() == "mongodb://localhost:27017"
 
 
+@pytest.mark.integration
 class TestLaunchctl:
     """Test _launchctl helper."""
 
@@ -101,6 +103,7 @@ class TestLaunchctl:
         assert _launchctl("status") == 2
 
 
+@pytest.mark.integration
 class TestLaunchdControl:
     """Test launchd control functions."""
 
@@ -146,6 +149,7 @@ class TestLaunchdControl:
         assert daemon_status_launchd() == 3
 
 
+@pytest.mark.integration
 class TestServiceStatusLaunch:
     """Test ServiceStatusLaunch model."""
 
@@ -167,6 +171,7 @@ class TestServiceStatusLaunch:
         assert d["pid"] == "123"
 
 
+@pytest.mark.integration
 class TestServiceStatusData:
     """Test ServiceStatusData model."""
 
@@ -186,6 +191,7 @@ class TestServiceStatusData:
 
 
 
+@pytest.mark.integration
 class TestServiceController:
     """Test ServiceController logic."""
 
