@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master, main, test-refactor-campaign ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master, main, test-refactor-campaign ]
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
