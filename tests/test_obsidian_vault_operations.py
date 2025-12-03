@@ -228,8 +228,9 @@ class TestTimestampFormat:
             )
             dt = datetime(2024, 1, 15, 10, 30, 45)
             formatted = vault._format_dt(dt)
-            # Should use DEFAULT_TIMESTAMP_FORMAT
-            assert formatted != "%invalid"
+            # strftime('%invalid') returns 'invalid' (literal text), not an error
+            # So it won't fall back. Just verify it returns something.
+            assert formatted == "invalid"
             assert len(formatted) > 0
 
     def test_format_dt_handles_invalid_datetime(self, tmp_path):
@@ -239,10 +240,9 @@ class TestTimestampFormat:
             base_dir="WKS"
         )
 
-        # Pass None (invalid) - this will raise AttributeError, which is expected
-        # The code catches ValueError and TypeError, but None raises AttributeError
-        with pytest.raises(AttributeError):
-            vault._format_dt(None)
+        # Pass None (invalid) - the code handles None and returns empty string
+        result = vault._format_dt(None)
+        assert result == ""
 
 
 class TestMachineNameExtraction:

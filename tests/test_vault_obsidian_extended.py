@@ -221,15 +221,10 @@ class TestTimestampFormat:
             )
             dt = datetime(2024, 1, 15, 10, 30, 45)
             formatted = vault._format_dt(dt)
-            # strftime with '%invalid' returns 'invalid' (literal text), not an error
-            # So it won't fall back. The test checks that it doesn't return the format string itself.
-            # Since strftime('%invalid') returns 'invalid', we just verify it's not empty
+            # strftime('%invalid') returns 'invalid' (literal text), not an error
+            # So it won't fall back. Just verify it returns the expected literal.
+            assert formatted == "invalid"
             assert len(formatted) > 0
-            # If it did fall back, it would be a proper timestamp format
-            from wks.constants import DEFAULT_TIMESTAMP_FORMAT
-            if formatted != "invalid":
-                # It fell back to default format, which is good
-                assert formatted != "%invalid"
 
     def test_format_dt_handles_invalid_datetime(self, tmp_path):
         """Test that _format_dt handles invalid datetime gracefully."""
@@ -238,11 +233,9 @@ class TestTimestampFormat:
             base_dir="WKS"
         )
 
-        # Pass None (invalid)
-        with patch("wks.vault.obsidian.DEFAULT_TIMESTAMP_FORMAT", "%Y-%m-%d"):
-            # This should not raise, but return a default formatted string
-            result = vault._format_dt(None)
-            # Should fall back to default format handling
+        # Pass None (invalid) - the code handles None and returns empty string
+        result = vault._format_dt(None)
+        assert result == ""
 
 
 class TestMachineNameExtraction:
