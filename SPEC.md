@@ -50,10 +50,31 @@ WKS is built as a stack of independent, composable layers:
 ```
 
 **Design Principles**:
-- **Config-First**: All defaults defined in `~/.wks/config.json`
-- **Override Anywhere**: CLI and MCP can override any config parameter
-- **Engine Plugins**: Each layer supports multiple engines with dedicated configuration
-- **Zero Duplication**: CLI and MCP share identical business logic via controllers
+- **Interfaces**: Support **only CLI and MCP** interfaces. All other modes are unsupported.
+- **Config-First**: All defaults defined in `~/.wks/config.json`.
+- **Override Anywhere**: CLI and MCP can override any config parameter.
+- **Engine Plugins**: Each layer supports multiple engines with dedicated configuration.
+- **Zero Duplication**: CLI and MCP share identical business logic via controllers.
+- **Strict Validation**: Configuration access is centralized through **dataclasses** with strict validation on load. Fail immediately if data is missing or invalid.
+- **No Hedging**: Remove fallback logic; no silent defaults or implicit substitutions. Fail fast and visibly.
+
+## Quality & Standards
+
+**Code Metrics**:
+- **Cyclomatic Complexity (CCN)**: Must be ≤ 10 per function.
+- **Lines of Code (NLOC)**: Must be ≤ 100 per function.
+- **File Size**: Files > 900 lines must be split.
+
+**Error Handling**:
+- **Structured Aggregation**: Replace ad-hoc error handling with structured aggregation—collect all errors, then raise them together.
+- **Fail Fast**: Keep system behavior deterministic. Avoid optional or hidden recovery logic.
+
+**CLI Command Lifecycle**:
+Every CLI command must strictly follow this 4-step behavior:
+1.  **Announce**: Immediately output action description to STDERR.
+2.  **Progress**: Display a progress bar on STDERR.
+3.  **Result**: Report completion status and any issues on STDERR.
+4.  **Output**: Display the final structured output on STDOUT (or empty if failure prevents rendering).
 
 ## Configuration
 
@@ -88,7 +109,7 @@ wksc config    # Print effective config (table in CLI, JSON in MCP)
 
 **Purpose**: Track filesystem state and calculate priorities
 
-**Database**: `wks.monitor`
+**Database**: `wks.monitor` (Strict `<collection>.<database>` format required)
 
 **Schema**:
 - `path` — absolute URI (e.g., `file:///Users/ww5/Documents/report.pdf`)
@@ -392,6 +413,7 @@ wksc db transform            # Transform cache metadata
 wksc db reset monitor        # Clear filesystem state
 wksc db reset vault          # Clear link graph
 wksc db reset transform      # Clear transform cache and DB
+```
 
 ### Service
 
