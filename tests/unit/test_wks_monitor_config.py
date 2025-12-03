@@ -1,6 +1,7 @@
 """Tests for wks/monitor/config.py - MonitorConfig dataclass."""
 
 import pytest
+
 from wks.monitor.config import MonitorConfig, ValidationError
 
 
@@ -19,7 +20,7 @@ class TestMonitorConfig:
             "include_globs": [],
             "exclude_globs": [],
             "managed_directories": {"~": 100},
-            "database": "wks.monitor"
+            "database": "wks.monitor",
         }
 
     def test_valid_config(self, valid_monitor_dict):

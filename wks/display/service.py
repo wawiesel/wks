@@ -4,10 +4,10 @@ Display functions accept dataclasses from service_controller, not dicts.
 Use to_dict() only at JSON serialization boundaries.
 """
 
-from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 if TYPE_CHECKING:
-    from ..service_controller import ServiceStatusData, ServiceStatusLaunch
+    from ..service_controller import ServiceStatusData
 
 
 def fmt_bool(value: Optional[bool], color: bool = False) -> str:
@@ -88,7 +88,12 @@ def build_status_rows(status: "ServiceStatusData") -> List[Tuple[str, str]]:
 
     # File System section
     rows.append(("[bold cyan]File System[/bold cyan]", ""))
-    rows.append(("  Pending deletes", str(status.pending_deletes) if status.pending_deletes is not None else "-"))
+    rows.append(
+        (
+            "  Pending deletes",
+            str(status.pending_deletes) if status.pending_deletes is not None else "-",
+        )
+    )
     rows.append(("  Pending mods", str(status.pending_mods) if status.pending_mods is not None else "-"))
 
     if status.fs_rate_weighted is not None:

@@ -1,7 +1,6 @@
 """Tests for wks/display/service.py - Service status display helpers."""
 
-import pytest
-from wks.display.service import fmt_bool, format_timestamp, build_status_rows
+from wks.display.service import build_status_rows, fmt_bool, format_timestamp
 from wks.service_controller import ServiceStatusData, ServiceStatusLaunch
 
 
@@ -91,7 +90,7 @@ class TestBuildStatusRows:
                 stderr="/var/log/wks.err",
                 path="/path/to/plist",
                 type="LaunchAgent",
-            )
+            ),
         )
         rows = build_status_rows(status)
 
@@ -148,7 +147,7 @@ class TestBuildStatusRows:
                 state="running",
                 arguments="/usr/bin/python3 -m wks.daemon",
                 type="LaunchAgent",
-            )
+            ),
         )
         rows = build_status_rows(status)
 

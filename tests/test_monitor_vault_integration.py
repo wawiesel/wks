@@ -1,12 +1,10 @@
 """Integration test for monitor-vault sync on file moves."""
 
-from pathlib import Path
 import mongomock
 import pytest
 
-from wks.vault.obsidian import ObsidianVault
 from wks.vault.indexer import VaultLinkIndexer
-
+from wks.vault.obsidian import ObsidianVault
 
 
 @pytest.fixture()
@@ -40,9 +38,12 @@ def test_env(tmp_path, monkeypatch):
 
     # Mock BulkOperationBuilder.add_update signature fix
     from mongomock.collection import BulkOperationBuilder
+
     original = BulkOperationBuilder.add_update
+
     def wrapper(self, selector, document, check_keys, upsert, **kwargs):
         return original(self, selector, document, check_keys, upsert)
+
     monkeypatch.setattr(BulkOperationBuilder, "add_update", wrapper)
 
     return {
@@ -64,12 +65,7 @@ def test_monitor_vault_sync_on_file_move(test_env):
 
     # Setup vault and indexer
     vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
-    indexer = VaultLinkIndexer(
-        vault=vault,
-        mongo_uri="mongodb://localhost:27017",
-        db_name="wks",
-        coll_name="vault"
-    )
+    indexer = VaultLinkIndexer(vault=vault, mongo_uri="mongodb://localhost:27017", db_name="wks", coll_name="vault")
 
     # Initial sync - index the link
     result = indexer.sync()
@@ -138,12 +134,7 @@ def test_multiple_links_to_same_file(test_env):
 
     # Setup and sync
     vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
-    indexer = VaultLinkIndexer(
-        vault=vault,
-        mongo_uri="mongodb://localhost:27017",
-        db_name="wks",
-        coll_name="vault"
-    )
+    indexer = VaultLinkIndexer(vault=vault, mongo_uri="mongodb://localhost:27017", db_name="wks", coll_name="vault")
 
     result = indexer.sync()
     # Original link from Research.md + 3 new links = 4 total

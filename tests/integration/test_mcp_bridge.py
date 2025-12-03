@@ -4,7 +4,6 @@ import io
 import json
 import socket
 from pathlib import Path
-from uuid import uuid4
 
 import pytest
 

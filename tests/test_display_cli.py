@@ -1,11 +1,9 @@
 """Tests for CLI display implementation."""
 
 import io
-import json
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
-import pytest
 from wks.display.cli import CLIDisplay
 
 
@@ -87,10 +85,7 @@ class TestCLIDisplay:
         """Test table with data."""
         display = CLIDisplay()
 
-        data = [
-            {"name": "Alice", "age": 30},
-            {"name": "Bob", "age": 25}
-        ]
+        data = [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]
 
         with redirect_stdout(io.StringIO()) as f:
             display.table(data)

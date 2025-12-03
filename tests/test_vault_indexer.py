@@ -1,24 +1,22 @@
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 import mongomock
 import pytest
 
-from wks.vault.obsidian import ObsidianVault
-from wks.vault.indexer import VaultLinkIndexer
-from wks.vault.status_controller import VaultStatusController
-from wks.config import WKSConfig, VaultConfig, MongoSettings
-from unittest.mock import Mock, patch
-
-from wks.vault.link_resolver import LinkResolver
+from wks.config import MongoSettings, VaultConfig, WKSConfig
 from wks.vault.constants import (
-    STATUS_OK,
-    STATUS_LEGACY_LINK,
-    STATUS_MISSING_SYMLINK,
-    STATUS_MISSING_TARGET,
-    LINK_TYPE_WIKILINK,
     LINK_TYPE_EMBED,
     LINK_TYPE_MARKDOWN_URL,
+    LINK_TYPE_WIKILINK,
+    STATUS_LEGACY_LINK,
+    STATUS_MISSING_SYMLINK,
+    STATUS_OK,
 )
+from wks.vault.indexer import VaultLinkIndexer
+from wks.vault.link_resolver import LinkResolver
+from wks.vault.obsidian import ObsidianVault
+from wks.vault.status_controller import VaultStatusController
 
 
 @pytest.fixture()
@@ -66,7 +64,7 @@ def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
         vault=vault,
         mongo_uri="mongodb://localhost:27017",
         db_name="test_wks",
-        coll_name="test_vault"
+        coll_name="test_vault",
     )
     result = indexer.sync()
     assert result.stats.edge_total == 2
@@ -176,6 +174,7 @@ def test_scanner_error_handling(vault_root, tmp_path):
     bad_note_dir.mkdir(exist_ok=True)
 
     from wks.vault.indexer import VaultLinkScanner
+
     scanner = VaultLinkScanner(vault)
     records = scanner.scan()
 
@@ -191,6 +190,7 @@ def test_embed_vs_wikilink_distinction(vault_root):
     note.write_text("Regular: [[Link1]]\nEmbed: ![[Link2]]")
 
     from wks.vault.indexer import VaultLinkScanner
+
     scanner = VaultLinkScanner(vault)
     records = scanner.scan()
 
@@ -204,12 +204,10 @@ def test_markdown_url_extraction(vault_root):
     """Test markdown [text](url) pattern matching."""
     vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
     note = vault_root / "Projects" / "URLs.md"
-    note.write_text(
-        "[GitHub](https://github.com)\n"
-        "[Docs](https://docs.example.com/page)"
-    )
+    note.write_text("[GitHub](https://github.com)\n[Docs](https://docs.example.com/page)")
 
     from wks.vault.indexer import VaultLinkScanner
+
     scanner = VaultLinkScanner(vault)
     records = scanner.scan()
 
@@ -224,13 +222,12 @@ def test_batch_processing(vault, vault_root, patched_mongo):
         vault=vault,
         mongo_uri="mongodb://localhost:27017",
         db_name="test_wks",
-        coll_name="test_vault"
+        coll_name="test_vault",
     )
     result = indexer.sync(batch_size=10)
 
     # Should have processed all records
     assert result.stats.edge_total == 2
-
 
     # This test is no longer relevant as VaultDatabaseConfig is removed
     pass
@@ -246,6 +243,7 @@ def test_line_preview_truncation(vault_root):
     note.write_text(long_line)
 
     from wks.vault.indexer import VaultLinkScanner
+
     scanner = VaultLinkScanner(vault)
     records = scanner.scan()
 

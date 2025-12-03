@@ -1,12 +1,12 @@
 """Tests for display infrastructure and priority calculation."""
 
-import pytest
 from pathlib import Path
 
-from wks.display.base import Display
+import pytest
+
 from wks.display.cli import CLIDisplay
+from wks.display.context import add_display_argument, get_display, is_mcp_context
 from wks.display.mcp import MCPDisplay
-from wks.display.context import get_display, is_mcp_context, add_display_argument
 from wks.priority import calculate_priority, find_managed_directory, priority_examples
 
 
@@ -85,10 +85,12 @@ class TestDisplayInfrastructure:
 
         # Mock stdout.isatty to return False
         import sys
+
         original_isatty = sys.stdout.isatty
 
         def mock_isatty():
             return False
+
         sys.stdout.isatty = mock_isatty
 
         try:
@@ -131,24 +133,15 @@ class TestPriorityCalculation:
         home = Path.home()
 
         # Test exact match
-        matched, priority = find_managed_directory(
-            home / "Desktop",
-            managed_dirs
-        )
+        matched, priority = find_managed_directory(home / "Desktop", managed_dirs)
         assert priority == 150
 
         # Test nested path
-        matched, priority = find_managed_directory(
-            home / "Documents/2025-Project",
-            managed_dirs
-        )
+        matched, priority = find_managed_directory(home / "Documents/2025-Project", managed_dirs)
         assert priority == 100
 
         # Test deepest match wins
-        matched, priority = find_managed_directory(
-            home / "other/path",
-            managed_dirs
-        )
+        matched, priority = find_managed_directory(home / "other/path", managed_dirs)
         assert priority == 100  # Matches ~
 
     def test_priority_examples_from_spec(self):
@@ -157,34 +150,22 @@ class TestPriorityCalculation:
 
         for result in results:
             assert result["match"], (
-                f"Priority mismatch for {result['path']}: "
-                f"expected {result['expected']}, got {result['calculated']}"
+                f"Priority mismatch for {result['path']}: expected {result['expected']}, got {result['calculated']}"
             )
 
     def test_calculate_priority_basic(self):
         """Test basic priority calculation."""
         managed_dirs = {"~": 100}
-        priority_config = {
-            "depth_multiplier": 0.9,
-            "extension_weights": {"default": 1.0}
-        }
+        priority_config = {"depth_multiplier": 0.9, "extension_weights": {"default": 1.0}}
 
         home = Path.home()
 
         # File at home level
-        priority = calculate_priority(
-            home / "file.txt",
-            managed_dirs,
-            priority_config
-        )
+        priority = calculate_priority(home / "file.txt", managed_dirs, priority_config)
         assert priority == 100
 
         # File one level deep
-        priority = calculate_priority(
-            home / "subdir/file.txt",
-            managed_dirs,
-            priority_config
-        )
+        priority = calculate_priority(home / "subdir/file.txt", managed_dirs, priority_config)
         assert priority == 90  # 100 * 0.9
 
 

@@ -1,11 +1,12 @@
 """Tests for VaultController."""
 
-import pytest
-from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pytest
+
+from wks.config import VaultConfig, WKSConfig
 from wks.vault.controller import VaultController
 from wks.vault.obsidian import ObsidianVault
-from wks.config import WKSConfig, VaultConfig
 
 
 @pytest.mark.integration

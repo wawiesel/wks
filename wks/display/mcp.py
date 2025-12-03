@@ -25,57 +25,33 @@ class MCPDisplay(Display):
 
     def status(self, message: str, **kwargs) -> None:
         """Output status as JSON."""
-        self._output({
-            "type": "status",
-            "message": message,
-            "timestamp": _now_iso()
-        })
+        self._output({"type": "status", "message": message, "timestamp": _now_iso()})
 
     def success(self, message: str, **kwargs) -> None:
         """Output success as JSON."""
-        output = {
-            "type": "success",
-            "message": message,
-            "timestamp": _now_iso()
-        }
+        output = {"type": "success", "message": message, "timestamp": _now_iso()}
         if "data" in kwargs:
             output["data"] = kwargs["data"]
         self._output(output)
 
     def error(self, message: str, **kwargs) -> None:
         """Output error as JSON."""
-        output = {
-            "type": "error",
-            "message": message,
-            "timestamp": _now_iso()
-        }
+        output = {"type": "error", "message": message, "timestamp": _now_iso()}
         if "details" in kwargs:
             output["details"] = kwargs["details"]
         self._output(output)
 
     def warning(self, message: str, **kwargs) -> None:
         """Output warning as JSON."""
-        self._output({
-            "type": "warning",
-            "message": message,
-            "timestamp": _now_iso()
-        })
+        self._output({"type": "warning", "message": message, "timestamp": _now_iso()})
 
     def info(self, message: str, **kwargs) -> None:
         """Output info as JSON."""
-        self._output({
-            "type": "info",
-            "message": message,
-            "timestamp": _now_iso()
-        })
+        self._output({"type": "info", "message": message, "timestamp": _now_iso()})
 
     def table(self, data: List[Dict[str, Any]], headers: Optional[List[str]] = None, **kwargs) -> None:
         """Output table data as JSON array."""
-        output = {
-            "type": "table",
-            "data": data,
-            "timestamp": _now_iso()
-        }
+        output = {"type": "table", "data": data, "timestamp": _now_iso()}
         if headers:
             output["headers"] = headers
         if "title" in kwargs:
@@ -85,11 +61,7 @@ class MCPDisplay(Display):
     def progress_start(self, total: int, description: str = "", **kwargs) -> Any:
         """Record progress start (MCP doesn't show live progress)."""
         handle = id(self)  # Simple handle
-        self._progress_states[handle] = {
-            "total": total,
-            "current": 0,
-            "description": description
-        }
+        self._progress_states[handle] = {"total": total, "current": 0, "description": description}
         return handle
 
     def progress_update(self, handle: Any, advance: int = 1, **kwargs) -> None:
@@ -103,13 +75,15 @@ class MCPDisplay(Display):
         """Output final progress state."""
         if handle in self._progress_states:
             state = self._progress_states[handle]
-            self._output({
-                "type": "progress_complete",
-                "total": state["total"],
-                "completed": state["current"],
-                "description": state["description"],
-                "timestamp": _now_iso()
-            })
+            self._output(
+                {
+                    "type": "progress_complete",
+                    "total": state["total"],
+                    "completed": state["current"],
+                    "description": state["description"],
+                    "timestamp": _now_iso(),
+                }
+            )
             del self._progress_states[handle]
 
     def spinner_start(self, description: str = "", **kwargs) -> Any:
@@ -128,30 +102,18 @@ class MCPDisplay(Display):
 
     def tree(self, data: Dict[str, Any], title: str = "", **kwargs) -> None:
         """Output tree data as nested JSON."""
-        output = {
-            "type": "tree",
-            "data": data,
-            "timestamp": _now_iso()
-        }
+        output = {"type": "tree", "data": data, "timestamp": _now_iso()}
         if title:
             output["title"] = title
         self._output(output)
 
     def json_output(self, data: Any, **kwargs) -> None:
         """Output structured data (primary method for MCP)."""
-        self._output({
-            "type": "data",
-            "data": data,
-            "timestamp": _now_iso()
-        })
+        self._output({"type": "data", "data": data, "timestamp": _now_iso()})
 
     def panel(self, content: str, title: str = "", **kwargs) -> None:
         """Output panel content as simple JSON."""
-        output = {
-            "type": "panel",
-            "content": content,
-            "timestamp": _now_iso()
-        }
+        output = {"type": "panel", "content": content, "timestamp": _now_iso()}
         if title:
             output["title"] = title
         self._output(output)

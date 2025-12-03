@@ -1,9 +1,11 @@
 """Complete tests for VaultController to achieve 100% coverage."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
-from wks.vault.controller import VaultController, SymlinkFixResult
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+from wks.vault.controller import SymlinkFixResult, VaultController
 from wks.vault.obsidian import ObsidianVault
 
 
@@ -43,9 +45,7 @@ class TestFixSymlinks:
                 mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
                 # Return file:// URIs from database
-                mock_collection.find.return_value = [
-                    {"to_uri": f"file://{target_file}"}
-                ]
+                mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
 
                 controller = VaultController(vault, machine_name="test-machine")
                 result = controller.fix_symlinks()
@@ -110,9 +110,7 @@ class TestFixSymlinks:
                 mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
                 # Return URI to non-existent file
-                mock_collection.find.return_value = [
-                    {"to_uri": "file:///nonexistent/file.pdf"}
-                ]
+                mock_collection.find.return_value = [{"to_uri": "file:///nonexistent/file.pdf"}]
 
                 controller = VaultController(vault)
                 result = controller.fix_symlinks()
@@ -288,9 +286,7 @@ class TestFixSymlinksEdgeCases:
                 mock_mongo_class.return_value = mock_client
                 mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
-                mock_collection.find.return_value = [
-                    {"to_uri": f"file://{target_file}"}
-                ]
+                mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
 
                 controller = VaultController(vault)
 
@@ -323,9 +319,7 @@ class TestFixSymlinksEdgeCases:
                 mock_mongo_class.return_value = mock_client
                 mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
-                mock_collection.find.return_value = [
-                    {"to_uri": f"file://{target_file}"}
-                ]
+                mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
 
                 controller = VaultController(vault)
 
@@ -357,7 +351,7 @@ class TestFixSymlinksEdgeCases:
                 # Return non-file:// URIs
                 mock_collection.find.return_value = [
                     {"to_uri": "https://example.com"},
-                    {"to_uri": "vault:///note.md"}
+                    {"to_uri": "vault:///note.md"},
                 ]
 
                 controller = VaultController(vault)

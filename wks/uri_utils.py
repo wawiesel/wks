@@ -9,8 +9,8 @@ paths outside the vault.
 """
 
 from pathlib import Path
+from typing import Optional, Union
 from urllib.parse import unquote
-from typing import Union, Optional
 
 
 def path_to_uri(path: Path) -> str:
@@ -34,7 +34,7 @@ def uri_to_path(uri: str) -> Path:
     Returns:
         Path object
     """
-    if uri.startswith('file://'):
+    if uri.startswith("file://"):
         # Remove file:// prefix
         path_str = uri[7:]
         # URL decode any percent-encoded characters
@@ -72,10 +72,7 @@ def convert_to_uri(path_or_uri: Union[str, Path], vault_path: Optional[Path] = N
     from .utils import expand_path
 
     # Already a URI - return as-is
-    if isinstance(path_or_uri, str) and (
-        path_or_uri.startswith('vault:///') or
-        path_or_uri.startswith('file:///')
-    ):
+    if isinstance(path_or_uri, str) and (path_or_uri.startswith("vault:///") or path_or_uri.startswith("file:///")):
         return path_or_uri
 
     # Convert to Path and expand

@@ -8,6 +8,7 @@ requiring CLI or display infrastructure.
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
 from wks.monitor import MonitorController
 
 
@@ -233,7 +234,7 @@ class TestMonitorController(unittest.TestCase):
         """Test get_list includes validation for dirname lists."""
         config = build_config(
             include_dirnames=["node_modules", "invalid/.dirname"],
-            include_globs=["**/node_modules/**"]
+            include_globs=["**/node_modules/**"],
         )
 
         result = MonitorController.get_list(config, "include_dirnames")
@@ -254,9 +255,7 @@ class TestMonitorController(unittest.TestCase):
 
     def test_get_managed_directories(self):
         """Test get_managed_directories returns managed directories with validation."""
-        config = build_config(
-            managed_directories={"~/Documents": 100, "~/Projects": 200}
-        )
+        config = build_config(managed_directories={"~/Documents": 100, "~/Projects": 200})
 
         result = MonitorController.get_managed_directories(config)
 
@@ -274,7 +273,6 @@ class TestMonitorController(unittest.TestCase):
 
         self.assertEqual(result.count, 0)
         self.assertEqual(len(result.managed_directories), 0)
-
 
 
 if __name__ == "__main__":

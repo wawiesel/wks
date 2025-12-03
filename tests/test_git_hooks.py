@@ -1,7 +1,10 @@
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
-from wks.vault.git_hooks import install_hooks, uninstall_hooks, is_hook_installed
+from unittest.mock import patch
+
+import pytest
+
+from wks.vault.git_hooks import install_hooks, is_hook_installed, uninstall_hooks
+
 
 class TestGitHooks:
     @pytest.fixture

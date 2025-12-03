@@ -3,12 +3,13 @@
 import hashlib
 import re
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from pymongo.database import Database
 
-from .models import TransformRecord, now_iso
 from .cache import CacheManager
 from .engines import get_engine
+from .models import TransformRecord, now_iso
 
 
 class TransformController:
@@ -71,8 +72,8 @@ class TransformController:
         """
         cursor = self.db.transform.find(
             {
-            "checksum": file_checksum,
-            "engine": engine_name,
+                "checksum": file_checksum,
+                "engine": engine_name,
                 "options_hash": options_hash,
             }
         )
@@ -94,12 +95,8 @@ class TransformController:
             options_hash: Hash of engine options
         """
         self.db.transform.update_one(
-            {
-                "checksum": file_checksum,
-                "engine": engine_name,
-                "options_hash": options_hash
-            },
-            {"$set": {"last_accessed": now_iso()}}
+            {"checksum": file_checksum, "engine": engine_name, "options_hash": options_hash},
+            {"$set": {"last_accessed": now_iso()}},
         )
 
     def transform(
@@ -107,7 +104,7 @@ class TransformController:
         file_path: Path,
         engine_name: str,
         options: Optional[Dict[str, Any]] = None,
-        output_path: Optional[Path] = None
+        output_path: Optional[Path] = None,
     ) -> str:
         """Transform file using specified engine.
 
@@ -185,7 +182,7 @@ class TransformController:
             created_at=now_iso(),
             engine=engine_name,
             options_hash=options_hash,
-            cache_location=str(cache_location)
+            cache_location=str(cache_location),
         )
 
         self.db.transform.insert_one(record.to_dict())
@@ -233,17 +230,10 @@ class TransformController:
         Returns:
             Number of records updated
         """
-        result = self.db.transform.update_many(
-            {"file_uri": old_uri},
-            {"$set": {"file_uri": new_uri}}
-        )
+        result = self.db.transform.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
         return result.modified_count
 
-    def get_content(
-        self,
-        target: str,
-        output_path: Optional[Path] = None
-    ) -> str:
+    def get_content(self, target: str, output_path: Optional[Path] = None) -> str:
         """Retrieve content for a target (checksum or file path).
 
         Args:
@@ -257,7 +247,7 @@ class TransformController:
             ValueError: If target not found or invalid
         """
         # Check if target is a checksum
-        if re.match(r'^[a-f0-9]{64}$', target):
+        if re.match(r"^[a-f0-9]{64}$", target):
             cache_key = target
 
             # First, prefer the cache directory as the source of truth.
@@ -269,6 +259,7 @@ class TransformController:
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     try:
                         import os
+
                         if output_path.exists():
                             raise FileExistsError(f"Output file already exists: {output_path}")
                         os.link(cache_file, output_path)
@@ -284,9 +275,7 @@ class TransformController:
                 record_checksum = doc["checksum"]
                 record_engine = doc["engine"]
                 record_options_hash = doc["options_hash"]
-                computed_key = self._compute_cache_key(
-                    record_checksum, record_engine, record_options_hash
-                )
+                computed_key = self._compute_cache_key(record_checksum, record_engine, record_options_hash)
                 if computed_key == cache_key:
                     matching_record = TransformRecord.from_dict(doc)
                     break
@@ -297,7 +286,7 @@ class TransformController:
             # Reconstruct cache file path in current cache directory using stored extension
             # This avoids using old absolute paths from previous test runs
             stored_path = Path(matching_record.cache_location)
-            extension = stored_path.suffix.lstrip('.') or 'md'  # Default to .md if no extension
+            extension = stored_path.suffix.lstrip(".") or "md"  # Default to .md if no extension
             cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
 
             # If file doesn't exist, try globbing one more time (in case extension differs)
@@ -307,7 +296,9 @@ class TransformController:
                     cache_file = candidates[0]
 
             if not cache_file.exists():
-                raise ValueError(f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}")
+                raise ValueError(
+                    f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}"
+                )
 
             self._update_last_accessed(
                 matching_record.checksum,
@@ -319,6 +310,7 @@ class TransformController:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 try:
                     import os
+
                     if output_path.exists():
                         raise FileExistsError(f"Output file already exists: {output_path}")
                     os.link(cache_file, output_path)
@@ -338,6 +330,7 @@ class TransformController:
             # In CLI context, they are expanded before calling.
             # But let's be safe.
             from ..utils import expand_path
+
             try:
                 file_path = expand_path(target)
             except Exception:

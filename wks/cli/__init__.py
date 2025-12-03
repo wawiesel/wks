@@ -19,6 +19,7 @@ from ..utils import expand_path, get_package_version
 def _call(tool: str, args: Dict[str, Any] = None) -> Dict[str, Any]:
     """Call MCP tool."""
     from ..mcp_server import call_tool
+
     return call_tool(tool, args or {})
 
 
@@ -40,6 +41,7 @@ def _err(result: Dict) -> int:
 # =============================================================================
 # Commands: config, transform, cat, diff
 # =============================================================================
+
 
 def _cmd_config(args: argparse.Namespace) -> int:
     r = _call("wksm_config")
@@ -80,6 +82,7 @@ def _cmd_diff(args: argparse.Namespace) -> int:
 # =============================================================================
 # Monitor commands
 # =============================================================================
+
 
 def _cmd_monitor_status(args: argparse.Namespace) -> int:
     _out(_call("wksm_monitor_status"), args.display_obj)
@@ -141,6 +144,7 @@ def _cmd_monitor_managed_priority(args: argparse.Namespace) -> int:
 # Vault commands
 # =============================================================================
 
+
 def _cmd_vault_status(args: argparse.Namespace) -> int:
     _out(_call("wksm_vault_status"), args.display_obj)
     return 0
@@ -163,7 +167,10 @@ def _cmd_vault_fix_symlinks(args: argparse.Namespace) -> int:
 
 
 def _cmd_vault_links(args: argparse.Namespace) -> int:
-    r = _call("wksm_vault_links", {"file_path": args.path, "direction": getattr(args, "direction", "both")})
+    r = _call(
+        "wksm_vault_links",
+        {"file_path": args.path, "direction": getattr(args, "direction", "both")},
+    )
     _out(r, args.display_obj)
     return 0
 
@@ -171,6 +178,7 @@ def _cmd_vault_links(args: argparse.Namespace) -> int:
 # =============================================================================
 # DB commands
 # =============================================================================
+
 
 def _cmd_db_monitor(args: argparse.Namespace) -> int:
     """Query monitor database via MCP."""
@@ -209,8 +217,16 @@ def _cmd_service_status(args: argparse.Namespace) -> int:
 # Parser setup
 # =============================================================================
 
+
 def _setup_monitor(sub):
-    LISTS = ["include_paths", "exclude_paths", "include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"]
+    LISTS = [
+        "include_paths",
+        "exclude_paths",
+        "include_dirnames",
+        "exclude_dirnames",
+        "include_globs",
+        "exclude_globs",
+    ]
 
     mon = sub.add_parser("monitor", help="Monitor operations")
     m = mon.add_subparsers(dest="monitor_cmd")
@@ -288,7 +304,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Version
     v = get_package_version()
     try:
-        sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL, cwd=str(Path(__file__).resolve().parents[2])).decode().strip()
+        sha = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                stderr=subprocess.DEVNULL,
+                cwd=str(Path(__file__).resolve().parents[2]),
+            )
+            .decode()
+            .strip()
+        )
         v = f"{v} ({sha})"
     except Exception:
         pass
@@ -328,8 +352,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not args.direct and proxy_stdio_to_socket(mcp_socket_path()):
             return 0
         from ..mcp_server import main as mcp_main
+
         mcp_main()
         return 0
+
     run.set_defaults(func=mcp_run)
 
     inst = ms.add_parser("install")
@@ -338,9 +364,11 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     def mcp_install(args):
         from ..mcp_setup import install_mcp_configs
+
         for r in install_mcp_configs(clients=args.clients, command_override=args.command_path):
             print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")
         return 0
+
     inst.set_defaults(func=mcp_install)
 
     # Parse and execute

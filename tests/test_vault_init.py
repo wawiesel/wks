@@ -1,10 +1,11 @@
 """Tests for vault package initialization and factory functions."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
-from wks.vault import load_vault, ObsidianVault, VaultController
+import pytest
+
+from wks.vault import ObsidianVault, VaultController, load_vault
 from wks.vault.obsidian import ObsidianVault as ObsidianVaultClass
 
 
@@ -23,6 +24,7 @@ class TestVaultPackageInitialization:
     def test_obsidian_vault_type(self):
         """Test that VaultType is set to ObsidianVault."""
         from wks.vault import ObsidianVault
+
         # VaultType is internal, but we can verify ObsidianVault is available
         assert ObsidianVault is ObsidianVaultClass
 
@@ -57,13 +59,7 @@ class TestLoadVault:
 
     def test_load_vault_creates_obsidian_vault(self, tmp_path):
         """Test that load_vault() creates ObsidianVault instance."""
-        cfg = {
-            "vault": {
-                "type": "obsidian",
-                "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
-            }
-        }
+        cfg = {"vault": {"type": "obsidian", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
         vault = load_vault(cfg)
         assert isinstance(vault, ObsidianVault)
@@ -75,7 +71,7 @@ class TestLoadVault:
         cfg = {
             "vault": {
                 "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
+                "wks_dir": "WKS",
                 # type not specified
             }
         }
@@ -85,13 +81,7 @@ class TestLoadVault:
 
     def test_load_vault_loads_config_when_none(self, tmp_path):
         """Test that load_vault() loads config when cfg is None."""
-        mock_config = {
-            "vault": {
-                "type": "obsidian",
-                "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
-            }
-        }
+        mock_config = {"vault": {"type": "obsidian", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
         with patch("wks.config.load_config", return_value=mock_config):
             vault = load_vault(None)
@@ -99,13 +89,7 @@ class TestLoadVault:
 
     def test_load_vault_raises_on_unsupported_type(self, tmp_path):
         """Test that load_vault() raises SystemExit for unsupported vault type."""
-        cfg = {
-            "vault": {
-                "type": "unsupported",
-                "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
-            }
-        }
+        cfg = {"vault": {"type": "unsupported", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
         with pytest.raises(SystemExit, match="unsupported vault.type"):
             load_vault(cfg)
@@ -120,7 +104,7 @@ class TestLoadVault:
             "vault": {
                 "type": "obsidian",
                 "base_dir": str(relative_path) if relative_path != tmp_path else str(tmp_path),
-                "wks_dir": "WKS"
+                "wks_dir": "WKS",
             }
         }
 
@@ -129,13 +113,7 @@ class TestLoadVault:
 
     def test_load_vault_handles_absolute_paths(self, tmp_path):
         """Test that load_vault() handles absolute paths."""
-        cfg = {
-            "vault": {
-                "type": "obsidian",
-                "base_dir": str(tmp_path.absolute()),
-                "wks_dir": "WKS"
-            }
-        }
+        cfg = {"vault": {"type": "obsidian", "base_dir": str(tmp_path.absolute()), "wks_dir": "WKS"}}
 
         vault = load_vault(cfg)
         assert vault.vault_path.is_absolute()
@@ -146,12 +124,7 @@ class TestResolveObsidianSettings:
 
     def test_resolve_obsidian_settings_extracts_paths(self, tmp_path):
         """Test that _resolve_obsidian_settings() extracts required paths."""
-        cfg = {
-            "vault": {
-                "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
-            }
-        }
+        cfg = {"vault": {"base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
         # Call load_vault which uses _resolve_obsidian_settings internally
         vault = load_vault(cfg)
@@ -184,9 +157,7 @@ class TestResolveObsidianSettings:
 
     def test_resolve_obsidian_settings_handles_empty_vault_section(self):
         """Test that _resolve_obsidian_settings() handles empty vault section."""
-        cfg = {
-            "vault": {}
-        }
+        cfg = {"vault": {}}
 
         with pytest.raises(SystemExit):
             load_vault(cfg)
@@ -204,13 +175,7 @@ class TestVaultFactoryFunctions:
 
     def test_load_vault_creates_controller_compatible_vault(self, tmp_path):
         """Test that load_vault() creates vault compatible with VaultController."""
-        cfg = {
-            "vault": {
-                "type": "obsidian",
-                "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
-            }
-        }
+        cfg = {"vault": {"type": "obsidian", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
         vault = load_vault(cfg)
         controller = VaultController(vault)
@@ -220,13 +185,7 @@ class TestVaultFactoryFunctions:
 
     def test_vault_has_required_attributes(self, tmp_path):
         """Test that created vault has all required attributes."""
-        cfg = {
-            "vault": {
-                "type": "obsidian",
-                "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
-            }
-        }
+        cfg = {"vault": {"type": "obsidian", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
         vault = load_vault(cfg)
 
@@ -239,13 +198,7 @@ class TestVaultFactoryFunctions:
 
     def test_vault_can_iterate_markdown(self, tmp_path):
         """Test that created vault can iterate markdown files."""
-        cfg = {
-            "vault": {
-                "type": "obsidian",
-                "base_dir": str(tmp_path),
-                "wks_dir": "WKS"
-            }
-        }
+        cfg = {"vault": {"type": "obsidian", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
         # Create a markdown file
         (tmp_path / "note.md").write_text("# Test")

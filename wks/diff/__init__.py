@@ -1,7 +1,7 @@
 """Diff module - File comparison operations."""
 
 from .controller import DiffController
-from .engines import get_engine, ENGINES
+from .engines import ENGINES, get_engine
 
 __all__ = [
     "DiffController",

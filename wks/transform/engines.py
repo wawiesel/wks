@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class TransformEngine(ABC):
@@ -79,13 +79,7 @@ class DoclingEngine(TransformEngine):
             timeout = options.get("timeout_secs", 30)
 
             try:
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    check=True
-                )
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
 
                 # Docling writes <input_stem>.md to output directory
                 expected_output = temp_output / f"{input_path.stem}.md"
@@ -126,6 +120,7 @@ class TestEngine(TransformEngine):
     def get_extension(self, options: Dict[str, Any]) -> str:
         """Get extension."""
         return "md"
+
 
 # Registry of available engines
 ENGINES: Dict[str, TransformEngine] = {

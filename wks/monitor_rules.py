@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable, List, Tuple, TYPE_CHECKING
 import fnmatch
+from pathlib import Path
+from typing import TYPE_CHECKING, Iterable, List, Tuple
 
 from .constants import WKS_DOT_DIRS
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from .monitor import MonitorConfig
+
 
 def _matches_glob(patterns: List[str], path_obj: Path) -> bool:
     if not patterns:

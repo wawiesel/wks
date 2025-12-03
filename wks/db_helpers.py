@@ -3,7 +3,8 @@
 Reduces duplication across monitor and db commands.
 """
 
-from typing import Dict, Tuple
+from typing import Tuple
+
 from pymongo import MongoClient
 
 
@@ -20,10 +21,14 @@ def parse_database_key(db_key: str) -> Tuple[str, str]:
         ValueError: If format is not "database.collection"
     """
     if "." not in db_key:
-        raise ValueError(f"Database key must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')")
+        raise ValueError(
+            f"Database key must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')"
+        )
     parts = db_key.split(".", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Database key must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)")
+        raise ValueError(
+            f"Database key must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)"
+        )
     return parts[0], parts[1]
 
 
@@ -42,7 +47,9 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
     """
     monitor_config = cfg.get("monitor")
     if not monitor_config:
-        raise KeyError("monitor section is required in config (found: missing, expected: monitor section with database, include_paths, etc.)")
+        raise KeyError(
+            "monitor section is required in config (found: missing, expected: monitor section with database, include_paths, etc.)"
+        )
 
     db_config = cfg.get("db")
     if not db_config:
@@ -54,7 +61,9 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
 
     db_key = monitor_config.get("database")
     if not db_key:
-        raise KeyError("monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')")
+        raise KeyError(
+            "monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')"
+        )
 
     db_name, coll_name = parse_database_key(db_key)
 
@@ -65,7 +74,9 @@ def get_vault_db_config(cfg: dict) -> Tuple[str, str, str]:
     """Extract vault database configuration."""
     vault_cfg = cfg.get("vault")
     if not vault_cfg:
-        raise KeyError("vault section is required in config (found: missing, expected: vault section with database, wks_dir, etc.)")
+        raise KeyError(
+            "vault section is required in config (found: missing, expected: vault section with database, wks_dir, etc.)"
+        )
 
     db_config = cfg.get("db")
     if not db_config:
@@ -77,7 +88,9 @@ def get_vault_db_config(cfg: dict) -> Tuple[str, str, str]:
 
     db_key = vault_cfg.get("database")
     if not db_key:
-        raise KeyError("vault.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.vault')")
+        raise KeyError(
+            "vault.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.vault')"
+        )
 
     db_name, coll_name = parse_database_key(db_key)
     return uri, db_name, coll_name

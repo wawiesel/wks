@@ -4,9 +4,9 @@ from __future__ import annotations
 
 __all__ = ["install_hooks", "uninstall_hooks", "is_hook_installed"]
 
+import logging
 import shutil
 from pathlib import Path
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +61,7 @@ def install_hooks(vault_path: Path, force: bool = False) -> bool:
 
     # Check if hook already exists
     if hook_dest.exists() and not force:
-        raise FileExistsError(
-            f"Hook already exists: {hook_dest}\n"
-            "Use force=True to overwrite"
-        )
+        raise FileExistsError(f"Hook already exists: {hook_dest}\nUse force=True to overwrite")
 
     try:
         # Copy hook script

@@ -1,14 +1,10 @@
 """Priority calculation for file importance scoring."""
 
-import math
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 
-def find_managed_directory(
-    path: Path,
-    managed_dirs: Dict[str, int]
-) -> Tuple[Optional[Path], int]:
+def find_managed_directory(path: Path, managed_dirs: Dict[str, int]) -> Tuple[Optional[Path], int]:
     """Find the deepest matching managed directory for a path.
 
     Args:
@@ -23,10 +19,7 @@ def find_managed_directory(
     path = path.resolve()
 
     # Convert managed_dirs keys to resolved Paths
-    resolved_managed = {
-        Path(k).expanduser().resolve(): v
-        for k, v in managed_dirs.items()
-    }
+    resolved_managed = {Path(k).expanduser().resolve(): v for k, v in managed_dirs.items()}
 
     # Find all ancestors of the path
     ancestors = [path] + list(path.parents)
@@ -84,14 +77,10 @@ def calculate_underscore_penalty(name: str) -> float:
         return 1.0
 
     # Each underscore divides by 2
-    return 1.0 / (2 ** underscore_count)
+    return 1.0 / (2**underscore_count)
 
 
-def calculate_priority(
-    path: Path,
-    managed_dirs: Dict[str, int],
-    priority_config: Dict
-) -> int:
+def calculate_priority(path: Path, managed_dirs: Dict[str, int], priority_config: Dict) -> int:
     """Calculate priority score for a file.
 
     Algorithm:
@@ -192,75 +181,52 @@ def priority_examples():
         "depth_multiplier": 0.9,
         "underscore_divisor": 2,
         "single_underscore_divisor": 64,
-        "extension_weights": {
-            ".docx": 1.3,
-            ".pptx": 1.3,
-            ".pdf": 1.1,
-            "default": 1.0
-        }
+        "extension_weights": {".docx": 1.3, ".pptx": 1.3, ".pdf": 1.1, "default": 1.0},
     }
 
     home = Path.home()
 
     examples = [
         # Example 1: Deep nesting with underscores
-        (
-            home / "Documents/my/full/_path/__file.txt",
-            "~/Documents/my/full/_path/__file.txt",
-            8
-        ),
+        (home / "Documents/my/full/_path/__file.txt", "~/Documents/my/full/_path/__file.txt", 8),
         # Example 2: Single underscore directory
-        (
-            home / "Documents/my/_/path/file.txt",
-            "~/Documents/my/_/path/file.txt",
-            1
-        ),
+        (home / "Documents/my/_/path/file.txt", "~/Documents/my/_/path/file.txt", 1),
         # Example 3: DOCX with high weight
         (
             home / "Documents/reports/2025/annual_report.docx",
             "~/Documents/reports/2025/annual_report.docx",
-            105
+            105,
         ),
         # Example 4: Project with archive
-        (
-            home / "2025-Project/_old/draft.pdf",
-            "~/2025-Project/_old/draft.pdf",
-            45
-        ),
+        (home / "2025-Project/_old/draft.pdf", "~/2025-Project/_old/draft.pdf", 45),
         # Example 5: Pictures directory (lower base)
         (
             home / "Pictures/2025-Memes/funny_diagram.png",
             "~/Pictures/2025-Memes/funny_diagram.png",
-            72
+            72,
         ),
         # Example 6: Downloads
-        (
-            home / "Downloads/report.docx",
-            "~/Downloads/report.docx",
-            65
-        ),
+        (home / "Downloads/report.docx", "~/Downloads/report.docx", 65),
         # Example 7: Deadlines (high base)
         (
             home / "deadlines/2025_12_15-Proposal/draft_v3.pdf",
             "~/deadlines/2025_12_15-Proposal/draft_v3.pdf",
-            119
+            119,
         ),
         # Example 8: Downloads archive
-        (
-            home / "Downloads/_archive/old_file.txt",
-            "~/Downloads/_archive/old_file.txt",
-            23
-        ),
+        (home / "Downloads/_archive/old_file.txt", "~/Downloads/_archive/old_file.txt", 23),
     ]
 
     results = []
     for path, display_path, expected in examples:
         calculated = calculate_priority(path, managed_dirs, priority_config)
-        results.append({
-            "path": display_path,
-            "expected": expected,
-            "calculated": calculated,
-            "match": calculated == expected
-        })
+        results.append(
+            {
+                "path": display_path,
+                "expected": expected,
+                "calculated": calculated,
+                "match": calculated == expected,
+            }
+        )
 
     return results

@@ -14,16 +14,13 @@ import os
 import platform
 import re
 import subprocess
-import sys
-import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # from . import mongoctl
-from .config import WKSConfig, load_config
+from .config import WKSConfig
 from .constants import WKS_HOME_EXT
-
 
 LOCK_FILE = Path.home() / WKS_HOME_EXT / "daemon.lock"
 

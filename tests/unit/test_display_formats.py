@@ -1,9 +1,8 @@
 """Extended tests for CLIDisplay formatting and rendering."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from wks.display.cli import CLIDisplay
-from rich.console import Console
 
 
 @pytest.mark.unit
@@ -51,10 +50,7 @@ class TestCLIDisplayTableExtended:
         """table handles None values in data."""
         display = CLIDisplay()
 
-        data = [
-            {"name": "Alice", "age": None},
-            {"name": None, "age": 25}
-        ]
+        data = [{"name": "Alice", "age": None}, {"name": None, "age": 25}]
 
         display.table(data, title="Users with None")
 
@@ -109,13 +105,7 @@ class TestCLIDisplayErrorDetails:
         """error displays nested error details."""
         display = CLIDisplay()
 
-        details = {
-            "error_code": 500,
-            "context": {
-                "file": "test.py",
-                "line": 42
-            }
-        }
+        details = {"error_code": 500, "context": {"file": "test.py", "line": 42}}
 
         display.error("Nested error", details=details)
 
@@ -126,9 +116,7 @@ class TestCLIDisplayErrorDetails:
         """error displays list-based details."""
         display = CLIDisplay()
 
-        details = {
-            "errors": ["Error 1", "Error 2", "Error 3"]
-        }
+        details = {"errors": ["Error 1", "Error 2", "Error 3"]}
 
         display.error("Multiple errors", details=details)
 
@@ -168,15 +156,7 @@ class TestCLIDisplayTreeExtended:
         """tree handles deeply nested structures."""
         display = CLIDisplay()
 
-        data = {
-            "level1": {
-                "level2": {
-                    "level3": {
-                        "level4": "deep value"
-                    }
-                }
-            }
-        }
+        data = {"level1": {"level2": {"level3": {"level4": "deep value"}}}}
 
         display.tree(data, title="Deep Tree")
 
@@ -187,9 +167,7 @@ class TestCLIDisplayTreeExtended:
         """tree handles lists in structure."""
         display = CLIDisplay()
 
-        data = {
-            "items": ["item1", "item2", "item3"]
-        }
+        data = {"items": ["item1", "item2", "item3"]}
 
         display.tree(data, title="List Tree")
 
@@ -200,12 +178,7 @@ class TestCLIDisplayTreeExtended:
         """tree handles mixed dicts and lists."""
         display = CLIDisplay()
 
-        data = {
-            "config": {
-                "enabled": True,
-                "options": ["opt1", "opt2"]
-            }
-        }
+        data = {"config": {"enabled": True, "options": ["opt1", "opt2"]}}
 
         display.tree(data, title="Mixed Tree")
 
@@ -244,12 +217,7 @@ class TestCLIDisplayJSON:
         """json_output handles nested structures."""
         display = CLIDisplay()
 
-        data = {
-            "users": [
-                {"name": "Alice", "age": 30},
-                {"name": "Bob", "age": 25}
-            ]
-        }
+        data = {"users": [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]}
 
         display.json_output(data)
 

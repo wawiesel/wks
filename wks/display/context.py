@@ -8,7 +8,6 @@ from .base import Display
 from .cli import CLIDisplay
 from .mcp import MCPDisplay
 
-
 DisplayMode = Literal["cli", "mcp"]
 
 
@@ -69,5 +68,5 @@ def add_display_argument(parser) -> None:
         "--display",
         choices=["cli", "mcp"],
         default=default_mode,
-        help=f"Output display format (default: {default_mode}, auto-detected)"
+        help=f"Output display format (default: {default_mode}, auto-detected)",
     )

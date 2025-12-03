@@ -12,16 +12,19 @@ from pathlib import Path
 
 import pytest
 
+
 def _mongo_available():
     """Check if MongoDB is available."""
     try:
         from pymongo import MongoClient
+
         client = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=2000)
         client.server_info()
         client.close()
         return True
     except Exception:
         return False
+
 
 # Path to the wks executable or module
 WKS_CMD = [sys.executable, "-m", "wks.cli"]
@@ -63,9 +66,7 @@ def smoke_env(tmp_path_factory):
             "wks_dir": "WKS",
             "update_frequency_seconds": 3600,
         },
-        "db": {
-            "uri": "mongodb://localhost:27017"
-        },
+        "db": {"uri": "mongodb://localhost:27017"},
         "transform": {
             "cache": {
                 "location": str(home_dir / ".wks" / "cache"),
@@ -96,12 +97,7 @@ def smoke_env(tmp_path_factory):
 def run_wks(args, env_dict, check=True):
     """Run WKS CLI command."""
     cmd = WKS_CMD + args
-    result = subprocess.run(
-        cmd,
-        env=env_dict["env"],
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(cmd, env=env_dict["env"], capture_output=True, text=True)
     if check and result.returncode != 0:
         print(f"Command failed: {cmd}")
         print(f"STDOUT: {result.stdout}")

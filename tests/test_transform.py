@@ -1,11 +1,12 @@
 """Tests for Transform layer (controller, models, cache)."""
 
+from unittest.mock import Mock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-from wks.transform.models import TransformRecord, now_iso
+
 from wks.transform.cache import CacheManager
 from wks.transform.controller import TransformController
+from wks.transform.models import TransformRecord, now_iso
 
 
 class TestTransformRecord:
@@ -21,7 +22,7 @@ class TestTransformRecord:
             created_at="2025-01-01T00:00:00+00:00",
             engine="docling",
             options_hash="def456",
-            cache_location="/cache/abc123.md"
+            cache_location="/cache/abc123.md",
         )
 
         data = record.to_dict()
@@ -41,7 +42,7 @@ class TestTransformRecord:
             "created_at": "2025-01-01T00:00:00+00:00",
             "engine": "docling",
             "options_hash": "def456",
-            "cache_location": "/cache/abc123.md"
+            "cache_location": "/cache/abc123.md",
         }
 
         record = TransformRecord.from_dict(data)
@@ -97,14 +98,14 @@ class TestCacheManager:
                 "checksum": "old1",
                 "size_bytes": 500,
                 "cache_location": str(cache_dir / "old1.md"),
-                "last_accessed": "2025-01-01T00:00:00+00:00"
+                "last_accessed": "2025-01-01T00:00:00+00:00",
             },
             {
                 "checksum": "old2",
                 "size_bytes": 400,
                 "cache_location": str(cache_dir / "old2.md"),
-                "last_accessed": "2025-01-02T00:00:00+00:00"
-            }
+                "last_accessed": "2025-01-02T00:00:00+00:00",
+            },
         ]
 
         manager = CacheManager(cache_dir, 1000, db)
@@ -181,8 +182,6 @@ class TestCacheManager:
         assert result is None
 
 
-
-
 class TestTransformController:
     """Test TransformController."""
 
@@ -214,15 +213,15 @@ class TestTransformController:
         # Mock cached entry exists
         db.transform.find.return_value = [
             {
-            "file_uri": "file:///test.pdf",
-            "checksum": "abc123",
-            "size_bytes": 1024,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-            "engine": "docling",
-            "options_hash": "def456",
+                "file_uri": "file:///test.pdf",
+                "checksum": "abc123",
+                "size_bytes": 1024,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "engine": "docling",
+                "options_hash": "def456",
                 "cache_location": str(tmp_path / "cache" / "key123.md"),
-        }
+            }
         ]
 
         # Create cached file
@@ -257,14 +256,14 @@ class TestTransformController:
                 "_id": "id1",
                 "file_uri": "file:///test.pdf",
                 "cache_location": str(tmp_path / "cache1.md"),
-                "size_bytes": 100
+                "size_bytes": 100,
             },
             {
                 "_id": "id2",
                 "file_uri": "file:///test.pdf",
                 "cache_location": str(tmp_path / "cache2.md"),
-                "size_bytes": 200
-            }
+                "size_bytes": 200,
+            },
         ]
 
         # Create cache files
@@ -291,8 +290,7 @@ class TestTransformController:
 
         assert count == 3
         db.transform.update_many.assert_called_once_with(
-            {"file_uri": "file:///old.pdf"},
-            {"$set": {"file_uri": "file:///new.pdf"}}
+            {"file_uri": "file:///old.pdf"}, {"$set": {"file_uri": "file:///new.pdf"}}
         )
 
     @patch("wks.transform.controller.get_engine")
@@ -320,6 +318,7 @@ class TestTransformController:
 
         def transform_side_effect(input_path, output_path_internal, options):
             output_path_internal.write_text("Transformed content")
+
         mock_engine.transform.side_effect = transform_side_effect
         mock_get_engine.return_value = mock_engine
 
@@ -353,6 +352,7 @@ class TestTransformController:
 
         def transform_side_effect(input_path, output_path_internal, options):
             output_path_internal.write_text("Transformed content")
+
         mock_engine.transform.side_effect = transform_side_effect
         mock_get_engine.return_value = mock_engine
 
@@ -373,16 +373,18 @@ class TestTransformController:
         cache_file.write_text("Cached content")
 
         # Mock cached entry
-        db.transform.find.return_value = [{
-            "file_uri": f"file://{tmp_path / 'test.pdf'}",
-            "checksum": "abc123",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-            "engine": "test",
-            "options_hash": "def456",
-            "cache_location": str(cache_file),
-        }]
+        db.transform.find.return_value = [
+            {
+                "file_uri": f"file://{tmp_path / 'test.pdf'}",
+                "checksum": "abc123",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "engine": "test",
+                "options_hash": "def456",
+                "cache_location": str(cache_file),
+            }
+        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
@@ -471,17 +473,19 @@ class TestTransformController:
 
         # Mock database record that matches the checksum
         computed_key = checksum  # Simplified - in real code this would be computed
-        db.transform.find.return_value = [{
-            "checksum": "file_checksum",
-            "engine": "test",
-            "options_hash": "opts_hash",
-            "cache_location": str(cache_file),
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": "file_checksum",
+                "engine": "test",
+                "options_hash": "opts_hash",
+                "cache_location": str(cache_file),
+            }
+        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
         # Mock the _compute_cache_key to return our checksum
-        with patch.object(controller, '_compute_cache_key', return_value=checksum):
+        with patch.object(controller, "_compute_cache_key", return_value=checksum):
             content = controller.get_content(checksum)
 
             assert content == "Cached content"
@@ -530,6 +534,7 @@ class TestTransformController:
 
             def transform_side_effect(input_path, output_path_internal, options):
                 output_path_internal.write_text("Transformed: Original content")
+
             mock_engine.transform.side_effect = transform_side_effect
             mock_get_engine.return_value = mock_engine
 
@@ -564,16 +569,18 @@ class TestTransformController:
         cache_file.write_text("Cached content")
 
         # Mock database record
-        db.transform.find.return_value = [{
-            "checksum": "file_checksum",
-            "engine": "test",
-            "options_hash": "opts_hash",
-            "cache_location": str(cache_file),
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": "file_checksum",
+                "engine": "test",
+                "options_hash": "opts_hash",
+                "cache_location": str(cache_file),
+            }
+        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
-        with patch.object(controller, '_compute_cache_key', return_value=checksum):
+        with patch.object(controller, "_compute_cache_key", return_value=checksum):
             content = controller.get_content(checksum)
 
             assert content == "Cached content"
@@ -588,16 +595,18 @@ class TestTransformController:
         cache_dir.mkdir()
 
         # Mock cached entry but file doesn't exist
-        db.transform.find.return_value = [{
-            "file_uri": f"file://{tmp_path / 'test.pdf'}",
-            "checksum": "abc123",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-            "engine": "test",
-            "options_hash": "def456",
-            "cache_location": str(cache_dir / "nonexistent.md"),
-        }]
+        db.transform.find.return_value = [
+            {
+                "file_uri": f"file://{tmp_path / 'test.pdf'}",
+                "checksum": "abc123",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "engine": "test",
+                "options_hash": "def456",
+                "cache_location": str(cache_dir / "nonexistent.md"),
+            }
+        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
@@ -611,6 +620,7 @@ class TestTransformController:
 
         def transform_side_effect(input_path, output_path_internal, options):
             output_path_internal.write_text("Transformed content")
+
         mock_engine.transform.side_effect = transform_side_effect
         mock_get_engine.return_value = mock_engine
 
@@ -631,16 +641,18 @@ class TestTransformController:
         cache_dir.mkdir()
 
         # Mock database entry but cache file doesn't exist
-        db.transform.find.return_value = [{
-            "file_uri": "file:///test.pdf",
-            "checksum": "abc123",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-            "engine": "test",
-            "options_hash": "def456",
-            "cache_location": str(cache_dir / "nonexistent.md"),
-        }]
+        db.transform.find.return_value = [
+            {
+                "file_uri": "file:///test.pdf",
+                "checksum": "abc123",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "engine": "test",
+                "options_hash": "def456",
+                "cache_location": str(cache_dir / "nonexistent.md"),
+            }
+        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
@@ -673,6 +685,7 @@ class TestTransformController:
 
                 def transform_side_effect(input_path, output_path_internal, options):
                     output_path_internal.write_text("Transformed: Original content")
+
                 mock_engine.transform.side_effect = transform_side_effect
                 mock_get_engine.return_value = mock_engine
 
@@ -693,17 +706,19 @@ class TestTransformController:
         cache_file.write_text("Cached content")
 
         # Mock database record with no extension in cache_location
-        db.transform.find.return_value = [{
-            "checksum": "file_checksum",
-            "engine": "test",
-            "options_hash": "opts_hash",
-            "cache_location": "/some/path/with/no/extension",
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": "file_checksum",
+                "engine": "test",
+                "options_hash": "opts_hash",
+                "cache_location": "/some/path/with/no/extension",
+            }
+        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
-        with patch.object(controller, '_compute_cache_key', return_value=checksum):
-            with patch.object(controller, '_update_last_accessed'):
+        with patch.object(controller, "_compute_cache_key", return_value=checksum):
+            with patch.object(controller, "_update_last_accessed"):
                 content = controller.get_content(checksum)
 
                 assert content == "Cached content"
@@ -733,18 +748,20 @@ class TestTransformController:
         cache_file_with_key = cache_dir / f"{expected_cache_key}.txt"
         cache_file_with_key.write_text("Cached content from DB")
 
-        db.transform.find.return_value = [{
-            "checksum": file_checksum,
-            "engine": engine,
-            "options_hash": options_hash,
-            "cache_location": str(cache_file_with_key),
-            "file_uri": "file:///test.pdf",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": file_checksum,
+                "engine": engine,
+                "options_hash": options_hash,
+                "cache_location": str(cache_file_with_key),
+                "file_uri": "file:///test.pdf",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+            }
+        ]
 
-        with patch.object(controller, '_update_last_accessed'):
+        with patch.object(controller, "_update_last_accessed"):
             content = controller.get_content(expected_cache_key)
 
             assert content == "Cached content from DB"
@@ -769,18 +786,20 @@ class TestTransformController:
         cache_file.write_text("Cached content")
 
         # Store path with .txt extension but file is .md
-        db.transform.find.return_value = [{
-            "checksum": file_checksum,
-            "engine": engine,
-            "options_hash": options_hash,
-            "cache_location": f"/some/path/{expected_cache_key}.txt",  # Different extension
-            "file_uri": "file:///test.pdf",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": file_checksum,
+                "engine": engine,
+                "options_hash": options_hash,
+                "cache_location": f"/some/path/{expected_cache_key}.txt",  # Different extension
+                "file_uri": "file:///test.pdf",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+            }
+        ]
 
-        with patch.object(controller, '_update_last_accessed'):
+        with patch.object(controller, "_update_last_accessed"):
             content = controller.get_content(expected_cache_key)
 
             assert content == "Cached content"
@@ -805,18 +824,20 @@ class TestTransformController:
 
         output_path = tmp_path / "output" / "result.md"
 
-        db.transform.find.return_value = [{
-            "checksum": file_checksum,
-            "engine": engine,
-            "options_hash": options_hash,
-            "cache_location": str(cache_file),
-            "file_uri": "file:///test.pdf",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": file_checksum,
+                "engine": engine,
+                "options_hash": options_hash,
+                "cache_location": str(cache_file),
+                "file_uri": "file:///test.pdf",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+            }
+        ]
 
-        with patch.object(controller, '_update_last_accessed'):
+        with patch.object(controller, "_update_last_accessed"):
             content = controller.get_content(expected_cache_key, output_path=output_path)
 
             assert content == "Cached content"
@@ -844,18 +865,20 @@ class TestTransformController:
         output_path = tmp_path / "output.md"
         output_path.write_text("Existing content")
 
-        db.transform.find.return_value = [{
-            "checksum": file_checksum,
-            "engine": engine,
-            "options_hash": options_hash,
-            "cache_location": str(cache_file),
-            "file_uri": "file:///test.pdf",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": file_checksum,
+                "engine": engine,
+                "options_hash": options_hash,
+                "cache_location": str(cache_file),
+                "file_uri": "file:///test.pdf",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+            }
+        ]
 
-        with patch.object(controller, '_update_last_accessed'):
+        with patch.object(controller, "_update_last_accessed"):
             # FileExistsError is raised but caught, then file is overwritten
             content = controller.get_content(expected_cache_key, output_path=output_path)
 
@@ -872,12 +895,14 @@ class TestTransformController:
 
         checksum = "a" * 64
 
-        db.transform.find.return_value = [{
-            "checksum": "different_checksum",
-            "engine": "test",
-            "options_hash": "opts_hash",
-            "cache_location": "/some/path",
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": "different_checksum",
+                "engine": "test",
+                "options_hash": "opts_hash",
+                "cache_location": "/some/path",
+            }
+        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
@@ -900,16 +925,18 @@ class TestTransformController:
         expected_cache_key = controller._compute_cache_key(file_checksum, engine, options_hash)
 
         # Don't create the cache file
-        db.transform.find.return_value = [{
-            "checksum": file_checksum,
-            "engine": engine,
-            "options_hash": options_hash,
-            "cache_location": str(cache_dir / f"{expected_cache_key}.md"),
-            "file_uri": "file:///test.pdf",
-            "size_bytes": 100,
-            "last_accessed": "2025-01-01T00:00:00+00:00",
-            "created_at": "2025-01-01T00:00:00+00:00",
-        }]
+        db.transform.find.return_value = [
+            {
+                "checksum": file_checksum,
+                "engine": engine,
+                "options_hash": options_hash,
+                "cache_location": str(cache_dir / f"{expected_cache_key}.md"),
+                "file_uri": "file:///test.pdf",
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+            }
+        ]
 
         with pytest.raises(ValueError, match="Cache file not found"):
             controller.get_content(expected_cache_key)

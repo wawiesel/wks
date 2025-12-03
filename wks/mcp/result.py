@@ -4,13 +4,14 @@ MCP tools return structured results that include data, errors, warnings, and mes
 CLI consumes these and formats/displays them appropriately.
 """
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class MessageType(Enum):
     """Type of message in MCP result."""
+
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
@@ -21,16 +22,14 @@ class MessageType(Enum):
 @dataclass
 class Message:
     """A single message (error, warning, info, etc.) from an MCP tool."""
+
     type: MessageType
     text: str
     details: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        result = {
-            "type": self.type.value,
-            "text": self.text
-        }
+        result = {"type": self.type.value, "text": self.text}
         if self.details:
             result["details"] = self.details
         return result
@@ -50,6 +49,7 @@ class MCPResult:
         messages: List of messages (errors, warnings, info, status)
         log: Optional log entries for debugging (CLI may suppress these)
     """
+
     success: bool
     data: Dict[str, Any]
     messages: List[Message] = field(default_factory=list)
@@ -81,7 +81,7 @@ class MCPResult:
         result = {
             "success": self.success,
             "data": self.data,
-            "messages": [msg.to_dict() for msg in self.messages]
+            "messages": [msg.to_dict() for msg in self.messages],
         }
         if self.log:
             result["log"] = self.log
@@ -96,7 +96,9 @@ class MCPResult:
         return result
 
     @classmethod
-    def error_result(cls, error_text: str, details: Optional[str] = None, data: Optional[Dict[str, Any]] = None) -> "MCPResult":
+    def error_result(
+        cls, error_text: str, details: Optional[str] = None, data: Optional[Dict[str, Any]] = None
+    ) -> "MCPResult":
         """Create an error result."""
         result = cls(success=False, data=data or {})
         result.add_error(error_text, details)

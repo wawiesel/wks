@@ -1,12 +1,13 @@
 """Status and result dataclasses for monitor operations."""
 
-from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Any
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class ListOperationResult:
     """Result of adding/removing items from a monitor list."""
+
     success: bool
     message: str
     value_stored: Optional[str] = None
@@ -18,7 +19,9 @@ class ListOperationResult:
     def __post_init__(self):
         """Validate after initialization."""
         if not self.message:
-            raise ValueError(f"ListOperationResult.message cannot be empty (found: {self.message!r}, expected: non-empty string)")
+            raise ValueError(
+                f"ListOperationResult.message cannot be empty (found: {self.message!r}, expected: non-empty string)"
+            )
         if self.success and self.not_found:
             raise ValueError(
                 f"ListOperationResult: success cannot be True when not_found is True (found: success={self.success}, not_found={self.not_found}, expected: success=False when not_found=True)"
@@ -36,6 +39,7 @@ class ListOperationResult:
 @dataclass
 class ManagedDirectoryInfo:
     """Information about a managed directory."""
+
     priority: int
     valid: bool
     error: Optional[str] = None
@@ -43,12 +47,15 @@ class ManagedDirectoryInfo:
     def __post_init__(self):
         """Validate after initialization."""
         if self.priority < 0:
-            raise ValueError(f"ManagedDirectoryInfo.priority must be non-negative (found: {self.priority}, expected: integer >= 0)")
+            raise ValueError(
+                f"ManagedDirectoryInfo.priority must be non-negative (found: {self.priority}, expected: integer >= 0)"
+            )
 
 
 @dataclass
 class ManagedDirectoriesResult:
     """Result of get_managed_directories()."""
+
     managed_directories: Dict[str, int]
     count: int
     validation: Dict[str, ManagedDirectoryInfo]
@@ -57,6 +64,7 @@ class ManagedDirectoriesResult:
 @dataclass
 class ConfigValidationResult:
     """Result of validate_config()."""
+
     issues: List[str] = field(default_factory=list)
     redundancies: List[str] = field(default_factory=list)
     managed_directories: Dict[str, ManagedDirectoryInfo] = field(default_factory=dict)
@@ -75,6 +83,7 @@ class ConfigValidationResult:
 @dataclass
 class MonitorStatus:
     """Monitor status data structure."""
+
     tracked_files: int
     issues: List[str] = field(default_factory=list)
     redundancies: List[str] = field(default_factory=list)
@@ -93,7 +102,9 @@ class MonitorStatus:
     def __post_init__(self):
         """Validate after initialization."""
         if self.tracked_files < 0:
-            raise ValueError(f"MonitorStatus.tracked_files must be non-negative (found: {self.tracked_files}, expected: integer >= 0)")
+            raise ValueError(
+                f"MonitorStatus.tracked_files must be non-negative (found: {self.tracked_files}, expected: integer >= 0)"
+            )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for JSON serialization using dataclasses.asdict."""

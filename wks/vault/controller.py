@@ -1,17 +1,17 @@
 """Vault controller with business logic for vault operations."""
 
+import platform
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Set, Tuple, Optional
-import platform
+from typing import List, Optional, Tuple
 
 from .obsidian import ObsidianVault
-from .markdown_parser import parse_wikilinks
 
 
 @dataclass
 class SymlinkFixResult:
     """Result from fix_symlinks operation."""
+
     notes_scanned: int
     links_found: int
     created: int
@@ -31,7 +31,6 @@ class VaultController:
         self.vault = vault
         self.machine = machine_name or platform.node().split(".")[0]
 
-
     def fix_symlinks(self) -> SymlinkFixResult:
         """Rebuild _links/<machine>/ from vault DB.
 
@@ -41,9 +40,11 @@ class VaultController:
         Returns:
             SymlinkFixResult with operation statistics
         """
-        from pymongo import MongoClient
-        from ..config import WKSConfig
         import shutil
+
+        from pymongo import MongoClient
+
+        from ..config import WKSConfig
 
         # 1. Delete entire _links/<machine>/ directory
         machine_links_dir = self.vault.links_dir / self.machine
@@ -55,7 +56,7 @@ class VaultController:
                     notes_scanned=0,
                     links_found=0,
                     created=0,
-                    failed=[("_links/" + self.machine, f"Failed to delete: {exc}")]
+                    failed=[("_links/" + self.machine, f"Failed to delete: {exc}")],
                 )
 
         # 2. Query vault DB for all file:// links
@@ -65,11 +66,11 @@ class VaultController:
             db_name = config.vault.database.split(".")[0]
             coll_name = config.vault.database.split(".")[1]
         except Exception as e:
-             return SymlinkFixResult(
+            return SymlinkFixResult(
                 notes_scanned=0,
                 links_found=0,
                 created=0,
-                failed=[("config", f"Failed to load config: {e}")]
+                failed=[("config", f"Failed to load config: {e}")],
             )
 
         try:
@@ -82,10 +83,7 @@ class VaultController:
             collection = client[db_name][coll_name]
 
             # Find all links where to_uri is file://
-            cursor = collection.find(
-                {"to_uri": {"$regex": "^file://"}},
-                {"to_uri": 1}
-            )
+            cursor = collection.find({"to_uri": {"$regex": "^file://"}}, {"to_uri": 1})
 
             file_uris = set(doc["to_uri"] for doc in cursor)
             client.close()
@@ -95,7 +93,7 @@ class VaultController:
                 notes_scanned=0,
                 links_found=0,
                 created=0,
-                failed=[("vault_db", f"Failed to query: {exc}")]
+                failed=[("vault_db", f"Failed to query: {exc}")],
             )
 
         # 3. Create symlinks for each unique file:// URI
@@ -108,6 +106,7 @@ class VaultController:
 
             # Parse file:// URI to filesystem path
             from urllib.parse import urlparse
+
             parsed = urlparse(file_uri)
             target_path = Path(parsed.path)
 
@@ -135,7 +134,7 @@ class VaultController:
             notes_scanned=0,  # We queried DB, not markdown files
             links_found=len(file_uris),
             created=created,
-            failed=failed
+            failed=failed,
         )
 
     def validate_vault(self) -> dict:
@@ -153,19 +152,21 @@ class VaultController:
         broken_links = [r for r in records if r.status != "ok"]
         broken_by_status = {}
         for record in broken_links:
-            broken_by_status.setdefault(record.status, []).append({
-                "note_path": str(record.note_path),
-                "line_number": record.line_number,
-                "raw_target": record.raw_target,
-                "status": record.status
-            })
+            broken_by_status.setdefault(record.status, []).append(
+                {
+                    "note_path": str(record.note_path),
+                    "line_number": record.line_number,
+                    "raw_target": record.raw_target,
+                    "status": record.status,
+                }
+            )
 
         return {
             "notes_scanned": stats.notes_scanned,
             "links_found": stats.edge_total,
             "broken_count": len(broken_links),
             "broken_by_status": broken_by_status,
-            "is_valid": len(broken_links) == 0
+            "is_valid": len(broken_links) == 0,
         }
 
     # ------------------------------------------------------------------ sync helper

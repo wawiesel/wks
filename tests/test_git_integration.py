@@ -1,7 +1,10 @@
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from wks.vault.git_watcher import GitVaultWatcher
+
 
 class TestGitVaultWatcher:
     @patch("subprocess.run")
@@ -41,5 +44,6 @@ class TestGitVaultWatcher:
 
         with pytest.raises(RuntimeError):
             GitVaultWatcher(Path("/tmp/vault"))
+
 
 # TODO: Add tests for git hooks if needed, but watcher coverage is main concern for indexer

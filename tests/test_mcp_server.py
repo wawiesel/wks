@@ -1,11 +1,14 @@
 """Comprehensive tests for MCP Server."""
 
-import json
 import io
-from unittest.mock import MagicMock, patch, mock_open
+import json
+from unittest.mock import MagicMock, patch
+
 import pytest
+
+from wks.config import MongoSettings, MonitorConfig, VaultConfig, WKSConfig
 from wks.mcp_server import MCPServer
-from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings
+
 
 @pytest.fixture
 def mock_config():
@@ -20,17 +23,18 @@ def mock_config():
         exclude_globs=[],
         managed_directories={"~": 100},
         priority={"depth_multiplier": 0.9},
-        database="wks.monitor"
+        database="wks.monitor",
     )
     config.vault = VaultConfig(
         base_dir="~/_vault",
         wks_dir=".wks",
         update_frequency_seconds=3600,
         database="wks.vault",
-        vault_type="obsidian"
+        vault_type="obsidian",
     )
     config.mongo = MongoSettings(uri="mongodb://localhost:27017")
     return config
+
 
 @pytest.fixture
 def mcp_server():
@@ -40,6 +44,7 @@ def mcp_server():
     server = MCPServer(input_stream=input_stream, output_stream=output_stream)
     return server, input_stream, output_stream
 
+
 class TestMCPServer:
     """Test MCP Server functionality."""
 
@@ -48,17 +53,12 @@ class TestMCPServer:
         server, input_stream, output_stream = mcp_server
 
         # Prepare request
-        request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {}
-        }
+        request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
         input_stream.write(json.dumps(request) + "\n")
         input_stream.seek(0)
 
         # Run one iteration
-        with patch.object(server, '_read_message', side_effect=[request, None]):
+        with patch.object(server, "_read_message", side_effect=[request, None]):
             server.run()
 
         # Check response
@@ -72,14 +72,9 @@ class TestMCPServer:
         """Test tools/list request."""
         server, input_stream, output_stream = mcp_server
 
-        request = {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/list",
-            "params": {}
-        }
+        request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
-        with patch.object(server, '_read_message', side_effect=[request, None]):
+        with patch.object(server, "_read_message", side_effect=[request, None]):
             server.run()
 
         output = output_stream.getvalue()
@@ -105,13 +100,10 @@ class TestMCPServer:
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
-            "params": {
-                "name": "wksm_monitor_status",
-                "arguments": {}
-            }
+            "params": {"name": "wksm_monitor_status", "arguments": {}},
         }
 
-        with patch.object(server, '_read_message', side_effect=[request, None]):
+        with patch.object(server, "_read_message", side_effect=[request, None]):
             server.run()
 
         output = output_stream.getvalue()
@@ -134,13 +126,10 @@ class TestMCPServer:
             "jsonrpc": "2.0",
             "id": 4,
             "method": "tools/call",
-            "params": {
-                "name": "wksm_monitor_check",
-                "arguments": {"path": "/tmp/test.txt"}
-            }
+            "params": {"name": "wksm_monitor_check", "arguments": {"path": "/tmp/test.txt"}},
         }
 
-        with patch.object(server, '_read_message', side_effect=[request, None]):
+        with patch.object(server, "_read_message", side_effect=[request, None]):
             server.run()
 
         output = output_stream.getvalue()
@@ -158,13 +147,10 @@ class TestMCPServer:
             "jsonrpc": "2.0",
             "id": 5,
             "method": "tools/call",
-            "params": {
-                "name": "unknown_tool",
-                "arguments": {}
-            }
+            "params": {"name": "unknown_tool", "arguments": {}},
         }
 
-        with patch.object(server, '_read_message', side_effect=[request, None]):
+        with patch.object(server, "_read_message", side_effect=[request, None]):
             server.run()
 
         output = output_stream.getvalue()
@@ -187,11 +173,11 @@ class TestMCPServer:
             "method": "tools/call",
             "params": {
                 "name": "wksm_monitor_check",
-                "arguments": {}  # Missing 'path'
-            }
+                "arguments": {},  # Missing 'path'
+            },
         }
 
-        with patch.object(server, '_read_message', side_effect=[request, None]):
+        with patch.object(server, "_read_message", side_effect=[request, None]):
             server.run()
 
         output = output_stream.getvalue()
@@ -205,11 +191,7 @@ class TestMCPServer:
         """Test LSP-style Content-Length framing."""
         server, input_stream, output_stream = mcp_server
 
-        payload = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 7,
-            "method": "ping"
-        })
+        payload = json.dumps({"jsonrpc": "2.0", "id": 7, "method": "ping"})
         message = f"Content-Length: {len(payload)}\r\n\r\n{payload}"
 
         input_stream.write(message)

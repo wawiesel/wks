@@ -1,18 +1,18 @@
 """Monitor Controller - Business logic for filesystem monitoring operations."""
 
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 from ..monitor_rules import MonitorRules
 from .config import MonitorConfig
+from .operations import MonitorOperations, _canonicalize_path
 from .status import (
-    MonitorStatus,
     ConfigValidationResult,
-    ManagedDirectoryInfo,
     ManagedDirectoriesResult,
+    ManagedDirectoryInfo,
+    MonitorStatus,
 )
 from .validator import MonitorValidator
-from .operations import MonitorOperations, _canonicalize_path
 
 
 def _build_canonical_map(values: List[str]) -> Dict[str, List[str]]:
@@ -56,11 +56,7 @@ class MonitorController:
             )
         items = supported_lists[list_name]
 
-        result = {
-            "list_name": list_name,
-            "items": items,
-            "count": len(items)
-        }
+        result = {"list_name": list_name, "items": items, "count": len(items)}
 
         # Include/exclude dirname validation
         if list_name in ("include_dirnames", "exclude_dirnames"):
@@ -111,19 +107,13 @@ class MonitorController:
         validation = {}
         rules = MonitorRules.from_config(monitor_cfg)
         for path, priority in monitor_cfg.managed_directories.items():
-            is_valid, error_msg = MonitorValidator.validate_managed_directory(
-                path, rules
-            )
-            validation[path] = ManagedDirectoryInfo(
-                priority=priority,
-                valid=is_valid,
-                error=error_msg
-            )
+            is_valid, error_msg = MonitorValidator.validate_managed_directory(path, rules)
+            validation[path] = ManagedDirectoryInfo(priority=priority, valid=is_valid, error=error_msg)
 
         return ManagedDirectoriesResult(
             managed_directories=monitor_cfg.managed_directories,
             count=len(monitor_cfg.managed_directories),
-            validation=validation
+            validation=validation,
         )
 
     @staticmethod
@@ -133,8 +123,9 @@ class MonitorController:
         Raises:
             KeyError: If monitor section is missing
         """
-        from ..config import WKSConfig
         from pymongo import MongoClient
+
+        from ..config import WKSConfig
 
         if hasattr(config, "monitor"):
             monitor_cfg = config.monitor
@@ -217,12 +208,16 @@ class MonitorController:
             vault_resolved = _canonicalize_path(vault_base)
             if vault_resolved in exclude_map:
                 for entry in exclude_map[vault_resolved]:
-                    redundancies.append(f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately")
+                    redundancies.append(
+                        f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately"
+                    )
 
         return redundancies
 
     @staticmethod
-    def _validate_managed_directories(monitor_cfg: MonitorConfig, rules: MonitorRules) -> Tuple[List[str], List[str], Dict[str, ManagedDirectoryInfo]]:
+    def _validate_managed_directories(
+        monitor_cfg: MonitorConfig, rules: MonitorRules
+    ) -> Tuple[List[str], List[str], Dict[str, ManagedDirectoryInfo]]:
         """Validate managed directories."""
         issues = []
         redundancies = []
@@ -238,7 +233,7 @@ class MonitorController:
         # Duplicate managed directories (same resolved path)
         for i, dir1 in enumerate(managed_dirs):
             p1 = Path(dir1).expanduser().resolve()
-            for dir2 in managed_dirs[i + 1:]:
+            for dir2 in managed_dirs[i + 1 :]:
                 p2 = Path(dir2).expanduser().resolve()
                 if p1 == p2:
                     redundancies.append(f"Duplicate managed directories: {dir1} and {dir2} resolve to the same path")
@@ -246,7 +241,9 @@ class MonitorController:
         return issues, redundancies, managed_directories
 
     @staticmethod
-    def _validate_dirnames(monitor_cfg: MonitorConfig) -> Tuple[List[str], List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    def _validate_dirnames(
+        monitor_cfg: MonitorConfig,
+    ) -> Tuple[List[str], List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
         """Validate include/exclude dirnames."""
         issues = []
         redundancies = []
@@ -286,7 +283,9 @@ class MonitorController:
         return issues, redundancies, include_dirname_validation, exclude_dirname_validation
 
     @staticmethod
-    def _validate_globs(monitor_cfg: MonitorConfig) -> Tuple[List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    def _validate_globs(
+        monitor_cfg: MonitorConfig,
+    ) -> Tuple[List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
         """Validate include/exclude glob patterns."""
         issues = []
         include_glob_validation = {}
@@ -330,12 +329,16 @@ class MonitorController:
         redundancies.extend(MonitorController._validate_path_redundancy(include_map, exclude_map, config))
 
         # Managed directories
-        mgd_issues, mgd_redundancies, managed_directories = MonitorController._validate_managed_directories(monitor_cfg, rules)
+        mgd_issues, mgd_redundancies, managed_directories = MonitorController._validate_managed_directories(
+            monitor_cfg, rules
+        )
         issues.extend(mgd_issues)
         redundancies.extend(mgd_redundancies)
 
         # Dirnames
-        dir_issues, dir_redundancies, include_dirname_validation, exclude_dirname_validation = MonitorController._validate_dirnames(monitor_cfg)
+        dir_issues, dir_redundancies, include_dirname_validation, exclude_dirname_validation = (
+            MonitorController._validate_dirnames(monitor_cfg)
+        )
         issues.extend(dir_issues)
         redundancies.extend(dir_redundancies)
 
@@ -366,9 +369,8 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or required fields are missing
         """
-        from ..priority import calculate_priority
-
         from ..config import WKSConfig
+        from ..priority import calculate_priority
 
         if isinstance(config, WKSConfig):
             monitor_cfg = config.monitor
@@ -381,10 +383,14 @@ class MonitorController:
 
         decisions = []
         path_exists = test_path.exists()
-        decisions.append({
-            "symbol": "✓" if path_exists else "⚠",
-            "message": f"Path exists: {test_path}" if path_exists else f"Path does not exist (checking as if it did): {test_path}"
-        })
+        decisions.append(
+            {
+                "symbol": "✓" if path_exists else "⚠",
+                "message": f"Path exists: {test_path}"
+                if path_exists
+                else f"Path does not exist (checking as if it did): {test_path}",
+            }
+        )
 
         allowed, trace = rules.explain(test_path)
         for message in trace:
@@ -403,7 +409,7 @@ class MonitorController:
                 "is_monitored": False,
                 "reason": trace[-1] if trace else "Excluded by monitor rules",
                 "priority": None,
-                "decisions": decisions
+                "decisions": decisions,
             }
 
         # Calculate priority
@@ -419,15 +425,16 @@ class MonitorController:
             "is_monitored": True,
             "reason": "Would be monitored",
             "priority": priority,
-            "decisions": decisions
+            "decisions": decisions,
         }
 
     @staticmethod
     def prune_ignored_files(config: dict) -> dict:
         """Prune ignored files from the monitor database."""
+        from pymongo import MongoClient
+
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
-        from pymongo import MongoClient
 
         if isinstance(config, WKSConfig):
             monitor_cfg = config.monitor
@@ -487,9 +494,10 @@ class MonitorController:
     @staticmethod
     def prune_deleted_files(config: dict) -> dict:
         """Prune deleted files from the monitor database."""
+        from pymongo import MongoClient
+
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
-        from pymongo import MongoClient
 
         if isinstance(config, WKSConfig):
             monitor_cfg = config.monitor

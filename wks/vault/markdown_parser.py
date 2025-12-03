@@ -14,7 +14,6 @@ import re
 from dataclasses import dataclass
 from typing import Iterator
 
-
 # Compiled regex patterns for performance
 WIKILINK_PATTERN = re.compile(r"(!)?\[\[([^\]]+)\]\]")
 MARKDOWN_URL_PATTERN = re.compile(r"\[([^\]]+)\]\(((?:https?|file)://[^)]+)\)")

@@ -7,6 +7,21 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
 
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.0
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-PyYAML, types-setuptools, pydantic, mongo-types]
+        args: [--strict, --ignore-missing-imports]
+        exclude: ^tests/  # Mypy on tests can be strict, but let's start with code
+
   - repo: local
     hooks:
       - id: pytest

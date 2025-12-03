@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from pathlib import Path
 
 
 class Display(ABC):

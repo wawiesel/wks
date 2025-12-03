@@ -1,9 +1,10 @@
 """Extended tests for GitVaultWatcher."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 import subprocess
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from wks.vault.git_watcher import GitVaultWatcher, VaultChanges
 
@@ -18,23 +19,18 @@ class TestGetChanges:
         repo_path.mkdir()
 
         # Initialize git repo
-        subprocess.run(
-            ["git", "init"],
-            cwd=repo_path,
-            capture_output=True,
-            check=True
-        )
+        subprocess.run(["git", "init"], cwd=repo_path, capture_output=True, check=True)
         subprocess.run(
             ["git", "config", "user.email", "test@example.com"],
             cwd=repo_path,
             capture_output=True,
-            check=True
+            check=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
             cwd=repo_path,
             capture_output=True,
-            check=True
+            check=True,
         )
         return repo_path
 
@@ -155,13 +151,13 @@ class TestGetChangedSinceCommit:
             ["git", "config", "user.email", "test@example.com"],
             cwd=repo_path,
             capture_output=True,
-            check=True
+            check=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "Test User"],
             cwd=repo_path,
             capture_output=True,
-            check=True
+            check=True,
         )
 
         # Create initial commit
@@ -195,7 +191,7 @@ class TestGetChangedSinceCommit:
             ["git", "rev-parse", "HEAD~1"],
             cwd=git_repo_with_history,
             capture_output=True,
-            text=True
+            text=True,
         )
         if result.returncode == 0:
             base_commit = result.stdout.strip()
@@ -213,23 +209,15 @@ class TestGetChangedSinceCommit:
     def test_get_changed_since_commit_handles_renames(self, git_repo_with_history):
         """Test that get_changed_since_commit() handles renamed files."""
         # Rename file
-        subprocess.run(
-            ["git", "mv", "file1.md", "renamed.md"],
-            cwd=git_repo_with_history,
-            capture_output=True
-        )
-        subprocess.run(
-            ["git", "commit", "-m", "Rename"],
-            cwd=git_repo_with_history,
-            capture_output=True
-        )
+        subprocess.run(["git", "mv", "file1.md", "renamed.md"], cwd=git_repo_with_history, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "Rename"], cwd=git_repo_with_history, capture_output=True)
 
         watcher = GitVaultWatcher(git_repo_with_history)
         result = subprocess.run(
             ["git", "rev-parse", "HEAD~1"],
             cwd=git_repo_with_history,
             capture_output=True,
-            text=True
+            text=True,
         )
         if result.returncode == 0:
             base_commit = result.stdout.strip()
@@ -326,16 +314,8 @@ class TestErrorCases:
         """Test that get_changes() handles exceptions gracefully."""
         # Create a git repo first
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=tmp_path,
-            capture_output=True
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test"],
-            cwd=tmp_path,
-            capture_output=True
-        )
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True)
 
         watcher = GitVaultWatcher(tmp_path)
 
@@ -346,16 +326,8 @@ class TestErrorCases:
     def test_has_uncommitted_changes_true(self, tmp_path):
         """Test has_uncommitted_changes() returns True when changes exist."""
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=tmp_path,
-            capture_output=True
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test"],
-            cwd=tmp_path,
-            capture_output=True
-        )
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True)
 
         (tmp_path / "file.md").write_text("content")
 
@@ -365,16 +337,8 @@ class TestErrorCases:
     def test_has_uncommitted_changes_false(self, tmp_path):
         """Test has_uncommitted_changes() returns False when no changes."""
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=tmp_path,
-            capture_output=True
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test"],
-            cwd=tmp_path,
-            capture_output=True
-        )
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True)
 
         (tmp_path / "file.md").write_text("content")
         subprocess.run(["git", "add", "file.md"], cwd=tmp_path, capture_output=True)
@@ -386,16 +350,8 @@ class TestErrorCases:
     def test_has_uncommitted_changes_handles_error(self, tmp_path):
         """Test that has_uncommitted_changes() handles errors gracefully."""
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=tmp_path,
-            capture_output=True
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test"],
-            cwd=tmp_path,
-            capture_output=True
-        )
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True)
 
         watcher = GitVaultWatcher(tmp_path)
 
@@ -410,12 +366,7 @@ class TestVaultChanges:
 
     def test_has_changes_true(self):
         """Test has_changes property returns True when changes exist."""
-        changes = VaultChanges(
-            modified=[Path("file1.md")],
-            added=[],
-            deleted=[],
-            renamed=[]
-        )
+        changes = VaultChanges(modified=[Path("file1.md")], added=[], deleted=[], renamed=[])
         assert changes.has_changes
 
     def test_has_changes_false(self):
@@ -425,12 +376,7 @@ class TestVaultChanges:
 
     def test_all_affected_files_includes_renamed_destinations(self):
         """Test that all_affected_files includes renamed file destinations."""
-        changes = VaultChanges(
-            modified=[],
-            added=[],
-            deleted=[],
-            renamed=[(Path("old.md"), Path("new.md"))]
-        )
+        changes = VaultChanges(modified=[], added=[], deleted=[], renamed=[(Path("old.md"), Path("new.md"))])
         affected = changes.all_affected_files
         assert Path("new.md") in affected
 
@@ -440,7 +386,7 @@ class TestVaultChanges:
             modified=[Path("mod.md")],
             added=[Path("add.md")],
             deleted=[Path("del.md")],
-            renamed=[(Path("old.md"), Path("new.md"))]
+            renamed=[(Path("old.md"), Path("new.md"))],
         )
         affected = changes.all_affected_files
         assert Path("mod.md") in affected

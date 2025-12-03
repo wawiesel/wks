@@ -2,49 +2,60 @@
 
 import time
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
+
 import pytest
 
+# Import shared fixtures
+from tests.integration.conftest import FakeCollection, FakeIndexer, FakeVault
+from wks.config import (
+    DisplayConfig,
+    MetricsConfig,
+    MongoSettings,
+    MonitorConfig,
+    TransformConfig,
+    VaultConfig,
+    WKSConfig,
+)
 from wks.daemon import WKSDaemon
 from wks.monitor_rules import MonitorRules
-from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings, DisplayConfig, TransformConfig, MetricsConfig
-
-# Import shared fixtures
-from tests.integration.conftest import FakeCollection, FakeVault, FakeIndexer
 
 
 def build_daemon_config(tmp_path):
     """Build a test WKSConfig."""
-    monitor_cfg = MonitorConfig.from_config_dict({
-        "monitor": {
-            "include_paths": [str(tmp_path)],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-            "managed_directories": {},
-            "touch_weight": 0.5,
-            "database": "wks.monitor",
-            "max_documents": 1000000,
-            "priority": {},
-            "prune_interval_secs": 300.0,
+    monitor_cfg = MonitorConfig.from_config_dict(
+        {
+            "monitor": {
+                "include_paths": [str(tmp_path)],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+                "managed_directories": {},
+                "touch_weight": 0.5,
+                "database": "wks.monitor",
+                "max_documents": 1000000,
+                "priority": {},
+                "prune_interval_secs": 300.0,
+            }
         }
-    })
+    )
     vault_cfg = VaultConfig(
         base_dir=str(tmp_path),
         wks_dir="WKS",
         update_frequency_seconds=10,
         database="wks.vault",
-        vault_type="obsidian"
+        vault_type="obsidian",
     )
     mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
     from wks.transform.config import CacheConfig
+
     transform_cfg = TransformConfig(
-        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024*1024*100),
+        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
         engines={},
-        database="wks.transform"
+        database="wks.transform",
     )
     metrics_cfg = MetricsConfig()
 
@@ -54,7 +65,7 @@ def build_daemon_config(tmp_path):
         mongo=mongo_cfg,
         display=display_cfg,
         transform=transform_cfg,
-        metrics=metrics_cfg
+        metrics=metrics_cfg,
     )
 
 
@@ -69,10 +80,13 @@ def build_daemon(monkeypatch, tmp_path):
     class MockMongoGuard:
         def __init__(self, *args, **kwargs):
             pass
+
         def start(self, *args, **kwargs):
             pass
+
         def stop(self):
             pass
+
     monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
 
     # Mock MCPBroker
@@ -274,8 +288,8 @@ class TestDatabaseOperationLogging:
         """Test getting DB activity info with no history."""
         daemon = build_daemon(monkeypatch, tmp_path)
 
-        with patch('wks.daemon.load_db_activity_summary', return_value=None):
-            with patch('wks.daemon.load_db_activity_history', return_value=[]):
+        with patch("wks.daemon.load_db_activity_summary", return_value=None):
+            with patch("wks.daemon.load_db_activity_history", return_value=[]):
                 op, detail, iso, ops_min = daemon._get_db_activity_info(time.time())
 
         assert op is None
@@ -294,8 +308,8 @@ class TestDatabaseOperationLogging:
             "timestamp_iso": "2023-10-20 12:00:00",
         }
 
-        with patch('wks.daemon.load_db_activity_summary', return_value=summary):
-            with patch('wks.daemon.load_db_activity_history', return_value=[]):
+        with patch("wks.daemon.load_db_activity_summary", return_value=summary):
+            with patch("wks.daemon.load_db_activity_history", return_value=[]):
                 op, detail, iso, ops_min = daemon._get_db_activity_info(now)
 
         assert op == "update"
@@ -309,12 +323,22 @@ class TestDatabaseOperationLogging:
         now = time.time()
 
         history = [
-            {"timestamp": now - 30, "operation": "insert", "detail": "detail1", "timestamp_iso": "2023-10-20 12:00:00"},
-            {"timestamp": now - 10, "operation": "update", "detail": "detail2", "timestamp_iso": "2023-10-20 12:00:30"},
+            {
+                "timestamp": now - 30,
+                "operation": "insert",
+                "detail": "detail1",
+                "timestamp_iso": "2023-10-20 12:00:00",
+            },
+            {
+                "timestamp": now - 10,
+                "operation": "update",
+                "detail": "detail2",
+                "timestamp_iso": "2023-10-20 12:00:30",
+            },
         ]
 
-        with patch('wks.daemon.load_db_activity_summary', return_value=None):
-            with patch('wks.daemon.load_db_activity_history', return_value=history):
+        with patch("wks.daemon.load_db_activity_summary", return_value=None):
+            with patch("wks.daemon.load_db_activity_history", return_value=history):
                 op, detail, iso, ops_min = daemon._get_db_activity_info(now)
 
         # Should get last item from history
@@ -333,8 +357,8 @@ class TestDatabaseOperationLogging:
             {"timestamp": now - 5, "operation": "recent3"},
         ]
 
-        with patch('wks.daemon.load_db_activity_summary', return_value=None):
-            with patch('wks.daemon.load_db_activity_history', return_value=history):
+        with patch("wks.daemon.load_db_activity_summary", return_value=None):
+            with patch("wks.daemon.load_db_activity_history", return_value=history):
                 op, detail, iso, ops_min = daemon._get_db_activity_info(now)
 
         # Should count 3 recent operations

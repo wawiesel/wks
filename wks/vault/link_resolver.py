@@ -9,15 +9,10 @@ from pathlib import Path
 from typing import Callable, List, Tuple
 
 from .constants import (
-    STATUS_OK,
+    STATUS_LEGACY_LINK,
     STATUS_MISSING_SYMLINK,
     STATUS_MISSING_TARGET,
-    STATUS_LEGACY_LINK,
-    TARGET_KIND_VAULT_NOTE,
-    TARGET_KIND_LEGACY_PATH,
-    TARGET_KIND_LINKS_SYMLINK,
-    TARGET_KIND_ATTACHMENT,
-    TARGET_KIND_EXTERNAL_URL,
+    STATUS_OK,
 )
 
 

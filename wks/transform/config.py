@@ -194,10 +194,12 @@ class TransformConfig:
         """
         transform_config = config.get("transform")
         if not transform_config:
-            raise TransformConfigError([
-                "transform section is required in config "
-                "(found: missing, expected: transform section with cache and engines)"
-            ])
+            raise TransformConfigError(
+                [
+                    "transform section is required in config "
+                    "(found: missing, expected: transform section with cache and engines)"
+                ]
+            )
 
         database = transform_config.get("database", "wks_transform")
 
@@ -206,10 +208,7 @@ class TransformConfig:
         cache_location = cache_config.get("location", ".wks/transform/cache")
         max_size_bytes = cache_config.get("max_size_bytes", 1073741824)  # 1GB default
 
-        cache = CacheConfig(
-            location=cache_location,
-            max_size_bytes=max_size_bytes
-        )
+        cache = CacheConfig(location=cache_location, max_size_bytes=max_size_bytes)
 
         # Extract engines config
         engines_config = transform_config.get("engines", {})
@@ -217,21 +216,19 @@ class TransformConfig:
 
         for engine_name, engine_dict in engines_config.items():
             if not isinstance(engine_dict, dict):
-                raise TransformConfigError([
-                    f"transform.engines['{engine_name}'] must be a dict "
-                    f"(found: {type(engine_dict).__name__}, "
-                    f"expected: dict with 'enabled' and optional options)"
-                ])
+                raise TransformConfigError(
+                    [
+                        f"transform.engines['{engine_name}'] must be a dict "
+                        f"(found: {type(engine_dict).__name__}, "
+                        f"expected: dict with 'enabled' and optional options)"
+                    ]
+                )
 
             enabled = engine_dict.get("enabled", False)
             options = dict(engine_dict)
             options.pop("enabled", None)  # Remove 'enabled' from options
 
-            engines[engine_name] = EngineConfig(
-                name=engine_name,
-                enabled=enabled,
-                options=options
-            )
+            engines[engine_name] = EngineConfig(name=engine_name, enabled=enabled, options=options)
 
         default_engine = transform_config.get("default_engine", "docling")
 

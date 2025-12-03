@@ -1,7 +1,9 @@
 """Tests for URI utility functions."""
 
 from pathlib import Path
+
 import pytest
+
 from wks.uri_utils import convert_to_uri, path_to_uri, uri_to_path
 
 

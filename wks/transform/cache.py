@@ -2,7 +2,8 @@
 
 import json
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
+
 from pymongo.database import Database
 
 
@@ -60,11 +61,7 @@ class CacheManager:
         for doc in cursor:
             if total_freed >= bytes_needed:
                 break
-            entries.append((
-                doc["checksum"],
-                doc["size_bytes"],
-                doc["cache_location"]
-            ))
+            entries.append((doc["checksum"], doc["size_bytes"], doc["cache_location"]))
             total_freed += doc["size_bytes"]
 
         return entries

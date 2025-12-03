@@ -1,20 +1,19 @@
 """Tests for wks/config.py - WKSConfig and related dataclasses."""
 
 import json
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch
 
 from wks.config import (
+    DEFAULT_MONGO_URI,
+    DEFAULT_TIMESTAMP_FORMAT,
     ConfigError,
-    MongoSettings,
-    MetricsConfig,
     DisplayConfig,
+    MetricsConfig,
+    MongoSettings,
     WKSConfig,
     get_config_path,
     load_config,
-    DEFAULT_MONGO_URI,
-    DEFAULT_TIMESTAMP_FORMAT,
 )
 
 
@@ -61,10 +60,12 @@ class TestMetricsConfig:
         assert m.fs_rate_long_weight == 0.2
 
     def test_from_config_custom(self):
-        cfg = {"metrics": {
-            "fs_rate_short_window_secs": 5.0,
-            "fs_rate_long_window_secs": 300.0,
-        }}
+        cfg = {
+            "metrics": {
+                "fs_rate_short_window_secs": 5.0,
+                "fs_rate_long_window_secs": 300.0,
+            }
+        }
         m = MetricsConfig.from_config(cfg)
         assert m.fs_rate_short_window_secs == 5.0
         assert m.fs_rate_long_window_secs == 300.0
@@ -108,15 +109,12 @@ class TestWKSConfig:
                 "include_globs": [],
                 "exclude_globs": [],
                 "managed_directories": {"~": 100},
-                "database": "wks.monitor"
+                "database": "wks.monitor",
             },
-            "vault": {
-                "base_dir": str(tmp_path / "vault"),
-                "database": "wks.vault"
-            },
+            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
-                "engines": {}
+                "engines": {},
             },
             "diff": {
                 "engines": {
@@ -126,7 +124,7 @@ class TestWKSConfig:
                     "rules": [],
                     "fallback": "myers",
                 },
-            }
+            },
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
@@ -170,15 +168,12 @@ class TestWKSConfig:
                 "include_globs": [],
                 "exclude_globs": [],
                 "managed_directories": {"~": 100},
-                "database": "wks.monitor"
+                "database": "wks.monitor",
             },
-            "vault": {
-                "base_dir": str(tmp_path / "vault"),
-                "database": "wks.vault"
-            },
+            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
-                "engines": {}
+                "engines": {},
             },
             "diff": {
                 "engines": {
@@ -188,7 +183,7 @@ class TestWKSConfig:
                     "rules": [],
                     "fallback": "myers",
                 },
-            }
+            },
         }
         (tmp_path / ".wks" / "config.json").write_text(json.dumps(config))
 
@@ -222,16 +217,13 @@ class TestLoadConfig:
                 "include_globs": [],
                 "exclude_globs": [],
                 "managed_directories": {"~": 100},
-                "database": "wks.monitor"
+                "database": "wks.monitor",
             },
-            "vault": {
-                "base_dir": str(tmp_path / "vault"),
-                "database": "wks.vault"
-            },
+            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
-                "engines": {}
-            }
+                "engines": {},
+            },
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))

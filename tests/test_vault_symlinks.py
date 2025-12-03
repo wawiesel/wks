@@ -1,11 +1,12 @@
 """Tests for VaultController fix_symlinks operation."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 from pymongo.collection import Collection
 
-from wks.vault.controller import VaultController, SymlinkFixResult
+from wks.vault.controller import VaultController
 from wks.vault.obsidian import ObsidianVault
 
 
@@ -21,11 +22,7 @@ def vault_root(tmp_path):
 @pytest.fixture
 def vault(vault_root):
     """Create an ObsidianVault instance."""
-    return ObsidianVault(
-        vault_path=vault_root,
-        base_dir="WKS",
-        machine_name="test-machine"
-    )
+    return ObsidianVault(vault_path=vault_root, base_dir="WKS", machine_name="test-machine")
 
 
 @pytest.fixture
@@ -252,11 +249,7 @@ class TestFixSymlinks:
     def test_fix_symlinks_machine_specific_directories(self, vault_root, tmp_path, mock_mongo_client):
         """Test that symlinks are created in machine-specific directories."""
         # Create controller with different machine name
-        vault = ObsidianVault(
-            vault_path=vault_root,
-            base_dir="WKS",
-            machine_name="another-machine"
-        )
+        vault = ObsidianVault(vault_path=vault_root, base_dir="WKS", machine_name="another-machine")
         controller = VaultController(vault, machine_name="another-machine")
 
         target = tmp_path / "file.pdf"

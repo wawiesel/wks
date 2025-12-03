@@ -1,7 +1,9 @@
-import pytest
 from pathlib import Path
+
+import pytest
+
 from wks.monitor.operations import MonitorOperations, _canonicalize_path, _find_matching_path_key
-from wks.monitor.status import ListOperationResult
+
 
 class TestMonitorOperations:
     @pytest.fixture
@@ -14,7 +16,7 @@ class TestMonitorOperations:
                 "exclude_dirnames": [],
                 "include_globs": [],
                 "exclude_globs": [],
-                "managed_directories": {}
+                "managed_directories": {},
             }
         }
 

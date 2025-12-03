@@ -4,15 +4,22 @@ from datetime import datetime
 
 import pytest
 
-from wks.monitor_rules import MonitorRules
-
 # Import shared fixtures
-from tests.integration.conftest import FakeCollection, FakeVault, FakeIndexer
+from tests.integration.conftest import FakeCollection, FakeIndexer, FakeVault
+from wks.monitor_rules import MonitorRules
 
 
 def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     from wks import daemon as daemon_mod
-    from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings, DisplayConfig, TransformConfig, MetricsConfig
+    from wks.config import (
+        DisplayConfig,
+        MetricsConfig,
+        MongoSettings,
+        MonitorConfig,
+        TransformConfig,
+        VaultConfig,
+        WKSConfig,
+    )
 
     monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
     monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
@@ -21,13 +28,17 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     class MockMongoGuard:
         def __init__(self, *args, **kwargs):
             pass
+
         def start(self, *args, **kwargs):
             pass
+
         def stop(self):
             pass
+
     monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
 
     from unittest.mock import MagicMock
+
     mock_broker = MagicMock()
     monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *a, **k: mock_broker)
     monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *a, **k: MagicMock())
@@ -72,16 +83,18 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         wks_dir=config["vault"]["wks_dir"],
         update_frequency_seconds=config["vault"]["update_frequency_seconds"],
         database="wks.vault",
-        vault_type="obsidian"
+        vault_type="obsidian",
     )
     mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
-    from wks.transform.config import CacheConfig
     from pathlib import Path
+
+    from wks.transform.config import CacheConfig
+
     transform_cfg = TransformConfig(
-        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024*1024*100),
+        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
         engines={},
-        database="wks.transform"
+        database="wks.transform",
     )
     metrics_cfg = MetricsConfig()
 
@@ -91,7 +104,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         mongo=mongo_cfg,
         display=display_cfg,
         transform=transform_cfg,
-        metrics=metrics_cfg
+        metrics=metrics_cfg,
     )
 
     return daemon_mod.WKSDaemon(

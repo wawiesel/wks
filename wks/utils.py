@@ -1,8 +1,8 @@
 """Common utility functions for WKS."""
 
-from pathlib import Path
 import hashlib
 import os
+from pathlib import Path
 
 try:
     import importlib.metadata as importlib_metadata

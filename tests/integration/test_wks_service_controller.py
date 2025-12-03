@@ -1,17 +1,17 @@
 """Tests for wks/service_controller.py - ServiceController and related functions."""
 
 import json
-import os
 import subprocess
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
+from wks.config import MongoSettings, WKSConfig
 from wks.service_controller import (
     ServiceController,
     ServiceStatusData,
     ServiceStatusLaunch,
+    _pid_running,
     agent_installed,
     agent_label,
     agent_plist_path,
@@ -21,9 +21,7 @@ from wks.service_controller import (
     default_mongo_uri,
     is_macos,
     stop_managed_mongo,
-    _pid_running,
 )
-from wks.config import WKSConfig, MongoSettings
 
 
 @pytest.mark.integration
@@ -92,6 +90,7 @@ class TestLaunchctl:
     def test_launchctl_success(self, mock_call):
         """Test successful launchctl call."""
         from wks.service_controller import _launchctl
+
         mock_call.return_value = 0
         assert _launchctl("status") == 0
 
@@ -99,6 +98,7 @@ class TestLaunchctl:
     def test_launchctl_not_found(self, mock_call):
         """Test when launchctl binary not found."""
         from wks.service_controller import _launchctl
+
         mock_call.side_effect = FileNotFoundError
         assert _launchctl("status") == 2
 
@@ -120,7 +120,13 @@ class TestLaunchdControl:
 
         # Case 2: kickstart fails, full restart sequence
         mock_call.reset_mock()
-        mock_call.side_effect = [1, 0, 0, 0, 0]  # kickstart fails, then bootout, bootstrap, enable, kickstart
+        mock_call.side_effect = [
+            1,
+            0,
+            0,
+            0,
+            0,
+        ]  # kickstart fails, then bootout, bootstrap, enable, kickstart
         daemon_start_launchd()
         assert mock_call.call_count == 5
 
@@ -177,18 +183,12 @@ class TestServiceStatusData:
 
     def test_to_dict(self):
         """Test conversion to dict."""
-        data = ServiceStatusData(
-            running=True,
-            uptime="1h",
-            pid=123,
-            launch=ServiceStatusLaunch(state="running")
-        )
+        data = ServiceStatusData(running=True, uptime="1h", pid=123, launch=ServiceStatusLaunch(state="running"))
 
         d = data.to_dict()
         assert d["service"]["running"] is True
         assert d["service"]["pid"] == 123
         assert d["launch_agent"]["state"] == "running"
-
 
 
 @pytest.mark.integration
@@ -243,12 +243,7 @@ class TestServiceController:
         # Mock health.json exists
         mock_exists.side_effect = lambda: True  # health.json exists
 
-        health_data = {
-            "lock_present": True,
-            "uptime_hms": "2h",
-            "pid": 12345,
-            "fs_rate_short": 1.5
-        }
+        health_data = {"lock_present": True, "uptime_hms": "2h", "pid": 12345, "fs_rate_short": 1.5}
         mock_file.return_value.read.return_value = json.dumps(health_data)
 
         status = ServiceStatusData()
@@ -322,7 +317,7 @@ class TestServiceController:
             "last_error": None,
             "fs_rate_short": 1.5,
             "fs_rate_long": 0.5,
-            "fs_rate_weighted": 1.0
+            "fs_rate_weighted": 1.0,
         }
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
@@ -341,10 +336,7 @@ class TestServiceController:
 
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
 
-        health_data = {
-            "lock_present": True,
-            "pid": "not_a_number"
-        }
+        health_data = {"lock_present": True, "pid": "not_a_number"}
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
 
@@ -359,10 +351,7 @@ class TestServiceController:
 
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
 
-        health_data = {
-            "lock_present": True,
-            "last_error": "Something went wrong"
-        }
+        health_data = {"lock_present": True, "last_error": "Something went wrong"}
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
 
@@ -378,10 +367,7 @@ class TestServiceController:
 
         monkeypatch.setattr(sc, "WKS_HOME_EXT", str(tmp_path))
 
-        health_data = {
-            "lock_present": True,
-            "fs_rate_short": "invalid"
-        }
+        health_data = {"lock_present": True, "fs_rate_short": "invalid"}
         health_path = tmp_path / "health.json"
         health_path.write_text(json.dumps(health_data))
 

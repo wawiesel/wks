@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
-
 MCP_CONFIG_TARGETS: Dict[str, Path] = {
     "cursor": Path.home() / ".cursor" / "mcp.json",
     "claude": Path.home() / "Library" / "Application Support" / "Claude" / "mcp.json",
@@ -109,9 +108,7 @@ def install_mcp_configs(
             result = _register_server(path, command, args)
             result.client = client
         except Exception as exc:  # pragma: no cover
-            results.append(
-                InstallResult(client, path, "error", f"Failed to update: {exc}")
-            )
+            results.append(InstallResult(client, path, "error", f"Failed to update: {exc}"))
             continue
         if not result.message:
             if result.status == "created":

@@ -1,12 +1,13 @@
 """Extended tests for ObsidianVault initialization and path computation."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import patch, Mock
 from datetime import datetime
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from wks.vault.obsidian import ObsidianVault
+import pytest
+
 from wks.constants import DEFAULT_TIMESTAMP_FORMAT
+from wks.vault.obsidian import ObsidianVault
 
 
 class TestVaultInitialization:
@@ -15,62 +16,39 @@ class TestVaultInitialization:
     def test_init_requires_wks_dir(self, tmp_path):
         """Test that initialization requires wks_dir."""
         with pytest.raises(ValueError, match="vault.wks_dir is required"):
-            ObsidianVault(
-                vault_path=tmp_path,
-                base_dir=""
-            )
+            ObsidianVault(vault_path=tmp_path, base_dir="")
 
     def test_init_requires_non_empty_wks_dir(self, tmp_path):
         """Test that wks_dir cannot be whitespace only."""
         with pytest.raises(ValueError, match="vault.wks_dir is required"):
-            ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="   "
-            )
+            ObsidianVault(vault_path=tmp_path, base_dir="   ")
 
     def test_init_strips_wks_dir_whitespace(self, tmp_path):
         """Test that wks_dir whitespace is stripped."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="  WKS  "
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="  WKS  ")
         # The code strips whitespace and slashes
         assert vault.base_dir == "WKS"
 
     def test_init_uses_platform_machine_name(self, tmp_path):
         """Test that machine name defaults to platform.node()."""
         with patch("platform.node", return_value="my-machine.local"):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             assert vault.machine == "my-machine"
 
     def test_init_uses_custom_machine_name(self, tmp_path):
         """Test that custom machine name is used."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS",
-            machine_name="custom-machine"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS", machine_name="custom-machine")
         assert vault.machine == "custom-machine"
 
     def test_init_strips_machine_name_whitespace(self, tmp_path):
         """Test that machine name whitespace is stripped."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS",
-            machine_name="  machine-name  "
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS", machine_name="  machine-name  ")
         assert vault.machine == "machine-name"
 
     def test_init_handles_machine_name_with_dot(self, tmp_path):
         """Test that machine name with domain is split correctly."""
         with patch("platform.node", return_value="machine.example.com"):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             assert vault.machine == "machine"
 
 
@@ -79,10 +57,7 @@ class TestPathComputation:
 
     def test_recompute_paths_creates_correct_directories(self, tmp_path):
         """Test that _recompute_paths() sets all directory paths correctly."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         assert vault.links_dir == tmp_path / "_links"
         assert vault.projects_dir == tmp_path / "Projects"
@@ -95,10 +70,7 @@ class TestPathComputation:
 
     def test_recompute_paths_updates_on_base_dir_change(self, tmp_path):
         """Test that paths are recomputed when base_dir changes."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
         original_docs_dir = vault.docs_dir
 
         vault.set_base_dir("Custom")
@@ -108,10 +80,7 @@ class TestPathComputation:
 
     def test_set_base_dir_strips_slashes(self, tmp_path):
         """Test that set_base_dir strips leading/trailing slashes."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Test with slashes at the edges (which will be stripped)
         vault.set_base_dir("/Custom/")
@@ -129,10 +98,7 @@ class TestDirectoryCreation:
 
     def test_ensure_structure_creates_all_directories(self, tmp_path):
         """Test that ensure_structure creates all required directories."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         vault.ensure_structure()
 
@@ -148,10 +114,7 @@ class TestDirectoryCreation:
 
     def test_ensure_structure_idempotent(self, tmp_path):
         """Test that ensure_structure can be called multiple times safely."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         vault.ensure_structure()
         # Create a file in one directory
@@ -166,10 +129,7 @@ class TestDirectoryCreation:
 
     def test_ensure_structure_creates_nested_directories(self, tmp_path):
         """Test that ensure_structure creates nested directory structures."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         vault.ensure_structure()
 
@@ -184,10 +144,7 @@ class TestTimestampFormat:
     def test_timestamp_format_defaults_when_config_fails(self, tmp_path):
         """Test that DEFAULT_TIMESTAMP_FORMAT is used when config fails."""
         with patch("wks.config.WKSConfig.load", side_effect=Exception("Config error")):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             assert vault.timestamp_format == DEFAULT_TIMESTAMP_FORMAT
 
     def test_timestamp_format_from_config(self, tmp_path):
@@ -196,10 +153,7 @@ class TestTimestampFormat:
         mock_config.display.timestamp_format = "%Y-%m-%d %H:%M:%S"
 
         with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             assert vault.timestamp_format == "%Y-%m-%d %H:%M:%S"
 
     def test_format_dt_uses_custom_format(self, tmp_path):
@@ -208,10 +162,7 @@ class TestTimestampFormat:
         mock_config.display.timestamp_format = "%Y-%m-%d"
 
         with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             dt = datetime(2024, 1, 15, 10, 30, 45)
             formatted = vault._format_dt(dt)
             assert formatted == "2024-01-15"
@@ -222,14 +173,12 @@ class TestTimestampFormat:
         mock_config.display.timestamp_format = "%invalid"
 
         with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             dt = datetime(2024, 1, 15, 10, 30, 45)
             formatted = vault._format_dt(dt)
             # The code should detect invalid format and fall back to DEFAULT_TIMESTAMP_FORMAT
             from wks.constants import DEFAULT_TIMESTAMP_FORMAT
+
             expected = dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
             assert formatted == expected
             assert len(formatted) > 0
@@ -237,10 +186,7 @@ class TestTimestampFormat:
 
     def test_format_dt_handles_invalid_datetime(self, tmp_path):
         """Test that _format_dt handles invalid datetime gracefully."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Pass None (invalid) - the code handles None and returns empty string
         result = vault._format_dt(None)
@@ -253,28 +199,19 @@ class TestMachineNameExtraction:
     def test_machine_name_extracts_hostname(self, tmp_path):
         """Test that machine name is extracted from FQDN."""
         with patch("platform.node", return_value="myhost.example.com"):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             assert vault.machine == "myhost"
 
     def test_machine_name_handles_simple_hostname(self, tmp_path):
         """Test that simple hostname (no domain) works."""
         with patch("platform.node", return_value="myhost"):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             assert vault.machine == "myhost"
 
     def test_machine_name_handles_multiple_dots(self, tmp_path):
         """Test that machine name with multiple dots is handled."""
         with patch("platform.node", return_value="sub.domain.example.com"):
-            vault = ObsidianVault(
-                vault_path=tmp_path,
-                base_dir="WKS"
-            )
+            vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
             assert vault.machine == "sub"
 
 
@@ -283,10 +220,7 @@ class TestLinkFile:
 
     def test_link_file_creates_symlink(self, tmp_path):
         """Test that link_file() creates a symlink to the source file."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Create a source file
         source_file = tmp_path / "source" / "document.pdf"
@@ -301,10 +235,7 @@ class TestLinkFile:
 
     def test_link_file_returns_none_if_source_missing(self, tmp_path):
         """Test that link_file() returns None if source file doesn't exist."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         missing_file = tmp_path / "nonexistent.pdf"
         link_path = vault.link_file(missing_file)
@@ -313,10 +244,7 @@ class TestLinkFile:
 
     def test_link_file_preserves_structure(self, tmp_path):
         """Test that link_file() preserves directory structure when preserve_structure=True."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         source_file = tmp_path / "deep" / "nested" / "file.pdf"
         source_file.parent.mkdir(parents=True, exist_ok=True)
@@ -331,10 +259,7 @@ class TestLinkFile:
 
     def test_link_file_no_structure(self, tmp_path):
         """Test that link_file() uses just filename when preserve_structure=False."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         source_file = tmp_path / "deep" / "nested" / "file.pdf"
         source_file.parent.mkdir(parents=True, exist_ok=True)
@@ -348,10 +273,7 @@ class TestLinkFile:
 
     def test_link_file_handles_value_error(self, tmp_path):
         """Test that link_file() handles ValueError when relative_to fails."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Create a file that can't be resolved relative to root
         source_file = tmp_path / "file.pdf"
@@ -370,10 +292,7 @@ class TestUpdateLinkOnMove:
 
     def test_update_link_on_move_updates_symlink(self, tmp_path):
         """Test that update_link_on_move() updates symlink when file moves."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         home = Path.home()
         old_path = home / "old_file.pdf"
@@ -398,10 +317,7 @@ class TestUpdateLinkOnMove:
 
     def test_update_link_on_move_handles_non_home_path(self, tmp_path):
         """Test that update_link_on_move() does nothing for paths not in home."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         old_path = tmp_path / "old.pdf"
         new_path = tmp_path / "new.pdf"
@@ -416,10 +332,7 @@ class TestUpdateVaultLinksOnMove:
 
     def test_update_vault_links_on_move_updates_wikilinks(self, tmp_path):
         """Test that update_vault_links_on_move() updates wikilinks in markdown files."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Create files that will be linked
         old_path = Path("/old/path.pdf")
@@ -442,10 +355,7 @@ class TestUpdateVaultLinksOnMove:
 
     def test_update_vault_links_on_move_handles_legacy_links(self, tmp_path):
         """Test that update_vault_links_on_move() handles legacy links/ paths."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         old_path = Path("/old/path.pdf")
         new_path = Path("/new/path.pdf")
@@ -473,10 +383,7 @@ class TestWriteDocText:
 
     def test_write_doc_text_creates_document(self, tmp_path):
         """Test that write_doc_text() creates a document file."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         source_path = tmp_path / "source.pdf"
         content_hash = "abc123"
@@ -492,10 +399,7 @@ class TestWriteDocText:
 
     def test_write_doc_text_handles_errors(self, tmp_path):
         """Test that write_doc_text() handles write errors gracefully."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         source_path = tmp_path / "source.pdf"
         content_hash = "abc123"
@@ -508,10 +412,7 @@ class TestWriteDocText:
 
     def test_write_doc_text_limits_kept_files(self, tmp_path):
         """Test that write_doc_text() limits the number of kept files."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Create more than keep limit files
         for i in range(5):
@@ -527,10 +428,7 @@ class TestCreateProjectNote:
 
     def test_create_project_note_creates_note(self, tmp_path):
         """Test that create_project_note() creates a project note."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Ensure Projects directory exists
         vault.projects_dir.mkdir(parents=True, exist_ok=True)
@@ -549,10 +447,7 @@ class TestCreateProjectNote:
 
     def test_create_project_note_handles_dashed_name(self, tmp_path):
         """Test that create_project_note() handles project names with dashes."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Ensure Projects directory exists
         vault.projects_dir.mkdir(parents=True, exist_ok=True)
@@ -574,10 +469,7 @@ class TestLinkProject:
 
     def test_link_project_creates_links(self, tmp_path):
         """Test that link_project() creates links for project files."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         project_path = tmp_path / "my-project"
         project_path.mkdir()
@@ -594,10 +486,7 @@ class TestLinkProject:
 
     def test_link_project_only_links_existing_files(self, tmp_path):
         """Test that link_project() only links files that exist."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         project_path = tmp_path / "my-project"
         project_path.mkdir()
@@ -616,10 +505,7 @@ class TestFindBrokenLinks:
 
     def test_find_broken_links_finds_broken_symlinks(self, tmp_path):
         """Test that find_broken_links() finds broken symlinks."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Create a broken symlink
         broken_link = vault.links_dir / "broken.pdf"
@@ -633,10 +519,7 @@ class TestFindBrokenLinks:
 
     def test_find_broken_links_ignores_valid_links(self, tmp_path):
         """Test that find_broken_links() ignores valid symlinks."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Create a valid symlink
         target = tmp_path / "target.pdf"
@@ -655,10 +538,7 @@ class TestCleanupBrokenLinks:
 
     def test_cleanup_broken_links_removes_broken_symlinks(self, tmp_path):
         """Test that cleanup_broken_links() removes broken symlinks."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         # Create broken symlinks
         broken1 = vault.links_dir / "broken1.pdf"
@@ -675,10 +555,7 @@ class TestCleanupBrokenLinks:
 
     def test_cleanup_broken_links_handles_permission_errors(self, tmp_path):
         """Test that cleanup_broken_links() handles permission errors gracefully."""
-        vault = ObsidianVault(
-            vault_path=tmp_path,
-            base_dir="WKS"
-        )
+        vault = ObsidianVault(vault_path=tmp_path, base_dir="WKS")
 
         broken_link = vault.links_dir / "broken.pdf"
         broken_link.parent.mkdir(parents=True, exist_ok=True)

@@ -1,9 +1,9 @@
 """Basic CLI tests - tests for wks/cli/__init__.py."""
 
 import io
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 try:
     import importlib.metadata as importlib_metadata
@@ -27,15 +27,15 @@ def run_cli(args):
 
 def test_cli_version_flag():
     """Test --version flag."""
-    rc, out, _ = run_cli(['--version'])
+    rc, out, _ = run_cli(["--version"])
     assert rc == 0
-    expected = importlib_metadata.version('wks')
+    expected = importlib_metadata.version("wks")
     assert f"wksc {expected}" in out
 
 
 def test_cli_help_flag():
     """Test --help flag."""
-    rc, out, _ = run_cli(['--help'])
+    rc, out, _ = run_cli(["--help"])
     assert rc == 0
     assert "usage:" in out.lower() or "wksc" in out.lower()
 
@@ -50,7 +50,11 @@ def test_cli_no_command():
 @patch("wks.cli._call")
 def test_cli_config(mock_call):
     """Test wksc config command."""
-    mock_call.return_value = {"success": True, "data": {"mongo": {"uri": "mongodb://localhost"}}, "messages": []}
+    mock_call.return_value = {
+        "success": True,
+        "data": {"mongo": {"uri": "mongodb://localhost"}},
+        "messages": [],
+    }
     rc, out, err = run_cli(["config"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_config")
@@ -84,7 +88,10 @@ def test_cli_transform_error(mock_call, tmp_path):
     """Test wksc transform with error."""
     test_file = tmp_path / "test.pdf"
     test_file.write_bytes(b"PDF content")
-    mock_call.return_value = {"success": False, "messages": [{"type": "error", "text": "Transform failed"}]}
+    mock_call.return_value = {
+        "success": False,
+        "messages": [{"type": "error", "text": "Transform failed"}],
+    }
 
     rc, out, err = run_cli(["transform", "docling", str(test_file)])
     assert rc == 1
@@ -115,7 +122,10 @@ def test_cli_cat_with_output(mock_call, tmp_path):
 @patch("wks.cli._call")
 def test_cli_cat_error(mock_call):
     """Test wksc cat with error."""
-    mock_call.return_value = {"success": False, "messages": [{"type": "error", "text": "Not found"}]}
+    mock_call.return_value = {
+        "success": False,
+        "messages": [{"type": "error", "text": "Not found"}],
+    }
     rc, out, err = run_cli(["cat", "bad_checksum"])
     assert rc == 1
     assert "error:" in err.lower() or "Not found" in err
@@ -134,7 +144,10 @@ def test_cli_diff_success(mock_call):
 @patch("wks.cli._call")
 def test_cli_diff_error(mock_call):
     """Test wksc diff with error."""
-    mock_call.return_value = {"success": False, "messages": [{"type": "error", "text": "Diff failed"}]}
+    mock_call.return_value = {
+        "success": False,
+        "messages": [{"type": "error", "text": "Diff failed"}],
+    }
     rc, out, err = run_cli(["diff", "unified", "file1", "file2"])
     assert rc == 1
     assert "error:" in err.lower() or "Diff failed" in err
@@ -180,7 +193,14 @@ def test_cli_monitor_list_operations(mock_call):
     """Test wksc monitor list operations."""
     mock_call.return_value = {"success": True, "data": {"items": []}, "messages": []}
 
-    for list_name in ["include_paths", "exclude_paths", "include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"]:
+    for list_name in [
+        "include_paths",
+        "exclude_paths",
+        "include_dirnames",
+        "exclude_dirnames",
+        "include_globs",
+        "exclude_globs",
+    ]:
         rc, out, err = run_cli(["monitor", list_name, "list"])
         assert rc == 0
         mock_call.assert_called_once_with("wksm_monitor_list", {"list_name": list_name})
@@ -326,8 +346,8 @@ def test_cli_err_with_error_messages(mock_call):
         "success": False,
         "messages": [
             {"type": "error", "text": "Error message 1"},
-            {"type": "warning", "text": "Warning message"}
-        ]
+            {"type": "warning", "text": "Warning message"},
+        ],
     }
 
     with redirect_stderr(err_buf):
@@ -367,7 +387,7 @@ def test_cli_version_with_git_sha(mock_check_output):
     """Test --version flag includes git SHA when available."""
     mock_check_output.return_value = b"abc123\n"
 
-    rc, out, _ = run_cli(['--version'])
+    rc, out, _ = run_cli(["--version"])
     assert rc == 0
     # Should contain version and git SHA
     assert "wksc" in out
@@ -379,7 +399,7 @@ def test_cli_version_without_git_sha(mock_check_output):
     """Test --version flag handles git exception gracefully."""
     mock_check_output.side_effect = Exception("git not available")
 
-    rc, out, _ = run_cli(['--version'])
+    rc, out, _ = run_cli(["--version"])
     assert rc == 0
     # Should still show version without git SHA
     assert "wksc" in out
@@ -414,11 +434,8 @@ def test_cli_mcp_run_direct(mock_mcp_main, mock_proxy):
 def test_cli_mcp_install(mock_install):
     """Test wksc mcp install command."""
     from wks.mcp_setup import InstallResult
-    from pathlib import Path
 
-    mock_install.return_value = [
-        InstallResult("cursor", Path("/path/to/cursor"), "created", "Registered MCP server")
-    ]
+    mock_install.return_value = [InstallResult("cursor", Path("/path/to/cursor"), "created", "Registered MCP server")]
 
     rc, out, err = run_cli(["mcp", "install", "--client", "cursor"])
     assert rc == 0
@@ -430,7 +447,6 @@ def test_cli_mcp_install(mock_install):
 def test_cli_mcp_install_with_command_path(mock_install):
     """Test wksc mcp install with --command-path."""
     from wks.mcp_setup import InstallResult
-    from pathlib import Path
 
     mock_install.return_value = [
         InstallResult("cursor", Path("/path/to/cursor"), "updated", "Updated MCP server entry")
@@ -445,11 +461,10 @@ def test_cli_mcp_install_with_command_path(mock_install):
 def test_cli_mcp_install_multiple_clients(mock_install):
     """Test wksc mcp install with multiple clients."""
     from wks.mcp_setup import InstallResult
-    from pathlib import Path
 
     mock_install.return_value = [
         InstallResult("cursor", Path("/path/to/cursor"), "created", ""),
-        InstallResult("claude", Path("/path/to/claude"), "updated", "")
+        InstallResult("claude", Path("/path/to/claude"), "updated", ""),
     ]
 
     rc, out, err = run_cli(["mcp", "install", "--client", "cursor", "--client", "claude"])
