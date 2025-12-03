@@ -125,18 +125,20 @@ def temp_watch_directory(tmp_path):
 def daemon_config(tmp_path):
     """Create a valid daemon configuration."""
     monitor_cfg = MonitorConfig.from_config_dict({
-        "include_paths": [str(tmp_path)],
-        "exclude_paths": [],
-        "include_dirnames": [],
-        "exclude_dirnames": [],
-        "include_globs": [],
-        "exclude_globs": [],
-        "managed_directories": {str(tmp_path): 100},
-        "touch_weight": 0.5,
-        "database": "wks.monitor",
-        "max_documents": 1000000,
-        "priority": {},
-        "prune_interval_secs": 300.0,
+        "monitor": {
+            "include_paths": [str(tmp_path)],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+            "managed_directories": {str(tmp_path): 100},
+            "touch_weight": 0.5,
+            "database": "wks.monitor",
+            "max_documents": 1000000,
+            "priority": {},
+            "prune_interval_secs": 300.0,
+        }
     })
     vault_cfg = VaultConfig(
         base_dir=str(tmp_path),

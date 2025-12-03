@@ -16,18 +16,20 @@ from tests.integration.conftest import FakeCollection, FakeVault, FakeIndexer
 def build_daemon_config(tmp_path):
     """Build a test WKSConfig."""
     monitor_cfg = MonitorConfig.from_config_dict({
-        "include_paths": [str(tmp_path)],
-        "exclude_paths": [],
-        "include_dirnames": [],
-        "exclude_dirnames": [],
-        "include_globs": [],
-        "exclude_globs": [],
-        "managed_directories": {},
-        "touch_weight": 0.5,
-        "database": "wks.monitor",
-        "max_documents": 1000000,
-        "priority": {},
-        "prune_interval_secs": 300.0,
+        "monitor": {
+            "include_paths": [str(tmp_path)],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+            "managed_directories": {},
+            "touch_weight": 0.5,
+            "database": "wks.monitor",
+            "max_documents": 1000000,
+            "priority": {},
+            "prune_interval_secs": 300.0,
+        }
     })
     vault_cfg = VaultConfig(
         base_dir=str(tmp_path),

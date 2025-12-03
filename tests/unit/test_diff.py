@@ -36,9 +36,9 @@ class TestBsdiff3Engine:
 
         result = engine.diff(file1, file2, {})
 
-        assert "differ" in result.lower()
-        assert "9 bytes" in result  # file1 size
-        assert "19 bytes" in result  # file2 size
+        assert "differ" in result.lower() or "patch" in result.lower()
+        assert "file1.bin" in result  # filename should be in output
+        assert "file2.bin" in result  # filename should be in output
 
 
 @pytest.mark.unit

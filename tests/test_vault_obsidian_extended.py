@@ -176,7 +176,7 @@ class TestTimestampFormat:
 
     def test_timestamp_format_defaults_when_config_fails(self, tmp_path):
         """Test that DEFAULT_TIMESTAMP_FORMAT is used when config fails."""
-        with patch("wks.vault.obsidian.WKSConfig.load", side_effect=Exception("Config error")):
+        with patch("wks.config.WKSConfig.load", side_effect=Exception("Config error")):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
@@ -188,7 +188,7 @@ class TestTimestampFormat:
         mock_config = Mock()
         mock_config.display.timestamp_format = "%Y-%m-%d %H:%M:%S"
 
-        with patch("wks.vault.obsidian.WKSConfig.load", return_value=mock_config):
+        with patch("wks.config.WKSConfig.load", return_value=mock_config):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
@@ -200,7 +200,7 @@ class TestTimestampFormat:
         mock_config = Mock()
         mock_config.display.timestamp_format = "%Y-%m-%d"
 
-        with patch("wks.vault.obsidian.WKSConfig.load", return_value=mock_config):
+        with patch("wks.config.WKSConfig.load", return_value=mock_config):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
@@ -214,7 +214,7 @@ class TestTimestampFormat:
         mock_config = Mock()
         mock_config.display.timestamp_format = "%invalid"
 
-        with patch("wks.vault.obsidian.WKSConfig.load", return_value=mock_config):
+        with patch("wks.config.WKSConfig.load", return_value=mock_config):
             vault = ObsidianVault(
                 vault_path=tmp_path,
                 base_dir="WKS"
