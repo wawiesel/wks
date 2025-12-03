@@ -6,6 +6,26 @@ build-backend = "setuptools.build_meta"
 name = "wks"
 version = "0.4.0"
 requires-python = ">=3.10"
+dependencies = [
+    "watchdog",
+    "rich",
+    "pymongo",
+    "sentence-transformers",
+    "docling",
+    "bsdiff4",
+    "mongomock",
+    "jinja2",
+    "pytest>=7.0",
+    "pytest-timeout>=2.1",
+    "pytest-xdist>=3.0",
+    "pre-commit",
+    "ruff",
+    "mypy",
+    "lizard",
+    "types-requests",
+    "types-PyYAML",
+    "types-setuptools",
+]
 
 [tool.ruff]
 line-length = 120

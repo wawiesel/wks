@@ -7,6 +7,8 @@ alwaysApply: true
 If you are an AI agent doing coding, here is some help for you. For **all contributors (human and AI)**, please refer to the primary `CONTRIBUTING.md` for a comprehensive guide on development setup, coding standards, commit messages, and quality processes. This document provides supplementary directives specifically for AI agents.
 
 *   Use the virtual environment. If it doesn't exist create one in `.venv`. You can install whatever you want there.
+    - If `pytest` (or other tools) are missing, stop and bootstrap immediately: `python3 -m venv .venv && .venv/bin/pip install -e .`
+    - Run tests and scripts via the venv (`.venv/bin/pytest`, `./scripts/test_*`) so they never silently skip.
 *   **Adhere to Git Commit Standards**: All commit messages (and Pull Request titles for 'squash and merge' workflows) must follow the Conventional Commits specification documented in `CONTRIBUTING.md`.
 *   **Respect Quality Checks**:
     *   Before pushing, ensure all `pre-commit` and `pre-push` hooks pass. These are defined in `.pre-commit-config.yaml` and leverage scripts in the `scripts/` directory.
