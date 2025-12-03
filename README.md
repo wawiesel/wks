@@ -38,31 +38,31 @@ source .venv/bin/activate
 pip install -e '.[all]'
 
 # Optional: Install docling for PDF/Office transformation
-pipx runpip wks0 install docling
+pipx runpip wksc install docling
 ```
 
 # Initialize configuration
-wks0 config
+wksc config
 
 # Start background service
-wks0 service start
+wksc service start
 
 # Check status
-wks0 service status
+wksc service status
 
 # Sync vault links
-wks0 vault sync
+wksc vault sync
 
 # View vault links
-wks0 vault links ~/vault/Note.md
+wksc vault links ~/vault/Note.md
 ```
 
 ## MCP Integration
 
 Install for AI assistants:
 ```bash
-wks0 mcp install  # Install for all clients
-wks0 mcp install --client cursor --client claude
+wksc mcp install  # Install for all clients
+wksc mcp install --client cursor --client claude
 ```
 
 Available tools: `wks_monitor_*`, `wks_vault_*` (see [SPEC.md](SPEC.md) for details)
