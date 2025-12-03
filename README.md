@@ -27,7 +27,7 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 
 ```bash
 # Clone and setup
-git clone <repo-url>
+git clone https://github.com/wawiesel/wks.git
 cd 2025-WKS
 
 # Create virtual environment
@@ -80,16 +80,8 @@ See [SPEC.md](SPEC.md) for complete system specification.
 
 ## Documentation
 
-- **[SPEC.md](SPEC.md)**: Complete system specification
-- **[NEXT.md](NEXT.md)**: Current development priorities
-- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Development guide, testing strategy
-
-## Requirements
-
-- Python 3.10+
-- MongoDB 4.0+
-- macOS/Linux
-
-## License
-
-See LICENSE file for details.
+-   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Your primary guide for contributing to WKS, covering setup, coding standards, Git commit guidelines, quality checks, and testing procedures.
+-   **[docs/specifications/index.md](docs/specifications/index.md)**: The complete system specification and architectural overview.
+-   **[docs/campaigns/NEXT.md](docs/campaigns/NEXT.md)**: Current development priorities and high-level roadmap.
+-   **[FOR_BOTS.md](FOR_BOTS.md)**: Specific directives and guidelines for AI agents working on this project.
+-   **[LICENSE.txt](LICENSE.txt)**: Project license details.
