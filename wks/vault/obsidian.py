@@ -194,10 +194,15 @@ class ObsidianVault:
             return ""
         try:
             result = dt.strftime(self.timestamp_format)
-            # Some Python versions return the format string itself for invalid formats
-            # Check if result looks like a format string (starts with %)
-            if result == self.timestamp_format and self.timestamp_format.startswith('%'):
-                # Likely invalid format, fall back to default
+            # Some Python versions return the format string itself or literal text for invalid formats
+            # Check if result equals the format string (invalid format returned as-is)
+            # or if it's clearly not a timestamp (no digits, colons, dashes, etc.)
+            if result == self.timestamp_format:
+                # Format string returned as-is, invalid format
+                return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
+            # Check if result looks like a timestamp (has digits and separators)
+            if not any(c.isdigit() for c in result):
+                # No digits, likely invalid format result, fall back
                 return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
             return result
         except (ValueError, TypeError):
