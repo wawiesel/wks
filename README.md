@@ -8,6 +8,8 @@ AI-assisted file organization and knowledge management system.
 
 WKS provides intelligent filesystem monitoring, vault link tracking, and document transformation capabilities. Built as a layered architecture with MongoDB backend and Model Context Protocol (MCP) integration for AI assistants.
 
+**Important Note**: WKS is currently in **alpha development status** and is **not yet ready for external users**. Our immediate focus is on comprehensive revision and ensuring 100% test coverage across existing features.
+
 **Core Capabilities**:
 - **Filesystem Monitoring**: Priority-based file tracking with automatic indexing
 - **Vault Link Management**: Bidirectional link tracking for Obsidian vaults
@@ -69,14 +71,17 @@ Available tools: `wks_monitor_*`, `wks_vault_*` (see [SPEC.md](SPEC.md) for deta
 
 ## Architecture
 
-See [SPEC.md](SPEC.md) for complete system specification.
+The system's architecture is designed in layers, with core functionality currently implemented and under revision up to the **Indexing Layer** as described in the specifications.
 
-**Key Layers**:
+See [docs/specifications/index.md](docs/specifications/index.md) for complete system specification.
+
+**Key Layers (Implemented & Under Revision)**:
 - **Monitor Layer**: Filesystem state tracking
 - **Vault Layer**: Knowledge graph links
 - **Transform Layer**: Document conversion
 - **Diff Layer**: File comparison engines
 - **Service Layer**: Background daemon
+- **Index Layer**: Building towards comprehensive search indices (conceptualized in SPEC.md)
 
 ## Documentation
 
