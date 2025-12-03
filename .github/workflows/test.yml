@@ -22,14 +22,21 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'  # Enable pip caching via setup-python
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}-${{ matrix.python-version }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Clean pip cache to save disk space
-          pip cache purge || true
-          # Install without cache to reduce disk usage
-          pip install --no-cache-dir -e .
+          pip install -e .
 
       - name: Run tests
         run: |
