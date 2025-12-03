@@ -22,7 +22,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'  # Enable pip caching via setup-python
 
       - name: Cache pip packages
         uses: actions/cache@v4
