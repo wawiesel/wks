@@ -1,6 +1,8 @@
-# WKS (Wieselquist Knowledge System)
+⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+# WKS (!!!ALPHA STATUS!!!)
+⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
 
-AI-assisted file organization and knowledge management system with Obsidian vault integration.
+AI-assisted file organization and knowledge management system.
 
 ## Overview
 
