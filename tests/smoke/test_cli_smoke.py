@@ -12,6 +12,17 @@ from pathlib import Path
 
 import pytest
 
+def _mongo_available():
+    """Check if MongoDB is available."""
+    try:
+        from pymongo import MongoClient
+        client = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=2000)
+        client.server_info()
+        client.close()
+        return True
+    except Exception:
+        return False
+
 # Path to the wks executable or module
 WKS_CMD = [sys.executable, "-m", "wks.cli"]
 
