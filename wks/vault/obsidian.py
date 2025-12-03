@@ -24,7 +24,7 @@ class ObsidianVault:
         self.vault_path = Path(vault_path)
         if not base_dir or not str(base_dir).strip():
             raise ValueError("vault.wks_dir is required in configuration")
-        self.base_dir = str(base_dir).strip("/")
+        self.base_dir = str(base_dir).strip().strip("/")
         self.machine = (machine_name or platform.node().split(".")[0]).strip()
         self._recompute_paths()
         try:
@@ -51,7 +51,7 @@ class ObsidianVault:
         self.docs_dir = base / "Docs"
 
     def set_base_dir(self, base_dir: str) -> None:
-        self.base_dir = base_dir.strip("/")
+        self.base_dir = base_dir.strip().strip("/")
         self._recompute_paths()
 
     def ensure_structure(self) -> None:
@@ -190,8 +190,21 @@ class ObsidianVault:
     # ---------------------------------------------------------------- misc helpers
 
     def _format_dt(self, dt: datetime) -> str:
+        if dt is None:
+            return ""
         try:
-            return dt.strftime(self.timestamp_format)
+            result = dt.strftime(self.timestamp_format)
+            # Some Python versions return the format string itself or literal text for invalid formats
+            # Check if result equals the format string (invalid format returned as-is)
+            # or if it's clearly not a timestamp (no digits, colons, dashes, etc.)
+            if result == self.timestamp_format:
+                # Format string returned as-is, invalid format
+                return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
+            # Check if result looks like a timestamp (has digits and separators)
+            if not any(c.isdigit() for c in result):
+                # No digits, likely invalid format result, fall back
+                return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
+            return result
         except (ValueError, TypeError):
             # Invalid format string or datetime
             return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)

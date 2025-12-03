@@ -47,6 +47,7 @@ def test_setup(tmp_path, monkeypatch):
     }
 
 
+@pytest.mark.unit
 def test_file_url_auto_conversion(test_setup):
     """Test that file:// URLs are automatically converted to [[_links/...]] wikilinks."""
     vault_root = test_setup["vault_root"]
@@ -95,6 +96,7 @@ def test_file_url_auto_conversion(test_setup):
     print(f"✓ Record created with link_type={record.link_type}, to_uri={record.to_uri}")
 
 
+@pytest.mark.unit
 def test_file_url_with_indexer(test_setup):
     """Test full indexing pipeline with file:// URL conversion."""
     vault_root = test_setup["vault_root"]
@@ -138,6 +140,7 @@ def test_file_url_with_indexer(test_setup):
     print(f"  to_uri: {link_doc['to_uri']}")
 
 
+@pytest.mark.unit
 def test_nonexistent_file_url(test_setup):
     """Test that file:// URLs pointing to nonexistent files are handled gracefully."""
     vault_root = test_setup["vault_root"]
