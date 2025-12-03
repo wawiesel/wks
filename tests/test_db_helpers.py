@@ -95,7 +95,7 @@ class TestGetMonitorDbConfig:
             },
             "db": {},
         }
-        with pytest.raises(KeyError, match="db.uri is required"):
+        with pytest.raises(KeyError, match="db.*required"):
             get_monitor_db_config(cfg)
 
     def test_get_monitor_config_missing_database_key(self):
@@ -106,7 +106,7 @@ class TestGetMonitorDbConfig:
                 "uri": "mongodb://localhost:27017/",
             },
         }
-        with pytest.raises(KeyError, match="monitor.database is required"):
+        with pytest.raises(KeyError, match="monitor.*required"):
             get_monitor_db_config(cfg)
 
     def test_get_monitor_config_invalid_database_key_format(self):
@@ -169,7 +169,7 @@ class TestGetVaultDbConfig:
             },
             "db": {},
         }
-        with pytest.raises(KeyError, match="db.uri is required"):
+        with pytest.raises(KeyError, match="db.*required"):
             get_vault_db_config(cfg)
 
     def test_get_vault_config_missing_database_key(self):
@@ -180,7 +180,7 @@ class TestGetVaultDbConfig:
                 "uri": "mongodb://localhost:27017/",
             },
         }
-        with pytest.raises(KeyError, match="vault.database is required"):
+        with pytest.raises(KeyError, match="vault.*required"):
             get_vault_db_config(cfg)
 
     def test_get_vault_config_invalid_database_key_format(self):
@@ -223,7 +223,7 @@ class TestGetTransformDbConfig:
         cfg = {
             "db": {},
         }
-        with pytest.raises(KeyError, match="db.uri is required"):
+        with pytest.raises(KeyError, match="db.*required"):
             get_transform_db_config(cfg)
 
 

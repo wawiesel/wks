@@ -34,8 +34,8 @@ class TestVaultInitialization:
             vault_path=tmp_path,
             base_dir="  WKS  "
         )
-        # The code strips leading/trailing slashes, not whitespace
-        assert vault.base_dir == "  WKS  "
+        # The code strips whitespace and slashes
+        assert vault.base_dir == "WKS"
 
     def test_init_uses_platform_machine_name(self, tmp_path):
         """Test that machine name defaults to platform.node()."""
@@ -118,12 +118,10 @@ class TestPathComputation:
         assert vault.base_dir == "Custom"
         assert vault.docs_dir == tmp_path / "Custom" / "Docs"
         
-        # Test with spaces and slashes - strip("/") only removes "/" at edges, not spaces
+        # Test with spaces and slashes - both are stripped
         vault.set_base_dir("  /Custom/  ")
-        # strip("/") on "  /Custom/  " doesn't remove "/" because there are spaces before/after
-        # So it returns the string unchanged
-        expected = "  /Custom/  ".strip("/")
-        assert vault.base_dir == expected
+        assert vault.base_dir == "Custom"
+        assert vault.docs_dir == tmp_path / "Custom" / "Docs"
 
 
 class TestDirectoryCreation:

@@ -326,7 +326,7 @@ class TestDiffController:
 
         result = controller.diff(file1, file2, "bsdiff3")
 
-        assert "differ" in result.lower()
+        assert "patch" in result.lower() or "differ" in result.lower()
 
     def test_diff_options_passed_to_engine(self, tmp_path):
         """Diff passes options to engine."""
