@@ -40,7 +40,8 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest tests/ -v --tb=short
+          # Run tests in parallel (auto-detects CPU count)
+          python -m pytest tests/ -v --tb=short -n auto
         continue-on-error: false
 
       - name: Check imports

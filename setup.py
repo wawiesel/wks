@@ -18,6 +18,7 @@ setup(
         "jinja2",             # Template rendering for CLI outputs
         "pytest>=7.0",        # Testing framework
         "pytest-timeout>=2.1",  # Test timeouts
+        "pytest-xdist>=3.0",  # Parallel test execution
     ],
     entry_points={
         "console_scripts": [
