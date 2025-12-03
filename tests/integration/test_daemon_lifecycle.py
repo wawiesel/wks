@@ -11,81 +11,8 @@ from wks.daemon import WKSDaemon, HealthData
 from wks.monitor_rules import MonitorRules
 from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings, DisplayConfig, TransformConfig, MetricsConfig
 
-
-class FakeCollection:
-    """Fake MongoDB collection for testing."""
-    def __init__(self):
-        self.docs = {}
-
-    def count_documents(self, filt, limit=None):
-        return len(self.docs)
-
-    def find_one(self, filt, projection=None):
-        return None
-
-    def update_one(self, filt, update, upsert=False):
-        pass
-
-    def delete_one(self, filt):
-        pass
-
-    def find(self, filt, projection=None):
-        return iter([])
-
-    def delete_many(self, filt):
-        pass
-
-
-class FakeVault:
-    """Fake vault for testing."""
-    def __init__(self, *args, **kwargs):
-        self.vault_path = kwargs.get('vault_path', Path('/tmp/test_vault'))
-
-    def ensure_structure(self):
-        pass
-
-    def log_file_operation(self, *args, **kwargs):
-        pass
-
-    def update_link_on_move(self, *args, **kwargs):
-        pass
-
-    def update_vault_links_on_move(self, *args, **kwargs):
-        pass
-
-    def mark_reference_deleted(self, *args, **kwargs):
-        pass
-
-    def create_project_note(self, *args, **kwargs):
-        pass
-
-
-class FakeIndexer:
-    """Fake vault indexer for testing."""
-    def __init__(self, *args, **kwargs):
-        pass
-
-    @classmethod
-    def from_config(cls, vault, cfg):
-        return cls()
-
-    def sync(self, incremental=False):
-        pass
-
-    def update_links_on_file_move(self, old_uri, new_uri):
-        return 0
-
-    def has_references_to(self, path):
-        return False
-
-
-class FakeObserver:
-    """Fake filesystem observer for testing."""
-    def stop(self):
-        pass
-
-    def join(self):
-        pass
+# Import shared fixtures
+from tests.integration.conftest import FakeCollection, FakeVault, FakeIndexer, FakeObserver
 
 
 def build_daemon_config(tmp_path):
@@ -142,26 +69,18 @@ def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
     monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
 
-    # Mock MongoGuard if it exists
-    if hasattr(daemon_mod, 'MongoGuard'):
-        mock_guard = MagicMock()
-        mock_guard.start = MagicMock()
-        mock_guard.stop = MagicMock()
-        monkeypatch.setattr(daemon_mod, "MongoGuard", lambda *a, **k: mock_guard)
-    else:
-        # Create a mock class if it doesn't exist
-        class MockMongoGuard:
-            def __init__(self, *args, **kwargs):
-                pass
-            def start(self, *args, **kwargs):
-                pass
-            def stop(self):
-                pass
-        monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
+    # Mock MongoGuard
+    class MockMongoGuard:
+        def __init__(self, *args, **kwargs):
+            pass
+        def start(self, *args, **kwargs):
+            pass
+        def stop(self):
+            pass
+    monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
 
-    # Mock ensure_mongo_running if it exists
-    if hasattr(daemon_mod, 'ensure_mongo_running'):
-        monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *a, **k: None)
+    # Mock ensure_mongo_running
+    monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *a, **k: None)
 
     # Mock MCPBroker
     mock_broker = MagicMock()
@@ -173,7 +92,7 @@ def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     mock_observer = FakeObserver()
     monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *a, **k: mock_observer)
 
-    # Mock db_activity functions if they exist
+    # Mock db_activity functions
     monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
     monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])
 
@@ -193,6 +112,7 @@ def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     return daemon
 
 
+@pytest.mark.integration
 class TestDaemonInitialization:
     """Test daemon initialization with various configs."""
 
@@ -250,6 +170,7 @@ class TestDaemonInitialization:
         assert daemon.fs_rate_long_weight == 0.1
 
 
+@pytest.mark.integration
 class TestDaemonStartStop:
     """Test daemon start/stop/restart scenarios."""
 
@@ -298,6 +219,7 @@ class TestDaemonStartStop:
                         daemon.start()
 
 
+@pytest.mark.integration
 class TestDaemonLockManagement:
     """Test lock file management."""
 
@@ -369,6 +291,7 @@ class TestDaemonLockManagement:
         assert daemon.lock_file.exists()
 
 
+@pytest.mark.integration
 class TestDaemonHealthData:
     """Test health data collection and serialization."""
 

@@ -9,42 +9,8 @@ from wks.daemon import WKSDaemon
 from wks.monitor_rules import MonitorRules
 from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings, DisplayConfig, TransformConfig, MetricsConfig
 
-
-class FakeCollection:
-    """Fake MongoDB collection for testing."""
-    def count_documents(self, filt, limit=None):
-        return 0
-
-
-class FakeVault:
-    """Fake vault for testing."""
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def ensure_structure(self):
-        pass
-
-    def log_file_operation(self, *args, **kwargs):
-        pass
-
-    def update_link_on_move(self, *args, **kwargs):
-        pass
-
-    def update_vault_links_on_move(self, *args, **kwargs):
-        pass
-
-    def mark_reference_deleted(self, *args, **kwargs):
-        pass
-
-
-class FakeIndexer:
-    """Fake vault indexer for testing."""
-    @classmethod
-    def from_config(cls, vault, cfg):
-        return cls()
-
-    def sync(self, incremental=False):
-        pass
+# Import shared fixtures
+from tests.integration.conftest import FakeCollection, FakeVault, FakeIndexer
 
 
 def build_daemon_config(tmp_path):
@@ -130,6 +96,7 @@ def build_daemon(monkeypatch, tmp_path):
     return daemon
 
 
+@pytest.mark.integration
 class TestHealthMetricsCalculation:
     """Test health metrics calculation (uptime, rates, beats)."""
 
@@ -171,6 +138,7 @@ class TestHealthMetricsCalculation:
         assert daemon._beat_count == initial_beats + 5
 
 
+@pytest.mark.integration
 class TestErrorTracking:
     """Test error tracking and timestamps."""
 
@@ -215,6 +183,7 @@ class TestErrorTracking:
         daemon._set_info("info message")
 
 
+@pytest.mark.integration
 class TestFilesystemRateCalculations:
     """Test filesystem rate calculations (short/long windows)."""
 
@@ -295,6 +264,7 @@ class TestFilesystemRateCalculations:
         assert weighted_rate == pytest.approx(expected_weighted, abs=0.01)
 
 
+@pytest.mark.integration
 class TestDatabaseOperationLogging:
     """Test database operation logging."""
 

@@ -35,6 +35,27 @@ try:
 except Exception:  # pragma: no cover
     fcntl = None
 
+# Optional imports for MongoDB guard and DB activity tracking
+# These may not exist in all environments and are mocked in tests
+try:
+    from .mongo_guard import MongoGuard  # type: ignore
+except ImportError:
+    MongoGuard = None  # type: ignore
+
+try:
+    from .db_activity import load_db_activity_summary, load_db_activity_history  # type: ignore
+except ImportError:
+    def load_db_activity_summary():  # type: ignore
+        return None
+    def load_db_activity_history(window_secs: int):  # type: ignore
+        return []
+
+try:
+    from .mongo_utils import ensure_mongo_running  # type: ignore
+except ImportError:
+    def ensure_mongo_running(uri: str, record_start: bool = False):  # type: ignore
+        pass
+
 
 @dataclass
 class HealthData:
@@ -138,6 +159,7 @@ class WKSDaemon:
         self._fs_events_long: deque[float] = deque()
         self.mongo_uri = self.config.mongo.uri
         self.monitor_collection = monitor_collection
+        self._mongo_guard = None
         self._mcp_broker: Optional[MCPBroker] = None
         self._mcp_socket = mcp_socket_path()
 
@@ -520,6 +542,8 @@ class WKSDaemon:
     def _start_mongo_guard(self):
         if not self.mongo_uri:
             return
+        if MongoGuard is None:
+            return  # MongoGuard not available
         guard = self._mongo_guard
         if guard is None:
             guard = MongoGuard(self.mongo_uri, ping_interval=10.0)
