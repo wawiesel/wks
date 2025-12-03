@@ -176,11 +176,7 @@ class TestFixSymlinks:
 
     def test_fix_symlinks_handles_config_load_error(self, controller):
         """Test error handling when config fails to load."""
-<<<<<<< HEAD
-        with patch("wks.vault.controller.WKSConfig.load", side_effect=Exception("Config error")):
-=======
         with patch("wks.config.WKSConfig.load", side_effect=Exception("Config error")):
->>>>>>> test/vault-coverage-agent2
             result = controller.fix_symlinks()
 
         assert result.notes_scanned == 0
