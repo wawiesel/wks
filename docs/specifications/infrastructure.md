@@ -2,33 +2,23 @@
 
 ## Database
 
-All layers store data in MongoDB:
+All layers store data in MongoDB. The current CLI/MCP surface read-only queries; reset/maintenance commands are planned future work.
 
 ```bash
 # Query databases
 wksc db monitor              # Filesystem state
 wksc db vault                # Knowledge graph links
 wksc db transform            # Transform cache metadata
-
-# Reset databases (destructive)
-wksc db reset monitor        # Clear filesystem state
-wksc db reset vault          # Clear link graph
-wksc db reset transform      # Clear transform cache and DB
 ```
 
 ## Service
 
 **MCP Interface**:
-- `wksm_service(action)` — Manage service (start, stop, restart, status, install, uninstall)
+- `wksm_service()` — Get service status (other lifecycle actions are planned)
 
 **CLI Interface**:
 ```bash
-wksc service install         # Install launchd service (macOS)
-wksc service uninstall       # Remove service
-wksc service start           # Start daemon
-wksc service stop            # Stop daemon
-wksc service restart         # Restart daemon
-wksc service status          # Show status and metrics (supports --live for auto-updating display)
+wksc service status          # Show status and metrics
 ```
 
 ## MCP Server

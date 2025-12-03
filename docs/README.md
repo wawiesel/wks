@@ -1,8 +1,7 @@
 There are 3 types of documents currently managed here while we are in ALPHA development.
 
 The campaign documents (see campaigns/README.md)
-The specification documents (see specifications/index.md)
+The specification documents (see specifications/wks.md)
 Other documents (see other/).
 
-Documentation on the implementation or design meeting the specifications is contained
-in README.md files in the wks/ directory.
+Implementation notes live in the code and tests; there are no per-module README files under wks/.

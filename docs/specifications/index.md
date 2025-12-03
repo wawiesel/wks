@@ -2,6 +2,8 @@
 
 **Purpose**: Maintain searchable indices of file content and structure
 
+**Status**: Future work. The interfaces below describe planned behavior; they are not implemented in the current codebase.
+
 Indices are populated based on rules that chain a transform to an embedding scheme to a database. Two main types of embeddings shall be supported:
 
 1. **Document Embeddings** — Operates on documents
@@ -13,7 +15,7 @@ Multiple indices are supported but the main type of index is embedding, RAG-type
 
 We will also support the BM25 index for simple text search.
 
-## MCP Interface (Primary)
+## Planned MCP Interface (Primary)
 
 - `wksm_index_list()` — List available indices
 - `wksm_index_create(index_name, index_type)` — Create a new index
@@ -25,7 +27,7 @@ We will also support the BM25 index for simple text search.
 - `wksm_index_rule_list(index_name)` — List indexing rules
 - `wksm_db_index(index_name)` — Query index database
 
-## CLI Interface (Secondary)
+## Planned CLI Interface (Secondary)
 
 - `wksc index list` — List available indices
 - `wksc index create <index_name> <index_type>` — Create a new index
