@@ -1,25 +1,38 @@
-A campaign is a cohesive plan to update the code carried out by
-- one human director
-- one orchestrator bot and
-- 3 agent bots.
+# WKS Campaigns
 
-1. The director comes up with the idea for the campaign and tells the orchestrator
-2. The orchestrator creates a branch and PR off main, e.g. 2025-12-03_test-refactor.
-3. The orchestrator adds a file describing the goal of the campaign at docs/campaigns/<branch>/index.md
-4. The orchestrator then creates a new branch and PR off of the campaign branch for agent bot 1 and adds
-   docs/campaigns/<branch>/agent1/GOAL.md
-5. The director then creates an agent bot 1 and assigns them the goal.
-6. The orchestrator and director spin up the other 2 bots in the same way.
-7. The orchestrator reviews the PRs of the agents and accepts them into the campaign branch.
-8. When all agent bots are done, the orchestrator performs any final fixups on the campaign branch.
-9. The orchestrator reads and summarizes all activity into a final docs/campaigns/<branch>/index.md,
-   which should be the only document left in docs/campaigns/<branch> when merging back into main.
-10. The director reviews the campaign branch to merge back into main.
+A **Campaign** is a cohesive, strategic effort to update the WKS codebase, executed by a coordinated team of a human Director and AI Agents.
 
-RULES:
+## Roles
 
-- The orchestrator should NOT DO ANY WORK directly on the agent branches. Only provide reviews.
-- The agent bots should not do any work that is not directly related to their assigned goal.
-- The agent bots should pull any work on the campaign branch to ensure they are up to date.
-- The orchestrator may choose to pull from main or make minor corrections, e.g. to test harness or other
-changes supporting all bots on the campaign branch.
+*   **Director** (Human): Defines the campaign vision, sets goals, creates agents, and approves the final merge.
+*   **Orchestrator** (AI): Manages the campaign lifecycle, coordinates agents, reviews Pull Requests, and maintains campaign documentation.
+*   **Agents** (AI): Autonomous workers that execute specific tasks assigned by the Director or Orchestrator.
+
+## Workflow Lifecycle
+
+### 1. Initialization
+1.  **Director** conceives the campaign idea.
+2.  **Orchestrator** creates a new branch off `main` following the naming convention: `YYYY-MM-DD_campaign-name`.
+3.  **Orchestrator** initializes the campaign documentation at `docs/campaigns/<branch>/index.md`, defining the goals and scope.
+
+### 2. Delegation
+1.  **Orchestrator** identifies subtasks and creates branches/goals for agents (e.g., adding `docs/campaigns/<branch>/agent1/GOAL.md`).
+2.  **Director** instantiates Agent bots and assigns them to their respective tasks/branches.
+
+### 3. Execution & Review
+1.  **Agents** perform work on their assigned branches.
+2.  **Agents** ensure they stay up-to-date with the campaign branch.
+3.  **Orchestrator** reviews Agent PRs, requests changes if necessary, and merges them into the campaign branch.
+    *   *Note: Orchestrator does not push code to agent branches directly.*
+
+### 4. Completion
+1.  **Orchestrator** performs final integration checks and fixups on the campaign branch.
+2.  **Orchestrator** summarizes all activity in the final `docs/campaigns/<branch>/index.md`.
+3.  **Director** reviews the campaign branch and merges it back into `main`.
+
+## Rules of Engagement
+
+*   **Orchestrator Authority**: The Orchestrator manages the `campaign` branch. It should not modify `agent` branches directly.
+*   **Agent Focus**: Agents must strictly adhere to their assigned `GOAL.md`.
+*   **Synchronization**: All bots must regularly pull from the upstream campaign branch to minimize conflicts.
+*   **Intervention**: The Orchestrator may make minor corrections (e.g., to test harnesses) directly on the campaign branch to unblock agents.
