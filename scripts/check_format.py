@@ -3,11 +3,20 @@ import subprocess
 import sys
 import argparse
 from rich.console import Console
+from pathlib import Path
 
 console = Console()
 
 def run_command(command, description):
     console.print(f"[bold blue]Running {description}...[/bold blue]")
+    
+    # Resolve tool path
+    tool = command[0]
+    bin_dir = Path(sys.executable).parent
+    tool_path = bin_dir / tool
+    if tool_path.exists():
+        command[0] = str(tool_path)
+
     try:
         result = subprocess.run(
             command, 
@@ -30,15 +39,18 @@ def run_command(command, description):
 def main():
     parser = argparse.ArgumentParser(description="Run formatting and linting checks")
     parser.add_argument("--fix", action="store_true", help="Auto-fix issues where possible")
+    parser.add_argument("files", nargs="*", help="Files to check (default: all)")
     args = parser.parse_args()
+
+    targets = args.files if args.files else ["."]
 
     success = True
     if args.fix:
-        if not run_command(["ruff", "format", "."], "Ruff Formatting (Fix)"): success = False
-        if not run_command(["ruff", "check", "--fix", "."], "Ruff Linting (Fix)"): success = False
+        if not run_command(["ruff", "format"] + targets, "Ruff Formatting (Fix)"): success = False
+        if not run_command(["ruff", "check", "--fix"] + targets, "Ruff Linting (Fix)"): success = False
     else:
-        if not run_command(["ruff", "format", "--check", "."], "Ruff Formatting (Check)"): success = False
-        if not run_command(["ruff", "check", "."], "Ruff Linting (Check)"): success = False
+        if not run_command(["ruff", "format", "--check"] + targets, "Ruff Formatting (Check)"): success = False
+        if not run_command(["ruff", "check"] + targets, "Ruff Linting (Check)"): success = False
     
     if not success:
         sys.exit(1)

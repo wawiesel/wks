@@ -2,14 +2,26 @@
 import subprocess
 import sys
 from rich.console import Console
+from pathlib import Path
 
 console = Console()
 
 def main():
+    args = sys.argv[1:]
     console.print("[bold blue]Running Lizard Complexity Analysis...[/bold blue]")
     
+    # Resolve tool path
+    bin_dir = Path(sys.executable).parent
+    lizard_cmd = "lizard"
+    if (bin_dir / "lizard").exists():
+        lizard_cmd = str(bin_dir / "lizard")
+
     # CCN <= 10, NLOC <= 100
-    cmd = ["lizard", "-l", "python", "-C", "10", "-L", "100", "wks"]
+    cmd = [lizard_cmd, "-l", "python", "-C", "10", "-L", "100"]
+    if args:
+        cmd.extend(args)
+    else:
+        cmd.append("wks")
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)

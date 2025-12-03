@@ -4,7 +4,6 @@ Per CONTRIBUTING.md: CLI → MCP → API (CLI never calls API directly)
 """
 
 import argparse
-import json
 import subprocess
 import sys
 from pathlib import Path

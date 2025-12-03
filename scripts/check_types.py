@@ -2,11 +2,20 @@
 import subprocess
 import sys
 from rich.console import Console
+from pathlib import Path
 
 console = Console()
 
 def run_command(command, description):
     console.print(f"[bold blue]Running {description}...[/bold blue]")
+    
+    # Resolve tool path
+    tool = command[0]
+    bin_dir = Path(sys.executable).parent
+    tool_path = bin_dir / tool
+    if tool_path.exists():
+        command[0] = str(tool_path)
+
     try:
         result = subprocess.run(
             command, 
@@ -27,8 +36,11 @@ def run_command(command, description):
         sys.exit(1)
 
 def main():
-    # Excluding tests from strict mypy for now as they often need loose typing
-    if not run_command(["mypy", "wks"], "Mypy Type Checking"):
+    # Parse args manually to avoid argparse overhead for simple pass-through
+    args = sys.argv[1:]
+    targets = args if args else ["wks"]
+
+    if not run_command(["mypy"] + targets, "Mypy Type Checking"):
         sys.exit(1)
 
 if __name__ == "__main__":

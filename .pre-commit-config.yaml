@@ -7,23 +7,28 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.0
-    hooks:
-      - id: ruff
-        args: [ --fix ]
-      - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-requests, types-PyYAML, types-setuptools, pydantic, mongo-types]
-        args: [--strict, --ignore-missing-imports]
-        exclude: ^tests/  # Mypy on tests can be strict, but let's start with code
-
   - repo: local
     hooks:
+      - id: check-format
+        name: Check Formatting (Ruff)
+        entry: scripts/check_format.py
+        language: script
+        types: [python]
+        
+      - id: check-types
+        name: Check Types (Mypy)
+        entry: scripts/check_types.py
+        language: script
+        types: [python]
+        require_serial: true
+
+      - id: check-complexity
+        name: Check Complexity (Lizard)
+        entry: scripts/check_complexity.py
+        language: script
+        types: [python]
+        stages: [pre-push]
+
       - id: pytest
         name: pytest
         entry: .venv/bin/pytest
