@@ -221,13 +221,11 @@ class TestTimestampFormat:
             )
             dt = datetime(2024, 1, 15, 10, 30, 45)
             formatted = vault._format_dt(dt)
-            # strftime('%invalid') behavior varies by Python version:
-            # - Some versions return 'invalid' (literal text)
-            # - Some versions may return '%invalid' (format string itself)
-            # - Exception handler should catch and use DEFAULT_TIMESTAMP_FORMAT
-            # Just verify it returns something non-empty
+            # The code should detect invalid format and fall back to DEFAULT_TIMESTAMP_FORMAT
+            from wks.constants import DEFAULT_TIMESTAMP_FORMAT
+            expected = dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
+            assert formatted == expected
             assert len(formatted) > 0
-            # Accept any result - the important thing is it doesn't crash
 
     def test_format_dt_handles_invalid_datetime(self, tmp_path):
         """Test that _format_dt handles invalid datetime gracefully."""
