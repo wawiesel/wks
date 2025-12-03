@@ -15,7 +15,8 @@ from wks.mcp_client import proxy_stdio_to_socket
 def _tmp_socket() -> Path:
     # Use shorter path to avoid AF_UNIX path length limits in CI
     # Linux limit is 108 chars, so use /tmp with minimal name
-    return Path("/tmp") / f"w{uuid4().hex[:8]}.sock"
+    # Fixed path for CI stability - in real deployments, use unique paths
+    return Path("/tmp") / "wks-mcp.sock"
 
 
 @pytest.mark.integration
