@@ -193,7 +193,13 @@ class ObsidianVault:
         if dt is None:
             return ""
         try:
-            return dt.strftime(self.timestamp_format)
+            result = dt.strftime(self.timestamp_format)
+            # Some Python versions return the format string itself for invalid formats
+            # Check if result looks like a format string (starts with %)
+            if result == self.timestamp_format and self.timestamp_format.startswith('%'):
+                # Likely invalid format, fall back to default
+                return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
+            return result
         except (ValueError, TypeError):
             # Invalid format string or datetime
             return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
