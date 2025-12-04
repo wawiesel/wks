@@ -12,7 +12,7 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, Dict, Optional, TextIO, Tuple, Union
 
 from pymongo.collection import Collection
 from watchdog.observers import Observer
@@ -227,7 +227,7 @@ class WKSDaemon:
 
         return 86400.0 / interval
 
-    def _update_monitor_db(self, path: Path):
+    def _update_monitor_db(self, path: Path) -> None:
         if self.monitor_collection is None:
             return
 
@@ -274,7 +274,7 @@ class WKSDaemon:
             self._set_error(f"monitor_db_lookup_error: {exc}")
             return False
 
-    def _remove_from_monitor_db(self, path: Path):
+    def _remove_from_monitor_db(self, path: Path) -> None:
         if self.monitor_collection is None:
             return
         try:
@@ -282,7 +282,7 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_db_delete_error: {e}")
 
-    def _enforce_monitor_db_limit(self):
+    def _enforce_monitor_db_limit(self) -> None:
         if self.monitor_collection is None:
             return
 
@@ -366,7 +366,7 @@ class WKSDaemon:
         except Exception as exc:
             self._set_error(f"transform_db_update_error: {exc}")
 
-    def _get_vault_base_path(self) -> Path | None:
+    def _get_vault_base_path(self) -> Optional[Path]:
         """Get vault base directory path if configured."""
         try:
             return self.config.vault.base_dir
@@ -374,7 +374,7 @@ class WKSDaemon:
             pass
         return None
 
-    def _handle_move_event(self, src_path: str, dest_path: str):
+    def _handle_move_event(self, src_path: str, dest_path: str) -> None:
         """Handle file move event."""
         src = Path(src_path)
         dest = Path(dest_path)
@@ -431,7 +431,7 @@ class WKSDaemon:
         if dest_is_file and not self._should_ignore_by_rules(dest):
             self._update_monitor_db(dest)
 
-    def _handle_delete_event(self, path: Path):
+    def _handle_delete_event(self, path: Path) -> None:
         """Handle file delete event."""
         if not self._monitor_has_path(path):
             return
@@ -440,7 +440,7 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _handle_create_modify_event(self, path: Path, event_type: str):
+    def _handle_create_modify_event(self, path: Path, event_type: str) -> None:
         """Handle file create or modify event."""
         # Cancel any pending delete for same path
         try:
@@ -458,7 +458,7 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _handle_new_directory(self, path: Path):
+    def _handle_new_directory(self, path: Path) -> None:
         """Handle new directory creation - check if it's a project."""
         if not self.auto_project_notes:
             return
@@ -476,7 +476,7 @@ class WKSDaemon:
             except Exception as e:
                 print(f"Error creating project note: {e}")
 
-    def on_file_change(self, event_type: str, path_info):
+    def on_file_change(self, event_type: str, path_info: Union[str, Tuple[str, str]]) -> None:
         """
         Callback when a file changes.
 
@@ -513,7 +513,7 @@ class WKSDaemon:
                 self._handle_new_directory(path)
             return
 
-    def start(self):
+    def start(self) -> None:
         """Start monitoring."""
         self._start_mongo_guard()
         self._start_mcp_broker()
@@ -533,7 +533,7 @@ class WKSDaemon:
 
         print(f"WKS daemon started, monitoring: {[str(p) for p in self.monitor_paths]}")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop monitoring."""
         if self.observer:
             self.observer.stop()
@@ -543,7 +543,7 @@ class WKSDaemon:
         self._stop_mongo_guard()
         self._stop_mcp_broker()
 
-    def _start_mongo_guard(self):
+    def _start_mongo_guard(self) -> None:
         if not self.mongo_uri:
             return
         if MongoGuard is None:
@@ -554,7 +554,7 @@ class WKSDaemon:
             self._mongo_guard = guard
         guard.start(record_start=True)
 
-    def _stop_mongo_guard(self):
+    def _stop_mongo_guard(self) -> None:
         guard = self._mongo_guard
         if not guard:
             return
@@ -563,7 +563,7 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _start_mcp_broker(self):
+    def _start_mcp_broker(self) -> None:
         socket_path = self._mcp_socket
         if not socket_path:
             return
@@ -576,7 +576,7 @@ class WKSDaemon:
         except Exception as exc:
             self._set_error(f"mcp_broker_error: {exc}")
 
-    def _stop_mcp_broker(self):
+    def _stop_mcp_broker(self) -> None:
         broker = self._mcp_broker
         if not broker:
             return
@@ -585,7 +585,7 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def run(self):
+    def run(self) -> None:
         """Run the daemon (blocking)."""
         try:
             self.start()
@@ -609,7 +609,7 @@ class WKSDaemon:
         except Exception:
             return False
 
-    def _maybe_prune_monitor_db(self):
+    def _maybe_prune_monitor_db(self) -> None:
         """Prune monitor database entries that are missing or match exclude rules."""
         if self.monitor_collection is None:
             return

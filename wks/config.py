@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 from .diff.config import DiffConfig
 from .monitor.config import MonitorConfig
 from .monitor.config import ValidationError as MonitorValidationError
-from .transform.config import TransformConfig
+from .transform.config import CacheConfig, TransformConfig
 from .utils import get_wks_home
 from .vault.config import VaultConfig
 
