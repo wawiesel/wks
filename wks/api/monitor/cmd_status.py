@@ -100,7 +100,7 @@ def _format_status_for_table(status_obj) -> list[dict]:
     return tables
 
 
-def status() -> StageResult:
+def cmd_status() -> StageResult:
     """Get filesystem monitoring status and configuration.
 
     Returns monitor status including tracked files count, configuration
@@ -119,8 +119,17 @@ def status() -> StageResult:
     tables = _format_status_for_table(status_obj)
     result["_tables"] = tables  # Special key for CLI table rendering
 
+    # Set success based on whether there are issues
+    has_issues = bool(result.get("issues"))
+    if has_issues:
+        result["success"] = False
+        result_msg = f"Monitor status retrieved ({len(result['issues'])} issue(s) found)"
+    else:
+        result["success"] = True
+        result_msg = "Monitor status retrieved"
+
     return StageResult(
         announce="Checking monitor status...",
-        result="Monitor status retrieved",
+        result=result_msg,
         output=result,
     )

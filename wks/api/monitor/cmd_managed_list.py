@@ -8,7 +8,7 @@ from ...monitor import MonitorController
 from ..base import StageResult
 
 
-def managed_list() -> StageResult:
+def cmd_managed_list() -> StageResult:
     """List all managed directories with their priorities.
 
     Returns:

@@ -9,13 +9,16 @@ import typer
 from ...display.cli import CLIDisplay
 from ...display.context import get_display
 from ..base import StageResult
-from .check import check
-from .managed_add import managed_add
-from .managed_list import managed_list
-from .managed_remove import managed_remove
-from .managed_set_priority import managed_set_priority
-from .status import status
-from .validate import validate
+from .cmd_add import cmd_add
+from .cmd_check import cmd_check
+from .cmd_list import cmd_list
+from .cmd_managed_add import cmd_managed_add
+from .cmd_managed_list import cmd_managed_list
+from .cmd_managed_remove import cmd_managed_remove
+from .cmd_managed_set_priority import cmd_managed_set_priority
+from .cmd_remove import cmd_remove
+from .cmd_status import cmd_status
+from .cmd_sync import cmd_sync
 
 monitor_app = typer.Typer(
     name="monitor",
@@ -128,10 +131,13 @@ def _handle_stage_result(func: Callable) -> Callable:
 
 
 # Register commands with StageResult handler
-monitor_app.command(name="status")(_handle_stage_result(status))
-monitor_app.command(name="check")(_handle_stage_result(check))
-monitor_app.command(name="validate")(_handle_stage_result(validate))
-monitor_app.command(name="managed-list")(_handle_stage_result(managed_list))
-monitor_app.command(name="managed-add")(_handle_stage_result(managed_add))
-monitor_app.command(name="managed-remove")(_handle_stage_result(managed_remove))
-monitor_app.command(name="managed-set-priority")(_handle_stage_result(managed_set_priority))
+monitor_app.command(name="status")(_handle_stage_result(cmd_status))
+monitor_app.command(name="check")(_handle_stage_result(cmd_check))
+monitor_app.command(name="sync")(_handle_stage_result(cmd_sync))
+monitor_app.command(name="list")(_handle_stage_result(cmd_list))
+monitor_app.command(name="add")(_handle_stage_result(cmd_add))
+monitor_app.command(name="remove")(_handle_stage_result(cmd_remove))
+monitor_app.command(name="managed-list")(_handle_stage_result(cmd_managed_list))
+monitor_app.command(name="managed-add")(_handle_stage_result(cmd_managed_add))
+monitor_app.command(name="managed-remove")(_handle_stage_result(cmd_managed_remove))
+monitor_app.command(name="managed-set-priority")(_handle_stage_result(cmd_managed_set_priority))

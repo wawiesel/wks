@@ -10,7 +10,7 @@ from ...utils import canonicalize_path, find_matching_path_key
 from ..base import StageResult
 
 
-def managed_add(
+def cmd_managed_add(
     path: str = typer.Argument(..., help="Path to manage"),
     priority: int = typer.Argument(..., help="Priority of the path"),
 ) -> StageResult:

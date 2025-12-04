@@ -19,8 +19,8 @@ This is a multi-phase campaign:
 ## Complete Scope
 
 **Phase 1: Monitor Tools** (Agent 1 - IN PROGRESS)
-- All monitor MCP tools: `wksm_monitor_status`, `wksm_monitor_check`, `wksm_monitor_validate`, `wksm_monitor_list`, `wksm_monitor_add`, `wksm_monitor_remove`, `wksm_monitor_managed_list`, `wksm_monitor_managed_add`, `wksm_monitor_managed_remove`, `wksm_monitor_managed_set_priority`, `wksm_monitor_sync`
-- All monitor CLI commands: `wksc monitor status`, `wksc monitor check`, `wksc monitor validate`, `wksc monitor <list>/list`, `wksc monitor <list>/add`, `wksc monitor <list>/remove`, `wksc monitor managed/list`, `wksc monitor managed/add`, `wksc monitor managed/remove`, `wksc monitor managed/set-priority`, `wksc monitor sync`
+- All monitor MCP tools: `wksm_monitor_status`, `wksm_monitor_check`, `wksm_monitor_list`, `wksm_monitor_add`, `wksm_monitor_remove`, `wksm_monitor_managed_list`, `wksm_monitor_managed_add`, `wksm_monitor_managed_remove`, `wksm_monitor_managed_set_priority`, `wksm_monitor_sync`
+- All monitor CLI commands: `wksc monitor status`, `wksc monitor check`, `wksc monitor <list>/list`, `wksc monitor <list>/add`, `wksc monitor <list>/remove`, `wksc monitor managed/list`, `wksc monitor managed/add`, `wksc monitor managed/remove`, `wksc monitor managed/set-priority`, `wksc monitor sync`
 
 **Phase 2: Vault Tools** (Agent 2 - PLANNED)
 - Vault MCP tools: `wksm_vault_status`, `wksm_vault_sync`, `wksm_vault_links`, `wksm_vault_validate`, `wksm_vault_fix_symlinks`
@@ -120,9 +120,8 @@ This is a multi-phase campaign:
    - `__init__.py` - Export all functions
    - `config.py` - Move `MonitorConfig` from `wks/monitor/config.py`
    - `models.py` - Move status/validation models from `wks/monitor/status.py`
-   - `status.py` - Convert `MonitorController.get_status()` to `status()` function (matches CLI: `wksc monitor status`)
-   - `check.py` - Convert `MonitorController.check_path()` to `check()` function (matches CLI: `wksc monitor check`)
-   - `validate.py` - Convert `MonitorController.validate_config()` to `validate()` function (matches CLI: `wksc monitor validate`)
+   - `cmd_status.py` - Convert `MonitorController.get_status()` to `cmd_status()` function (matches CLI: `wksc monitor status`) - includes validation, exits with error code if issues found
+   - `cmd_check.py` - Convert `MonitorController.check_path()` to `cmd_check()` function (matches CLI: `wksc monitor check`)
    - `list.py` - Convert `MonitorController.get_list()` to `list()` function (matches CLI: `wksc monitor <list>/list`)
    - `add.py` - Convert `MonitorOperations.add_to_list()` to `add()` function (matches CLI: `wksc monitor <list>/add`)
    - `remove.py` - Convert `MonitorOperations.remove_from_list()` to `remove()` function (matches CLI: `wksc monitor <list>/remove`)
@@ -133,15 +132,12 @@ This is a multi-phase campaign:
    - `app.py` - Create Typer app, import all functions, and register all commands
 
 7. **Convert classes to functions (one function per file)**
-   - Replace `MonitorController.get_status()` → `wks.api.monitor.status.status()`
-   - Replace `MonitorController.check_path()` → `wks.api.monitor.check.check()`
-   - Replace `MonitorController.validate_config()` → `wks.api.monitor.validate.validate()`
-   - Replace `MonitorOperations.add_to_list()` → `wks.api.monitor.add.add()`
-   - **Function names match CLI command names**: `status()`, `check()`, `validate()`, `add()`, `remove()`, etc.
-   - **Naming Convention**: Function names match CLI command names exactly
-     - CLI: `wksc monitor status` → API: `status()` in `wks/api/monitor/status.py`
-     - CLI: `wksc monitor check` → API: `check()` in `wks/api/monitor/check.py`
-     - CLI: `wksc monitor validate` → API: `validate()` in `wks/api/monitor/validate.py`
+   - Replace `MonitorController.get_status()` → `wks.api.monitor.cmd_status.cmd_status()` (includes validation, exits with error code if issues found)
+   - Replace `MonitorController.check_path()` → `wks.api.monitor.cmd_check.cmd_check()`
+   - Replace `MonitorOperations.add_to_list()` → `wks.api.monitor.cmd_add.cmd_add()`
+   - **Naming Convention**: Files are `cmd_<x>.py` with function `cmd_<x>()` to avoid name clashes
+     - CLI: `wksc monitor status` → API: `cmd_status()` in `wks/api/monitor/cmd_status.py` (includes validation, exits with error code if issues)
+     - CLI: `wksc monitor check` → API: `cmd_check()` in `wks/api/monitor/cmd_check.py`
      - MCP: `wksm_monitor_status` → calls `status()` function
      - MCP: `wksm_monitor_check` → calls `check()` function
    - Replace all static methods with plain functions, one per file
@@ -412,9 +408,8 @@ Final phase refactors service, config, and DB tools.
 7. Move status/validation models from wks/monitor/status.py to wks/api/monitor/models.py
 8. Create wks/utils/monitor/ directory for shared helper functions
 9. Move helper functions from wks/monitor/ to wks/utils/monitor/ (one file per function)
-9. Create wks/api/monitor/get_status.py with get_status() function (from MonitorController.get_status)
-10. Create wks/api/monitor/check_path.py with check_path() function (from MonitorController.check_path)
-11. Create wks/api/monitor/validate_config.py with validate_config() function (from MonitorController.validate_config)
+9. Create wks/api/monitor/cmd_status.py with cmd_status() function (from MonitorController.get_status, includes validation)
+10. Create wks/api/monitor/cmd_check.py with cmd_check() function (from MonitorController.check_path)
 12. Create wks/api/monitor/get_list.py with get_list() function (from MonitorController.get_list)
 13. Create wks/api/monitor/add_to_list.py with add_to_list() function (from MonitorOperations.add_to_list)
 14. Create wks/api/monitor/remove_from_list.py with remove_from_list() function (from MonitorOperations.remove_from_list)

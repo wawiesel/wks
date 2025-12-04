@@ -14,9 +14,12 @@ from collections.abc import Callable
 from typing import Any
 
 from .api.base import StageResult, get_typer_command_schema
-from .api.monitor.check import check as monitor_check
-from .api.monitor.status import status as monitor_status
-from .api.monitor.validate import validate as monitor_validate
+from .api.monitor.cmd_add import cmd_add
+from .api.monitor.cmd_check import cmd_check as monitor_check
+from .api.monitor.cmd_list import cmd_list
+from .api.monitor.cmd_remove import cmd_remove
+from .api.monitor.cmd_status import cmd_status as monitor_status
+from .api.monitor.cmd_sync import cmd_sync
 from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
@@ -171,7 +174,7 @@ class MCPServer:
 
     @staticmethod
     def _define_monitor_basic_tools() -> dict[str, dict[str, Any]]:
-        """Define basic monitor tools (status, check, validate) using Typer introspection.
+        """Define basic monitor tools (status, check) using Typer introspection.
 
         Returns:
             Dictionary of basic monitor tool definitions
@@ -179,12 +182,23 @@ class MCPServer:
         from .api.monitor import monitor_app
 
         tools = {}
-        for cmd_name in ["status", "check", "validate"]:
+        for cmd_name in ["status", "check"]:
             schema = get_typer_command_schema(monitor_app, cmd_name)
             mcp_tool_name = f"wksm_monitor_{cmd_name}"
+            # Get command description from docstring or use default
+            command = None
+            for cmd in monitor_app.registered_commands:
+                if cmd.name == cmd_name:
+                    command = cmd
+                    break
+            description = "Monitor operation"
+            if command and command.callback:
+                doc = command.callback.__doc__ or ""
+                if doc:
+                    description = doc.split("\n")[0].strip()
             tools[mcp_tool_name] = {
-                "description": schema["description"],
-                "inputSchema": schema["inputSchema"],
+                "description": description,
+                "inputSchema": schema,
             }
         return tools
 
@@ -582,17 +596,25 @@ class MCPServer:
                     success=True, data=_extract_data_from_stage_result(monitor_check(path=args["path"]))
                 ).to_dict()
             ),
-            "wksm_monitor_validate": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=_extract_data_from_stage_result(monitor_validate())
-            ).to_dict(),
             "wksm_monitor_list": _require_params("list_name")(
-                lambda config, args: self._tool_monitor_list(config, args["list_name"])
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True, data=_extract_data_from_stage_result(cmd_list(list_name=args["list_name"]))
+                ).to_dict()
             ),
             "wksm_monitor_add": _require_params("list_name", "value")(
-                lambda config, args: self._tool_monitor_add(config, args["list_name"], args["value"])
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True, data=_extract_data_from_stage_result(cmd_add(list_name=args["list_name"], value=args["value"]))
+                ).to_dict()
             ),
             "wksm_monitor_remove": _require_params("list_name", "value")(
-                lambda config, args: self._tool_monitor_remove(config, args["list_name"], args["value"])
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True, data=_extract_data_from_stage_result(cmd_remove(list_name=args["list_name"], value=args["value"]))
+                ).to_dict()
+            ),
+            "wksm_monitor_sync": _require_params("path")(
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True, data=_extract_data_from_stage_result(cmd_sync(path=args["path"], recursive=args.get("recursive", False)))
+                ).to_dict()
             ),
             "wksm_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),  # noqa: ARG005
             "wksm_monitor_managed_add": _require_params("path", "priority")(

@@ -88,6 +88,7 @@ class TestMCPServer:
         assert len(tools) > 0
         assert any(t["name"] == "wksm_monitor_status" for t in tools)
 
+    @pytest.mark.monitor
     @patch("wks.config.WKSConfig.load")
     @patch("wks.monitor.controller.MonitorController.get_status")
     def test_call_tool_monitor_status(self, mock_get_status, mock_load_config, mcp_server, mock_config):
@@ -114,8 +115,10 @@ class TestMCPServer:
 
         assert response["id"] == 3
         content = json.loads(response["result"]["content"][0]["text"])
-        assert content["tracked_files"] == 100
+        # New API returns StageResult.output, which contains the status data
+        assert content["data"]["tracked_files"] == 100
 
+    @pytest.mark.monitor
     @patch("wks.config.WKSConfig.load")
     @patch("wks.monitor.controller.MonitorController.check_path")
     def test_call_tool_monitor_check(self, mock_check_path, mock_load_config, mcp_server, mock_config):
@@ -140,7 +143,8 @@ class TestMCPServer:
 
         assert response["id"] == 4
         content = json.loads(response["result"]["content"][0]["text"])
-        assert content["is_monitored"] is True
+        # New API returns StageResult.output, which contains the check data
+        assert content["data"]["is_monitored"] is True
 
     def test_call_unknown_tool(self, mcp_server):
         """Test calling unknown tool."""

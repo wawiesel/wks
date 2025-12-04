@@ -29,8 +29,7 @@
 
 Complete control over monitoring configuration and status.
 
-- `wksm_monitor_status` — Get monitoring status and configuration
-- `wksm_monitor_validate` — Validate configuration for conflicts
+- `wksm_monitor_status` — Get monitoring status and configuration (includes validation; exits with error code if issues found)
 - `wksm_monitor_check(path)` — Check if path would be monitored
 - `wksm_monitor_sync(path, recursive: bool = False)` — Force update of file or directory into monitor database
 - `wksm_monitor_list(list_name)` — Get contents of configuration list
@@ -46,7 +45,7 @@ Complete control over monitoring configuration and status.
 
 Human-friendly wrappers for the MCP tools.
 
-- `wksc monitor status` — show monitoring statistics (supports `--live`)
+- `wksc monitor status` — show monitoring statistics including validation (exits with error code if configuration issues found)
 - `wksc monitor sync <path> [--recursive]` — force update of file or directory into monitor database (works without service)
 - `wksc monitor include_paths {add,remove} <path>` — manage explicit inclusions
 - `wksc monitor exclude_paths {add,remove} <path>` — manage explicit exclusions

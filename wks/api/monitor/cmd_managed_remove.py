@@ -1,7 +1,7 @@
-"""Monitor managed-set-priority API function.
+"""Monitor managed-remove API function.
 
-This function updates the priority of a managed directory.
-Matches CLI: wksc monitor managed-set-priority <path> <priority>, MCP: wksm_monitor_managed_set_priority
+This function removes a managed directory.
+Matches CLI: wksc monitor managed-remove <path>, MCP: wksm_monitor_managed_remove
 """
 
 import typer
@@ -10,15 +10,13 @@ from ...utils import canonicalize_path, find_matching_path_key
 from ..base import StageResult
 
 
-def managed_set_priority(
-    path: str = typer.Argument(..., help="Path to set priority for"),
-    priority: int = typer.Argument(..., help="New priority of the path"),
+def cmd_managed_remove(
+    path: str = typer.Argument(..., help="Path to unmanage"),
 ) -> StageResult:
-    """Update priority for a managed directory.
+    """Remove a managed directory.
 
     Args:
-        path: Directory path
-        priority: New priority score
+        path: Directory path to remove
 
     Returns:
         StageResult with all 4 stages of data
@@ -34,7 +32,7 @@ def managed_set_priority(
             "not_found": True,
         }
         return StageResult(
-            announce=f"Setting priority for managed directory: {path} to {priority}",
+            announce=f"Removing managed directory: {path}",
             result=str(result.get("message", "")),
             output=result,
         )
@@ -51,29 +49,29 @@ def managed_set_priority(
             "not_found": True,
         }
         return StageResult(
-            announce=f"Setting priority for managed directory: {path} to {priority}",
+            announce=f"Removing managed directory: {path}",
             result=str(result.get("message", "")),
             output=result,
         )
 
-    # Get old priority
-    old_priority = config.monitor.managed_directories[existing_key]
+    # Get priority before removing
+    priority = config.monitor.managed_directories[existing_key]
 
-    # Update priority
-    config.monitor.managed_directories[existing_key] = priority
+    # Remove from managed directories
+    del config.monitor.managed_directories[existing_key]
 
     result = {
         "success": True,
-        "message": f"Updated priority for {existing_key}: {old_priority} → {priority}",
-        "old_priority": old_priority,
-        "new_priority": priority,
+        "message": f"Removed managed directory: {existing_key}",
+        "path_removed": existing_key,
+        "priority": priority,
     }
 
     if result.get("success"):
         config.save()
 
     return StageResult(
-        announce=f"Setting priority for managed directory: {path} to {priority}",
+        announce=f"Removing managed directory: {path}",
         result=str(result.get("message", "")),
         output=result,
     )

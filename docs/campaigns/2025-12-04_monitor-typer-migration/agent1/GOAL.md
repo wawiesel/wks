@@ -13,7 +13,7 @@ Create the API module infrastructure and implement the basic monitor tools (stat
 - Add typer and pydantic dependencies
 - Create `wks/api/` module structure
 - Implement base utilities (config injection, display output, MCP adapter)
-- Implement basic monitor tools: `monitor_status`, `monitor_check`, `monitor_validate`
+- Implement basic monitor tools: `monitor_status`, `monitor_check` (note: `status` includes validation and exits with error code if issues found)
 - Integrate these tools into MCP server
 - Update MCP server to use Typer introspection for these 3 tools
 
@@ -36,13 +36,13 @@ Create the API module infrastructure and implement the basic monitor tools (stat
 ### 2. Implement Basic Monitor Tools
 - [ ] `monitor_status(config)` - Get filesystem monitoring status
 - [ ] `monitor_check(config, path: str)` - Check if path would be monitored
-- [ ] `monitor_validate(config)` - Validate monitor configuration
+- [ ] Note: `monitor_status` includes validation (no separate validate command needed)
 
 **Requirements:**
 - Use `@app.command()` decorator from Typer
 - Apply `@inject_config` decorator
 - Return MCPResult/dict (no printing)
-- Copy logic from `_tool_monitor_status`, `_tool_monitor_check`, `_tool_monitor_validate` in `wks/mcp_server.py`
+- Copy logic from `_tool_monitor_status`, `_tool_monitor_check` in `wks/mcp_server.py`
 
 ### 3. Create Typer App Instance
 - [ ] Create `monitor_app = typer.Typer()` instance
@@ -51,7 +51,7 @@ Create the API module infrastructure and implement the basic monitor tools (stat
 ### 4. MCP Server Integration
 - [ ] Add `_get_typer_tools_schema()` method to `MCPServer` that introspects `wks.api.monitor.monitor_app`
 - [ ] Update `_define_monitor_basic_tools()` to use Typer introspection for the 3 basic tools
-- [ ] Update `_build_tool_registry()` to route `wksm_monitor_status`, `wksm_monitor_check`, `wksm_monitor_validate` to Typer functions
+- [ ] Update `_build_tool_registry()` to route `wksm_monitor_status`, `wksm_monitor_check` to Typer functions
 - [ ] Ensure `_handle_call_tool()` works with Typer-based tools
 
 ## Success Criteria
