@@ -112,12 +112,12 @@ Systematically fix:
 
 ## Agent Delegation
 
-This campaign is organized into three agent tasks:
+This campaign is organized into four agent tasks:
 
 ### Agent 1: Fix Formatting and Basic Linting
 **Goal:** Fix all auto-fixable formatting and basic linting issues
 **Branch:** `agent1-formatting`
-**Status:** 🟡 PENDING ASSIGNMENT
+**Status:** ✅ COMPLETED
 **Details:** See `agent1-formatting/GOAL.md` on the agent branch
 
 Tasks:
@@ -132,7 +132,7 @@ Tasks:
 ### Agent 2: Enable Additional Ruff Rules
 **Goal:** Gradually enable additional ruff linting rule categories and fix issues
 **Branch:** `agent2-additional-rules`
-**Status:** 🟡 PENDING ASSIGNMENT
+**Status:** ✅ COMPLETED
 **Details:** See `agent2-additional-rules/GOAL.md` on the agent branch
 
 Tasks:
@@ -144,13 +144,25 @@ Tasks:
 ### Agent 3: Enable Strict Mypy and Fix Type Errors
 **Goal:** Enable strict mypy type checking and fix all type errors
 **Branch:** `agent3-strict-mypy`
-**Status:** 🟡 PENDING ASSIGNMENT
+**Status:** ✅ COMPLETED
 **Details:** See `agent3-strict-mypy/GOAL.md` on the agent branch
 
 Tasks:
 - Enable `check_untyped_defs = true` and fix missing annotations
 - Enable `ignore_missing_imports = false` and fix import issues
 - Enable `strict = true` and fix all strict mode violations
+
+### Agent 4: Fix Complexity Violations
+**Goal:** Fix all code complexity violations (CCN <= 10, NLOC <= 100)
+**Branch:** `agent4-complexity`
+**Status:** 🟡 PENDING ASSIGNMENT
+**Details:** See `agent4-complexity/GOAL.md` on the agent branch
+
+Tasks:
+- Fix 28 functions with CCN > 10 or NLOC > 100
+- Refactor high-complexity functions into smaller, focused methods
+- Ensure all tests still pass after refactoring
+- Priority: Start with highest CCN violations (14), then work down
 
 ---
 
@@ -162,9 +174,10 @@ Tasks:
 - [x] Analyzed current state
 
 ### Agent Status
-- [ ] Agent 1: Formatting and basic linting (PENDING)
-- [ ] Agent 2: Additional ruff rules (PENDING)
-- [ ] Agent 3: Strict mypy (PENDING)
+- [x] Agent 1: Formatting and basic linting (COMPLETED)
+- [x] Agent 2: Additional ruff rules (COMPLETED)
+- [x] Agent 3: Strict mypy (COMPLETED)
+- [ ] Agent 4: Complexity violations (PENDING)
 
 ### Pending
 - [ ] All agent PRs merged
