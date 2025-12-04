@@ -12,9 +12,10 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TextIO
 
 from pymongo.collection import Collection
+from watchdog.observers import Observer
 
 from .config import ConfigError, WKSConfig
 from .constants import WKS_HOME_EXT
@@ -133,11 +134,11 @@ class WKSDaemon:
         self._last_vault_sync = 0.0
         self.monitor_paths = [Path(p).expanduser().resolve() for p in monitor_paths]
         self.monitor_rules = monitor_rules
-        self.observer = None
+        self.observer: Optional[Observer] = None
         self.auto_project_notes = auto_project_notes
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
-        self._lock_fh = None
+        self._lock_fh: Optional[TextIO] = None
         # Maintenance (periodic tasks)
         self._last_prune_check = 0.0
         # Read prune interval from config, default to 5 minutes (300 seconds)
@@ -150,8 +151,8 @@ class WKSDaemon:
         self._mod_coalesce_secs = 0.6
         # Health
         self.health_file = Path.home() / WKS_HOME_EXT / "health.json"
-        self._last_error = None
-        self._last_error_at = None
+        self._last_error: Optional[str] = None
+        self._last_error_at: Optional[float] = None
         self._health_started_at = time.time()
         self._beat_count = 0
         # FS operation rate tracking
@@ -163,7 +164,7 @@ class WKSDaemon:
         self._fs_events_long: deque[float] = deque()
         self.mongo_uri = self.config.mongo.uri
         self.monitor_collection = monitor_collection
-        self._mongo_guard = None
+        self._mongo_guard: Optional[Any] = None  # MongoGuard type, but may be None if import fails
         self._mcp_broker: Optional[MCPBroker] = None
         self._mcp_socket = mcp_socket_path()
 
