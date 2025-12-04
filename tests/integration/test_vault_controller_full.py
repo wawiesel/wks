@@ -30,30 +30,29 @@ class TestFixSymlinks:
         target_file.write_text("test content")
 
         # Patch at import location within the method
-        with patch("wks.config.WKSConfig") as mock_config_class:
-            with patch("pymongo.MongoClient") as mock_mongo_class:
-                # Mock config
-                mock_config = Mock()
-                mock_config.mongo.uri = "mongodb://localhost"
-                mock_config.vault.database = "wks.vault"
-                mock_config_class.load.return_value = mock_config
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
+            # Mock config
+            mock_config = Mock()
+            mock_config.mongo.uri = "mongodb://localhost"
+            mock_config.vault.database = "wks.vault"
+            mock_config_class.load.return_value = mock_config
 
-                # Mock MongoDB
-                mock_client = MagicMock()
-                mock_collection = MagicMock()
-                mock_mongo_class.return_value = mock_client
-                mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
+            # Mock MongoDB
+            mock_client = MagicMock()
+            mock_collection = MagicMock()
+            mock_mongo_class.return_value = mock_client
+            mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
-                # Return file:// URIs from database
-                mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
+            # Return file:// URIs from database
+            mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
 
-                controller = VaultController(vault, machine_name="test-machine")
-                result = controller.fix_symlinks()
+            controller = VaultController(vault, machine_name="test-machine")
+            result = controller.fix_symlinks()
 
-                assert isinstance(result, SymlinkFixResult)
-                assert result.links_found == 1
-                assert result.created == 1
-                assert len(result.failed) == 0
+            assert isinstance(result, SymlinkFixResult)
+            assert result.links_found == 1
+            assert result.created == 1
+            assert len(result.failed) == 0
 
     def test_fix_symlinks_config_load_error(self, tmp_path):
         """fix_symlinks handles config load errors."""
@@ -76,48 +75,46 @@ class TestFixSymlinks:
         vault = Mock(spec=ObsidianVault)
         vault.links_dir = tmp_path / "_links"
 
-        with patch("wks.config.WKSConfig") as mock_config_class:
-            with patch("pymongo.MongoClient") as mock_mongo_class:
-                mock_config = Mock()
-                mock_config.mongo.uri = "mongodb://localhost"
-                mock_config.vault.database = "wks.vault"
-                mock_config_class.load.return_value = mock_config
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
+            mock_config = Mock()
+            mock_config.mongo.uri = "mongodb://localhost"
+            mock_config.vault.database = "wks.vault"
+            mock_config_class.load.return_value = mock_config
 
-                mock_mongo_class.side_effect = Exception("Connection failed")
+            mock_mongo_class.side_effect = Exception("Connection failed")
 
-                controller = VaultController(vault)
-                result = controller.fix_symlinks()
+            controller = VaultController(vault)
+            result = controller.fix_symlinks()
 
-                assert result.created == 0
-                assert len(result.failed) > 0
-                assert "vault_db" in result.failed[0][0]
+            assert result.created == 0
+            assert len(result.failed) > 0
+            assert "vault_db" in result.failed[0][0]
 
     def test_fix_symlinks_target_not_found(self, tmp_path):
         """fix_symlinks handles missing target files."""
         vault = Mock(spec=ObsidianVault)
         vault.links_dir = tmp_path / "_links"
 
-        with patch("wks.config.WKSConfig") as mock_config_class:
-            with patch("pymongo.MongoClient") as mock_mongo_class:
-                mock_config = Mock()
-                mock_config.mongo.uri = "mongodb://localhost"
-                mock_config.vault.database = "wks.vault"
-                mock_config_class.load.return_value = mock_config
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
+            mock_config = Mock()
+            mock_config.mongo.uri = "mongodb://localhost"
+            mock_config.vault.database = "wks.vault"
+            mock_config_class.load.return_value = mock_config
 
-                mock_client = MagicMock()
-                mock_collection = MagicMock()
-                mock_mongo_class.return_value = mock_client
-                mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
+            mock_client = MagicMock()
+            mock_collection = MagicMock()
+            mock_mongo_class.return_value = mock_client
+            mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
-                # Return URI to non-existent file
-                mock_collection.find.return_value = [{"to_uri": "file:///nonexistent/file.pdf"}]
+            # Return URI to non-existent file
+            mock_collection.find.return_value = [{"to_uri": "file:///nonexistent/file.pdf"}]
 
-                controller = VaultController(vault)
-                result = controller.fix_symlinks()
+            controller = VaultController(vault)
+            result = controller.fix_symlinks()
 
-                assert result.created == 0
-                assert len(result.failed) > 0
-                assert "Target file not found" in result.failed[0][1]
+            assert result.created == 0
+            assert len(result.failed) > 0
+            assert "Target file not found" in result.failed[0][1]
 
 
 @pytest.mark.integration
@@ -135,7 +132,7 @@ class TestValidateVault:
 
             # All records have status "ok"
             mock_records = []
-            for i in range(50):
+            for _ in range(50):
                 record = Mock()
                 record.status = "ok"
                 mock_records.append(record)
@@ -165,7 +162,7 @@ class TestValidateVault:
             mock_records = []
 
             # 8 ok records
-            for i in range(8):
+            for _ in range(8):
                 record = Mock()
                 record.status = "ok"
                 mock_records.append(record)
@@ -197,34 +194,36 @@ class TestSyncVault:
 
     def test_sync_vault_success(self):
         """sync_vault successfully syncs vault links."""
-        with patch("wks.config.WKSConfig") as mock_config_class:
-            with patch("wks.utils.expand_path") as mock_expand:
-                with patch("wks.vault.obsidian.ObsidianVault") as mock_vault_class:
-                    with patch("wks.vault.indexer.VaultLinkIndexer") as mock_indexer_class:
-                        # Mock config
-                        mock_config = Mock()
-                        mock_config.vault.base_dir = "/vault"
-                        mock_config.vault.wks_dir = "WKS"
-                        mock_config_class.load.return_value = mock_config
+        with (
+            patch("wks.config.WKSConfig") as mock_config_class,
+            patch("wks.utils.expand_path") as mock_expand,
+            patch("wks.vault.obsidian.ObsidianVault"),
+            patch("wks.vault.indexer.VaultLinkIndexer") as mock_indexer_class,
+        ):
+            # Mock config
+            mock_config = Mock()
+            mock_config.vault.base_dir = "/vault"
+            mock_config.vault.wks_dir = "WKS"
+            mock_config_class.load.return_value = mock_config
 
-                        mock_expand.return_value = Path("/vault")
+            mock_expand.return_value = Path("/vault")
 
-                        # Mock indexer result
-                        mock_indexer = Mock()
-                        mock_result = Mock()
-                        mock_result.stats.notes_scanned = 10
-                        mock_result.stats.edge_total = 50
-                        mock_result.sync_duration_ms = 1000
-                        mock_result.stats.errors = []
-                        mock_indexer.sync.return_value = mock_result
-                        mock_indexer_class.from_config.return_value = mock_indexer
+            # Mock indexer result
+            mock_indexer = Mock()
+            mock_result = Mock()
+            mock_result.stats.notes_scanned = 10
+            mock_result.stats.edge_total = 50
+            mock_result.sync_duration_ms = 1000
+            mock_result.stats.errors = []
+            mock_indexer.sync.return_value = mock_result
+            mock_indexer_class.from_config.return_value = mock_indexer
 
-                        result = VaultController.sync_vault(batch_size=1000)
+            result = VaultController.sync_vault(batch_size=1000)
 
-                        assert result["notes_scanned"] == 10
-                        assert result["edges_written"] == 50
-                        assert result["sync_duration_ms"] == 1000
-                        assert result["errors"] == []
+            assert result["notes_scanned"] == 10
+            assert result["edges_written"] == 50
+            assert result["sync_duration_ms"] == 1000
+            assert result["errors"] == []
 
     def test_sync_vault_missing_base_dir(self):
         """sync_vault raises error when base_dir not configured."""
@@ -234,7 +233,7 @@ class TestSyncVault:
             mock_config.vault.wks_dir = "WKS"
             mock_config_class.load.return_value = mock_config
 
-            with pytest.raises(ValueError, match="vault.base_dir not configured"):
+            with pytest.raises(ValueError, match=r"vault.base_dir not configured"):
                 VaultController.sync_vault()
 
 
@@ -274,29 +273,28 @@ class TestFixSymlinksEdgeCases:
         target_file = tmp_path / "test.pdf"
         target_file.write_text("content")
 
-        with patch("wks.config.WKSConfig") as mock_config_class:
-            with patch("pymongo.MongoClient") as mock_mongo_class:
-                mock_config = Mock()
-                mock_config.mongo.uri = "mongodb://localhost"
-                mock_config.vault.database = "wks.vault"
-                mock_config_class.load.return_value = mock_config
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
+            mock_config = Mock()
+            mock_config.mongo.uri = "mongodb://localhost"
+            mock_config.vault.database = "wks.vault"
+            mock_config_class.load.return_value = mock_config
 
-                mock_client = MagicMock()
-                mock_collection = MagicMock()
-                mock_mongo_class.return_value = mock_client
-                mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
+            mock_client = MagicMock()
+            mock_collection = MagicMock()
+            mock_mongo_class.return_value = mock_client
+            mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
-                mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
+            mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
 
-                controller = VaultController(vault)
+            controller = VaultController(vault)
 
-                # Mock Path.relative_to to raise an error
-                with patch.object(Path, "relative_to", side_effect=ValueError("Not relative")):
-                    result = controller.fix_symlinks()
+            # Mock Path.relative_to to raise an error
+            with patch.object(Path, "relative_to", side_effect=ValueError("Not relative")):
+                result = controller.fix_symlinks()
 
-                    assert result.created == 0
-                    assert len(result.failed) > 0
-                    assert "Cannot create relative path" in result.failed[0][1]
+                assert result.created == 0
+                assert len(result.failed) > 0
+                assert "Cannot create relative path" in result.failed[0][1]
 
     def test_fix_symlinks_symlink_creation_error(self, tmp_path):
         """fix_symlinks handles error when creating symlink."""
@@ -307,57 +305,55 @@ class TestFixSymlinksEdgeCases:
         target_file = tmp_path / "test.pdf"
         target_file.write_text("content")
 
-        with patch("wks.config.WKSConfig") as mock_config_class:
-            with patch("pymongo.MongoClient") as mock_mongo_class:
-                mock_config = Mock()
-                mock_config.mongo.uri = "mongodb://localhost"
-                mock_config.vault.database = "wks.vault"
-                mock_config_class.load.return_value = mock_config
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
+            mock_config = Mock()
+            mock_config.mongo.uri = "mongodb://localhost"
+            mock_config.vault.database = "wks.vault"
+            mock_config_class.load.return_value = mock_config
 
-                mock_client = MagicMock()
-                mock_collection = MagicMock()
-                mock_mongo_class.return_value = mock_client
-                mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
+            mock_client = MagicMock()
+            mock_collection = MagicMock()
+            mock_mongo_class.return_value = mock_client
+            mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
-                mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
+            mock_collection.find.return_value = [{"to_uri": f"file://{target_file}"}]
 
-                controller = VaultController(vault)
+            controller = VaultController(vault)
 
-                # Mock symlink_to to raise an error
-                with patch.object(Path, "symlink_to", side_effect=OSError("Symlink failed")):
-                    result = controller.fix_symlinks()
+            # Mock symlink_to to raise an error
+            with patch.object(Path, "symlink_to", side_effect=OSError("Symlink failed")):
+                result = controller.fix_symlinks()
 
-                    assert result.created == 0
-                    assert len(result.failed) > 0
-                    assert "Failed to create symlink" in result.failed[0][1]
+                assert result.created == 0
+                assert len(result.failed) > 0
+                assert "Failed to create symlink" in result.failed[0][1]
 
     def test_fix_symlinks_skips_non_file_uris(self, tmp_path):
         """fix_symlinks skips URIs that don't start with file://."""
         vault = Mock(spec=ObsidianVault)
         vault.links_dir = tmp_path / "_links"
 
-        with patch("wks.config.WKSConfig") as mock_config_class:
-            with patch("pymongo.MongoClient") as mock_mongo_class:
-                mock_config = Mock()
-                mock_config.mongo.uri = "mongodb://localhost"
-                mock_config.vault.database = "wks.vault"
-                mock_config_class.load.return_value = mock_config
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
+            mock_config = Mock()
+            mock_config.mongo.uri = "mongodb://localhost"
+            mock_config.vault.database = "wks.vault"
+            mock_config_class.load.return_value = mock_config
 
-                mock_client = MagicMock()
-                mock_collection = MagicMock()
-                mock_mongo_class.return_value = mock_client
-                mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
+            mock_client = MagicMock()
+            mock_collection = MagicMock()
+            mock_mongo_class.return_value = mock_client
+            mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
 
-                # Return non-file:// URIs
-                mock_collection.find.return_value = [
-                    {"to_uri": "https://example.com"},
-                    {"to_uri": "vault:///note.md"},
-                ]
+            # Return non-file:// URIs
+            mock_collection.find.return_value = [
+                {"to_uri": "https://example.com"},
+                {"to_uri": "vault:///note.md"},
+            ]
 
-                controller = VaultController(vault)
-                result = controller.fix_symlinks()
+            controller = VaultController(vault)
+            result = controller.fix_symlinks()
 
-                # Should skip both URIs
-                assert result.created == 0
-                assert result.links_found == 2
-                assert len(result.failed) == 0
+            # Should skip both URIs
+            assert result.created == 0
+            assert result.links_found == 2
+            assert len(result.failed) == 0

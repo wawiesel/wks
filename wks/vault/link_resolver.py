@@ -4,9 +4,9 @@ from __future__ import annotations
 
 __all__ = ["LinkMetadata", "LinkResolver"]
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Tuple
 
 from .constants import (
     STATUS_LEGACY_LINK,
@@ -45,7 +45,7 @@ class LinkResolver:
             links_dir: Path to the vault's _links directory
         """
         self.links_dir = links_dir
-        self.resolvers: List[Tuple[Callable[[str], bool], Callable[[str], LinkMetadata]]] = [
+        self.resolvers: list[tuple[Callable[[str], bool], Callable[[str], LinkMetadata]]] = [
             (self._is_legacy_links, self._resolve_legacy_links),
             (self._is_symlink, self._resolve_symlink),
             (self._is_attachment, self._resolve_attachment),

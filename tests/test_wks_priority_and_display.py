@@ -133,15 +133,15 @@ class TestPriorityCalculation:
         home = Path.home()
 
         # Test exact match
-        matched, priority = find_managed_directory(home / "Desktop", managed_dirs)
+        _matched, priority = find_managed_directory(home / "Desktop", managed_dirs)
         assert priority == 150
 
         # Test nested path
-        matched, priority = find_managed_directory(home / "Documents/2025-Project", managed_dirs)
+        _matched, priority = find_managed_directory(home / "Documents/2025-Project", managed_dirs)
         assert priority == 100
 
         # Test deepest match wins
-        matched, priority = find_managed_directory(home / "other/path", managed_dirs)
+        _matched, priority = find_managed_directory(home / "other/path", managed_dirs)
         assert priority == 100  # Matches ~
 
     def test_priority_examples_from_spec(self):
@@ -149,9 +149,9 @@ class TestPriorityCalculation:
         results = priority_examples()
 
         for result in results:
-            assert result[
-                "match"
-            ], f"Priority mismatch for {result['path']}: expected {result['expected']}, got {result['calculated']}"
+            assert result["match"], (
+                f"Priority mismatch for {result['path']}: expected {result['expected']}, got {result['calculated']}"
+            )
 
     def test_calculate_priority_basic(self):
         """Test basic priority calculation."""

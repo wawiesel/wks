@@ -35,7 +35,7 @@ class TestTransformConfigValidation:
 
     def test_transform_config_invalid_cache_type(self):
         """Test TransformConfig raises error when cache is not CacheConfig."""
-        cache_config = CacheConfig(location=".wks/cache", max_size_bytes=1000)
+        CacheConfig(location=".wks/cache", max_size_bytes=1000)
         engines = {"docling": EngineConfig(name="docling", enabled=True, options={})}
 
         with pytest.raises(TransformConfigError) as exc_info:

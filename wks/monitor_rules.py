@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import fnmatch
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, List, Tuple
+from typing import TYPE_CHECKING
 
 from .constants import WKS_DOT_DIRS
 
@@ -12,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from .monitor import MonitorConfig
 
 
-def _matches_glob(patterns: List[str], path_obj: Path) -> bool:
+def _matches_glob(patterns: list[str], path_obj: Path) -> bool:
     if not patterns:
         return False
     path_str = path_obj.as_posix()
@@ -45,14 +46,38 @@ class MonitorRules:
         self.exclude_roots = [Path(p).expanduser().resolve() for p in exclude_paths]
         self.include_root_set = set(self.include_roots)
         self.exclude_root_set = set(self.exclude_roots)
-        self.include_dirnames = {d.strip() for d in include_dirnames if d and d.strip()}
-        self.exclude_dirnames = {d.strip() for d in exclude_dirnames if d and d.strip()}
+        self.include_dirnames = self._normalize_dirnames(include_dirnames)
+        self.exclude_dirnames = self._normalize_dirnames(exclude_dirnames)
         self.exclude_dirnames.update(WKS_DOT_DIRS)
-        self.include_globs = [g.strip() for g in include_globs if g]
-        self.exclude_globs = [g.strip() for g in exclude_globs if g]
+        self.include_globs = self._normalize_globs(include_globs)
+        self.exclude_globs = self._normalize_globs(exclude_globs)
+
+    @staticmethod
+    def _normalize_dirnames(dirnames: Iterable[str]) -> set[str]:
+        """Normalize directory names by stripping whitespace and filtering empty values.
+
+        Args:
+            dirnames: Iterable of directory name strings
+
+        Returns:
+            Set of normalized directory names
+        """
+        return {d.strip() for d in dirnames if d and d.strip()}
+
+    @staticmethod
+    def _normalize_globs(globs: Iterable[str]) -> list[str]:
+        """Normalize glob patterns by stripping whitespace and filtering empty values.
+
+        Args:
+            globs: Iterable of glob pattern strings
+
+        Returns:
+            List of normalized glob patterns
+        """
+        return [g.strip() for g in globs if g]
 
     @classmethod
-    def from_config(cls, cfg: "MonitorConfig") -> "MonitorRules":
+    def from_config(cls, cfg: MonitorConfig) -> MonitorRules:
         """Convenience constructor from MonitorConfig."""
         return cls(
             include_paths=cfg.include_paths,
@@ -67,8 +92,8 @@ class MonitorRules:
         allowed, _ = self.explain(path)
         return allowed
 
-    def explain(self, path: Path) -> Tuple[bool, List[str]]:
-        trace: List[str] = []
+    def explain(self, path: Path) -> tuple[bool, list[str]]:
+        trace: list[str] = []
         resolved = path.expanduser().resolve()
 
         root_allowed, root_reason = self._evaluate_roots(resolved)
@@ -98,7 +123,7 @@ class MonitorRules:
         # Not excluded, no override needed
         return True, trace
 
-    def _evaluate_roots(self, path: Path) -> Tuple[bool, str]:
+    def _evaluate_roots(self, path: Path) -> tuple[bool, str]:
         cur = path
         while True:
             if cur in self.exclude_root_set:

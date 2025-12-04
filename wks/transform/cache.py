@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from pymongo.database import Database
 
@@ -31,7 +30,7 @@ class CacheManager:
         if not self.cache_json.exists():
             return 0
         try:
-            with open(self.cache_json, "r") as f:
+            with self.cache_json.open() as f:
                 data = json.load(f)
             return data.get("total_size_bytes", 0)
         except Exception:
@@ -39,10 +38,10 @@ class CacheManager:
 
     def _save_cache_size(self, total_size_bytes: int) -> None:
         """Save total cache size to JSON file."""
-        with open(self.cache_json, "w") as f:
+        with self.cache_json.open("w") as f:
             json.dump({"total_size_bytes": total_size_bytes}, f)
 
-    def _get_lru_entries(self, bytes_needed: int) -> List[Tuple[str, int, str]]:
+    def _get_lru_entries(self, bytes_needed: int) -> list[tuple[str, int, str]]:
         """Query database for oldest entries to evict.
 
         Args:
@@ -66,7 +65,7 @@ class CacheManager:
 
         return entries
 
-    def ensure_space(self, new_file_size: int) -> Optional[List[str]]:
+    def ensure_space(self, new_file_size: int) -> list[str] | None:
         """Ensure cache has space for new file, evicting if needed.
 
         Args:

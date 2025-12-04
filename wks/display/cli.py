@@ -1,12 +1,11 @@
 """CLI display implementation using Rich library."""
 
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..constants import MAX_DISPLAY_WIDTH
 
 try:
-    from rich import print as rprint
     from rich.console import Console
     from rich.panel import Panel
     from rich.progress import (
@@ -49,11 +48,11 @@ class CLIDisplay(Display):
         self.stderr_console = Console(file=sys.stderr, width=console_width)
         self._progress_contexts = {}  # Store Progress contexts by handle
 
-    def status(self, message: str, **kwargs) -> None:
+    def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a status message in blue."""
-        self.console.print(f"[blue]ℹ[/blue] {message}")
+        self.console.print(f"[blue]i[/blue] {message}")
 
-    def success(self, message: str, **kwargs) -> None:
+    def success(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a success message in green."""
         self.console.print(f"[green]✓[/green] {message}")
 
@@ -66,22 +65,22 @@ class CLIDisplay(Display):
         else:
             self.console.print(f"[red]✗[/red] {message}")
 
-    def warning(self, message: str, **kwargs) -> None:
+    def warning(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a warning message in yellow."""
         self.console.print(f"[yellow]⚠[/yellow] {message}")
 
-    def info(self, message: str, **kwargs) -> None:
+    def info(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display an informational message."""
         self.console.print(message)
 
-    def table(self, data: List[Dict[str, Any]], headers: Optional[List[str]] = None, **kwargs) -> None:
+    def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
         """Display data in a rich table."""
         if not data:
             self.info("No data to display")
             return
 
         title = kwargs.get("title", "")
-        column_justify = kwargs.get("column_justify", {})  # Dict[str, str] mapping header to justify
+        column_justify = kwargs.get("column_justify", {})  # dict[str, str] mapping header to justify
         show_header = kwargs.get("show_header", True)
         width = kwargs.get("width", MAX_DISPLAY_WIDTH)
 
@@ -105,7 +104,7 @@ class CLIDisplay(Display):
 
         self.console.print(table)
 
-    def progress_start(self, total: int, description: str = "", **kwargs) -> Any:
+    def progress_start(self, total: int, description: str = "", **kwargs) -> Any:  # noqa: ARG002
         """Start a progress bar (outputs to STDERR)."""
         progress = Progress(
             SpinnerColumn(),
@@ -138,40 +137,40 @@ class CLIDisplay(Display):
         else:
             progress.update(task_id, advance=advance)
 
-    def progress_finish(self, handle: Any, **kwargs) -> None:
+    def progress_finish(self, handle: Any, **kwargs) -> None:  # noqa: ARG002
         """Finish progress bar."""
         if handle not in self._progress_contexts:
             return
 
-        progress, task_id = self._progress_contexts[handle]
+        progress, _task_id = self._progress_contexts[handle]
         progress.stop()
         del self._progress_contexts[handle]
 
-    def spinner_start(self, description: str = "", **kwargs) -> Any:
+    def spinner_start(self, description: str = "", **kwargs) -> Any:  # noqa: ARG002
         """Start a spinner."""
         status = self.console.status(description, spinner="dots")
         status.start()
         return status
 
-    def spinner_update(self, handle: Any, description: str, **kwargs) -> None:
+    def spinner_update(self, handle: Any, description: str, **kwargs) -> None:  # noqa: ARG002
         """Update spinner description."""
         if handle:
             handle.update(description)
 
-    def spinner_finish(self, handle: Any, message: str = "", **kwargs) -> None:
+    def spinner_finish(self, handle: Any, message: str = "", **kwargs) -> None:  # noqa: ARG002
         """Stop spinner."""
         if handle:
             handle.stop()
         if message:
             self.info(message)
 
-    def tree(self, data: Dict[str, Any], title: str = "", **kwargs) -> None:
+    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:  # noqa: ARG002
         """Display hierarchical data as a tree."""
         tree = Tree(title if title else "Tree")
         self._build_tree(tree, data)
         self.console.print(tree)
 
-    def _build_tree(self, tree: Tree, data: Any, key: str = "") -> None:
+    def _build_tree(self, tree: Tree, data: Any, key: str = "") -> None:  # noqa: ARG002
         """Recursively build tree structure."""
         if isinstance(data, dict):
             for k, v in data.items():

@@ -14,12 +14,12 @@ class TestVaultInitialization:
 
     def test_init_requires_wks_dir(self, tmp_path):
         """Test that initialization requires wks_dir."""
-        with pytest.raises(ValueError, match="vault.wks_dir is required"):
+        with pytest.raises(ValueError, match=r"vault.wks_dir is required"):
             ObsidianVault(vault_path=tmp_path, base_dir="")
 
     def test_init_requires_non_empty_wks_dir(self, tmp_path):
         """Test that wks_dir cannot be whitespace only."""
-        with pytest.raises(ValueError, match="vault.wks_dir is required"):
+        with pytest.raises(ValueError, match=r"vault.wks_dir is required"):
             ObsidianVault(vault_path=tmp_path, base_dir="   ")
 
     def test_init_strips_wks_dir_whitespace(self, tmp_path):

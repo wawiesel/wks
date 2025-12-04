@@ -30,12 +30,12 @@ def test_setup(tmp_path, monkeypatch):
 
     # Patch MongoDB
     client = mongomock.MongoClient()
-    monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)
+    monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)  # noqa: ARG005
     from mongomock.collection import BulkOperationBuilder
 
     original = BulkOperationBuilder.add_update
 
-    def wrapper(self, selector, document, check_keys, upsert, **kwargs):
+    def wrapper(self, selector, document, check_keys, upsert, **kwargs):  # noqa: ARG001
         return original(self, selector, document, check_keys, upsert)
 
     monkeypatch.setattr(BulkOperationBuilder, "add_update", wrapper)
@@ -56,7 +56,6 @@ def test_file_url_auto_conversion(test_setup):
     external_file = test_setup["external_file"]
     note = test_setup["note"]
     file_url = test_setup["file_url"]
-    mongo_client = test_setup["mongo_client"]
 
     # Get machine name
     machine = platform.node().split(".")[0]
@@ -155,7 +154,7 @@ def test_nonexistent_file_url(test_setup):
     scanner = VaultLinkScanner(vault)
 
     # Scan - should not crash
-    records = scanner.scan()
+    scanner.scan()
 
     # Should have error logged
     assert len(scanner.stats.errors) > 0

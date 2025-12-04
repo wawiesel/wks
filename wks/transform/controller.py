@@ -3,7 +3,7 @@
 import hashlib
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pymongo.database import Database
 
@@ -38,7 +38,7 @@ class TransformController:
             Hex digest of SHA-256 checksum
         """
         sha256 = hashlib.sha256()
-        with open(file_path, "rb") as f:
+        with file_path.open("rb") as f:
             while chunk := f.read(8192):
                 sha256.update(chunk)
         return sha256.hexdigest()
@@ -57,9 +57,7 @@ class TransformController:
         key_str = f"{file_checksum}:{engine_name}:{options_hash}"
         return hashlib.sha256(key_str.encode()).hexdigest()
 
-    def _find_cached_transform(
-        self, file_checksum: str, engine_name: str, options_hash: str
-    ) -> Optional[TransformRecord]:
+    def _find_cached_transform(self, file_checksum: str, engine_name: str, options_hash: str) -> TransformRecord | None:
         """Find existing cached transform.
 
         Args:
@@ -78,13 +76,21 @@ class TransformController:
             }
         )
 
+        # Compute cache key to find file in current cache directory
+        cache_key = self._compute_cache_key(file_checksum, engine_name, options_hash)
+
         for doc in cursor:
             record = TransformRecord.from_dict(doc)
-            cache_path = Path(record.cache_location)
-            if cache_path.exists():
+            # Check if file exists in current cache directory (not stored absolute path)
+            # This handles cases where temp directories are cleaned up between test runs
+            stored_path = Path(record.cache_location)
+            extension = stored_path.suffix.lstrip(".") or "md"
+            cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
+
+            if cache_file.exists():
                 return record
 
-            return None
+        return None
 
     def _update_last_accessed(self, file_checksum: str, engine_name: str, options_hash: str) -> None:
         """Update last_accessed timestamp for cache entry.
@@ -99,12 +105,117 @@ class TransformController:
             {"$set": {"last_accessed": now_iso()}},
         )
 
+    def _handle_cached_transform(
+        self, cached: TransformRecord, file_checksum: str, engine_name: str, options_hash: str, output_path: Path | None
+    ) -> str:
+        """Handle transform when result is already cached.
+
+        Args:
+            cached: Cached transform record
+            file_checksum: File checksum
+            engine_name: Engine name
+            options_hash: Options hash
+            output_path: Optional output path
+
+        Returns:
+            Cache key
+        """
+        # Update last accessed
+        self._update_last_accessed(file_checksum, engine_name, options_hash)
+
+        # Copy to output if requested
+        if output_path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path = Path(cached.cache_location)
+            if cache_path.exists():
+                output_path.write_bytes(cache_path.read_bytes())
+
+        return self._compute_cache_key(file_checksum, engine_name, options_hash)
+
+    def _perform_new_transform(
+        self,
+        file_path: Path,
+        file_uri: str,
+        file_checksum: str,
+        file_size: int,
+        engine_name: str,
+        engine: Any,
+        options: dict[str, Any],
+        options_hash: str,
+        output_path: Path | None,
+    ) -> str:
+        """Perform a new transform (not cached).
+
+        Args:
+            file_path: Path to file
+            file_uri: File URI
+            file_checksum: File checksum
+            file_size: File size in bytes
+            engine_name: Engine name
+            engine: Engine instance
+            options: Engine options
+            options_hash: Options hash
+            output_path: Optional output path
+
+        Returns:
+            Cache key
+
+        Raises:
+            RuntimeError: If transform fails to create cache file
+        """
+        cache_key = self._compute_cache_key(file_checksum, engine_name, options_hash)
+        extension = engine.get_extension(options)
+        cache_location = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
+
+        # Ensure cache directory exists
+        cache_location.parent.mkdir(parents=True, exist_ok=True)
+
+        # Ensure space in cache
+        self.cache_manager.ensure_space(file_size)
+
+        # Perform transform
+        engine.transform(file_path, cache_location, options)
+
+        # Verify file was created
+        if not cache_location.exists():
+            raise RuntimeError(
+                f"Transform engine failed to create cache file at {cache_location}. "
+                f"Engine {engine_name} completed without error but file does not exist."
+            )
+
+        # Get actual output size
+        output_size = cache_location.stat().st_size
+
+        # Add to cache size tracking
+        self.cache_manager.add_file(output_size)
+
+        # Store in database
+        record = TransformRecord(
+            file_uri=file_uri,
+            checksum=file_checksum,
+            size_bytes=output_size,
+            last_accessed=now_iso(),
+            created_at=now_iso(),
+            engine=engine_name,
+            options_hash=options_hash,
+            cache_location=str(cache_location),
+        )
+
+        self.db.transform.insert_one(record.to_dict())
+
+        # Copy to output if requested
+        if output_path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(cache_location.read_bytes())
+
+        return cache_key
+
     def transform(
         self,
         file_path: Path,
         engine_name: str,
-        options: Optional[Dict[str, Any]] = None,
-        output_path: Optional[Path] = None,
+        options: dict[str, Any] | None = None,
+        output_path: Path | None = None,
     ) -> str:
         """Transform file using specified engine.
 
@@ -144,55 +255,12 @@ class TransformController:
         cached = self._find_cached_transform(file_checksum, engine_name, options_hash)
 
         if cached:
-            # Update last accessed
-            self._update_last_accessed(file_checksum, engine_name, options_hash)
-
-            # Copy to output if requested
-            if output_path:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                cache_path = Path(cached.cache_location)
-                if cache_path.exists():
-                    output_path.write_bytes(cache_path.read_bytes())
-
-            return self._compute_cache_key(file_checksum, engine_name, options_hash)
+            return self._handle_cached_transform(cached, file_checksum, engine_name, options_hash, output_path)
 
         # Not cached - need to transform
-        cache_key = self._compute_cache_key(file_checksum, engine_name, options_hash)
-        extension = engine.get_extension(options)
-        cache_location = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
-
-        # Ensure space in cache
-        self.cache_manager.ensure_space(file_size)
-
-        # Perform transform
-        engine.transform(file_path, cache_location, options)
-
-        # Get actual output size
-        output_size = cache_location.stat().st_size
-
-        # Add to cache size tracking
-        self.cache_manager.add_file(output_size)
-
-        # Store in database
-        record = TransformRecord(
-            file_uri=file_uri,
-            checksum=file_checksum,
-            size_bytes=output_size,
-            last_accessed=now_iso(),
-            created_at=now_iso(),
-            engine=engine_name,
-            options_hash=options_hash,
-            cache_location=str(cache_location),
+        return self._perform_new_transform(
+            file_path, file_uri, file_checksum, file_size, engine_name, engine, options, options_hash, output_path
         )
-
-        self.db.transform.insert_one(record.to_dict())
-
-        # Copy to output if requested
-        if output_path:
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_bytes(cache_location.read_bytes())
-
-        return cache_key
 
     def remove_by_uri(self, file_uri: str) -> int:
         """Remove all transforms for a file URI.
@@ -233,7 +301,156 @@ class TransformController:
         result = self.db.transform.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
         return result.modified_count
 
-    def get_content(self, target: str, output_path: Optional[Path] = None) -> str:
+    def _copy_cache_file_to_output(self, cache_file: Path, output_path: Path) -> None:
+        """Copy cache file to output path.
+
+        Args:
+            cache_file: Source cache file path
+            output_path: Destination output file path
+
+        Raises:
+            FileExistsError: If output file already exists (when hard link fails)
+        """
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            import os
+
+            if output_path.exists():
+                raise FileExistsError(f"Output file already exists: {output_path}")
+            os.link(cache_file, output_path)
+        except (OSError, AttributeError):
+            output_path.write_bytes(cache_file.read_bytes())
+
+    def _find_matching_record_in_db(self, cache_key: str) -> TransformRecord | None:
+        """Find matching transform record in database by cache key.
+
+        Args:
+            cache_key: Cache key to search for
+
+        Returns:
+            TransformRecord if found, None otherwise
+        """
+        records = list(self.db.transform.find())
+        for doc in records:
+            record_checksum = doc["checksum"]
+            record_engine = doc["engine"]
+            record_options_hash = doc["options_hash"]
+            computed_key = self._compute_cache_key(record_checksum, record_engine, record_options_hash)
+            if computed_key == cache_key:
+                return TransformRecord.from_dict(doc)
+        return None
+
+    def _resolve_cache_file_from_db(self, cache_key: str, matching_record: TransformRecord) -> Path:
+        """Resolve cache file path from database record.
+
+        Args:
+            cache_key: Cache key
+            matching_record: Matching transform record from database
+
+        Returns:
+            Path to cache file
+
+        Raises:
+            ValueError: If cache file not found and stale record is cleaned up
+        """
+        stored_path = Path(matching_record.cache_location)
+        extension = stored_path.suffix.lstrip(".") or "md"  # Default to .md if no extension
+        cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
+
+        # If file doesn't exist, try globbing one more time (in case extension differs)
+        if not cache_file.exists():
+            candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
+            if candidates:
+                cache_file = candidates[0]
+
+        # If file still doesn't exist, clean up stale record and raise error
+        if not cache_file.exists():
+            self.db.transform.delete_one(
+                {
+                    "checksum": matching_record.checksum,
+                    "engine": matching_record.engine,
+                    "options_hash": matching_record.options_hash,
+                }
+            )
+            raise ValueError(
+                f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}. "
+                f"Database record existed but file was missing (likely cleaned up). Stale record removed."
+            )
+
+        return cache_file
+
+    def _get_content_by_checksum(self, cache_key: str, output_path: Path | None = None) -> str:
+        """Get content by cache key (checksum).
+
+        Args:
+            cache_key: 64-character hex cache key
+            output_path: Optional output file path
+
+        Returns:
+            Content as string
+
+        Raises:
+            ValueError: If cache entry not found
+        """
+        # First, prefer the cache directory as the source of truth.
+        candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
+        cache_file: Path | None = candidates[0] if candidates else None
+
+        if cache_file is not None and cache_file.exists():
+            if output_path:
+                self._copy_cache_file_to_output(cache_file, output_path)
+            return cache_file.read_text(encoding="utf-8")
+
+        # Fallback: resolve via database metadata to support older entries.
+        matching_record = self._find_matching_record_in_db(cache_key)
+
+        if not matching_record:
+            raise ValueError(f"Cache entry not found: {cache_key}")
+
+        cache_file = self._resolve_cache_file_from_db(cache_key, matching_record)
+
+        self._update_last_accessed(
+            matching_record.checksum,
+            matching_record.engine,
+            matching_record.options_hash,
+        )
+
+        if output_path:
+            self._copy_cache_file_to_output(cache_file, output_path)
+
+        return cache_file.read_text(encoding="utf-8")
+
+    def _get_content_by_file_path(self, target: str, output_path: Path | None = None) -> str:
+        """Get content by file path (transforms file first).
+
+        Args:
+            target: File path string
+            output_path: Optional output file path
+
+        Returns:
+            Content as string
+
+        Raises:
+            ValueError: If file not found
+        """
+        from ..utils import expand_path
+
+        try:
+            file_path = expand_path(target)
+        except Exception:
+            file_path = Path(target).resolve()
+
+        if not file_path.exists():
+            raise ValueError(f"File not found: {file_path}")
+
+        # Transform it (using default engine/options for now)
+        # This ensures we have the content in cache
+        cache_key = self.transform(file_path, self.default_engine, {})
+
+        # Now recurse to get the content from cache
+        return self.get_content(cache_key, output_path)
+
+    def get_content(self, target: str, output_path: Path | None = None) -> str:
         """Retrieve content for a target (checksum or file path).
 
         Args:
@@ -248,100 +465,6 @@ class TransformController:
         """
         # Check if target is a checksum
         if re.match(r"^[a-f0-9]{64}$", target):
-            cache_key = target
-
-            # First, prefer the cache directory as the source of truth.
-            candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
-            cache_file: Optional[Path] = candidates[0] if candidates else None
-
-            if cache_file is not None and cache_file.exists():
-                if output_path:
-                    output_path.parent.mkdir(parents=True, exist_ok=True)
-                    try:
-                        import os
-
-                        if output_path.exists():
-                            raise FileExistsError(f"Output file already exists: {output_path}")
-                        os.link(cache_file, output_path)
-                    except (OSError, AttributeError):
-                        output_path.write_bytes(cache_file.read_bytes())
-                return cache_file.read_text(encoding="utf-8")
-
-            # Fallback: resolve via database metadata to support older entries.
-            records = list(self.db.transform.find())
-            matching_record = None
-
-            for doc in records:
-                record_checksum = doc["checksum"]
-                record_engine = doc["engine"]
-                record_options_hash = doc["options_hash"]
-                computed_key = self._compute_cache_key(record_checksum, record_engine, record_options_hash)
-                if computed_key == cache_key:
-                    matching_record = TransformRecord.from_dict(doc)
-                    break
-
-            if not matching_record:
-                raise ValueError(f"Cache entry not found: {cache_key}")
-
-            # Reconstruct cache file path in current cache directory using stored extension
-            # This avoids using old absolute paths from previous test runs
-            stored_path = Path(matching_record.cache_location)
-            extension = stored_path.suffix.lstrip(".") or "md"  # Default to .md if no extension
-            cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
-
-            # If file doesn't exist, try globbing one more time (in case extension differs)
-            if not cache_file.exists():
-                candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
-                if candidates:
-                    cache_file = candidates[0]
-
-            if not cache_file.exists():
-                raise ValueError(
-                    f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}"
-                )
-
-            self._update_last_accessed(
-                matching_record.checksum,
-                matching_record.engine,
-                matching_record.options_hash,
-            )
-
-            if output_path:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    import os
-
-                    if output_path.exists():
-                        raise FileExistsError(f"Output file already exists: {output_path}")
-                    os.link(cache_file, output_path)
-                except (OSError, AttributeError):
-                    output_path.write_bytes(cache_file.read_bytes())
-
-            return cache_file.read_text(encoding="utf-8")
-
+            return self._get_content_by_checksum(target, output_path)
         else:
-            # Target is a file path
-            # We need to expand user if it's a path string, but here we expect absolute path or handle it
-            # The controller usually expects Path objects or absolute strings.
-            # Let's assume the caller handles expansion if it's a CLI arg,
-            # but for robustness we can try to expand if it looks like a path.
-
-            # However, in MCP context, paths should be absolute.
-            # In CLI context, they are expanded before calling.
-            # But let's be safe.
-            from ..utils import expand_path
-
-            try:
-                file_path = expand_path(target)
-            except Exception:
-                file_path = Path(target).resolve()
-
-            if not file_path.exists():
-                raise ValueError(f"File not found: {file_path}")
-
-            # Transform it (using default engine/options for now)
-            # This ensures we have the content in cache
-            cache_key = self.transform(file_path, self.default_engine, {})
-
-            # Now recurse to get the content from cache
-            return self.get_content(cache_key, output_path)
+            return self._get_content_by_file_path(target, output_path)

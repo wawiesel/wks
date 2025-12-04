@@ -70,8 +70,8 @@ class TestBuildStatusRows:
 
         # Should have Health and File System sections
         labels = [r[0] for r in rows]
-        assert any("Health" in l for l in labels)
-        assert any("File System" in l for l in labels)
+        assert any("Health" in label for label in labels)
+        assert any("File System" in label for label in labels)
 
         # Check specific values
         row_dict = {r[0].strip(): r[1] for r in rows}
@@ -95,7 +95,7 @@ class TestBuildStatusRows:
         rows = build_status_rows(status)
 
         labels = [r[0] for r in rows]
-        assert any("Launch" in l for l in labels)
+        assert any("Launch" in label for label in labels)
 
         row_dict = {r[0].strip(): r[1] for r in rows}
         assert row_dict.get("Program", "") == "/usr/bin/python3"
@@ -108,7 +108,7 @@ class TestBuildStatusRows:
         # Should NOT have Launch section (launch is empty)
         labels = [r[0] for r in rows]
         # The "[bold cyan]Launch[/bold cyan]" should not appear
-        assert not any(l == "[bold cyan]Launch[/bold cyan]" for l in labels)
+        assert not any(label == "[bold cyan]Launch[/bold cyan]" for label in labels)
 
     def test_with_fs_rates(self):
         """Test status with filesystem rate metrics."""

@@ -6,7 +6,7 @@
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate
-   pip install -r requirements.txt
+   pip install -e .
    ```
 
 2. **Dependencies**: Install whatever you need in `.venv`.

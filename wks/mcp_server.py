@@ -10,7 +10,8 @@ All MCP tools return structured MCPResult objects.
 
 import json
 import sys
-from typing import Any, Dict, Optional, TextIO
+from collections.abc import Callable
+from typing import Any
 
 from .config import load_config
 from .mcp.result import MCPResult
@@ -23,21 +24,14 @@ from .vault.status_controller import VaultStatusController
 class MCPServer:
     """MCP server exposing WKS tools via stdio."""
 
-    def __init__(
-        self,
-        *,
-        input_stream: Optional[TextIO] = None,
-        output_stream: Optional[TextIO] = None,
-    ):
-        """Initialize MCP server."""
-        self._input = input_stream or sys.stdin
-        self._output = output_stream or sys.stdout
-        self._lsp_mode = False
-        self.tools = {
-            "wksm_config": {
-                "description": "Get effective configuration",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
+    @staticmethod
+    def _define_transform_tools() -> dict[str, dict[str, Any]]:
+        """Define transform-related tools.
+
+        Returns:
+            Dictionary of transform tool definitions
+        """
+        return {
             "wksm_transform": {
                 "description": "Transform a file using a specific engine",
                 "inputSchema": {
@@ -87,10 +81,30 @@ class MCPServer:
                     "required": ["engine", "target_a", "target_b"],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_service_tools() -> dict[str, dict[str, Any]]:
+        """Define service-related tools.
+
+        Returns:
+            Dictionary of service tool definitions
+        """
+        return {
             "wksm_service": {
                 "description": "Get daemon/service status summary",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
+        }
+
+    @staticmethod
+    def _define_vault_tools() -> dict[str, dict[str, Any]]:
+        """Define vault-related tools.
+
+        Returns:
+            Dictionary of vault tool definitions
+        """
+        return {
             "wksm_vault_validate": {
                 "description": "Validate all vault links",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -99,6 +113,16 @@ class MCPServer:
                 "description": "Rebuild _links/<machine>/ from vault DB",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
+        }
+
+    @staticmethod
+    def _define_db_tools() -> dict[str, dict[str, Any]]:
+        """Define database query tools.
+
+        Returns:
+            Dictionary of database tool definitions
+        """
+        return {
             "wksm_db_monitor": {
                 "description": "Query filesystem database",
                 "inputSchema": {
@@ -132,6 +156,16 @@ class MCPServer:
                     "required": [],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_monitor_basic_tools() -> dict[str, dict[str, Any]]:
+        """Define basic monitor tools (status, check, validate).
+
+        Returns:
+            Dictionary of basic monitor tool definitions
+        """
+        return {
             "wksm_monitor_status": {
                 "description": "Get filesystem monitoring status and configuration",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -148,22 +182,35 @@ class MCPServer:
                 "description": "Validate monitor configuration for conflicts and issues",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
+        }
+
+    @staticmethod
+    def _define_monitor_list_tools() -> dict[str, dict[str, Any]]:
+        """Define monitor list management tools.
+
+        Returns:
+            Dictionary of monitor list tool definitions
+        """
+        list_name_enum = [
+            "include_paths",
+            "exclude_paths",
+            "include_dirnames",
+            "exclude_dirnames",
+            "include_globs",
+            "exclude_globs",
+        ]
+        return {
             "wksm_monitor_list": {
-                "description": "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)",
+                "description": (
+                    "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)"
+                ),
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to retrieve",
-                            "enum": [
-                                "include_paths",
-                                "exclude_paths",
-                                "include_dirnames",
-                                "exclude_dirnames",
-                                "include_globs",
-                                "exclude_globs",
-                            ],
+                            "enum": list_name_enum,
                         }
                     },
                     "required": ["list_name"],
@@ -177,18 +224,15 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": [
-                                "include_paths",
-                                "exclude_paths",
-                                "include_dirnames",
-                                "exclude_dirnames",
-                                "include_globs",
-                                "exclude_globs",
-                            ],
+                            "enum": list_name_enum,
                         },
                         "value": {
                             "type": "string",
-                            "description": "Value to add (path for include/exclude_paths, dirname for include/exclude_dirnames, pattern for include/exclude_globs)",
+                            "description": (
+                                "Value to add (path for include/exclude_paths, "
+                                "dirname for include/exclude_dirnames, "
+                                "pattern for include/exclude_globs)"
+                            ),
                         },
                     },
                     "required": ["list_name", "value"],
@@ -202,20 +246,23 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": [
-                                "include_paths",
-                                "exclude_paths",
-                                "include_dirnames",
-                                "exclude_dirnames",
-                                "include_globs",
-                                "exclude_globs",
-                            ],
+                            "enum": list_name_enum,
                         },
                         "value": {"type": "string", "description": "Value to remove"},
                     },
                     "required": ["list_name", "value"],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_monitor_managed_tools() -> dict[str, dict[str, Any]]:
+        """Define monitor managed directory tools.
+
+        Returns:
+            Dictionary of managed directory tool definitions
+        """
+        return {
             "wksm_monitor_managed_list": {
                 "description": "Get all managed directories with their priorities",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -253,6 +300,29 @@ class MCPServer:
                     "required": ["path", "priority"],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_monitor_tools() -> dict[str, dict[str, Any]]:
+        """Define all monitor-related tools.
+
+        Returns:
+            Dictionary of monitor tool definitions
+        """
+        tools = {}
+        tools.update(MCPServer._define_monitor_basic_tools())
+        tools.update(MCPServer._define_monitor_list_tools())
+        tools.update(MCPServer._define_monitor_managed_tools())
+        return tools
+
+    @staticmethod
+    def _define_vault_advanced_tools() -> dict[str, dict[str, Any]]:
+        """Define advanced vault tools.
+
+        Returns:
+            Dictionary of advanced vault tool definitions
+        """
+        return {
             "wksm_vault_status": {
                 "description": "Get vault link status summary including link counts, issues, and errors",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -281,7 +351,10 @@ class MCPServer:
                         },
                         "direction": {
                             "type": "string",
-                            "description": "Link direction filter: 'both' (default), 'to' (incoming only), or 'from' (outgoing only)",
+                            "description": (
+                                "Link direction filter: 'both' (default), "
+                                "'to' (incoming only), or 'from' (outgoing only)"
+                            ),
                             "enum": ["both", "to", "from"],
                         },
                     },
@@ -289,7 +362,39 @@ class MCPServer:
                 },
             },
         }
-        self.resources = [
+
+    @staticmethod
+    def _define_tools() -> dict[str, dict[str, Any]]:
+        """Define all MCP tools with their schemas.
+
+        Returns:
+            Dictionary mapping tool names to tool definitions
+        """
+        tools = {}
+        tools.update(
+            {
+                "wksm_config": {
+                    "description": "Get effective configuration",
+                    "inputSchema": {"type": "object", "properties": {}, "required": []},
+                }
+            }
+        )
+        tools.update(MCPServer._define_transform_tools())
+        tools.update(MCPServer._define_service_tools())
+        tools.update(MCPServer._define_vault_tools())
+        tools.update(MCPServer._define_db_tools())
+        tools.update(MCPServer._define_monitor_tools())
+        tools.update(MCPServer._define_vault_advanced_tools())
+        return tools
+
+    @staticmethod
+    def _define_resources() -> list[dict[str, Any]]:
+        """Define MCP resources.
+
+        Returns:
+            List of resource definitions
+        """
+        return [
             {
                 "uri": "mcp://wks/tools",
                 "name": "wks-tools",
@@ -298,7 +403,55 @@ class MCPServer:
             }
         ]
 
-    def _read_message(self) -> Optional[Dict[str, Any]]:
+    def __init__(
+        self,
+        *,
+        input_stream: Any | None = None,
+        output_stream: Any | None = None,
+    ):
+        """Initialize MCP server."""
+        import sys
+
+        self._input = input_stream or sys.stdin
+        self._output = output_stream or sys.stdout
+        self._lsp_mode = False
+        self.tools = MCPServer._define_tools()
+        self.resources = MCPServer._define_resources()
+
+    def _read_content_length_message(self, header_line: str) -> dict[str, Any] | None:
+        """Read message using Content-Length framing (LSP mode).
+
+        Args:
+            header_line: The Content-Length header line
+
+        Returns:
+            Parsed JSON message or None on error
+
+        Raises:
+            ValueError: If Content-Length header is invalid
+        """
+        self._lsp_mode = True
+        try:
+            length = int(header_line.split(":", 1)[1].strip())
+        except Exception as e:
+            raise ValueError(f"Invalid Content-Length header: {header_line!r}") from e
+
+        # Consume the blank line after headers
+        while True:
+            sep = self._input.readline()
+            if sep == "":
+                break
+            if sep in ("\r\n", "\n", "\r"):
+                break
+            if not sep.strip():
+                break
+
+        payload = self._input.read(length)
+        if payload is None:
+            return None
+        return json.loads(payload)
+
+    def _read_message(self) -> dict[str, Any] | None:
         """Read JSON-RPC message supporting newline or Content-Length framing."""
         try:
             while True:
@@ -310,31 +463,14 @@ class MCPServer:
                     continue
                 lowered = stripped.lower()
                 if lowered.startswith("content-length"):
-                    self._lsp_mode = True
-                    try:
-                        length = int(stripped.split(":", 1)[1].strip())
-                    except Exception:
-                        raise ValueError(f"Invalid Content-Length header: {stripped!r}")
-                    # Consume the blank line after headers
-                    while True:
-                        sep = self._input.readline()
-                        if sep == "":
-                            break
-                        if sep in ("\r\n", "\n", "\r"):
-                            break
-                        if not sep.strip():
-                            break
-                    payload = self._input.read(length)
-                    if payload is None:
-                        return None
-                    return json.loads(payload)
+                    return self._read_content_length_message(stripped)
                 else:
                     return json.loads(line)
         except Exception as e:
             sys.stderr.write(f"Parse error: {e}\n")
             return None
 
-    def _write_message(self, message: Dict[str, Any]) -> None:
+    def _write_message(self, message: dict[str, Any]) -> None:
         """Write JSON-RPC message using negotiated framing."""
         payload = json.dumps(message)
         if self._lsp_mode:
@@ -357,7 +493,7 @@ class MCPServer:
             error["data"] = data
         self._write_message({"jsonrpc": "2.0", "id": request_id, "error": error})
 
-    def _handle_initialize(self, request_id: Any, params: Dict[str, Any]) -> None:
+    def _handle_initialize(self, request_id: Any, params: dict[str, Any]) -> None:  # noqa: ARG002
         """Handle initialize request."""
         self._write_response(
             request_id,
@@ -376,25 +512,32 @@ class MCPServer:
         ]
         self._write_response(request_id, {"tools": tools_list})
 
-    def _handle_list_resources(self, request_id: Any, params: Dict[str, Any]) -> None:
+    def _handle_list_resources(self, request_id: Any, params: dict[str, Any]) -> None:
         """Handle resources/list request with a single static page."""
         if request_id is None:
             return
 
         # Basic pagination contract—single page only.
-        result = {"resources": self.resources}
+        result: dict[str, Any] = {"resources": self.resources}
         if params.get("cursor") is not None:
             result["nextCursor"] = None
         self._write_response(request_id, result)
 
-    def _build_tool_registry(self) -> Dict[str, callable]:
+    def _build_tool_registry(self) -> dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]]:
         """Build registry of tool handlers with parameter validation."""
 
-        def _require_params(*param_names: str):
+        def _require_params(
+            *param_names: str,
+        ) -> Callable[
+            [Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]],
+            Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+        ]:
             """Decorator to validate required parameters."""
 
-            def decorator(handler: callable) -> callable:
-                def wrapper(config: Dict[str, Any], arguments: Dict[str, Any]) -> Dict[str, Any]:
+            def decorator(
+                handler: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+            ) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
+                def wrapper(config: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
                     missing = [p for p in param_names if arguments.get(p) is None]
                     if missing:
                         raise ValueError(f"Missing required parameters: {', '.join(missing)}")
@@ -405,7 +548,7 @@ class MCPServer:
             return decorator
 
         return {
-            "wksm_config": lambda config, args: self._tool_config(config),
+            "wksm_config": lambda config, args: self._tool_config(config),  # noqa: ARG005
             "wksm_transform": _require_params("file_path", "engine")(
                 lambda config, args: self._tool_transform(
                     config, args["file_path"], args["engine"], args.get("options", {})
@@ -415,9 +558,9 @@ class MCPServer:
             "wksm_diff": _require_params("engine", "target_a", "target_b")(
                 lambda config, args: self._tool_diff(config, args["engine"], args["target_a"], args["target_b"])
             ),
-            "wksm_service": lambda config, args: self._tool_service(config),
-            "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),
-            "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),
+            "wksm_service": lambda config, args: self._tool_service(config),  # noqa: ARG005
+            "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),  # noqa: ARG005
+            "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),  # noqa: ARG005
             "wksm_db_monitor": lambda config, args: self._tool_db_query(
                 config, "monitor", args.get("query", {}), args.get("limit", 50)
             ),
@@ -427,11 +570,11 @@ class MCPServer:
             "wksm_db_transform": lambda config, args: self._tool_db_query(
                 config, "transform", args.get("query", {}), args.get("limit", 50)
             ),
-            "wksm_monitor_status": lambda config, args: self._tool_monitor_status(config),
+            "wksm_monitor_status": lambda config, args: self._tool_monitor_status(config),  # noqa: ARG005
             "wksm_monitor_check": _require_params("path")(
                 lambda config, args: self._tool_monitor_check(config, args["path"])
             ),
-            "wksm_monitor_validate": lambda config, args: self._tool_monitor_validate(config),
+            "wksm_monitor_validate": lambda config, args: self._tool_monitor_validate(config),  # noqa: ARG005
             "wksm_monitor_list": _require_params("list_name")(
                 lambda config, args: self._tool_monitor_list(config, args["list_name"])
             ),
@@ -441,7 +584,7 @@ class MCPServer:
             "wksm_monitor_remove": _require_params("list_name", "value")(
                 lambda config, args: self._tool_monitor_remove(config, args["list_name"], args["value"])
             ),
-            "wksm_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),
+            "wksm_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),  # noqa: ARG005
             "wksm_monitor_managed_add": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_add(config, args["path"], args["priority"])
             ),
@@ -451,14 +594,14 @@ class MCPServer:
             "wksm_monitor_managed_set_priority": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_set_priority(config, args["path"], args["priority"])
             ),
-            "wksm_vault_status": lambda config, args: self._tool_vault_status(config),
+            "wksm_vault_status": lambda config, args: self._tool_vault_status(config),  # noqa: ARG005
             "wksm_vault_sync": lambda config, args: self._tool_vault_sync(config, args.get("batch_size", 1000)),
             "wksm_vault_links": _require_params("file_path")(
                 lambda config, args: self._tool_vault_links(config, args["file_path"], args.get("direction", "both"))
             ),
         }
 
-    def _handle_call_tool(self, request_id: Any, params: Dict[str, Any]) -> None:
+    def _handle_call_tool(self, request_id: Any, params: dict[str, Any]) -> None:
         """Handle tools/call request using registry pattern."""
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
@@ -485,7 +628,7 @@ class MCPServer:
         except Exception as e:
             self._write_error(request_id, -32000, f"Tool execution failed: {e}", {"traceback": str(e)})
 
-    def _tool_service(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_service(self, config: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG002
         """Execute wksm_service tool."""
         status = ServiceController.get_status()
         result = MCPResult.success_result(
@@ -494,24 +637,27 @@ class MCPServer:
         )
         return result.to_dict()
 
-    def _tool_monitor_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_monitor_status(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_status tool."""
         status = MonitorController.get_status(config)
         return status.to_dict()
 
-    def _tool_monitor_check(self, config: Dict[str, Any], path: str) -> Dict[str, Any]:
+    def _tool_monitor_check(self, config: dict[str, Any], path: str) -> dict[str, Any]:
         """Execute wks_monitor_check tool."""
         return MonitorController.check_path(config, path)
 
-    def _tool_monitor_validate(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_monitor_validate(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_validate tool."""
-        return MonitorController.validate_config(config)
+        from dataclasses import asdict
 
-    def _tool_monitor_list(self, config: Dict[str, Any], list_name: str) -> Dict[str, Any]:
+        result = MonitorController.validate_config(config)
+        return asdict(result)
+
+    def _tool_monitor_list(self, config: dict[str, Any], list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
         return MonitorController.get_list(config, list_name)
 
-    def _tool_monitor_add(self, config: Dict[str, Any], list_name: str, value: str) -> Dict[str, Any]:
+    def _tool_monitor_add(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_add tool."""
         from .config import get_config_path
 
@@ -520,24 +666,27 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Determine if we need to resolve paths
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Add to list
-        result = MonitorController.add_to_list(config_dict, list_name, value, resolve_path)
+        from dataclasses import asdict
+
+        result_obj = MonitorController.add_to_list(config_dict, list_name, value, resolve_path)
+        result = asdict(result_obj)
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_remove(self, config: Dict[str, Any], list_name: str, value: str) -> Dict[str, Any]:
+    def _tool_monitor_remove(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_remove tool."""
         from .config import get_config_path
 
@@ -546,28 +695,34 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Determine if we need to resolve paths
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Remove from list
-        result = MonitorController.remove_from_list(config_dict, list_name, value, resolve_path)
+        from dataclasses import asdict
+
+        result_obj = MonitorController.remove_from_list(config_dict, list_name, value, resolve_path)
+        result = asdict(result_obj)
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_list(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_monitor_managed_list(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_managed_list tool."""
-        return MonitorController.get_managed_directories(config)
+        from dataclasses import asdict
 
-    def _tool_monitor_managed_add(self, config: Dict[str, Any], path: str, priority: int) -> Dict[str, Any]:
+        result = MonitorController.get_managed_directories(config)
+        return asdict(result)
+
+    def _tool_monitor_managed_add(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_managed_add tool."""
         from .config import get_config_path
 
@@ -576,7 +731,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Add managed directory
@@ -584,13 +739,13 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_remove(self, config: Dict[str, Any], path: str) -> Dict[str, Any]:
+    def _tool_monitor_managed_remove(self, config: dict[str, Any], path: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_managed_remove tool."""
         from .config import get_config_path
 
@@ -599,7 +754,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Remove managed directory
@@ -607,13 +762,13 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_set_priority(self, config: Dict[str, Any], path: str, priority: int) -> Dict[str, Any]:
+    def _tool_monitor_managed_set_priority(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_managed_set_priority tool."""
         from .config import get_config_path
 
@@ -622,7 +777,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Set priority
@@ -630,23 +785,23 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_vault_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_vault_status(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_status tool."""
         controller = VaultStatusController(config)
         summary = controller.summarize()
         return summary.to_dict()
 
-    def _tool_vault_sync(self, config: Dict[str, Any], batch_size: int) -> Dict[str, Any]:
+    def _tool_vault_sync(self, config: dict[str, Any], batch_size: int) -> dict[str, Any]:
         """Execute wks_vault_sync tool."""
         return VaultController.sync_vault(config, batch_size)
 
-    def _tool_vault_links(self, config: Dict[str, Any], file_path: str, direction: str = "both") -> Dict[str, Any]:
+    def _tool_vault_links(self, config: dict[str, Any], file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
         from .db_helpers import connect_to_mongo, get_vault_db_config
         from .uri_utils import convert_to_uri
@@ -680,14 +835,13 @@ class MCPServer:
         target_uri = convert_to_uri(file_path_expanded, vault_path)
 
         # Also get version without .md extension for fallback matching
-        if target_uri.endswith(".md"):
-            target_uri_no_ext = target_uri[:-3]
-        else:
-            target_uri_no_ext = target_uri
+        target_uri_no_ext = target_uri[:-3] if target_uri.endswith(".md") else target_uri
 
         # Connect to database
+        from pymongo import MongoClient
+
         uri, db_name, coll_name = get_vault_db_config(config)
-        client = connect_to_mongo(uri)
+        client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
         result = {
@@ -718,45 +872,56 @@ class MCPServer:
         client.close()
         return result
 
+    def _handle_request(self, message: dict[str, Any]) -> None:
+        """Handle a single request message.
+
+        Args:
+            message: Request message dictionary
+        """
+        request_id = message.get("id")
+        method = message.get("method")
+        params = message.get("params", {})
+
+        # Handle different methods
+        if method == "initialize":
+            self._handle_initialize(request_id, params)
+        elif method == "initialized" or method == "notifications/initialized":
+            # Notification, no response needed
+            pass
+        elif method == "tools/list":
+            self._handle_list_tools(request_id)
+        elif method == "resources/list":
+            self._handle_list_resources(request_id, params)
+        elif method == "tools/call":
+            self._handle_call_tool(request_id, params)
+        elif method == "ping":
+            self._write_response(request_id, {})
+        else:
+            # Only send error if this is a request (has ID), not a notification
+            if request_id is not None:
+                self._write_error(request_id, -32601, f"Method not found: {method}")
+
     def run(self) -> None:
         """Run MCP server main loop."""
         while True:
             message = self._read_message()
             if message is None:
                 break
+            self._handle_request(message)
 
-            request_id = message.get("id")
-            method = message.get("method")
-            params = message.get("params", {})
-
-            # Handle different methods
-            if method == "initialize":
-                self._handle_initialize(request_id, params)
-            elif method == "initialized" or method == "notifications/initialized":
-                # Notification, no response needed
-                pass
-            elif method == "tools/list":
-                self._handle_list_tools(request_id)
-            elif method == "resources/list":
-                self._handle_list_resources(request_id, params)
-            elif method == "tools/call":
-                self._handle_call_tool(request_id, params)
-            elif method == "ping":
-                self._write_response(request_id, {})
-            else:
-                # Only send error if this is a request (has ID), not a notification
-                if request_id is not None:
-                    self._write_error(request_id, -32601, f"Method not found: {method}")
-
-    def _tool_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wksm_config tool."""
         result = MCPResult(success=True, data=config)
         result.add_success("Configuration loaded successfully")
         return result.to_dict()
 
     def _tool_transform(
-        self, config: Dict[str, Any], file_path: str, engine: str, options: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self,
+        config: dict[str, Any],  # noqa: ARG002
+        file_path: str,
+        engine: str,
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
         """Execute wksm_transform tool."""
         from pathlib import Path
 
@@ -778,10 +943,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
+            from pymongo import MongoClient
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             controller = TransformController(db, cache_location, max_size_bytes)
@@ -795,13 +962,13 @@ class MCPServer:
             return result.success_result({"checksum": cache_key}, "Transform completed successfully").to_dict()
 
         except ValueError as e:
-            return result.error_result(f"Invalid input: {str(e)}", data={}).to_dict()
+            return result.error_result(f"Invalid input: {e!s}", data={}).to_dict()
         except RuntimeError as e:
-            return result.error_result(f"Transform failed: {str(e)}", data={}).to_dict()
+            return result.error_result(f"Transform failed: {e!s}", data={}).to_dict()
         except Exception as e:
-            return result.error_result(f"Unexpected error: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_cat(self, config: Dict[str, Any], target: str) -> Dict[str, Any]:
+    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wksm_cat tool."""
         from pathlib import Path
 
@@ -817,10 +984,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
+            from pymongo import MongoClient
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             controller = TransformController(db, cache_location, max_size_bytes)
@@ -835,9 +1004,9 @@ class MCPServer:
         except FileNotFoundError as e:
             return result.error_result(f"File or cache entry not found: {target}", details=str(e), data={}).to_dict()
         except Exception as e:
-            return result.error_result(f"Failed to retrieve content: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_diff(self, config: Dict[str, Any], engine: str, target_a: str, target_b: str) -> Dict[str, Any]:
+    def _tool_diff(self, config: dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
@@ -854,10 +1023,12 @@ class MCPServer:
             cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
             max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
 
+            from pymongo import MongoClient
+
             uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
             db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             transform_controller = TransformController(db, cache_location, max_size_bytes)
@@ -878,13 +1049,13 @@ class MCPServer:
             return result.success_result({"diff": diff_result}, f"Diff computed successfully using {engine}").to_dict()
 
         except ValueError as e:
-            return result.error_result(f"Invalid input: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Invalid input: {e!s}", details=str(e), data={}).to_dict()
         except RuntimeError as e:
-            return result.error_result(f"Diff failed: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Diff failed: {e!s}", details=str(e), data={}).to_dict()
         except Exception as e:
-            return result.error_result(f"Unexpected error: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_vault_validate(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_vault_validate(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
 
@@ -892,7 +1063,7 @@ class MCPServer:
         controller = VaultController(vault)
         return controller.validate_vault()
 
-    def _tool_vault_fix_symlinks(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_vault_fix_symlinks(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
 
@@ -908,7 +1079,7 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(self, config: Dict[str, Any], db_type: str, query: Dict[str, Any], limit: int) -> Dict[str, Any]:
+    def _tool_db_query(self, config: dict[str, Any], db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
 
@@ -926,7 +1097,9 @@ class MCPServer:
         else:
             raise ValueError(f"Unknown db type: {db_type}")
 
-        client = connect_to_mongo(uri)
+        from pymongo import MongoClient
+
+        client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
         results = list(coll.find(query, {"_id": 0}).limit(limit))
@@ -935,7 +1108,7 @@ class MCPServer:
         return {"results": results, "count": len(results)}
 
 
-def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """
     Call an MCP tool programmatically (for CLI use).
 
@@ -973,7 +1146,7 @@ def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     return handler(config, arguments)
 
 
-def main():
+def main() -> None:
     """Main entry point for MCP server."""
     server = MCPServer()
     try:

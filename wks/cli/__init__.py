@@ -7,7 +7,7 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..display.context import add_display_argument, get_display
 from ..mcp_client import proxy_stdio_to_socket
@@ -15,7 +15,7 @@ from ..mcp_paths import mcp_socket_path
 from ..utils import expand_path, get_package_version
 
 
-def _call(tool: str, args: Dict[str, Any] = None) -> Dict[str, Any]:
+def _call(tool: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     """Call MCP tool."""
     from ..mcp_server import call_tool
 
@@ -30,7 +30,7 @@ def _out(data: Any, display) -> None:
         print(data)
 
 
-def _err(result: Dict) -> int:
+def _err(result: dict) -> int:
     """Print errors, return exit code."""
     for msg in result.get("messages", []):
         print(f"{msg.get('type', 'error')}: {msg.get('text', '')}", file=sys.stderr)
@@ -217,8 +217,8 @@ def _cmd_service_status(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def _setup_monitor(sub):
-    LISTS = [
+def _setup_monitor(sub) -> None:
+    lists = [
         "include_paths",
         "exclude_paths",
         "include_dirnames",
@@ -236,7 +236,7 @@ def _setup_monitor(sub):
     p.set_defaults(func=_cmd_monitor_check)
     m.add_parser("validate").set_defaults(func=_cmd_monitor_validate)
 
-    for name in LISTS:
+    for name in lists:
         p = m.add_parser(name)
         s = p.add_subparsers(dest=f"{name}_cmd")
         s.add_parser("list").set_defaults(func=_cmd_monitor_list, list_name=name)
@@ -263,7 +263,7 @@ def _setup_monitor(sub):
     p.set_defaults(func=_cmd_monitor_managed_priority)
 
 
-def _setup_vault(sub):
+def _setup_vault(sub) -> None:
     v = sub.add_parser("vault", help="Vault operations")
     s = v.add_subparsers(dest="vault_cmd")
 
@@ -279,7 +279,7 @@ def _setup_vault(sub):
     p.set_defaults(func=_cmd_vault_links)
 
 
-def _setup_db(sub):
+def _setup_db(sub) -> None:
     db = sub.add_parser("db", help="Database queries")
     s = db.add_subparsers(dest="db_cmd")
 
@@ -288,14 +288,14 @@ def _setup_db(sub):
     s.add_parser("transform").set_defaults(func=_cmd_db_transform)
 
 
-def _setup_service(sub):
+def _setup_service(sub) -> None:
     svc = sub.add_parser("service", help="Service operations")
     s = svc.add_subparsers(dest="service_cmd")
 
     s.add_parser("status").set_defaults(func=_cmd_service_status)
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(prog="wksc", description="WKS CLI")
     sub = parser.add_subparsers(dest="cmd")
@@ -347,7 +347,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     run = ms.add_parser("run")
     run.add_argument("--direct", action="store_true")
 
-    def mcp_run(args):
+    def mcp_run(args) -> int:
         if not args.direct and proxy_stdio_to_socket(mcp_socket_path()):
             return 0
         from ..mcp_server import main as mcp_main
@@ -361,7 +361,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     inst.add_argument("--command-path")
     inst.add_argument("--client", dest="clients", action="append", choices=["cursor", "claude", "gemini"])
 
-    def mcp_install(args):
+    def mcp_install(args) -> int:
         from ..mcp_setup import install_mcp_configs
 
         for r in install_mcp_configs(clients=args.clients, command_override=args.command_path):

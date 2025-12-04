@@ -1,7 +1,7 @@
 """Monitor Controller - Business logic for filesystem monitoring operations."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from ..monitor_rules import MonitorRules
 from .config import MonitorConfig
@@ -15,9 +15,9 @@ from .status import (
 from .validator import MonitorValidator
 
 
-def _build_canonical_map(values: List[str]) -> Dict[str, List[str]]:
+def _build_canonical_map(values: list[str]) -> dict[str, list[str]]:
     """Map canonical path strings to the original representations."""
-    mapping: Dict[str, List[str]] = {}
+    mapping: dict[str, list[str]] = {}
     for raw in values:
         canonical = _canonicalize_path(raw)
         mapping.setdefault(canonical, []).append(raw)
@@ -52,7 +52,8 @@ class MonitorController:
         }
         if list_name not in supported_lists:
             raise ValueError(
-                f"Unknown list_name: {list_name} (found: {list_name!r}, expected one of {', '.join(sorted(supported_lists.keys()))})"
+                f"Unknown list_name: {list_name} "
+                f"(found: {list_name!r}, expected one of {', '.join(sorted(supported_lists.keys()))})"
             )
         items = supported_lists[list_name]
 
@@ -117,7 +118,7 @@ class MonitorController:
         )
 
     @staticmethod
-    def get_status(config: Dict[str, Any]) -> MonitorStatus:
+    def get_status(config: dict[str, Any]) -> MonitorStatus:
         """Get monitor status, including validation issues.
 
         Raises:
@@ -127,10 +128,7 @@ class MonitorController:
 
         from ..config import WKSConfig
 
-        if hasattr(config, "monitor"):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config.monitor if hasattr(config, "monitor") else MonitorConfig.from_config_dict(config)
         try:
             wks_config = WKSConfig.load()
             mongo_uri = wks_config.mongo.uri
@@ -139,7 +137,7 @@ class MonitorController:
 
         # Get total tracked files
         try:
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]
@@ -170,7 +168,7 @@ class MonitorController:
         )
 
     @staticmethod
-    def _validate_path_conflicts(include_map: Dict, exclude_map: Dict) -> List[str]:
+    def _validate_path_conflicts(include_map: dict, exclude_map: dict) -> list[str]:
         """Validate paths aren't in both include and exclude lists."""
         issues = []
         include_paths = set(include_map.keys())
@@ -180,12 +178,13 @@ class MonitorController:
             includes = include_map.get(canonical, [])
             excludes = exclude_map.get(canonical, [])
             issues.append(
-                f"Path listed in both include_paths and exclude_paths after resolving to {canonical}: include [{', '.join(includes)}], exclude [{', '.join(excludes)}]"
+                f"Path listed in both include_paths and exclude_paths after resolving to {canonical}: "
+                f"include [{', '.join(includes)}], exclude [{', '.join(excludes)}]"
             )
         return issues
 
     @staticmethod
-    def _validate_path_redundancy(include_map: Dict, exclude_map: Dict, config: dict) -> List[str]:
+    def _validate_path_redundancy(include_map: dict, exclude_map: dict, config: dict) -> list[str]:
         """Validate duplicate canonical paths and auto-ignored paths."""
         redundancies = []
 
@@ -217,7 +216,7 @@ class MonitorController:
     @staticmethod
     def _validate_managed_directories(
         monitor_cfg: MonitorConfig, rules: MonitorRules
-    ) -> Tuple[List[str], List[str], Dict[str, ManagedDirectoryInfo]]:
+    ) -> tuple[list[str], list[str], dict[str, ManagedDirectoryInfo]]:
         """Validate managed directories."""
         issues = []
         redundancies = []
@@ -243,7 +242,7 @@ class MonitorController:
     @staticmethod
     def _validate_dirnames(
         monitor_cfg: MonitorConfig,
-    ) -> Tuple[List[str], List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> tuple[list[str], list[str], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
         """Validate include/exclude dirnames."""
         issues = []
         redundancies = []
@@ -285,7 +284,7 @@ class MonitorController:
     @staticmethod
     def _validate_globs(
         monitor_cfg: MonitorConfig,
-    ) -> Tuple[List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
         """Validate include/exclude glob patterns."""
         issues = []
         include_glob_validation = {}
@@ -363,26 +362,19 @@ class MonitorController:
         )
 
     @staticmethod
-    def check_path(config: dict, path_str: str) -> dict:
-        """Check if a path would be monitored and calculate its priority.
+    @staticmethod
+    def _build_decisions_from_trace(trace: list[str], path_exists: bool, test_path: Path) -> list[dict[str, str]]:
+        """Build decision list from trace messages and path existence.
 
-        Raises:
-            KeyError: If monitor section or required fields are missing
+        Args:
+            trace: List of trace messages from rules.explain()
+            path_exists: Whether the path exists
+            test_path: Path being checked
+
+        Returns:
+            List of decision dictionaries
         """
-        from ..config import WKSConfig
-        from ..priority import calculate_priority
-
-        if isinstance(config, WKSConfig):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
-        rules = MonitorRules.from_config(monitor_cfg)
-
-        # Resolve path
-        test_path = Path(path_str).expanduser().resolve()
-
         decisions = []
-        path_exists = test_path.exists()
         decisions.append(
             {
                 "symbol": "✓" if path_exists else "⚠",
@@ -392,7 +384,6 @@ class MonitorController:
             }
         )
 
-        allowed, trace = rules.explain(test_path)
         for message in trace:
             lower = message.lower()
             if lower.startswith("excluded"):
@@ -403,6 +394,51 @@ class MonitorController:
                 symbol = "•"
             decisions.append({"symbol": symbol, "message": message})
 
+        return decisions
+
+    @staticmethod
+    def _calculate_path_priority(
+        test_path: Path, monitor_cfg: MonitorConfig, decisions: list[dict[str, str]]
+    ) -> tuple[int | None, list[dict[str, str]]]:
+        """Calculate priority for a path.
+
+        Args:
+            test_path: Path to calculate priority for
+            monitor_cfg: Monitor configuration
+            decisions: Existing decisions list to append to
+
+        Returns:
+            Tuple of (priority, updated_decisions)
+        """
+        from ..priority import calculate_priority
+
+        try:
+            priority = calculate_priority(test_path, monitor_cfg.managed_directories, monitor_cfg.priority)
+            decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
+            return priority, decisions
+        except Exception as e:
+            decisions.append({"symbol": "⚠", "message": f"Could not calculate priority: {e}"})
+            return None, decisions
+
+    @staticmethod
+    def check_path(config: dict, path_str: str) -> dict:
+        """Check if a path would be monitored and calculate its priority.
+
+        Raises:
+            KeyError: If monitor section or required fields are missing
+        """
+        from ..config import WKSConfig
+
+        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
+        rules = MonitorRules.from_config(monitor_cfg)
+
+        # Resolve path
+        test_path = Path(path_str).expanduser().resolve()
+        path_exists = test_path.exists()
+
+        allowed, trace = rules.explain(test_path)
+        decisions = MonitorController._build_decisions_from_trace(trace, path_exists, test_path)
+
         if not allowed:
             return {
                 "path": str(test_path),
@@ -412,13 +448,7 @@ class MonitorController:
                 "decisions": decisions,
             }
 
-        # Calculate priority
-        try:
-            priority = calculate_priority(test_path, monitor_cfg.managed_directories, monitor_cfg.priority)
-            decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
-        except Exception as e:
-            priority = None
-            decisions.append({"symbol": "⚠", "message": f"Could not calculate priority: {e}"})
+        priority, decisions = MonitorController._calculate_path_priority(test_path, monitor_cfg, decisions)
 
         return {
             "path": str(test_path),
@@ -436,10 +466,7 @@ class MonitorController:
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
 
-        if isinstance(config, WKSConfig):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
         try:
             wks_config = WKSConfig.load()
             mongo_uri = wks_config.mongo.uri
@@ -447,7 +474,7 @@ class MonitorController:
             mongo_uri = "mongodb://localhost:27017"
 
         try:
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()  # Will raise an exception if connection fails
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]
@@ -499,10 +526,7 @@ class MonitorController:
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
 
-        if isinstance(config, WKSConfig):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
         try:
             wks_config = WKSConfig.load()
             mongo_uri = wks_config.mongo.uri
@@ -510,7 +534,7 @@ class MonitorController:
             mongo_uri = "mongodb://localhost:27017"
 
         try:
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]

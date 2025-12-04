@@ -27,7 +27,7 @@ class TestPathToUri:
         test_file.write_text("content")
 
         # Use relative path
-        relative_path = Path(".") / test_file.name
+        relative_path = Path(test_file.name)
         uri = path_to_uri(relative_path)
 
         assert uri.startswith("file://")

@@ -46,13 +46,13 @@ def vault(vault_root):
 @pytest.fixture()
 def patched_mongo(monkeypatch):
     client = mongomock.MongoClient()
-    monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)
-    monkeypatch.setattr("wks.vault.status_controller.MongoClient", lambda *a, **k: client)
+    monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)  # noqa: ARG005
+    monkeypatch.setattr("wks.vault.status_controller.MongoClient", lambda *a, **k: client)  # noqa: ARG005
     from mongomock.collection import BulkOperationBuilder
 
     original = BulkOperationBuilder.add_update
 
-    def wrapper(self, selector, document, check_keys, upsert, **kwargs):
+    def wrapper(self, selector, document, check_keys, upsert, **kwargs):  # noqa: ARG001
         return original(self, selector, document, check_keys, upsert)
 
     monkeypatch.setattr(BulkOperationBuilder, "add_update", wrapper)
@@ -161,7 +161,7 @@ def test_symlink_missing_target(vault_root):
     assert result.status == STATUS_MISSING_SYMLINK
 
 
-def test_scanner_error_handling(vault_root, tmp_path):
+def test_scanner_error_handling(vault_root, tmp_path):  # noqa: ARG001
     """Test scanner continues on individual file errors."""
     vault = ObsidianVault(vault_path=vault_root, base_dir="WKS")
 
@@ -176,7 +176,7 @@ def test_scanner_error_handling(vault_root, tmp_path):
     from wks.vault.indexer import VaultLinkScanner
 
     scanner = VaultLinkScanner(vault)
-    records = scanner.scan()
+    scanner.scan()
 
     # Should have scanned the good note despite bad one
     assert scanner.stats.notes_scanned >= 1
@@ -216,7 +216,7 @@ def test_markdown_url_extraction(vault_root):
     assert "https://docs.example.com/page" in urls
 
 
-def test_batch_processing(vault, vault_root, patched_mongo):
+def test_batch_processing(vault, vault_root, patched_mongo):  # noqa: ARG001
     """Test batch processing with small batch size."""
     indexer = VaultLinkIndexer(
         vault=vault,
