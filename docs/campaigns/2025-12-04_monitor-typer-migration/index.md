@@ -8,19 +8,19 @@
 
 ## Overview
 
-Complete refactor of all WKS tools to use Typer for CLI and Pydantic for validation, eliminating the three parallel layers (MCP schema, CLI argparse, business logic) in favor of a single Python function signature as the source of truth.
+Complete refactor of all WKS tools to use Typer for CLI and Pydantic for validation, eliminating the three parallel layers (MCP schema, CLI argparse, business logic) in favor of a single Python function signature as the source of truth. The monitor phase adopts the simplified spec (filter / priority / sync) described in `docs/specifications/monitor.md`—no legacy list/managed split, float priorities, and MCP/CLI parity.
 
-This is a multi-phase campaign:
-- **Phase 1: Monitor** (Agent 1) - Foundation and monitor tools
-- **Phase 2: Vault** (Agent 2) - Vault tools
-- **Phase 3: Transform & Diff** (Agent 3) - Transform and diff tools
-- **Phase 4: Service & Infrastructure** (Agent 4) - Service, DB, and config tools
+This is a multi-phase campaign executed sequentially by a single agent:
+- **Phase 1: Monitor** - Foundation and monitor tools
+- **Phase 2: Vault** - Vault tools
+- **Phase 3: Transform & Diff** - Transform and diff tools
+- **Phase 4: Service & Infrastructure** - Service, DB, and config tools
 
 ## Complete Scope
 
-**Phase 1: Monitor Tools** (Agent 1 - IN PROGRESS)
-- All monitor MCP tools: `wksm_monitor_status`, `wksm_monitor_check`, `wksm_monitor_list`, `wksm_monitor_add`, `wksm_monitor_remove`, `wksm_monitor_managed_list`, `wksm_monitor_managed_add`, `wksm_monitor_managed_remove`, `wksm_monitor_managed_set_priority`, `wksm_monitor_sync`
-- All monitor CLI commands: `wksc monitor status`, `wksc monitor check`, `wksc monitor <list>/list`, `wksc monitor <list>/add`, `wksc monitor <list>/remove`, `wksc monitor managed/list`, `wksc monitor managed/add`, `wksc monitor managed/remove`, `wksc monitor managed/set-priority`, `wksc monitor sync`
+**Phase 1: Monitor Tools** (Single Agent - IN PROGRESS)
+- All monitor MCP tools (simplified): `wksm_monitor_status`, `wksm_monitor_check`, `wksm_monitor_sync`, `wksm_monitor_filter_show/add/remove`, `wksm_monitor_priority_show/add/remove`
+- All monitor CLI commands (simplified): `wksc monitor status`, `wksc monitor check`, `wksc monitor sync`, `wksc monitor filter show/add/remove`, `wksc monitor priority show/add/remove`
 
 **Phase 2: Vault Tools** (Agent 2 - PLANNED)
 - Vault MCP tools: `wksm_vault_status`, `wksm_vault_sync`, `wksm_vault_links`, `wksm_vault_validate`, `wksm_vault_fix_symlinks`
@@ -51,16 +51,15 @@ This is a multi-phase campaign:
 ### Target State
 - **Single Source**: Python functions with Typer decorators and Pydantic models
 - **One File Per Function Rule**: File name matches function name exactly
-  - `wks/api/monitor/status.py` - `status()` function (matches CLI: `wksc monitor status`, MCP: `wksm_monitor_status`)
-  - `wks/api/monitor/check.py` - `check()` function (matches CLI: `wksc monitor check`, MCP: `wksm_monitor_check`)
-  - `wks/api/monitor/validate.py` - `validate()` function (matches CLI: `wksc monitor validate`, MCP: `wksm_monitor_validate`)
-  - `wks/api/monitor/list.py` - `list()` function (matches CLI: `wksc monitor <list>/list`, MCP: `wksm_monitor_list`)
-  - `wks/api/monitor/add.py` - `add()` function (matches CLI: `wksc monitor <list>/add`, MCP: `wksm_monitor_add`)
-  - `wks/api/monitor/remove.py` - `remove()` function (matches CLI: `wksc monitor <list>/remove`, MCP: `wksm_monitor_remove`)
-  - `wks/api/monitor/managed_list.py` - `managed_list()` function (matches CLI: `wksc monitor managed/list`, MCP: `wksm_monitor_managed_list`)
-  - `wks/api/monitor/managed_add.py` - `managed_add()` function (matches CLI: `wksc monitor managed/add`, MCP: `wksm_monitor_managed_add`)
-  - `wks/api/monitor/managed_remove.py` - `managed_remove()` function (matches CLI: `wksc monitor managed/remove`, MCP: `wksm_monitor_managed_remove`)
-  - `wks/api/monitor/managed_set_priority.py` - `managed_set_priority()` function (matches CLI: `wksc monitor managed/set-priority`, MCP: `wksm_monitor_managed_set_priority`)
+  - `wks/api/monitor/status.py` - `status()` (CLI: `wksc monitor status`, MCP: `wksm_monitor_status`)
+  - `wks/api/monitor/check.py` - `check()` (CLI: `wksc monitor check`, MCP: `wksm_monitor_check`)
+  - `wks/api/monitor/sync.py` - `sync()` (CLI: `wksc monitor sync`, MCP: `wksm_monitor_sync`)
+  - `wks/api/monitor/filter_show.py` - `filter_show()` (CLI: `wksc monitor filter show`, MCP: `wksm_monitor_filter_show`)
+  - `wks/api/monitor/filter_add.py` - `filter_add()` (CLI: `wksc monitor filter add`, MCP: `wksm_monitor_filter_add`)
+  - `wks/api/monitor/filter_remove.py` - `filter_remove()` (CLI: `wksc monitor filter remove`, MCP: `wksm_monitor_filter_remove`)
+  - `wks/api/monitor/priority_show.py` - `priority_show()` (CLI: `wksc monitor priority show`, MCP: `wksm_monitor_priority_show`)
+  - `wks/api/monitor/priority_add.py` - `priority_add()` (CLI: `wksc monitor priority add`, MCP: `wksm_monitor_priority_add`)
+  - `wks/api/monitor/priority_remove.py` - `priority_remove()` (CLI: `wksc monitor priority remove`, MCP: `wksm_monitor_priority_remove`)
   - `wks/api/monitor/config.py` - `MonitorConfig` Pydantic model
   - `wks/api/monitor/models.py` - Status/Validation result models
   - `wks/api/monitor/app.py` - Typer app that imports and registers all functions
@@ -74,7 +73,7 @@ This is a multi-phase campaign:
 
 ## Implementation Plan
 
-### Phase 1: Infrastructure Setup
+### Phase 1: Infrastructure Setup (simplified monitor spec)
 
 1. **Add dependencies** (`pyproject.toml`)
    - Add `typer` and `pydantic` to `project.dependencies` list
@@ -104,7 +103,7 @@ This is a multi-phase campaign:
    - Extracts descriptions from Pydantic `Field(..., description="...")` and function docstrings
    - Maps to MCP's inputSchema format correctly
 
-#### Phase 1.2: Migrate Monitor Tools to Function-Based Architecture
+#### Phase 1.2: Migrate Monitor Tools to Function-Based Architecture (filter/priority/sync)
 
 6. **Move shared utilities to `wks/utils/`**
    - Move `canonicalize_path()` from `wks/monitor/operations.py` to `wks/utils/canonicalize_path.py`
@@ -120,16 +119,16 @@ This is a multi-phase campaign:
    - `__init__.py` - Export all functions
    - `config.py` - Move `MonitorConfig` from `wks/monitor/config.py`
    - `models.py` - Move status/validation models from `wks/monitor/status.py`
-   - `cmd_status.py` - Convert `MonitorController.get_status()` to `cmd_status()` function (matches CLI: `wksc monitor status`) - includes validation, exits with error code if issues found
-   - `cmd_check.py` - Convert `MonitorController.check_path()` to `cmd_check()` function (matches CLI: `wksc monitor check`)
-   - `list.py` - Convert `MonitorController.get_list()` to `list()` function (matches CLI: `wksc monitor <list>/list`)
-   - `add.py` - Convert `MonitorOperations.add_to_list()` to `add()` function (matches CLI: `wksc monitor <list>/add`)
-   - `remove.py` - Convert `MonitorOperations.remove_from_list()` to `remove()` function (matches CLI: `wksc monitor <list>/remove`)
-   - `managed_list.py` - Convert `MonitorController.get_managed_directories()` to `managed_list()` function (matches CLI: `wksc monitor managed/list`)
-   - `managed_add.py` - Convert `MonitorOperations.add_managed_directory()` to `managed_add()` function (matches CLI: `wksc monitor managed/add`)
-   - `managed_remove.py` - Convert `MonitorOperations.remove_managed_directory()` to `managed_remove()` function (matches CLI: `wksc monitor managed/remove`)
-   - `managed_set_priority.py` - Convert `MonitorOperations.set_managed_priority()` to `managed_set_priority()` function (matches CLI: `wksc monitor managed/set-priority`)
-   - `app.py` - Create Typer app, import all functions, and register all commands
+   - `cmd_status.py` - `status()` (CLI/MCP)
+   - `cmd_check.py` - `check()` (CLI/MCP)
+   - `cmd_sync.py` - `sync()` (CLI/MCP)
+   - `cmd_show.py` / `filter_show()` for filter lists (with optional list_name)
+   - `cmd_add.py` / `filter_add()` for filter lists
+   - `cmd_remove.py` / `filter_remove()` for filter lists
+   - `cmd_managed_list.py` / `priority_show()` for managed dirs
+   - `cmd_managed_set_priority.py` / `priority_add()` for upserting managed dirs
+   - `cmd_managed_remove.py` / `priority_remove()` for removing managed dirs
+   - `app.py` - Create Typer app, import all functions, and register all commands (filter/priority subcommands)
 
 7. **Convert classes to functions (one function per file)**
    - Replace `MonitorController.get_status()` → `wks.api.monitor.cmd_status.cmd_status()` (includes validation, exits with error code if issues found)
