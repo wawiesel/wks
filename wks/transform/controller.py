@@ -105,64 +105,64 @@ class TransformController:
             {"$set": {"last_accessed": now_iso()}},
         )
 
-    def transform(
-        self,
-        file_path: Path,
-        engine_name: str,
-        options: dict[str, Any] | None = None,
-        output_path: Path | None = None,
+    def _handle_cached_transform(
+        self, cached: TransformRecord, file_checksum: str, engine_name: str, options_hash: str, output_path: Path | None
     ) -> str:
-        """Transform file using specified engine.
+        """Handle transform when result is already cached.
 
         Args:
-            file_path: Path to file to transform
-            engine_name: Transform engine name (e.g., "docling")
-            options: Engine-specific options (or None for defaults)
-            output_path: Optional output file path
+            cached: Cached transform record
+            file_checksum: File checksum
+            engine_name: Engine name
+            options_hash: Options hash
+            output_path: Optional output path
 
         Returns:
-            Cache key checksum
+            Cache key
+        """
+        # Update last accessed
+        self._update_last_accessed(file_checksum, engine_name, options_hash)
+
+        # Copy to output if requested
+        if output_path:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path = Path(cached.cache_location)
+            if cache_path.exists():
+                output_path.write_bytes(cache_path.read_bytes())
+
+        return self._compute_cache_key(file_checksum, engine_name, options_hash)
+
+    def _perform_new_transform(
+        self,
+        file_path: Path,
+        file_uri: str,
+        file_checksum: str,
+        file_size: int,
+        engine_name: str,
+        engine: Any,
+        options: dict[str, Any],
+        options_hash: str,
+        output_path: Path | None,
+    ) -> str:
+        """Perform a new transform (not cached).
+
+        Args:
+            file_path: Path to file
+            file_uri: File URI
+            file_checksum: File checksum
+            file_size: File size in bytes
+            engine_name: Engine name
+            engine: Engine instance
+            options: Engine options
+            options_hash: Options hash
+            output_path: Optional output path
+
+        Returns:
+            Cache key
 
         Raises:
-            ValueError: If file doesn't exist or engine not found
-            RuntimeError: If transform fails
+            RuntimeError: If transform fails to create cache file
         """
-        file_path = file_path.resolve()
-
-        if not file_path.exists() or not file_path.is_file():
-            raise ValueError(f"File not found: {file_path}")
-
-        # Get engine
-        engine = get_engine(engine_name)
-        if not engine:
-            raise ValueError(f"Unknown engine: {engine_name}")
-
-        # Get file info
-        file_uri = f"file://{file_path}"
-        file_checksum = self._compute_file_checksum(file_path)
-        file_size = file_path.stat().st_size
-
-        # Get options and compute hash
-        options = options or {}
-        options_hash = engine.compute_options_hash(options)
-
-        # Check if already cached
-        cached = self._find_cached_transform(file_checksum, engine_name, options_hash)
-
-        if cached:
-            # Update last accessed
-            self._update_last_accessed(file_checksum, engine_name, options_hash)
-
-            # Copy to output if requested
-            if output_path:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                cache_path = Path(cached.cache_location)
-                if cache_path.exists():
-                    output_path.write_bytes(cache_path.read_bytes())
-
-            return self._compute_cache_key(file_checksum, engine_name, options_hash)
-
-        # Not cached - need to transform
         cache_key = self._compute_cache_key(file_checksum, engine_name, options_hash)
         extension = engine.get_extension(options)
         cache_location = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
@@ -209,6 +209,58 @@ class TransformController:
             output_path.write_bytes(cache_location.read_bytes())
 
         return cache_key
+
+    def transform(
+        self,
+        file_path: Path,
+        engine_name: str,
+        options: dict[str, Any] | None = None,
+        output_path: Path | None = None,
+    ) -> str:
+        """Transform file using specified engine.
+
+        Args:
+            file_path: Path to file to transform
+            engine_name: Transform engine name (e.g., "docling")
+            options: Engine-specific options (or None for defaults)
+            output_path: Optional output file path
+
+        Returns:
+            Cache key checksum
+
+        Raises:
+            ValueError: If file doesn't exist or engine not found
+            RuntimeError: If transform fails
+        """
+        file_path = file_path.resolve()
+
+        if not file_path.exists() or not file_path.is_file():
+            raise ValueError(f"File not found: {file_path}")
+
+        # Get engine
+        engine = get_engine(engine_name)
+        if not engine:
+            raise ValueError(f"Unknown engine: {engine_name}")
+
+        # Get file info
+        file_uri = f"file://{file_path}"
+        file_checksum = self._compute_file_checksum(file_path)
+        file_size = file_path.stat().st_size
+
+        # Get options and compute hash
+        options = options or {}
+        options_hash = engine.compute_options_hash(options)
+
+        # Check if already cached
+        cached = self._find_cached_transform(file_checksum, engine_name, options_hash)
+
+        if cached:
+            return self._handle_cached_transform(cached, file_checksum, engine_name, options_hash, output_path)
+
+        # Not cached - need to transform
+        return self._perform_new_transform(
+            file_path, file_uri, file_checksum, file_size, engine_name, engine, options, options_hash, output_path
+        )
 
     def remove_by_uri(self, file_uri: str) -> int:
         """Remove all transforms for a file URI.
