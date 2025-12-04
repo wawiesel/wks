@@ -55,7 +55,7 @@ def test_cli_config(mock_call):
         "data": {"mongo": {"uri": "mongodb://localhost"}},
         "messages": [],
     }
-    rc, out, err = run_cli(["config"])
+    rc, _out, _err = run_cli(["config"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_config")
 
@@ -64,7 +64,7 @@ def test_cli_config(mock_call):
 def test_cli_transform_file_not_found(mock_call, tmp_path):
     """Test wksc transform with non-existent file returns 2."""
     nonexistent = tmp_path / "nonexistent.pdf"
-    rc, out, err = run_cli(["transform", "docling", str(nonexistent)])
+    rc, _out, err = run_cli(["transform", "docling", str(nonexistent)])
     assert rc == 2
     assert "File not found" in err
     mock_call.assert_not_called()
@@ -77,7 +77,7 @@ def test_cli_transform_success(mock_call, tmp_path):
     test_file.write_bytes(b"PDF content")
     mock_call.return_value = {"success": True, "data": {"checksum": "abc123"}, "messages": []}
 
-    rc, out, err = run_cli(["transform", "docling", str(test_file)])
+    rc, out, _err = run_cli(["transform", "docling", str(test_file)])
     assert rc == 0
     assert "abc123" in out
     mock_call.assert_called_once()
@@ -93,7 +93,7 @@ def test_cli_transform_error(mock_call, tmp_path):
         "messages": [{"type": "error", "text": "Transform failed"}],
     }
 
-    rc, out, err = run_cli(["transform", "docling", str(test_file)])
+    rc, _out, err = run_cli(["transform", "docling", str(test_file)])
     assert rc == 1
     assert "error:" in err.lower() or "Transform failed" in err
 
@@ -102,7 +102,7 @@ def test_cli_transform_error(mock_call, tmp_path):
 def test_cli_cat_success(mock_call):
     """Test wksc cat success."""
     mock_call.return_value = {"success": True, "data": {"content": "file content"}, "messages": []}
-    rc, out, err = run_cli(["cat", "checksum123"])
+    rc, out, _err = run_cli(["cat", "checksum123"])
     assert rc == 0
     assert "file content" in out
     mock_call.assert_called_once_with("wksm_cat", {"target": "checksum123"})
@@ -113,7 +113,7 @@ def test_cli_cat_with_output(mock_call, tmp_path):
     """Test wksc cat with --output flag."""
     output_file = tmp_path / "output.md"
     mock_call.return_value = {"success": True, "data": {"content": "file content"}, "messages": []}
-    rc, out, err = run_cli(["cat", "checksum123", "--output", str(output_file)])
+    rc, _out, err = run_cli(["cat", "checksum123", "--output", str(output_file)])
     assert rc == 0
     assert "Saved to" in err
     assert output_file.read_text() == "file content"
@@ -126,7 +126,7 @@ def test_cli_cat_error(mock_call):
         "success": False,
         "messages": [{"type": "error", "text": "Not found"}],
     }
-    rc, out, err = run_cli(["cat", "bad_checksum"])
+    rc, _out, err = run_cli(["cat", "bad_checksum"])
     assert rc == 1
     assert "error:" in err.lower() or "Not found" in err
 
@@ -135,7 +135,7 @@ def test_cli_cat_error(mock_call):
 def test_cli_diff_success(mock_call):
     """Test wksc diff success."""
     mock_call.return_value = {"success": True, "data": {"diff": "diff output"}, "messages": []}
-    rc, out, err = run_cli(["diff", "unified", "file1", "file2"])
+    rc, out, _err = run_cli(["diff", "unified", "file1", "file2"])
     assert rc == 0
     assert "diff output" in out
     mock_call.assert_called_once_with("wksm_diff", {"engine": "unified", "target_a": "file1", "target_b": "file2"})
@@ -148,7 +148,7 @@ def test_cli_diff_error(mock_call):
         "success": False,
         "messages": [{"type": "error", "text": "Diff failed"}],
     }
-    rc, out, err = run_cli(["diff", "unified", "file1", "file2"])
+    rc, _out, err = run_cli(["diff", "unified", "file1", "file2"])
     assert rc == 1
     assert "error:" in err.lower() or "Diff failed" in err
 
@@ -157,7 +157,7 @@ def test_cli_diff_error(mock_call):
 def test_cli_monitor_status(mock_call):
     """Test wksc monitor status."""
     mock_call.return_value = {"success": True, "data": {"status": "ok"}, "messages": []}
-    rc, out, err = run_cli(["monitor", "status"])
+    rc, _out, _err = run_cli(["monitor", "status"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_status")
 
@@ -166,7 +166,7 @@ def test_cli_monitor_status(mock_call):
 def test_cli_monitor_check(mock_call):
     """Test wksc monitor check."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["monitor", "check", "/some/path"])
+    rc, _out, _err = run_cli(["monitor", "check", "/some/path"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_check", {"path": "/some/path"})
 
@@ -175,7 +175,7 @@ def test_cli_monitor_check(mock_call):
 def test_cli_monitor_validate_with_issues(mock_call):
     """Test wksc monitor validate with issues returns 1."""
     mock_call.return_value = {"success": True, "issues": ["issue1"], "messages": []}
-    rc, out, err = run_cli(["monitor", "validate"])
+    rc, _out, _err = run_cli(["monitor", "validate"])
     assert rc == 1
     mock_call.assert_called_once_with("wksm_monitor_validate")
 
@@ -184,7 +184,7 @@ def test_cli_monitor_validate_with_issues(mock_call):
 def test_cli_monitor_validate_no_issues(mock_call):
     """Test wksc monitor validate with no issues returns 0."""
     mock_call.return_value = {"success": True, "issues": [], "messages": []}
-    rc, out, err = run_cli(["monitor", "validate"])
+    rc, _out, _err = run_cli(["monitor", "validate"])
     assert rc == 0
 
 
@@ -201,7 +201,7 @@ def test_cli_monitor_list_operations(mock_call):
         "include_globs",
         "exclude_globs",
     ]:
-        rc, out, err = run_cli(["monitor", list_name, "list"])
+        rc, _out, _err = run_cli(["monitor", list_name, "list"])
         assert rc == 0
         mock_call.assert_called_once_with("wksm_monitor_list", {"list_name": list_name})
         mock_call.reset_mock()
@@ -211,7 +211,7 @@ def test_cli_monitor_list_operations(mock_call):
 def test_cli_monitor_add(mock_call):
     """Test wksc monitor add operations."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, out, err = run_cli(["monitor", "include_paths", "add", "/path"])
+    rc, _out, _err = run_cli(["monitor", "include_paths", "add", "/path"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_add", {"list_name": "include_paths", "value": "/path"})
 
@@ -220,7 +220,7 @@ def test_cli_monitor_add(mock_call):
 def test_cli_monitor_remove(mock_call):
     """Test wksc monitor remove operations."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, out, err = run_cli(["monitor", "include_paths", "remove", "/path"])
+    rc, _out, _err = run_cli(["monitor", "include_paths", "remove", "/path"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_remove", {"list_name": "include_paths", "value": "/path"})
 
@@ -229,7 +229,7 @@ def test_cli_monitor_remove(mock_call):
 def test_cli_monitor_managed_list(mock_call):
     """Test wksc monitor managed list."""
     mock_call.return_value = {"success": True, "data": {"items": []}, "messages": []}
-    rc, out, err = run_cli(["monitor", "managed", "list"])
+    rc, _out, _err = run_cli(["monitor", "managed", "list"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_managed_list")
 
@@ -238,7 +238,7 @@ def test_cli_monitor_managed_list(mock_call):
 def test_cli_monitor_managed_add(mock_call):
     """Test wksc monitor managed add."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, out, err = run_cli(["monitor", "managed", "add", "/path", "5"])
+    rc, _out, _err = run_cli(["monitor", "managed", "add", "/path", "5"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_managed_add", {"path": "/path", "priority": 5})
 
@@ -247,7 +247,7 @@ def test_cli_monitor_managed_add(mock_call):
 def test_cli_monitor_managed_remove(mock_call):
     """Test wksc monitor managed remove."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, out, err = run_cli(["monitor", "managed", "remove", "/path"])
+    rc, _out, _err = run_cli(["monitor", "managed", "remove", "/path"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_managed_remove", {"path": "/path"})
 
@@ -256,7 +256,7 @@ def test_cli_monitor_managed_remove(mock_call):
 def test_cli_monitor_managed_set_priority(mock_call):
     """Test wksc monitor managed set-priority."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, out, err = run_cli(["monitor", "managed", "set-priority", "/path", "10"])
+    rc, _out, _err = run_cli(["monitor", "managed", "set-priority", "/path", "10"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_managed_set_priority", {"path": "/path", "priority": 10})
 
@@ -265,7 +265,7 @@ def test_cli_monitor_managed_set_priority(mock_call):
 def test_cli_vault_status(mock_call):
     """Test wksc vault status."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["vault", "status"])
+    rc, _out, _err = run_cli(["vault", "status"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_status")
 
@@ -274,7 +274,7 @@ def test_cli_vault_status(mock_call):
 def test_cli_vault_sync(mock_call):
     """Test wksc vault sync."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["vault", "sync"])
+    rc, _out, _err = run_cli(["vault", "sync"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_sync", {"batch_size": 1000})
 
@@ -283,7 +283,7 @@ def test_cli_vault_sync(mock_call):
 def test_cli_vault_sync_with_batch_size(mock_call):
     """Test wksc vault sync with --batch-size."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["vault", "sync", "--batch-size", "500"])
+    rc, _out, _err = run_cli(["vault", "sync", "--batch-size", "500"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_sync", {"batch_size": 500})
 
@@ -292,7 +292,7 @@ def test_cli_vault_sync_with_batch_size(mock_call):
 def test_cli_vault_validate(mock_call):
     """Test wksc vault validate."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["vault", "validate"])
+    rc, _out, _err = run_cli(["vault", "validate"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_validate")
 
@@ -301,7 +301,7 @@ def test_cli_vault_validate(mock_call):
 def test_cli_vault_fix_symlinks(mock_call):
     """Test wksc vault fix-symlinks."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["vault", "fix-symlinks"])
+    rc, _out, _err = run_cli(["vault", "fix-symlinks"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_fix_symlinks")
 
@@ -310,7 +310,7 @@ def test_cli_vault_fix_symlinks(mock_call):
 def test_cli_vault_links(mock_call):
     """Test wksc vault links."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["vault", "links", "/path/to/file.md"])
+    rc, _out, _err = run_cli(["vault", "links", "/path/to/file.md"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_links", {"file_path": "/path/to/file.md", "direction": "both"})
 
@@ -319,7 +319,7 @@ def test_cli_vault_links(mock_call):
 def test_cli_vault_links_with_direction(mock_call):
     """Test wksc vault links with --direction."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, out, err = run_cli(["vault", "links", "/path/to/file.md", "--direction", "to"])
+    rc, _out, _err = run_cli(["vault", "links", "/path/to/file.md", "--direction", "to"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_links", {"file_path": "/path/to/file.md", "direction": "to"})
 
@@ -365,7 +365,7 @@ def test_cli_keyboard_interrupt(mock_call):
     mock_call.side_effect = KeyboardInterrupt()
 
     # Use a real command that will trigger _call
-    rc, out, err = run_cli(["config"])
+    rc, _out, _err = run_cli(["config"])
     assert rc == 130
 
 
@@ -376,7 +376,7 @@ def test_cli_exception_handling(mock_call):
 
     err_buf = io.StringIO()
     with redirect_stderr(err_buf):
-        rc, out, err = run_cli(["config"])
+        rc, _out, err = run_cli(["config"])
 
     assert rc == 1
     assert "Error:" in err
@@ -412,7 +412,7 @@ def test_cli_mcp_run_with_proxy(mock_socket_path, mock_proxy, tmp_path):
     mock_socket_path.return_value = tmp_path / "socket"
     mock_proxy.return_value = True  # Proxy succeeds
 
-    rc, out, err = run_cli(["mcp", "run"])
+    rc, _out, _err = run_cli(["mcp", "run"])
     assert rc == 0
     mock_proxy.assert_called_once()
 
@@ -423,7 +423,7 @@ def test_cli_mcp_run_direct(mock_mcp_main, mock_proxy):
     """Test wksc mcp run --direct bypasses proxy."""
     mock_proxy.return_value = False
 
-    rc, out, err = run_cli(["mcp", "run", "--direct"])
+    rc, _out, _err = run_cli(["mcp", "run", "--direct"])
     assert rc == 0
     mock_mcp_main.assert_called_once()
     # Proxy should not be called when --direct
@@ -437,7 +437,7 @@ def test_cli_mcp_install(mock_install):
 
     mock_install.return_value = [InstallResult("cursor", Path("/path/to/cursor"), "created", "Registered MCP server")]
 
-    rc, out, err = run_cli(["mcp", "install", "--client", "cursor"])
+    rc, out, _err = run_cli(["mcp", "install", "--client", "cursor"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor"], command_override=None)
     assert "[cursor]" in out or "[CURSOR]" in out.upper()
@@ -452,7 +452,7 @@ def test_cli_mcp_install_with_command_path(mock_install):
         InstallResult("cursor", Path("/path/to/cursor"), "updated", "Updated MCP server entry")
     ]
 
-    rc, out, err = run_cli(["mcp", "install", "--client", "cursor", "--command-path", "/custom/path"])
+    rc, _out, _err = run_cli(["mcp", "install", "--client", "cursor", "--command-path", "/custom/path"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor"], command_override="/custom/path")
 
@@ -467,6 +467,6 @@ def test_cli_mcp_install_multiple_clients(mock_install):
         InstallResult("claude", Path("/path/to/claude"), "updated", ""),
     ]
 
-    rc, out, err = run_cli(["mcp", "install", "--client", "cursor", "--client", "claude"])
+    rc, _out, _err = run_cli(["mcp", "install", "--client", "cursor", "--client", "claude"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor", "claude"], command_override=None)

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-__all__ = ["VaultConfigError", "VaultConfig"]
+__all__ = ["VaultConfig", "VaultConfigError"]
 
 from dataclasses import dataclass
-from typing import List
 
 
 class VaultConfigError(Exception):
     """Raised when vault configuration is invalid."""
 
-    def __init__(self, errors: List[str]):
+    def __init__(self, errors: list[str]):
         if isinstance(errors, str):
             errors = [errors]
         self.errors = errors
@@ -29,7 +28,7 @@ class VaultConfig:
     update_frequency_seconds: float
     database: str
 
-    def _validate_required_fields(self) -> List[str]:
+    def _validate_required_fields(self) -> list[str]:
         """Validate that required fields are present and correct types."""
         errors = []
 
@@ -55,7 +54,7 @@ class VaultConfig:
 
         return errors
 
-    def _validate_database_format(self) -> List[str]:
+    def _validate_database_format(self) -> list[str]:
         """Validate database string is in 'database.collection' format."""
         errors = []
 
@@ -72,7 +71,7 @@ class VaultConfig:
 
         return errors
 
-    def _validate_vault_type(self) -> List[str]:
+    def _validate_vault_type(self) -> list[str]:
         """Validate vault type is supported."""
         errors = []
 
@@ -96,7 +95,7 @@ class VaultConfig:
             raise VaultConfigError(errors)
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> "VaultConfig":
+    def from_config_dict(cls, config: dict) -> VaultConfig:
         """Load vault config from config dict.
 
         Raises:

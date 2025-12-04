@@ -11,7 +11,6 @@ import logging
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Set
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +19,10 @@ logger = logging.getLogger(__name__)
 class VaultChanges:
     """Changed files detected in vault repository."""
 
-    modified: List[Path] = field(default_factory=list)
-    added: List[Path] = field(default_factory=list)
-    deleted: List[Path] = field(default_factory=list)
-    renamed: List[tuple[Path, Path]] = field(default_factory=list)
+    modified: list[Path] = field(default_factory=list)
+    added: list[Path] = field(default_factory=list)
+    deleted: list[Path] = field(default_factory=list)
+    renamed: list[tuple[Path, Path]] = field(default_factory=list)
 
     @property
     def has_changes(self) -> bool:
@@ -31,7 +30,7 @@ class VaultChanges:
         return bool(self.modified or self.added or self.deleted or self.renamed)
 
     @property
-    def all_affected_files(self) -> Set[Path]:
+    def all_affected_files(self) -> set[Path]:
         """Get all files affected by changes (for scanning)."""
         files = set()
         files.update(self.modified)

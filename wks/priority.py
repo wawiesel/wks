@@ -1,10 +1,9 @@
 """Priority calculation for file importance scoring."""
 
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 
-def find_managed_directory(path: Path, managed_dirs: Dict[str, int]) -> Tuple[Optional[Path], int]:
+def find_managed_directory(path: Path, managed_dirs: dict[str, int]) -> tuple[Path | None, int]:
     """Find the deepest matching managed directory for a path.
 
     Args:
@@ -22,7 +21,7 @@ def find_managed_directory(path: Path, managed_dirs: Dict[str, int]) -> Tuple[Op
     resolved_managed = {Path(k).expanduser().resolve(): v for k, v in managed_dirs.items()}
 
     # Find all ancestors of the path
-    ancestors = [path] + list(path.parents)
+    ancestors = [path, *list(path.parents)]
 
     # Find deepest (most specific) match
     best_match = None
@@ -80,7 +79,7 @@ def calculate_underscore_penalty(name: str) -> float:
     return 1.0 / (2**underscore_count)
 
 
-def calculate_priority(path: Path, managed_dirs: Dict[str, int], priority_config: Dict) -> int:
+def calculate_priority(path: Path, managed_dirs: dict[str, int], priority_config: dict) -> int:
     """Calculate priority score for a file.
 
     Algorithm:

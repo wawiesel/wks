@@ -41,7 +41,7 @@ class TestCLIMainEntryPoint:
 
         # Manually trigger the exit logic
         if hasattr(cli_main, "main"):
-            exit_code = cli_main.main()
+            cli_main.main()
             mock_exit.assert_not_called()  # sys.exit is only called in actual execution
         else:
             # If main is imported from parent, test that way

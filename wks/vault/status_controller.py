@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-__all__ = ["VaultIssue", "VaultStatusSummary", "VaultStatusController"]
+__all__ = ["VaultIssue", "VaultStatusController", "VaultStatusSummary"]
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any
 
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -33,7 +34,7 @@ class VaultIssue:
     status: str
     source_heading: str
     raw_line: str
-    last_updated: Optional[str]
+    last_updated: str | None
 
 
 @dataclass
@@ -46,13 +47,13 @@ class VaultStatusSummary:
     external_urls: int
     embeds: int
     wiki_links: int
-    last_sync: Optional[str]
+    last_sync: str | None
     notes_scanned: int
-    scan_duration_ms: Optional[int]
-    issues: List[VaultIssue]
-    errors: List[str]
+    scan_duration_ms: int | None
+    issues: list[VaultIssue]
+    errors: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["issues"] = [asdict(issue) for issue in self.issues]
         return data
@@ -61,7 +62,7 @@ class VaultStatusSummary:
 class VaultStatusController:
     """Read vault link metadata and summarize health."""
 
-    def __init__(self, cfg: Optional[Dict[str, Any]] = None):
+    def __init__(self, cfg: dict[str, Any] | None = None):  # noqa: ARG002
         try:
             config = WKSConfig.load()
             self.mongo_uri = config.mongo.uri
@@ -87,7 +88,7 @@ class VaultStatusController:
         finally:
             client.close()
 
-    def _fetch_or_aggregate_status_counts(self, collection, meta: Dict[str, Any]) -> Dict[str, int]:
+    def _fetch_or_aggregate_status_counts(self, collection, meta: dict[str, Any]) -> dict[str, int]:
         """Fetch status counts from metadata or aggregate from collection."""
         status_counts = meta.get("status_counts")
         if not status_counts:
@@ -102,7 +103,7 @@ class VaultStatusController:
             }
         return status_counts
 
-    def _fetch_or_aggregate_type_counts(self, collection, meta: Dict[str, Any]) -> Dict[str, int]:
+    def _fetch_or_aggregate_type_counts(self, collection, meta: dict[str, Any]) -> dict[str, int]:
         """Fetch type counts from metadata or aggregate from collection."""
         type_counts = meta.get("type_counts")
         if not type_counts:
@@ -117,7 +118,7 @@ class VaultStatusController:
             }
         return type_counts
 
-    def _fetch_issues(self, collection, limit: int = 10) -> List[VaultIssue]:
+    def _fetch_issues(self, collection, limit: int = 10) -> list[VaultIssue]:
         """Fetch recent non-ok link issues from collection."""
         issues_cursor = (
             collection.find(

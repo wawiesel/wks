@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
 
-MCP_CONFIG_TARGETS: Dict[str, Path] = {
+MCP_CONFIG_TARGETS: dict[str, Path] = {
     "cursor": Path.home() / ".cursor" / "mcp.json",
     "claude": Path.home() / "Library" / "Application Support" / "Claude" / "mcp.json",
     "gemini": Path.home() / ".config" / "gemini" / "mcp.json",
@@ -26,7 +26,7 @@ class InstallResult:
     message: str = ""
 
 
-def _resolve_command(command_override: Optional[str]) -> tuple[str, List[str]]:
+def _resolve_command(command_override: str | None) -> tuple[str, list[str]]:
     """Determine the command and args that should launch the MCP server."""
     if command_override:
         cmd_path = Path(command_override).expanduser()
@@ -40,7 +40,7 @@ def _resolve_command(command_override: Optional[str]) -> tuple[str, List[str]]:
     return sys.executable, ["-m", "wks.cli", "mcp", "run"]
 
 
-def _load_config(path: Path) -> tuple[dict, bool, Optional[str]]:
+def _load_config(path: Path) -> tuple[dict, bool, str | None]:
     """Load an MCP config file, backing up invalid JSON if needed."""
     if not path.exists():
         return {}, False, None
@@ -64,7 +64,7 @@ def _write_config(path: Path, data: dict) -> None:
         fh.write("\n")
 
 
-def _register_server(target: Path, command: str, args: List[str]) -> InstallResult:
+def _register_server(target: Path, command: str, args: list[str]) -> InstallResult:
     data, existed, backup_path = _load_config(target)
     servers = data.setdefault("mcpServers", {})
     if not isinstance(servers, dict):
@@ -88,10 +88,10 @@ def _register_server(target: Path, command: str, args: List[str]) -> InstallResu
 
 def install_mcp_configs(
     *,
-    clients: Optional[Iterable[str]] = None,
-    command_override: Optional[str] = None,
-    targets: Optional[Dict[str, Path]] = None,
-) -> List[InstallResult]:
+    clients: Iterable[str] | None = None,
+    command_override: str | None = None,
+    targets: dict[str, Path] | None = None,
+) -> list[InstallResult]:
     """Ensure the WKS MCP server is registered for each requested client."""
     available = targets or MCP_CONFIG_TARGETS
     selected = list(clients) if clients else list(available.keys())
@@ -100,7 +100,7 @@ def install_mcp_configs(
         raise ValueError(f"Unknown MCP client(s): {', '.join(missing)}")
 
     command, args = _resolve_command(command_override)
-    results: List[InstallResult] = []
+    results: list[InstallResult] = []
 
     for client in selected:
         path = available[client]
@@ -122,4 +122,4 @@ def install_mcp_configs(
     return results
 
 
-__all__ = ["install_mcp_configs", "InstallResult", "MCP_CONFIG_TARGETS"]
+__all__ = ["MCP_CONFIG_TARGETS", "InstallResult", "install_mcp_configs"]

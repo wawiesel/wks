@@ -1,13 +1,13 @@
 """Monitor configuration dataclass with validation."""
 
 from dataclasses import dataclass, field, fields
-from typing import Any, Dict, List
+from typing import Any
 
 
 class ValidationError(Exception):
     """Exception that collects multiple validation errors."""
 
-    def __init__(self, errors: List[str]):
+    def __init__(self, errors: list[str]):
         self.errors = errors
         message = "Validation failed with multiple errors:\n" + "\n".join(f"  - {e}" for e in errors)
         super().__init__(message)
@@ -17,20 +17,20 @@ class ValidationError(Exception):
 class MonitorConfig:
     """Monitor configuration loaded from config dict with validation."""
 
-    include_paths: List[str]
-    exclude_paths: List[str]
-    include_dirnames: List[str]
-    exclude_dirnames: List[str]
-    include_globs: List[str]
-    exclude_globs: List[str]
+    include_paths: list[str]
+    exclude_paths: list[str]
+    include_dirnames: list[str]
+    exclude_dirnames: list[str]
+    include_globs: list[str]
+    exclude_globs: list[str]
     database: str
-    managed_directories: Dict[str, int]
+    managed_directories: dict[str, int]
     touch_weight: float = 0.1
-    priority: Dict[str, Any] = field(default_factory=dict)
+    priority: dict[str, Any] = field(default_factory=dict)
     max_documents: int = 1000000
     prune_interval_secs: float = 300.0
 
-    def _validate_list_fields(self) -> List[str]:
+    def _validate_list_fields(self) -> list[str]:
         """Validate that all list fields are actually lists."""
         errors = []
 
@@ -71,7 +71,7 @@ class MonitorConfig:
 
         return errors
 
-    def _validate_database_format(self) -> List[str]:
+    def _validate_database_format(self) -> list[str]:
         """Validate database string is in 'database.collection' format."""
         errors = []
 
@@ -88,7 +88,7 @@ class MonitorConfig:
 
         return errors
 
-    def _validate_numeric_fields(self) -> List[str]:
+    def _validate_numeric_fields(self) -> list[str]:
         """Validate numeric fields are correct types and in valid ranges."""
         errors = []
 
@@ -140,7 +140,7 @@ class MonitorConfig:
         monitor_config = dict(monitor_config)
 
         allowed = {f.name for f in fields(cls)}
-        unsupported = [key for key in monitor_config.keys() if key not in allowed]
+        unsupported = [key for key in monitor_config if key not in allowed]
         if unsupported:
             errors = [
                 (

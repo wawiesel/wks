@@ -3,7 +3,7 @@
 import hashlib
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pymongo.database import Database
 
@@ -59,7 +59,7 @@ class TransformController:
 
     def _find_cached_transform(
         self, file_checksum: str, engine_name: str, options_hash: str
-    ) -> Optional[TransformRecord]:
+    ) -> TransformRecord | None:
         """Find existing cached transform.
 
         Args:
@@ -103,8 +103,8 @@ class TransformController:
         self,
         file_path: Path,
         engine_name: str,
-        options: Optional[Dict[str, Any]] = None,
-        output_path: Optional[Path] = None,
+        options: dict[str, Any] | None = None,
+        output_path: Path | None = None,
     ) -> str:
         """Transform file using specified engine.
 
@@ -233,7 +233,7 @@ class TransformController:
         result = self.db.transform.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
         return result.modified_count
 
-    def get_content(self, target: str, output_path: Optional[Path] = None) -> str:
+    def get_content(self, target: str, output_path: Path | None = None) -> str:
         """Retrieve content for a target (checksum or file path).
 
         Args:
@@ -252,7 +252,7 @@ class TransformController:
 
             # First, prefer the cache directory as the source of truth.
             candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
-            cache_file: Optional[Path] = candidates[0] if candidates else None
+            cache_file: Path | None = candidates[0] if candidates else None
 
             if cache_file is not None and cache_file.exists():
                 if output_path:

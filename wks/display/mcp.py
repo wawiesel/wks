@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import Display
 
@@ -19,7 +19,7 @@ class MCPDisplay(Display):
         self._output_buffer = []  # Collect all outputs
         self._progress_states = {}  # Track progress state by handle
 
-    def _output(self, data: Dict[str, Any]) -> None:
+    def _output(self, data: dict[str, Any]) -> None:
         """Output JSON to stdout."""
         print(json.dumps(data), flush=True)
 
@@ -49,7 +49,7 @@ class MCPDisplay(Display):
         """Output info as JSON."""
         self._output({"type": "info", "message": message, "timestamp": _now_iso()})
 
-    def table(self, data: List[Dict[str, Any]], headers: Optional[List[str]] = None, **kwargs) -> None:
+    def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
         """Output table data as JSON array."""
         output = {"type": "table", "data": data, "timestamp": _now_iso()}
         if headers:
@@ -100,7 +100,7 @@ class MCPDisplay(Display):
         if message:
             self.status(message)
 
-    def tree(self, data: Dict[str, Any], title: str = "", **kwargs) -> None:
+    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:
         """Output tree data as nested JSON."""
         output = {"type": "tree", "data": data, "timestamp": _now_iso()}
         if title:

@@ -10,7 +10,7 @@ All MCP tools return structured MCPResult objects.
 
 import json
 import sys
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, TextIO
 
 from .config import load_config
 from .mcp.result import MCPResult
@@ -26,8 +26,8 @@ class MCPServer:
     def __init__(
         self,
         *,
-        input_stream: Optional[TextIO] = None,
-        output_stream: Optional[TextIO] = None,
+        input_stream: TextIO | None = None,
+        output_stream: TextIO | None = None,
     ):
         """Initialize MCP server."""
         self._input = input_stream or sys.stdin
@@ -298,7 +298,7 @@ class MCPServer:
             }
         ]
 
-    def _read_message(self) -> Optional[Dict[str, Any]]:
+    def _read_message(self) -> dict[str, Any] | None:
         """Read JSON-RPC message supporting newline or Content-Length framing."""
         try:
             while True:
@@ -313,8 +313,8 @@ class MCPServer:
                     self._lsp_mode = True
                     try:
                         length = int(stripped.split(":", 1)[1].strip())
-                    except Exception:
-                        raise ValueError(f"Invalid Content-Length header: {stripped!r}")
+                    except Exception as e:
+                        raise ValueError(f"Invalid Content-Length header: {stripped!r}") from e
                     # Consume the blank line after headers
                     while True:
                         sep = self._input.readline()
@@ -334,7 +334,7 @@ class MCPServer:
             sys.stderr.write(f"Parse error: {e}\n")
             return None
 
-    def _write_message(self, message: Dict[str, Any]) -> None:
+    def _write_message(self, message: dict[str, Any]) -> None:
         """Write JSON-RPC message using negotiated framing."""
         payload = json.dumps(message)
         if self._lsp_mode:
@@ -357,7 +357,7 @@ class MCPServer:
             error["data"] = data
         self._write_message({"jsonrpc": "2.0", "id": request_id, "error": error})
 
-    def _handle_initialize(self, request_id: Any, params: Dict[str, Any]) -> None:
+    def _handle_initialize(self, request_id: Any, params: dict[str, Any]) -> None:
         """Handle initialize request."""
         self._write_response(
             request_id,
@@ -376,7 +376,7 @@ class MCPServer:
         ]
         self._write_response(request_id, {"tools": tools_list})
 
-    def _handle_list_resources(self, request_id: Any, params: Dict[str, Any]) -> None:
+    def _handle_list_resources(self, request_id: Any, params: dict[str, Any]) -> None:
         """Handle resources/list request with a single static page."""
         if request_id is None:
             return
@@ -387,14 +387,14 @@ class MCPServer:
             result["nextCursor"] = None
         self._write_response(request_id, result)
 
-    def _build_tool_registry(self) -> Dict[str, callable]:
+    def _build_tool_registry(self) -> dict[str, callable]:
         """Build registry of tool handlers with parameter validation."""
 
         def _require_params(*param_names: str):
             """Decorator to validate required parameters."""
 
             def decorator(handler: callable) -> callable:
-                def wrapper(config: Dict[str, Any], arguments: Dict[str, Any]) -> Dict[str, Any]:
+                def wrapper(config: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
                     missing = [p for p in param_names if arguments.get(p) is None]
                     if missing:
                         raise ValueError(f"Missing required parameters: {', '.join(missing)}")
@@ -458,7 +458,7 @@ class MCPServer:
             ),
         }
 
-    def _handle_call_tool(self, request_id: Any, params: Dict[str, Any]) -> None:
+    def _handle_call_tool(self, request_id: Any, params: dict[str, Any]) -> None:
         """Handle tools/call request using registry pattern."""
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
@@ -485,7 +485,7 @@ class MCPServer:
         except Exception as e:
             self._write_error(request_id, -32000, f"Tool execution failed: {e}", {"traceback": str(e)})
 
-    def _tool_service(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_service(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wksm_service tool."""
         status = ServiceController.get_status()
         result = MCPResult.success_result(
@@ -494,24 +494,24 @@ class MCPServer:
         )
         return result.to_dict()
 
-    def _tool_monitor_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_monitor_status(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_status tool."""
         status = MonitorController.get_status(config)
         return status.to_dict()
 
-    def _tool_monitor_check(self, config: Dict[str, Any], path: str) -> Dict[str, Any]:
+    def _tool_monitor_check(self, config: dict[str, Any], path: str) -> dict[str, Any]:
         """Execute wks_monitor_check tool."""
         return MonitorController.check_path(config, path)
 
-    def _tool_monitor_validate(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_monitor_validate(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_validate tool."""
         return MonitorController.validate_config(config)
 
-    def _tool_monitor_list(self, config: Dict[str, Any], list_name: str) -> Dict[str, Any]:
+    def _tool_monitor_list(self, config: dict[str, Any], list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
         return MonitorController.get_list(config, list_name)
 
-    def _tool_monitor_add(self, config: Dict[str, Any], list_name: str, value: str) -> Dict[str, Any]:
+    def _tool_monitor_add(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_add tool."""
         from .config import get_config_path
 
@@ -537,7 +537,7 @@ class MCPServer:
 
         return result
 
-    def _tool_monitor_remove(self, config: Dict[str, Any], list_name: str, value: str) -> Dict[str, Any]:
+    def _tool_monitor_remove(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_remove tool."""
         from .config import get_config_path
 
@@ -563,11 +563,11 @@ class MCPServer:
 
         return result
 
-    def _tool_monitor_managed_list(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_monitor_managed_list(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_managed_list tool."""
         return MonitorController.get_managed_directories(config)
 
-    def _tool_monitor_managed_add(self, config: Dict[str, Any], path: str, priority: int) -> Dict[str, Any]:
+    def _tool_monitor_managed_add(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:
         """Execute wks_monitor_managed_add tool."""
         from .config import get_config_path
 
@@ -590,7 +590,7 @@ class MCPServer:
 
         return result
 
-    def _tool_monitor_managed_remove(self, config: Dict[str, Any], path: str) -> Dict[str, Any]:
+    def _tool_monitor_managed_remove(self, config: dict[str, Any], path: str) -> dict[str, Any]:
         """Execute wks_monitor_managed_remove tool."""
         from .config import get_config_path
 
@@ -613,7 +613,7 @@ class MCPServer:
 
         return result
 
-    def _tool_monitor_managed_set_priority(self, config: Dict[str, Any], path: str, priority: int) -> Dict[str, Any]:
+    def _tool_monitor_managed_set_priority(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:
         """Execute wks_monitor_managed_set_priority tool."""
         from .config import get_config_path
 
@@ -636,17 +636,17 @@ class MCPServer:
 
         return result
 
-    def _tool_vault_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_vault_status(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_status tool."""
         controller = VaultStatusController(config)
         summary = controller.summarize()
         return summary.to_dict()
 
-    def _tool_vault_sync(self, config: Dict[str, Any], batch_size: int) -> Dict[str, Any]:
+    def _tool_vault_sync(self, config: dict[str, Any], batch_size: int) -> dict[str, Any]:
         """Execute wks_vault_sync tool."""
         return VaultController.sync_vault(config, batch_size)
 
-    def _tool_vault_links(self, config: Dict[str, Any], file_path: str, direction: str = "both") -> Dict[str, Any]:
+    def _tool_vault_links(self, config: dict[str, Any], file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
         from .db_helpers import connect_to_mongo, get_vault_db_config
         from .uri_utils import convert_to_uri
@@ -680,10 +680,7 @@ class MCPServer:
         target_uri = convert_to_uri(file_path_expanded, vault_path)
 
         # Also get version without .md extension for fallback matching
-        if target_uri.endswith(".md"):
-            target_uri_no_ext = target_uri[:-3]
-        else:
-            target_uri_no_ext = target_uri
+        target_uri_no_ext = target_uri[:-3] if target_uri.endswith(".md") else target_uri
 
         # Connect to database
         uri, db_name, coll_name = get_vault_db_config(config)
@@ -748,15 +745,15 @@ class MCPServer:
                 if request_id is not None:
                     self._write_error(request_id, -32601, f"Method not found: {method}")
 
-    def _tool_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wksm_config tool."""
         result = MCPResult(success=True, data=config)
         result.add_success("Configuration loaded successfully")
         return result.to_dict()
 
     def _tool_transform(
-        self, config: Dict[str, Any], file_path: str, engine: str, options: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, config: dict[str, Any], file_path: str, engine: str, options: dict[str, Any]
+    ) -> dict[str, Any]:
         """Execute wksm_transform tool."""
         from pathlib import Path
 
@@ -795,13 +792,13 @@ class MCPServer:
             return result.success_result({"checksum": cache_key}, "Transform completed successfully").to_dict()
 
         except ValueError as e:
-            return result.error_result(f"Invalid input: {str(e)}", data={}).to_dict()
+            return result.error_result(f"Invalid input: {e!s}", data={}).to_dict()
         except RuntimeError as e:
-            return result.error_result(f"Transform failed: {str(e)}", data={}).to_dict()
+            return result.error_result(f"Transform failed: {e!s}", data={}).to_dict()
         except Exception as e:
-            return result.error_result(f"Unexpected error: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_cat(self, config: Dict[str, Any], target: str) -> Dict[str, Any]:
+    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:
         """Execute wksm_cat tool."""
         from pathlib import Path
 
@@ -835,9 +832,9 @@ class MCPServer:
         except FileNotFoundError as e:
             return result.error_result(f"File or cache entry not found: {target}", details=str(e), data={}).to_dict()
         except Exception as e:
-            return result.error_result(f"Failed to retrieve content: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_diff(self, config: Dict[str, Any], engine: str, target_a: str, target_b: str) -> Dict[str, Any]:
+    def _tool_diff(self, config: dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
@@ -878,13 +875,13 @@ class MCPServer:
             return result.success_result({"diff": diff_result}, f"Diff computed successfully using {engine}").to_dict()
 
         except ValueError as e:
-            return result.error_result(f"Invalid input: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Invalid input: {e!s}", details=str(e), data={}).to_dict()
         except RuntimeError as e:
-            return result.error_result(f"Diff failed: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Diff failed: {e!s}", details=str(e), data={}).to_dict()
         except Exception as e:
-            return result.error_result(f"Unexpected error: {str(e)}", details=str(e), data={}).to_dict()
+            return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_vault_validate(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_vault_validate(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
 
@@ -892,7 +889,7 @@ class MCPServer:
         controller = VaultController(vault)
         return controller.validate_vault()
 
-    def _tool_vault_fix_symlinks(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _tool_vault_fix_symlinks(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
 
@@ -908,7 +905,7 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(self, config: Dict[str, Any], db_type: str, query: Dict[str, Any], limit: int) -> Dict[str, Any]:
+    def _tool_db_query(self, config: dict[str, Any], db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
 
@@ -935,7 +932,7 @@ class MCPServer:
         return {"results": results, "count": len(results)}
 
 
-def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """
     Call an MCP tool programmatically (for CLI use).
 

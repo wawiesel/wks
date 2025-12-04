@@ -1,12 +1,11 @@
 """CLI display implementation using Rich library."""
 
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..constants import MAX_DISPLAY_WIDTH
 
 try:
-    from rich import print as rprint
     from rich.console import Console
     from rich.panel import Panel
     from rich.progress import (
@@ -74,7 +73,7 @@ class CLIDisplay(Display):
         """Display an informational message."""
         self.console.print(message)
 
-    def table(self, data: List[Dict[str, Any]], headers: Optional[List[str]] = None, **kwargs) -> None:
+    def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
         """Display data in a rich table."""
         if not data:
             self.info("No data to display")
@@ -143,7 +142,7 @@ class CLIDisplay(Display):
         if handle not in self._progress_contexts:
             return
 
-        progress, task_id = self._progress_contexts[handle]
+        progress, _task_id = self._progress_contexts[handle]
         progress.stop()
         del self._progress_contexts[handle]
 
@@ -165,7 +164,7 @@ class CLIDisplay(Display):
         if message:
             self.info(message)
 
-    def tree(self, data: Dict[str, Any], title: str = "", **kwargs) -> None:
+    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:
         """Display hierarchical data as a tree."""
         tree = Tree(title if title else "Tree")
         self._build_tree(tree, data)

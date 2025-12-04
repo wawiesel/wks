@@ -3,7 +3,6 @@
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 try:
     import bsdiff4
@@ -180,7 +179,7 @@ ENGINES = {
 }
 
 
-def get_engine(name: str) -> Optional[DiffEngine]:
+def get_engine(name: str) -> DiffEngine | None:
     """Get diff engine by name.
 
     Args:

@@ -288,9 +288,10 @@ class TestDatabaseOperationLogging:
         """Test getting DB activity info with no history."""
         daemon = build_daemon(monkeypatch, tmp_path)
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=None):
-            with patch("wks.daemon.load_db_activity_history", return_value=[]):
-                op, detail, iso, ops_min = daemon._get_db_activity_info(time.time())
+        with patch("wks.daemon.load_db_activity_summary", return_value=None), patch(
+            "wks.daemon.load_db_activity_history", return_value=[]
+        ):
+            op, detail, iso, ops_min = daemon._get_db_activity_info(time.time())
 
         assert op is None
         assert detail is None
@@ -308,9 +309,10 @@ class TestDatabaseOperationLogging:
             "timestamp_iso": "2023-10-20 12:00:00",
         }
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=summary):
-            with patch("wks.daemon.load_db_activity_history", return_value=[]):
-                op, detail, iso, ops_min = daemon._get_db_activity_info(now)
+        with patch("wks.daemon.load_db_activity_summary", return_value=summary), patch(
+            "wks.daemon.load_db_activity_history", return_value=[]
+        ):
+            op, detail, iso, ops_min = daemon._get_db_activity_info(now)
 
         assert op == "update"
         assert detail == "test detail"
@@ -337,9 +339,10 @@ class TestDatabaseOperationLogging:
             },
         ]
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=None):
-            with patch("wks.daemon.load_db_activity_history", return_value=history):
-                op, detail, iso, ops_min = daemon._get_db_activity_info(now)
+        with patch("wks.daemon.load_db_activity_summary", return_value=None), patch(
+            "wks.daemon.load_db_activity_history", return_value=history
+        ):
+            op, detail, _iso, _ops_min = daemon._get_db_activity_info(now)
 
         # Should get last item from history
         assert op == "update"
@@ -357,9 +360,10 @@ class TestDatabaseOperationLogging:
             {"timestamp": now - 5, "operation": "recent3"},
         ]
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=None):
-            with patch("wks.daemon.load_db_activity_history", return_value=history):
-                op, detail, iso, ops_min = daemon._get_db_activity_info(now)
+        with patch("wks.daemon.load_db_activity_summary", return_value=None), patch(
+            "wks.daemon.load_db_activity_history", return_value=history
+        ):
+            _op, _detail, _iso, ops_min = daemon._get_db_activity_info(now)
 
         # Should count 3 recent operations
         assert ops_min == 3
@@ -387,6 +391,6 @@ class TestDatabaseOperationLogging:
         daemon.lock_file = tmp_path / "test.lock"
         daemon.lock_file.write_text("invalid")
 
-        present, pid, path = daemon._get_lock_info()
+        present, pid, _path = daemon._get_lock_info()
         assert present is True
         assert pid is None  # Invalid PID should return None

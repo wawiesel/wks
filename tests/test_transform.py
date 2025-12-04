@@ -472,7 +472,6 @@ class TestTransformController:
         cache_file.write_text("Cached content")
 
         # Mock database record that matches the checksum
-        computed_key = checksum  # Simplified - in real code this would be computed
         db.transform.find.return_value = [
             {
                 "checksum": "file_checksum",

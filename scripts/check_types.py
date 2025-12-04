@@ -38,7 +38,7 @@ def main():
     args = sys.argv[1:]
     targets = args if args else ["wks"]
 
-    if not run_command(["mypy"] + targets, "Mypy Type Checking"):
+    if not run_command(["mypy", *targets], "Mypy Type Checking"):
         sys.exit(1)
 
 

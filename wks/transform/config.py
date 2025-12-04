@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-__all__ = ["TransformConfigError", "TransformConfig", "CacheConfig", "EngineConfig"]
+__all__ = ["CacheConfig", "EngineConfig", "TransformConfig", "TransformConfigError"]
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
 class TransformConfigError(Exception):
     """Raised when transform configuration is invalid."""
 
-    def __init__(self, errors: List[str]):
+    def __init__(self, errors: list[str]):
         if isinstance(errors, str):
             errors = [errors]
         self.errors = errors
@@ -27,7 +27,7 @@ class CacheConfig:
     location: str
     max_size_bytes: int
 
-    def _validate_cache_location(self) -> List[str]:
+    def _validate_cache_location(self) -> list[str]:
         """Validate cache location is a non-empty string or Path."""
         errors = []
 
@@ -40,7 +40,7 @@ class CacheConfig:
 
         return errors
 
-    def _validate_max_size(self) -> List[str]:
+    def _validate_max_size(self) -> list[str]:
         """Validate max_size_bytes is a positive integer."""
         errors = []
 
@@ -69,9 +69,9 @@ class EngineConfig:
 
     name: str
     enabled: bool
-    options: Dict[str, Any]
+    options: dict[str, Any]
 
-    def _validate_name(self) -> List[str]:
+    def _validate_name(self) -> list[str]:
         """Validate engine name is a non-empty string."""
         errors = []
 
@@ -84,7 +84,7 @@ class EngineConfig:
 
         return errors
 
-    def _validate_enabled(self) -> List[str]:
+    def _validate_enabled(self) -> list[str]:
         """Validate enabled is a boolean."""
         errors = []
 
@@ -97,7 +97,7 @@ class EngineConfig:
 
         return errors
 
-    def _validate_options(self) -> List[str]:
+    def _validate_options(self) -> list[str]:
         """Validate options is a dictionary."""
         errors = []
 
@@ -126,11 +126,11 @@ class TransformConfig:
     """Transform configuration loaded from config dict with validation."""
 
     cache: CacheConfig
-    engines: Dict[str, EngineConfig]
+    engines: dict[str, EngineConfig]
     database: str
     default_engine: str = "docling"
 
-    def _validate_cache(self) -> List[str]:
+    def _validate_cache(self) -> list[str]:
         """Validate cache configuration."""
         errors = []
 
@@ -143,7 +143,7 @@ class TransformConfig:
 
         return errors
 
-    def _validate_engines(self) -> List[str]:
+    def _validate_engines(self) -> list[str]:
         """Validate engines configuration."""
         errors = []
 
@@ -180,7 +180,7 @@ class TransformConfig:
             raise TransformConfigError(errors)
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> "TransformConfig":
+    def from_config_dict(cls, config: dict) -> TransformConfig:
         """Load transform config from config dict.
 
         Args:

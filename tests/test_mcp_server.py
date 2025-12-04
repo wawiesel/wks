@@ -70,7 +70,7 @@ class TestMCPServer:
 
     def test_list_tools(self, mcp_server):
         """Test tools/list request."""
-        server, input_stream, output_stream = mcp_server
+        server, _input_stream, output_stream = mcp_server
 
         request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
@@ -89,7 +89,7 @@ class TestMCPServer:
     @patch("wks.mcp_server.MonitorController")
     def test_call_tool_monitor_status(self, mock_controller, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_status tool."""
-        server, input_stream, output_stream = mcp_server
+        server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
 
         mock_status = MagicMock()
@@ -117,7 +117,7 @@ class TestMCPServer:
     @patch("wks.mcp_server.MonitorController")
     def test_call_tool_monitor_check(self, mock_controller, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_check tool."""
-        server, input_stream, output_stream = mcp_server
+        server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
 
         mock_controller.check_path.return_value = {"is_monitored": True}
@@ -141,7 +141,7 @@ class TestMCPServer:
 
     def test_call_unknown_tool(self, mcp_server):
         """Test calling unknown tool."""
-        server, input_stream, output_stream = mcp_server
+        server, _input_stream, output_stream = mcp_server
 
         request = {
             "jsonrpc": "2.0",
@@ -164,7 +164,7 @@ class TestMCPServer:
     @patch("wks.mcp_server.MonitorController")
     def test_call_tool_missing_params(self, mock_controller, mock_load_config, mcp_server, mock_config):
         """Test calling tool with missing params."""
-        server, input_stream, output_stream = mcp_server
+        server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
 
         request = {

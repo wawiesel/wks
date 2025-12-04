@@ -7,11 +7,12 @@ import logging
 import platform
 import time
 from collections import Counter
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 from pymongo import MongoClient, UpdateOne
@@ -34,10 +35,10 @@ from .obsidian import ObsidianVault
 
 __all__ = [
     "VaultEdgeRecord",
+    "VaultLinkIndexer",
+    "VaultLinkScanner",
     "VaultScanStats",
     "VaultSyncResult",
-    "VaultLinkScanner",
-    "VaultLinkIndexer",
 ]
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class VaultEdgeRecord:
     def identity(self) -> str:
         return _identity(self.note_path, self.line_number, self.to_uri)
 
-    def to_document(self, seen_at_iso: str) -> Dict[str, object]:
+    def to_document(self, seen_at_iso: str) -> dict[str, object]:
         return {
             "_id": self.identity,
             "doc_type": DOC_TYPE_LINK,
@@ -102,9 +103,9 @@ class VaultEdgeRecord:
 class VaultScanStats:
     notes_scanned: int
     edge_total: int
-    type_counts: Dict[str, int]
-    status_counts: Dict[str, int]
-    errors: List[str]
+    type_counts: dict[str, int]
+    status_counts: dict[str, int]
+    errors: list[str]
     scanned_files: set[str] = field(default_factory=set)  # Relative paths of scanned files
 
 
@@ -116,7 +117,7 @@ class VaultSyncResult:
     deleted_records: int
     upserts: int
 
-    def to_meta_document(self) -> Dict[str, object]:
+    def to_meta_document(self) -> dict[str, object]:
         return {
             "_id": META_DOCUMENT_ID,
             "doc_type": DOC_TYPE_META,
@@ -136,9 +137,9 @@ class VaultLinkScanner:
     def __init__(self, vault: ObsidianVault):
         self.vault = vault
         self.link_resolver = LinkResolver(vault.links_dir)
-        self._file_url_rewrites: List[tuple[Path, int, str, str]] = []  # (note_path, line_num, old_link, new_link)
+        self._file_url_rewrites: list[tuple[Path, int, str, str]] = []  # (note_path, line_num, old_link, new_link)
 
-    def scan(self, files: Optional[List[Path]] = None) -> List[VaultEdgeRecord]:
+    def scan(self, files: list[Path] | None = None) -> list[VaultEdgeRecord]:
         """Scan vault for links.
 
         Args:
@@ -147,8 +148,8 @@ class VaultLinkScanner:
         Returns:
             List of VaultEdgeRecord objects
         """
-        records: List[VaultEdgeRecord] = []
-        self._errors: List[str] = []
+        records: list[VaultEdgeRecord] = []
+        self._errors: list[str] = []
         self._notes_scanned = 0
         self._scanned_file_paths: set[str] = set()  # Track which files were scanned
         self._type_counts: Counter[str] = Counter()
@@ -179,7 +180,7 @@ class VaultLinkScanner:
 
             try:
                 text = note_path.read_text(encoding="utf-8")
-            except (IOError, OSError, UnicodeDecodeError, PermissionError) as exc:
+            except (OSError, UnicodeDecodeError, PermissionError) as exc:
                 self._errors.append(f"Cannot read {note_path}: {exc}")
                 continue
             records.extend(self._parse_note(note_path, text))
@@ -200,7 +201,7 @@ class VaultLinkScanner:
     def _apply_file_url_rewrites(self) -> None:
         """Rewrite markdown files to convert file:// URLs to [[_links/...]] wikilinks."""
         # Group rewrites by note_path
-        rewrites_by_note: Dict[Path, List[tuple[int, str, str]]] = {}
+        rewrites_by_note: dict[Path, list[tuple[int, str, str]]] = {}
         for note_path, line_num, old_link, new_link in self._file_url_rewrites:
             if note_path not in rewrites_by_note:
                 rewrites_by_note[note_path] = []
@@ -232,7 +233,7 @@ class VaultLinkScanner:
             counter.setdefault(key, 0)
         return counter
 
-    def _parse_note(self, note_path: Path, text: str) -> List[VaultEdgeRecord]:
+    def _parse_note(self, note_path: Path, text: str) -> list[VaultEdgeRecord]:
         """Parse all links from a markdown note.
 
         Args:
@@ -242,7 +243,7 @@ class VaultLinkScanner:
         Returns:
             List of VaultEdgeRecord objects
         """
-        records: List[VaultEdgeRecord] = []
+        records: list[VaultEdgeRecord] = []
         headings = extract_headings(text)
         lines = text.splitlines()
 
@@ -315,7 +316,7 @@ class VaultLinkScanner:
             status=metadata.status,
         )
 
-    def _convert_file_url_to_symlink(self, url: str, note_path: Path, line_number: int, alias: str) -> Optional[str]:
+    def _convert_file_url_to_symlink(self, url: str, note_path: Path, line_number: int, alias: str) -> str | None:
         """Convert file:// URL to _links/ symlink and record for rewriting.
 
         Only converts files, not directories. Directories stay as file:// URLs so they're clickable.
@@ -453,7 +454,7 @@ class VaultLinkIndexer:
             client.close()
 
     @classmethod
-    def from_config(cls, vault: ObsidianVault, cfg: Optional[Any] = None) -> "VaultLinkIndexer":
+    def from_config(cls, vault: ObsidianVault, cfg: Any | None = None) -> VaultLinkIndexer:
         if cfg is None:
             config = WKSConfig.load()
         elif isinstance(cfg, dict):
@@ -477,7 +478,7 @@ class VaultLinkIndexer:
 
         return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
 
-    def _batch_records(self, records: List[VaultEdgeRecord], batch_size: int) -> Iterator[List[VaultEdgeRecord]]:
+    def _batch_records(self, records: list[VaultEdgeRecord], batch_size: int) -> Iterator[list[VaultEdgeRecord]]:
         """Yield successive batches of records."""
         for i in range(0, len(records), batch_size):
             yield records[i : i + batch_size]
@@ -598,7 +599,7 @@ class VaultLinkIndexer:
 
             # Process records in batches to avoid memory issues
             for batch in self._batch_records(records, batch_size):
-                ops: List[UpdateOne] = []
+                ops: list[UpdateOne] = []
                 for record in batch:
                     doc = record.to_document(seen_at_iso=started_iso)
                     ops.append(

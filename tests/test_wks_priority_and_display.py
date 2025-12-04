@@ -141,7 +141,7 @@ class TestPriorityCalculation:
         assert priority == 100
 
         # Test deepest match wins
-        matched, priority = find_managed_directory(home / "other/path", managed_dirs)
+        _matched, priority = find_managed_directory(home / "other/path", managed_dirs)
         assert priority == 100  # Matches ~
 
     def test_priority_examples_from_spec(self):
