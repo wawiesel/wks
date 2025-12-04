@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 
 from wks.monitor.config import MonitorConfig
-from wks.monitor.operations import MonitorOperations, _canonicalize_path, _find_matching_path_key
+from wks.monitor.operations import MonitorOperations, _find_matching_path_key
+from wks.utils import canonicalize_path
 
 
 class TestMonitorOperations:
@@ -25,10 +26,10 @@ class TestMonitorOperations:
 
     def test_canonicalize_path(self, tmp_path):
         p = tmp_path / "test"
-        assert _canonicalize_path(str(p)) == str(p.resolve(strict=False))
+        assert canonicalize_path(str(p)) == str(p.resolve(strict=False))
 
         # Test tilde expansion
-        assert _canonicalize_path("~") == str(Path.home())
+        assert canonicalize_path("~") == str(Path.home())
 
     def test_find_matching_path_key(self, tmp_path):
         p = tmp_path / "test"

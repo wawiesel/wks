@@ -4,25 +4,17 @@ from pathlib import Path
 from typing import Any
 
 from wks.monitor.config import MonitorConfig
+from wks.utils import canonicalize_path
 
 from .status import ListOperationResult
 from .validator import MonitorValidator
 
 
-def _canonicalize_path(path_str: str) -> str:
-    """Normalize a path string for comparison."""
-    path_obj = Path(path_str).expanduser()
-    try:
-        return str(path_obj.resolve(strict=False))
-    except Exception:
-        return str(path_obj)
-
-
 def _find_matching_path_key(path_map: dict[str, Any], candidate: str) -> str | None:
     """Find the key in a path map that canonically matches candidate."""
-    candidate_norm = _canonicalize_path(candidate)
+    candidate_norm = canonicalize_path(candidate)
     for key in path_map:
-        if _canonicalize_path(key) == candidate_norm:
+        if canonicalize_path(key) == candidate_norm:
             return key
     return None
 
@@ -34,7 +26,7 @@ class MonitorOperations:
     def _normalize_value(value: str, resolve_path: bool) -> tuple[str, str]:
         """Normalize value and return (value_resolved, value_to_store)."""
         if resolve_path:
-            value_resolved = _canonicalize_path(value)
+            value_resolved = canonicalize_path(value)
             # Preserve tilde notation if in home directory
             home_dir = str(Path.home())
             if value_resolved.startswith(home_dir):
@@ -89,7 +81,7 @@ class MonitorOperations:
         """Check if entry already exists. Returns existing entry if found, None otherwise."""
         for item in getattr(config, list_name):
             if resolve_path:
-                item_resolved = _canonicalize_path(item)
+                item_resolved = canonicalize_path(item)
                 if item_resolved == value_resolved:
                     return item
             else:
@@ -170,9 +162,9 @@ class MonitorOperations:
         # Find matching entry
         existing = None
         if resolve_path:
-            value_resolved = _canonicalize_path(value)
+            value_resolved = canonicalize_path(value)
             for item in getattr(config, list_name):
-                item_resolved = _canonicalize_path(item)
+                item_resolved = canonicalize_path(item)
                 if item_resolved == value_resolved:
                     existing = item
                     break
@@ -213,7 +205,7 @@ class MonitorOperations:
             dict with 'success' (bool), 'message' (str), 'path_stored' (str if success)
         """
         # Resolve path
-        path_resolved = _canonicalize_path(path)
+        path_resolved = canonicalize_path(path)
 
         # Check if already exists
         existing_key = _find_matching_path_key(config.managed_directories, path_resolved)
@@ -253,7 +245,7 @@ class MonitorOperations:
             }
 
         # Resolve path
-        path_resolved = _canonicalize_path(path)
+        path_resolved = canonicalize_path(path)
         existing_key = _find_matching_path_key(config.managed_directories, path_resolved)
 
         # Check if exists
@@ -297,7 +289,7 @@ class MonitorOperations:
             }
 
         # Resolve path
-        path_resolved = _canonicalize_path(path)
+        path_resolved = canonicalize_path(path)
         existing_key = _find_matching_path_key(config.managed_directories, path_resolved)
 
         # Check if exists

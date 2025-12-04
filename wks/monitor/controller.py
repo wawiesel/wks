@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Any
 
 from ..monitor_rules import MonitorRules
+from ..utils import canonicalize_path
 from .config import MonitorConfig
-from .operations import MonitorOperations, _canonicalize_path
+from .operations import MonitorOperations
 from .status import (
     ConfigValidationResult,
     ManagedDirectoriesResult,
@@ -19,7 +20,7 @@ def _build_canonical_map(values: list[str]) -> dict[str, list[str]]:
     """Map canonical path strings to the original representations."""
     mapping: dict[str, list[str]] = {}
     for raw in values:
-        canonical = _canonicalize_path(raw)
+        canonical = canonicalize_path(raw)
         mapping.setdefault(canonical, []).append(raw)
     return mapping
 
@@ -235,7 +236,7 @@ class MonitorController:
     def _check_auto_ignored_paths(exclude_map: dict, config: dict | MonitorConfig | object) -> list[str]:
         """Check for paths that are automatically ignored."""
         redundancies = []
-        wks_home = _canonicalize_path("~/.wks")
+        wks_home = canonicalize_path("~/.wks")
         if wks_home in exclude_map:
             for entry in exclude_map[wks_home]:
                 redundancies.append(f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored")
@@ -243,7 +244,7 @@ class MonitorController:
         if isinstance(config, dict):
             vault_base = config.get("vault", {}).get("base_dir")
             if vault_base:
-                vault_resolved = _canonicalize_path(vault_base)
+                vault_resolved = canonicalize_path(vault_base)
                 if vault_resolved in exclude_map:
                     for entry in exclude_map[vault_resolved]:
                         redundancies.append(
