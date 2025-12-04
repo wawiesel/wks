@@ -171,7 +171,7 @@ class TestValidateVault:
                 mock_records.append(record)
 
             # 2 broken records
-            for _ in range(2):
+            for i in range(2):
                 record = Mock()
                 record.status = "missing_target"
                 record.note_path = Path(f"note{i}.md")
@@ -199,7 +199,7 @@ class TestSyncVault:
         """sync_vault successfully syncs vault links."""
         with patch("wks.config.WKSConfig") as mock_config_class:
             with patch("wks.utils.expand_path") as mock_expand:
-                with patch("wks.vault.obsidian.ObsidianVault") as mock_vault_class:
+                with patch("wks.vault.obsidian.ObsidianVault"):
                     with patch("wks.vault.indexer.VaultLinkIndexer") as mock_indexer_class:
                         # Mock config
                         mock_config = Mock()

@@ -22,12 +22,14 @@ def parse_database_key(db_key: str) -> Tuple[str, str]:
     """
     if "." not in db_key:
         raise ValueError(
-            f"Database key must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor')"
+            f"Database key must be in format 'database.collection' "
+            f"(found: {db_key!r}, expected: format like 'wks.monitor')"
         )
     parts = db_key.split(".", 1)
     if len(parts) != 2 or not parts[0] or not parts[1]:
         raise ValueError(
-            f"Database key must be in format 'database.collection' (found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)"
+            f"Database key must be in format 'database.collection' "
+            f"(found: {db_key!r}, expected: format like 'wks.monitor' with both parts non-empty)"
         )
     return parts[0], parts[1]
 
@@ -48,7 +50,8 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
     monitor_config = cfg.get("monitor")
     if not monitor_config:
         raise KeyError(
-            "monitor section is required in config (found: missing, expected: monitor section with database, include_paths, etc.)"
+            "monitor section is required in config "
+            "(found: missing, expected: monitor section with database, include_paths, etc.)"
         )
 
     db_config = cfg.get("db")
@@ -62,7 +65,8 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
     db_key = monitor_config.get("database")
     if not db_key:
         raise KeyError(
-            "monitor.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')"
+            "monitor.database is required in config "
+            "(found: missing, expected: 'database.collection' format, e.g., 'wks.monitor')"
         )
 
     db_name, coll_name = parse_database_key(db_key)
@@ -89,7 +93,8 @@ def get_vault_db_config(cfg: dict) -> Tuple[str, str, str]:
     db_key = vault_cfg.get("database")
     if not db_key:
         raise KeyError(
-            "vault.database is required in config (found: missing, expected: 'database.collection' format, e.g., 'wks.vault')"
+            "vault.database is required in config "
+            "(found: missing, expected: 'database.collection' format, e.g., 'wks.vault')"
         )
 
     db_name, coll_name = parse_database_key(db_key)

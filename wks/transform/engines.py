@@ -79,7 +79,7 @@ class DoclingEngine(TransformEngine):
             timeout = options.get("timeout_secs", 30)
 
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
+                subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
 
                 # Docling writes <input_stem>.md to output directory
                 expected_output = temp_output / f"{input_path.stem}.md"

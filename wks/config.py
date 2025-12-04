@@ -108,7 +108,7 @@ class WKSConfig:
             with open(path, "r") as fh:
                 raw = json.load(fh)
         except json.JSONDecodeError as e:
-            raise ConfigError(f"Invalid JSON in config file {path}: {e}")
+            raise ConfigError(f"Invalid JSON in config file {path}: {e}") from e
 
         try:
             mongo = MongoSettings.from_config(raw)
@@ -131,7 +131,7 @@ class WKSConfig:
         except (MonitorValidationError, KeyError, ValueError, Exception) as e:
             # Catching Exception to cover VaultConfigError/TransformConfigError if they bubble up
             # Ideally we should import them to catch specifically, but ConfigError wrapper is fine.
-            raise ConfigError(f"Configuration validation failed: {e}")
+            raise ConfigError(f"Configuration validation failed: {e}") from e
 
 
 def get_config_path() -> Path:
