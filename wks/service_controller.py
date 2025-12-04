@@ -206,7 +206,67 @@ class ServiceController:
             return None
 
     @staticmethod
+    def _apply_health_data(status: ServiceStatusData, health: dict[str, Any]) -> None:
+        """Apply health data from health.json to status.
+
+        Args:
+            status: ServiceStatusData to update
+            health: Health data dictionary from health.json
+        """
+        status.running = bool(health.get("lock_present"))
+        status.uptime = str(health.get("uptime_hms") or "")
+        pid_value = health.get("pid")
+        try:
+            status.pid = int(pid_value) if pid_value is not None else None
+        except (ValueError, TypeError):
+            status.pid = None
+        status.pending_deletes = health.get("pending_deletes")
+        status.pending_mods = health.get("pending_mods")
+        status.ok = not bool(health.get("last_error"))
+        status.lock = bool(health.get("lock_present"))
+        if health.get("last_error"):
+            status.last_error = str(health.get("last_error"))
+
+        for attr, key in [
+            ("fs_rate_short", "fs_rate_short"),
+            ("fs_rate_long", "fs_rate_long"),
+            ("fs_rate_weighted", "fs_rate_weighted"),
+        ]:
+            val = health.get(key)
+            try:
+                setattr(status, attr, float(val) if val is not None else None)
+            except (ValueError, TypeError):
+                setattr(status, attr, None)
+
+    @staticmethod
+    def _read_health_from_lock(status: ServiceStatusData) -> None:
+        """Read health status from lock file.
+
+        Args:
+            status: ServiceStatusData to update
+        """
+        lock_exists = LOCK_FILE.exists()
+        status.lock = lock_exists
+        if lock_exists:
+            try:
+                pid = int(LOCK_FILE.read_text().strip().splitlines()[0])
+                status.pid = pid
+                status.running = _pid_running(pid)
+            except Exception:
+                status.notes.append("Lock present but PID unavailable")
+                status.running = None
+        else:
+            status.running = False
+            if not status.notes:
+                status.notes.append("WKS daemon: not running")
+
+    @staticmethod
     def _read_health(status: ServiceStatusData) -> None:
+        """Read health data from health.json or lock file.
+
+        Args:
+            status: ServiceStatusData to update
+        """
         health_path = Path.home() / WKS_HOME_EXT / "health.json"
         health: dict[str, Any] = {}
 
@@ -218,45 +278,9 @@ class ServiceController:
                 status.notes.append("Failed to read health metrics")
 
         if health:
-            status.running = bool(health.get("lock_present"))
-            status.uptime = str(health.get("uptime_hms") or "")
-            pid_value = health.get("pid")
-            try:
-                status.pid = int(pid_value) if pid_value is not None else None
-            except (ValueError, TypeError):
-                status.pid = None
-            status.pending_deletes = health.get("pending_deletes")
-            status.pending_mods = health.get("pending_mods")
-            status.ok = not bool(health.get("last_error"))
-            status.lock = bool(health.get("lock_present"))
-            if health.get("last_error"):
-                status.last_error = str(health.get("last_error"))
-
-            for attr, key in [
-                ("fs_rate_short", "fs_rate_short"),
-                ("fs_rate_long", "fs_rate_long"),
-                ("fs_rate_weighted", "fs_rate_weighted"),
-            ]:
-                val = health.get(key)
-                try:
-                    setattr(status, attr, float(val) if val is not None else None)
-                except (ValueError, TypeError):
-                    setattr(status, attr, None)
+            ServiceController._apply_health_data(status, health)
         else:
-            lock_exists = LOCK_FILE.exists()
-            status.lock = lock_exists
-            if lock_exists:
-                try:
-                    pid = int(LOCK_FILE.read_text().strip().splitlines()[0])
-                    status.pid = pid
-                    status.running = _pid_running(pid)
-                except Exception:
-                    status.notes.append("Lock present but PID unavailable")
-                    status.running = None
-            else:
-                status.running = False
-                if not status.notes:
-                    status.notes.append("WKS daemon: not running")
+            ServiceController._read_health_from_lock(status)
 
     @staticmethod
     def get_status() -> ServiceStatusData:

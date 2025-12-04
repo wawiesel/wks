@@ -63,18 +63,16 @@ def format_timestamp(value: Any | None, fmt: str) -> str:
     return dt.strftime(fmt)
 
 
-def build_status_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
-    """Build display rows from ServiceStatusData dataclass.
+def _build_health_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
+    """Build health section rows.
 
     Args:
         status: ServiceStatusData dataclass instance
 
     Returns:
-        List of (label, value) tuples for table display
+        List of (label, value) tuples for health section
     """
     rows: list[tuple[str, str]] = []
-
-    # Health section
     rows.append(("[bold cyan]Health[/bold cyan]", ""))
     rows.append(("  Running", fmt_bool(status.running, color=True)))
     rows.append(("  Uptime", status.uptime or "-"))
@@ -86,7 +84,19 @@ def build_status_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
     launch_type = status.launch.type if status.launch.present() else "LaunchAgent"
     rows.append(("  Type", launch_type or "LaunchAgent"))
 
-    # File System section
+    return rows
+
+
+def _build_filesystem_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
+    """Build file system section rows.
+
+    Args:
+        status: ServiceStatusData dataclass instance
+
+    Returns:
+        List of (label, value) tuples for file system section
+    """
+    rows: list[tuple[str, str]] = []
     rows.append(("[bold cyan]File System[/bold cyan]", ""))
     rows.append(
         (
@@ -105,7 +115,19 @@ def build_status_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
     if status.fs_rate_weighted is not None:
         rows.append(("  Ops/sec (weighted)", f"{status.fs_rate_weighted:.2f}"))
 
-    # Launch section (only if present)
+    return rows
+
+
+def _build_launch_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
+    """Build launch section rows.
+
+    Args:
+        status: ServiceStatusData dataclass instance
+
+    Returns:
+        List of (label, value) tuples for launch section
+    """
+    rows: list[tuple[str, str]] = []
     if status.launch.present():
         rows.append(("[bold cyan]Launch[/bold cyan]", ""))
         rows.append(("  Program", status.launch.arguments or status.launch.program or "-"))
@@ -113,5 +135,20 @@ def build_status_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
         rows.append(("  Stderr", status.launch.stderr or "-"))
         rows.append(("  Path", status.launch.path or "-"))
         rows.append(("  Type", status.launch.type or "-"))
+    return rows
 
+
+def build_status_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
+    """Build display rows from ServiceStatusData dataclass.
+
+    Args:
+        status: ServiceStatusData dataclass instance
+
+    Returns:
+        List of (label, value) tuples for table display
+    """
+    rows: list[tuple[str, str]] = []
+    rows.extend(_build_health_rows(status))
+    rows.extend(_build_filesystem_rows(status))
+    rows.extend(_build_launch_rows(status))
     return rows
