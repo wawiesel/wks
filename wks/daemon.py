@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
-    fcntl = None  # type: ignore[assignment]
+    fcntl = cast(Any, None)
 
 # Optional imports for MongoDB guard and DB activity tracking
 # These may not exist in all environments and are mocked in tests
