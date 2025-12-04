@@ -74,8 +74,10 @@ class TestFixSymlinks:
         mock_config.mongo.uri = "mongodb://localhost:27017"
         mock_config.vault.database = "test_db.test_coll"
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 # Update mock to return correct paths
                 mock_cursor = [
                     {"to_uri": f"file://{target1}"},
@@ -117,8 +119,10 @@ class TestFixSymlinks:
         # Mock empty cursor (no links)
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = []
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 result = controller.fix_symlinks()
 
         # Old file should be gone
@@ -137,8 +141,10 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 result = controller.fix_symlinks()
 
         assert result.links_found == 1
@@ -160,8 +166,10 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 # Mock symlink creation to raise PermissionError
                 with patch("pathlib.Path.symlink_to", side_effect=PermissionError("Permission denied")):
                     result = controller.fix_symlinks()
@@ -192,8 +200,10 @@ class TestFixSymlinks:
         # Mock collection.find to raise exception
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.side_effect = Exception("DB error")
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 result = controller.fix_symlinks()
 
         assert result.notes_scanned == 0
@@ -213,8 +223,10 @@ class TestFixSymlinks:
 
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = []
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 # Mock shutil.rmtree to raise exception
                 with patch("shutil.rmtree", side_effect=PermissionError("Cannot delete")):
                     result = controller.fix_symlinks()
@@ -238,8 +250,10 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 result = controller.fix_symlinks()
 
         # Should only process file:// URIs
@@ -264,8 +278,10 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
                 controller.fix_symlinks()
 
         # Verify symlink is in machine-specific directory

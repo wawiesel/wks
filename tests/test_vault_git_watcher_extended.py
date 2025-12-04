@@ -306,9 +306,11 @@ class TestErrorCases:
 
     def test_init_handles_git_check_timeout(self, tmp_path):
         """Test that git repo check handles timeout."""
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 5)):
-            with pytest.raises(RuntimeError):
-                GitVaultWatcher(tmp_path)
+        with (
+            patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 5)),
+            pytest.raises(RuntimeError),
+        ):
+            GitVaultWatcher(tmp_path)
 
     def test_get_changes_handles_exception(self, tmp_path):
         """Test that get_changes() handles exceptions gracefully."""

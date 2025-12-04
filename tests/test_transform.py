@@ -716,9 +716,11 @@ class TestTransformController:
 
         controller = TransformController(db, cache_dir, 1024)
 
-        with patch.object(controller, "_compute_cache_key", return_value=checksum):
-            with patch.object(controller, "_update_last_accessed"):
-                content = controller.get_content(checksum)
+        with (
+            patch.object(controller, "_compute_cache_key", return_value=checksum),
+            patch.object(controller, "_update_last_accessed"),
+        ):
+            content = controller.get_content(checksum)
 
                 assert content == "Cached content"
 
