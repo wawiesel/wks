@@ -596,6 +596,37 @@ class WKSDaemon:
         except Exception:
             return False
 
+    def _should_prune_entry(self, uri: str) -> tuple[bool, Path | None]:
+        """Check if a monitor entry should be pruned.
+
+        Args:
+            uri: URI path from monitor entry
+
+        Returns:
+            Tuple of (should_prune, path_object) where path_object is None if URI conversion fails
+        """
+        # Convert URI to path for checking
+        try:
+            p = uri_to_path(uri)
+        except Exception:
+            return (False, None)
+
+        # Check if file is missing
+        try:
+            missing = not p.exists()
+        except Exception:
+            missing = True
+
+        # Check if file should be ignored by current rules
+        ignored = False
+        if not missing:
+            try:
+                ignored = self._should_ignore_by_rules(p)
+            except Exception:
+                ignored = False
+
+        return (missing or ignored, p)
+
     def _maybe_prune_monitor_db(self):
         """Prune monitor database entries that are missing or match exclude rules."""
         if self.monitor_collection is None:
@@ -614,28 +645,8 @@ class WKSDaemon:
                 if not uri:
                     continue
 
-                # Convert URI to path for checking
-                try:
-                    p = uri_to_path(uri)
-                except Exception:
-                    continue
-
-                # Check if file is missing
-                try:
-                    missing = not p.exists()
-                except Exception:
-                    missing = True
-
-                # Check if file should be ignored by current rules
-                ignored = False
-                if not missing:
-                    try:
-                        ignored = self._should_ignore_by_rules(p)
-                    except Exception:
-                        ignored = False
-
-                # Remove if missing or ignored
-                if missing or ignored:
+                should_prune, _ = self._should_prune_entry(uri)
+                if should_prune:
                     try:
                         self.monitor_collection.delete_one({"path": uri})
                         removed += 1
@@ -646,6 +657,46 @@ class WKSDaemon:
                 print(f"Monitor maintenance: pruned {removed} stale/excluded entries")
         except Exception as e:
             self._set_error(f"monitor_prune_error: {e}")
+
+    def _process_expired_delete(self, pstr: str, p: Path) -> None:
+        """Process a single expired delete event.
+
+        Args:
+            pstr: String path from pending deletes
+            p: Path object for the file
+        """
+        # If the path exists again, skip logging delete
+        if p.exists():
+            self._pending_deletes.pop(pstr, None)
+            return
+
+        # Log deletion now
+        try:
+            self.vault.log_file_operation("deleted", p, tracked_files_count=self._get_tracked_files_count())
+        except Exception as e:
+            self._set_error(f"delete_log_error: {e}")
+
+        self._remove_from_monitor_db(p)
+
+        # Remove from transform DB - file no longer exists
+        if self._transform_controller:
+            try:
+                file_uri = p.resolve().as_uri()
+                removed_count = self._transform_controller.remove_by_uri(file_uri)
+                if removed_count > 0:
+                    self._set_info(f"Removed {removed_count} transform cache entries for deleted file")
+            except Exception as exc:
+                self._set_error(f"transform_db_delete_error: {exc}")
+
+        # Only mark deletion if vault files actually reference this file
+        try:
+            has_vault_refs = self._vault_indexer.has_references_to(p) if self._vault_indexer else False
+            if has_vault_refs:
+                self.vault.mark_reference_deleted(p)
+        except Exception as e:
+            self._set_error(f"mark_ref_error: {e}")
+
+        self._pending_deletes.pop(pstr, None)
 
     def _maybe_flush_pending_deletes(self):
         """Log deletes after a short grace period to avoid temp-file saves showing as delete+recreate."""
@@ -659,46 +710,48 @@ class WKSDaemon:
         for pstr in expired:
             try:
                 p = Path(pstr)
-                # If the path exists again, skip logging delete
-                if p.exists():
-                    self._pending_deletes.pop(pstr, None)
-                    continue
-                # Log deletion now
-                try:
-                    self.vault.log_file_operation("deleted", p, tracked_files_count=self._get_tracked_files_count())
-                except Exception as e:
-                    self._set_error(f"delete_log_error: {e}")
-                    pass
-
-                self._remove_from_monitor_db(p)
-
-                # Remove from transform DB - file no longer exists
-                if self._transform_controller:
-                    try:
-                        file_uri = p.resolve().as_uri()
-                        removed_count = self._transform_controller.remove_by_uri(file_uri)
-                        if removed_count > 0:
-                            self._set_info(f"Removed {removed_count} transform cache entries for deleted file")
-                    except Exception as exc:
-                        self._set_error(f"transform_db_delete_error: {exc}")
-
-                # Only mark deletion if vault files actually reference this file
-                # Check: does this file participate in any vault links?
-                try:
-                    # Query vault database to see if any vault notes link to this file
-                    has_vault_refs = self._vault_indexer.has_references_to(p) if self._vault_indexer else False
-                    if has_vault_refs:
-                        self.vault.mark_reference_deleted(p)
-                except Exception as e:
-                    self._set_error(f"mark_ref_error: {e}")
-                    pass
-                self._pending_deletes.pop(pstr, None)
+                self._process_expired_delete(pstr, p)
             except Exception:
                 # Best-effort
                 with contextlib.suppress(Exception):
                     self._pending_deletes.pop(pstr, None)
 
+    def _process_expired_mod(self, pstr: str, p: Path, etype: str) -> None:
+        """Process a single expired modification event.
+
+        Args:
+            pstr: String path from pending mods
+            p: Path object for the file
+            etype: Event type (e.g., "modified", "created")
+        """
+        # Skip if file should be ignored
+        if self._should_ignore_by_rules(p):
+            self._pending_mods.pop(pstr, None)
+            return
+
+        # Only log if still exists and is file
+        if p.exists() and p.is_file():
+            try:
+                self.vault.log_file_operation(etype, p, tracked_files_count=self._get_tracked_files_count())
+                self._bump_beat()
+            except Exception as e:
+                self._set_error(f"ops_log_error: {e}")
+            self._update_monitor_db(p)
+
+            # Remove from transform DB if modified - content changed invalidates cache
+            if etype == "modified" and self._transform_controller:
+                try:
+                    file_uri = p.resolve().as_uri()
+                    removed_count = self._transform_controller.remove_by_uri(file_uri)
+                    if removed_count > 0:
+                        self._set_info(f"Removed {removed_count} transform cache entries for modified file")
+                except Exception as exc:
+                    self._set_error(f"transform_db_modified_error: {exc}")
+
+        self._pending_mods.pop(pstr, None)
+
     def _maybe_flush_pending_mods(self):
+        """Flush pending modification events after coalesce period."""
         if not self._pending_mods:
             return
         now = time.time()
@@ -709,29 +762,7 @@ class WKSDaemon:
         for pstr, etype in ready:
             try:
                 p = Path(pstr)
-                # Skip if file should be ignored
-                if self._should_ignore_by_rules(p):
-                    self._pending_mods.pop(pstr, None)
-                    continue
-                # Only log if still exists and is file
-                if p.exists() and p.is_file():
-                    try:
-                        self.vault.log_file_operation(etype, p, tracked_files_count=self._get_tracked_files_count())
-                        self._bump_beat()
-                    except Exception as e:
-                        self._set_error(f"ops_log_error: {e}")
-                    self._update_monitor_db(p)
-
-                    # Remove from transform DB if modified - content changed invalidates cache
-                    if etype == "modified" and self._transform_controller:
-                        try:
-                            file_uri = p.resolve().as_uri()
-                            removed_count = self._transform_controller.remove_by_uri(file_uri)
-                            if removed_count > 0:
-                                self._set_info(f"Removed {removed_count} transform cache entries for modified file")
-                        except Exception as exc:
-                            self._set_error(f"transform_db_modified_error: {exc}")
-                self._pending_mods.pop(pstr, None)
+                self._process_expired_mod(pstr, p, etype)
             except Exception:
                 with contextlib.suppress(Exception):
                     self._pending_mods.pop(pstr, None)
