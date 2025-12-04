@@ -3,6 +3,7 @@
 **Date:** 2025-12-03
 **Status:** 🟡 IN PROGRESS
 **Branch:** `2025-12-03_linting-baseline`
+**PR:** [#8](https://github.com/wawiesel/wks/pull/8)
 
 ---
 
@@ -163,7 +164,7 @@ Systematically fix:
 - [ ] Enable strict mypy
 - [ ] Fix type errors
 - [ ] Verify all tests pass
-- [ ] Create PR
+- [x] Create PR
 
 ---
 
