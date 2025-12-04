@@ -44,7 +44,7 @@ class TestMCPServerNewTools:
     def test_wks_transform(
         self,
         mock_controller_cls,
-        mock_connect,
+        mock_connect,  # noqa: ARG002
         mock_wks_config,
         mock_server,
         mock_config,
@@ -305,7 +305,7 @@ class TestMCPServerNewTools:
     def test_wks_cat_unexpected_error(
         self,
         mock_controller_cls,
-        mock_connect,
+        mock_connect,  # noqa: ARG002
         mock_wks_config,
         mock_server,
         mock_config,
