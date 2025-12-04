@@ -25,6 +25,8 @@ dependencies = [
     "types-requests",
     "types-PyYAML",
     "types-setuptools",
+    "typer",
+    "pydantic",
 ]
 
 [tool.ruff]
