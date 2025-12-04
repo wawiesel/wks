@@ -195,12 +195,11 @@ class GitVaultWatcher:
                     changes.added.append(path)
                 elif status.startswith("D"):
                     changes.deleted.append(path)
-                elif status.startswith("R"):
+                elif status.startswith("R") and len(parts) > 2:
                     # Renamed files have format: "R100\told\tnew"
-                    if len(parts) > 2:
-                        old_path = self.vault_path / parts[1].strip()
-                        new_path = self.vault_path / parts[2].strip()
-                        if new_path.suffix == ".md":
+                    old_path = self.vault_path / parts[1].strip()
+                    new_path = self.vault_path / parts[2].strip()
+                    if new_path.suffix == ".md":
                             changes.renamed.append((old_path, new_path))
 
         except subprocess.TimeoutExpired:

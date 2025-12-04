@@ -26,10 +26,9 @@ def is_mcp_context() -> bool:
 
     # Check if stdin/stdout are pipes (common in MCP)
     # But also check we're not in a regular terminal with pipes
-    if not sys.stdout.isatty():
+    if not sys.stdout.isatty() and os.getenv("TERM") is None:
         # If TERM is not set and we're piped, likely MCP
-        if os.getenv("TERM") is None:
-            return True
+        return True
 
     return False
 
