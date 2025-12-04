@@ -207,7 +207,7 @@ def start_monitoring(
     directories: list[Path],
     state_file: Path,
     monitor_rules: MonitorRules,
-    on_change: Optional[Callable] = None,
+    on_change: Optional[Callable[[str, str], None]] = None,
 ) -> Observer:
     """
     Start monitoring directories for changes.

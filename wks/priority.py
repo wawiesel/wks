@@ -1,7 +1,7 @@
 """Priority calculation for file importance scoring."""
 
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def find_managed_directory(path: Path, managed_dirs: Dict[str, int]) -> Tuple[Optional[Path], int]:
@@ -166,7 +166,7 @@ def calculate_priority(path: Path, managed_dirs: Dict[str, int], priority_config
     return max(1, int(score + 0.5))
 
 
-def priority_examples():
+def priority_examples() -> List[Dict[str, Any]]:
     """Return example priority calculations for testing/documentation."""
     managed_dirs = {
         "~/Desktop": 150,

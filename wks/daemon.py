@@ -660,7 +660,7 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_prune_error: {e}")
 
-    def _maybe_flush_pending_deletes(self):
+    def _maybe_flush_pending_deletes(self) -> None:
         """Log deletes after a short grace period to avoid temp-file saves showing as delete+recreate."""
         if not self._pending_deletes:
             return
@@ -713,7 +713,7 @@ class WKSDaemon:
                 except Exception:
                     pass
 
-    def _maybe_flush_pending_mods(self):
+    def _maybe_flush_pending_mods(self) -> None:
         if not self._pending_mods:
             return
         now = time.time()
@@ -753,7 +753,7 @@ class WKSDaemon:
                 except Exception:
                     pass
 
-    def _maybe_sync_vault_links(self):
+    def _maybe_sync_vault_links(self) -> None:
         if not getattr(self, "_vault_indexer", None):
             return
         now = time.time()
@@ -845,7 +845,7 @@ class WKSDaemon:
         s = secs % 60
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-    def _write_health(self):
+    def _write_health(self) -> None:
         """Write health data to health.json file."""
         try:
             now = time.time()
@@ -897,24 +897,24 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _bump_beat(self):
+    def _bump_beat(self) -> None:
         try:
             self._beat_count += 1
         except Exception:
             pass
 
-    def _set_error(self, msg: str):
+    def _set_error(self, msg: str) -> None:
         try:
             self._last_error = str(msg)
             self._last_error_at = time.time()
         except Exception:
             pass
 
-    def _set_info(self, msg: str):
+    def _set_info(self, msg: str) -> None:
         # Placeholder for info logging to health/status if needed
         pass
 
-    def _clean_stale_lock(self):
+    def _clean_stale_lock(self) -> None:
         """Clean up stale lock file if process is no longer running."""
         try:
             if self.lock_file.exists():
@@ -931,7 +931,7 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _try_pidfile_lock(self):
+    def _try_pidfile_lock(self) -> None:
         """Try to acquire lock using PID file (fallback when fcntl unavailable)."""
         if self.lock_file.exists():
             # Read PID and check if running
@@ -944,7 +944,7 @@ class WKSDaemon:
         # Write current PID
         self.lock_file.write_text(str(os.getpid()))
 
-    def _try_advisory_lock(self):
+    def _try_advisory_lock(self) -> None:
         """Try to acquire POSIX advisory lock using fcntl."""
         try:
             self._lock_fh = open(self.lock_file, "w")
@@ -960,7 +960,7 @@ class WKSDaemon:
         except Exception as e:
             raise RuntimeError(f"Failed to acquire daemon lock: {e}") from e
 
-    def _acquire_lock(self):
+    def _acquire_lock(self) -> None:
         """Acquire an exclusive file lock to ensure a single daemon instance."""
         # Ensure directory exists
         self.lock_file.parent.mkdir(parents=True, exist_ok=True)
@@ -974,7 +974,7 @@ class WKSDaemon:
         else:
             self._try_advisory_lock()
 
-    def _release_lock(self):
+    def _release_lock(self) -> None:
         """Release the single-instance lock."""
         try:
             if self._lock_fh and fcntl is not None:
@@ -1006,7 +1006,7 @@ class WKSDaemon:
                 return 0
         return 0
 
-    def _install_vault_git_hooks(self):
+    def _install_vault_git_hooks(self) -> None:
         """Install git hooks for vault link validation."""
         try:
             from .vault.git_hooks import install_hooks, is_hook_installed

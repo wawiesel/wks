@@ -399,7 +399,7 @@ class MCPServer:
     def _build_tool_registry(self) -> Dict[str, Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]]:
         """Build registry of tool handlers with parameter validation."""
 
-        def _require_params(*param_names: str):
+        def _require_params(*param_names: str) -> Callable[[Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]], Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]]:
             """Decorator to validate required parameters."""
 
             def decorator(handler: Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]) -> Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]:
@@ -992,7 +992,7 @@ def call_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     return handler(config, arguments)
 
 
-def main():
+def main() -> None:
     """Main entry point for MCP server."""
     server = MCPServer()
     try:
