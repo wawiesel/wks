@@ -70,7 +70,7 @@ class TestTransformConfigValidation:
         }
 
         with pytest.raises(TransformConfigError) as exc_info:
-            TransformConfig(cache=cache_config, engines=engines, database="wks.transform")
+            TransformConfig(cache=cache_config, engines=engines, database="wks.transform")  # type: ignore[arg-type]
 
         assert "EngineConfig" in str(exc_info.value)
 
