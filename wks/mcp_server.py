@@ -539,9 +539,9 @@ class MCPServer:
             """Decorator to validate required parameters."""
 
             def decorator(
-                handler: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
-            ) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
-                def wrapper(config: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
+                handler: Callable[[WKSConfig, dict[str, Any]], dict[str, Any]],
+            ) -> Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]:
+                def wrapper(config: WKSConfig, arguments: dict[str, Any]) -> dict[str, Any]:
                     missing = [p for p in param_names if arguments.get(p) is None]
                     if missing:
                         raise ValueError(f"Missing required parameters: {', '.join(missing)}")
@@ -732,25 +732,28 @@ class MCPServer:
 
         return result
 
-    def _tool_vault_status(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_status tool."""
-        controller = VaultStatusController(config)
+        # VaultStatusController expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        controller = VaultStatusController(config_dict)
         summary = controller.summarize()
         return summary.to_dict()
 
-    def _tool_vault_sync(self, config: dict[str, Any], batch_size: int) -> dict[str, Any]:
+    def _tool_vault_sync(self, config: WKSConfig, batch_size: int) -> dict[str, Any]:
         """Execute wks_vault_sync tool."""
-        return VaultController.sync_vault(config, batch_size)
+        # VaultController.sync_vault expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        return VaultController.sync_vault(config_dict, batch_size)
 
-    def _tool_vault_links(self, config: dict[str, Any], file_path: str, direction: str = "both") -> dict[str, Any]:
+    def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
         from .db_helpers import connect_to_mongo, get_vault_db_config
         from .uri_utils import convert_to_uri
         from .utils import expand_path
 
         # Get vault configuration
-        vault_cfg = config.get("vault", {})
-        vault_path_str = vault_cfg.get("base_dir")
+        vault_path_str = config.vault.base_dir
         if not vault_path_str:
             return {"error": "vault.base_dir not configured"}
 
@@ -852,20 +855,13 @@ class MCPServer:
 
     def _tool_config(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wksm_config tool."""
-        # WKSConfig is a Pydantic model, use model_dump()
-        if hasattr(config, "model_dump"):
-            data = config.model_dump()
-        elif hasattr(config, "to_dict"):
-            data = config.to_dict()
-        else:
-            data = dict(config) if hasattr(config, "__dict__") else {}
-        result = MCPResult(success=True, data=data)
+        result = MCPResult(success=True, data=config.to_dict())
         result.add_success("Configuration loaded successfully")
         return result.to_dict()
 
     def _tool_transform(
         self,
-        config: dict[str, Any],  # noqa: ARG002
+        config: WKSConfig,
         file_path: str,
         engine: str,
         options: dict[str, Any],
@@ -886,8 +882,8 @@ class MCPServer:
             if not path.exists():
                 return result.error_result(f"File not found: {path}", data={}).to_dict()
 
-            # Load config dataclass for proper cache location resolution
-            wks_cfg = WKSConfig.load()
+            # Use provided config or load if needed
+            wks_cfg = config if isinstance(config, WKSConfig) else WKSConfig.load()
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
@@ -1003,19 +999,23 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_vault_validate(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_validate(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
 
-        vault = load_vault(config)
+        # load_vault expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        vault = load_vault(config_dict)
         controller = VaultController(vault)
         return controller.validate_vault()
 
-    def _tool_vault_fix_symlinks(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_fix_symlinks(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
 
-        vault = load_vault(config)
+        # load_vault expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        vault = load_vault(config_dict)
         controller = VaultController(vault)
         result = controller.fix_symlinks()
 
@@ -1027,21 +1027,21 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(self, config: dict[str, Any], db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
+    def _tool_db_query(self, config: WKSConfig, db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
 
-        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+        uri = config.mongo.uri
 
         if db_type == "monitor":
-            db_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[0]
-            coll_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[1]
+            db_name = config.monitor.database.split(".")[0]
+            coll_name = config.monitor.database.split(".")[1]
         elif db_type == "vault":
-            db_name = config.get("vault", {}).get("database", "wks.vault").split(".")[0]
-            coll_name = config.get("vault", {}).get("database", "wks.vault").split(".")[1]
+            db_name = config.vault.database.split(".")[0]
+            coll_name = config.vault.database.split(".")[1]
         elif db_type == "transform":
-            db_name = config.get("transform", {}).get("database", "wks.transform").split(".")[0]
-            coll_name = config.get("transform", {}).get("database", "wks.transform").split(".")[1]
+            db_name = config.transform.database.split(".")[0]
+            coll_name = config.transform.database.split(".")[1]
         else:
             raise ValueError(f"Unknown db type: {db_type}")
 

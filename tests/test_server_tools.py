@@ -37,7 +37,7 @@ class TestMCPServerNewTools:
 
         # Create a mock WKSConfig object
         mock_wks_config = MagicMock(spec=WKSConfig)
-        mock_wks_config.model_dump.return_value = mock_config
+        mock_wks_config.to_dict.return_value = mock_config
 
         result = mock_server._tool_config(mock_wks_config)
         assert result["success"] is True

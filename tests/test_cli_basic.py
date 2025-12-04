@@ -42,9 +42,10 @@ def test_cli_help_flag():
 
 def test_cli_no_command():
     """Test CLI with no command shows help and returns 2."""
-    rc, out, _ = run_cli([])
+    rc, _out, err = run_cli([])
     assert rc == 2
-    assert "usage:" in out.lower() or "wksc" in out.lower()
+    # Typer outputs help/errors to stderr
+    assert "usage:" in err.lower() or "wksc" in err.lower() or "Missing command" in err
 
 
 @patch("wks.cli._call")
@@ -201,7 +202,9 @@ def test_cli_monitor_list_operations(mock_call):
         "include_globs",
         "exclude_globs",
     ]:
-        rc, _out, _err = run_cli(["monitor", list_name, "list"])
+        # CLI uses hyphens, but MCP uses underscores
+        cli_name = list_name.replace("_", "-")
+        rc, _out, _err = run_cli(["monitor", cli_name, "list"])
         assert rc == 0
         mock_call.assert_called_once_with("wksm_monitor_list", {"list_name": list_name})
         mock_call.reset_mock()
@@ -211,7 +214,7 @@ def test_cli_monitor_list_operations(mock_call):
 def test_cli_monitor_add(mock_call):
     """Test wksc monitor add operations."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, _out, _err = run_cli(["monitor", "include_paths", "add", "/path"])
+    rc, _out, _err = run_cli(["monitor", "include-paths", "add", "/path"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_add", {"list_name": "include_paths", "value": "/path"})
 
@@ -220,7 +223,7 @@ def test_cli_monitor_add(mock_call):
 def test_cli_monitor_remove(mock_call):
     """Test wksc monitor remove operations."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, _out, _err = run_cli(["monitor", "include_paths", "remove", "/path"])
+    rc, _out, _err = run_cli(["monitor", "include-paths", "remove", "/path"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_remove", {"list_name": "include_paths", "value": "/path"})
 
@@ -229,16 +232,16 @@ def test_cli_monitor_remove(mock_call):
 def test_cli_monitor_managed_list(mock_call):
     """Test wksc monitor managed list."""
     mock_call.return_value = {"success": True, "data": {"items": []}, "messages": []}
-    rc, _out, _err = run_cli(["monitor", "managed", "list"])
+    rc, _out, _err = run_cli(["monitor", "managed-list"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_monitor_managed_list")
+    mock_call.assert_called_once_with("wksm_monitor_managed_list", {})
 
 
 @patch("wks.cli._call")
 def test_cli_monitor_managed_add(mock_call):
     """Test wksc monitor managed add."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, _out, _err = run_cli(["monitor", "managed", "add", "/path", "5"])
+    rc, _out, _err = run_cli(["monitor", "managed-add", "/path", "5"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_managed_add", {"path": "/path", "priority": 5})
 
@@ -247,7 +250,7 @@ def test_cli_monitor_managed_add(mock_call):
 def test_cli_monitor_managed_remove(mock_call):
     """Test wksc monitor managed remove."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, _out, _err = run_cli(["monitor", "managed", "remove", "/path"])
+    rc, _out, _err = run_cli(["monitor", "managed-remove", "/path"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_managed_remove", {"path": "/path"})
 
@@ -256,7 +259,7 @@ def test_cli_monitor_managed_remove(mock_call):
 def test_cli_monitor_managed_set_priority(mock_call):
     """Test wksc monitor managed set-priority."""
     mock_call.return_value = {"success": True, "messages": []}
-    rc, _out, _err = run_cli(["monitor", "managed", "set-priority", "/path", "10"])
+    rc, _out, _err = run_cli(["monitor", "managed-set-priority", "/path", "10"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_monitor_managed_set_priority", {"path": "/path", "priority": 10})
 
@@ -265,16 +268,16 @@ def test_cli_monitor_managed_set_priority(mock_call):
 def test_cli_vault_status(mock_call):
     """Test wksc vault status."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, _out, _err = run_cli(["vault", "status"])
+    rc, _out, _err = run_cli(["vault-status"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_vault_status")
+    mock_call.assert_called_once_with("wksm_vault_status", {})
 
 
 @patch("wks.cli._call")
 def test_cli_vault_sync(mock_call):
     """Test wksc vault sync."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, _out, _err = run_cli(["vault", "sync"])
+    rc, _out, _err = run_cli(["vault-sync"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_sync", {"batch_size": 1000})
 
@@ -283,7 +286,7 @@ def test_cli_vault_sync(mock_call):
 def test_cli_vault_sync_with_batch_size(mock_call):
     """Test wksc vault sync with --batch-size."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, _out, _err = run_cli(["vault", "sync", "--batch-size", "500"])
+    rc, _out, _err = run_cli(["vault-sync", "--batch-size", "500"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_sync", {"batch_size": 500})
 
@@ -292,25 +295,25 @@ def test_cli_vault_sync_with_batch_size(mock_call):
 def test_cli_vault_validate(mock_call):
     """Test wksc vault validate."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, _out, _err = run_cli(["vault", "validate"])
+    rc, _out, _err = run_cli(["vault-validate"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_vault_validate")
+    mock_call.assert_called_once_with("wksm_vault_validate", {})
 
 
 @patch("wks.cli._call")
 def test_cli_vault_fix_symlinks(mock_call):
     """Test wksc vault fix-symlinks."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, _out, _err = run_cli(["vault", "fix-symlinks"])
+    rc, _out, _err = run_cli(["vault-fix-symlinks"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_vault_fix_symlinks")
+    mock_call.assert_called_once_with("wksm_vault_fix_symlinks", {})
 
 
 @patch("wks.cli._call")
 def test_cli_vault_links(mock_call):
     """Test wksc vault links."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, _out, _err = run_cli(["vault", "links", "/path/to/file.md"])
+    rc, _out, _err = run_cli(["vault-links", "/path/to/file.md"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_links", {"file_path": "/path/to/file.md", "direction": "both"})
 
@@ -319,7 +322,7 @@ def test_cli_vault_links(mock_call):
 def test_cli_vault_links_with_direction(mock_call):
     """Test wksc vault links with --direction."""
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
-    rc, _out, _err = run_cli(["vault", "links", "/path/to/file.md", "--direction", "to"])
+    rc, _out, _err = run_cli(["vault-links", "/path/to/file.md", "--direction", "to"])
     assert rc == 0
     mock_call.assert_called_once_with("wksm_vault_links", {"file_path": "/path/to/file.md", "direction": "to"})
 
