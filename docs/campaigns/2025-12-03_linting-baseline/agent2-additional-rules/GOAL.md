@@ -1,7 +1,7 @@
 # Agent 2 Goal: Enable Additional Ruff Rules
 
 **Agent:** Agent 2
-**Branch:** `2025-12-03_linting-baseline/agent2-additional-rules`
+**Branch:** `agent2-additional-rules`
 **Status:** 🟡 PENDING ASSIGNMENT
 
 ---

@@ -1,7 +1,7 @@
 # Agent 3 Goal: Enable Strict Mypy and Fix Type Errors
 
 **Agent:** Agent 3
-**Branch:** `2025-12-03_linting-baseline/agent3-strict-mypy`
+**Branch:** `agent3-strict-mypy`
 **Status:** 🟡 PENDING ASSIGNMENT
 
 ---

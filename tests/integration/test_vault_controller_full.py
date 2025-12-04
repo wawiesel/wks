@@ -135,7 +135,7 @@ class TestValidateVault:
 
             # All records have status "ok"
             mock_records = []
-            for i in range(50):
+            for _ in range(50):
                 record = Mock()
                 record.status = "ok"
                 mock_records.append(record)
@@ -165,13 +165,13 @@ class TestValidateVault:
             mock_records = []
 
             # 8 ok records
-            for i in range(8):
+            for _ in range(8):
                 record = Mock()
                 record.status = "ok"
                 mock_records.append(record)
 
             # 2 broken records
-            for i in range(2):
+            for _ in range(2):
                 record = Mock()
                 record.status = "missing_target"
                 record.note_path = Path(f"note{i}.md")

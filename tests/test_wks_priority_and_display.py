@@ -149,9 +149,9 @@ class TestPriorityCalculation:
         results = priority_examples()
 
         for result in results:
-            assert result[
-                "match"
-            ], f"Priority mismatch for {result['path']}: expected {result['expected']}, got {result['calculated']}"
+            assert result["match"], (
+                f"Priority mismatch for {result['path']}: expected {result['expected']}, got {result['calculated']}"
+            )
 
     def test_calculate_priority_basic(self):
         """Test basic priority calculation."""

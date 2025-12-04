@@ -116,9 +116,9 @@ This campaign is organized into three agent tasks:
 
 ### Agent 1: Fix Formatting and Basic Linting
 **Goal:** Fix all auto-fixable formatting and basic linting issues
-**Branch:** `2025-12-03_linting-baseline/agent1-formatting`
+**Branch:** `agent1-formatting`
 **Status:** 🟡 PENDING ASSIGNMENT
-**Details:** See `agent1/GOAL.md`
+**Details:** See `agent1-formatting/GOAL.md` on the agent branch
 
 Tasks:
 - Fix formatting issues (ruff format)
@@ -131,9 +131,9 @@ Tasks:
 
 ### Agent 2: Enable Additional Ruff Rules
 **Goal:** Gradually enable additional ruff linting rule categories and fix issues
-**Branch:** `2025-12-03_linting-baseline/agent2-additional-rules`
+**Branch:** `agent2-additional-rules`
 **Status:** 🟡 PENDING ASSIGNMENT
-**Details:** See `agent2/GOAL.md`
+**Details:** See `agent2-additional-rules/GOAL.md` on the agent branch
 
 Tasks:
 - Enable safe rule categories (W, N, UP, C4, SIM)
@@ -143,9 +143,9 @@ Tasks:
 
 ### Agent 3: Enable Strict Mypy and Fix Type Errors
 **Goal:** Enable strict mypy type checking and fix all type errors
-**Branch:** `2025-12-03_linting-baseline/agent3-strict-mypy`
+**Branch:** `agent3-strict-mypy`
 **Status:** 🟡 PENDING ASSIGNMENT
-**Details:** See `agent3/GOAL.md`
+**Details:** See `agent3-strict-mypy/GOAL.md` on the agent branch
 
 Tasks:
 - Enable `check_untyped_defs = true` and fix missing annotations

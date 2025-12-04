@@ -1,7 +1,7 @@
 # Agent 1 Goal: Fix Formatting and Basic Linting
 
 **Agent:** Agent 1
-**Branch:** `2025-12-03_linting-baseline/agent1-formatting`
+**Branch:** `agent1-formatting`
 **Status:** 🟡 PENDING ASSIGNMENT
 
 ---
