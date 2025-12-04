@@ -108,7 +108,7 @@ class WKSConfig:
             raise ConfigError(f"Configuration file not found at {path}")
 
         try:
-            with open(path) as fh:
+            with path.open() as fh:
                 raw = json.load(fh)
         except json.JSONDecodeError as e:
             raise ConfigError(f"Invalid JSON in config file {path}: {e}") from e

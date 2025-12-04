@@ -872,7 +872,7 @@ class WKSDaemon:
             )
 
             self.health_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.health_file, "w") as f:
+            with self.health_file.open("w") as f:
                 json.dump(health_data.to_dict(), f)
 
             # Vault health page disabled
@@ -925,7 +925,7 @@ class WKSDaemon:
     def _try_advisory_lock(self):
         """Try to acquire POSIX advisory lock using fcntl."""
         try:
-            self._lock_fh = open(self.lock_file, "w")
+            self._lock_fh = self.lock_file.open("w")
             fcntl.flock(self._lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             # Write PID and timestamp
             self._lock_fh.seek(0)
