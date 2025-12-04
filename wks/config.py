@@ -92,7 +92,13 @@ class WKSConfig:
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     diff: Optional[DiffConfig] = None
-    transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={}))
+    transform: TransformConfig = field(
+        default_factory=lambda: TransformConfig(
+            cache=CacheConfig(location=".wks/transform/cache", max_size_bytes=1073741824),
+            engines={},
+            database="wks.transform",
+        )
+    )
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @classmethod
