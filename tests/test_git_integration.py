@@ -20,7 +20,7 @@ class TestGitVaultWatcher:
         mock_status.stdout = "M  note.md\n?? new.md\n"
 
         # We need side_effect to handle multiple calls
-        def side_effect(*args, **kwargs):
+        def side_effect(*args, **kwargs):  # noqa: ARG001
             cmd = args[0]
             if "rev-parse" in cmd:
                 m = MagicMock()

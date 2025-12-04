@@ -1,7 +1,7 @@
 """Monitor Controller - Business logic for filesystem monitoring operations."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from pymongo import MongoClient
 
@@ -17,9 +17,9 @@ from .status import (
 from .validator import MonitorValidator
 
 
-def _build_canonical_map(values: List[str]) -> Dict[str, List[str]]:
+def _build_canonical_map(values: list[str]) -> dict[str, list[str]]:
     """Map canonical path strings to the original representations."""
-    mapping: Dict[str, List[str]] = {}
+    mapping: dict[str, list[str]] = {}
     for raw in values:
         canonical = _canonicalize_path(raw)
         mapping.setdefault(canonical, []).append(raw)
@@ -120,7 +120,7 @@ class MonitorController:
         )
 
     @staticmethod
-    def get_status(config: Dict[str, Any]) -> MonitorStatus:
+    def get_status(config: dict[str, Any]) -> MonitorStatus:
         """Get monitor status, including validation issues.
 
         Raises:
@@ -130,10 +130,7 @@ class MonitorController:
 
         from ..config import WKSConfig
 
-        if hasattr(config, "monitor"):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config.monitor if hasattr(config, "monitor") else MonitorConfig.from_config_dict(config)
         try:
             wks_config = WKSConfig.load()
             mongo_uri = wks_config.mongo.uri
@@ -173,7 +170,7 @@ class MonitorController:
         )
 
     @staticmethod
-    def _validate_path_conflicts(include_map: Dict, exclude_map: Dict) -> List[str]:
+    def _validate_path_conflicts(include_map: dict, exclude_map: dict) -> list[str]:
         """Validate paths aren't in both include and exclude lists."""
         issues = []
         include_paths = set(include_map.keys())
@@ -189,7 +186,7 @@ class MonitorController:
         return issues
 
     @staticmethod
-    def _validate_path_redundancy(include_map: Dict, exclude_map: Dict, config: dict) -> List[str]:
+    def _validate_path_redundancy(include_map: dict, exclude_map: dict, config: dict) -> list[str]:
         """Validate duplicate canonical paths and auto-ignored paths."""
         redundancies = []
 
@@ -221,7 +218,7 @@ class MonitorController:
     @staticmethod
     def _validate_managed_directories(
         monitor_cfg: MonitorConfig, rules: MonitorRules
-    ) -> Tuple[List[str], List[str], Dict[str, ManagedDirectoryInfo]]:
+    ) -> tuple[list[str], list[str], dict[str, ManagedDirectoryInfo]]:
         """Validate managed directories."""
         issues = []
         redundancies = []
@@ -247,7 +244,7 @@ class MonitorController:
     @staticmethod
     def _validate_dirnames(
         monitor_cfg: MonitorConfig,
-    ) -> Tuple[List[str], List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> tuple[list[str], list[str], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
         """Validate include/exclude dirnames."""
         issues = []
         redundancies = []
@@ -289,7 +286,7 @@ class MonitorController:
     @staticmethod
     def _validate_globs(
         monitor_cfg: MonitorConfig,
-    ) -> Tuple[List[str], Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> tuple[list[str], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
         """Validate include/exclude glob patterns."""
         issues = []
         include_glob_validation = {}
@@ -376,10 +373,7 @@ class MonitorController:
         from ..config import WKSConfig
         from ..priority import calculate_priority
 
-        if isinstance(config, WKSConfig):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
         rules = MonitorRules.from_config(monitor_cfg)
 
         # Resolve path
@@ -440,10 +434,7 @@ class MonitorController:
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
 
-        if isinstance(config, WKSConfig):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
         try:
             wks_config = WKSConfig.load()
             mongo_uri = wks_config.mongo.uri
@@ -503,10 +494,7 @@ class MonitorController:
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
 
-        if isinstance(config, WKSConfig):
-            monitor_cfg = config.monitor
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
         try:
             wks_config = WKSConfig.load()
             mongo_uri = wks_config.mongo.uri

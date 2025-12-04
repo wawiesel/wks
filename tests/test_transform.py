@@ -316,7 +316,7 @@ class TestTransformController:
         mock_engine.compute_options_hash.return_value = "optshash"
         mock_engine.get_extension.return_value = "md"
 
-        def transform_side_effect(input_path, output_path_internal, options):
+        def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
             output_path_internal.write_text("Transformed content")
 
         mock_engine.transform.side_effect = transform_side_effect
@@ -350,7 +350,7 @@ class TestTransformController:
         mock_engine.compute_options_hash.return_value = "optshash"
         mock_engine.get_extension.return_value = "md"
 
-        def transform_side_effect(input_path, output_path_internal, options):
+        def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
             output_path_internal.write_text("Transformed content")
 
         mock_engine.transform.side_effect = transform_side_effect
@@ -472,7 +472,6 @@ class TestTransformController:
         cache_file.write_text("Cached content")
 
         # Mock database record that matches the checksum
-        # Simplified - in real code this would be computed
         db.transform.find.return_value = [
             {
                 "checksum": "file_checksum",
@@ -532,7 +531,7 @@ class TestTransformController:
             mock_engine.compute_options_hash.return_value = "optshash"
             mock_engine.get_extension.return_value = "md"
 
-            def transform_side_effect(input_path, output_path_internal, options):
+            def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
                 output_path_internal.write_text("Transformed: Original content")
 
             mock_engine.transform.side_effect = transform_side_effect
@@ -618,7 +617,7 @@ class TestTransformController:
         mock_engine.compute_options_hash.return_value = "def456"
         mock_engine.get_extension.return_value = "md"
 
-        def transform_side_effect(input_path, output_path_internal, options):
+        def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
             output_path_internal.write_text("Transformed content")
 
         mock_engine.transform.side_effect = transform_side_effect
@@ -683,7 +682,7 @@ class TestTransformController:
                 mock_engine.compute_options_hash.return_value = "optshash"
                 mock_engine.get_extension.return_value = "md"
 
-                def transform_side_effect(input_path, output_path_internal, options):
+                def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
                     output_path_internal.write_text("Transformed: Original content")
 
                 mock_engine.transform.side_effect = transform_side_effect
@@ -717,11 +716,13 @@ class TestTransformController:
 
         controller = TransformController(db, cache_dir, 1024)
 
-        with patch.object(controller, "_compute_cache_key", return_value=checksum):
-            with patch.object(controller, "_update_last_accessed"):
-                content = controller.get_content(checksum)
+        with (
+            patch.object(controller, "_compute_cache_key", return_value=checksum),
+            patch.object(controller, "_update_last_accessed"),
+        ):
+            content = controller.get_content(checksum)
 
-                assert content == "Cached content"
+        assert content == "Cached content"
 
     def test_get_content_with_checksum_db_resolution_finds_matching_record(self, tmp_path):
         """get_content finds matching record in database by computing cache key."""

@@ -237,7 +237,7 @@ class TestGitDiffParsing:
             mock_run.return_value = mock_result
 
             # Mock git rev-parse for initialization
-            def side_effect(*args, **kwargs):
+            def side_effect(*args, **kwargs):  # noqa: ARG001
                 if "rev-parse" in args[0]:
                     m = MagicMock()
                     m.returncode = 0
@@ -259,7 +259,7 @@ class TestGitDiffParsing:
             mock_result.returncode = 0
             mock_result.stdout = "A\tnew.md\n"
 
-            def side_effect(*args, **kwargs):
+            def side_effect(*args, **kwargs):  # noqa: ARG001
                 if "rev-parse" in args[0]:
                     m = MagicMock()
                     m.returncode = 0
@@ -280,7 +280,7 @@ class TestGitDiffParsing:
             mock_result.returncode = 0
             mock_result.stdout = "D\tdeleted.md\n"
 
-            def side_effect(*args, **kwargs):
+            def side_effect(*args, **kwargs):  # noqa: ARG001
                 if "rev-parse" in args[0]:
                     m = MagicMock()
                     m.returncode = 0
@@ -305,9 +305,11 @@ class TestErrorCases:
 
     def test_init_handles_git_check_timeout(self, tmp_path):
         """Test that git repo check handles timeout."""
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 5)):
-            with pytest.raises(RuntimeError):
-                GitVaultWatcher(tmp_path)
+        with (
+            patch("subprocess.run", side_effect=subprocess.TimeoutExpired("git", 5)),
+            pytest.raises(RuntimeError),
+        ):
+            GitVaultWatcher(tmp_path)
 
     def test_get_changes_handles_exception(self, tmp_path):
         """Test that get_changes() handles exceptions gracefully."""

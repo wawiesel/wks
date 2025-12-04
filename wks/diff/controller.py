@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .config import DiffConfig
 from .engines import get_engine
@@ -11,7 +11,7 @@ from .engines import get_engine
 class DiffController:
     """Business logic for diff operations."""
 
-    def __init__(self, config: Optional[DiffConfig] = None, transform_controller: Optional[Any] = None):
+    def __init__(self, config: DiffConfig | None = None, transform_controller: Any | None = None):
         """Initialize diff controller.
 
         Args:
@@ -22,7 +22,7 @@ class DiffController:
         self.config = config
         self.transform_controller = transform_controller
 
-    def diff(self, target1: str, target2: str, engine_name: str, options: Optional[dict] = None) -> str:
+    def diff(self, target1: str, target2: str, engine_name: str, options: dict | None = None) -> str:
         """Compute diff between two targets (files or checksums).
 
         Args:

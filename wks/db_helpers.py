@@ -3,12 +3,10 @@
 Reduces duplication across monitor and db commands.
 """
 
-from typing import Tuple
-
 from pymongo import MongoClient
 
 
-def parse_database_key(db_key: str) -> Tuple[str, str]:
+def parse_database_key(db_key: str) -> tuple[str, str]:
     """Parse database key like 'wks.monitor' into (database, collection).
 
     Args:
@@ -34,7 +32,7 @@ def parse_database_key(db_key: str) -> Tuple[str, str]:
     return parts[0], parts[1]
 
 
-def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
+def get_monitor_db_config(cfg: dict) -> tuple[str, str, str]:
     """Extract monitor database configuration.
 
     Args:
@@ -74,7 +72,7 @@ def get_monitor_db_config(cfg: dict) -> Tuple[str, str, str]:
     return uri, db_name, coll_name
 
 
-def get_vault_db_config(cfg: dict) -> Tuple[str, str, str]:
+def get_vault_db_config(cfg: dict) -> tuple[str, str, str]:
     """Extract vault database configuration."""
     vault_cfg = cfg.get("vault")
     if not vault_cfg:
@@ -101,7 +99,7 @@ def get_vault_db_config(cfg: dict) -> Tuple[str, str, str]:
     return uri, db_name, coll_name
 
 
-def get_transform_db_config(cfg: dict) -> Tuple[str, str, str]:
+def get_transform_db_config(cfg: dict) -> tuple[str, str, str]:
     """Extract transform database configuration."""
     db_config = cfg.get("db")
     if not db_config:

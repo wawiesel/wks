@@ -52,7 +52,7 @@ class TestDoclingEngine:
         # We need to intercept the subprocess.run call, find the temp directory argument,
         # and create the output file there.
 
-        def create_output(cmd, *args, **kwargs):
+        def create_output(cmd, *args, **kwargs):  # noqa: ARG001
             # cmd is like ["docling", input_path, "--to", "md", "--output", temp_dir]
             # Find output dir (it's after --output)
             try:
@@ -83,7 +83,7 @@ class TestDoclingEngine:
 
         output_path = tmp_path / "output.md"
 
-        def create_output(cmd, *args, **kwargs):
+        def create_output(cmd, *args, **kwargs):  # noqa: ARG001
             try:
                 output_idx = cmd.index("--output")
                 temp_dir = Path(cmd[output_idx + 1])
@@ -141,7 +141,7 @@ class TestDoclingEngine:
         output_path = tmp_path / "output.md"
 
         # Mock successful run but no output file
-        def create_output(cmd, *args, **kwargs):
+        def create_output(cmd, *args, **kwargs):  # noqa: ARG001
             # Don't create the expected file
             return Mock(stdout="Done", returncode=0)
 

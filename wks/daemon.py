@@ -4,6 +4,7 @@ WKS daemon for monitoring file system and updating Obsidian.
 Adds support for ~/.wks/config.json with include/exclude path control.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -12,10 +13,9 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, TextIO, Tuple, Union
+from typing import Any
 
 from pymongo.collection import Collection
-from watchdog.observers import Observer
 
 from .config import ConfigError, WKSConfig
 from .constants import WKS_HOME_EXT
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
-    fcntl = None
+    fcntl = None  # type: ignore[assignment]
 
 # Optional imports for MongoDB guard and DB activity tracking
 # These may not exist in all environments and are mocked in tests
@@ -52,7 +52,7 @@ except ImportError:
     def load_db_activity_summary():  # type: ignore
         return None
 
-    def load_db_activity_history(window_secs: int):  # type: ignore
+    def load_db_activity_history(window_secs: int):  # type: ignore  # noqa: ARG001
         return []
 
 
@@ -70,11 +70,11 @@ class HealthData:
 
     pending_deletes: int
     pending_mods: int
-    last_error: Optional[str]
+    last_error: str | None
     pid: int
-    last_error_at: Optional[int]
-    last_error_at_iso: Optional[str]
-    last_error_age_secs: Optional[int]
+    last_error_at: int | None
+    last_error_at_iso: str | None
+    last_error_age_secs: int | None
     started_at: int
     started_at_iso: str
     uptime_secs: int
@@ -82,11 +82,11 @@ class HealthData:
     beats: int
     avg_beats_per_min: float
     lock_present: bool
-    lock_pid: Optional[int]
+    lock_pid: int | None
     lock_path: str
-    db_last_operation: Optional[str]
-    db_last_operation_detail: Optional[str]
-    db_last_operation_iso: Optional[str]
+    db_last_operation: str | None
+    db_last_operation_detail: str | None
+    db_last_operation_iso: str | None
     db_ops_last_minute: int
     fs_rate_short: float
     fs_rate_long: float
@@ -96,7 +96,7 @@ class HealthData:
     fs_rate_short_weight: float
     fs_rate_long_weight: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization."""
         return asdict(self)
 
@@ -116,7 +116,7 @@ class WKSDaemon:
         fs_rate_long_window_secs: float = 600.0,
         fs_rate_short_weight: float = 0.8,
         fs_rate_long_weight: float = 0.2,
-        monitor_collection: Optional[Collection] = None,
+        monitor_collection: Collection | None = None,
     ):
         """
         Initialize WKS daemon.
@@ -134,25 +134,25 @@ class WKSDaemon:
         self._last_vault_sync = 0.0
         self.monitor_paths = [Path(p).expanduser().resolve() for p in monitor_paths]
         self.monitor_rules = monitor_rules
-        self.observer: Optional[Observer] = None
+        self.observer = None
         self.auto_project_notes = auto_project_notes
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
-        self._lock_fh: Optional[TextIO] = None
+        self._lock_fh: Any | None = None  # File handle when opened
         # Maintenance (periodic tasks)
         self._last_prune_check = 0.0
         # Read prune interval from config, default to 5 minutes (300 seconds)
         self._prune_interval_secs = self.config.monitor.prune_interval_secs
         # Coalesce delete events to avoid temp-file save false positives
-        self._pending_deletes: Dict[str, float] = {}
+        self._pending_deletes: dict[str, float] = {}
         self._delete_grace_secs = 2.0
         # Coalesce modify/create bursts
-        self._pending_mods: Dict[str, Dict[str, Any]] = {}
+        self._pending_mods: dict[str, dict[str, Any]] = {}
         self._mod_coalesce_secs = 0.6
         # Health
         self.health_file = Path.home() / WKS_HOME_EXT / "health.json"
-        self._last_error: Optional[str] = None
-        self._last_error_at: Optional[float] = None
+        self._last_error: str | None = None
+        self._last_error_at: float | None = None
         self._health_started_at = time.time()
         self._beat_count = 0
         # FS operation rate tracking
@@ -164,12 +164,12 @@ class WKSDaemon:
         self._fs_events_long: deque[float] = deque()
         self.mongo_uri = self.config.mongo.uri
         self.monitor_collection = monitor_collection
-        self._mongo_guard: Optional[Any] = None  # MongoGuard type, but may be None if import fails
-        self._mcp_broker: Optional[MCPBroker] = None
+        self._mongo_guard: Any | None = None  # MongoGuard type, but may be None if import fails
+        self._mcp_broker: MCPBroker | None = None
         self._mcp_socket = mcp_socket_path()
 
         # Initialize transform controller if transform config exists
-        self._transform_controller: Optional[TransformController] = None
+        self._transform_controller: TransformController | None = None
         if self.mongo_uri and self.config.transform:
             try:
                 from pymongo import MongoClient
@@ -200,7 +200,7 @@ class WKSDaemon:
 
         return weight
 
-    def _compute_touches_per_day(self, doc: Optional[Dict[str, Any]], now: datetime, weight: float) -> float:
+    def _compute_touches_per_day(self, doc: dict[str, Any] | None, now: datetime, weight: float) -> float:
         if not doc:
             return 0.0
 
@@ -227,7 +227,7 @@ class WKSDaemon:
 
         return 86400.0 / interval
 
-    def _update_monitor_db(self, path: Path) -> None:
+    def _update_monitor_db(self, path: Path):
         if self.monitor_collection is None:
             return
 
@@ -274,7 +274,7 @@ class WKSDaemon:
             self._set_error(f"monitor_db_lookup_error: {exc}")
             return False
 
-    def _remove_from_monitor_db(self, path: Path) -> None:
+    def _remove_from_monitor_db(self, path: Path):
         if self.monitor_collection is None:
             return
         try:
@@ -282,7 +282,7 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_db_delete_error: {e}")
 
-    def _enforce_monitor_db_limit(self) -> None:
+    def _enforce_monitor_db_limit(self):
         if self.monitor_collection is None:
             return
 
@@ -306,7 +306,7 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_db_limit_error: {e}")
 
-    def _record_fs_event(self, timestamp: Optional[float] = None) -> None:
+    def _record_fs_event(self, timestamp: float | None = None) -> None:
         """Track raw file-system event timing for rate calculations."""
         t = timestamp or time.time()
         self._fs_events_short.append(t)
@@ -366,24 +366,23 @@ class WKSDaemon:
         except Exception as exc:
             self._set_error(f"transform_db_update_error: {exc}")
 
-    def _get_vault_base_path(self) -> Optional[Path]:
+    def _get_vault_base_path(self) -> Path | None:
         """Get vault base directory path if configured."""
         try:
-            return self.config.vault.base_dir
+            base_dir = self.config.vault.base_dir
+            return Path(base_dir) if base_dir else None
         except Exception:
             pass
         return None
 
-    def _handle_move_event(self, src_path: str, dest_path: str) -> None:
+    def _handle_move_event(self, src_path: str, dest_path: str):
         """Handle file move event."""
         src = Path(src_path)
         dest = Path(dest_path)
 
         # Cancel any pending delete for destination (temp-file replace pattern)
-        try:
+        with contextlib.suppress(Exception):
             self._pending_deletes.pop(dest.resolve().as_posix(), None)
-        except Exception:
-            pass
 
         tracked_src = self._monitor_has_path(src)
         dest_is_file = False
@@ -401,10 +400,8 @@ class WKSDaemon:
                 pass
 
         # Update symlink target if tracked
-        try:
+        with contextlib.suppress(Exception):
             self.vault.update_link_on_move(src, dest)
-        except Exception:
-            pass
 
         # Convert paths to appropriate URIs
         from .uri_utils import convert_to_uri
@@ -420,10 +417,8 @@ class WKSDaemon:
             self._update_transform_db_on_move(src, dest)
 
         # Update wiki links inside vault
-        try:
+        with contextlib.suppress(Exception):
             self.vault.update_vault_links_on_move(src, dest)
-        except Exception:
-            pass
 
         # Update monitor DB (only if not ignored)
         if tracked_src and not self._should_ignore_by_rules(src):
@@ -431,22 +426,18 @@ class WKSDaemon:
         if dest_is_file and not self._should_ignore_by_rules(dest):
             self._update_monitor_db(dest)
 
-    def _handle_delete_event(self, path: Path) -> None:
+    def _handle_delete_event(self, path: Path):
         """Handle file delete event."""
         if not self._monitor_has_path(path):
             return
-        try:
+        with contextlib.suppress(Exception):
             self._pending_deletes[path.resolve().as_posix()] = time.time()
-        except Exception:
-            pass
 
-    def _handle_create_modify_event(self, path: Path, event_type: str) -> None:
+    def _handle_create_modify_event(self, path: Path, event_type: str):
         """Handle file create or modify event."""
         # Cancel any pending delete for same path
-        try:
+        with contextlib.suppress(Exception):
             self._pending_deletes.pop(path.resolve().as_posix(), None)
-        except Exception:
-            pass
 
         # Queue pending mod/create
         try:
@@ -458,7 +449,7 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _handle_new_directory(self, path: Path) -> None:
+    def _handle_new_directory(self, path: Path):
         """Handle new directory creation - check if it's a project."""
         if not self.auto_project_notes:
             return
@@ -476,7 +467,7 @@ class WKSDaemon:
             except Exception as e:
                 print(f"Error creating project note: {e}")
 
-    def on_file_change(self, event_type: str, path_info: Union[str, Tuple[str, str]]) -> None:
+    def on_file_change(self, event_type: str, path_info):
         """
         Callback when a file changes.
 
@@ -513,7 +504,7 @@ class WKSDaemon:
                 self._handle_new_directory(path)
             return
 
-    def start(self) -> None:
+    def start(self):
         """Start monitoring."""
         self._start_mongo_guard()
         self._start_mcp_broker()
@@ -533,7 +524,7 @@ class WKSDaemon:
 
         print(f"WKS daemon started, monitoring: {[str(p) for p in self.monitor_paths]}")
 
-    def stop(self) -> None:
+    def stop(self):
         """Stop monitoring."""
         if self.observer:
             self.observer.stop()
@@ -543,7 +534,7 @@ class WKSDaemon:
         self._stop_mongo_guard()
         self._stop_mcp_broker()
 
-    def _start_mongo_guard(self) -> None:
+    def _start_mongo_guard(self):
         if not self.mongo_uri:
             return
         if MongoGuard is None:
@@ -554,16 +545,14 @@ class WKSDaemon:
             self._mongo_guard = guard
         guard.start(record_start=True)
 
-    def _stop_mongo_guard(self) -> None:
+    def _stop_mongo_guard(self):
         guard = self._mongo_guard
         if not guard:
             return
-        try:
+        with contextlib.suppress(Exception):
             guard.stop()
-        except Exception:
-            pass
 
-    def _start_mcp_broker(self) -> None:
+    def _start_mcp_broker(self):
         socket_path = self._mcp_socket
         if not socket_path:
             return
@@ -576,16 +565,14 @@ class WKSDaemon:
         except Exception as exc:
             self._set_error(f"mcp_broker_error: {exc}")
 
-    def _stop_mcp_broker(self) -> None:
+    def _stop_mcp_broker(self):
         broker = self._mcp_broker
         if not broker:
             return
-        try:
+        with contextlib.suppress(Exception):
             broker.stop()
-        except Exception:
-            pass
 
-    def run(self) -> None:
+    def run(self):
         """Run the daemon (blocking)."""
         try:
             self.start()
@@ -609,7 +596,7 @@ class WKSDaemon:
         except Exception:
             return False
 
-    def _maybe_prune_monitor_db(self) -> None:
+    def _maybe_prune_monitor_db(self):
         """Prune monitor database entries that are missing or match exclude rules."""
         if self.monitor_collection is None:
             return
@@ -660,7 +647,7 @@ class WKSDaemon:
         except Exception as e:
             self._set_error(f"monitor_prune_error: {e}")
 
-    def _maybe_flush_pending_deletes(self) -> None:
+    def _maybe_flush_pending_deletes(self):
         """Log deletes after a short grace period to avoid temp-file saves showing as delete+recreate."""
         if not self._pending_deletes:
             return
@@ -708,12 +695,10 @@ class WKSDaemon:
                 self._pending_deletes.pop(pstr, None)
             except Exception:
                 # Best-effort
-                try:
+                with contextlib.suppress(Exception):
                     self._pending_deletes.pop(pstr, None)
-                except Exception:
-                    pass
 
-    def _maybe_flush_pending_mods(self) -> None:
+    def _maybe_flush_pending_mods(self):
         if not self._pending_mods:
             return
         now = time.time()
@@ -748,12 +733,10 @@ class WKSDaemon:
                             self._set_error(f"transform_db_modified_error: {exc}")
                 self._pending_mods.pop(pstr, None)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     self._pending_mods.pop(pstr, None)
-                except Exception:
-                    pass
 
-    def _maybe_sync_vault_links(self) -> None:
+    def _maybe_sync_vault_links(self):
         if not getattr(self, "_vault_indexer", None):
             return
         now = time.time()
@@ -767,7 +750,7 @@ class WKSDaemon:
         finally:
             self._last_vault_sync = now
 
-    def _get_db_activity_info(self, now: float) -> tuple[Optional[str], Optional[str], Optional[str], int]:
+    def _get_db_activity_info(self, now: float) -> tuple[str | None, str | None, str | None, int]:
         """Get DB activity information from summary and history.
 
         Returns:
@@ -821,7 +804,7 @@ class WKSDaemon:
         weighted_rate = self.fs_rate_short_weight * short_rate + self.fs_rate_long_weight * long_rate
         return short_rate, long_rate, weighted_rate
 
-    def _get_lock_info(self) -> tuple[bool, Optional[int], str]:
+    def _get_lock_info(self) -> tuple[bool, int | None, str]:
         """Get lock file information.
 
         Returns:
@@ -845,7 +828,7 @@ class WKSDaemon:
         s = secs % 60
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-    def _write_health(self) -> None:
+    def _write_health(self):
         """Write health data to health.json file."""
         try:
             now = time.time()
@@ -890,7 +873,7 @@ class WKSDaemon:
             )
 
             self.health_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.health_file, "w") as f:
+            with self.health_file.open("w") as f:
                 json.dump(health_data.to_dict(), f)
 
             # Vault health page disabled
@@ -898,23 +881,21 @@ class WKSDaemon:
             pass
 
     def _bump_beat(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._beat_count += 1
-        except Exception:
-            pass
 
-    def _set_error(self, msg: str) -> None:
+    def _set_error(self, msg: str):
         try:
             self._last_error = str(msg)
             self._last_error_at = time.time()
         except Exception:
             pass
 
-    def _set_info(self, msg: str) -> None:
+    def _set_info(self, msg: str):
         # Placeholder for info logging to health/status if needed
         pass
 
-    def _clean_stale_lock(self) -> None:
+    def _clean_stale_lock(self):
         """Clean up stale lock file if process is no longer running."""
         try:
             if self.lock_file.exists():
@@ -924,14 +905,12 @@ class WKSDaemon:
                 except Exception:
                     stale_pid = None
                 if stale_pid and not self._pid_running(stale_pid):
-                    try:
+                    with contextlib.suppress(Exception):
                         self.lock_file.unlink()
-                    except Exception:
-                        pass
         except Exception:
             pass
 
-    def _try_pidfile_lock(self) -> None:
+    def _try_pidfile_lock(self):
         """Try to acquire lock using PID file (fallback when fcntl unavailable)."""
         if self.lock_file.exists():
             # Read PID and check if running
@@ -944,10 +923,10 @@ class WKSDaemon:
         # Write current PID
         self.lock_file.write_text(str(os.getpid()))
 
-    def _try_advisory_lock(self) -> None:
+    def _try_advisory_lock(self):
         """Try to acquire POSIX advisory lock using fcntl."""
         try:
-            self._lock_fh = open(self.lock_file, "w")
+            self._lock_fh = self.lock_file.open("w")
             fcntl.flock(self._lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             # Write PID and timestamp
             self._lock_fh.seek(0)
@@ -960,7 +939,7 @@ class WKSDaemon:
         except Exception as e:
             raise RuntimeError(f"Failed to acquire daemon lock: {e}") from e
 
-    def _acquire_lock(self) -> None:
+    def _acquire_lock(self):
         """Acquire an exclusive file lock to ensure a single daemon instance."""
         # Ensure directory exists
         self.lock_file.parent.mkdir(parents=True, exist_ok=True)
@@ -974,7 +953,7 @@ class WKSDaemon:
         else:
             self._try_advisory_lock()
 
-    def _release_lock(self) -> None:
+    def _release_lock(self):
         """Release the single-instance lock."""
         try:
             if self._lock_fh and fcntl is not None:
@@ -983,10 +962,8 @@ class WKSDaemon:
                 self._lock_fh = None
             # Best-effort cleanup
             if self.lock_file.exists():
-                try:
+                with contextlib.suppress(Exception):
                     self.lock_file.unlink()
-                except Exception:
-                    pass
         except Exception:
             pass
 
@@ -1006,7 +983,7 @@ class WKSDaemon:
                 return 0
         return 0
 
-    def _install_vault_git_hooks(self) -> None:
+    def _install_vault_git_hooks(self):
         """Install git hooks for vault link validation."""
         try:
             from .vault.git_hooks import install_hooks, is_hook_installed
@@ -1042,10 +1019,10 @@ if __name__ == "__main__":
         config = WKSConfig.load()
     except ConfigError as e:
         print(str(e))
-        raise SystemExit(2) from None
+        raise SystemExit(2) from e
 
     # Vault config
-    vault_path = config.vault.base_dir
+    vault_path = Path(config.vault.base_dir)
     base_dir = config.vault.wks_dir
 
     # Monitor config

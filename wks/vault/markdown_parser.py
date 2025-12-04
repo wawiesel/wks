@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 __all__ = [
-    "WikiLink",
     "MarkdownURL",
-    "parse_wikilinks",
-    "parse_markdown_urls",
+    "WikiLink",
     "extract_headings",
+    "parse_markdown_urls",
+    "parse_wikilinks",
 ]
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator
 
 # Compiled regex patterns for performance
 WIKILINK_PATTERN = re.compile(r"(!)?\[\[([^\]]+)\]\]")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = ["install_hooks", "uninstall_hooks", "is_hook_installed"]
+__all__ = ["install_hooks", "is_hook_installed", "uninstall_hooks"]
 
 import logging
 import shutil

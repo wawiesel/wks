@@ -4,13 +4,13 @@ Display functions accept dataclasses from service_controller, not dicts.
 Use to_dict() only at JSON serialization boundaries.
 """
 
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..service_controller import ServiceStatusData
 
 
-def fmt_bool(value: Optional[bool], color: bool = False) -> str:
+def fmt_bool(value: bool | None, color: bool = False) -> str:
     """Format a boolean for display.
 
     Args:
@@ -27,7 +27,7 @@ def fmt_bool(value: Optional[bool], color: bool = False) -> str:
     return "true" if value else "false"
 
 
-def format_timestamp(value: Optional[Any], fmt: str) -> str:
+def format_timestamp(value: Any | None, fmt: str) -> str:
     """Format a timestamp value for display.
 
     Args:
@@ -63,7 +63,7 @@ def format_timestamp(value: Optional[Any], fmt: str) -> str:
     return dt.strftime(fmt)
 
 
-def build_status_rows(status: "ServiceStatusData") -> List[Tuple[str, str]]:
+def build_status_rows(status: "ServiceStatusData") -> list[tuple[str, str]]:
     """Build display rows from ServiceStatusData dataclass.
 
     Args:
@@ -72,7 +72,7 @@ def build_status_rows(status: "ServiceStatusData") -> List[Tuple[str, str]]:
     Returns:
         List of (label, value) tuples for table display
     """
-    rows: List[Tuple[str, str]] = []
+    rows: list[tuple[str, str]] = []
 
     # Health section
     rows.append(("[bold cyan]Health[/bold cyan]", ""))

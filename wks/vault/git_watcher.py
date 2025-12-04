@@ -11,7 +11,6 @@ import logging
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Set
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +19,10 @@ logger = logging.getLogger(__name__)
 class VaultChanges:
     """Changed files detected in vault repository."""
 
-    modified: List[Path] = field(default_factory=list)
-    added: List[Path] = field(default_factory=list)
-    deleted: List[Path] = field(default_factory=list)
-    renamed: List[tuple[Path, Path]] = field(default_factory=list)
+    modified: list[Path] = field(default_factory=list)
+    added: list[Path] = field(default_factory=list)
+    deleted: list[Path] = field(default_factory=list)
+    renamed: list[tuple[Path, Path]] = field(default_factory=list)
 
     @property
     def has_changes(self) -> bool:
@@ -31,7 +30,7 @@ class VaultChanges:
         return bool(self.modified or self.added or self.deleted or self.renamed)
 
     @property
-    def all_affected_files(self) -> Set[Path]:
+    def all_affected_files(self) -> set[Path]:
         """Get all files affected by changes (for scanning)."""
         files = set()
         files.update(self.modified)
@@ -196,13 +195,12 @@ class GitVaultWatcher:
                     changes.added.append(path)
                 elif status.startswith("D"):
                     changes.deleted.append(path)
-                elif status.startswith("R"):
+                elif status.startswith("R") and len(parts) > 2:
                     # Renamed files have format: "R100\told\tnew"
-                    if len(parts) > 2:
-                        old_path = self.vault_path / parts[1].strip()
-                        new_path = self.vault_path / parts[2].strip()
-                        if new_path.suffix == ".md":
-                            changes.renamed.append((old_path, new_path))
+                    old_path = self.vault_path / parts[1].strip()
+                    new_path = self.vault_path / parts[2].strip()
+                    if new_path.suffix == ".md":
+                        changes.renamed.append((old_path, new_path))
 
         except subprocess.TimeoutExpired:
             logger.error("git diff command timed out")

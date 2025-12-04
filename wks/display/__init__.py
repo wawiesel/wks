@@ -7,8 +7,8 @@ from .context import get_display, is_mcp_context
 from .mcp import MCPDisplay
 
 __all__ = [
-    "Display",
     "CLIDisplay",
+    "Display",
     "MCPDisplay",
     "get_display",
     "is_mcp_context",

@@ -9,7 +9,6 @@ paths outside the vault.
 """
 
 from pathlib import Path
-from typing import Optional, Union
 from urllib.parse import unquote
 
 
@@ -43,7 +42,7 @@ def uri_to_path(uri: str) -> Path:
     return Path(uri)
 
 
-def convert_to_uri(path_or_uri: Union[str, Path], vault_path: Optional[Path] = None) -> str:
+def convert_to_uri(path_or_uri: str | Path, vault_path: Path | None = None) -> str:
     """Convert any path or URI to the appropriate URI format.
 
     This is the central conversion function used throughout WKS for normalizing
@@ -76,10 +75,7 @@ def convert_to_uri(path_or_uri: Union[str, Path], vault_path: Optional[Path] = N
         return path_or_uri
 
     # Convert to Path and expand
-    if isinstance(path_or_uri, str):
-        path = expand_path(path_or_uri)
-    else:
-        path = path_or_uri.expanduser().resolve()
+    path = expand_path(path_or_uri) if isinstance(path_or_uri, str) else path_or_uri.expanduser().resolve()
 
     # If vault_path provided, check if path is within vault
     if vault_path is not None:

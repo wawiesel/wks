@@ -16,7 +16,7 @@ import re
 import subprocess
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # from . import mongoctl
 from .config import WKSConfig
@@ -97,18 +97,18 @@ def default_mongo_uri() -> str:
 
 @dataclass
 class ServiceStatusLaunch:
-    state: Optional[str] = None
-    active_count: Optional[str] = None
-    pid: Optional[str] = None
-    program: Optional[str] = None
-    arguments: Optional[str] = None
-    working_dir: Optional[str] = None
-    stdout: Optional[str] = None
-    stderr: Optional[str] = None
-    runs: Optional[str] = None
-    last_exit: Optional[str] = None
-    path: Optional[str] = None
-    type: Optional[str] = None
+    state: str | None = None
+    active_count: str | None = None
+    pid: str | None = None
+    program: str | None = None
+    arguments: str | None = None
+    working_dir: str | None = None
+    stdout: str | None = None
+    stderr: str | None = None
+    runs: str | None = None
+    last_exit: str | None = None
+    path: str | None = None
+    type: str | None = None
 
     def present(self) -> bool:
         return any(
@@ -124,27 +124,27 @@ class ServiceStatusLaunch:
             ]
         )
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class ServiceStatusData:
-    running: Optional[bool] = None
-    uptime: Optional[str] = None
-    pid: Optional[int] = None
-    pending_deletes: Optional[int] = None
-    pending_mods: Optional[int] = None
-    ok: Optional[bool] = None
-    lock: Optional[bool] = None
-    last_error: Optional[str] = None
-    fs_rate_short: Optional[float] = None
-    fs_rate_long: Optional[float] = None
-    fs_rate_weighted: Optional[float] = None
+    running: bool | None = None
+    uptime: str | None = None
+    pid: int | None = None
+    pending_deletes: int | None = None
+    pending_mods: int | None = None
+    ok: bool | None = None
+    lock: bool | None = None
+    last_error: str | None = None
+    fs_rate_short: float | None = None
+    fs_rate_long: float | None = None
+    fs_rate_weighted: float | None = None
     launch: ServiceStatusLaunch = field(default_factory=ServiceStatusLaunch)
-    notes: List[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "service": {
                 "running": self.running,
@@ -168,7 +168,7 @@ class ServiceController:
     """Business logic for service status inspection."""
 
     @staticmethod
-    def _read_launch_agent() -> Optional[ServiceStatusLaunch]:
+    def _read_launch_agent() -> ServiceStatusLaunch | None:
         if not (is_macos() and agent_installed()):
             return None
         try:
@@ -208,11 +208,11 @@ class ServiceController:
     @staticmethod
     def _read_health(status: ServiceStatusData) -> None:
         health_path = Path.home() / WKS_HOME_EXT / "health.json"
-        health: Dict[str, Any] = {}
+        health: dict[str, Any] = {}
 
         if health_path.exists():
             try:
-                with open(health_path, "r") as f:
+                with health_path.open() as f:
                     health = json.load(f)
             except Exception:
                 status.notes.append("Failed to read health metrics")
@@ -279,6 +279,7 @@ __all__ = [
     "ServiceController",
     "ServiceStatusData",
     "ServiceStatusLaunch",
+    "_pid_running",
     "agent_installed",
     "agent_label",
     "agent_plist_path",
@@ -288,5 +289,4 @@ __all__ = [
     "default_mongo_uri",
     "is_macos",
     "stop_managed_mongo",
-    "_pid_running",
 ]

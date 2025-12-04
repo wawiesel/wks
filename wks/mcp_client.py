@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+import contextlib
 import socket
 import sys
 import threading
 from pathlib import Path
-from typing import Optional, TextIO
+from typing import TextIO
 
 
 def proxy_stdio_to_socket(
     socket_path: Path,
     *,
-    stdin: Optional[TextIO] = None,
-    stdout: Optional[TextIO] = None,
+    stdin: TextIO | None = None,
+    stdout: TextIO | None = None,
 ) -> bool:
     """Proxy the current stdio streams to the MCP broker socket."""
     in_stream = stdin or sys.stdin
@@ -35,14 +36,10 @@ def proxy_stdio_to_socket(
                 sock_writer.write(line)
                 sock_writer.flush()
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 sock_writer.flush()
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 sock.shutdown(socket.SHUT_WR)
-            except Exception:
-                pass
 
     def downstream():
         try:

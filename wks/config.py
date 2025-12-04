@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .diff.config import DiffConfig
 from .monitor.config import MonitorConfig
@@ -31,12 +31,15 @@ class MongoSettings:
     def __post_init__(self):
         if not self.uri:
             self.uri = DEFAULT_MONGO_URI
-        if not self.uri.startswith("mongodb://") and not self.uri.startswith("mongodb+srv://"):
-            if not self.uri.startswith("mongodb"):
-                raise ConfigError(f"db.uri must start with 'mongodb://' (found: {self.uri!r})")
+        if (
+            not self.uri.startswith("mongodb://")
+            and not self.uri.startswith("mongodb+srv://")
+            and not self.uri.startswith("mongodb")
+        ):
+            raise ConfigError(f"db.uri must start with 'mongodb://' (found: {self.uri!r})")
 
     @classmethod
-    def from_config(cls, cfg: Dict[str, Any]) -> "MongoSettings":
+    def from_config(cls, cfg: dict[str, Any]) -> MongoSettings:
         db_cfg = cfg.get("db", {})
         return cls(
             uri=db_cfg.get("uri", DEFAULT_MONGO_URI),
@@ -53,7 +56,7 @@ class MetricsConfig:
     fs_rate_long_weight: float = 0.2
 
     @classmethod
-    def from_config(cls, cfg: Dict[str, Any]) -> "MetricsConfig":
+    def from_config(cls, cfg: dict[str, Any]) -> MetricsConfig:
         metrics_cfg = cfg.get("metrics", {})
         return cls(
             fs_rate_short_window_secs=float(metrics_cfg.get("fs_rate_short_window_secs", 10.0)),
@@ -70,7 +73,7 @@ class DisplayConfig:
     timestamp_format: str = DEFAULT_TIMESTAMP_FORMAT
 
     @classmethod
-    def from_config(cls, cfg: Dict[str, Any]) -> "DisplayConfig":
+    def from_config(cls, cfg: dict[str, Any]) -> DisplayConfig:
         display_cfg = cfg.get("display", {})
         return cls(
             timestamp_format=display_cfg.get("timestamp_format", DEFAULT_TIMESTAMP_FORMAT),
@@ -91,7 +94,7 @@ class WKSConfig:
     monitor: MonitorConfig
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
-    diff: Optional[DiffConfig] = None
+    diff: DiffConfig | None = None
     transform: TransformConfig = field(
         default_factory=lambda: TransformConfig(
             cache=CacheConfig(location=".wks/transform/cache", max_size_bytes=1073741824),
@@ -102,7 +105,7 @@ class WKSConfig:
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "WKSConfig":
+    def load(cls, path: Path | None = None) -> WKSConfig:
         """Load and validate config from file."""
         if path is None:
             path = get_config_path()
@@ -111,7 +114,7 @@ class WKSConfig:
             raise ConfigError(f"Configuration file not found at {path}")
 
         try:
-            with open(path, "r") as fh:
+            with path.open() as fh:
                 raw = json.load(fh)
         except json.JSONDecodeError as e:
             raise ConfigError(f"Invalid JSON in config file {path}: {e}") from e
@@ -148,7 +151,7 @@ def get_config_path() -> Path:
 # Backwards compatibility - DEPRECATED
 
 
-def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
+def load_config(path: Path | None = None) -> dict[str, Any]:
     """Compatibility wrapper returning a dict-shaped config for legacy callers.
 
     New code should prefer WKSConfig.load() and dataclasses directly. This
@@ -159,10 +162,10 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     try:
         cfg = WKSConfig.load(path)
     except Exception:
-        # Preserve previous behaviour – callers must handle empty config.
+        # Preserve previous behaviour - callers must handle empty config.
         return {}
 
-    data: Dict[str, Any] = asdict(cfg)
+    data: dict[str, Any] = asdict(cfg)
 
     # Provide a normalized DB section for helpers that expect "db.uri".
     data["db"] = {"uri": cfg.mongo.uri}

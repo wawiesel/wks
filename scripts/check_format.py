@@ -44,14 +44,14 @@ def main():
 
     success = True
     if args.fix:
-        if not run_command(["ruff", "format"] + targets, "Ruff Formatting (Fix)"):
+        if not run_command(["ruff", "format", *targets], "Ruff Formatting (Fix)"):
             success = False
-        if not run_command(["ruff", "check", "--fix"] + targets, "Ruff Linting (Fix)"):
+        if not run_command(["ruff", "check", "--fix", *targets], "Ruff Linting (Fix)"):
             success = False
     else:
-        if not run_command(["ruff", "format", "--check"] + targets, "Ruff Formatting (Check)"):
+        if not run_command(["ruff", "format", "--check", *targets], "Ruff Formatting (Check)"):
             success = False
-        if not run_command(["ruff", "check"] + targets, "Ruff Linting (Check)"):
+        if not run_command(["ruff", "check", *targets], "Ruff Linting (Check)"):
             success = False
 
     if not success:

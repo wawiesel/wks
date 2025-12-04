@@ -34,14 +34,14 @@ def test_env(tmp_path, monkeypatch):
 
     # Patch MongoDB
     client = mongomock.MongoClient()
-    monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)
+    monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)  # noqa: ARG005
 
     # Mock BulkOperationBuilder.add_update signature fix
     from mongomock.collection import BulkOperationBuilder
 
     original = BulkOperationBuilder.add_update
 
-    def wrapper(self, selector, document, check_keys, upsert, **kwargs):
+    def wrapper(self, selector, document, check_keys, upsert, **kwargs):  # noqa: ARG001
         return original(self, selector, document, check_keys, upsert)
 
     monkeypatch.setattr(BulkOperationBuilder, "add_update", wrapper)
