@@ -16,7 +16,7 @@ def _canonicalize_path(path_str: str) -> str:
         return str(path_obj)
 
 
-def _find_matching_path_key(path_map: Dict[str, any], candidate: str) -> Optional[str]:
+def _find_matching_path_key(path_map: Dict[str, Any], candidate: str) -> Optional[str]:
     """Find the key in a path map that canonically matches candidate."""
     candidate_norm = _canonicalize_path(candidate)
     for key in path_map.keys():
