@@ -288,8 +288,9 @@ class TestDatabaseOperationLogging:
         """Test getting DB activity info with no history."""
         daemon = build_daemon(monkeypatch, tmp_path)
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=None), patch(
-            "wks.daemon.load_db_activity_history", return_value=[]
+        with (
+            patch("wks.daemon.load_db_activity_summary", return_value=None),
+            patch("wks.daemon.load_db_activity_history", return_value=[]),
         ):
             op, detail, iso, ops_min = daemon._get_db_activity_info(time.time())
 
@@ -309,8 +310,9 @@ class TestDatabaseOperationLogging:
             "timestamp_iso": "2023-10-20 12:00:00",
         }
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=summary), patch(
-            "wks.daemon.load_db_activity_history", return_value=[]
+        with (
+            patch("wks.daemon.load_db_activity_summary", return_value=summary),
+            patch("wks.daemon.load_db_activity_history", return_value=[]),
         ):
             op, detail, iso, ops_min = daemon._get_db_activity_info(now)
 
@@ -339,8 +341,9 @@ class TestDatabaseOperationLogging:
             },
         ]
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=None), patch(
-            "wks.daemon.load_db_activity_history", return_value=history
+        with (
+            patch("wks.daemon.load_db_activity_summary", return_value=None),
+            patch("wks.daemon.load_db_activity_history", return_value=history),
         ):
             op, detail, _iso, _ops_min = daemon._get_db_activity_info(now)
 
@@ -360,8 +363,9 @@ class TestDatabaseOperationLogging:
             {"timestamp": now - 5, "operation": "recent3"},
         ]
 
-        with patch("wks.daemon.load_db_activity_summary", return_value=None), patch(
-            "wks.daemon.load_db_activity_history", return_value=history
+        with (
+            patch("wks.daemon.load_db_activity_summary", return_value=None),
+            patch("wks.daemon.load_db_activity_history", return_value=history),
         ):
             _op, _detail, _iso, ops_min = daemon._get_db_activity_info(now)
 

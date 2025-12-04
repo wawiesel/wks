@@ -30,9 +30,7 @@ class TestFixSymlinks:
         target_file.write_text("test content")
 
         # Patch at import location within the method
-        with patch("wks.config.WKSConfig") as mock_config_class, patch(
-            "pymongo.MongoClient"
-        ) as mock_mongo_class:
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
             # Mock config
             mock_config = Mock()
             mock_config.mongo.uri = "mongodb://localhost"
@@ -77,9 +75,7 @@ class TestFixSymlinks:
         vault = Mock(spec=ObsidianVault)
         vault.links_dir = tmp_path / "_links"
 
-        with patch("wks.config.WKSConfig") as mock_config_class, patch(
-            "pymongo.MongoClient"
-        ) as mock_mongo_class:
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
             mock_config = Mock()
             mock_config.mongo.uri = "mongodb://localhost"
             mock_config.vault.database = "wks.vault"
@@ -99,9 +95,7 @@ class TestFixSymlinks:
         vault = Mock(spec=ObsidianVault)
         vault.links_dir = tmp_path / "_links"
 
-        with patch("wks.config.WKSConfig") as mock_config_class, patch(
-            "pymongo.MongoClient"
-        ) as mock_mongo_class:
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
             mock_config = Mock()
             mock_config.mongo.uri = "mongodb://localhost"
             mock_config.vault.database = "wks.vault"
@@ -279,9 +273,7 @@ class TestFixSymlinksEdgeCases:
         target_file = tmp_path / "test.pdf"
         target_file.write_text("content")
 
-        with patch("wks.config.WKSConfig") as mock_config_class, patch(
-            "pymongo.MongoClient"
-        ) as mock_mongo_class:
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
             mock_config = Mock()
             mock_config.mongo.uri = "mongodb://localhost"
             mock_config.vault.database = "wks.vault"
@@ -313,9 +305,7 @@ class TestFixSymlinksEdgeCases:
         target_file = tmp_path / "test.pdf"
         target_file.write_text("content")
 
-        with patch("wks.config.WKSConfig") as mock_config_class, patch(
-            "pymongo.MongoClient"
-        ) as mock_mongo_class:
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
             mock_config = Mock()
             mock_config.mongo.uri = "mongodb://localhost"
             mock_config.vault.database = "wks.vault"
@@ -343,9 +333,7 @@ class TestFixSymlinksEdgeCases:
         vault = Mock(spec=ObsidianVault)
         vault.links_dir = tmp_path / "_links"
 
-        with patch("wks.config.WKSConfig") as mock_config_class, patch(
-            "pymongo.MongoClient"
-        ) as mock_mongo_class:
+        with patch("wks.config.WKSConfig") as mock_config_class, patch("pymongo.MongoClient") as mock_mongo_class:
             mock_config = Mock()
             mock_config.mongo.uri = "mongodb://localhost"
             mock_config.vault.database = "wks.vault"

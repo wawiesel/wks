@@ -752,7 +752,11 @@ class MCPServer:
         return result.to_dict()
 
     def _tool_transform(
-        self, config: dict[str, Any], file_path: str, engine: str, options: dict[str, Any]  # noqa: ARG002
+        self,
+        config: dict[str, Any],
+        file_path: str,
+        engine: str,
+        options: dict[str, Any],
     ) -> dict[str, Any]:
         """Execute wksm_transform tool."""
         from pathlib import Path

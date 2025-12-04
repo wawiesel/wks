@@ -3,7 +3,6 @@
 Reduces duplication across monitor and db commands.
 """
 
-
 from pymongo import MongoClient
 
 

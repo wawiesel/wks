@@ -57,9 +57,7 @@ class TransformController:
         key_str = f"{file_checksum}:{engine_name}:{options_hash}"
         return hashlib.sha256(key_str.encode()).hexdigest()
 
-    def _find_cached_transform(
-        self, file_checksum: str, engine_name: str, options_hash: str
-    ) -> TransformRecord | None:
+    def _find_cached_transform(self, file_checksum: str, engine_name: str, options_hash: str) -> TransformRecord | None:
         """Find existing cached transform.
 
         Args:

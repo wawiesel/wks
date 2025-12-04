@@ -230,9 +230,7 @@ class ObsidianVault:
         except (OSError, PermissionError):
             pass
 
-    def create_project_note(
-        self, project_path: Path, status: str = "Active", description: str | None = None
-    ) -> Path:
+    def create_project_note(self, project_path: Path, status: str = "Active", description: str | None = None) -> Path:
         project_name = project_path.name
         note_path = self.projects_dir / f"{project_name}.md"
         parts = project_name.split("-", 1)

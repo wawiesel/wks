@@ -74,9 +74,7 @@ class MonitorOperations:
         return None
 
     @staticmethod
-    def _check_existing_entry(
-        config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool
-    ) -> str | None:
+    def _check_existing_entry(config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool) -> str | None:
         """Check if entry already exists. Returns existing entry if found, None otherwise."""
         for item in config_dict["monitor"][list_name]:
             if resolve_path:

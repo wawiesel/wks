@@ -42,7 +42,13 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     def test_wks_transform(
-        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path  # noqa: ARG002
+        self,
+        mock_controller_cls,
+        mock_connect,
+        mock_wks_config,
+        mock_server,
+        mock_config,
+        tmp_path,
     ):
         """Test wksm_transform tool returns MCPResult format."""
         # Mock WKSConfig.load()
@@ -297,7 +303,12 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     def test_wks_cat_unexpected_error(
-        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config  # noqa: ARG002
+        self,
+        mock_controller_cls,
+        mock_connect,
+        mock_wks_config,
+        mock_server,
+        mock_config,
     ):
         """Test wksm_cat tool handles unexpected errors."""
         mock_cfg = MagicMock()
