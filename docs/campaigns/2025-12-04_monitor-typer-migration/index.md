@@ -25,13 +25,31 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 ### Current State
 - **MCP Layer**: Manual schema definitions in `MCPServer._define_monitor_*_tools()` methods
 - **CLI Layer**: Manual argparse setup in `_setup_monitor()` and `_cmd_monitor_*()` wrapper functions
-- **Business Logic**: `MonitorController` static methods
+- **Business Logic**: `MonitorController`, `MonitorOperations`, `MonitorValidator` classes with static methods (just namespaces)
+- **Structure**: `wks/monitor/` directory with separate controller/operations/validator files
 
 ### Target State
 - **Single Source**: Python functions with Typer decorators and Pydantic models
+- **One File Per Function Rule**: File name matches function name exactly
+  - `wks/api/monitor/get_status.py` - `get_status()` function
+  - `wks/api/monitor/check_path.py` - `check_path()` function
+  - `wks/api/monitor/validate_config.py` - `validate_config()` function
+  - `wks/api/monitor/get_list.py` - `get_list()` function
+  - `wks/api/monitor/add_to_list.py` - `add_to_list()` function
+  - `wks/api/monitor/remove_from_list.py` - `remove_from_list()` function
+  - `wks/api/monitor/get_managed_directories.py` - `get_managed_directories()` function
+  - `wks/api/monitor/add_managed_directory.py` - `add_managed_directory()` function
+  - `wks/api/monitor/remove_managed_directory.py` - `remove_managed_directory()` function
+  - `wks/api/monitor/set_managed_priority.py` - `set_managed_priority()` function
+  - `wks/api/monitor/config.py` - `MonitorConfig` Pydantic model
+  - `wks/api/monitor/models.py` - Status/Validation result models
+  - `wks/api/monitor/helpers.py` - Helper functions (canonicalize_path, etc.)
+  - `wks/api/monitor/app.py` - Typer app that imports and registers all functions
+- **No Classes**: Functions instead of static method classes (classes were just namespaces)
 - **Auto-Generated CLI**: Typer automatically creates CLI from function signatures
 - **Auto-Generated MCP Schema**: Adapter introspects Typer commands to generate MCP JSON schemas
 - **Config Injection**: Wrapper/decorator loads config and injects it into functions
+- **Entry Points**: `wks/cli.py` (CLI) and `wks/mcp.py` (MCP server) - both call `wks/api/monitor/` functions
 
 ## Implementation Plan
 
@@ -43,19 +61,17 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 
 2. **Create `wks/api/` module structure**
    - `wks/api/__init__.py` - Module initialization
-   - `wks/api/monitor.py` - Monitor tool functions with Typer decorators
-   - `wks/api/base.py` - Base utilities (config injection decorator, MCP adapter utilities, display output decorator)
+   - `wks/api/base.py` - Base utilities (config injection decorator, MCP adapter utilities)
+   - `wks/api/monitor/` - Directory for monitor API functions (one file per function)
 
-3. **Create config injection decorator** (`wks/api/base.py`)
+3. **Create `wks/utils/monitor/` directory structure**
+   - `wks/utils/monitor/` - Shared non-public helper functions used by multiple monitor API endpoints
+   - One file per helper function (e.g., `canonicalize_path.py`, `build_canonical_map.py`)
+
+4. **Create config injection decorator** (`wks/api/base.py`)
    - Decorator that loads config and injects it as first parameter
    - Handles both dict config (from load_config) and WKSConfig dataclass
    - Can be applied to Typer command functions
-
-4. **Create display output decorator** (`wks/api/base.py`)
-   - Decorator that handles return value vs print duality
-   - When called via CLI (Typer): Captures return value and prints using display.json_output
-   - When called via MCP (direct import): Returns raw MCPResult/dict without printing
-   - Uses context detection to determine call path
 
 5. **Create MCP adapter utilities** (`wks/api/base.py`)
    - Function to introspect Typer command and generate MCP JSON schema
@@ -64,25 +80,48 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
    - Extracts descriptions from Pydantic `Field(..., description="...")` and function docstrings
    - Maps to MCP's inputSchema format correctly
 
-### Phase 2: Migrate Monitor Tools
+### Phase 2: Migrate Monitor Tools to Function-Based Architecture
 
-6. **Create Pydantic models for monitor inputs** (`wks/api/monitor.py`)
-   - `MonitorListName` - Enum for list names (include_paths, exclude_paths, etc.)
-   - `MonitorDirection` - If needed for future use
-   - Input models for complex parameters
-   - Use `Field(..., description="...")` for all parameter descriptions
+6. **Create `wks/utils/monitor/` directory for shared helpers**
+   - Move `canonicalize_path()` from `wks/monitor/operations.py` to `wks/utils/monitor/canonicalize_path.py`
+   - Move `_build_canonical_map()` from `wks/monitor/controller.py` to `wks/utils/monitor/build_canonical_map.py`
+   - Move validation helper functions to individual files in `wks/utils/monitor/`
+   - One file per helper function (filename matches function name)
 
-7. **Define monitor tool functions** (`wks/api/monitor.py`)
-   - Convert each `_tool_monitor_*` handler to a standalone function
-   - Use `@app.command()` decorator from Typer
-   - Use Pydantic models with `Field(..., description="...")` for parameter descriptions
-   - Apply config injection decorator
-   - **Return MCPResult/dict, do NOT print** - functions must return structured data
-   - Functions should be callable both via Typer CLI and direct Python import (for MCP)
+7. **Create `wks/api/monitor/` directory structure (one file per function)**
+   - `__init__.py` - Export all functions
+   - `config.py` - Move `MonitorConfig` from `wks/monitor/config.py`
+   - `models.py` - Move status/validation models from `wks/monitor/status.py`
+   - Create `wks/utils/monitor/` directory for shared helper functions
+     - Move `canonicalize_path()` from `wks/monitor/operations.py` to `wks/utils/monitor/canonicalize_path.py`
+     - Move `_build_canonical_map()` from `wks/monitor/controller.py` to `wks/utils/monitor/build_canonical_map.py`
+     - Move validation helpers to individual files in `wks/utils/monitor/`
+   - `get_status.py` - Convert `MonitorController.get_status()` to `get_status()` function
+   - `check_path.py` - Convert `MonitorController.check_path()` to `check_path()` function
+   - `validate_config.py` - Convert `MonitorController.validate_config()` to `validate_config()` function
+   - `get_list.py` - Convert `MonitorController.get_list()` to `get_list()` function
+   - `add_to_list.py` - Convert `MonitorOperations.add_to_list()` to `add_to_list()` function
+   - `remove_from_list.py` - Convert `MonitorOperations.remove_from_list()` to `remove_from_list()` function
+   - `get_managed_directories.py` - Convert `MonitorController.get_managed_directories()` to function
+   - `add_managed_directory.py` - Convert `MonitorOperations.add_managed_directory()` to function
+   - `remove_managed_directory.py` - Convert `MonitorOperations.remove_managed_directory()` to function
+   - `set_managed_priority.py` - Convert `MonitorOperations.set_managed_priority()` to function
+   - `app.py` - Create Typer app, import all functions, and register all commands
 
-8. **Create Typer app instance** (`wks/api/monitor.py`)
+7. **Convert classes to functions (one function per file)**
+   - Replace `MonitorController.get_status()` → `wks.api.monitor.get_status.get_status()`
+   - Replace `MonitorController.check_path()` → `wks.api.monitor.check_path.check_path()`
+   - Replace `MonitorController.validate_config()` → `wks.api.monitor.validate_config.validate_config()`
+   - Replace `MonitorOperations.add_to_list()` → `wks.api.monitor.add_to_list.add_to_list()`
+   - Replace all static methods with plain functions, one per file
+   - Import shared helpers from `wks.utils.monitor` in the API functions that need them
+   - Each function file imports only what it needs from `wks/utils/monitor/`
+
+9. **Create Typer app** (`wks/api/monitor/app.py`)
    - `monitor_app = typer.Typer()` for monitor subcommands
-   - Register all monitor commands
+   - Register all monitor commands using `@monitor_app.command()` decorators
+   - Apply `@inject_config` decorator to all commands
+   - Functions handle display directly using `get_display("cli")` when called from CLI
 
 ### Phase 3: Update MCP Server
 
@@ -107,19 +146,14 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 ### Phase 4: Update CLI
 
 13. **Integrate Typer app into CLI** (`wks/cli/__init__.py`)
-    - Import `monitor_app` from `wks.api.monitor`
-    - Replace `_setup_monitor()` with argparse bridge to Typer
-    - **Critical**: Use `nargs=argparse.REMAINDER` to capture all remaining arguments
-    - Create `_bridge_to_typer()` function that:
-      - Extracts remaining args from argparse namespace
-      - Invokes `monitor_app(args=args.rest, standalone_mode=False)`
-      - Handles display argument integration
-    - Apply display output decorator at CLI entry point to print results
+    - Import `monitor_app` from `wks.api.monitor.app`
+    - Add as subcommand: `app.add_typer(monitor_app, name="monitor")`
+    - **No wrapper functions needed** - Typer handles everything
+    - Display is handled inside Typer functions using `get_display("cli")`
 
 14. **Remove old monitor CLI code** (`wks/cli/__init__.py`)
-    - Remove `_cmd_monitor_*` wrapper functions
-    - Remove old `_setup_monitor()` function (replace with bridge)
-    - Keep display argument handling (integrate with Typer bridge)
+    - Remove `_cmd_monitor_*` wrapper functions (no longer needed)
+    - Remove `_call()` usage for monitor commands (CLI calls Typer functions directly)
 
 ### Phase 5: Testing & Validation
 
@@ -140,46 +174,92 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
     - Test MCP tools via `call_tool()` function
     - Verify backward compatibility
 
-### Phase 6: Cleanup
+### Phase 6: Cleanup & Simplification
 
 17. **Remove obsolete code**
     - Remove `_define_monitor_*_tools()` static methods from `MCPServer`
     - Remove old `_tool_monitor_*` handler methods (if not used elsewhere)
+    - **Remove `wks/monitor/` directory entirely** - all functionality moved to `wks/api/monitor/`
     - Clean up any unused imports
+
+18. **Simplify architecture - CLI calls API directly**
+    - **Architecture**: CLI → API (Typer functions) → Controller
+    - **Implementation**:
+      - Import `monitor_app` from `wks.api.monitor` directly and add as subcommand (no wrapper functions)
+      - Remove CLI wrapper functions (`monitor_status_command`, etc.) - they're unnecessary
+      - Typer functions return raw data (dict), not MCPResult
+      - Typer functions handle display directly using `get_display("cli")` when called from CLI
+      - MCP layer wraps in MCPResult only when needed (for external MCP clients)
+      - Remove `@display_output` decorator (does nothing, just passes through)
+    - **Result**: Simpler call stack - `CLI → Typer function → Controller` (no MCP bridge for CLI)
+    - **Rationale**: MCP is for external clients (Cursor, Claude Desktop), not for our own CLI. CLI should use the API directly.
 
 ## Key Files to Modify
 
 - `pyproject.toml` - Add typer and pydantic dependencies
-- `wks/api/base.py` (new) - Infrastructure (config decorator, MCP adapter, display decorator)
-- `wks/api/monitor.py` (new) - Monitor tool functions with Typer
-- `wks/mcp_server.py` - Update to use Typer tools
-- `wks/cli/__init__.py` - Replace argparse with Typer integration via bridge
+- `wks/api/base.py` (new) - Infrastructure (config decorator, MCP adapter)
+- `wks/utils/monitor/` (new directory) - Shared non-public helper functions
+- `wks/api/monitor/` (new directory) - All monitor functionality as functions (one file per function)
+  - `__init__.py` - Export all functions
+  - `get_status.py` - `get_status()` function
+  - `check_path.py` - `check_path()` function
+  - `validate_config.py` - `validate_config()` function
+  - `get_list.py` - `get_list()` function
+  - `add_to_list.py` - `add_to_list()` function
+  - `remove_from_list.py` - `remove_from_list()` function
+  - `get_managed_directories.py` - `get_managed_directories()` function
+  - `add_managed_directory.py` - `add_managed_directory()` function
+  - `remove_managed_directory.py` - `remove_managed_directory()` function
+  - `set_managed_priority.py` - `set_managed_priority()` function
+  - `config.py` - `MonitorConfig` Pydantic model
+  - `models.py` - Status/Validation result models
+  - `app.py` - Typer app that imports and registers all functions
+- **Shared Utilities**: `wks/utils/monitor/` for non-public helper functions used by multiple monitor functions
+  - One file per helper function (e.g., `canonicalize_path.py`, `build_canonical_map.py`)
+  - Functions like `canonicalize_path()`, `build_canonical_map()`, `validate_path_conflicts()`, etc.
+- **Shared Utilities**: `wks/utils/monitor/` for non-public helper functions used by multiple monitor functions
+  - `canonicalize_path.py` - `canonicalize_path()` helper function
+  - `build_canonical_map.py` - `build_canonical_map()` helper function
+  - `validate_path_conflicts.py` - `validate_path_conflicts()` helper function
+  - `validate_path_redundancy.py` - `validate_path_redundancy()` helper function
+  - `validate_dirnames.py` - `validate_dirnames()` helper function
+  - `validate_globs.py` - `validate_globs()` helper function
+  - Other shared validation/helper functions
+- `wks/mcp_server.py` - Update to use Typer tools from `wks/api/monitor/`
+- `wks/cli/__init__.py` - Import and use `monitor_app` from `wks/api/monitor/app.py`
 - `tests/test_mcp_server.py` - Update tests
 - `tests/test_cli_*.py` - Update CLI tests
+- **Remove**: `wks/monitor/` directory (migrated to `wks/api/monitor/`)
 
 ## Key Design Decisions
 
-1. **Config Injection**: Use decorator pattern to inject config, keeping function signatures clean
-2. **MCPResult Preservation**: Continue returning MCPResult structures for consistency
-3. **Incremental Migration**: Only monitor tools migrate; other tools remain unchanged
-4. **Backward Compatibility**: MCP tool names and CLI command names remain the same
-5. **Type Safety**: Use Pydantic models for validation and schema generation
-6. **Return vs Print**: Core functions return MCPResult/dict; display decorator handles CLI printing
-7. **Argparse + Typer Bridge**: Use `nargs=argparse.REMAINDER` to pass args to Typer without conflicts
-8. **Schema Descriptions**: Use Pydantic `Field(..., description="...")` for MCP inputSchema descriptions
+1. **No Classes**: Replace `MonitorController`, `MonitorOperations`, `MonitorValidator` classes (which are just namespaces) with plain functions
+2. **One File Per Function Rule**: File name exactly matches function name (e.g., `get_status()` in `get_status.py`, `check_path()` in `check_path.py`)
+3. **Config Injection**: Use decorator pattern to inject config, keeping function signatures clean
+4. **Direct CLI Access**: CLI calls Typer functions directly (no MCP bridge) - `CLI → Typer function → Controller logic`
+5. **MCP Wraps API**: MCP server wraps Typer functions in MCPResult for external clients
+6. **Incremental Migration**: Only monitor tools migrate; other tools remain unchanged
+7. **Backward Compatibility**: MCP tool names and CLI command names remain the same
+8. **Type Safety**: Use Pydantic models for validation and schema generation
+9. **Return Raw Data**: Functions return dict/data directly; MCP layer wraps in MCPResult when needed
+10. **Display in Functions**: Typer functions handle display directly using `get_display("cli")` when called from CLI
+11. **Schema Descriptions**: Use Pydantic `Field(..., description="...")` for MCP inputSchema descriptions
 
 ## Technical Considerations
 
 ### CLI Integration Strategy
-- **Problem**: Both argparse and Typer want to parse `sys.argv`, causing conflicts
-- **Solution**: Use `nargs=argparse.REMAINDER` in argparse to capture all remaining arguments and pass them to Typer via `monitor_app(args=args.rest, standalone_mode=False)`
+- **Solution**: Import Typer app directly and add as subcommand - no bridge needed
+  - `from wks.api.monitor.app import monitor_app`
+  - `app.add_typer(monitor_app, name="monitor")`
+  - Typer handles all argument parsing automatically
 
 ### Return Value vs Print Duality
 - **Problem**: Typer commands typically print() and return None, but MCP needs structured return values
 - **Solution**:
-  - Core functions return MCPResult/dict (no printing)
-  - Display decorator at CLI entry point captures return value and prints using display.json_output
-  - MCP calls functions directly (bypassing decorator) to get raw return values
+  - Functions return raw data (dict) directly
+  - When called from CLI, functions handle display using `get_display("cli")` and call `display.json_output()`
+  - When called from MCP, functions return data and MCP layer wraps in MCPResult
+  - No decorator needed - display logic is inside the function
 
 ### MCP Schema Generation
 - Use Pydantic `Field(..., description="...")` for all parameter descriptions
@@ -201,23 +281,36 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 - Tests pass
 - Code complexity reduced (fewer manual schema definitions)
 - Dependencies added to pyproject.toml
-- Argparse + Typer bridge works correctly
-- Display decorator handles CLI output properly
+- CLI calls Typer functions directly (no MCP bridge)
+- Functions handle display internally when called from CLI
+- `wks/monitor/` directory removed (functionality in `wks/api/monitor/`)
 
 ## Implementation Todos
 
 1. Add typer and pydantic to pyproject.toml dependencies
-2. Create wks/api/ module structure with __init__.py, base.py, and monitor.py
+2. Create wks/api/ module structure with __init__.py, base.py
 3. Create config injection decorator in wks/api/base.py
-4. Create display output decorator in wks/api/base.py
-5. Create MCP adapter utilities to introspect Typer commands and generate JSON schemas
-6. Create Pydantic models for monitor inputs (MonitorListName enum, etc.) in wks/api/monitor.py
-7. Define all monitor tool functions with Typer decorators in wks/api/monitor.py
-8. Create Typer app instance and register all monitor commands in wks/api/monitor.py
-9. Update MCPServer._define_monitor_tools() to use Typer introspection instead of manual schemas
-10. Update MCPServer._build_tool_registry() to route monitor tools to Typer functions
-11. Update MCPServer._handle_call_tool() to handle Typer-based monitor tools
-12. Integrate monitor Typer app into CLI main() function, replacing _setup_monitor() with bridge
-13. Remove old _cmd_monitor_* functions and _setup_monitor() from wks/cli/__init__.py
-14. Update tests for monitor tools to work with new Typer-based implementation
-15. Remove obsolete _define_monitor_*_tools() methods and old _tool_monitor_* handlers from MCPServer
+4. Create MCP adapter utilities to introspect Typer commands and generate JSON schemas
+5. Create wks/api/monitor/ directory structure (one file per function)
+6. Move MonitorConfig from wks/monitor/config.py to wks/api/monitor/config.py
+7. Move status/validation models from wks/monitor/status.py to wks/api/monitor/models.py
+8. Create wks/utils/monitor/ directory for shared helper functions
+9. Move helper functions from wks/monitor/ to wks/utils/monitor/ (one file per function)
+9. Create wks/api/monitor/get_status.py with get_status() function (from MonitorController.get_status)
+10. Create wks/api/monitor/check_path.py with check_path() function (from MonitorController.check_path)
+11. Create wks/api/monitor/validate_config.py with validate_config() function (from MonitorController.validate_config)
+12. Create wks/api/monitor/get_list.py with get_list() function (from MonitorController.get_list)
+13. Create wks/api/monitor/add_to_list.py with add_to_list() function (from MonitorOperations.add_to_list)
+14. Create wks/api/monitor/remove_from_list.py with remove_from_list() function (from MonitorOperations.remove_from_list)
+15. Create wks/api/monitor/get_managed_directories.py with get_managed_directories() function
+16. Create wks/api/monitor/add_managed_directory.py with add_managed_directory() function
+17. Create wks/api/monitor/remove_managed_directory.py with remove_managed_directory() function
+18. Create wks/api/monitor/set_managed_priority.py with set_managed_priority() function
+19. Create wks/api/monitor/app.py - Typer app that imports all functions and registers commands
+20. Update MCPServer._define_monitor_tools() to use Typer introspection instead of manual schemas
+21. Update MCPServer._build_tool_registry() to route monitor tools to Typer functions
+22. Integrate monitor Typer app into CLI (import from wks.api.monitor.app)
+23. Remove old _cmd_monitor_* functions from wks/cli/__init__.py
+24. Update tests for monitor tools to work with new function-based implementation
+25. Remove obsolete _define_monitor_*_tools() methods and old _tool_monitor_* handlers from MCPServer
+26. Remove wks/monitor/ directory entirely (all functionality moved to wks/api/monitor/)
