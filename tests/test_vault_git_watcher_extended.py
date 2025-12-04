@@ -92,7 +92,6 @@ class TestGetChanges:
         subprocess.run(["git", "commit", "-m", "Add old"], cwd=git_repo, capture_output=True)
 
         # Rename the file
-        git_repo / "new.md"
         subprocess.run(["git", "mv", "old.md", "new.md"], cwd=git_repo, capture_output=True)
 
         watcher = GitVaultWatcher(git_repo)

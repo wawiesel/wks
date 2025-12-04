@@ -56,7 +56,6 @@ def test_file_url_auto_conversion(test_setup):
     external_file = test_setup["external_file"]
     note = test_setup["note"]
     file_url = test_setup["file_url"]
-    test_setup["mongo_client"]
 
     # Get machine name
     machine = platform.node().split(".")[0]
