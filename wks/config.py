@@ -8,7 +8,7 @@ from typing import Any
 from .diff.config import DiffConfig
 from .monitor.config import MonitorConfig
 from .monitor.config import ValidationError as MonitorValidationError
-from .transform.config import TransformConfig
+from .transform.config import CacheConfig, TransformConfig
 from .utils import get_wks_home
 from .vault.config import VaultConfig
 
@@ -95,7 +95,13 @@ class WKSConfig:
     mongo: MongoSettings
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     diff: DiffConfig | None = None
-    transform: TransformConfig = field(default_factory=lambda: TransformConfig(cache=None, engines={}))
+    transform: TransformConfig = field(
+        default_factory=lambda: TransformConfig(
+            cache=CacheConfig(location=".wks/transform/cache", max_size_bytes=1073741824),
+            engines={},
+            database="wks.transform",
+        )
+    )
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @classmethod

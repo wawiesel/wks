@@ -1,6 +1,7 @@
 """Monitor list and managed directory operations."""
 
 from pathlib import Path
+from typing import Any
 
 from .status import ListOperationResult
 from .validator import MonitorValidator
@@ -15,7 +16,7 @@ def _canonicalize_path(path_str: str) -> str:
         return str(path_obj)
 
 
-def _find_matching_path_key(path_map: dict[str, any], candidate: str) -> str | None:
+def _find_matching_path_key(path_map: dict[str, Any], candidate: str) -> str | None:
     """Find the key in a path map that canonically matches candidate."""
     candidate_norm = _canonicalize_path(candidate)
     for key in path_map:

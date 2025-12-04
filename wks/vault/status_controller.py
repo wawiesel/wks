@@ -77,7 +77,7 @@ class VaultStatusController:
     @contextmanager
     def _mongo_connection(self) -> Iterator[Collection]:
         """Context manager for MongoDB connections with automatic cleanup."""
-        client = MongoClient(
+        client: MongoClient = MongoClient(
             self.mongo_uri,
             serverSelectionTimeoutMS=5000,
             retryWrites=True,

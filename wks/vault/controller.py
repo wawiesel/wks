@@ -3,6 +3,7 @@
 import platform
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .obsidian import ObsidianVault
 
@@ -73,7 +74,7 @@ class VaultController:
             )
 
         try:
-            client = MongoClient(
+            client: MongoClient = MongoClient(
                 mongo_uri,
                 serverSelectionTimeoutMS=5000,
                 retryWrites=True,
@@ -149,7 +150,7 @@ class VaultController:
         stats = scanner.stats
 
         broken_links = [r for r in records if r.status != "ok"]
-        broken_by_status = {}
+        broken_by_status: dict[str, list[dict[str, Any]]] = {}
         for record in broken_links:
             broken_by_status.setdefault(record.status, []).append(
                 {

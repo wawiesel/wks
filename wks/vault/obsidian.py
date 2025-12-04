@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import platform
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -116,7 +117,7 @@ class ObsidianVault:
                 return
             self.link_file(new_path)
 
-    def _iter_vault_markdown(self):
+    def _iter_vault_markdown(self) -> Iterator[Path]:
         for md in self.vault_path.rglob("*.md"):
             # Skip root-level _links/ directory (symlinked external files)
             try:
@@ -135,7 +136,7 @@ class ObsidianVault:
                 # Skip files we don't have permission to access
                 continue
 
-    def iter_markdown_files(self):
+    def iter_markdown_files(self) -> Iterator[Path]:
         """Public iterator (used by the indexer)."""
         yield from self._iter_vault_markdown()
 
@@ -208,7 +209,7 @@ class ObsidianVault:
             # Invalid format string or datetime
             return dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
 
-    def write_doc_text(self, content_hash: str, source_path: Path, text: str, keep: int = 99):
+    def write_doc_text(self, content_hash: str, source_path: Path, text: str, keep: int = 99) -> None:
         docs_dir = self.docs_dir
         docs_dir.mkdir(parents=True, exist_ok=True)
         doc_path = docs_dir / f"{content_hash}.md"

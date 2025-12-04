@@ -80,7 +80,7 @@ class CLIDisplay(Display):
             return
 
         title = kwargs.get("title", "")
-        column_justify = kwargs.get("column_justify", {})  # Dict[str, str] mapping header to justify
+        column_justify = kwargs.get("column_justify", {})  # dict[str, str] mapping header to justify
         show_header = kwargs.get("show_header", True)
         width = kwargs.get("width", MAX_DISPLAY_WIDTH)
 

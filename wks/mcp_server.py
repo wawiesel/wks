@@ -10,6 +10,7 @@ All MCP tools return structured MCPResult objects.
 
 import json
 import sys
+from collections.abc import Callable
 from typing import Any, TextIO
 
 from .config import load_config
@@ -391,18 +392,25 @@ class MCPServer:
             return
 
         # Basic pagination contract—single page only.
-        result = {"resources": self.resources}
+        result: dict[str, Any] = {"resources": self.resources}
         if params.get("cursor") is not None:
             result["nextCursor"] = None
         self._write_response(request_id, result)
 
-    def _build_tool_registry(self) -> dict[str, callable]:
+    def _build_tool_registry(self) -> dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]]:
         """Build registry of tool handlers with parameter validation."""
 
-        def _require_params(*param_names: str):
+        def _require_params(
+            *param_names: str,
+        ) -> Callable[
+            [Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]],
+            Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+        ]:
             """Decorator to validate required parameters."""
 
-            def decorator(handler: callable) -> callable:
+            def decorator(
+                handler: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+            ) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
                 def wrapper(config: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
                     missing = [p for p in param_names if arguments.get(p) is None]
                     if missing:
@@ -514,7 +522,10 @@ class MCPServer:
 
     def _tool_monitor_validate(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_validate tool."""
-        return MonitorController.validate_config(config)
+        from dataclasses import asdict
+
+        result = MonitorController.validate_config(config)
+        return asdict(result)
 
     def _tool_monitor_list(self, config: dict[str, Any], list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
@@ -536,7 +547,10 @@ class MCPServer:
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Add to list
-        result = MonitorController.add_to_list(config_dict, list_name, value, resolve_path)
+        from dataclasses import asdict
+
+        result_obj = MonitorController.add_to_list(config_dict, list_name, value, resolve_path)
+        result = asdict(result_obj)
 
         # Save if successful
         if result.get("success"):
@@ -562,7 +576,10 @@ class MCPServer:
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Remove from list
-        result = MonitorController.remove_from_list(config_dict, list_name, value, resolve_path)
+        from dataclasses import asdict
+
+        result_obj = MonitorController.remove_from_list(config_dict, list_name, value, resolve_path)
+        result = asdict(result_obj)
 
         # Save if successful
         if result.get("success"):
@@ -574,7 +591,10 @@ class MCPServer:
 
     def _tool_monitor_managed_list(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_managed_list tool."""
-        return MonitorController.get_managed_directories(config)
+        from dataclasses import asdict
+
+        result = MonitorController.get_managed_directories(config)
+        return asdict(result)
 
     def _tool_monitor_managed_add(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_managed_add tool."""
@@ -692,8 +712,10 @@ class MCPServer:
         target_uri_no_ext = target_uri[:-3] if target_uri.endswith(".md") else target_uri
 
         # Connect to database
+        from pymongo import MongoClient
+
         uri, db_name, coll_name = get_vault_db_config(config)
-        client = connect_to_mongo(uri)
+        client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
         result = {
@@ -788,10 +810,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
+            from pymongo import MongoClient
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             controller = TransformController(db, cache_location, max_size_bytes)
@@ -827,10 +851,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
+            from pymongo import MongoClient
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             controller = TransformController(db, cache_location, max_size_bytes)
@@ -864,10 +890,12 @@ class MCPServer:
             cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
             max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
 
+            from pymongo import MongoClient
+
             uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
             db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             transform_controller = TransformController(db, cache_location, max_size_bytes)
@@ -936,7 +964,9 @@ class MCPServer:
         else:
             raise ValueError(f"Unknown db type: {db_type}")
 
-        client = connect_to_mongo(uri)
+        from pymongo import MongoClient
+
+        client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
         results = list(coll.find(query, {"_id": 0}).limit(limit))
@@ -983,7 +1013,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     return handler(config, arguments)
 
 
-def main():
+def main() -> None:
     """Main entry point for MCP server."""
     server = MCPServer()
     try:

@@ -437,7 +437,7 @@ class VaultLinkIndexer:
 
         Ensures client is closed even if exceptions occur.
         """
-        client = MongoClient(
+        client: MongoClient = MongoClient(
             self.mongo_uri,
             serverSelectionTimeoutMS=5000,
             retryWrites=True,

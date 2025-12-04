@@ -217,7 +217,7 @@ def _cmd_service_status(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def _setup_monitor(sub):
+def _setup_monitor(sub) -> None:
     lists = [
         "include_paths",
         "exclude_paths",
@@ -263,7 +263,7 @@ def _setup_monitor(sub):
     p.set_defaults(func=_cmd_monitor_managed_priority)
 
 
-def _setup_vault(sub):
+def _setup_vault(sub) -> None:
     v = sub.add_parser("vault", help="Vault operations")
     s = v.add_subparsers(dest="vault_cmd")
 
@@ -279,7 +279,7 @@ def _setup_vault(sub):
     p.set_defaults(func=_cmd_vault_links)
 
 
-def _setup_db(sub):
+def _setup_db(sub) -> None:
     db = sub.add_parser("db", help="Database queries")
     s = db.add_subparsers(dest="db_cmd")
 
@@ -288,7 +288,7 @@ def _setup_db(sub):
     s.add_parser("transform").set_defaults(func=_cmd_db_transform)
 
 
-def _setup_service(sub):
+def _setup_service(sub) -> None:
     svc = sub.add_parser("service", help="Service operations")
     s = svc.add_subparsers(dest="service_cmd")
 
@@ -347,7 +347,7 @@ def main(argv: list[str] | None = None) -> int:
     run = ms.add_parser("run")
     run.add_argument("--direct", action="store_true")
 
-    def mcp_run(args):
+    def mcp_run(args) -> int:
         if not args.direct and proxy_stdio_to_socket(mcp_socket_path()):
             return 0
         from ..mcp_server import main as mcp_main
@@ -361,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
     inst.add_argument("--command-path")
     inst.add_argument("--client", dest="clients", action="append", choices=["cursor", "claude", "gemini"])
 
-    def mcp_install(args):
+    def mcp_install(args) -> int:
         from ..mcp_setup import install_mcp_configs
 
         for r in install_mcp_configs(clients=args.clients, command_override=args.command_path):

@@ -29,7 +29,7 @@ class CacheConfig:
 
     def _validate_cache_location(self) -> list[str]:
         """Validate cache location is a non-empty string or Path."""
-        errors = []
+        errors: list[str] = []
 
         if not isinstance(self.location, (str, Path)) or not str(self.location):
             errors.append(
@@ -42,7 +42,7 @@ class CacheConfig:
 
     def _validate_max_size(self) -> list[str]:
         """Validate max_size_bytes is a positive integer."""
-        errors = []
+        errors: list[str] = []
 
         if not isinstance(self.max_size_bytes, int) or self.max_size_bytes <= 0:
             errors.append(
@@ -55,7 +55,7 @@ class CacheConfig:
 
     def __post_init__(self):
         """Validate cache configuration after initialization."""
-        errors = []
+        errors: list[str] = []
         errors.extend(self._validate_cache_location())
         errors.extend(self._validate_max_size())
 
@@ -73,7 +73,7 @@ class EngineConfig:
 
     def _validate_name(self) -> list[str]:
         """Validate engine name is a non-empty string."""
-        errors = []
+        errors: list[str] = []
 
         if not isinstance(self.name, str) or not self.name:
             errors.append(
@@ -86,7 +86,7 @@ class EngineConfig:
 
     def _validate_enabled(self) -> list[str]:
         """Validate enabled is a boolean."""
-        errors = []
+        errors: list[str] = []
 
         if not isinstance(self.enabled, bool):
             errors.append(
@@ -99,7 +99,7 @@ class EngineConfig:
 
     def _validate_options(self) -> list[str]:
         """Validate options is a dictionary."""
-        errors = []
+        errors: list[str] = []
 
         if not isinstance(self.options, dict):
             errors.append(
@@ -112,7 +112,7 @@ class EngineConfig:
 
     def __post_init__(self):
         """Validate engine configuration after initialization."""
-        errors = []
+        errors: list[str] = []
         errors.extend(self._validate_name())
         errors.extend(self._validate_enabled())
         errors.extend(self._validate_options())
@@ -132,7 +132,7 @@ class TransformConfig:
 
     def _validate_cache(self) -> list[str]:
         """Validate cache configuration."""
-        errors = []
+        errors: list[str] = []
 
         if not isinstance(self.cache, CacheConfig):
             errors.append(
@@ -145,7 +145,7 @@ class TransformConfig:
 
     def _validate_engines(self) -> list[str]:
         """Validate engines configuration."""
-        errors = []
+        errors: list[str] = []
 
         if not isinstance(self.engines, dict):
             errors.append(
@@ -172,7 +172,7 @@ class TransformConfig:
         Collects all validation errors and raises a single TransformConfigError
         with all errors, so the user can see everything that needs fixing.
         """
-        errors = []
+        errors: list[str] = []
         errors.extend(self._validate_cache())
         errors.extend(self._validate_engines())
 

@@ -220,8 +220,9 @@ class ServiceController:
         if health:
             status.running = bool(health.get("lock_present"))
             status.uptime = str(health.get("uptime_hms") or "")
+            pid_value = health.get("pid")
             try:
-                status.pid = int(health.get("pid"))
+                status.pid = int(pid_value) if pid_value is not None else None
             except (ValueError, TypeError):
                 status.pid = None
             status.pending_deletes = health.get("pending_deletes")

@@ -13,7 +13,7 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pymongo.collection import Collection
 
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 try:
     import fcntl  # POSIX file locking
 except Exception:  # pragma: no cover
-    fcntl = None
+    fcntl = cast(Any, None)
 
 # Optional imports for MongoDB guard and DB activity tracking
 # These may not exist in all environments and are mocked in tests
@@ -138,7 +138,7 @@ class WKSDaemon:
         self.auto_project_notes = auto_project_notes
         # Single-instance lock
         self.lock_file = Path.home() / WKS_HOME_EXT / "daemon.lock"
-        self._lock_fh = None
+        self._lock_fh: Any | None = None  # File handle when opened
         # Maintenance (periodic tasks)
         self._last_prune_check = 0.0
         # Read prune interval from config, default to 5 minutes (300 seconds)
@@ -151,8 +151,8 @@ class WKSDaemon:
         self._mod_coalesce_secs = 0.6
         # Health
         self.health_file = Path.home() / WKS_HOME_EXT / "health.json"
-        self._last_error = None
-        self._last_error_at = None
+        self._last_error: str | None = None
+        self._last_error_at: float | None = None
         self._health_started_at = time.time()
         self._beat_count = 0
         # FS operation rate tracking
@@ -164,7 +164,7 @@ class WKSDaemon:
         self._fs_events_long: deque[float] = deque()
         self.mongo_uri = self.config.mongo.uri
         self.monitor_collection = monitor_collection
-        self._mongo_guard = None
+        self._mongo_guard: Any | None = None  # MongoGuard type, but may be None if import fails
         self._mcp_broker: MCPBroker | None = None
         self._mcp_socket = mcp_socket_path()
 
@@ -178,7 +178,7 @@ class WKSDaemon:
                 cache_location = expand_path(transform_cfg.cache.location)
                 max_size_bytes = transform_cfg.cache.max_size_bytes
 
-                client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
+                client: MongoClient = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
                 db_name = transform_cfg.database
                 db = client[db_name]
                 self._transform_controller = TransformController(db, cache_location, max_size_bytes)
@@ -369,7 +369,8 @@ class WKSDaemon:
     def _get_vault_base_path(self) -> Path | None:
         """Get vault base directory path if configured."""
         try:
-            return self.config.vault.base_dir
+            base_dir = self.config.vault.base_dir
+            return Path(base_dir) if base_dir else None
         except Exception:
             pass
         return None
@@ -879,7 +880,7 @@ class WKSDaemon:
         except Exception:
             pass
 
-    def _bump_beat(self):
+    def _bump_beat(self) -> None:
         with contextlib.suppress(Exception):
             self._beat_count += 1
 
@@ -1021,7 +1022,7 @@ if __name__ == "__main__":
         raise SystemExit(2) from e
 
     # Vault config
-    vault_path = config.vault.base_dir
+    vault_path = Path(config.vault.base_dir)
     base_dir = config.vault.wks_dir
 
     # Monitor config
@@ -1033,7 +1034,7 @@ if __name__ == "__main__":
     mongo_uri = config.mongo.uri
     ensure_mongo_running(mongo_uri, record_start=True)
 
-    client = MongoClient(mongo_uri)
+    client: MongoClient = MongoClient(mongo_uri)
     monitor_db_key = monitor_cfg_obj.database
     # Validation already done in MonitorConfig
     monitor_db_name, monitor_coll_name = monitor_db_key.split(".", 1)

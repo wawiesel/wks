@@ -82,7 +82,7 @@ class TransformController:
             if cache_path.exists():
                 return record
 
-            return None
+        return None
 
     def _update_last_accessed(self, file_checksum: str, engine_name: str, options_hash: str) -> None:
         """Update last_accessed timestamp for cache entry.
