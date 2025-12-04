@@ -64,9 +64,10 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
    - `wks/api/base.py` - Base utilities (config injection decorator, MCP adapter utilities)
    - `wks/api/monitor/` - Directory for monitor API functions (one file per function)
 
-3. **Create `wks/utils/monitor/` directory structure**
-   - `wks/utils/monitor/` - Shared non-public helper functions used by multiple monitor API endpoints
-   - One file per helper function (e.g., `canonicalize_path.py`, `build_canonical_map.py`)
+3. **Helper functions in `wks/api/monitor/`**
+   - Monitor-specific helper functions go in `wks/api/monitor/_*.py` (prefixed with `_` to indicate non-public)
+   - One file per helper function (e.g., `_canonicalize_path.py`, `_build_canonical_map.py`)
+   - Only truly cross-domain utilities go in `wks/utils/` (not monitor-specific)
 
 4. **Create config injection decorator** (`wks/api/base.py`)
    - Decorator that loads config and injects it as first parameter
@@ -82,13 +83,14 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 
 ### Phase 2: Migrate Monitor Tools to Function-Based Architecture
 
-6. **Create `wks/utils/monitor/` directory for shared helpers**
-   - Move `canonicalize_path()` from `wks/monitor/operations.py` to `wks/utils/monitor/canonicalize_path.py`
-   - Move `_build_canonical_map()` from `wks/monitor/controller.py` to `wks/utils/monitor/build_canonical_map.py`
-   - Move validation helper functions to individual files in `wks/utils/monitor/`
-   - One file per helper function (filename matches function name)
+6. **Create `wks/api/monitor/` directory structure (one file per function)**
+   - Move monitor-specific helper functions to `wks/api/monitor/_*.py` (prefixed with `_` for non-public)
+   - Move `canonicalize_path()` from `wks/monitor/operations.py` to `wks/api/monitor/_canonicalize_path.py`
+   - Move `_build_canonical_map()` from `wks/monitor/controller.py` to `wks/api/monitor/_build_canonical_map.py`
+   - Move validation helper functions to `wks/api/monitor/_*.py` files
+   - One file per helper function (filename matches function name, prefixed with `_`)
 
-7. **Create `wks/api/monitor/` directory structure (one file per function)**
+7. **Create public API functions in `wks/api/monitor/`**
    - `__init__.py` - Export all functions
    - `config.py` - Move `MonitorConfig` from `wks/monitor/config.py`
    - `models.py` - Move status/validation models from `wks/monitor/status.py`
@@ -114,8 +116,8 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
    - Replace `MonitorController.validate_config()` → `wks.api.monitor.validate_config.validate_config()`
    - Replace `MonitorOperations.add_to_list()` → `wks.api.monitor.add_to_list.add_to_list()`
    - Replace all static methods with plain functions, one per file
-   - Import shared helpers from `wks.utils.monitor` in the API functions that need them
-   - Each function file imports only what it needs from `wks/utils/monitor/`
+   - Import monitor-specific helpers from `wks.api.monitor._*` modules (e.g., `from wks.api.monitor._canonicalize_path import canonicalize_path`)
+   - Each function file imports only what it needs from other `wks/api/monitor/` modules
 
 9. **Create Typer app** (`wks/api/monitor/app.py`)
    - `monitor_app = typer.Typer()` for monitor subcommands
@@ -198,7 +200,7 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 
 - `pyproject.toml` - Add typer and pydantic dependencies
 - `wks/api/base.py` (new) - Infrastructure (config decorator, MCP adapter)
-- `wks/utils/monitor/` (new directory) - Shared non-public helper functions
+- `wks/api/monitor/_*.py` - Monitor-specific non-public helper functions (prefixed with `_`)
 - `wks/api/monitor/` (new directory) - All monitor functionality as functions (one file per function)
   - `__init__.py` - Export all functions
   - `get_status.py` - `get_status()` function
