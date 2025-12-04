@@ -956,9 +956,9 @@ class WKSDaemon:
             self._lock_fh.flush()
         except BlockingIOError:
             # Another process holds the lock
-            raise RuntimeError("Another WKS daemon instance is already running.")
+            raise RuntimeError("Another WKS daemon instance is already running.") from None
         except Exception as e:
-            raise RuntimeError(f"Failed to acquire daemon lock: {e}")
+            raise RuntimeError(f"Failed to acquire daemon lock: {e}") from e
 
     def _acquire_lock(self):
         """Acquire an exclusive file lock to ensure a single daemon instance."""
@@ -1042,7 +1042,7 @@ if __name__ == "__main__":
         config = WKSConfig.load()
     except ConfigError as e:
         print(str(e))
-        raise SystemExit(2)
+        raise SystemExit(2) from None
 
     # Vault config
     vault_path = config.vault.base_dir

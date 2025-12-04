@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 from ..constants import MAX_DISPLAY_WIDTH
 
 try:
-    from rich import print as rprint
     from rich.console import Console
     from rich.panel import Panel
     from rich.progress import (

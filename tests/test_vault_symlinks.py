@@ -266,7 +266,7 @@ class TestFixSymlinks:
 
         with patch("wks.config.WKSConfig.load", return_value=mock_config):
             with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                result = controller.fix_symlinks()
+                controller.fix_symlinks()
 
         # Verify symlink is in machine-specific directory
         machine_links_dir = vault_root / "_links" / "another-machine"

@@ -24,15 +24,21 @@ class ListOperationResult:
             )
         if self.success and self.not_found:
             raise ValueError(
-                f"ListOperationResult: success cannot be True when not_found is True (found: success={self.success}, not_found={self.not_found}, expected: success=False when not_found=True)"
+                f"ListOperationResult: success cannot be True when not_found is True "
+                f"(found: success={self.success}, not_found={self.not_found}, "
+                f"expected: success=False when not_found=True)"
             )
         if self.success and self.already_exists:
             raise ValueError(
-                f"ListOperationResult: success cannot be True when already_exists is True (found: success={self.success}, already_exists={self.already_exists}, expected: success=False when already_exists=True)"
+                f"ListOperationResult: success cannot be True when already_exists is True "
+                f"(found: success={self.success}, already_exists={self.already_exists}, "
+                f"expected: success=False when already_exists=True)"
             )
         if self.success and self.validation_failed:
             raise ValueError(
-                f"ListOperationResult: success cannot be True when validation_failed is True (found: success={self.success}, validation_failed={self.validation_failed}, expected: success=False when validation_failed=True)"
+                f"ListOperationResult: success cannot be True when validation_failed is True "
+                f"(found: success={self.success}, validation_failed={self.validation_failed}, "
+                f"expected: success=False when validation_failed=True)"
             )
 
 
@@ -103,7 +109,8 @@ class MonitorStatus:
         """Validate after initialization."""
         if self.tracked_files < 0:
             raise ValueError(
-                f"MonitorStatus.tracked_files must be non-negative (found: {self.tracked_files}, expected: integer >= 0)"
+                f"MonitorStatus.tracked_files must be non-negative "
+                f"(found: {self.tracked_files}, expected: integer >= 0)"
             )
 
     def to_dict(self) -> Dict[str, Any]:

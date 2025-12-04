@@ -92,7 +92,6 @@ class TestGetChanges:
         subprocess.run(["git", "commit", "-m", "Add old"], cwd=git_repo, capture_output=True)
 
         # Rename the file
-        new_file = git_repo / "new.md"
         subprocess.run(["git", "mv", "old.md", "new.md"], cwd=git_repo, capture_output=True)
 
         watcher = GitVaultWatcher(git_repo)
@@ -221,7 +220,7 @@ class TestGetChangedSinceCommit:
         )
         if result.returncode == 0:
             base_commit = result.stdout.strip()
-            changes = watcher.get_changed_since_commit(base_commit)
+            watcher.get_changed_since_commit(base_commit)
             # May detect as rename or separate add/delete
 
 

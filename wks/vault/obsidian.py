@@ -145,7 +145,6 @@ class ObsidianVault:
         if old_rel == new_rel:
             return
         old_rel_legacy = old_rel.replace("_links/", "links/")
-        new_rel_legacy = new_rel.replace("_links/", "links/")
         patterns = [
             (f"[[{old_rel}]]", f"[[{new_rel}]]"),
             (f"[[{old_rel}|", f"[[{new_rel}|"),
