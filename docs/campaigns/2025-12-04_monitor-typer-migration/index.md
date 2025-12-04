@@ -31,25 +31,26 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 ### Target State
 - **Single Source**: Python functions with Typer decorators and Pydantic models
 - **One File Per Function Rule**: File name matches function name exactly
-  - `wks/api/monitor/get_status.py` - `get_status()` function
-  - `wks/api/monitor/check_path.py` - `check_path()` function
-  - `wks/api/monitor/validate_config.py` - `validate_config()` function
-  - `wks/api/monitor/get_list.py` - `get_list()` function
-  - `wks/api/monitor/add_to_list.py` - `add_to_list()` function
-  - `wks/api/monitor/remove_from_list.py` - `remove_from_list()` function
-  - `wks/api/monitor/get_managed_directories.py` - `get_managed_directories()` function
-  - `wks/api/monitor/add_managed_directory.py` - `add_managed_directory()` function
-  - `wks/api/monitor/remove_managed_directory.py` - `remove_managed_directory()` function
-  - `wks/api/monitor/set_managed_priority.py` - `set_managed_priority()` function
+  - `wks/api/monitor/status.py` - `status()` function (matches CLI: `wksc monitor status`, MCP: `wksm_monitor_status`)
+  - `wks/api/monitor/check.py` - `check()` function (matches CLI: `wksc monitor check`, MCP: `wksm_monitor_check`)
+  - `wks/api/monitor/validate.py` - `validate()` function (matches CLI: `wksc monitor validate`, MCP: `wksm_monitor_validate`)
+  - `wks/api/monitor/list.py` - `list()` function (matches CLI: `wksc monitor <list>/list`, MCP: `wksm_monitor_list`)
+  - `wks/api/monitor/add.py` - `add()` function (matches CLI: `wksc monitor <list>/add`, MCP: `wksm_monitor_add`)
+  - `wks/api/monitor/remove.py` - `remove()` function (matches CLI: `wksc monitor <list>/remove`, MCP: `wksm_monitor_remove`)
+  - `wks/api/monitor/managed_list.py` - `managed_list()` function (matches CLI: `wksc monitor managed/list`, MCP: `wksm_monitor_managed_list`)
+  - `wks/api/monitor/managed_add.py` - `managed_add()` function (matches CLI: `wksc monitor managed/add`, MCP: `wksm_monitor_managed_add`)
+  - `wks/api/monitor/managed_remove.py` - `managed_remove()` function (matches CLI: `wksc monitor managed/remove`, MCP: `wksm_monitor_managed_remove`)
+  - `wks/api/monitor/managed_set_priority.py` - `managed_set_priority()` function (matches CLI: `wksc monitor managed/set-priority`, MCP: `wksm_monitor_managed_set_priority`)
   - `wks/api/monitor/config.py` - `MonitorConfig` Pydantic model
   - `wks/api/monitor/models.py` - Status/Validation result models
-  - `wks/api/monitor/helpers.py` - Helper functions (canonicalize_path, etc.)
   - `wks/api/monitor/app.py` - Typer app that imports and registers all functions
+  - `wks/api/monitor/_*.py` - Monitor-specific helper functions (prefixed with `_` for non-public)
 - **No Classes**: Functions instead of static method classes (classes were just namespaces)
 - **Auto-Generated CLI**: Typer automatically creates CLI from function signatures
 - **Auto-Generated MCP Schema**: Adapter introspects Typer commands to generate MCP JSON schemas
 - **Config Injection**: Wrapper/decorator loads config and injects it into functions
-- **Entry Points**: `wks/cli.py` (CLI) and `wks/mcp.py` (MCP server) - both call `wks/api/monitor/` functions
+- **Entry Points**: `wks/cli/__init__.py` (CLI) and `wks/mcp_server.py` (MCP server) - both call `wks/api/monitor/` functions
+- **Naming Consistency**: CLI command name = Typer command name = function name = filename (without extension)
 
 ## Implementation Plan
 
@@ -120,6 +121,7 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
    - Replace `MonitorController.check_path()` → `wks.api.monitor.check.check()`
    - Replace `MonitorController.validate_config()` → `wks.api.monitor.validate.validate()`
    - Replace `MonitorOperations.add_to_list()` → `wks.api.monitor.add.add()`
+   - **Function names match CLI command names**: `status()`, `check()`, `validate()`, `add()`, `remove()`, etc.
    - **Naming Convention**: Function names match CLI command names exactly
      - CLI: `wksc monitor status` → API: `status()` in `wks/api/monitor/status.py`
      - CLI: `wksc monitor check` → API: `check()` in `wks/api/monitor/check.py`
