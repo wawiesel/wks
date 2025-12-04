@@ -149,7 +149,10 @@ class MCPServer:
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
             "wksm_monitor_list": {
-                "description": "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)",
+                "description": (
+                    "Get contents of a monitor configuration list "
+                    "(include/exclude paths, dirnames, or globs)"
+                ),
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -188,7 +191,11 @@ class MCPServer:
                         },
                         "value": {
                             "type": "string",
-                            "description": "Value to add (path for include/exclude_paths, dirname for include/exclude_dirnames, pattern for include/exclude_globs)",
+                            "description": (
+                                "Value to add (path for include/exclude_paths, "
+                                "dirname for include/exclude_dirnames, "
+                                "pattern for include/exclude_globs)"
+                            ),
                         },
                     },
                     "required": ["list_name", "value"],
@@ -281,7 +288,10 @@ class MCPServer:
                         },
                         "direction": {
                             "type": "string",
-                            "description": "Link direction filter: 'both' (default), 'to' (incoming only), or 'from' (outgoing only)",
+                            "description": (
+                                "Link direction filter: 'both' (default), "
+                                "'to' (incoming only), or 'from' (outgoing only)"
+                            ),
                             "enum": ["both", "to", "from"],
                         },
                     },

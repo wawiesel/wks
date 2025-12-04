@@ -34,22 +34,27 @@ class VaultConfig:
 
         if not isinstance(self.vault_type, str) or not self.vault_type:
             errors.append(
-                f"vault.type must be a non-empty string (found: {type(self.vault_type).__name__} = {self.vault_type!r}, expected: 'obsidian')"
+                f"vault.type must be a non-empty string "
+                f"(found: {type(self.vault_type).__name__} = {self.vault_type!r}, expected: 'obsidian')"
             )
 
         if not isinstance(self.base_dir, str) or not self.base_dir:
             errors.append(
-                f"vault.base_dir must be a non-empty string (found: {type(self.base_dir).__name__} = {self.base_dir!r}, expected: path string like '~/_vault')"
+                f"vault.base_dir must be a non-empty string "
+                f"(found: {type(self.base_dir).__name__} = {self.base_dir!r}, expected: path string like '~/_vault')"
             )
 
         if not isinstance(self.wks_dir, str) or not self.wks_dir:
             errors.append(
-                f"vault.wks_dir must be a non-empty string (found: {type(self.wks_dir).__name__} = {self.wks_dir!r}, expected: string like 'WKS')"
+                f"vault.wks_dir must be a non-empty string "
+                f"(found: {type(self.wks_dir).__name__} = {self.wks_dir!r}, expected: string like 'WKS')"
             )
 
         if not isinstance(self.update_frequency_seconds, (int, float)) or self.update_frequency_seconds <= 0:
             errors.append(
-                f"vault.update_frequency_seconds must be a positive number (found: {type(self.update_frequency_seconds).__name__} = {self.update_frequency_seconds!r}, expected: float > 0)"
+                f"vault.update_frequency_seconds must be a positive number "
+                f"(found: {type(self.update_frequency_seconds).__name__} = {self.update_frequency_seconds!r}, "
+                "expected: float > 0)"
             )
 
         return errors
@@ -60,13 +65,15 @@ class VaultConfig:
 
         if not isinstance(self.database, str) or "." not in self.database:
             errors.append(
-                f"vault.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.vault')"
+                f"vault.database must be in format 'database.collection' "
+                f"(found: {self.database!r}, expected: format like 'wks.vault')"
             )
         elif isinstance(self.database, str):
             parts = self.database.split(".", 1)
             if len(parts) != 2 or not parts[0] or not parts[1]:
                 errors.append(
-                    f"vault.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.vault' with both parts non-empty)"
+                    f"vault.database must be in format 'database.collection' "
+                    f"(found: {self.database!r}, expected: format like 'wks.vault' with both parts non-empty)"
                 )
 
         return errors
@@ -105,7 +112,8 @@ class VaultConfig:
         if not vault_config:
             raise VaultConfigError(
                 [
-                    "vault section is required in config (found: missing, expected: vault section with base_dir, database, etc.)"
+                    "vault section is required in config "
+                    "(found: missing, expected: vault section with base_dir, database, etc.)"
                 ]
             )
 

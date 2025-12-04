@@ -109,7 +109,8 @@ class MonitorStatus:
         """Validate after initialization."""
         if self.tracked_files < 0:
             raise ValueError(
-                f"MonitorStatus.tracked_files must be non-negative (found: {self.tracked_files}, expected: integer >= 0)"
+                f"MonitorStatus.tracked_files must be non-negative "
+                f"(found: {self.tracked_files}, expected: integer >= 0)"
             )
 
     def to_dict(self) -> dict[str, Any]:
