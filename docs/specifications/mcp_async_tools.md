@@ -2,38 +2,47 @@
 
 ## Overview
 
-For long-running MCP tool operations, WKS supports a 2-stage return pattern that provides immediate feedback with a runtime estimate, followed by progress notifications and a final result. This improves UX by giving users immediate feedback and managing expectations for operations that may take significant time.
+For long-running operations (both CLI and MCP), WKS uses a unified 4-step pattern that provides immediate feedback, progress with time estimates, and final results. This improves UX by giving users immediate feedback and managing expectations for operations that may take significant time.
 
-**Unified Pattern**: The async MCP pattern mirrors the 4-step CLI pattern, allowing the same function implementation to work for both CLI and MCP with different display mechanisms:
+**Unified Pattern**: The same 4-step pattern works for both CLI and MCP, with different display mechanisms:
 
-- **CLI 4-Step** → **MCP Async Stages**:
-  1. Announce (STDERR) → Stage 1: Immediate response with estimate
-  2. Progress (STDERR) → Stage 2: Progress notifications
-  3. Result (STDERR) → Stage 3: Result notification (messages)
-  4. Output (STDOUT) → Stage 3: Result notification (data)
+- **Step 1: Announce** (CLI: STDERR, MCP: immediate response with job_id)
+- **Step 2: Progress** (CLI: progress bar on STDERR with time estimate, MCP: progress notifications with time estimate)
+- **Step 3: Result** (CLI: STDERR, MCP: result notification messages)
+- **Step 4: Output** (CLI: STDOUT, MCP: result notification data)
+
+**Time Estimates**: Time estimates are provided when progress starts (Step 2), not in the initial announcement. This ensures estimates are based on actual work being performed, not just queued.
 
 This unified approach means Typer functions can implement the 4-step pattern once, and it works for both CLI (via `CLIDisplay`) and MCP (via `MCPDisplay` + async notifications).
 
 ## Design
 
-### Stage 1: Immediate Response (Estimate) - Maps to CLI "Announce"
+### Stage 1: Immediate Response - Maps to CLI "Announce"
 
 When a tool is called, if it's a long-running operation, it can return immediately with:
 - `success: true`
-- `data.estimated_runtime_seconds: float` - Estimated time to complete
 - `data.job_id: str` - Unique identifier for this operation
 - `data.status: "queued" | "running"` - Current status
-- `messages`: Info message explaining the operation is in progress
+- `messages`: Info message explaining the operation is starting
 
 **CLI equivalent**: `display.status("Syncing files...")` (Step 1: Announce)
 
+**Note**: Time estimates are NOT provided in Stage 1. They are provided in Stage 2 when progress actually starts, ensuring estimates are based on actual work being performed.
+
 ### Stage 2: Progress Notifications - Maps to CLI "Progress"
 
-During execution, the tool can send progress notifications:
+During execution, the tool sends progress notifications with time estimates:
 - Method: `notifications/progress` (JSON-RPC notification, no ID)
-- Payload: `{ "job_id": "...", "progress": 0.0-1.0, "message": "...", "timestamp": "..." }`
+- Payload: `{ "job_id": "...", "progress": 0.0-1.0, "message": "...", "estimated_remaining_seconds": float, "timestamp": "..." }`
 
-**CLI equivalent**: `with display.progress(total=N, description="Processing..."):` (Step 2: Progress)
+**CLI equivalent**: `with display.progress(total=N, description="Processing...", estimated_time=45.0):` (Step 2: Progress)
+
+**Time Estimates**: Estimates are calculated when progress starts, based on:
+- Total work items (e.g., number of files to process)
+- Historical performance data (if available)
+- Current system load
+
+The first progress notification should include the initial time estimate. Subsequent notifications can update the estimate based on actual progress.
 
 ### Stage 3: Final Result - Maps to CLI "Result" + "Output"
 
@@ -75,11 +84,10 @@ class MCPServer:
                 success=True,
                 data={
                     "job_id": job_id,
-                    "estimated_runtime_seconds": estimated_time,
                     "status": "queued"
                 }
             )
-            result.add_info(f"Operation queued. Estimated runtime: {estimated_time}s")
+            result.add_info("Operation queued. Starting...")
 
             self._write_response(request_id, result.to_dict())
 
@@ -163,16 +171,15 @@ def sync(
 
         return result
     else:
-        # MCP Async: Return immediately with estimate, execute in background
+        # MCP Async: Return immediately, execute in background
         job_id = str(uuid.uuid4())
-        estimated_time = _estimate_sync_time(path, recursive)
 
         # Stage 1: Immediate response (maps to Step 1: Announce)
         # MCP server will handle this and execute in background
         # The function returns early, background thread handles Steps 2-4
+        # Time estimate will be provided in Step 2 when progress starts
         return {
             "job_id": job_id,
-            "estimated_runtime_seconds": estimated_time,
             "status": "queued"
         }
 ```
@@ -214,20 +221,33 @@ The background execution can use the same `_do_sync()` function, which internall
     "success": true,
     "data": {
       "job_id": "abc-123-def-456",
-      "estimated_runtime_seconds": 45.0,
       "status": "queued"
     },
     "messages": [
       {
         "type": "info",
-        "text": "Operation queued. Estimated runtime: 45s"
+        "text": "Operation queued. Starting..."
       }
     ]
   }
 }
 ```
 
-3. **Server sends progress notifications (during execution):**
+3. **Server sends progress notifications (during execution) with time estimates:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/progress",
+  "params": {
+    "job_id": "abc-123-def-456",
+    "progress": 0.0,
+    "message": "Processing 0 of 500 files...",
+    "estimated_remaining_seconds": 45.0,
+    "timestamp": "2025-12-04T12:00:00Z"
+  }
+}
+```
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -236,7 +256,8 @@ The background execution can use the same `_do_sync()` function, which internall
     "job_id": "abc-123-def-456",
     "progress": 0.3,
     "message": "Processing 150 of 500 files...",
-    "timestamp": "2025-12-04T12:00:00Z"
+    "estimated_remaining_seconds": 31.5,
+    "timestamp": "2025-12-04T12:00:13Z"
   }
 }
 ```
@@ -284,11 +305,12 @@ The background execution can use the same `_do_sync()` function, which internall
 ## Client Requirements
 
 Clients must:
-1. Handle immediate responses with `job_id` and `estimated_runtime_seconds`
+1. Handle immediate responses with `job_id` (no time estimate in initial response)
 2. Listen for `notifications/progress` messages and correlate by `job_id`
-3. Listen for `notifications/tool_result` messages and correlate by `job_id`
-4. Display progress updates to users (progress bars, status messages)
-5. Handle errors in final result notifications
+3. Extract `estimated_remaining_seconds` from progress notifications (provided when progress starts)
+4. Listen for `notifications/tool_result` messages and correlate by `job_id`
+5. Display progress updates to users (progress bars, status messages, time estimates)
+6. Handle errors in final result notifications
 
 ## Error Handling
 

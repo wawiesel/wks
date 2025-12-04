@@ -9,9 +9,9 @@
 - **Structured Aggregation**: Replace ad-hoc error handling with structured aggregation—collect all errors, then raise them together.
 - **Fail Fast**: Keep system behavior deterministic. Avoid optional or hidden recovery logic.
 
-## CLI Command Lifecycle
-Every CLI command must strictly follow this 4-step behavior:
-1.  **Announce**: Immediately output action description to STDERR.
-2.  **Progress**: Display a progress bar on STDERR.
-3.  **Result**: Report completion status and any issues on STDERR.
-4.  **Output**: Display the final structured output on STDOUT (or empty if failure prevents rendering).
+## Command Execution Pattern (CLI & MCP)
+Every command (CLI or MCP) must strictly follow this 4-step behavior:
+1.  **Announce**: Immediately output action description (CLI: STDERR, MCP: status message).
+2.  **Progress**: Display a progress indicator with time estimate (CLI: progress bar on STDERR, MCP: progress notifications).
+3.  **Result**: Report completion status and any issues (CLI: STDERR, MCP: result notification messages).
+4.  **Output**: Display the final structured output (CLI: STDOUT, MCP: result notification data, or empty if failure prevents rendering).

@@ -174,20 +174,20 @@ WKS follows a three-layer architecture with clear separation of concerns:
 - **Strategy Pattern**: Use for display modes and engine implementations.
 - **Controller Pattern**: Centralize business logic in controllers shared by CLI and MCP.
 
-## CLI Guidelines
+## Command Execution Pattern (CLI & MCP)
 
-Every CLI command must follow this 4-step behavior:
-1. **Announce**: Immediately say what you are doing on STDERR.
-2. **Progress**: Start a progress bar on STDERR.
-3. **Result**: Say what you did and report problems on STDERR.
-4. **Output**: Display the final output on STDOUT.
+Every command (CLI or MCP) must follow this 4-step behavior:
+1. **Announce**: Immediately say what you are doing (CLI: STDERR, MCP: status message).
+2. **Progress**: Start a progress indicator with time estimate (CLI: progress bar on STDERR, MCP: progress notifications).
+3. **Result**: Say what you did and report problems (CLI: STDERR, MCP: result notification messages).
+4. **Output**: Display the final output (CLI: STDOUT, MCP: result notification data).
    - Use colorized output (red for failures).
    - Show OK/FAIL status before the last error.
-   - If failed, STDOUT should be empty.
+   - If failed, output should be empty (CLI: STDOUT empty, MCP: data empty).
 
 ### Implementing the 4-Step Pattern with Typer
 
-For Typer-based commands, use the `Display` object to follow the pattern:
+For Typer-based commands, use the `Display` object to follow the pattern. The same pattern works for both CLI and MCP:
 
 ```python
 from typer import Typer

@@ -80,8 +80,8 @@ The `wksc monitor sync <path>` command forces an update of a file or directory i
 - CLI command: `wksc monitor sync <path> [--recursive]` → calls MCP tool and displays results
 - Default behavior (non-recursive): Only processes files directly in the specified directory
 - With `--recursive` flag: Recursively walks subdirectories and processes all matching files
-- **Progress bar required**: This command must follow the 4-step CLI pattern from CONTRIBUTING.md:
-  1. Announce on STDERR: "Syncing files..."
-  2. Progress bar on STDERR: Shows progress as files are processed (total = number of files to process)
-  3. Result on STDERR: "Synced X files, skipped Y files" or error message
-  4. Output on STDOUT: Summary data (counts, paths, etc.)
+- **Progress indicator required**: This command must follow the 4-step pattern from CONTRIBUTING.md (works for both CLI and MCP):
+  1. Announce (CLI: STDERR, MCP: status message): "Syncing files..."
+  2. Progress indicator (CLI: progress bar on STDERR, MCP: progress notifications): Shows progress as files are processed with time estimate (total = number of files to process)
+  3. Result (CLI: STDERR, MCP: result notification messages): "Synced X files, skipped Y files" or error message
+  4. Output (CLI: STDOUT, MCP: result notification data): Summary data (counts, paths, etc.)

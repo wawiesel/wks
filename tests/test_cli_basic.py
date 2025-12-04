@@ -154,37 +154,74 @@ def test_cli_diff_error(mock_call):
     assert "error:" in err.lower() or "Diff failed" in err
 
 
-@patch("wks.cli._call")
-def test_cli_monitor_status(mock_call):
+@patch("wks.config.WKSConfig.load")
+@patch("wks.monitor.controller.MonitorController.get_status")
+def test_cli_monitor_status(mock_get_status, mock_load_config):
     """Test wksc monitor status."""
-    mock_call.return_value = {"success": True, "data": {"status": "ok"}, "messages": []}
+    from unittest.mock import MagicMock
+
+    from wks.monitor.status import MonitorStatus
+
+    mock_config = MagicMock()
+    mock_config.monitor = MagicMock()
+    mock_load_config.return_value = mock_config
+
+    mock_status = MonitorStatus(tracked_files=100, issues=[], redundancies=[])
+    mock_get_status.return_value = mock_status
     rc, _out, _err = run_cli(["monitor", "status"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_monitor_status")
+    mock_get_status.assert_called_once()
 
 
-@patch("wks.cli._call")
-def test_cli_monitor_check(mock_call):
+@patch("wks.config.WKSConfig.load")
+@patch("wks.monitor.controller.MonitorController.check_path")
+def test_cli_monitor_check(mock_check_path, mock_load_config):
     """Test wksc monitor check."""
-    mock_call.return_value = {"success": True, "data": {}, "messages": []}
+    from unittest.mock import MagicMock
+
+    mock_config = MagicMock()
+    mock_config.monitor = MagicMock()
+    mock_load_config.return_value = mock_config
+
+    mock_check_path.return_value = {"is_monitored": True}
     rc, _out, _err = run_cli(["monitor", "check", "/some/path"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_monitor_check", {"path": "/some/path"})
+    mock_check_path.assert_called_once()
 
 
-@patch("wks.cli._call")
-def test_cli_monitor_validate_with_issues(mock_call):
+@patch("wks.config.WKSConfig.load")
+@patch("wks.monitor.controller.MonitorController.validate_config")
+def test_cli_monitor_validate_with_issues(mock_validate, mock_load_config):
     """Test wksc monitor validate with issues returns 1."""
-    mock_call.return_value = {"success": True, "issues": ["issue1"], "messages": []}
+    from unittest.mock import MagicMock
+
+    from wks.monitor.status import ConfigValidationResult
+
+    mock_config = MagicMock()
+    mock_config.monitor = MagicMock()
+    mock_load_config.return_value = mock_config
+
+    mock_result = ConfigValidationResult(issues=["issue1"], redundancies=[])
+    mock_validate.return_value = mock_result
     rc, _out, _err = run_cli(["monitor", "validate"])
     assert rc == 1
-    mock_call.assert_called_once_with("wksm_monitor_validate")
+    mock_validate.assert_called_once()
 
 
-@patch("wks.cli._call")
-def test_cli_monitor_validate_no_issues(mock_call):
+@patch("wks.config.WKSConfig.load")
+@patch("wks.monitor.controller.MonitorController.validate_config")
+def test_cli_monitor_validate_no_issues(mock_validate, mock_load_config):
     """Test wksc monitor validate with no issues returns 0."""
-    mock_call.return_value = {"success": True, "issues": [], "messages": []}
+    from unittest.mock import MagicMock
+
+    from wks.monitor.status import ConfigValidationResult
+
+    mock_config = MagicMock()
+    mock_config.monitor = MagicMock()
+    mock_load_config.return_value = mock_config
+
+    mock_result = ConfigValidationResult(issues=[], redundancies=[])
+    mock_validate.return_value = mock_result
     rc, _out, _err = run_cli(["monitor", "validate"])
     assert rc == 0
 

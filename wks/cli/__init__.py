@@ -10,6 +10,7 @@ from typing import Any
 
 import typer
 
+from ..api.monitor import monitor_app
 from ..display.context import get_display
 from ..mcp_client import proxy_stdio_to_socket
 from ..mcp_paths import mcp_socket_path
@@ -25,13 +26,7 @@ app = typer.Typer(
     help="WKS CLI",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-monitor_app = typer.Typer(
-    name="monitor",
-    help="Monitor operations",
-    pretty_exceptions_show_locals=False,
-    pretty_exceptions_enable=False,
-    context_settings={"help_option_names": ["-h", "--help"]},
-)
+
 app.add_typer(monitor_app, name="monitor")
 
 
@@ -129,26 +124,8 @@ def diff_command(
 # =============================================================================
 # Monitor commands
 # =============================================================================
-
-
-@monitor_app.command(name="status", help="Show monitor status")
-def monitor_status_command():
-    _out(_call("wksm_monitor_status"))
-
-
-@monitor_app.command(name="check", help="Check monitor path")
-def monitor_check_command(
-    path: str = typer.Argument(..., help="Path to check"),
-):
-    _out(_call("wksm_monitor_check", {"path": path}))
-
-
-@monitor_app.command(name="validate", help="Validate monitor configuration")
-def monitor_validate_command():
-    r = _call("wksm_monitor_validate")
-    _out(r)
-    if r.get("issues"):
-        sys.exit(1)
+# Monitor commands are handled directly by wks.api.monitor.monitor_app
+# which is added as a subcommand above. No wrapper functions needed.
 
 
 # =============================================================================

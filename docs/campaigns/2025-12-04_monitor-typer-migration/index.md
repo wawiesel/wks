@@ -134,13 +134,13 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
    - Register all monitor commands using `@monitor_app.command()` decorators
    - **Command names match function names**: `@monitor_app.command(name="status")` decorates `status()` function
    - Apply `@inject_config` decorator to all commands
-   - **4-Step CLI Pattern**: Each function must follow the pattern when called from CLI:
-     1. **Announce** (STDERR): `display.status("Checking monitor status...")` - immediate feedback
-     2. **Progress** (STDERR): `with display.progress(total=N, description="Processing..."):` - progress bar context manager
-     3. **Result** (STDERR): `display.success("Done")` or `display.error("Failed")` - completion status
-     4. **Output** (STDOUT): `display.json_output(data)` or `display.table(data)` - final structured output
-   - **Detection**: Functions check if called from CLI using `get_display("cli")` - if it returns `CLIDisplay`, follow 4-step pattern
-   - **MCP calls**: When called from MCP, functions return raw data (no display calls, no 4-step pattern)
+   - **4-Step Pattern (CLI & MCP)**: Each function must follow the unified pattern for both CLI and MCP:
+     1. **Announce** (CLI: STDERR, MCP: status message): `display.status("Checking monitor status...")` - immediate feedback
+     2. **Progress** (CLI: STDERR, MCP: progress notifications): `with display.progress(total=N, description="Processing...", estimated_time=45.0):` - progress indicator with time estimate (estimate provided when progress starts, not in announcement)
+     3. **Result** (CLI: STDERR, MCP: result notification messages): `display.success("Done")` or `display.error("Failed")` - completion status
+     4. **Output** (CLI: STDOUT, MCP: result notification data): `display.json_output(data)` or `display.table(data)` - final structured output
+   - **Detection**: Functions check context using `get_display("cli")` and `isinstance(display, CLIDisplay)` - same 4-step pattern works for both
+   - **Time Estimates**: Provided in Step 2 (Progress) when work actually starts, not in Step 1 (Announce)
    - **Example implementation**:
      ```python
      @monitor_app.command(name="status")

@@ -565,11 +565,17 @@ class MCPServer:
             "wksm_db_transform": lambda config, args: self._tool_db_query(
                 config, "transform", args.get("query", {}), args.get("limit", 50)
             ),
-            "wksm_monitor_status": lambda config, args: monitor_status(config=config).get("data", {}),  # noqa: ARG005
+            "wksm_monitor_status": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True, data=monitor_status(config=config)
+            ).to_dict(),
             "wksm_monitor_check": _require_params("path")(
-                lambda config, args: monitor_check(path=args["path"], config=config).get("data", {})
+                lambda config, args: MCPResult(
+                    success=True, data=monitor_check(path=args["path"], config=config)
+                ).to_dict()
             ),
-            "wksm_monitor_validate": lambda config, args: monitor_validate(config=config).get("data", {}),  # noqa: ARG005
+            "wksm_monitor_validate": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True, data=monitor_validate(config=config)
+            ).to_dict(),
             "wksm_monitor_list": _require_params("list_name")(
                 lambda config, args: self._tool_monitor_list(config, args["list_name"])
             ),
