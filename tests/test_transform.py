@@ -210,38 +210,44 @@ class TestTransformController:
         db = Mock()
         db.transform = Mock()
 
-        # Mock cached entry exists
-        db.transform.find.return_value = [
-            {
-                "file_uri": "file:///test.pdf",
-                "checksum": "abc123",
-                "size_bytes": 1024,
-                "last_accessed": "2025-01-01T00:00:00+00:00",
-                "created_at": "2025-01-01T00:00:00+00:00",
-                "engine": "docling",
-                "options_hash": "def456",
-                "cache_location": str(tmp_path / "cache" / "key123.md"),
-            }
-        ]
-
-        # Create cached file
         cache_dir = tmp_path / "cache"
         cache_dir.mkdir()
-        (cache_dir / "key123.md").write_text("Cached content")
 
         controller = TransformController(db, cache_dir, 1024)
 
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"content")
 
+        # Compute actual checksum and cache key
+        file_checksum = controller._compute_file_checksum(test_file)
+        options_hash = "def456"
+        cache_key = controller._compute_cache_key(file_checksum, "docling", options_hash)
+
+        # Mock cached entry exists with correct cache key
+        db.transform.find.return_value = [
+            {
+                "file_uri": f"file://{test_file}",
+                "checksum": file_checksum,
+                "size_bytes": 1024,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "engine": "docling",
+                "options_hash": options_hash,
+                "cache_location": str(cache_dir / f"{cache_key}.md"),
+            }
+        ]
+
+        # Create cached file with correct cache key
+        (cache_dir / f"{cache_key}.md").write_text("Cached content")
+
         # Mock engine
         mock_engine = Mock()
-        mock_engine.compute_options_hash.return_value = "def456"
+        mock_engine.compute_options_hash.return_value = options_hash
         mock_get_engine.return_value = mock_engine
 
-        cache_key = controller.transform(test_file, "docling")
+        result_cache_key = controller.transform(test_file, "docling")
 
-        assert cache_key is not None
+        assert result_cache_key == cache_key
         db.transform.update_one.assert_called_once()  # Updated last_accessed
         mock_engine.transform.assert_not_called()  # Didn't re-transform
 
@@ -369,38 +375,44 @@ class TestTransformController:
 
         cache_dir = tmp_path / "cache"
         cache_dir.mkdir()
-        cache_file = cache_dir / "key123.md"
-        cache_file.write_text("Cached content")
-
-        # Mock cached entry
-        db.transform.find.return_value = [
-            {
-                "file_uri": f"file://{tmp_path / 'test.pdf'}",
-                "checksum": "abc123",
-                "size_bytes": 100,
-                "last_accessed": "2025-01-01T00:00:00+00:00",
-                "created_at": "2025-01-01T00:00:00+00:00",
-                "engine": "test",
-                "options_hash": "def456",
-                "cache_location": str(cache_file),
-            }
-        ]
 
         controller = TransformController(db, cache_dir, 1024)
 
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"content")
 
+        # Compute actual checksum and cache key
+        file_checksum = controller._compute_file_checksum(test_file)
+        options_hash = "def456"
+        cache_key = controller._compute_cache_key(file_checksum, "test", options_hash)
+
+        cache_file = cache_dir / f"{cache_key}.md"
+        cache_file.write_text("Cached content")
+
+        # Mock cached entry with correct cache key
+        db.transform.find.return_value = [
+            {
+                "file_uri": f"file://{test_file}",
+                "checksum": file_checksum,
+                "size_bytes": 100,
+                "last_accessed": "2025-01-01T00:00:00+00:00",
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "engine": "test",
+                "options_hash": options_hash,
+                "cache_location": str(cache_file),
+            }
+        ]
+
         output_path = tmp_path / "output.md"
 
         # Mock engine
         mock_engine = Mock()
-        mock_engine.compute_options_hash.return_value = "def456"
+        mock_engine.compute_options_hash.return_value = options_hash
         mock_get_engine.return_value = mock_engine
 
-        cache_key = controller.transform(test_file, "test", {}, output_path)
+        result_cache_key = controller.transform(test_file, "test", {}, output_path)
 
-        assert cache_key is not None
+        assert result_cache_key == cache_key
         assert output_path.exists()
         assert output_path.read_text() == "Cached content"
         mock_engine.transform.assert_not_called()  # Used cache

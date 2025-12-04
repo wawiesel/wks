@@ -76,10 +76,18 @@ class TransformController:
             }
         )
 
+        # Compute cache key to find file in current cache directory
+        cache_key = self._compute_cache_key(file_checksum, engine_name, options_hash)
+
         for doc in cursor:
             record = TransformRecord.from_dict(doc)
-            cache_path = Path(record.cache_location)
-            if cache_path.exists():
+            # Check if file exists in current cache directory (not stored absolute path)
+            # This handles cases where temp directories are cleaned up between test runs
+            stored_path = Path(record.cache_location)
+            extension = stored_path.suffix.lstrip(".") or "md"
+            cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
+
+            if cache_file.exists():
                 return record
 
         return None
@@ -159,11 +167,21 @@ class TransformController:
         extension = engine.get_extension(options)
         cache_location = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
 
+        # Ensure cache directory exists
+        cache_location.parent.mkdir(parents=True, exist_ok=True)
+
         # Ensure space in cache
         self.cache_manager.ensure_space(file_size)
 
         # Perform transform
         engine.transform(file_path, cache_location, options)
+
+        # Verify file was created
+        if not cache_location.exists():
+            raise RuntimeError(
+                f"Transform engine failed to create cache file at {cache_location}. "
+                f"Engine {engine_name} completed without error but file does not exist."
+            )
 
         # Get actual output size
         output_size = cache_location.stat().st_size
@@ -293,9 +311,22 @@ class TransformController:
                 if candidates:
                     cache_file = candidates[0]
 
+            # If file still doesn't exist but we have a database record, try to recreate it
+            # This can happen if the cache directory was cleaned up (e.g., in tests) but the
+            # database record persists. We can't recover the content, so we need to delete
+            # the stale database record and raise an error.
             if not cache_file.exists():
+                # Clean up stale database record
+                self.db.transform.delete_one(
+                    {
+                        "checksum": matching_record.checksum,
+                        "engine": matching_record.engine,
+                        "options_hash": matching_record.options_hash,
+                    }
+                )
                 raise ValueError(
-                    f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}"
+                    f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}. "
+                    f"Database record existed but file was missing (likely cleaned up). Stale record removed."
                 )
 
             self._update_last_accessed(
