@@ -169,10 +169,10 @@ class TestFixSymlinks:
         with (
             patch("wks.config.WKSConfig.load", return_value=mock_config),
             patch("pymongo.MongoClient", return_value=mock_mongo_client),
+            patch("pathlib.Path.symlink_to", side_effect=PermissionError("Permission denied")),
         ):
-                # Mock symlink creation to raise PermissionError
-                with patch("pathlib.Path.symlink_to", side_effect=PermissionError("Permission denied")):
-                    result = controller.fix_symlinks()
+            # Mock symlink creation to raise PermissionError
+            result = controller.fix_symlinks()
 
         assert result.links_found == 1
         assert result.created == 0
