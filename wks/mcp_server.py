@@ -530,7 +530,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Determine if we need to resolve paths
@@ -541,7 +541,7 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
@@ -556,7 +556,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Determine if we need to resolve paths
@@ -567,7 +567,7 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
@@ -586,7 +586,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Add managed directory
@@ -594,7 +594,7 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
@@ -609,7 +609,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Remove managed directory
@@ -617,7 +617,7 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 
@@ -632,7 +632,7 @@ class MCPServer:
             return {"success": False, "message": f"Config file not found: {config_path}"}
 
         # Load config from file
-        with open(config_path) as f:
+        with config_path.open() as f:
             config_dict = json.load(f)
 
         # Set priority
@@ -640,7 +640,7 @@ class MCPServer:
 
         # Save if successful
         if result.get("success"):
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config_dict, f, indent=4)
             result["note"] = "Restart the monitor service for changes to take effect"
 

@@ -149,7 +149,7 @@ class MyersEngine(DiffEngine):
         """
         try:
             # Read first chunk to check for binary content
-            with open(file_path, "rb") as f:
+            with file_path.open("rb") as f:
                 chunk = f.read(8192)
 
             # Check for null bytes (binary indicator)

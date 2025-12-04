@@ -65,7 +65,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         """Load state from JSON file."""
         if self.state_file.exists():
             try:
-                with open(self.state_file) as f:
+                with self.state_file.open() as f:
                     return json.load(f)
             except (json.JSONDecodeError, OSError):
                 # State file corrupted, back it up and start fresh
@@ -81,7 +81,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         """Save state to JSON file."""
         self.state["last_update"] = datetime.now().isoformat()
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.state_file, "w") as f:
+        with self.state_file.open("w") as f:
             json.dump(self.state, f, indent=2)
 
     def _should_ignore(self, path: str) -> bool:

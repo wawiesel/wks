@@ -30,7 +30,7 @@ class CacheManager:
         if not self.cache_json.exists():
             return 0
         try:
-            with open(self.cache_json) as f:
+            with self.cache_json.open() as f:
                 data = json.load(f)
             return data.get("total_size_bytes", 0)
         except Exception:
@@ -38,7 +38,7 @@ class CacheManager:
 
     def _save_cache_size(self, total_size_bytes: int) -> None:
         """Save total cache size to JSON file."""
-        with open(self.cache_json, "w") as f:
+        with self.cache_json.open("w") as f:
             json.dump({"total_size_bytes": total_size_bytes}, f)
 
     def _get_lru_entries(self, bytes_needed: int) -> list[tuple[str, int, str]]:
