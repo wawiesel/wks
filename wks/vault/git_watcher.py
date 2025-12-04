@@ -200,7 +200,7 @@ class GitVaultWatcher:
                     old_path = self.vault_path / parts[1].strip()
                     new_path = self.vault_path / parts[2].strip()
                     if new_path.suffix == ".md":
-                            changes.renamed.append((old_path, new_path))
+                        changes.renamed.append((old_path, new_path))
 
         except subprocess.TimeoutExpired:
             logger.error("git diff command timed out")

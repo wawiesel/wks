@@ -150,8 +150,7 @@ class MCPServer:
             },
             "wksm_monitor_list": {
                 "description": (
-                    "Get contents of a monitor configuration list "
-                    "(include/exclude paths, dirnames, or globs)"
+                    "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)"
                 ),
                 "inputSchema": {
                     "type": "object",
