@@ -8,6 +8,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from watchdog.observers import Observer
 
@@ -43,7 +44,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         self,
         state_file: Path,
         monitor_rules: MonitorRules,
-        on_change: Callable[[str, str], None] | None = None,
+        on_change: Callable[[str, str | tuple[str, str]], None] | None = None,
     ):
         """
         Initialize the file monitor.
@@ -84,19 +85,20 @@ class WKSFileMonitor(FileSystemEventHandler):
         with self.state_file.open("w") as f:
             json.dump(self.state, f, indent=2)
 
-    def _should_ignore(self, path: str) -> bool:
+    def _should_ignore(self, path: str | bytes) -> bool:
         """Check if path should be ignored based on monitor rules."""
         try:
-            return not self.monitor_rules.allows(Path(path))
+            path_str = path.decode() if isinstance(path, bytes) else path
+            return not self.monitor_rules.allows(Path(path_str))
         except Exception:
             return False
 
-    def _track_change(self, event_type: str, path: str):
+    def _track_change(self, event_type: str, path: str | bytes):
         """Track a file change in state."""
         if self._should_ignore(path):
             return
 
-        path_str = str(Path(path).resolve())
+        path_str = str(Path(path.decode() if isinstance(path, bytes) else path).resolve())
 
         if path_str not in self.state["files"]:
             self.state["files"][path_str] = {
@@ -119,27 +121,31 @@ class WKSFileMonitor(FileSystemEventHandler):
 
     def on_created(self, event: FileSystemEvent):
         """Handle file/directory creation."""
+        src_path = event.src_path.decode() if isinstance(event.src_path, bytes) else event.src_path
         if not event.is_directory:
-            self._track_change("created", event.src_path)
+            self._track_change("created", src_path)
         else:
             # Emit callback for directory creation so higher layers can react (e.g., project notes)
-            if self.on_change and not self._should_ignore(event.src_path):
+            if self.on_change and not self._should_ignore(src_path):
                 with contextlib.suppress(Exception):
-                    self.on_change("created", event.src_path)
+                    self.on_change("created", src_path)
 
     def on_modified(self, event: FileSystemEvent):
         """Handle file/directory modification."""
         if not event.is_directory:
-            self._track_change("modified", event.src_path)
+            src_path = event.src_path.decode() if isinstance(event.src_path, bytes) else event.src_path
+            self._track_change("modified", src_path)
 
     def on_moved(self, event: FileSystemEvent):
         """Handle file/directory move."""
+        src_path = event.src_path.decode() if isinstance(event.src_path, bytes) else event.src_path
+        dest_path = event.dest_path.decode() if isinstance(event.dest_path, bytes) else event.dest_path
         # Track the move with both paths for files; emit callback for all
-        if self._should_ignore(event.src_path) or self._should_ignore(event.dest_path):
+        if self._should_ignore(src_path) or self._should_ignore(dest_path):
             return
 
-        src_str = str(Path(event.src_path).resolve())
-        dest_str = str(Path(event.dest_path).resolve())
+        src_str = str(Path(src_path).resolve())
+        dest_str = str(Path(dest_path).resolve())
 
         if not event.is_directory:
             if dest_str not in self.state["files"]:
@@ -170,12 +176,13 @@ class WKSFileMonitor(FileSystemEventHandler):
 
     def on_deleted(self, event: FileSystemEvent):
         """Handle file/directory deletion."""
+        src_path = event.src_path.decode() if isinstance(event.src_path, bytes) else event.src_path
         if not event.is_directory:
-            self._track_change("deleted", event.src_path)
+            self._track_change("deleted", src_path)
         else:
-            if self.on_change and not self._should_ignore(event.src_path):
+            if self.on_change and not self._should_ignore(src_path):
                 with contextlib.suppress(Exception):
-                    self.on_change("deleted", event.src_path)
+                    self.on_change("deleted", src_path)
 
     def get_recent_changes(self, hours: int = 24) -> dict[str, dict]:
         """
@@ -203,8 +210,8 @@ def start_monitoring(
     directories: list[Path],
     state_file: Path,
     monitor_rules: MonitorRules,
-    on_change: Callable | None = None,
-) -> Observer:
+    on_change: Callable[[str, str | tuple[str, str]], None] | None = None,
+) -> Any:  # Observer type from watchdog
     """
     Start monitoring directories for changes.
 
@@ -259,13 +266,27 @@ if __name__ == "__main__":
 
     console = Console()
 
-    def on_file_change(event_type: str, path: str):
-        console.print(f"[yellow]{event_type}[/yellow]: {path}")
+    def on_file_change(event_type: str, path_info: str | tuple[str, str]) -> None:
+        if isinstance(path_info, tuple):
+            console.print(f"[yellow]{event_type}[/yellow]: {path_info[0]} -> {path_info[1]}")
+        else:
+            console.print(f"[yellow]{event_type}[/yellow]: {path_info}")
 
     # Monitor home directory
+    from .monitor_rules import MonitorRules
+
+    monitor_rules = MonitorRules(
+        include_paths=[],
+        exclude_paths=[],
+        include_dirnames=[],
+        exclude_dirnames=[],
+        include_globs=[],
+        exclude_globs=[],
+    )
     observer = start_monitoring(
         directories=[Path.home()],
         state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",
+        monitor_rules=monitor_rules,
         on_change=on_file_change,
     )
 
@@ -274,7 +295,9 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        observer.stop()
+        if observer is not None:
+            observer.stop()
         console.print("[red]Monitoring stopped.[/red]")
 
-    observer.join()
+    if observer is not None:
+        observer.join()
