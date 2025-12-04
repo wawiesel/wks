@@ -41,12 +41,12 @@ class TestParseDatabaseKey:
 
     def test_parse_key_no_dot(self):
         """Test parsing key without dot raises ValueError."""
-        with pytest.raises(ValueError, match="format 'database.collection'"):
+        with pytest.raises(ValueError, match=r"format 'database.collection'"):
             parse_database_key("wksmonitor")
 
     def test_parse_key_empty_string(self):
         """Test parsing empty string raises ValueError."""
-        with pytest.raises(ValueError, match="format 'database.collection'"):
+        with pytest.raises(ValueError, match=r"format 'database.collection'"):
             parse_database_key("")
 
 
@@ -96,7 +96,7 @@ class TestGetMonitorDbConfig:
             },
             "db": {},
         }
-        with pytest.raises(KeyError, match="db.*required"):
+        with pytest.raises(KeyError, match=r"db.*required"):
             get_monitor_db_config(cfg)
 
     def test_get_monitor_config_missing_database_key(self):
@@ -107,7 +107,7 @@ class TestGetMonitorDbConfig:
                 "uri": "mongodb://localhost:27017/",
             },
         }
-        with pytest.raises(KeyError, match="monitor.*required"):
+        with pytest.raises(KeyError, match=r"monitor.*required"):
             get_monitor_db_config(cfg)
 
     def test_get_monitor_config_invalid_database_key_format(self):
@@ -120,7 +120,7 @@ class TestGetMonitorDbConfig:
                 "uri": "mongodb://localhost:27017/",
             },
         }
-        with pytest.raises(ValueError, match="format 'database.collection'"):
+        with pytest.raises(ValueError, match=r"format 'database.collection'"):
             get_monitor_db_config(cfg)
 
 
@@ -170,7 +170,7 @@ class TestGetVaultDbConfig:
             },
             "db": {},
         }
-        with pytest.raises(KeyError, match="db.*required"):
+        with pytest.raises(KeyError, match=r"db.*required"):
             get_vault_db_config(cfg)
 
     def test_get_vault_config_missing_database_key(self):
@@ -181,7 +181,7 @@ class TestGetVaultDbConfig:
                 "uri": "mongodb://localhost:27017/",
             },
         }
-        with pytest.raises(KeyError, match="vault.*required"):
+        with pytest.raises(KeyError, match=r"vault.*required"):
             get_vault_db_config(cfg)
 
     def test_get_vault_config_invalid_database_key_format(self):
@@ -194,7 +194,7 @@ class TestGetVaultDbConfig:
                 "uri": "mongodb://localhost:27017/",
             },
         }
-        with pytest.raises(ValueError, match="format 'database.collection'"):
+        with pytest.raises(ValueError, match=r"format 'database.collection'"):
             get_vault_db_config(cfg)
 
 
@@ -224,7 +224,7 @@ class TestGetTransformDbConfig:
         cfg = {
             "db": {},
         }
-        with pytest.raises(KeyError, match="db.*required"):
+        with pytest.raises(KeyError, match=r"db.*required"):
             get_transform_db_config(cfg)
 
 

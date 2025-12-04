@@ -3,7 +3,7 @@
 import pytest
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config, items):  # noqa: ARG001
     """Automatically apply markers based on test file location."""
     for item in items:
         path_str = str(item.fspath)

@@ -3,7 +3,6 @@
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 try:
     import bsdiff4
@@ -39,7 +38,7 @@ class DiffEngine(ABC):
 class Bsdiff3Engine(DiffEngine):
     """Binary diff engine using bsdiff4 Python package."""
 
-    def diff(self, file1: Path, file2: Path, options: dict) -> str:
+    def diff(self, file1: Path, file2: Path, options: dict) -> str:  # noqa: ARG002
         """Compute binary diff using bsdiff4.
 
         Args:
@@ -150,7 +149,7 @@ class MyersEngine(DiffEngine):
         """
         try:
             # Read first chunk to check for binary content
-            with open(file_path, "rb") as f:
+            with file_path.open("rb") as f:
                 chunk = f.read(8192)
 
             # Check for null bytes (binary indicator)
@@ -180,7 +179,7 @@ ENGINES = {
 }
 
 
-def get_engine(name: str) -> Optional[DiffEngine]:
+def get_engine(name: str) -> DiffEngine | None:
     """Get diff engine by name.
 
     Args:

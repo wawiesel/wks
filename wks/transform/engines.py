@@ -5,14 +5,14 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class TransformEngine(ABC):
     """Base class for transform engines."""
 
     @abstractmethod
-    def transform(self, input_path: Path, output_path: Path, options: Dict[str, Any]) -> None:
+    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:
         """Transform file from input to output.
 
         Args:
@@ -26,7 +26,7 @@ class TransformEngine(ABC):
         pass
 
     @abstractmethod
-    def get_extension(self, options: Dict[str, Any]) -> str:
+    def get_extension(self, options: dict[str, Any]) -> str:
         """Get output file extension for this engine.
 
         Args:
@@ -37,7 +37,7 @@ class TransformEngine(ABC):
         """
         pass
 
-    def compute_options_hash(self, options: Dict[str, Any]) -> str:
+    def compute_options_hash(self, options: dict[str, Any]) -> str:
         """Compute hash of options for cache key.
 
         Args:
@@ -53,7 +53,7 @@ class TransformEngine(ABC):
 class DoclingEngine(TransformEngine):
     """Docling transform engine for PDF, DOCX, PPTX."""
 
-    def transform(self, input_path: Path, output_path: Path, options: Dict[str, Any]) -> None:
+    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:
         """Transform document using docling.
 
         Args:
@@ -97,7 +97,7 @@ class DoclingEngine(TransformEngine):
             except Exception as exc:
                 raise RuntimeError(f"Docling error: {exc}") from exc
 
-    def get_extension(self, options: Dict[str, Any]) -> str:
+    def get_extension(self, options: dict[str, Any]) -> str:
         """Get output file extension.
 
         Args:
@@ -112,24 +112,24 @@ class DoclingEngine(TransformEngine):
 class TestEngine(TransformEngine):
     """Test engine that copies content."""
 
-    def transform(self, input_path: Path, output_path: Path, options: Dict[str, Any]) -> None:
+    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:  # noqa: ARG002
         """Copy input to output."""
         content = input_path.read_text()
         output_path.write_text(f"Transformed: {content}")
 
-    def get_extension(self, options: Dict[str, Any]) -> str:
+    def get_extension(self, options: dict[str, Any]) -> str:  # noqa: ARG002
         """Get extension."""
         return "md"
 
 
 # Registry of available engines
-ENGINES: Dict[str, TransformEngine] = {
+ENGINES: dict[str, TransformEngine] = {
     "docling": DoclingEngine(),
     "test": TestEngine(),
 }
 
 
-def get_engine(name: str) -> Optional[TransformEngine]:
+def get_engine(name: str) -> TransformEngine | None:
     """Get transform engine by name.
 
     Args:

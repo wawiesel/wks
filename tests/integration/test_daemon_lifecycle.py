@@ -96,21 +96,21 @@ def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
 
     # Mock ensure_mongo_running
-    monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *a, **k: None)
+    monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *_a, **_k: None)
 
     # Mock MCPBroker
     mock_broker = MagicMock()
     mock_broker.start = MagicMock()
     mock_broker.stop = MagicMock()
-    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *a, **k: mock_broker)
+    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
 
     # Mock start_monitoring
     mock_observer = FakeObserver()
-    monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *a, **k: mock_observer)
+    monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *a, **k: mock_observer)  # noqa: ARG005
 
     # Mock db_activity functions
     monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
-    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])
+    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])  # noqa: ARG005
 
     config = build_daemon_config(tmp_path)
     monitor_rules = MonitorRules.from_config(config.monitor)
@@ -197,10 +197,12 @@ class TestDaemonStartStop:
         daemon = build_daemon(monkeypatch, tmp_path)
 
         # Mock lock acquisition
-        with patch.object(daemon, "_acquire_lock"):
-            with patch.object(daemon.vault, "ensure_structure"):
-                with patch.object(daemon, "_install_vault_git_hooks"):
-                    daemon.start()
+        with (
+            patch.object(daemon, "_acquire_lock"),
+            patch.object(daemon.vault, "ensure_structure"),
+            patch.object(daemon, "_install_vault_git_hooks"),
+        ):
+            daemon.start()
 
         assert daemon.observer is not None
 
@@ -228,13 +230,15 @@ class TestDaemonStartStop:
         """Test daemon restart (stop then start)."""
         daemon = build_daemon(monkeypatch, tmp_path)
 
-        with patch.object(daemon, "_acquire_lock"):
-            with patch.object(daemon, "_release_lock"):
-                with patch.object(daemon.vault, "ensure_structure"):
-                    with patch.object(daemon, "_install_vault_git_hooks"):
-                        daemon.start()
-                        daemon.stop()
-                        daemon.start()
+        with (
+            patch.object(daemon, "_acquire_lock"),
+            patch.object(daemon, "_release_lock"),
+            patch.object(daemon.vault, "ensure_structure"),
+            patch.object(daemon, "_install_vault_git_hooks"),
+        ):
+            daemon.start()
+            daemon.stop()
+            daemon.start()
 
 
 @pytest.mark.integration
@@ -255,9 +259,11 @@ class TestDaemonLockManagement:
         daemon.lock_file = tmp_path / "test.lock"
 
         # Clean up stale lock
-        with patch.object(daemon, "_clean_stale_lock"):
-            with patch.object(daemon, "_pid_running", return_value=False):
-                daemon._acquire_lock()
+        with (
+            patch.object(daemon, "_clean_stale_lock"),
+            patch.object(daemon, "_pid_running", return_value=False),
+        ):
+            daemon._acquire_lock()
 
         # Lock file should exist
         assert daemon.lock_file.exists()
@@ -357,10 +363,12 @@ class TestDaemonHealthData:
         daemon.health_file = tmp_path / "health.json"
         daemon._health_started_at = time.time() - 100
 
-        with patch.object(daemon, "_get_db_activity_info", return_value=(None, None, None, 0)):
-            with patch.object(daemon, "_calculate_fs_rates", return_value=(0.0, 0.0, 0.0)):
-                with patch.object(daemon, "_get_lock_info", return_value=(False, None, str(daemon.lock_file))):
-                    daemon._write_health()
+        with (
+            patch.object(daemon, "_get_db_activity_info", return_value=(None, None, None, 0)),
+            patch.object(daemon, "_calculate_fs_rates", return_value=(0.0, 0.0, 0.0)),
+            patch.object(daemon, "_get_lock_info", return_value=(False, None, str(daemon.lock_file))),
+        ):
+            daemon._write_health()
 
         assert daemon.health_file.exists()
         data = json.loads(daemon.health_file.read_text())

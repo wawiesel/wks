@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import socket
 import threading
 from pathlib import Path
-from typing import Optional
 
 from .mcp_server import MCPServer
 
@@ -15,8 +15,8 @@ class MCPBroker:
 
     def __init__(self, socket_path: Path):
         self.socket_path = socket_path
-        self._server: Optional[socket.socket] = None
-        self._thread: Optional[threading.Thread] = None
+        self._server: socket.socket | None = None
+        self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
     def start(self) -> None:
@@ -41,10 +41,8 @@ class MCPBroker:
     def stop(self) -> None:
         self._stop_event.set()
         if self._server:
-            try:
+            with contextlib.suppress(OSError):
                 self._server.close()
-            except OSError:
-                pass
             self._server = None
         if self._thread:
             self._thread.join(timeout=1.0)
@@ -72,10 +70,8 @@ class MCPBroker:
             try:
                 server.run()
             finally:
-                try:
+                with contextlib.suppress(Exception):
                     wfile.flush()
-                except Exception:
-                    pass
                 rfile.close()
                 wfile.close()
 

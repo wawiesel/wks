@@ -7,11 +7,11 @@ tables are intentionally disabled until those features are needed again.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import platform
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # from ..config import WKSConfig
 from ..constants import DEFAULT_TIMESTAMP_FORMAT
@@ -20,7 +20,7 @@ from ..constants import DEFAULT_TIMESTAMP_FORMAT
 class ObsidianVault:
     """Minimal interface to an Obsidian vault for link maintenance."""
 
-    def __init__(self, vault_path: Path, *, base_dir: str, machine_name: Optional[str] = None):
+    def __init__(self, vault_path: Path, *, base_dir: str, machine_name: str | None = None):
         self.vault_path = Path(vault_path)
         if not base_dir or not str(base_dir).strip():
             raise ValueError("vault.wks_dir is required in configuration")
@@ -82,7 +82,7 @@ class ObsidianVault:
                 return f"_links/{self.machine}/{source_file.name}"
         return f"_links/{self.machine}/{source_file.name}"
 
-    def link_file(self, source_file: Path, preserve_structure: bool = True) -> Optional[Path]:
+    def link_file(self, source_file: Path, preserve_structure: bool = True) -> Path | None:
         if not source_file.exists():
             return None
 
@@ -145,6 +145,7 @@ class ObsidianVault:
         if old_rel == new_rel:
             return
         old_rel_legacy = old_rel.replace("_links/", "links/")
+        new_rel.replace("_links/", "links/")
         patterns = [
             (f"[[{old_rel}]]", f"[[{new_rel}]]"),
             (f"[[{old_rel}|", f"[[{new_rel}|"),
@@ -156,16 +157,14 @@ class ObsidianVault:
         for md in self._iter_vault_markdown():
             try:
                 content = md.read_text(encoding="utf-8")
-            except (IOError, OSError, UnicodeDecodeError, PermissionError):
+            except (OSError, UnicodeDecodeError, PermissionError):
                 continue
             original = content
             for a, b in patterns:
                 content = content.replace(a, b)
             if content != original:
-                try:
+                with contextlib.suppress(OSError, PermissionError):
                     md.write_text(content, encoding="utf-8")
-                except (IOError, OSError, PermissionError):
-                    pass
 
     def mark_reference_deleted(self, path: Path) -> None:
         """No-op: avoid writing deletion markers into vault content.
@@ -178,10 +177,10 @@ class ObsidianVault:
 
     # ---------------------------------------------------------------- no-op stubs
 
-    def log_file_operation(self, *args, **kwargs) -> None:  # pragma: no cover - disabled
+    def log_file_operation(self, *args, **kwargs) -> None:  # pragma: no cover - disabled  # noqa: ARG002
         return
 
-    def update_active_files(self, *args, **kwargs) -> None:  # pragma: no cover - disabled
+    def update_active_files(self, *args, **kwargs) -> None:  # pragma: no cover - disabled  # noqa: ARG002
         return
 
     def write_health_page(self) -> None:  # pragma: no cover - disabled
@@ -221,21 +220,17 @@ class ObsidianVault:
         )
         try:
             doc_path.write_text(header + text, encoding="utf-8")
-        except (IOError, OSError, PermissionError):
+        except (OSError, PermissionError):
             return
         try:
             entries = sorted(docs_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
             for old in entries[keep:]:
-                try:
+                with contextlib.suppress(OSError, PermissionError):
                     old.unlink()
-                except (OSError, PermissionError):
-                    pass
         except (OSError, PermissionError):
             pass
 
-    def create_project_note(
-        self, project_path: Path, status: str = "Active", description: Optional[str] = None
-    ) -> Path:
+    def create_project_note(self, project_path: Path, status: str = "Active", description: str | None = None) -> Path:
         project_name = project_path.name
         note_path = self.projects_dir / f"{project_name}.md"
         parts = project_name.split("-", 1)
@@ -281,8 +276,6 @@ class ObsidianVault:
     def cleanup_broken_links(self) -> int:
         broken = self.find_broken_links()
         for link in broken:
-            try:
+            with contextlib.suppress(OSError, PermissionError):
                 link.unlink()
-            except (OSError, PermissionError):
-                pass
         return len(broken)

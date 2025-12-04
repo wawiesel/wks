@@ -1,7 +1,6 @@
 """Monitor list and managed directory operations."""
 
 from pathlib import Path
-from typing import Dict, Optional
 
 from .status import ListOperationResult
 from .validator import MonitorValidator
@@ -16,10 +15,10 @@ def _canonicalize_path(path_str: str) -> str:
         return str(path_obj)
 
 
-def _find_matching_path_key(path_map: Dict[str, any], candidate: str) -> Optional[str]:
+def _find_matching_path_key(path_map: dict[str, any], candidate: str) -> str | None:
     """Find the key in a path map that canonically matches candidate."""
     candidate_norm = _canonicalize_path(candidate)
-    for key in path_map.keys():
+    for key in path_map:
         if _canonicalize_path(key) == candidate_norm:
             return key
     return None
@@ -45,7 +44,7 @@ class MonitorOperations:
         return value_resolved, value_to_store
 
     @staticmethod
-    def _validate_dirname_entry(value: str, list_name: str, config_dict: dict) -> Optional[ListOperationResult]:
+    def _validate_dirname_entry(value: str, list_name: str, config_dict: dict) -> ListOperationResult | None:
         """Validate dirname entry. Returns ListOperationResult if validation fails, None if valid."""
         entry = value.strip()
         is_valid, error_msg = MonitorValidator.validate_dirname_entry(entry)
@@ -64,7 +63,7 @@ class MonitorOperations:
         return None
 
     @staticmethod
-    def _validate_glob_entry(value: str) -> Optional[ListOperationResult]:
+    def _validate_glob_entry(value: str) -> ListOperationResult | None:
         """Validate glob entry. Returns ListOperationResult if validation fails, None if valid."""
         entry = value.strip()
         is_valid, error_msg = MonitorValidator.validate_glob_pattern(entry)
@@ -75,9 +74,7 @@ class MonitorOperations:
         return None
 
     @staticmethod
-    def _check_existing_entry(
-        config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool
-    ) -> Optional[str]:
+    def _check_existing_entry(config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool) -> str | None:
         """Check if entry already exists. Returns existing entry if found, None otherwise."""
         for item in config_dict["monitor"][list_name]:
             if resolve_path:

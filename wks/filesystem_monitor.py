@@ -5,9 +5,9 @@ Monitors directories and tracks file changes without external dependencies.
 
 import json
 import time
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, Optional
 
 from watchdog.observers import Observer
 
@@ -26,6 +26,8 @@ try:
     from watchdog.observers.polling import PollingObserver  # cross-platform
 except Exception:  # pragma: no cover
     PollingObserver = None  # type: ignore
+import contextlib
+
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 
@@ -41,7 +43,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         self,
         state_file: Path,
         monitor_rules: MonitorRules,
-        on_change: Optional[Callable[[str, str], None]] = None,
+        on_change: Callable[[str, str], None] | None = None,
     ):
         """
         Initialize the file monitor.
@@ -59,11 +61,11 @@ class WKSFileMonitor(FileSystemEventHandler):
         self.monitor_rules = monitor_rules
         self.state = self._load_state()
 
-    def _load_state(self) -> Dict:
+    def _load_state(self) -> dict:
         """Load state from JSON file."""
         if self.state_file.exists():
             try:
-                with open(self.state_file, "r") as f:
+                with self.state_file.open() as f:
                     return json.load(f)
             except (json.JSONDecodeError, OSError):
                 # State file corrupted, back it up and start fresh
@@ -79,7 +81,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         """Save state to JSON file."""
         self.state["last_update"] = datetime.now().isoformat()
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.state_file, "w") as f:
+        with self.state_file.open("w") as f:
             json.dump(self.state, f, indent=2)
 
     def _should_ignore(self, path: str) -> bool:
@@ -122,10 +124,8 @@ class WKSFileMonitor(FileSystemEventHandler):
         else:
             # Emit callback for directory creation so higher layers can react (e.g., project notes)
             if self.on_change and not self._should_ignore(event.src_path):
-                try:
+                with contextlib.suppress(Exception):
                     self.on_change("created", event.src_path)
-                except Exception:
-                    pass
 
     def on_modified(self, event: FileSystemEvent):
         """Handle file/directory modification."""
@@ -165,10 +165,8 @@ class WKSFileMonitor(FileSystemEventHandler):
 
         if self.on_change:
             # Pass both paths as a tuple for moves
-            try:
+            with contextlib.suppress(Exception):
                 self.on_change("moved", (src_str, dest_str))
-            except Exception:
-                pass
 
     def on_deleted(self, event: FileSystemEvent):
         """Handle file/directory deletion."""
@@ -176,12 +174,10 @@ class WKSFileMonitor(FileSystemEventHandler):
             self._track_change("deleted", event.src_path)
         else:
             if self.on_change and not self._should_ignore(event.src_path):
-                try:
+                with contextlib.suppress(Exception):
                     self.on_change("deleted", event.src_path)
-                except Exception:
-                    pass
 
-    def get_recent_changes(self, hours: int = 24) -> Dict[str, Dict]:
+    def get_recent_changes(self, hours: int = 24) -> dict[str, dict]:
         """
         Get files changed in the last N hours.
 
@@ -207,7 +203,7 @@ def start_monitoring(
     directories: list[Path],
     state_file: Path,
     monitor_rules: MonitorRules,
-    on_change: Optional[Callable] = None,
+    on_change: Callable | None = None,
 ) -> Observer:
     """
     Start monitoring directories for changes.
@@ -240,20 +236,18 @@ def start_monitoring(
         candidates = [Observer]  # type: ignore
 
     # Track last error encountered by the observer thread
-    last_error: Optional[Exception] = None
-    for Obs in candidates:
+    last_error: Exception | None = None
+    for observer_class in candidates:
         try:
-            observer = Obs()  # type: ignore
+            observer = observer_class()  # type: ignore
             for directory in directories:
                 observer.schedule(event_handler, str(directory), recursive=True)
             observer.start()
             return observer
         except Exception as e:  # pragma: no cover
             last_error = e
-            try:
+            with contextlib.suppress(Exception):
                 observer.stop()
-            except Exception:
-                pass
             continue
     # If we get here, all observers failed
     raise RuntimeError(f"Failed to start file observer: {last_error}")

@@ -1,7 +1,7 @@
 """Abstract base class for display implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class Display(ABC):
@@ -58,7 +58,7 @@ class Display(ABC):
         pass
 
     @abstractmethod
-    def table(self, data: List[Dict[str, Any]], headers: Optional[List[str]] = None, **kwargs) -> None:
+    def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
         """Display data in table format.
 
         Args:
@@ -139,7 +139,7 @@ class Display(ABC):
         pass
 
     @abstractmethod
-    def tree(self, data: Dict[str, Any], title: str = "", **kwargs) -> None:
+    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:
         """Display hierarchical data as a tree.
 
         Args:

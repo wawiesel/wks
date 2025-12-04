@@ -74,17 +74,19 @@ class TestFixSymlinks:
         mock_config.mongo.uri = "mongodb://localhost:27017"
         mock_config.vault.database = "test_db.test_coll"
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                # Update mock to return correct paths
-                mock_cursor = [
-                    {"to_uri": f"file://{target1}"},
-                    {"to_uri": f"file://{target2}"},
-                    {"to_uri": f"file://{target3}"},
-                ]
-                mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
+            # Update mock to return correct paths
+            mock_cursor = [
+                {"to_uri": f"file://{target1}"},
+                {"to_uri": f"file://{target2}"},
+                {"to_uri": f"file://{target3}"},
+            ]
+            mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-                result = controller.fix_symlinks()
+            result = controller.fix_symlinks()
 
         # Verify results
         assert result.links_found == 3
@@ -117,15 +119,17 @@ class TestFixSymlinks:
         # Mock empty cursor (no links)
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = []
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                result = controller.fix_symlinks()
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
+            result = controller.fix_symlinks()
 
         # Old file should be gone
         assert not old_file.exists()
         assert result.created == 0
 
-    def test_fix_symlinks_handles_missing_targets(self, controller, vault_root, mock_mongo_client):
+    def test_fix_symlinks_handles_missing_targets(self, controller, vault_root, mock_mongo_client):  # noqa: ARG002
         """Test that missing target files are reported in failed list."""
         mock_config = Mock()
         mock_config.mongo.uri = "mongodb://localhost:27017"
@@ -137,16 +141,18 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                result = controller.fix_symlinks()
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
+            result = controller.fix_symlinks()
 
         assert result.links_found == 1
         assert result.created == 0
         assert len(result.failed) == 1
         assert "Target file not found" in result.failed[0][1]
 
-    def test_fix_symlinks_handles_permission_errors(self, controller, vault_root, tmp_path, mock_mongo_client):
+    def test_fix_symlinks_handles_permission_errors(self, controller, vault_root, tmp_path, mock_mongo_client):  # noqa: ARG002
         """Test error handling when symlink creation fails."""
         target = tmp_path / "file.pdf"
         target.write_text("content")
@@ -160,11 +166,13 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                # Mock symlink creation to raise PermissionError
-                with patch("pathlib.Path.symlink_to", side_effect=PermissionError("Permission denied")):
-                    result = controller.fix_symlinks()
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+            patch("pathlib.Path.symlink_to", side_effect=PermissionError("Permission denied")),
+        ):
+            # Mock symlink creation to raise PermissionError
+            result = controller.fix_symlinks()
 
         assert result.links_found == 1
         assert result.created == 0
@@ -192,9 +200,11 @@ class TestFixSymlinks:
         # Mock collection.find to raise exception
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.side_effect = Exception("DB error")
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                result = controller.fix_symlinks()
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
+            result = controller.fix_symlinks()
 
         assert result.notes_scanned == 0
         assert result.links_found == 0
@@ -213,17 +223,19 @@ class TestFixSymlinks:
 
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = []
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                # Mock shutil.rmtree to raise exception
-                with patch("shutil.rmtree", side_effect=PermissionError("Cannot delete")):
-                    result = controller.fix_symlinks()
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+            patch("shutil.rmtree", side_effect=PermissionError("Cannot delete")),
+        ):
+            # Mock shutil.rmtree to raise exception
+            result = controller.fix_symlinks()
 
         assert len(result.failed) == 1
         assert "_links/test-machine" in result.failed[0][0]
         assert "Cannot delete" in result.failed[0][1]
 
-    def test_fix_symlinks_filters_non_file_uris(self, controller, vault_root, mock_mongo_client):
+    def test_fix_symlinks_filters_non_file_uris(self, controller, vault_root, mock_mongo_client):  # noqa: ARG002
         """Test that only file:// URIs are processed."""
         mock_config = Mock()
         mock_config.mongo.uri = "mongodb://localhost:27017"
@@ -238,9 +250,11 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                result = controller.fix_symlinks()
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
+            result = controller.fix_symlinks()
 
         # Should only process file:// URIs
         assert result.links_found == 4  # All found, but only file:// processed
@@ -264,9 +278,11 @@ class TestFixSymlinks:
         ]
         mock_mongo_client.__getitem__.return_value.__getitem__.return_value.find.return_value = mock_cursor
 
-        with patch("wks.config.WKSConfig.load", return_value=mock_config):
-            with patch("pymongo.MongoClient", return_value=mock_mongo_client):
-                controller.fix_symlinks()
+        with (
+            patch("wks.config.WKSConfig.load", return_value=mock_config),
+            patch("pymongo.MongoClient", return_value=mock_mongo_client),
+        ):
+            controller.fix_symlinks()
 
         # Verify symlink is in machine-specific directory
         machine_links_dir = vault_root / "_links" / "another-machine"

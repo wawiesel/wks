@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-__all__ = ["DiffConfigError", "DiffConfig", "DiffEngineConfig", "DiffRouterConfig"]
+__all__ = ["DiffConfig", "DiffConfigError", "DiffEngineConfig", "DiffRouterConfig"]
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 class DiffConfigError(Exception):
     """Raised when diff configuration is invalid."""
 
-    def __init__(self, errors: List[str]):
+    def __init__(self, errors: list[str]):
         if isinstance(errors, str):
             errors = [errors]
         self.errors = errors
@@ -26,9 +26,9 @@ class DiffEngineConfig:
     name: str
     enabled: bool
     is_default: bool
-    options: Dict[str, Any]
+    options: dict[str, Any]
 
-    def _validate_name(self) -> List[str]:
+    def _validate_name(self) -> list[str]:
         """Validate engine name is a non-empty string."""
         errors = []
 
@@ -41,7 +41,7 @@ class DiffEngineConfig:
 
         return errors
 
-    def _validate_enabled(self) -> List[str]:
+    def _validate_enabled(self) -> list[str]:
         """Validate enabled is a boolean."""
         errors = []
 
@@ -54,7 +54,7 @@ class DiffEngineConfig:
 
         return errors
 
-    def _validate_is_default(self) -> List[str]:
+    def _validate_is_default(self) -> list[str]:
         """Validate is_default is a boolean."""
         errors = []
 
@@ -67,7 +67,7 @@ class DiffEngineConfig:
 
         return errors
 
-    def _validate_options(self) -> List[str]:
+    def _validate_options(self) -> list[str]:
         """Validate options is a dictionary."""
         errors = []
 
@@ -96,10 +96,10 @@ class DiffEngineConfig:
 class DiffRouterConfig:
     """Diff router configuration for engine selection."""
 
-    rules: List[Dict[str, Any]]
+    rules: list[dict[str, Any]]
     fallback: str
 
-    def _validate_rules(self) -> List[str]:
+    def _validate_rules(self) -> list[str]:
         """Validate rules is a list of dicts."""
         errors = []
 
@@ -121,7 +121,7 @@ class DiffRouterConfig:
 
         return errors
 
-    def _validate_fallback(self) -> List[str]:
+    def _validate_fallback(self) -> list[str]:
         """Validate fallback is a non-empty string."""
         errors = []
 
@@ -148,10 +148,10 @@ class DiffRouterConfig:
 class DiffConfig:
     """Diff configuration loaded from config dict with validation."""
 
-    engines: Dict[str, DiffEngineConfig]
+    engines: dict[str, DiffEngineConfig]
     router: DiffRouterConfig
 
-    def _validate_engines(self) -> List[str]:
+    def _validate_engines(self) -> list[str]:
         """Validate engines configuration."""
         errors = []
 
@@ -182,7 +182,7 @@ class DiffConfig:
 
         return errors
 
-    def _validate_router(self) -> List[str]:
+    def _validate_router(self) -> list[str]:
         """Validate router configuration."""
         errors = []
 
@@ -209,7 +209,7 @@ class DiffConfig:
             raise DiffConfigError(errors)
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> "DiffConfig":
+    def from_config_dict(cls, config: dict) -> DiffConfig:
         """Load diff config from config dict.
 
         Args:

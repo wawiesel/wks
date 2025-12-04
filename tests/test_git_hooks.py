@@ -19,15 +19,14 @@ class TestGitHooks:
 
     @patch("wks.vault.git_hooks.get_hook_source_path")
     def test_install_hooks_success(self, mock_source, mock_paths):
-        vault_path, hooks_dir = mock_paths
+        vault_path, _hooks_dir = mock_paths
         mock_source.return_value = Path("/tmp/source_hook")
 
         # Create dummy source
-        with patch("shutil.copy2") as mock_copy:
-            with patch("pathlib.Path.chmod") as mock_chmod:
-                assert install_hooks(vault_path) is True
-                mock_copy.assert_called()
-                mock_chmod.assert_called_with(0o755)
+        with patch("shutil.copy2") as mock_copy, patch("pathlib.Path.chmod") as mock_chmod:
+            assert install_hooks(vault_path) is True
+            mock_copy.assert_called()
+            mock_chmod.assert_called_with(0o755)
 
     def test_install_hooks_no_git(self, tmp_path):
         vault_path = tmp_path / "vault"
@@ -57,10 +56,9 @@ class TestGitHooks:
         hook_path = hooks_dir / "pre-commit"
         hook_path.touch()
 
-        with patch("shutil.copy2") as mock_copy:
-            with patch("pathlib.Path.chmod"):
-                assert install_hooks(vault_path, force=True) is True
-                mock_copy.assert_called()
+        with patch("shutil.copy2") as mock_copy, patch("pathlib.Path.chmod"):
+            assert install_hooks(vault_path, force=True) is True
+            mock_copy.assert_called()
 
     def test_uninstall_hooks_success(self, mock_paths):
         vault_path, hooks_dir = mock_paths

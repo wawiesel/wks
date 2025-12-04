@@ -2,7 +2,6 @@
 
 import fnmatch
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from ..monitor_rules import MonitorRules
 
@@ -11,12 +10,12 @@ class MonitorValidator:
     """Validation logic for monitor configuration."""
 
     @staticmethod
-    def status_symbol(error_msg: Optional[str], is_valid: bool = True) -> str:
+    def status_symbol(error_msg: str | None, is_valid: bool = True) -> str:
         """Convert validation result to colored status symbol."""
         return "[green]✓[/]" if not error_msg else "[yellow]⚠[/]" if is_valid else "[red]✗[/]"
 
     @staticmethod
-    def validate_dirname_entry(dirname: str) -> Tuple[bool, Optional[str]]:
+    def validate_dirname_entry(dirname: str) -> tuple[bool, str | None]:
         """Validate include/exclude dirname entries."""
         if not dirname or not dirname.strip():
             return False, "Directory name cannot be empty"
@@ -27,7 +26,7 @@ class MonitorValidator:
         return True, None
 
     @staticmethod
-    def dirname_redundancy(dirname: str, related_globs: List[str], relation: str) -> Optional[str]:
+    def dirname_redundancy(dirname: str, related_globs: list[str], relation: str) -> str | None:
         """Detect redundant dirname entries already covered by globs."""
         normalized = dirname.strip()
         for pattern in related_globs:
@@ -41,7 +40,7 @@ class MonitorValidator:
         return None
 
     @staticmethod
-    def validate_glob_pattern(pattern: str) -> Tuple[bool, Optional[str]]:
+    def validate_glob_pattern(pattern: str) -> tuple[bool, str | None]:
         """Validate glob syntax for include/exclude lists."""
         if not pattern or not pattern.strip():
             return False, "Glob pattern cannot be empty"
@@ -49,10 +48,10 @@ class MonitorValidator:
             fnmatch.fnmatch("test", pattern)
             return True, None
         except Exception as e:
-            return False, f"Invalid glob syntax: {str(e)}"
+            return False, f"Invalid glob syntax: {e!s}"
 
     @staticmethod
-    def validate_managed_directory(managed_path: str, rules: MonitorRules) -> Tuple[bool, Optional[str]]:
+    def validate_managed_directory(managed_path: str, rules: MonitorRules) -> tuple[bool, str | None]:
         """Validate that a managed_directory would actually be monitored."""
         managed_resolved = Path(managed_path).expanduser().resolve()
 

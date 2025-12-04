@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import fnmatch
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, List, Tuple
+from typing import TYPE_CHECKING
 
 from .constants import WKS_DOT_DIRS
 
@@ -12,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from .monitor import MonitorConfig
 
 
-def _matches_glob(patterns: List[str], path_obj: Path) -> bool:
+def _matches_glob(patterns: list[str], path_obj: Path) -> bool:
     if not patterns:
         return False
     path_str = path_obj.as_posix()
@@ -52,7 +53,7 @@ class MonitorRules:
         self.exclude_globs = [g.strip() for g in exclude_globs if g]
 
     @classmethod
-    def from_config(cls, cfg: "MonitorConfig") -> "MonitorRules":
+    def from_config(cls, cfg: MonitorConfig) -> MonitorRules:
         """Convenience constructor from MonitorConfig."""
         return cls(
             include_paths=cfg.include_paths,
@@ -67,8 +68,8 @@ class MonitorRules:
         allowed, _ = self.explain(path)
         return allowed
 
-    def explain(self, path: Path) -> Tuple[bool, List[str]]:
-        trace: List[str] = []
+    def explain(self, path: Path) -> tuple[bool, list[str]]:
+        trace: list[str] = []
         resolved = path.expanduser().resolve()
 
         root_allowed, root_reason = self._evaluate_roots(resolved)
@@ -98,7 +99,7 @@ class MonitorRules:
         # Not excluded, no override needed
         return True, trace
 
-    def _evaluate_roots(self, path: Path) -> Tuple[bool, str]:
+    def _evaluate_roots(self, path: Path) -> tuple[bool, str]:
         cur = path
         while True:
             if cur in self.exclude_root_set:

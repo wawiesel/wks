@@ -3,7 +3,6 @@
 import platform
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from .obsidian import ObsidianVault
 
@@ -15,13 +14,13 @@ class SymlinkFixResult:
     notes_scanned: int
     links_found: int
     created: int
-    failed: List[Tuple[str, str]]  # (rel_path, reason)
+    failed: list[tuple[str, str]]  # (rel_path, reason)
 
 
 class VaultController:
     """Business logic for vault operations."""
 
-    def __init__(self, vault: ObsidianVault, machine_name: Optional[str] = None):
+    def __init__(self, vault: ObsidianVault, machine_name: str | None = None):
         """Initialize vault controller.
 
         Args:
@@ -85,7 +84,7 @@ class VaultController:
             # Find all links where to_uri is file://
             cursor = collection.find({"to_uri": {"$regex": "^file://"}}, {"to_uri": 1})
 
-            file_uris = set(doc["to_uri"] for doc in cursor)
+            file_uris = {doc["to_uri"] for doc in cursor}
             client.close()
 
         except Exception as exc:
@@ -98,7 +97,7 @@ class VaultController:
 
         # 3. Create symlinks for each unique file:// URI
         created = 0
-        failed: List[Tuple[str, str]] = []
+        failed: list[tuple[str, str]] = []
 
         for file_uri in sorted(file_uris):
             if not file_uri.startswith("file://"):
@@ -171,7 +170,7 @@ class VaultController:
 
     # ------------------------------------------------------------------ sync helper
     @staticmethod
-    def sync_vault(cfg: Optional[dict] = None, batch_size: int = 1000, incremental: bool = False) -> dict:
+    def sync_vault(cfg: dict | None = None, batch_size: int = 1000, incremental: bool = False) -> dict:  # noqa: ARG004
         """Sync vault links to MongoDB (wrapper for CLI/MCP)."""
         from ..config import WKSConfig
         from ..utils import expand_path
