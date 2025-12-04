@@ -1,7 +1,7 @@
 """Monitor list and managed directory operations."""
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from .status import ListOperationResult
 from .validator import MonitorValidator

@@ -10,7 +10,7 @@ All MCP tools return structured MCPResult objects.
 
 import json
 import sys
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, Callable, Dict, Optional, TextIO
 
 from .config import load_config
 from .mcp.result import MCPResult
@@ -387,13 +387,13 @@ class MCPServer:
             result["nextCursor"] = None
         self._write_response(request_id, result)
 
-    def _build_tool_registry(self) -> Dict[str, callable]:
+    def _build_tool_registry(self) -> Dict[str, Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]]:
         """Build registry of tool handlers with parameter validation."""
 
         def _require_params(*param_names: str):
             """Decorator to validate required parameters."""
 
-            def decorator(handler: callable) -> callable:
+            def decorator(handler: Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]) -> Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]:
                 def wrapper(config: Dict[str, Any], arguments: Dict[str, Any]) -> Dict[str, Any]:
                     missing = [p for p in param_names if arguments.get(p) is None]
                     if missing:
