@@ -1,24 +1,44 @@
-# Monitor Tools Typer/Pydantic Migration
+# Complete WKS Typer/Pydantic Refactor
 
 **Campaign Date:** 2025-12-04
-**Status:** PLANNING
+**Status:** IN PROGRESS
 **Branch:** `2025-12-04_monitor-typer-migration`
 
 ---
 
 ## Overview
 
-Migrate all monitor-related tools to use Typer for CLI and Pydantic for validation, eliminating the three parallel layers (MCP schema, CLI argparse, business logic) in favor of a single Python function signature as the source of truth.
+Complete refactor of all WKS tools to use Typer for CLI and Pydantic for validation, eliminating the three parallel layers (MCP schema, CLI argparse, business logic) in favor of a single Python function signature as the source of truth.
 
-## Scope
+This is a multi-phase campaign:
+- **Phase 1: Monitor** (Agent 1) - Foundation and monitor tools
+- **Phase 2: Vault** (Agent 2) - Vault tools
+- **Phase 3: Transform & Diff** (Agent 3) - Transform and diff tools
+- **Phase 4: Service & Infrastructure** (Agent 4) - Service, DB, and config tools
 
-**In Scope:**
-- All monitor MCP tools: `wksm_monitor_status`, `wksm_monitor_check`, `wksm_monitor_validate`, `wksm_monitor_list`, `wksm_monitor_add`, `wksm_monitor_remove`, `wksm_monitor_managed_list`, `wksm_monitor_managed_add`, `wksm_monitor_managed_remove`, `wksm_monitor_managed_set_priority`
-- All monitor CLI commands: `wksc monitor status`, `wksc monitor check`, `wksc monitor validate`, `wksc monitor <list>/list`, `wksc monitor <list>/add`, `wksc monitor <list>/remove`, `wksc monitor managed/list`, `wksc monitor managed/add`, `wksc monitor managed/remove`, `wksc monitor managed/set-priority`
+## Complete Scope
+
+**Phase 1: Monitor Tools** (Agent 1 - IN PROGRESS)
+- All monitor MCP tools: `wksm_monitor_status`, `wksm_monitor_check`, `wksm_monitor_validate`, `wksm_monitor_list`, `wksm_monitor_add`, `wksm_monitor_remove`, `wksm_monitor_managed_list`, `wksm_monitor_managed_add`, `wksm_monitor_managed_remove`, `wksm_monitor_managed_set_priority`, `wksm_monitor_sync`
+- All monitor CLI commands: `wksc monitor status`, `wksc monitor check`, `wksc monitor validate`, `wksc monitor <list>/list`, `wksc monitor <list>/add`, `wksc monitor <list>/remove`, `wksc monitor managed/list`, `wksc monitor managed/add`, `wksc monitor managed/remove`, `wksc monitor managed/set-priority`, `wksc monitor sync`
+
+**Phase 2: Vault Tools** (Agent 2 - PLANNED)
+- Vault MCP tools: `wksm_vault_status`, `wksm_vault_sync`, `wksm_vault_links`, `wksm_vault_validate`, `wksm_vault_fix_symlinks`
+- Vault CLI commands: `wksc vault status`, `wksc vault sync`, `wksc vault links`, `wksc vault validate`, `wksc vault fix-symlinks`
+
+**Phase 3: Transform & Diff Tools** (Agent 3 - PLANNED)
+- Transform MCP tools: `wksm_transform`, `wksm_cat`, `wksm_diff`
+- Transform CLI commands: `wksc transform`, `wksc cat`, `wksc diff`
+
+**Phase 4: Service & Infrastructure** (Agent 4 - PLANNED)
+- Service MCP tools: `wksm_service`
+- Service CLI commands: `wksc service status`, `wksc service start`, `wksc service stop`
+- Config MCP tool: `wksm_config`
+- Config CLI command: `wksc config`
+- DB MCP tools: `wksm_db_query`
 
 **Out of Scope:**
-- Transform, diff, vault, service, db, and config tools (will remain as-is for now)
-- MCP server infrastructure (JSON-RPC handling, stdio transport)
+- MCP server infrastructure (JSON-RPC handling, stdio transport) - remains as-is
 
 ## Architecture Changes
 
@@ -84,7 +104,7 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
    - Extracts descriptions from Pydantic `Field(..., description="...")` and function docstrings
    - Maps to MCP's inputSchema format correctly
 
-### Phase 2: Migrate Monitor Tools to Function-Based Architecture
+#### Phase 1.2: Migrate Monitor Tools to Function-Based Architecture
 
 6. **Move shared utilities to `wks/utils/`**
    - Move `canonicalize_path()` from `wks/monitor/operations.py` to `wks/utils/canonicalize_path.py`
@@ -169,7 +189,7 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
      ```
    - **Naming consistency**: CLI command name = Typer command name = function name = filename (without extension)
 
-### Phase 3: Update MCP Server
+#### Phase 1.3: Update MCP Server
 
 9. **Create MCP adapter for Typer commands** (`wks/mcp_server.py`)
    - New method `_get_typer_tools_schema()` that introspects `wks.api.monitor.monitor_app`
@@ -190,7 +210,7 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
     - Route monitor tool calls to Typer command functions
     - Maintain existing error handling and response format
 
-### Phase 4: Update CLI
+#### Phase 1.4: Update CLI
 
 13. **Integrate Typer app into CLI** (`wks/cli/__init__.py`)
     - Import `monitor_app` from `wks.api.monitor.app`
@@ -202,7 +222,7 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
     - Remove `_cmd_monitor_*` wrapper functions (no longer needed)
     - Remove `_call()` usage for monitor commands (CLI calls Typer functions directly)
 
-### Phase 5: Testing & Validation
+#### Phase 1.5: Testing & Validation
 
 15. **Update tests**
     - **MCP Tests**: Import functions directly from `wks.api.monitor` and call them
@@ -221,7 +241,47 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
     - Test MCP tools via `call_tool()` function
     - Verify backward compatibility
 
-### Phase 6: Cleanup & Simplification
+#### Phase 1.6: Cleanup
+
+### Phase 2: Vault Tools (Agent 2 - PLANNED)
+
+After Phase 1 is complete and merged, Agent 2 will refactor vault tools using the same patterns established in Phase 1.
+
+**Scope:**
+- `wksm_vault_status`, `wksm_vault_sync`, `wksm_vault_links`, `wksm_vault_validate`, `wksm_vault_fix_symlinks`
+- `wksc vault status`, `wksc vault sync`, `wksc vault links`, `wksc vault validate`, `wksc vault fix-symlinks`
+
+**Pattern:**
+- Create `wks/api/vault/` directory with one file per function
+- Follow same naming convention: CLI command name = function name = filename
+- Implement unified 4-step pattern (CLI & MCP)
+- Use same infrastructure from Phase 1 (`inject_config`, `get_typer_command_schema`, etc.)
+
+### Phase 3: Transform & Diff Tools (Agent 3 - PLANNED)
+
+After Phase 2 is complete, Agent 3 will refactor transform and diff tools.
+
+**Scope:**
+- `wksm_transform`, `wksm_cat`, `wksm_diff`
+- `wksc transform`, `wksc cat`, `wksc diff`
+
+**Pattern:**
+- Create `wks/api/transform/` and `wks/api/diff/` directories
+- Follow same patterns as Phase 1 & 2
+- Transform tools may support async execution (long-running operations)
+
+### Phase 4: Service & Infrastructure (Agent 4 - PLANNED)
+
+Final phase refactors service, config, and DB tools.
+
+**Scope:**
+- `wksm_service`, `wksm_config`, `wksm_db_query`
+- `wksc service status/start/stop`, `wksc config`, `wksc db query`
+
+**Pattern:**
+- Create `wks/api/service/`, `wks/api/config/`, `wks/api/db/` directories
+- Follow same patterns as previous phases
+- Service tools may need special handling for daemon operations & Simplification
 
 17. **Remove obsolete code**
     - Remove `_define_monitor_*_tools()` static methods from `MCPServer`
