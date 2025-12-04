@@ -29,9 +29,9 @@
 
 Complete control over monitoring configuration and status.
 
-- `wksm_monitor_status` — Get monitoring status and configuration
-- `wksm_monitor_validate` — Validate configuration for conflicts
+- `wksm_monitor_status` — Get monitoring status and configuration (includes validation; exits with error code if issues found)
 - `wksm_monitor_check(path)` — Check if path would be monitored
+- `wksm_monitor_sync(path, recursive: bool = False)` — Force update of file or directory into monitor database
 - `wksm_monitor_list(list_name)` — Get contents of configuration list
 - `wksm_monitor_add(list_name, value)` — Add value to list
 - `wksm_monitor_remove(list_name, value)` — Remove value from list
@@ -45,7 +45,8 @@ Complete control over monitoring configuration and status.
 
 Human-friendly wrappers for the MCP tools.
 
-- `wksc monitor status` — show monitoring statistics (supports `--live`)
+- `wksc monitor status` — show monitoring statistics including validation (exits with error code if configuration issues found)
+- `wksc monitor sync <path> [--recursive]` — force update of file or directory into monitor database (works without service)
 - `wksc monitor include_paths {add,remove} <path>` — manage explicit inclusions
 - `wksc monitor exclude_paths {add,remove} <path>` — manage explicit exclusions
 - `wksc monitor include_dirnames {add,remove} <name>` — manage directory name inclusions
@@ -54,3 +55,32 @@ Human-friendly wrappers for the MCP tools.
 - `wksc monitor exclude_globs {add,remove} <pattern>` — manage glob pattern exclusions
 - `wksc monitor managed {add,remove,set-priority}` — manage directory priorities
 - `wksc db monitor` — query filesystem database
+
+### Monitor Sync Command
+
+The `wksc monitor sync <path>` command forces an update of a file or directory into the monitor database, allowing monitor to work without the service running. This is useful for:
+- Initial population of the monitor database
+- Manual synchronization after bulk file operations
+- Testing monitor configuration without starting the service
+
+**Behavior:**
+- For files: Updates the file's entry in the monitor database (calculates checksum, priority, etc.)
+- For directories (default, non-recursive): Processes only files directly in the directory that match monitor rules
+- For directories (with `--recursive` flag): Recursively processes all files in the directory and subdirectories that match monitor rules
+- Respects all monitor include/exclude rules (same logic as service)
+- Updates existing entries or creates new ones (upsert)
+- Calculates priority based on managed_directories and priority config
+- Updates timestamp and touches_per_day calculation
+
+**Implementation:**
+- Uses same logic as `WKSDaemon._update_monitor_db()` but as a standalone operation
+- Should be implemented in `MonitorController` as a static method
+- MCP tool: `wksm_monitor_sync(path: str, recursive: bool = False)` → returns sync result with counts (files_synced, files_skipped, errors)
+- CLI command: `wksc monitor sync <path> [--recursive]` → calls MCP tool and displays results
+- Default behavior (non-recursive): Only processes files directly in the specified directory
+- With `--recursive` flag: Recursively walks subdirectories and processes all matching files
+- **Progress indicator required**: This command must follow the 4-step pattern from CONTRIBUTING.md (works for both CLI and MCP):
+  1. Announce (CLI: STDERR, MCP: status message): "Syncing files..."
+  2. Progress indicator (CLI: progress bar on STDERR, MCP: progress notifications): Shows progress as files are processed with time estimate (total = number of files to process)
+  3. Result (CLI: STDERR, MCP: result notification messages): "Synced X files, skipped Y files" or error message
+  4. Output (CLI: STDOUT, MCP: result notification data): Summary data (counts, paths, etc.)

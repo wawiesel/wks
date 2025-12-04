@@ -29,7 +29,7 @@ def test_setup(tmp_path, monkeypatch):
     note.write_text(f"Reference: [PDF Document]({file_url})")
 
     # Patch MongoDB
-    client = mongomock.MongoClient()
+    client: mongomock.MongoClient = mongomock.MongoClient()
     monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)  # noqa: ARG005
     from mongomock.collection import BulkOperationBuilder
 

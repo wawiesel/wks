@@ -13,7 +13,6 @@ from wks.config import (
     MongoSettings,
     WKSConfig,
     get_config_path,
-    load_config,
 )
 
 
@@ -201,38 +200,3 @@ class TestGetConfigPath:
         path = get_config_path()
         assert path.name == "config.json"
         assert ".wks" in str(path)
-
-
-@pytest.mark.unit
-class TestLoadConfig:
-    """Tests for load_config() deprecated function."""
-
-    def test_returns_dict(self, tmp_path):
-        config = {
-            "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {"~": 100},
-                "database": "wks.monitor",
-            },
-            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
-            "transform": {
-                "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
-                "engines": {},
-            },
-        }
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps(config))
-
-        result = load_config(config_path)
-        assert isinstance(result, dict)
-        assert "monitor" in result
-        assert "vault" in result
-
-    def test_returns_empty_on_error(self, tmp_path):
-        result = load_config(tmp_path / "nonexistent.json")
-        assert result == {}

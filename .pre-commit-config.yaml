@@ -14,7 +14,7 @@ repos:
         entry: scripts/check_format.py
         language: script
         types: [python]
-        
+
       - id: check-types
         name: Check Types (Mypy)
         entry: scripts/check_types.py

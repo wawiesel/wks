@@ -1,172 +1,67 @@
-"""Monitor configuration dataclass with validation."""
+"""Monitor configuration Pydantic model with validation."""
 
-from dataclasses import dataclass, field, fields
 from typing import Any
 
-
-class ValidationError(Exception):
-    """Exception that collects multiple validation errors."""
-
-    def __init__(self, errors: list[str]):
-        self.errors = errors
-        message = "Validation failed with multiple errors:\n" + "\n".join(f"  - {e}" for e in errors)
-        super().__init__(message)
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
-@dataclass
-class MonitorConfig:
+class MonitorConfig(BaseModel):
     """Monitor configuration loaded from config dict with validation."""
 
-    include_paths: list[str]
-    exclude_paths: list[str]
-    include_dirnames: list[str]
-    exclude_dirnames: list[str]
-    include_globs: list[str]
-    exclude_globs: list[str]
-    database: str
-    managed_directories: dict[str, int]
-    touch_weight: float = 0.1
-    priority: dict[str, Any] = field(default_factory=dict)
-    max_documents: int = 1000000
-    prune_interval_secs: float = 300.0
+    model_config = ConfigDict(extra="forbid")
 
-    def _validate_list_fields(self) -> list[str]:
-        """Validate that all list fields are actually lists."""
-        errors: list[str] = []
+    include_paths: list[str] = Field(default_factory=list)
+    exclude_paths: list[str] = Field(default_factory=list)
+    include_dirnames: list[str] = Field(default_factory=list)
+    exclude_dirnames: list[str] = Field(default_factory=list)
+    include_globs: list[str] = Field(default_factory=list)
+    exclude_globs: list[str] = Field(default_factory=list)
+    database: str = Field(..., description="Database name in 'database.collection' format")
+    managed_directories: dict[str, int] = Field(default_factory=dict)
+    touch_weight: float = Field(0.1, ge=0.001, le=1.0)
+    priority: dict[str, Any] = Field(default_factory=dict)
+    max_documents: int = Field(1000000, ge=0)
+    prune_interval_secs: float = Field(300.0, gt=0)
 
-        if not isinstance(self.include_paths, list):
-            errors.append(
-                f"monitor.include_paths must be a list "
-                f"(found: {type(self.include_paths).__name__} = {self.include_paths!r}, expected: list)"
-            )
-
-        if not isinstance(self.exclude_paths, list):
-            errors.append(
-                f"monitor.exclude_paths must be a list "
-                f"(found: {type(self.exclude_paths).__name__} = {self.exclude_paths!r}, expected: list)"
-            )
-
-        if not isinstance(self.include_dirnames, list):
-            errors.append(
-                f"monitor.include_dirnames must be a list "
-                f"(found: {type(self.include_dirnames).__name__} = {self.include_dirnames!r}, expected: list)"
-            )
-
-        if not isinstance(self.exclude_dirnames, list):
-            errors.append(
-                f"monitor.exclude_dirnames must be a list "
-                f"(found: {type(self.exclude_dirnames).__name__} = {self.exclude_dirnames!r}, expected: list)"
-            )
-
-        if not isinstance(self.include_globs, list):
-            errors.append(
-                f"monitor.include_globs must be a list "
-                f"(found: {type(self.include_globs).__name__} = {self.include_globs!r}, expected: list)"
-            )
-
-        if not isinstance(self.exclude_globs, list):
-            errors.append(
-                f"monitor.exclude_globs must be a list "
-                f"(found: {type(self.exclude_globs).__name__} = {self.exclude_globs!r}, expected: list)"
-            )
-
-        if not isinstance(self.managed_directories, dict):
-            errors.append(
-                f"monitor.managed_directories must be a dict "
-                f"(found: {type(self.managed_directories).__name__} = {self.managed_directories!r}, expected: dict)"
-            )
-
-        return errors
-
-    def _validate_database_format(self) -> list[str]:
+    @field_validator("database")
+    @classmethod
+    def validate_database_format(cls, v: str) -> str:
         """Validate database string is in 'database.collection' format."""
-        errors: list[str] = []
-
-        if not isinstance(self.database, str) or "." not in self.database:
-            errors.append(
-                f"monitor.database must be in format 'database.collection' "
-                f"(found: {self.database!r}, expected: format like 'wks.monitor')"
-            )
-        elif isinstance(self.database, str):
-            parts = self.database.split(".", 1)
-            if len(parts) != 2 or not parts[0] or not parts[1]:
-                errors.append(
-                    f"monitor.database must be in format 'database.collection' "
-                    f"(found: {self.database!r}, expected: format like 'wks.monitor' with both parts non-empty)"
-                )
-
-        return errors
-
-    def _validate_numeric_fields(self) -> list[str]:
-        """Validate numeric fields are correct types and in valid ranges."""
-        errors: list[str] = []
-
-        if not isinstance(self.touch_weight, (int, float)) or self.touch_weight < 0.001 or self.touch_weight > 1.0:
-            errors.append(
-                f"monitor.touch_weight must be a number between 0.001 and 1 "
-                f"(found: {type(self.touch_weight).__name__} = {self.touch_weight!r}, "
-                "expected: float between 0.001 and 1.0)"
-            )
-
-        if not isinstance(self.max_documents, int) or self.max_documents < 0:
-            errors.append(
-                f"monitor.max_documents must be a non-negative integer "
-                f"(found: {type(self.max_documents).__name__} = {self.max_documents!r}, expected: integer >= 0)"
-            )
-
-        if not isinstance(self.prune_interval_secs, (int, float)) or self.prune_interval_secs <= 0:
-            errors.append(
-                f"monitor.prune_interval_secs must be a positive number "
-                f"(found: {type(self.prune_interval_secs).__name__} = {self.prune_interval_secs!r}, "
-                "expected: float > 0)"
-            )
-
-        return errors
-
-    def __post_init__(self):
-        """Validate monitor configuration after initialization.
-
-        Collects all validation errors and raises a single ValidationError
-        with all errors, so the user can see everything that needs fixing.
-        """
-        errors: list[str] = []
-        errors.extend(self._validate_list_fields())
-        errors.extend(self._validate_database_format())
-        errors.extend(self._validate_numeric_fields())
-
-        if errors:
-            raise ValidationError(errors)
+        if "." not in v:
+            raise ValueError("Database must be in format 'database.collection' (e.g., 'wks.monitor')")
+        parts = v.split(".", 1)
+        if not parts[0] or not parts[1]:
+            raise ValueError("Database must be in format 'database.collection' with both parts non-empty")
+        return v
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> "MonitorConfig":
+    def from_config_dict(cls, config: dict[str, Any]) -> "MonitorConfig":
         """Load monitor config from config dict.
 
         Raises:
             KeyError: If monitor section is missing
-            ValidationError: If field values are invalid (contains all validation errors)
+            PydanticValidationError: If field values are invalid
         """
-        monitor_config = config.get("monitor")
-        if not monitor_config:
+        monitor_config_data = config.get("monitor")
+        if not monitor_config_data:
             raise KeyError(
                 "monitor section is required in config "
                 "(found: missing, expected: monitor section with include_paths, exclude_paths, etc.)"
             )
 
-        monitor_config = dict(monitor_config)
+        try:
+            return cls(**monitor_config_data)
+        except ValidationError as e:
+            # Re-raise Pydantic's ValidationError directly
+            raise e
 
-        allowed = {f.name for f in fields(cls)}
-        unsupported = [key for key in monitor_config if key not in allowed]
-        if unsupported:
-            errors: list[str] = [
-                (
-                    "Unsupported monitor config key '"
-                    + key
-                    + "' (remove it; supported keys: "
-                    + ", ".join(sorted(allowed))
-                    + ")"
-                )
-                for key in unsupported
-            ]
-            raise ValidationError(errors)
-
-        return cls(**{k: monitor_config[k] for k in allowed if k in monitor_config})
+    def get_rules(self) -> dict[str, list[str]]:
+        """Return a dictionary of rule lists."""
+        return {
+            "include_paths": self.include_paths,
+            "exclude_paths": self.exclude_paths,
+            "include_dirnames": self.include_dirnames,
+            "exclude_dirnames": self.exclude_dirnames,
+            "include_globs": self.include_globs,
+            "exclude_globs": self.exclude_globs,
+        }

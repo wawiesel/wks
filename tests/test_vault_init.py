@@ -1,6 +1,7 @@
 """Tests for vault package initialization and factory functions."""
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -81,9 +82,12 @@ class TestLoadVault:
 
     def test_load_vault_loads_config_when_none(self, tmp_path):
         """Test that load_vault() loads config when cfg is None."""
-        mock_config = {"vault": {"type": "obsidian", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
+        from unittest.mock import MagicMock
 
-        with patch("wks.config.load_config", return_value=mock_config):
+        mock_config = {"vault": {"type": "obsidian", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
+        mock_wks_config = MagicMock()
+        mock_wks_config.to_dict.return_value = mock_config
+        with patch("wks.config.WKSConfig.load", return_value=mock_wks_config):
             vault = load_vault(None)
             assert isinstance(vault, ObsidianVault)
 
@@ -157,14 +161,14 @@ class TestResolveObsidianSettings:
 
     def test_resolve_obsidian_settings_handles_empty_vault_section(self):
         """Test that _resolve_obsidian_settings() handles empty vault section."""
-        cfg = {"vault": {}}
+        cfg: dict[str, Any] = {"vault": {}}
 
         with pytest.raises(SystemExit):
             load_vault(cfg)
 
     def test_resolve_obsidian_settings_handles_missing_vault_section(self):
         """Test that _resolve_obsidian_settings() handles missing vault section."""
-        cfg = {}
+        cfg: dict[str, Any] = {}
 
         with pytest.raises(SystemExit):
             load_vault(cfg)

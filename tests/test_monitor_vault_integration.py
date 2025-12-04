@@ -33,7 +33,7 @@ def test_env(tmp_path, monkeypatch):
     note.write_text("See [[_links/mbp-2021/external/paper.pdf]] for details.")
 
     # Patch MongoDB
-    client = mongomock.MongoClient()
+    client: mongomock.MongoClient = mongomock.MongoClient()
     monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)  # noqa: ARG005
 
     # Mock BulkOperationBuilder.add_update signature fix

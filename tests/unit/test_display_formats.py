@@ -48,9 +48,11 @@ class TestCLIDisplayTableExtended:
 
     def test_table_with_none_values(self, capsys):
         """table handles None values in data."""
+        from typing import Any
+
         display = CLIDisplay()
 
-        data = [{"name": "Alice", "age": None}, {"name": None, "age": 25}]
+        data: list[dict[str, Any]] = [{"name": "Alice", "age": None}, {"name": None, "age": 25}]
 
         display.table(data, title="Users with None")
 
@@ -102,7 +104,7 @@ class TestCLIDisplayErrorDetails:
     """Extended tests for error rendering with details."""
 
     def test_error_with_nested_details(self, capsys):
-        """error displays nested error details."""
+        """error displays nested error details (goes to STDERR)."""
         display = CLIDisplay()
 
         details = {"error_code": 500, "context": {"file": "test.py", "line": 42}}
@@ -110,10 +112,10 @@ class TestCLIDisplayErrorDetails:
         display.error("Nested error", details=details)
 
         captured = capsys.readouterr()
-        assert "Nested error" in captured.out
+        assert "Nested error" in captured.err
 
     def test_error_with_list_details(self, capsys):
-        """error displays list-based details."""
+        """error displays list-based details (goes to STDERR)."""
         display = CLIDisplay()
 
         details = {"errors": ["Error 1", "Error 2", "Error 3"]}
@@ -121,7 +123,7 @@ class TestCLIDisplayErrorDetails:
         display.error("Multiple errors", details=details)
 
         captured = capsys.readouterr()
-        assert "Multiple errors" in captured.out
+        assert "Multiple errors" in captured.err
 
 
 @pytest.mark.unit

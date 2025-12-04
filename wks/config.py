@@ -5,9 +5,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from .diff.config import DiffConfig
 from .monitor.config import MonitorConfig
-from .monitor.config import ValidationError as MonitorValidationError
 from .transform.config import CacheConfig, TransformConfig
 from .utils import get_wks_home
 from .vault.config import VaultConfig
@@ -121,6 +122,7 @@ class WKSConfig:
 
         try:
             mongo = MongoSettings.from_config(raw)
+            # Pass the raw config (which contains the 'monitor' key)
             monitor = MonitorConfig.from_config_dict(raw)
             vault = VaultConfig.from_config_dict(raw)
             metrics = MetricsConfig.from_config(raw)
@@ -137,45 +139,47 @@ class WKSConfig:
                 transform=transform,
                 display=display,
             )
-        except (MonitorValidationError, KeyError, ValueError, Exception) as e:
+        except (ValidationError, KeyError, ValueError, Exception) as e:
             # Catching Exception to cover VaultConfigError/TransformConfigError if they bubble up
             # Ideally we should import them to catch specifically, but ConfigError wrapper is fine.
             raise ConfigError(f"Configuration validation failed: {e}") from e
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert WKSConfig instance to a dictionary for serialization.
+
+        Handles nested Pydantic models by calling .model_dump().
+        """
+        data = asdict(self)
+        if isinstance(self.monitor, MonitorConfig):
+            data["monitor"] = self.monitor.model_dump()
+        # Add other Pydantic models here as they are migrated
+        return data
+
+    def save(self, path: Path | None = None) -> None:
+        """Save the current configuration to a JSON file.
+
+        Uses atomic write (write to temp file, then rename) to prevent corruption.
+        Never deletes the existing config file - only overwrites it atomically.
+        """
+        if path is None:
+            path = get_config_path()
+
+        # Atomic write: write to temp file first, then rename
+        # This prevents corruption if the write is interrupted
+        temp_path = path.with_suffix(path.suffix + ".tmp")
+        try:
+            with temp_path.open("w") as fh:
+                json.dump(self.to_dict(), fh, indent=4)
+            # Atomic rename - this is the only operation that modifies the real file
+            temp_path.replace(path)
+        except Exception:
+            # Clean up temp file on error
+            if temp_path.exists():
+                temp_path.unlink()
+            raise
+
 
 def get_config_path() -> Path:
     """Get path to WKS config file."""
-    return get_wks_home() / "config.json"
-
-
-# Backwards compatibility - DEPRECATED
-
-
-def load_config(path: Path | None = None) -> dict[str, Any]:
-    """Compatibility wrapper returning a dict-shaped config for legacy callers.
-
-    New code should prefer WKSConfig.load() and dataclasses directly. This
-    function exists so older modules (MCP tools, vault helpers, etc.) that
-    still expect a plain dict can continue to operate without duplicating
-    config parsing logic.
-    """
-    try:
-        cfg = WKSConfig.load(path)
-    except Exception:
-        # Preserve previous behaviour - callers must handle empty config.
-        return {}
-
-    data: dict[str, Any] = asdict(cfg)
-
-    # Provide a normalized DB section for helpers that expect "db.uri".
-    data["db"] = {"uri": cfg.mongo.uri}
-
-    # Provide legacy, flattened transform keys expected by MCP tools and tests.
-    t_cfg = cfg.transform
-    t_dict = data.setdefault("transform", {})
-    t_dict["cache_location"] = str(t_cfg.cache.location)
-    t_dict["cache_max_size_bytes"] = t_cfg.cache.max_size_bytes
-    t_dict.setdefault("database", t_cfg.database)
-    t_dict.setdefault("default_engine", t_cfg.default_engine)
-
-    return data
+    config_path = get_wks_home() / "config.json"
+    return config_path

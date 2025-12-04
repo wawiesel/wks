@@ -69,6 +69,13 @@ Delete all unused code.
 - Controllers accessible via `wks.monitor.controller`, `wks.transform.controller`, etc.
 - Engines accessible via `wks.transform.engines`, `wks.diff.engines`
 
+**Source Code Reorganization:**
+- Reorganize source code to have a cleaner hierarchy:
+  - `wks/mcp/*` - All MCP-related code (server, client, tools, etc.)
+  - `wks/infrastructure/*` - Infrastructure code (config, display, utils, etc.)
+  - Minimize files in `wks/*.py` root level - move to appropriate subdirectories
+  - Goal: Clear module boundaries and easier navigation
+
 ### Renaming
 
 Rename the command line `wksc` instead of `wks0`:

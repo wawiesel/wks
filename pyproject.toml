@@ -2,6 +2,9 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[project.scripts]
+wksc = "wks.cli:main"
+
 [project]
 name = "wks"
 version = "0.4.0"
@@ -9,6 +12,8 @@ requires-python = ">=3.10"
 dependencies = [
     "watchdog",
     "rich",
+    "typer[all]",
+    "pydantic>=2.0",
     "pymongo",
     "sentence-transformers",
     "docling",
@@ -25,6 +30,8 @@ dependencies = [
     "types-requests",
     "types-PyYAML",
     "types-setuptools",
+    "typer",
+    "pydantic",
 ]
 
 [tool.ruff]

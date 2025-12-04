@@ -32,7 +32,7 @@ def test_cli_service_status(mock_call):
         "messages": [],
     }
 
-    rc, _out, _err = run_cli(["service", "status"])
+    rc, _out, _err = run_cli(["service-status"])
 
     assert rc == 0
     mock_call.assert_called_once_with("wksm_service", {})

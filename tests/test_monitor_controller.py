@@ -43,8 +43,13 @@ def build_config(**monitor_overrides):
 class TestMonitorController(unittest.TestCase):
     """Test MonitorController methods."""
 
-    def test_get_status_basic(self):
+    @patch("wks.config.WKSConfig.load")
+    def test_get_status_basic(self, mock_wks_config_load):
         """Test get_status with minimal config."""
+        mock_config_obj = MagicMock()
+        mock_config_obj.mongo.uri = "mongodb://localhost:27017/"
+        mock_wks_config_load.return_value = mock_config_obj
+
         config = build_config(
             managed_directories={"~/Documents": 100},
             exclude_dirnames=["node_modules"],
@@ -61,8 +66,13 @@ class TestMonitorController(unittest.TestCase):
         self.assertIsInstance(result.redundancies, list)
         self.assertIsInstance(result.exclude_dirnames, list)
 
-    def test_get_status_detects_vault_redundancy(self):
+    @patch("wks.config.WKSConfig.load")
+    def test_get_status_detects_vault_redundancy(self, mock_wks_config_load):
         """Test that vault.base_dir in exclude_paths triggers redundancy warning."""
+        mock_config_obj = MagicMock()
+        mock_config_obj.mongo.uri = "mongodb://localhost:27017/"
+        mock_wks_config_load.return_value = mock_config_obj
+
         config = build_config(exclude_paths=["/vault"])
         config["vault"] = {"base_dir": "/vault"}
 
@@ -71,8 +81,13 @@ class TestMonitorController(unittest.TestCase):
         # Should detect redundancy
         self.assertTrue(any("vault.base_dir is managed separately" in r for r in result.redundancies))
 
-    def test_get_status_detects_wks_home_redundancy(self):
+    @patch("wks.config.WKSConfig.load")
+    def test_get_status_detects_wks_home_redundancy(self, mock_wks_config_load):
         """Test that ~/.wks in exclude_paths triggers redundancy warning."""
+        mock_config_obj = MagicMock()
+        mock_config_obj.mongo.uri = "mongodb://localhost:27017/"
+        mock_wks_config_load.return_value = mock_config_obj
+
         config = build_config(exclude_paths=["~/.wks"])
 
         result = MonitorController.get_status(config)
@@ -155,11 +170,17 @@ class TestMonitorController(unittest.TestCase):
         self.assertFalse(result["is_monitored"])
         self.assertIn("glob", result["reason"].lower())
 
+    @patch("wks.config.WKSConfig.load")
     @patch("wks.monitor.controller.MonitorRules.from_config")
     @patch("wks.uri_utils.uri_to_path")
     @patch("pymongo.MongoClient")
-    def test_prune_ignored_files_deletes_matching_docs(self, mock_client, mock_uri_to_path, mock_rules):
+    def test_prune_ignored_files_deletes_matching_docs(
+        self, mock_client, mock_uri_to_path, mock_rules, mock_wks_config_load
+    ):
         """Ensure prune_ignored_files removes entries matched by ignore rules."""
+        mock_config_obj = MagicMock()
+        mock_config_obj.mongo.uri = "mongodb://localhost:27017/"
+        mock_wks_config_load.return_value = mock_config_obj
         config = build_config(
             include_paths=["~/Documents"],
             managed_directories={"~/Documents": 100},
@@ -184,10 +205,14 @@ class TestMonitorController(unittest.TestCase):
         self.assertEqual(result["pruned_count"], 1)
         mock_collection.delete_one.assert_called_once()
 
+    @patch("wks.config.WKSConfig.load")
     @patch("wks.uri_utils.uri_to_path")
     @patch("pymongo.MongoClient")
-    def test_prune_deleted_files_deletes_missing_docs(self, mock_client, mock_uri_to_path):
+    def test_prune_deleted_files_deletes_missing_docs(self, mock_client, mock_uri_to_path, mock_wks_config_load):
         """Ensure prune_deleted_files removes documents pointing to missing files."""
+        mock_config_obj = MagicMock()
+        mock_config_obj.mongo.uri = "mongodb://localhost:27017/"
+        mock_wks_config_load.return_value = mock_config_obj
         config = build_config(
             include_paths=["~/Documents"],
             managed_directories={"~/Documents": 100},

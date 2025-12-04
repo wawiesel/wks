@@ -1,11 +1,16 @@
 """Monitor Controller - Business logic for filesystem monitoring operations."""
 
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from pymongo import MongoClient
+
+from ..config import DEFAULT_MONGO_URI, WKSConfig
 from ..monitor_rules import MonitorRules
+from ..utils import canonicalize_path
 from .config import MonitorConfig
-from .operations import MonitorOperations, _canonicalize_path
+from .operations import MonitorOperations
 from .status import (
     ConfigValidationResult,
     ManagedDirectoriesResult,
@@ -19,7 +24,7 @@ def _build_canonical_map(values: list[str]) -> dict[str, list[str]]:
     """Map canonical path strings to the original representations."""
     mapping: dict[str, list[str]] = {}
     for raw in values:
-        canonical = _canonicalize_path(raw)
+        canonical = canonicalize_path(raw)
         mapping.setdefault(canonical, []).append(raw)
     return mapping
 
@@ -28,11 +33,201 @@ class MonitorController:
     """Controller for monitor operations - returns data structures for any view."""
 
     @staticmethod
-    def get_list(config: dict, list_name: str) -> dict:
+    def _normalize_touch_weight(weight: float) -> float:
+        """Clamp touch weight to safe bounds."""
+        return min(1.0, max(weight, 0.001))
+
+    @staticmethod
+    def _compute_touches_per_day(doc: dict[str, Any] | None, now: datetime, weight: float) -> float:
+        """Compute touches_per_day using weighted interval like daemon."""
+        if not doc:
+            return 0.0
+
+        timestamp = doc.get("timestamp")
+        if not isinstance(timestamp, str):
+            return 0.0
+
+        try:
+            last_modified_time = datetime.fromisoformat(timestamp)
+        except Exception:
+            return 0.0
+
+        dt = max((now - last_modified_time).total_seconds(), 0.0)
+        prev_rate = doc.get("touches_per_day")
+
+        if not isinstance(prev_rate, (int, float)) or prev_rate <= 0.0:
+            interval = dt
+        else:
+            prev_interval = 1.0 / (prev_rate / 86400.0)
+            interval = weight * dt + (1.0 - weight) * prev_interval
+
+        if interval <= 0.0:
+            return 0.0
+
+        return 86400.0 / interval
+
+    @staticmethod
+    def _enforce_monitor_db_limit(collection, max_docs: int) -> None:
+        """Ensure monitor collection does not exceed max_docs."""
+        if max_docs <= 0:
+            return
+
+        try:
+            count = collection.count_documents({})
+            if count <= max_docs:
+                return
+
+            extras = count - max_docs
+            if extras <= 0:
+                return
+
+            lowest_priority_docs = collection.find({}, {"_id": 1, "priority": 1}).sort("priority", 1).limit(extras)
+            ids_to_delete = [doc["_id"] for doc in lowest_priority_docs]
+            if ids_to_delete:
+                collection.delete_many({"_id": {"$in": ids_to_delete}})
+        except Exception:
+            # Silent on purpose: sync should not crash on enforcement issues
+            return
+
+    @staticmethod
+    def sync_path(
+        config: WKSConfig | MonitorConfig | dict[str, Any],
+        path: Path,
+        recursive: bool,
+        progress_cb: Callable[[str, float], None] | None = None,
+    ) -> dict:
+        """Sync a file or directory into the monitor database.
+
+        Args:
+            config: Loaded WKSConfig/MonitorConfig or raw config dict
+            path: File or directory path
+            recursive: Whether to walk subdirectories
+
+        Returns:
+            dict containing success flag, counts, and errors list
+        """
+        from ..priority import calculate_priority
+        from ..utils import file_checksum
+
+        if isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+            mongo_uri = config.mongo.uri
+        elif isinstance(config, MonitorConfig):
+            monitor_cfg = config
+            mongo_uri = DEFAULT_MONGO_URI
+            if hasattr(config, "mongo"):
+                try:
+                    mongo_uri = config.mongo.uri  # type: ignore[attr-defined]
+                except Exception:
+                    mongo_uri = DEFAULT_MONGO_URI
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+            mongo_uri = config.get("db", {}).get("uri", DEFAULT_MONGO_URI)
+
+        path_obj = Path(path).expanduser().resolve()
+        if not path_obj.exists():
+            return {
+                "success": False,
+                "message": f"Path does not exist: {path_obj}",
+                "files_synced": 0,
+                "files_skipped": 0,
+                "errors": [f"Path does not exist: {path_obj}"],
+            }
+
+        rules = MonitorRules.from_config(monitor_cfg)
+
+        try:
+            db_name, collection_name = monitor_cfg.database.split(".", 1)
+        except ValueError:
+            return {
+                "success": False,
+                "message": f"Invalid database name: {monitor_cfg.database}",
+                "files_synced": 0,
+                "files_skipped": 0,
+                "errors": [f"Invalid database name: {monitor_cfg.database}"],
+            }
+
+        client = MongoClient(mongo_uri)
+        db = client[db_name]
+        collection = db[collection_name]
+
+        files_to_process: list[Path]
+        if path_obj.is_file():
+            files_to_process = [path_obj]
+        elif recursive:
+            files_to_process = [p for p in path_obj.rglob("*") if p.is_file()]
+        else:
+            files_to_process = [p for p in path_obj.iterdir() if p.is_file()]
+
+        total_files = len(files_to_process)
+        files_synced = 0
+        files_skipped = 0
+        errors: list[str] = []
+
+        touch_weight = MonitorController._normalize_touch_weight(monitor_cfg.touch_weight)
+
+        try:
+            for idx, file_path in enumerate(files_to_process, start=1):
+                if not rules.allows(file_path):
+                    files_skipped += 1
+                    if progress_cb:
+                        progress_cb(f"Skipping {file_path.name}", idx / total_files if total_files else 1.0)
+                    continue
+
+                try:
+                    stat = file_path.stat()
+                    checksum = file_checksum(file_path)
+                    now = datetime.now()
+
+                    priority = calculate_priority(file_path, monitor_cfg.managed_directories, monitor_cfg.priority)
+
+                    path_uri = file_path.as_uri()
+                    existing_doc = collection.find_one({"path": path_uri}, {"timestamp": 1, "touches_per_day": 1})
+                    touches_per_day = MonitorController._compute_touches_per_day(existing_doc, now, touch_weight)
+
+                    doc = {
+                        "path": path_uri,
+                        "checksum": checksum,
+                        "bytes": stat.st_size,
+                        "priority": priority,
+                        "timestamp": now.isoformat(),
+                        "touches_per_day": touches_per_day,
+                    }
+
+                    collection.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
+                    files_synced += 1
+                except Exception as exc:  # pragma: no cover - defensive
+                    errors.append(f"{file_path}: {exc}")
+                    files_skipped += 1
+                finally:
+                    if progress_cb:
+                        progress_cb(f"Processed {file_path.name}", idx / total_files if total_files else 1.0)
+        finally:
+            MonitorController._enforce_monitor_db_limit(collection, monitor_cfg.max_documents)
+            client.close()
+
+        success = len(errors) == 0
+        result_msg = (
+            f"Synced {files_synced} file(s), skipped {files_skipped}"
+            if success
+            else f"Synced {files_synced} file(s), skipped {files_skipped}, {len(errors)} error(s)"
+        )
+
+        return {
+            "success": success,
+            "message": result_msg,
+            "files_synced": files_synced,
+            "files_skipped": files_skipped,
+            "errors": errors,
+            "total_files": total_files,
+        }
+
+    @staticmethod
+    def get_list(config: dict | MonitorConfig, list_name: str) -> dict:
         """Get contents of a monitor config list.
 
         Args:
-            config: Configuration dictionary
+            config: Configuration dictionary or MonitorConfig object
             list_name: Name of list (include/exclude paths, dirnames, or globs)
 
         Returns:
@@ -41,7 +236,7 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or list_name is missing
         """
-        monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config if isinstance(config, MonitorConfig) else MonitorConfig.from_config_dict(config)
         supported_lists = {
             "include_paths": monitor_cfg.include_paths,
             "exclude_paths": monitor_cfg.exclude_paths,
@@ -59,28 +254,42 @@ class MonitorController:
 
         result = {"list_name": list_name, "items": items, "count": len(items)}
 
-        # Include/exclude dirname validation
+        # Add validation if needed
         if list_name in ("include_dirnames", "exclude_dirnames"):
-            validation = {}
-            related_globs = monitor_cfg.include_globs if list_name == "include_dirnames" else monitor_cfg.exclude_globs
-            relation = "include" if list_name == "include_dirnames" else "exclude"
-            for dirname in items:
-                is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
-                if is_valid:
-                    redundancy = MonitorValidator.dirname_redundancy(dirname, related_globs, relation)
-                    if redundancy:
-                        validation[dirname] = {"valid": True, "error": redundancy}
-                        continue
-                validation[dirname] = {"valid": is_valid, "error": error_msg}
-            result["validation"] = validation
+            result["validation"] = MonitorController._validate_dirnames_list(
+                items, list_name, monitor_cfg.include_globs, monitor_cfg.exclude_globs
+            )
         elif list_name in ("include_globs", "exclude_globs"):
-            validation = {}
-            for pattern in items:
-                is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
-                validation[pattern] = {"valid": is_valid, "error": error_msg}
-            result["validation"] = validation
+            result["validation"] = MonitorController._validate_globs_list(items)
 
         return result
+
+    @staticmethod
+    def _validate_dirnames_list(
+        items: list[str], list_name: str, include_globs: list[str], exclude_globs: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Validate dirname list items."""
+        validation = {}
+        related_globs = include_globs if list_name == "include_dirnames" else exclude_globs
+        relation = "include" if list_name == "include_dirnames" else "exclude"
+        for dirname in items:
+            is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
+            if is_valid:
+                redundancy = MonitorValidator.dirname_redundancy(dirname, related_globs, relation)
+                if redundancy:
+                    validation[dirname] = {"valid": True, "error": redundancy}
+                    continue
+            validation[dirname] = {"valid": is_valid, "error": error_msg}
+        return validation
+
+    @staticmethod
+    def _validate_globs_list(items: list[str]) -> dict[str, dict[str, Any]]:
+        """Validate glob list items."""
+        validation = {}
+        for pattern in items:
+            is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
+            validation[pattern] = {"valid": is_valid, "error": error_msg}
+        return validation
 
     # Delegate to MonitorOperations
     add_to_list = staticmethod(MonitorOperations.add_to_list)
@@ -90,11 +299,11 @@ class MonitorController:
     set_managed_priority = staticmethod(MonitorOperations.set_managed_priority)
 
     @staticmethod
-    def get_managed_directories(config: dict) -> ManagedDirectoriesResult:
+    def get_managed_directories(config: dict | MonitorConfig) -> ManagedDirectoriesResult:
         """Get managed directories with their priorities.
 
         Args:
-            config: Configuration dictionary
+            config: Configuration dictionary or MonitorConfig object
 
         Returns:
             ManagedDirectoriesResult with managed directories, count, and validation
@@ -102,7 +311,7 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or required fields are missing
         """
-        monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config if isinstance(config, MonitorConfig) else MonitorConfig.from_config_dict(config)
 
         # Validate each managed directory
         validation = {}
@@ -118,8 +327,11 @@ class MonitorController:
         )
 
     @staticmethod
-    def get_status(config: dict[str, Any]) -> MonitorStatus:
+    def get_status(config: dict[str, Any] | MonitorConfig) -> MonitorStatus:
         """Get monitor status, including validation issues.
+
+        Args:
+            config: Configuration dictionary or MonitorConfig object
 
         Raises:
             KeyError: If monitor section is missing
@@ -128,7 +340,12 @@ class MonitorController:
 
         from ..config import WKSConfig
 
-        monitor_cfg = config.monitor if hasattr(config, "monitor") else MonitorConfig.from_config_dict(config)
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        elif hasattr(config, "monitor"):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
         try:
             wks_config = WKSConfig.load()
             mongo_uri = wks_config.mongo.uri
@@ -184,33 +401,49 @@ class MonitorController:
         return issues
 
     @staticmethod
-    def _validate_path_redundancy(include_map: dict, exclude_map: dict, config: dict) -> list[str]:
-        """Validate duplicate canonical paths and auto-ignored paths."""
-        redundancies = []
+    def _validate_path_redundancy(
+        include_map: dict, exclude_map: dict, config: dict | MonitorConfig | object
+    ) -> list[str]:
+        """Validate duplicate canonical paths and auto-ignored paths.
 
-        # Duplicate canonical entries within the same list
+        When a full raw config dict is not available (e.g., only MonitorConfig),
+        vault-related redundancy checks are skipped.
+        """
+        redundancies = []
+        redundancies.extend(MonitorController._check_duplicate_canonical_paths(include_map, exclude_map))
+        redundancies.extend(MonitorController._check_auto_ignored_paths(exclude_map, config))
+        return redundancies
+
+    @staticmethod
+    def _check_duplicate_canonical_paths(include_map: dict, exclude_map: dict) -> list[str]:
+        """Check for duplicate canonical paths within lists."""
+        redundancies = []
         for canonical, raw_paths in include_map.items():
             if len(raw_paths) > 1:
                 redundancies.append(f"include_paths entries {raw_paths} resolve to the same path ({canonical})")
         for canonical, raw_paths in exclude_map.items():
             if len(raw_paths) > 1:
                 redundancies.append(f"exclude_paths entries {raw_paths} resolve to the same path ({canonical})")
+        return redundancies
 
-        # Warn about redundant exclude paths automatically ignored
-        wks_home = _canonicalize_path("~/.wks")
+    @staticmethod
+    def _check_auto_ignored_paths(exclude_map: dict, config: dict | MonitorConfig | object) -> list[str]:
+        """Check for paths that are automatically ignored."""
+        redundancies = []
+        wks_home = canonicalize_path("~/.wks")
         if wks_home in exclude_map:
             for entry in exclude_map[wks_home]:
                 redundancies.append(f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored")
 
-        vault_base = config.get("vault", {}).get("base_dir")
-        if vault_base:
-            vault_resolved = _canonicalize_path(vault_base)
-            if vault_resolved in exclude_map:
-                for entry in exclude_map[vault_resolved]:
-                    redundancies.append(
-                        f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately"
-                    )
-
+        if isinstance(config, dict):
+            vault_base = config.get("vault", {}).get("base_dir")
+            if vault_base:
+                vault_resolved = canonicalize_path(vault_base)
+                if vault_resolved in exclude_map:
+                    for entry in exclude_map[vault_resolved]:
+                        redundancies.append(
+                            f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately"
+                        )
         return redundancies
 
     @staticmethod
@@ -305,13 +538,16 @@ class MonitorController:
         return issues, include_glob_validation, exclude_glob_validation
 
     @staticmethod
-    def validate_config(config: dict) -> ConfigValidationResult:
+    def validate_config(config: dict | MonitorConfig) -> ConfigValidationResult:
         """Validate monitor configuration for conflicts and issues.
+
+        Args:
+            config: Configuration dictionary or MonitorConfig object
 
         Raises:
             KeyError: If monitor section or required fields are missing
         """
-        monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config if isinstance(config, MonitorConfig) else MonitorConfig.from_config_dict(config)
         rules = MonitorRules.from_config(monitor_cfg)
 
         include_map = _build_canonical_map(monitor_cfg.include_paths)
@@ -421,15 +657,24 @@ class MonitorController:
             return None, decisions
 
     @staticmethod
-    def check_path(config: dict, path_str: str) -> dict:
+    def check_path(config: dict | MonitorConfig, path_str: str) -> dict:
         """Check if a path would be monitored and calculate its priority.
+
+        Args:
+            config: Configuration dictionary or MonitorConfig object
+            path_str: Path string to check
 
         Raises:
             KeyError: If monitor section or required fields are missing
         """
         from ..config import WKSConfig
 
-        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        elif isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
         rules = MonitorRules.from_config(monitor_cfg)
 
         # Resolve path

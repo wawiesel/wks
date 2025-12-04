@@ -1,5 +1,6 @@
 """Tests for wks/db_helpers.py - database helper functions."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -215,13 +216,13 @@ class TestGetTransformDbConfig:
 
     def test_get_transform_config_missing_db_section(self):
         """Test that missing db section raises KeyError."""
-        cfg = {}
+        cfg: dict[str, Any] = {}
         with pytest.raises(KeyError, match="db section is required"):
             get_transform_db_config(cfg)
 
     def test_get_transform_config_missing_db_uri(self):
         """Test that missing db.uri raises KeyError."""
-        cfg = {
+        cfg: dict[str, Any] = {
             "db": {},
         }
         with pytest.raises(KeyError, match=r"db.*required"):

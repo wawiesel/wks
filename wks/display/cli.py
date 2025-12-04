@@ -27,6 +27,38 @@ except ImportError:
 from .base import Display
 
 
+class ProgressContext:
+    """Context manager for progress bars."""
+
+    def __init__(self, display: "CLIDisplay", total: int, description: str = ""):
+        self.display = display
+        self.total = total
+        self.description = description
+        self.handle: Any | None = None
+
+    def __enter__(self) -> "ProgressContext":
+        """Start progress bar."""
+        self.handle = self.display.progress_start(self.total, self.description)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Finish progress bar."""
+        if self.handle is not None:
+            self.display.progress_finish(self.handle)
+        return False
+
+    def update(self, advance: int = 1, description: str | None = None) -> None:
+        """Update progress within context.
+
+        Args:
+            advance: Number of items to advance (default: 1)
+            description: Optional new description for the progress bar
+        """
+        if self.handle is not None:
+            kwargs = {"description": description} if description else {}
+            self.display.progress_update(self.handle, advance=advance, **kwargs)
+
+
 class CLIDisplay(Display):
     """Beautiful CLI display using Rich library."""
 
@@ -49,29 +81,29 @@ class CLIDisplay(Display):
         self._progress_contexts = {}  # Store Progress contexts by handle
 
     def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display a status message in blue."""
-        self.console.print(f"[blue]i[/blue] {message}")
+        """Display a status message in blue (to STDERR per CLI guidelines)."""
+        self.stderr_console.print(f"[blue]i[/blue] {message}")
 
     def success(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display a success message in green."""
-        self.console.print(f"[green]✓[/green] {message}")
+        """Display a success message in green (to STDERR per CLI guidelines)."""
+        self.stderr_console.print(f"[green]✓[/green] {message}")
 
     def error(self, message: str, **kwargs) -> None:
-        """Display an error message in red."""
+        """Display an error message in red (to STDERR per CLI guidelines)."""
         details = kwargs.get("details", "")
         if details:
-            self.console.print(f"[red]✗[/red] {message}")
-            self.console.print(f"  [dim]{details}[/dim]")
+            self.stderr_console.print(f"[red]✗[/red] {message}")
+            self.stderr_console.print(f"  [dim]{details}[/dim]")
         else:
-            self.console.print(f"[red]✗[/red] {message}")
+            self.stderr_console.print(f"[red]✗[/red] {message}")
 
     def warning(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display a warning message in yellow."""
-        self.console.print(f"[yellow]⚠[/yellow] {message}")
+        """Display a warning message in yellow (to STDERR per CLI guidelines)."""
+        self.stderr_console.print(f"[yellow]⚠[/yellow] {message}")
 
     def info(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display an informational message."""
-        self.console.print(message)
+        """Display an informational message (to STDERR per CLI guidelines)."""
+        self.stderr_console.print(message)
 
     def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
         """Display data in a rich table."""
@@ -142,9 +174,28 @@ class CLIDisplay(Display):
         if handle not in self._progress_contexts:
             return
 
-        progress, _task_id = self._progress_contexts[handle]
+        progress, task_id = self._progress_contexts[handle]
+        # Ensure progress is at 100% before finishing
+        task = progress.tasks[task_id]
+        if task.total and task.completed < task.total:
+            progress.update(task_id, completed=task.total)
         progress.stop()
         del self._progress_contexts[handle]
+
+    def progress(self, total: int, description: str = "") -> ProgressContext:
+        """Context manager for progress bars.
+
+        Usage:
+            with display.progress(total=10, description="Processing..."):
+                for i in range(10):
+                    # do work
+                    display.progress_update(handle, advance=1)
+
+        For simple operations that complete immediately:
+            with display.progress(total=1, description="Working..."):
+                result = do_work()
+        """
+        return ProgressContext(self, total, description)
 
     def spinner_start(self, description: str = "", **kwargs) -> Any:  # noqa: ARG002
         """Start a spinner."""
