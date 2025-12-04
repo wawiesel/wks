@@ -42,6 +42,6 @@ class TestSyncVault:
 
         with (
             patch("wks.config.WKSConfig.load", return_value=mock_config),
-            pytest.raises(ValueError, match="vault.base_dir not configured"),
+            pytest.raises(ValueError, match=r"vault.base_dir not configured"),
         ):
             VaultController.sync_vault()

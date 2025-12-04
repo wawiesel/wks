@@ -41,7 +41,7 @@ class TestLoadVault:
             }
         }
 
-        with pytest.raises(SystemExit, match="vault.base_dir.*required"):
+        with pytest.raises(SystemExit, match=r"vault.base_dir.*required"):
             load_vault(cfg)
 
     def test_load_vault_requires_wks_dir(self, tmp_path):
@@ -54,7 +54,7 @@ class TestLoadVault:
             }
         }
 
-        with pytest.raises(SystemExit, match="vault.wks_dir.*required"):
+        with pytest.raises(SystemExit, match=r"vault.wks_dir.*required"):
             load_vault(cfg)
 
     def test_load_vault_creates_obsidian_vault(self, tmp_path):
@@ -91,7 +91,7 @@ class TestLoadVault:
         """Test that load_vault() raises SystemExit for unsupported vault type."""
         cfg = {"vault": {"type": "unsupported", "base_dir": str(tmp_path), "wks_dir": "WKS"}}
 
-        with pytest.raises(SystemExit, match="unsupported vault.type"):
+        with pytest.raises(SystemExit, match=r"unsupported vault.type"):
             load_vault(cfg)
 
     def test_load_vault_expands_paths(self, tmp_path):
@@ -140,7 +140,7 @@ class TestResolveObsidianSettings:
             }
         }
 
-        with pytest.raises(SystemExit, match="vault.base_dir.*required"):
+        with pytest.raises(SystemExit, match=r"vault.base_dir.*required"):
             load_vault(cfg)
 
     def test_resolve_obsidian_settings_raises_on_missing_wks_dir(self, tmp_path):
@@ -152,7 +152,7 @@ class TestResolveObsidianSettings:
             }
         }
 
-        with pytest.raises(SystemExit, match="vault.wks_dir.*required"):
+        with pytest.raises(SystemExit, match=r"vault.wks_dir.*required"):
             load_vault(cfg)
 
     def test_resolve_obsidian_settings_handles_empty_vault_section(self):
