@@ -1,13 +1,13 @@
 """CLI Smoke Tests.
 
-These tests run the actual CLI commands against a temporary environment.
-They ensure the end-to-end flow works as expected.
+These tests verify that the installed `wksc` command works as a user would use it.
+They test the CLI directly (not through MCP) to ensure installation is correct.
 """
 
 import json
 import os
+import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -26,8 +26,29 @@ def _mongo_available():
         return False
 
 
-# Path to the wks executable or module
-WKS_CMD = [sys.executable, "-m", "wks.cli"]
+def _find_wksc_command():
+    """Find the installed wksc command.
+
+    Prefers venv/bin/wksc if available, otherwise searches PATH.
+    """
+    # Check for venv in project root
+    project_root = Path(__file__).parents[2]
+    venv_wksc = project_root / ".venv" / "bin" / "wksc"
+    if venv_wksc.exists():
+        return str(venv_wksc)
+
+    # Fall back to system PATH
+    wksc_path = shutil.which("wksc")
+    if wksc_path:
+        return wksc_path
+
+    # If not found, raise error with helpful message
+    raise RuntimeError("wksc command not found. Please install the package: pip install -e .")
+
+
+def _get_wks_cmd():
+    """Get the wksc command path (lazy evaluation)."""
+    return [_find_wksc_command()]
 
 
 @pytest.fixture(scope="module")
@@ -87,19 +108,18 @@ def smoke_env(tmp_path_factory):
     }
     (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
 
-    # Add project root to PYTHONPATH
-    project_root = str(Path(__file__).parents[2])
-    env["PYTHONPATH"] = project_root
+    # Don't add PYTHONPATH - we're testing the installed package, not the source
+    # The installed wksc should work without PYTHONPATH manipulation
 
     return {"home": home_dir, "vault": vault_dir, "env": env}
 
 
 def run_wks(args, env_dict, check=True):
-    """Run WKS CLI command."""
-    cmd = WKS_CMD + args
+    """Run WKS CLI command using the installed wksc binary."""
+    cmd = _get_wks_cmd() + args
     result = subprocess.run(cmd, env=env_dict["env"], capture_output=True, text=True)
     if check and result.returncode != 0:
-        print(f"Command failed: {cmd}")
+        print(f"Command failed: {' '.join(cmd)}")
         print(f"STDOUT: {result.stdout}")
         print(f"STDERR: {result.stderr}")
         raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)

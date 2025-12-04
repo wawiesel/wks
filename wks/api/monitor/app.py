@@ -1,0 +1,137 @@
+"""Monitor Typer app that registers all monitor commands."""
+
+import functools
+import sys
+from collections.abc import Callable
+
+import typer
+
+from ...display.cli import CLIDisplay
+from ...display.context import get_display
+from ..base import StageResult
+from .check import check
+from .managed_add import managed_add
+from .managed_list import managed_list
+from .managed_remove import managed_remove
+from .managed_set_priority import managed_set_priority
+from .status import status
+from .validate import validate
+
+monitor_app = typer.Typer(
+    name="monitor",
+    help="Monitor operations",
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+def _handle_stage_result(func: Callable) -> Callable:
+    """Wrapper to handle StageResult and implement 4-stage pattern for CLI."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+
+        # If result is not a StageResult, return as-is (for backward compatibility)
+        if not isinstance(result, StageResult):
+            return result
+
+        display = get_display("cli")
+        is_cli = isinstance(display, CLIDisplay)
+
+        if is_cli:
+            # Step 1: Announce
+            display.status(result.announce)
+
+            # Step 2: Progress
+            if result.progress_callback:
+                # Use progress callback if provided
+                def progress_update(description: str, progress: float):
+                    # Progress updates handled by callback
+                    pass
+
+                with display.progress(total=1, description="Processing..."):  # type: ignore[attr-defined]
+                    result.progress_callback(progress_update)
+            else:
+                # Simple progress for instant operations
+                with display.progress(total=1, description="Processing..."):  # type: ignore[attr-defined]
+                    pass
+
+            # Step 3: Result
+            if result.success:
+                display.success(result.result)
+            else:
+                display.error(result.result)
+
+            # Step 4: Output
+            # Automatically convert any data structure to tables for CLI display
+            from ...display.format import data_to_tables
+
+            output = result.output
+            tables = data_to_tables(output)
+
+            # Only show tables if there's actual data to display
+            # Simple operations (managed-add, managed-remove, managed-set-priority)
+            # typically return simple success dicts - skip output if it's just status info
+            if tables:
+                # Skip output if it's just a simple success/message dict
+                if len(tables) == 1:
+                    table_data = tables[0]
+                    # If it's just success/message fields, skip (already shown in Step 3)
+                    if table_data.get("headers") == ["Key", "Value"]:
+                        data_keys = {row.get("Key") for row in table_data.get("data", [])}
+                        if data_keys.issubset(
+                            {
+                                "success",
+                                "message",
+                                "path_stored",
+                                "path_removed",
+                                "old_priority",
+                                "new_priority",
+                                "already_exists",
+                                "not_found",
+                            }
+                        ):
+                            # Simple status dict - skip output
+                            pass
+                        else:
+                            # Has additional data - show table
+                            display.table(
+                                table_data["data"],
+                                headers=table_data.get("headers"),
+                                title=table_data.get("title"),
+                            )
+                    else:
+                        # Not a simple key-value table - show it
+                        display.table(
+                            table_data["data"],
+                            headers=table_data.get("headers"),
+                            title=table_data.get("title"),
+                        )
+                else:
+                    # Multiple tables - show all
+                    for table_data in tables:
+                        display.table(
+                            table_data["data"],
+                            headers=table_data.get("headers"),
+                            title=table_data.get("title"),
+                        )
+
+            # Exit with appropriate code
+            sys.exit(0 if result.success else 1)
+        else:
+            # MCP: Return output data directly
+            return result.output
+
+    return wrapper
+
+
+# Register commands with StageResult handler
+monitor_app.command(name="status")(_handle_stage_result(status))
+monitor_app.command(name="check")(_handle_stage_result(check))
+monitor_app.command(name="validate")(_handle_stage_result(validate))
+monitor_app.command(name="managed-list")(_handle_stage_result(managed_list))
+monitor_app.command(name="managed-add")(_handle_stage_result(managed_add))
+monitor_app.command(name="managed-remove")(_handle_stage_result(managed_remove))
+monitor_app.command(name="managed-set-priority")(_handle_stage_result(managed_set_priority))

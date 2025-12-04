@@ -1,24 +1,26 @@
-"""CLI - thin wrapper on MCP tools.
+"""CLI - direct API integration.
 
-Per CONTRIBUTING.md: CLI → MCP → API (CLI never calls API directly)
+All commands are handled by domain-specific Typer apps in wks/api/{domain}/app.py.
+Each domain app implements the unified 4-stage pattern for both CLI and MCP.
 """
 
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 import typer
 
-from ..api.monitor import monitor_app
+from ..api.config.app import config_app
+from ..api.db.app import db_app
+from ..api.diff.app import diff_app
+from ..api.monitor.app import monitor_app
+from ..api.service.app import service_app
+from ..api.transform.app import transform_app
+from ..api.vault.app import vault_app
 from ..display.context import get_display
 from ..mcp_client import proxy_stdio_to_socket
 from ..mcp_paths import mcp_socket_path
-from ..utils import expand_path, get_package_version
-
-# =============================================================================
-# Typer Apps
-# =============================================================================
+from ..utils import get_package_version
 
 app = typer.Typer(
     pretty_exceptions_show_locals=False,
@@ -27,289 +29,24 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
+# Register all domain apps
 app.add_typer(monitor_app, name="monitor")
-
-
-# =============================================================================
-# Common Helpers
-# =============================================================================
-
-
-def _call(tool: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Call MCP tool."""
-    from ..mcp_server import call_tool
-
-    return call_tool(tool, args or {})
-
-
-# Global variable for display object
-display_obj_global = None
-
-
-def _out(data: Any) -> None:
-    """Output result."""
-    global display_obj_global
-    if display_obj_global is None:
-        display_obj_global = get_display("cli")  # Default to cli if not set
-
-    if isinstance(data, dict):
-        display_obj_global.json_output(data)
-    else:
-        print(data)
-
-
-def _err(result: dict) -> int:
-    """Print errors, return exit code."""
-    for msg in result.get("messages", []):
-        print(f"{msg.get('type', 'error')}: {msg.get('text', '')}", file=sys.stderr)
-    return 0 if result.get("success", True) else 1
-
-
-# =============================================================================
-# Commands: config, transform, cat, diff
-# =============================================================================
-
-
-@app.command(name="config", help="Show config")
-def config_command():
-    r = _call("wksm_config")
-    _out(r.get("data", r))
-    sys.exit(_err(r))
-
-
-@app.command(name="transform", help="Transform file")
-def transform_command(
-    engine: str = typer.Argument(..., help="Transformation engine"),
-    file_path: str = typer.Argument(..., help="Path to the file to transform"),
-    output: str | None = None,  # noqa: ARG001 - reserved for future use
-):
-    path = expand_path(file_path)
-    if not path.exists():
-        print(f"Error: File not found: {path}", file=sys.stderr)
-        sys.exit(2)
-    r = _call("wksm_transform", {"file_path": str(path), "engine": engine, "options": {}})
-    if r.get("success"):
-        print(r.get("data", {}).get("checksum", ""))
-    sys.exit(_err(r))
-
-
-@app.command(name="cat", help="Display content")
-def cat_command(
-    input_path: str = typer.Argument(..., help="Input file path"),
-    output_path: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
-):
-    r = _call("wksm_cat", {"target": input_path})
-    if r.get("success"):
-        content = r.get("data", {}).get("content", "")
-        if output_path:
-            Path(output_path).write_text(content)
-            print(f"Saved to {output_path}", file=sys.stderr)
-        else:
-            print(content)
-    sys.exit(_err(r))
-
-
-@app.command(name="diff", help="Compare files")
-def diff_command(
-    engine: str = typer.Argument(..., help="Diff engine"),
-    file1: str = typer.Argument(..., help="Path to the first file"),
-    file2: str = typer.Argument(..., help="Path to the second file"),
-):
-    r = _call("wksm_diff", {"engine": engine, "target_a": file1, "target_b": file2})
-    if r.get("success"):
-        print(r.get("data", {}).get("diff", ""))
-    sys.exit(_err(r))
-
-
-# =============================================================================
-# Monitor commands
-# =============================================================================
-# Monitor commands are handled directly by wks.api.monitor.monitor_app
-# which is added as a subcommand above. No wrapper functions needed.
-
-
-# =============================================================================
-# Monitor list commands (include_paths, exclude_paths, etc.)
-# =============================================================================
-
-lists = [
-    "include_paths",
-    "exclude_paths",
-    "include_dirnames",
-    "exclude_dirnames",
-    "include_globs",
-    "exclude_globs",
-]
-
-
-def create_list_commands(list_name: str):
-    list_app = typer.Typer(
-        name=list_name.replace("_", "-"),
-        help=f"Manage {list_name.replace('_', ' ')}",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-    )
-    monitor_app.add_typer(list_app)
-
-    @list_app.command(name="list", help=f"List {list_name.replace('_', ' ')}")
-    def _list_cmd():
-        _out(_call("wksm_monitor_list", {"list_name": list_name}))
-
-    @list_app.command(name="add", help=f"Add to {list_name.replace('_', ' ')}")
-    def _add_cmd(value: str = typer.Argument(..., help="Value to add")):
-        r = _call("wksm_monitor_add", {"list_name": list_name, "value": value})
-        print(f"{'Added' if r.get('success') else 'Failed'}: {value}", file=sys.stderr)
-        sys.exit(0 if r.get("success") else 1)
-
-    @list_app.command(name="remove", help=f"Remove from {list_name.replace('_', ' ')}")
-    def _remove_cmd(value: str = typer.Argument(..., help="Value to remove")):
-        r = _call("wksm_monitor_remove", {"list_name": list_name, "value": value})
-        print(f"{'Removed' if r.get('success') else 'Failed'}: {value}", file=sys.stderr)
-        sys.exit(0 if r.get("success") else 1)
-
-
-for list_name in lists:
-    create_list_commands(list_name)
-
-# =============================================================================
-# Monitor managed commands
-# =============================================================================
-
-
-@monitor_app.command(name="managed-list", help="List managed paths")
-def monitor_managed_list_command():
-    _out(_call("wksm_monitor_managed_list", {}))
-
-
-@monitor_app.command(name="managed-add", help="Add a managed path")
-def monitor_managed_add_command(
-    path: str = typer.Argument(..., help="Path to manage"),
-    priority: int = typer.Argument(..., help="Priority of the path"),
-):
-    r = _call("wksm_monitor_managed_add", {"path": path, "priority": priority})
-    print(f"{'Added' if r.get('success') else 'Failed'}", file=sys.stderr)
-    sys.exit(0 if r.get("success") else 1)
-
-
-@monitor_app.command(name="managed-remove", help="Remove a managed path")
-def monitor_managed_remove_command(
-    path: str = typer.Argument(..., help="Path to unmanage"),
-):
-    r = _call("wksm_monitor_managed_remove", {"path": path})
-    print(f"{'Removed' if r.get('success') else 'Failed'}", file=sys.stderr)
-    sys.exit(0 if r.get("success") else 1)
-
-
-@monitor_app.command(name="managed-set-priority", help="Set priority of a managed path")
-def monitor_managed_set_priority_command(
-    path: str = typer.Argument(..., help="Path to set priority for"),
-    priority: int = typer.Argument(..., help="New priority of the path"),
-):
-    r = _call("wksm_monitor_managed_set_priority", {"path": path, "priority": priority})
-    print(f"{'Updated' if r.get('success') else 'Failed'}", file=sys.stderr)
-    sys.exit(0 if r.get("success") else 1)
-
-
-# =============================================================================
-# Vault commands
-# =============================================================================
-
-
-@app.command(name="vault-status", help="Show vault status")
-def vault_status_command():
-    _out(_call("wksm_vault_status", {}))
-    sys.exit(0)
-
-
-@app.command(name="vault-sync", help="Sync vault")
-def vault_sync_command(
-    batch_size: int = typer.Option(1000, "--batch-size", help="Batch size for sync"),
-):
-    r = _call("wksm_vault_sync", {"batch_size": batch_size})
-    _out(r)
-    sys.exit(0)
-
-
-@app.command(name="vault-validate", help="Validate vault configuration")
-def vault_validate_command():
-    _out(_call("wksm_vault_validate", {}))
-    sys.exit(0)
-
-
-@app.command(name="vault-fix-symlinks", help="Fix vault symlinks")
-def vault_fix_symlinks_command():
-    _out(_call("wksm_vault_fix_symlinks", {}))
-    sys.exit(0)
-
-
-@app.command(name="vault-links", help="Show vault links")
-def vault_links_command(
-    file_path: str = typer.Argument(..., help="Path to the file"),
-    direction: str = typer.Option("both", "--direction", help="Direction of links", rich_help_panel="Vault Options"),
-):
-    r = _call(
-        "wksm_vault_links",
-        {"file_path": file_path, "direction": direction},
-    )
-    _out(r)
-    sys.exit(0)
-
-
-# =============================================================================
-# DB commands
-# =============================================================================
-
-
-@app.command(name="db-monitor", help="Query monitor database via MCP")
-def db_monitor_command():
-    r = _call("wksm_db_monitor", {})
-    _out(r)
-    sys.exit(_err(r))
-
-
-@app.command(name="db-vault", help="Query vault database via MCP")
-def db_vault_command():
-    r = _call("wksm_db_vault", {})
-    _out(r)
-    sys.exit(_err(r))
-
-
-@app.command(name="db-transform", help="Query transform database via MCP")
-def db_transform_command():
-    r = _call("wksm_db_transform", {})
-    _out(r)
-    sys.exit(_err(r))
-
-
-# =============================================================================
-# Service commands
-# =============================================================================
-
-
-@app.command(name="service-status", help="Show daemon/service status via MCP")
-def service_status_command():
-    r = _call("wksm_service", {})
-    _out(r.get("data", r))
-    sys.exit(_err(r))
-
-
-# =============================================================================
-# MCP server commands
-# =============================================================================
+app.add_typer(vault_app, name="vault")
+app.add_typer(transform_app, name="transform")
+app.add_typer(diff_app, name="diff")
+app.add_typer(service_app, name="service")
+app.add_typer(config_app, name="config")
+app.add_typer(db_app, name="db")
 
 
 @app.command(name="mcp", help="MCP server operations")
 def mcp_command(
-    command: str = typer.Argument(
-        "run",
-        help="MCP command to execute ('run' or 'install')",
-        metavar="COMMAND",
-    ),
+    command: str = typer.Argument("run", help="MCP command ('run' or 'install')", metavar="COMMAND"),
     direct: bool = typer.Option(False, "--direct", help="Run MCP directly (no socket)"),
     command_path: str | None = None,
     client: list[str] | None = None,
 ):
+    """MCP server infrastructure command."""
     if command == "install":
         from ..mcp_setup import install_mcp_configs
 
@@ -320,20 +57,13 @@ def mcp_command(
     if command == "run":
         if not direct and proxy_stdio_to_socket(mcp_socket_path()):
             sys.exit(0)
-
         from ..mcp_server import main as mcp_main
 
         mcp_main()
         sys.exit(0)
 
-    # Unknown command
     print(f"Unknown MCP command: {command}", file=sys.stderr)
     sys.exit(2)
-
-
-# =============================================================================
-# Main entry point
-# =============================================================================
 
 
 def _handle_version_flag() -> int:
@@ -358,27 +88,20 @@ def _handle_version_flag() -> int:
 
 def _handle_display_flag(argv: list[str]) -> int:
     """Handle --display flag and remove it from argv."""
-    global display_obj_global
-    display_arg_index = -1
     for i, arg in enumerate(argv):
         if arg.startswith("--display="):
             display_val = arg.split("=")[1]
             if display_val in ("cli", "mcp"):
-                display_obj_global = get_display(display_val)  # type: ignore[arg-type]
-            display_arg_index = i
-            break
+                get_display(display_val)  # type: ignore[arg-type]
+            argv.pop(i)
+            return 0
         elif arg == "--display" and i + 1 < len(argv):
             display_val = argv[i + 1]
             if display_val in ("cli", "mcp"):
-                display_obj_global = get_display(display_val)  # type: ignore[arg-type]
-            display_arg_index = i
-            break
-    if display_arg_index != -1:
-        if argv[display_arg_index].startswith("--display="):
-            argv.pop(display_arg_index)
-        else:
-            argv.pop(display_arg_index + 1)
-            argv.pop(display_arg_index)
+                get_display(display_val)  # type: ignore[arg-type]
+            argv.pop(i + 1)
+            argv.pop(i)
+            return 0
     return 0
 
 

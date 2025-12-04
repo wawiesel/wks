@@ -13,14 +13,23 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from .api.base import get_typer_command_schema
-from .api.monitor import monitor_check, monitor_status, monitor_validate
+from .api.base import StageResult, get_typer_command_schema
+from .api.monitor.check import check as monitor_check
+from .api.monitor.status import status as monitor_status
+from .api.monitor.validate import validate as monitor_validate
 from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
 from .service_controller import ServiceController
 from .vault import VaultController
 from .vault.status_controller import VaultStatusController
+
+
+def _extract_data_from_stage_result(result: Any) -> dict[str, Any]:
+    """Extract data from StageResult or return as-is."""
+    if isinstance(result, StageResult):
+        return result.output
+    return result if isinstance(result, dict) else {}
 
 
 class MCPServer:
@@ -566,15 +575,15 @@ class MCPServer:
                 config, "transform", args.get("query", {}), args.get("limit", 50)
             ),
             "wksm_monitor_status": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=monitor_status(config=config)
+                success=True, data=_extract_data_from_stage_result(monitor_status())
             ).to_dict(),
             "wksm_monitor_check": _require_params("path")(
-                lambda config, args: MCPResult(
-                    success=True, data=monitor_check(path=args["path"], config=config)
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True, data=_extract_data_from_stage_result(monitor_check(path=args["path"]))
                 ).to_dict()
             ),
             "wksm_monitor_validate": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=monitor_validate(config=config)
+                success=True, data=_extract_data_from_stage_result(monitor_validate())
             ).to_dict(),
             "wksm_monitor_list": _require_params("list_name")(
                 lambda config, args: self._tool_monitor_list(config, args["list_name"])

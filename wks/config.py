@@ -156,12 +156,27 @@ class WKSConfig:
         return data
 
     def save(self, path: Path | None = None) -> None:
-        """Save the current configuration to a JSON file."""
+        """Save the current configuration to a JSON file.
+
+        Uses atomic write (write to temp file, then rename) to prevent corruption.
+        Never deletes the existing config file - only overwrites it atomically.
+        """
         if path is None:
             path = get_config_path()
 
-        with path.open("w") as fh:
-            json.dump(self.to_dict(), fh, indent=4)
+        # Atomic write: write to temp file first, then rename
+        # This prevents corruption if the write is interrupted
+        temp_path = path.with_suffix(path.suffix + ".tmp")
+        try:
+            with temp_path.open("w") as fh:
+                json.dump(self.to_dict(), fh, indent=4)
+            # Atomic rename - this is the only operation that modifies the real file
+            temp_path.replace(path)
+        except Exception:
+            # Clean up temp file on error
+            if temp_path.exists():
+                temp_path.unlink()
+            raise
 
 
 def get_config_path() -> Path:

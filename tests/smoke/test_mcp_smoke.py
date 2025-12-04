@@ -1,19 +1,42 @@
 """MCP Smoke Tests.
 
 These tests run the MCP server in a subprocess and communicate via stdio.
-They ensure the MCP server works end-to-end.
+They ensure the installed MCP server works end-to-end through the JSON-RPC protocol.
+These verify that the installed package's MCP capabilities work correctly.
 """
 
 import json
 import os
+import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-# Path to the wks executable or module
-WKS_CMD = [sys.executable, "-m", "wks.cli", "mcp", "--direct"]
+
+def _find_wksc_command():
+    """Find the installed wksc command.
+
+    Prefers venv/bin/wksc if available, otherwise searches PATH.
+    """
+    # Check for venv in project root
+    project_root = Path(__file__).parents[2]
+    venv_wksc = project_root / ".venv" / "bin" / "wksc"
+    if venv_wksc.exists():
+        return str(venv_wksc)
+
+    # Fall back to system PATH
+    wksc_path = shutil.which("wksc")
+    if wksc_path:
+        return wksc_path
+
+    # If not found, raise error with helpful message
+    raise RuntimeError("wksc command not found. Please install the package: pip install -e .")
+
+
+def _get_wks_mcp_cmd():
+    """Get the wksc mcp command path (lazy evaluation)."""
+    return [_find_wksc_command(), "mcp", "--direct"]
 
 
 def _mongo_available():
@@ -43,9 +66,8 @@ def mcp_process(tmp_path_factory):
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
 
-    # Add project root to PYTHONPATH
-    project_root = str(Path(__file__).parents[2])
-    env["PYTHONPATH"] = project_root
+    # Don't add PYTHONPATH - we're testing the installed package, not the source
+    # The installed wksc should work without PYTHONPATH manipulation
 
     # Create config in current WKSConfig / DiffConfig format
     (home_dir / ".wks").mkdir()
@@ -90,9 +112,10 @@ def mcp_process(tmp_path_factory):
     }
     (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
 
-    # Start process
+    # Start process using installed wksc command
+    cmd = _get_wks_mcp_cmd()
     process = subprocess.Popen(
-        WKS_CMD,
+        cmd,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

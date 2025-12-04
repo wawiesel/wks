@@ -5,4 +5,6 @@ pattern. Each function serves as the single source of truth for both CLI command
 MCP tools.
 """
 
-__all__ = []
+__all__ = ["monitor_app"]
+
+from .app import monitor_app
