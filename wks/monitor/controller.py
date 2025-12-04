@@ -59,28 +59,42 @@ class MonitorController:
 
         result = {"list_name": list_name, "items": items, "count": len(items)}
 
-        # Include/exclude dirname validation
+        # Add validation if needed
         if list_name in ("include_dirnames", "exclude_dirnames"):
-            validation = {}
-            related_globs = monitor_cfg.include_globs if list_name == "include_dirnames" else monitor_cfg.exclude_globs
-            relation = "include" if list_name == "include_dirnames" else "exclude"
-            for dirname in items:
-                is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
-                if is_valid:
-                    redundancy = MonitorValidator.dirname_redundancy(dirname, related_globs, relation)
-                    if redundancy:
-                        validation[dirname] = {"valid": True, "error": redundancy}
-                        continue
-                validation[dirname] = {"valid": is_valid, "error": error_msg}
-            result["validation"] = validation
+            result["validation"] = MonitorController._validate_dirnames_list(
+                items, list_name, monitor_cfg.include_globs, monitor_cfg.exclude_globs
+            )
         elif list_name in ("include_globs", "exclude_globs"):
-            validation = {}
-            for pattern in items:
-                is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
-                validation[pattern] = {"valid": is_valid, "error": error_msg}
-            result["validation"] = validation
+            result["validation"] = MonitorController._validate_globs_list(items)
 
         return result
+
+    @staticmethod
+    def _validate_dirnames_list(
+        items: list[str], list_name: str, include_globs: list[str], exclude_globs: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Validate dirname list items."""
+        validation = {}
+        related_globs = include_globs if list_name == "include_dirnames" else exclude_globs
+        relation = "include" if list_name == "include_dirnames" else "exclude"
+        for dirname in items:
+            is_valid, error_msg = MonitorValidator.validate_dirname_entry(dirname)
+            if is_valid:
+                redundancy = MonitorValidator.dirname_redundancy(dirname, related_globs, relation)
+                if redundancy:
+                    validation[dirname] = {"valid": True, "error": redundancy}
+                    continue
+            validation[dirname] = {"valid": is_valid, "error": error_msg}
+        return validation
+
+    @staticmethod
+    def _validate_globs_list(items: list[str]) -> dict[str, dict[str, Any]]:
+        """Validate glob list items."""
+        validation = {}
+        for pattern in items:
+            is_valid, error_msg = MonitorValidator.validate_glob_pattern(pattern)
+            validation[pattern] = {"valid": is_valid, "error": error_msg}
+        return validation
 
     # Delegate to MonitorOperations
     add_to_list = staticmethod(MonitorOperations.add_to_list)
@@ -201,34 +215,40 @@ class MonitorController:
         vault-related redundancy checks are skipped.
         """
         redundancies = []
+        redundancies.extend(MonitorController._check_duplicate_canonical_paths(include_map, exclude_map))
+        redundancies.extend(MonitorController._check_auto_ignored_paths(exclude_map, config))
+        return redundancies
 
-        # Duplicate canonical entries within the same list
+    @staticmethod
+    def _check_duplicate_canonical_paths(include_map: dict, exclude_map: dict) -> list[str]:
+        """Check for duplicate canonical paths within lists."""
+        redundancies = []
         for canonical, raw_paths in include_map.items():
             if len(raw_paths) > 1:
                 redundancies.append(f"include_paths entries {raw_paths} resolve to the same path ({canonical})")
         for canonical, raw_paths in exclude_map.items():
             if len(raw_paths) > 1:
                 redundancies.append(f"exclude_paths entries {raw_paths} resolve to the same path ({canonical})")
+        return redundancies
 
-        # Warn about redundant exclude paths automatically ignored
+    @staticmethod
+    def _check_auto_ignored_paths(exclude_map: dict, config: dict | MonitorConfig | object) -> list[str]:
+        """Check for paths that are automatically ignored."""
+        redundancies = []
         wks_home = _canonicalize_path("~/.wks")
         if wks_home in exclude_map:
             for entry in exclude_map[wks_home]:
                 redundancies.append(f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored")
 
-        # vault_base is only available when we have the full raw config dict
-        vault_base = None
         if isinstance(config, dict):
             vault_base = config.get("vault", {}).get("base_dir")
-
-        if vault_base:
-            vault_resolved = _canonicalize_path(vault_base)
-            if vault_resolved in exclude_map:
-                for entry in exclude_map[vault_resolved]:
-                    redundancies.append(
-                        f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately"
-                    )
-
+            if vault_base:
+                vault_resolved = _canonicalize_path(vault_base)
+                if vault_resolved in exclude_map:
+                    for entry in exclude_map[vault_resolved]:
+                        redundancies.append(
+                            f"exclude_paths entry '{entry}' is redundant - vault.base_dir is managed separately"
+                        )
         return redundancies
 
     @staticmethod

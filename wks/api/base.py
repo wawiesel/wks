@@ -67,32 +67,59 @@ def display_output(func: Callable) -> Callable:
     return wrapper
 
 
-def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict[str, Any]:
-    """Generate MCP tool schema from a Typer command."""
-
-    # This requires traversing the Typer app to find the command info
-    # Typer stores commands in .registered_commands
-
-    target_command = None
+def _find_typer_command(app: typer.Typer, command_name: str) -> Any:
+    """Find a Typer command by name."""
     for cmd_info in app.registered_commands:
         if cmd_info.name == command_name:
-            target_command = cmd_info
-            break
+            return cmd_info
+    raise ValueError(f"Command '{command_name}' not found in Typer app")
 
-    if not target_command:
-        raise ValueError(f"Command '{command_name}' not found in Typer app")
 
-    # Extract schema
-    # We need: description, inputSchema (type, properties, required)
+def _map_python_type_to_json_schema(param_type: Any) -> str:
+    """Map Python type to JSON schema type."""
+    if param_type is int:
+        return "integer"
+    if param_type is bool:
+        return "boolean"
+    if param_type is float:
+        return "number"
+    if param_type is dict:
+        return "object"
+    if param_type is list:
+        return "array"
+    return "string"
 
+
+def _process_typer_parameter(
+    param_name: str,  # noqa: ARG001
+    param: inspect.Parameter,  # noqa: ARG001
+    param_type: Any,
+    default: Any,
+) -> tuple[dict[str, Any], bool]:
+    """Process a Typer parameter and return schema and required flag."""
+    json_type = _map_python_type_to_json_schema(param_type)
+    prop_schema = {"type": json_type}
+    description_text = ""
+    is_required = False
+
+    if isinstance(default, (ArgumentInfo, OptionInfo)):
+        if default.help:
+            description_text = default.help
+        if default.default == ...:
+            is_required = True
+    elif default == inspect.Parameter.empty:
+        is_required = True
+
+    if description_text:
+        prop_schema["description"] = description_text
+
+    return prop_schema, is_required
+
+
+def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict[str, Any]:
+    """Generate MCP tool schema from a Typer command."""
+    target_command = _find_typer_command(app, command_name)
     description = target_command.help or ""
-
-    properties = {}
-    required = []
-
-    # Inspect function signature or Typer params
-    # Typer stores param info in target_command.context_settings? No.
-    # We might need to look at the callback function.
 
     func = target_command.callback
     if not func:
@@ -101,44 +128,18 @@ def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict[str, A
     sig = inspect.signature(func)
     type_hints = get_type_hints(func)
 
+    properties = {}
+    required = []
+
     for param_name, param in sig.parameters.items():
         if param_name == "config":  # Skip injected config
             continue
 
         param_type = type_hints.get(param_name, str)
+        prop_schema, is_required = _process_typer_parameter(param_name, param, param_type, param.default)
 
-        # Map python types to JSON schema types
-        json_type = "string"
-        if param_type is int:
-            json_type = "integer"
-        elif param_type is bool:
-            json_type = "boolean"
-        elif param_type is float:
-            json_type = "number"
-        elif param_type is dict:
-            json_type = "object"
-        elif param_type is list:
-            json_type = "array"
-
-        prop_schema = {"type": json_type}
-
-        # Check for default values (Typer Argument/Option)
-        default = param.default
-        description_text = ""
-
-        if isinstance(default, (ArgumentInfo, OptionInfo)):
-            if default.help:
-                description_text = default.help
-            # If it's an Option, it's usually optional unless required=True (which Argument defaults to)
-            # Typer Argument default is ... (Ellipsis) means required
-
-            if default.default == ...:
-                required.append(param_name)
-        elif default == inspect.Parameter.empty:
+        if is_required:
             required.append(param_name)
-
-        if description_text:
-            prop_schema["description"] = description_text
 
         properties[param_name] = prop_schema
 

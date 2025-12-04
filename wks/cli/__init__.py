@@ -359,53 +359,59 @@ def mcp_command(
 # =============================================================================
 
 
+def _handle_version_flag() -> int:
+    """Handle --version flag."""
+    v = get_package_version()
+    try:
+        sha = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                stderr=subprocess.DEVNULL,
+                cwd=str(Path(__file__).resolve().parents[2]),
+            )
+            .decode()
+            .strip()
+        )
+        v = f"{v} ({sha})"
+    except Exception:
+        pass
+    print(f"wksc {v}")
+    return 0
+
+
+def _handle_display_flag(argv: list[str]) -> int:
+    """Handle --display flag and remove it from argv."""
+    global display_obj_global
+    display_arg_index = -1
+    for i, arg in enumerate(argv):
+        if arg.startswith("--display="):
+            display_val = arg.split("=")[1]
+            if display_val in ("cli", "mcp"):
+                display_obj_global = get_display(display_val)  # type: ignore[arg-type]
+            display_arg_index = i
+            break
+        elif arg == "--display" and i + 1 < len(argv):
+            display_val = argv[i + 1]
+            if display_val in ("cli", "mcp"):
+                display_obj_global = get_display(display_val)  # type: ignore[arg-type]
+            display_arg_index = i
+            break
+    if display_arg_index != -1:
+        if argv[display_arg_index].startswith("--display="):
+            argv.pop(display_arg_index)
+        else:
+            argv.pop(display_arg_index + 1)
+            argv.pop(display_arg_index)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entry point."""
-    global display_obj_global
-
-    # Handle --version separately as Typer's built-in --version is harder to customize
     if argv and ("--version" in argv or "-v" in argv):
-        v = get_package_version()
-        try:
-            sha = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--short", "HEAD"],
-                    stderr=subprocess.DEVNULL,
-                    cwd=str(Path(__file__).resolve().parents[2]),
-                )
-                .decode()
-                .strip()
-            )
-            v = f"{v} ({sha})"
-        except Exception:
-            pass
-        print(f"wksc {v}")
-        return 0
+        return _handle_version_flag()
 
-    # Handle --display separately
-    display_arg_index = -1
     if argv:
-        for i, arg in enumerate(argv):
-            if arg.startswith("--display="):
-                display_val = arg.split("=")[1]
-                if display_val in ("cli", "mcp"):
-                    display_obj_global = get_display(display_val)  # type: ignore[arg-type]
-                display_arg_index = i
-                break
-            elif arg == "--display" and i + 1 < len(argv):
-                display_val = argv[i + 1]
-                if display_val in ("cli", "mcp"):
-                    display_obj_global = get_display(display_val)  # type: ignore[arg-type]
-                display_arg_index = i
-                # Also remove the next argument which is the display value
-                break
-        if display_arg_index != -1:
-            # Remove --display argument and its value from argv
-            if argv[display_arg_index].startswith("--display="):
-                argv.pop(display_arg_index)
-            else:
-                argv.pop(display_arg_index + 1)
-                argv.pop(display_arg_index)
+        _handle_display_flag(argv)
 
     try:
         app(argv)
