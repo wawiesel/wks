@@ -168,36 +168,3 @@ def get_config_path() -> Path:
     """Get path to WKS config file."""
     config_path = get_wks_home() / "config.json"
     return config_path
-
-
-# Backwards compatibility - DEPRECATED
-
-
-def load_config(path: Path | None = None) -> dict[str, Any]:
-    """Compatibility wrapper returning a dict-shaped config for legacy callers.
-
-    New code should prefer WKSConfig.load() and dataclasses directly. This
-    function exists so older modules (MCP tools, vault helpers, etc.) that
-    still expect a plain dict can continue to operate without duplicating
-    config parsing logic.
-    """
-    try:
-        cfg = WKSConfig.load(path)
-    except Exception:
-        # Preserve previous behaviour - callers must handle empty config.
-        return {}
-
-    data: dict[str, Any] = cfg.to_dict()
-
-    # Provide a normalized DB section for helpers that expect "db.uri".
-    data["db"] = {"uri": cfg.mongo.uri}
-
-    # Provide legacy, flattened transform keys expected by MCP tools and tests.
-    t_cfg = cfg.transform
-    t_dict = data.setdefault("transform", {})
-    t_dict["cache_location"] = str(t_cfg.cache.location)
-    t_dict["cache_max_size_bytes"] = t_cfg.cache.max_size_bytes
-    t_dict.setdefault("database", t_cfg.database)
-    t_dict.setdefault("default_engine", t_cfg.default_engine)
-
-    return data
