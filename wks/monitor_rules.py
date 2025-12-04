@@ -46,11 +46,35 @@ class MonitorRules:
         self.exclude_roots = [Path(p).expanduser().resolve() for p in exclude_paths]
         self.include_root_set = set(self.include_roots)
         self.exclude_root_set = set(self.exclude_roots)
-        self.include_dirnames = {d.strip() for d in include_dirnames if d and d.strip()}
-        self.exclude_dirnames = {d.strip() for d in exclude_dirnames if d and d.strip()}
+        self.include_dirnames = self._normalize_dirnames(include_dirnames)
+        self.exclude_dirnames = self._normalize_dirnames(exclude_dirnames)
         self.exclude_dirnames.update(WKS_DOT_DIRS)
-        self.include_globs = [g.strip() for g in include_globs if g]
-        self.exclude_globs = [g.strip() for g in exclude_globs if g]
+        self.include_globs = self._normalize_globs(include_globs)
+        self.exclude_globs = self._normalize_globs(exclude_globs)
+
+    @staticmethod
+    def _normalize_dirnames(dirnames: Iterable[str]) -> set[str]:
+        """Normalize directory names by stripping whitespace and filtering empty values.
+
+        Args:
+            dirnames: Iterable of directory name strings
+
+        Returns:
+            Set of normalized directory names
+        """
+        return {d.strip() for d in dirnames if d and d.strip()}
+
+    @staticmethod
+    def _normalize_globs(globs: Iterable[str]) -> list[str]:
+        """Normalize glob patterns by stripping whitespace and filtering empty values.
+
+        Args:
+            globs: Iterable of glob pattern strings
+
+        Returns:
+            List of normalized glob patterns
+        """
+        return [g.strip() for g in globs if g]
 
     @classmethod
     def from_config(cls, cfg: MonitorConfig) -> MonitorRules:

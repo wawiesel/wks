@@ -375,6 +375,57 @@ class WKSDaemon:
             pass
         return None
 
+    def _log_move_operation(self, src: Path, dest: Path, tracked_src: bool, dest_is_file: bool) -> None:
+        """Log file move operation if applicable.
+
+        Args:
+            src: Source path
+            dest: Destination path
+            tracked_src: Whether source is tracked
+            dest_is_file: Whether destination is a file
+        """
+        if tracked_src or dest_is_file:
+            try:
+                self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
+                self._bump_beat()
+            except Exception:
+                pass
+
+    def _update_databases_on_move(self, src: Path, dest: Path, dest_is_file: bool) -> None:
+        """Update all databases for a move operation.
+
+        Args:
+            src: Source path
+            dest: Destination path
+            dest_is_file: Whether destination is a file
+        """
+        if not dest_is_file:
+            return
+
+        from .uri_utils import convert_to_uri
+
+        vault_base = self._get_vault_base_path()
+        old_uri = convert_to_uri(src, vault_base)
+        new_uri = convert_to_uri(dest, vault_base)
+
+        self._update_monitor_db_on_move(src, dest)
+        self._update_vault_db_on_move(old_uri, new_uri)
+        self._update_transform_db_on_move(src, dest)
+
+    def _update_monitor_db_for_move(self, src: Path, dest: Path, tracked_src: bool, dest_is_file: bool) -> None:
+        """Update monitor DB entries for move operation.
+
+        Args:
+            src: Source path
+            dest: Destination path
+            tracked_src: Whether source is tracked
+            dest_is_file: Whether destination is a file
+        """
+        if tracked_src and not self._should_ignore_by_rules(src):
+            self._remove_from_monitor_db(src)
+        if dest_is_file and not self._should_ignore_by_rules(dest):
+            self._update_monitor_db(dest)
+
     def _handle_move_event(self, src_path: str, dest_path: str):
         """Handle file move event."""
         src = Path(src_path)
@@ -392,39 +443,21 @@ class WKSDaemon:
             dest_is_file = False
 
         # Log operation
-        if tracked_src or dest_is_file:
-            try:
-                self.vault.log_file_operation("moved", src, dest, tracked_files_count=self._get_tracked_files_count())
-                self._bump_beat()
-            except Exception:
-                pass
+        self._log_move_operation(src, dest, tracked_src, dest_is_file)
 
         # Update symlink target if tracked
         with contextlib.suppress(Exception):
             self.vault.update_link_on_move(src, dest)
 
-        # Convert paths to appropriate URIs
-        from .uri_utils import convert_to_uri
-
-        vault_base = self._get_vault_base_path()
-        old_uri = convert_to_uri(src, vault_base)
-        new_uri = convert_to_uri(dest, vault_base)
-
         # Update all databases if destination is a file
-        if dest_is_file:
-            self._update_monitor_db_on_move(src, dest)
-            self._update_vault_db_on_move(old_uri, new_uri)
-            self._update_transform_db_on_move(src, dest)
+        self._update_databases_on_move(src, dest, dest_is_file)
 
         # Update wiki links inside vault
         with contextlib.suppress(Exception):
             self.vault.update_vault_links_on_move(src, dest)
 
         # Update monitor DB (only if not ignored)
-        if tracked_src and not self._should_ignore_by_rules(src):
-            self._remove_from_monitor_db(src)
-        if dest_is_file and not self._should_ignore_by_rules(dest):
-            self._update_monitor_db(dest)
+        self._update_monitor_db_for_move(src, dest, tracked_src, dest_is_file)
 
     def _handle_delete_event(self, path: Path):
         """Handle file delete event."""
@@ -781,6 +814,63 @@ class WKSDaemon:
         finally:
             self._last_vault_sync = now
 
+    def _extract_db_summary_info(self, db_summary: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+        """Extract DB activity info from summary.
+
+        Args:
+            db_summary: Summary dictionary
+
+        Returns:
+            Tuple of (last_operation, last_detail, last_iso)
+        """
+        try:
+            db_last_iso = db_summary.get("timestamp_iso") or None
+            db_last_operation = db_summary.get("operation") or None
+            db_last_detail = db_summary.get("detail") or None
+            return db_last_operation, db_last_detail, db_last_iso
+        except Exception:
+            return None, None, None
+
+    def _extract_db_history_info(self, db_history: list[dict[str, Any]]) -> tuple[str | None, str | None, str | None]:
+        """Extract DB activity info from history.
+
+        Args:
+            db_history: History list
+
+        Returns:
+            Tuple of (last_operation, last_detail, last_iso)
+        """
+        if not db_history:
+            return None, None, None
+        try:
+            last_item = db_history[-1]
+            db_last_iso = last_item.get("timestamp_iso")
+            db_last_operation = last_item.get("operation")
+            db_last_detail = last_item.get("detail")
+            return db_last_operation, db_last_detail, db_last_iso
+        except Exception:
+            return None, None, None
+
+    def _count_db_ops_last_minute(self, db_history: list[dict[str, Any]], cutoff_minute: float) -> int:
+        """Count DB operations in the last minute.
+
+        Args:
+            db_history: History list
+            cutoff_minute: Timestamp cutoff for last minute
+
+        Returns:
+            Count of operations in last minute
+        """
+        count = 0
+        for item in db_history:
+            try:
+                ts_val = float(item.get("timestamp", 0))
+            except Exception:
+                continue
+            if ts_val >= cutoff_minute:
+                count += 1
+        return count
+
     def _get_db_activity_info(self, now: float) -> tuple[str | None, str | None, str | None, int]:
         """Get DB activity information from summary and history.
 
@@ -791,35 +881,15 @@ class WKSDaemon:
         db_history_window = max(int(self.fs_rate_long_window), 600)
         db_history = load_db_activity_history(db_history_window)
 
-        db_last_operation = None
-        db_last_detail = None
-        db_last_iso = None
+        db_last_operation, db_last_detail, db_last_iso = self._extract_db_summary_info(db_summary)
 
-        if db_summary:
-            try:
-                db_last_iso = db_summary.get("timestamp_iso") or None
-                db_last_operation = db_summary.get("operation") or None
-                db_last_detail = db_summary.get("detail") or None
-            except Exception:
-                pass
-
-        if db_last_operation is None and db_history:
-            try:
-                db_last_iso = db_history[-1].get("timestamp_iso")
-                db_last_operation = db_history[-1].get("operation")
-                db_last_detail = db_history[-1].get("detail")
-            except Exception:
-                pass
+        if db_last_operation is None:
+            op, detail, iso = self._extract_db_history_info(db_history)
+            if op is not None:
+                db_last_operation, db_last_detail, db_last_iso = op, detail, iso
 
         cutoff_minute = now - 60.0
-        db_ops_last_minute = 0
-        for item in db_history:
-            try:
-                ts_val = float(item.get("timestamp", 0))
-            except Exception:
-                continue
-            if ts_val >= cutoff_minute:
-                db_ops_last_minute += 1
+        db_ops_last_minute = self._count_db_ops_last_minute(db_history, cutoff_minute)
 
         self._beat_count = len(db_history)
         return db_last_operation, db_last_detail, db_last_iso, db_ops_last_minute

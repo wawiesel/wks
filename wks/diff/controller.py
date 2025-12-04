@@ -22,6 +22,22 @@ class DiffController:
         self.config = config
         self.transform_controller = transform_controller
 
+    def _validate_engine(self, engine_name: str) -> None:
+        """Validate engine name against configuration.
+
+        Args:
+            engine_name: Engine name to validate
+
+        Raises:
+            ValueError: If engine is not found or not enabled
+        """
+        if self.config is not None:
+            engine_cfg = self.config.engines.get(engine_name)
+            if not engine_cfg or not engine_cfg.enabled:
+                enabled = sorted(name for name, eng in self.config.engines.items() if eng.enabled)
+                enabled_list = ", ".join(enabled) if enabled else "none"
+                raise ValueError(f"Unknown engine: {engine_name!r} (enabled engines: {enabled_list})")
+
     def diff(self, target1: str, target2: str, engine_name: str, options: dict | None = None) -> str:
         """Compute diff between two targets (files or checksums).
 
@@ -47,13 +63,8 @@ class DiffController:
         if not file2.exists():
             raise ValueError(f"File not found: {file2}")
 
-        # If configuration is available, validate the engine name against it.
-        if self.config is not None:
-            engine_cfg = self.config.engines.get(engine_name)
-            if not engine_cfg or not engine_cfg.enabled:
-                enabled = sorted(name for name, eng in self.config.engines.items() if eng.enabled)
-                enabled_list = ", ".join(enabled) if enabled else "none"
-                raise ValueError(f"Unknown engine: {engine_name!r} (enabled engines: {enabled_list})")
+        # Validate engine name against configuration
+        self._validate_engine(engine_name)
 
         # Get engine implementation
         engine = get_engine(engine_name)

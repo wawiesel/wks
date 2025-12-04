@@ -362,23 +362,19 @@ class MonitorController:
         )
 
     @staticmethod
-    def check_path(config: dict, path_str: str) -> dict:
-        """Check if a path would be monitored and calculate its priority.
+    @staticmethod
+    def _build_decisions_from_trace(trace: list[str], path_exists: bool, test_path: Path) -> list[dict[str, str]]:
+        """Build decision list from trace messages and path existence.
 
-        Raises:
-            KeyError: If monitor section or required fields are missing
+        Args:
+            trace: List of trace messages from rules.explain()
+            path_exists: Whether the path exists
+            test_path: Path being checked
+
+        Returns:
+            List of decision dictionaries
         """
-        from ..config import WKSConfig
-        from ..priority import calculate_priority
-
-        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
-        rules = MonitorRules.from_config(monitor_cfg)
-
-        # Resolve path
-        test_path = Path(path_str).expanduser().resolve()
-
         decisions = []
-        path_exists = test_path.exists()
         decisions.append(
             {
                 "symbol": "✓" if path_exists else "⚠",
@@ -388,7 +384,6 @@ class MonitorController:
             }
         )
 
-        allowed, trace = rules.explain(test_path)
         for message in trace:
             lower = message.lower()
             if lower.startswith("excluded"):
@@ -399,6 +394,51 @@ class MonitorController:
                 symbol = "•"
             decisions.append({"symbol": symbol, "message": message})
 
+        return decisions
+
+    @staticmethod
+    def _calculate_path_priority(
+        test_path: Path, monitor_cfg: MonitorConfig, decisions: list[dict[str, str]]
+    ) -> tuple[int | None, list[dict[str, str]]]:
+        """Calculate priority for a path.
+
+        Args:
+            test_path: Path to calculate priority for
+            monitor_cfg: Monitor configuration
+            decisions: Existing decisions list to append to
+
+        Returns:
+            Tuple of (priority, updated_decisions)
+        """
+        from ..priority import calculate_priority
+
+        try:
+            priority = calculate_priority(test_path, monitor_cfg.managed_directories, monitor_cfg.priority)
+            decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
+            return priority, decisions
+        except Exception as e:
+            decisions.append({"symbol": "⚠", "message": f"Could not calculate priority: {e}"})
+            return None, decisions
+
+    @staticmethod
+    def check_path(config: dict, path_str: str) -> dict:
+        """Check if a path would be monitored and calculate its priority.
+
+        Raises:
+            KeyError: If monitor section or required fields are missing
+        """
+        from ..config import WKSConfig
+
+        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
+        rules = MonitorRules.from_config(monitor_cfg)
+
+        # Resolve path
+        test_path = Path(path_str).expanduser().resolve()
+        path_exists = test_path.exists()
+
+        allowed, trace = rules.explain(test_path)
+        decisions = MonitorController._build_decisions_from_trace(trace, path_exists, test_path)
+
         if not allowed:
             return {
                 "path": str(test_path),
@@ -408,13 +448,7 @@ class MonitorController:
                 "decisions": decisions,
             }
 
-        # Calculate priority
-        try:
-            priority = calculate_priority(test_path, monitor_cfg.managed_directories, monitor_cfg.priority)
-            decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
-        except Exception as e:
-            priority = None
-            decisions.append({"symbol": "⚠", "message": f"Could not calculate priority: {e}"})
+        priority, decisions = MonitorController._calculate_path_priority(test_path, monitor_cfg, decisions)
 
         return {
             "path": str(test_path),

@@ -31,22 +31,14 @@ class VaultController:
         self.vault = vault
         self.machine = machine_name or platform.node().split(".")[0]
 
-    def fix_symlinks(self) -> SymlinkFixResult:
-        """Rebuild _links/<machine>/ from vault DB.
-
-        Deletes entire _links/<machine>/ directory and recreates all symlinks
-        based on vault DB records where to_uri starts with file://.
+    def _delete_machine_links_dir(self) -> SymlinkFixResult | None:
+        """Delete the machine-specific links directory.
 
         Returns:
-            SymlinkFixResult with operation statistics
+            SymlinkFixResult with error if deletion fails, None if successful
         """
         import shutil
 
-        from pymongo import MongoClient
-
-        from ..config import WKSConfig
-
-        # 1. Delete entire _links/<machine>/ directory
         machine_links_dir = self.vault.links_dir / self.machine
         if machine_links_dir.exists():
             try:
@@ -58,19 +50,32 @@ class VaultController:
                     created=0,
                     failed=[("_links/" + self.machine, f"Failed to delete: {exc}")],
                 )
+        return None
 
-        # 2. Query vault DB for all file:// links
+    def _query_file_uris_from_db(self) -> tuple[set[str], SymlinkFixResult | None]:
+        """Query vault DB for all file:// URIs.
+
+        Returns:
+            Tuple of (file_uris_set, error_result). error_result is None on success.
+        """
+        from pymongo import MongoClient
+
+        from ..config import WKSConfig
+
         try:
             config = WKSConfig.load()
             mongo_uri = config.mongo.uri
             db_name = config.vault.database.split(".")[0]
             coll_name = config.vault.database.split(".")[1]
         except Exception as e:
-            return SymlinkFixResult(
-                notes_scanned=0,
-                links_found=0,
-                created=0,
-                failed=[("config", f"Failed to load config: {e}")],
+            return (
+                set(),
+                SymlinkFixResult(
+                    notes_scanned=0,
+                    links_found=0,
+                    created=0,
+                    failed=[("config", f"Failed to load config: {e}")],
+                ),
             )
 
         try:
@@ -87,48 +92,83 @@ class VaultController:
 
             file_uris = {doc["to_uri"] for doc in cursor}
             client.close()
+            return file_uris, None
 
         except Exception as exc:
-            return SymlinkFixResult(
-                notes_scanned=0,
-                links_found=0,
-                created=0,
-                failed=[("vault_db", f"Failed to query: {exc}")],
+            return (
+                set(),
+                SymlinkFixResult(
+                    notes_scanned=0,
+                    links_found=0,
+                    created=0,
+                    failed=[("vault_db", f"Failed to query: {exc}")],
+                ),
             )
+
+    def _create_symlink_for_uri(self, file_uri: str) -> tuple[bool, str | None]:
+        """Create a symlink for a single file:// URI.
+
+        Args:
+            file_uri: File URI to create symlink for
+
+        Returns:
+            Tuple of (success, error_message). error_message is None on success.
+        """
+        from urllib.parse import urlparse
+
+        if not file_uri.startswith("file://"):
+            return False, None
+
+        parsed = urlparse(file_uri)
+        target_path = Path(parsed.path)
+
+        if not target_path.exists():
+            return False, "Target file not found"
+
+        # Build symlink path: _links/<machine>/path/to/file
+        try:
+            relative = target_path.resolve().relative_to(Path("/"))
+            symlink_path = self.vault.links_dir / self.machine / relative
+        except Exception as exc:
+            return False, f"Cannot create relative path: {exc}"
+
+        # Create symlink
+        try:
+            symlink_path.parent.mkdir(parents=True, exist_ok=True)
+            symlink_path.symlink_to(target_path)
+            return True, None
+        except Exception as exc:
+            return False, f"Failed to create symlink: {exc}"
+
+    def fix_symlinks(self) -> SymlinkFixResult:
+        """Rebuild _links/<machine>/ from vault DB.
+
+        Deletes entire _links/<machine>/ directory and recreates all symlinks
+        based on vault DB records where to_uri starts with file://.
+
+        Returns:
+            SymlinkFixResult with operation statistics
+        """
+        # 1. Delete entire _links/<machine>/ directory
+        error = self._delete_machine_links_dir()
+        if error:
+            return error
+
+        # 2. Query vault DB for all file:// links
+        file_uris, error = self._query_file_uris_from_db()
+        if error:
+            return error
 
         # 3. Create symlinks for each unique file:// URI
         created = 0
         failed: list[tuple[str, str]] = []
 
         for file_uri in sorted(file_uris):
-            if not file_uri.startswith("file://"):
-                continue
-
-            # Parse file:// URI to filesystem path
-            from urllib.parse import urlparse
-
-            parsed = urlparse(file_uri)
-            target_path = Path(parsed.path)
-
-            if not target_path.exists():
-                failed.append((file_uri, "Target file not found"))
-                continue
-
-            # Build symlink path: _links/<machine>/path/to/file
-            try:
-                relative = target_path.resolve().relative_to(Path("/"))
-                symlink_path = self.vault.links_dir / self.machine / relative
-            except Exception as exc:
-                failed.append((file_uri, f"Cannot create relative path: {exc}"))
-                continue
-
-            # Create symlink
-            try:
-                symlink_path.parent.mkdir(parents=True, exist_ok=True)
-                symlink_path.symlink_to(target_path)
+            success, error_msg = self._create_symlink_for_uri(file_uri)
+            if success:
                 created += 1
-            except Exception as exc:
-                failed.append((str(symlink_path), f"Failed to create symlink: {exc}"))
+            elif error_msg:
+                failed.append((file_uri, error_msg))
 
         return SymlinkFixResult(
             notes_scanned=0,  # We queried DB, not markdown files

@@ -11,7 +11,7 @@ All MCP tools return structured MCPResult objects.
 import json
 import sys
 from collections.abc import Callable
-from typing import Any, TextIO
+from typing import Any
 
 from .config import load_config
 from .mcp.result import MCPResult
@@ -24,21 +24,14 @@ from .vault.status_controller import VaultStatusController
 class MCPServer:
     """MCP server exposing WKS tools via stdio."""
 
-    def __init__(
-        self,
-        *,
-        input_stream: TextIO | None = None,
-        output_stream: TextIO | None = None,
-    ):
-        """Initialize MCP server."""
-        self._input = input_stream or sys.stdin
-        self._output = output_stream or sys.stdout
-        self._lsp_mode = False
-        self.tools = {
-            "wksm_config": {
-                "description": "Get effective configuration",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
+    @staticmethod
+    def _define_transform_tools() -> dict[str, dict[str, Any]]:
+        """Define transform-related tools.
+
+        Returns:
+            Dictionary of transform tool definitions
+        """
+        return {
             "wksm_transform": {
                 "description": "Transform a file using a specific engine",
                 "inputSchema": {
@@ -88,10 +81,30 @@ class MCPServer:
                     "required": ["engine", "target_a", "target_b"],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_service_tools() -> dict[str, dict[str, Any]]:
+        """Define service-related tools.
+
+        Returns:
+            Dictionary of service tool definitions
+        """
+        return {
             "wksm_service": {
                 "description": "Get daemon/service status summary",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
+        }
+
+    @staticmethod
+    def _define_vault_tools() -> dict[str, dict[str, Any]]:
+        """Define vault-related tools.
+
+        Returns:
+            Dictionary of vault tool definitions
+        """
+        return {
             "wksm_vault_validate": {
                 "description": "Validate all vault links",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -100,6 +113,16 @@ class MCPServer:
                 "description": "Rebuild _links/<machine>/ from vault DB",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
+        }
+
+    @staticmethod
+    def _define_db_tools() -> dict[str, dict[str, Any]]:
+        """Define database query tools.
+
+        Returns:
+            Dictionary of database tool definitions
+        """
+        return {
             "wksm_db_monitor": {
                 "description": "Query filesystem database",
                 "inputSchema": {
@@ -133,6 +156,16 @@ class MCPServer:
                     "required": [],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_monitor_basic_tools() -> dict[str, dict[str, Any]]:
+        """Define basic monitor tools (status, check, validate).
+
+        Returns:
+            Dictionary of basic monitor tool definitions
+        """
+        return {
             "wksm_monitor_status": {
                 "description": "Get filesystem monitoring status and configuration",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -149,6 +182,24 @@ class MCPServer:
                 "description": "Validate monitor configuration for conflicts and issues",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
+        }
+
+    @staticmethod
+    def _define_monitor_list_tools() -> dict[str, dict[str, Any]]:
+        """Define monitor list management tools.
+
+        Returns:
+            Dictionary of monitor list tool definitions
+        """
+        list_name_enum = [
+            "include_paths",
+            "exclude_paths",
+            "include_dirnames",
+            "exclude_dirnames",
+            "include_globs",
+            "exclude_globs",
+        ]
+        return {
             "wksm_monitor_list": {
                 "description": (
                     "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)"
@@ -159,14 +210,7 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to retrieve",
-                            "enum": [
-                                "include_paths",
-                                "exclude_paths",
-                                "include_dirnames",
-                                "exclude_dirnames",
-                                "include_globs",
-                                "exclude_globs",
-                            ],
+                            "enum": list_name_enum,
                         }
                     },
                     "required": ["list_name"],
@@ -180,14 +224,7 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": [
-                                "include_paths",
-                                "exclude_paths",
-                                "include_dirnames",
-                                "exclude_dirnames",
-                                "include_globs",
-                                "exclude_globs",
-                            ],
+                            "enum": list_name_enum,
                         },
                         "value": {
                             "type": "string",
@@ -209,20 +246,23 @@ class MCPServer:
                         "list_name": {
                             "type": "string",
                             "description": "Name of the list to modify",
-                            "enum": [
-                                "include_paths",
-                                "exclude_paths",
-                                "include_dirnames",
-                                "exclude_dirnames",
-                                "include_globs",
-                                "exclude_globs",
-                            ],
+                            "enum": list_name_enum,
                         },
                         "value": {"type": "string", "description": "Value to remove"},
                     },
                     "required": ["list_name", "value"],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_monitor_managed_tools() -> dict[str, dict[str, Any]]:
+        """Define monitor managed directory tools.
+
+        Returns:
+            Dictionary of managed directory tool definitions
+        """
+        return {
             "wksm_monitor_managed_list": {
                 "description": "Get all managed directories with their priorities",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -260,6 +300,29 @@ class MCPServer:
                     "required": ["path", "priority"],
                 },
             },
+        }
+
+    @staticmethod
+    def _define_monitor_tools() -> dict[str, dict[str, Any]]:
+        """Define all monitor-related tools.
+
+        Returns:
+            Dictionary of monitor tool definitions
+        """
+        tools = {}
+        tools.update(MCPServer._define_monitor_basic_tools())
+        tools.update(MCPServer._define_monitor_list_tools())
+        tools.update(MCPServer._define_monitor_managed_tools())
+        return tools
+
+    @staticmethod
+    def _define_vault_advanced_tools() -> dict[str, dict[str, Any]]:
+        """Define advanced vault tools.
+
+        Returns:
+            Dictionary of advanced vault tool definitions
+        """
+        return {
             "wksm_vault_status": {
                 "description": "Get vault link status summary including link counts, issues, and errors",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -299,7 +362,39 @@ class MCPServer:
                 },
             },
         }
-        self.resources = [
+
+    @staticmethod
+    def _define_tools() -> dict[str, dict[str, Any]]:
+        """Define all MCP tools with their schemas.
+
+        Returns:
+            Dictionary mapping tool names to tool definitions
+        """
+        tools = {}
+        tools.update(
+            {
+                "wksm_config": {
+                    "description": "Get effective configuration",
+                    "inputSchema": {"type": "object", "properties": {}, "required": []},
+                }
+            }
+        )
+        tools.update(MCPServer._define_transform_tools())
+        tools.update(MCPServer._define_service_tools())
+        tools.update(MCPServer._define_vault_tools())
+        tools.update(MCPServer._define_db_tools())
+        tools.update(MCPServer._define_monitor_tools())
+        tools.update(MCPServer._define_vault_advanced_tools())
+        return tools
+
+    @staticmethod
+    def _define_resources() -> list[dict[str, Any]]:
+        """Define MCP resources.
+
+        Returns:
+            List of resource definitions
+        """
+        return [
             {
                 "uri": "mcp://wks/tools",
                 "name": "wks-tools",
@@ -307,6 +402,54 @@ class MCPServer:
                 "type": "tool-collection",
             }
         ]
+
+    def __init__(
+        self,
+        *,
+        input_stream: Any | None = None,
+        output_stream: Any | None = None,
+    ):
+        """Initialize MCP server."""
+        import sys
+
+        self._input = input_stream or sys.stdin
+        self._output = output_stream or sys.stdout
+        self._lsp_mode = False
+        self.tools = MCPServer._define_tools()
+        self.resources = MCPServer._define_resources()
+
+    def _read_content_length_message(self, header_line: str) -> dict[str, Any] | None:
+        """Read message using Content-Length framing (LSP mode).
+
+        Args:
+            header_line: The Content-Length header line
+
+        Returns:
+            Parsed JSON message or None on error
+
+        Raises:
+            ValueError: If Content-Length header is invalid
+        """
+        self._lsp_mode = True
+        try:
+            length = int(header_line.split(":", 1)[1].strip())
+        except Exception as e:
+            raise ValueError(f"Invalid Content-Length header: {header_line!r}") from e
+
+        # Consume the blank line after headers
+        while True:
+            sep = self._input.readline()
+            if sep == "":
+                break
+            if sep in ("\r\n", "\n", "\r"):
+                break
+            if not sep.strip():
+                break
+
+        payload = self._input.read(length)
+        if payload is None:
+            return None
+        return json.loads(payload)
 
     def _read_message(self) -> dict[str, Any] | None:
         """Read JSON-RPC message supporting newline or Content-Length framing."""
@@ -320,24 +463,7 @@ class MCPServer:
                     continue
                 lowered = stripped.lower()
                 if lowered.startswith("content-length"):
-                    self._lsp_mode = True
-                    try:
-                        length = int(stripped.split(":", 1)[1].strip())
-                    except Exception as e:
-                        raise ValueError(f"Invalid Content-Length header: {stripped!r}") from e
-                    # Consume the blank line after headers
-                    while True:
-                        sep = self._input.readline()
-                        if sep == "":
-                            break
-                        if sep in ("\r\n", "\n", "\r"):
-                            break
-                        if not sep.strip():
-                            break
-                    payload = self._input.read(length)
-                    if payload is None:
-                        return None
-                    return json.loads(payload)
+                    return self._read_content_length_message(stripped)
                 else:
                     return json.loads(line)
         except Exception as e:
@@ -746,35 +872,42 @@ class MCPServer:
         client.close()
         return result
 
+    def _handle_request(self, message: dict[str, Any]) -> None:
+        """Handle a single request message.
+
+        Args:
+            message: Request message dictionary
+        """
+        request_id = message.get("id")
+        method = message.get("method")
+        params = message.get("params", {})
+
+        # Handle different methods
+        if method == "initialize":
+            self._handle_initialize(request_id, params)
+        elif method == "initialized" or method == "notifications/initialized":
+            # Notification, no response needed
+            pass
+        elif method == "tools/list":
+            self._handle_list_tools(request_id)
+        elif method == "resources/list":
+            self._handle_list_resources(request_id, params)
+        elif method == "tools/call":
+            self._handle_call_tool(request_id, params)
+        elif method == "ping":
+            self._write_response(request_id, {})
+        else:
+            # Only send error if this is a request (has ID), not a notification
+            if request_id is not None:
+                self._write_error(request_id, -32601, f"Method not found: {method}")
+
     def run(self) -> None:
         """Run MCP server main loop."""
         while True:
             message = self._read_message()
             if message is None:
                 break
-
-            request_id = message.get("id")
-            method = message.get("method")
-            params = message.get("params", {})
-
-            # Handle different methods
-            if method == "initialize":
-                self._handle_initialize(request_id, params)
-            elif method == "initialized" or method == "notifications/initialized":
-                # Notification, no response needed
-                pass
-            elif method == "tools/list":
-                self._handle_list_tools(request_id)
-            elif method == "resources/list":
-                self._handle_list_resources(request_id, params)
-            elif method == "tools/call":
-                self._handle_call_tool(request_id, params)
-            elif method == "ping":
-                self._write_response(request_id, {})
-            else:
-                # Only send error if this is a request (has ID), not a notification
-                if request_id is not None:
-                    self._write_error(request_id, -32601, f"Method not found: {method}")
+            self._handle_request(message)
 
     def _tool_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wksm_config tool."""
