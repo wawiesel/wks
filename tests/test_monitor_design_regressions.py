@@ -37,10 +37,10 @@ def test_monitor_sync_uses_mongo_settings_and_returns_stage_result(monkeypatch, 
         def __init__(self):
             self.docs = {}
 
-        def find_one(self, query, projection=None):
+        def find_one(self, _query, _projection=None):
             return None
 
-        def update_one(self, query, update, upsert=False):
+        def update_one(self, _query, update, **_kwargs):
             # capture what would be written
             calls["last_doc"] = update.get("$set", update)
 
@@ -49,12 +49,12 @@ def test_monitor_sync_uses_mongo_settings_and_returns_stage_result(monkeypatch, 
             return DummyCollection()
 
     class DummyClient:
-        def __init__(self, uri, *args, **kwargs):
+        def __init__(self, uri, *_args, **_kwargs):
             calls["uri"] = uri
             self.db = DummyDB()
 
         def __getitem__(self, name):
-            return self.db[name]
+            return self.db
 
         def server_info(self):
             return {}
@@ -63,6 +63,7 @@ def test_monitor_sync_uses_mongo_settings_and_returns_stage_result(monkeypatch, 
             calls["closed"] = True
 
     monkeypatch.setattr("pymongo.MongoClient", DummyClient)
+    monkeypatch.setattr("wks.monitor.controller.MongoClient", DummyClient)
     monkeypatch.setattr("wks.api.monitor.cmd_sync.WKSConfig.load", lambda: config)
 
     result = cmd_sync.cmd_sync(str(file_path))
@@ -93,4 +94,4 @@ def test_monitor_rules_default_to_exclude_without_matching_root(tmp_path):
     allowed, trace = rules.explain(path_outside)
 
     assert allowed is False
-    assert any("Outside include_paths" in msg or "excluded" in msg.lower() for msg in trace)
+    assert any("outside include_paths" in msg.lower() or "exclude" in msg.lower() for msg in trace)

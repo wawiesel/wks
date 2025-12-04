@@ -1,12 +1,14 @@
 """Monitor Controller - Business logic for filesystem monitoring operations."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from pymongo import MongoClient
 
-from ..config import DEFAULT_MONGO_URI, WKSConfig
 from ..monitor_rules import MonitorRules
 from ..utils import canonicalize_path
 from .config import MonitorConfig
@@ -18,6 +20,11 @@ from .status import (
     MonitorStatus,
 )
 from .validator import MonitorValidator
+
+if TYPE_CHECKING:  # pragma: no cover - import only for typing
+    from ..config import WKSConfig
+
+DEFAULT_MONGO_URI = "mongodb://localhost:27017/"
 
 
 def _build_canonical_map(values: list[str]) -> dict[str, list[str]]:
@@ -109,9 +116,9 @@ class MonitorController:
         from ..priority import calculate_priority
         from ..utils import file_checksum
 
-        if isinstance(config, WKSConfig):
-            monitor_cfg = config.monitor
-            mongo_uri = config.mongo.uri
+        if hasattr(config, "monitor") and hasattr(config, "mongo"):
+            monitor_cfg = config.monitor  # type: ignore[assignment]
+            mongo_uri = getattr(config.mongo, "uri", DEFAULT_MONGO_URI)
         elif isinstance(config, MonitorConfig):
             monitor_cfg = config
             mongo_uri = DEFAULT_MONGO_URI
@@ -120,9 +127,13 @@ class MonitorController:
                     mongo_uri = config.mongo.uri  # type: ignore[attr-defined]
                 except Exception:
                     mongo_uri = DEFAULT_MONGO_URI
-        else:
+        elif isinstance(config, dict):
             monitor_cfg = MonitorConfig.from_config_dict(config)
             mongo_uri = config.get("db", {}).get("uri", DEFAULT_MONGO_URI)
+        else:
+            # Fallback: try to coerce to MonitorConfig
+            monitor_cfg = MonitorConfig.from_config_dict(config)  # type: ignore[arg-type]
+            mongo_uri = DEFAULT_MONGO_URI
 
         path_obj = Path(path).expanduser().resolve()
         if not path_obj.exists():
@@ -147,7 +158,7 @@ class MonitorController:
                 "errors": [f"Invalid database name: {monitor_cfg.database}"],
             }
 
-        client = MongoClient(mongo_uri)
+        client: MongoClient = MongoClient(mongo_uri)
         db = client[db_name]
         collection = db[collection_name]
 

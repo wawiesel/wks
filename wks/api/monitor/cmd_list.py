@@ -6,9 +6,9 @@ Matches CLI: wksc monitor <list-name> list, MCP: wksm_monitor_list
 
 import typer
 
-from ..base import StageResult
 from ...config import WKSConfig
 from ...monitor import MonitorController
+from ..base import StageResult
 
 
 def cmd_list(
@@ -22,7 +22,6 @@ def cmd_list(
     Returns:
         StageResult with list contents and validation info
     """
-    from ...config import WKSConfig
 
     config = WKSConfig.load()
     result = MonitorController.get_list(config.monitor, list_name)

@@ -9,9 +9,9 @@ from typing import Any
 
 import typer
 
-from ..base import StageResult
 from ...config import WKSConfig
 from ...monitor import MonitorController
+from ..base import StageResult
 
 
 def cmd_sync(
@@ -30,35 +30,15 @@ def cmd_sync(
     config = WKSConfig.load()
     path_obj = Path(path).expanduser().resolve()
 
-    # Pre-compute total files for progress reporting
-    if path_obj.is_file():
-        files_to_process = [path_obj]
-    elif recursive and path_obj.exists():
-        files_to_process = [p for p in path_obj.rglob("*") if p.is_file()]
-    elif path_obj.exists():
-        files_to_process = [p for p in path_obj.iterdir() if p.is_file()]
-    else:
-        files_to_process = []
-
-    total_files = max(len(files_to_process), 1)
-
-    sync_result: dict[str, Any] = {}
-
-    def run_sync(update_fn):
-        sync_result.clear()
-        sync_result.update(
-            MonitorController.sync_path(
-                config,
-                path_obj,
-                recursive,
-                progress_cb=update_fn,
-            )
-        )
+    sync_result: dict[str, Any] = MonitorController.sync_path(
+        config,
+        path_obj,
+        recursive,
+    )
 
     return StageResult(
         announce=f"Syncing {path}...",
-        result="Monitor sync completed",
+        result=sync_result.get("message", "Monitor sync completed"),
         output=sync_result,
-        progress_callback=run_sync,
-        progress_total=total_files,
+        success=sync_result.get("success", True),
     )

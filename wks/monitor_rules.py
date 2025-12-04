@@ -134,5 +134,5 @@ class MonitorRules:
             if parent == cur:
                 if self.include_root_set:
                     return False, "Outside include_paths"
-                return True, "No include_paths defined; default allow"
+                return False, "No include_paths defined; default exclude"
             cur = parent

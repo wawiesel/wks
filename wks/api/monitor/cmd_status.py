@@ -81,7 +81,13 @@ def _format_status_for_table(status_obj) -> list[dict]:
         for dirname in exclude_dirnames:
             dirnames_data.append({"Type": "Exclude", "Directory Name": dirname})
         if dirnames_data:
-            tables.append({"data": dirnames_data, "headers": ["Type", "Directory Name"], "title": "Directory Name Rules"})
+            tables.append(
+                {
+                    "data": dirnames_data,
+                    "headers": ["Type", "Directory Name"],
+                    "title": "Directory Name Rules",
+                }
+            )
 
     # Include/Exclude globs table
     include_globs = data.get("include_globs", [])

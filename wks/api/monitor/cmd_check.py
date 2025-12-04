@@ -6,9 +6,9 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 
 import typer
 
-from ..base import StageResult
 from ...config import WKSConfig
 from ...monitor import MonitorController
+from ..base import StageResult
 
 
 def cmd_check(

@@ -6,9 +6,9 @@ Matches CLI: wksc monitor <list-name> remove <value>, MCP: wksm_monitor_remove
 
 import typer
 
-from ..base import StageResult
 from ...config import WKSConfig
-from ...monitor import MonitorController, MonitorOperations
+from ...monitor import MonitorOperations
+from ..base import StageResult
 
 
 def cmd_remove(
@@ -24,7 +24,6 @@ def cmd_remove(
     Returns:
         StageResult with success status and message
     """
-    from ...config import WKSConfig
 
     config = WKSConfig.load()
 
