@@ -1,5 +1,7 @@
 """Tests for transform configuration."""
 
+from typing import Any
+
 import pytest
 
 from wks.transform.config import (
@@ -23,7 +25,7 @@ class TestTransformConfigError:
 
     def test_transform_config_error_with_string(self):
         """Test TransformConfigError with single string error."""
-        error = TransformConfigError("Single error")
+        error = TransformConfigError("Single error")  # type: ignore[arg-type]
         assert len(error.errors) == 1
         assert error.errors[0] == "Single error"
         assert "Single error" in str(error)
@@ -40,7 +42,7 @@ class TestTransformConfigValidation:
 
         with pytest.raises(TransformConfigError) as exc_info:
             TransformConfig(
-                cache="not a CacheConfig",  # Invalid type
+                cache="not a CacheConfig",  # type: ignore[arg-type]  # Invalid type
                 engines=engines,
                 database="wks.transform",
             )
@@ -54,7 +56,7 @@ class TestTransformConfigValidation:
         with pytest.raises(TransformConfigError) as exc_info:
             TransformConfig(
                 cache=cache_config,
-                engines="not a dict",  # Invalid type
+                engines="not a dict",  # type: ignore[arg-type]  # Invalid type
                 database="wks.transform",
             )
 
@@ -111,7 +113,7 @@ class TestTransformConfigFromDict:
 
     def test_from_config_dict_missing_transform_section(self):
         """Test from_config_dict raises error when transform section missing."""
-        config_dict = {}
+        config_dict: dict[str, Any] = {}
 
         with pytest.raises(TransformConfigError) as exc_info:
             TransformConfig.from_config_dict(config_dict)
@@ -194,7 +196,7 @@ class TestCacheConfigValidation:
     def test_cache_config_invalid_location_type(self):
         """Test CacheConfig raises error when location is wrong type."""
         with pytest.raises(TransformConfigError) as exc_info:
-            CacheConfig(location=123, max_size_bytes=1000)
+            CacheConfig(location=123, max_size_bytes=1000)  # type: ignore[arg-type]
 
         assert "location" in str(exc_info.value).lower()
 
@@ -213,14 +215,14 @@ class TestEngineConfigValidation:
     def test_engine_config_invalid_enabled_type(self):
         """Test EngineConfig raises error when enabled is not boolean."""
         with pytest.raises(TransformConfigError) as exc_info:
-            EngineConfig(name="docling", enabled="yes", options={})
+            EngineConfig(name="docling", enabled="yes", options={})  # type: ignore[arg-type]
 
         assert "enabled" in str(exc_info.value).lower()
 
     def test_engine_config_invalid_options_type(self):
         """Test EngineConfig raises error when options is not dict."""
         with pytest.raises(TransformConfigError) as exc_info:
-            EngineConfig(name="docling", enabled=True, options="not a dict")
+            EngineConfig(name="docling", enabled=True, options="not a dict")  # type: ignore[arg-type]
 
         assert "options" in str(exc_info.value).lower()
 

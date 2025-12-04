@@ -21,7 +21,7 @@ def _mongo_available():
     try:
         from pymongo import MongoClient
 
-        client = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=2000)
+        client: MongoClient = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=2000)
         client.server_info()
         client.close()
         return True

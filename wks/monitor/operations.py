@@ -60,7 +60,10 @@ class MonitorOperations:
         if entry in opposite_list:
             return ListOperationResult(
                 success=False,
-                message=f"Directory name '{entry}' already present in {'exclude_dirnames' if list_name == 'include_dirnames' else 'include_dirnames'}",
+                message=(
+                    f"Directory name '{entry}' already present in "
+                    f"{'exclude_dirnames' if list_name == 'include_dirnames' else 'include_dirnames'}"
+                ),
                 validation_failed=True,
             )
         return None
@@ -77,7 +80,12 @@ class MonitorOperations:
         return None
 
     @staticmethod
-    def _check_existing_entry(config: MonitorConfig, list_name: str, value_resolved: str, resolve_path: bool) -> str | None:
+    def _check_existing_entry(
+        config: MonitorConfig,
+        list_name: str,
+        value_resolved: str,
+        resolve_path: bool,
+    ) -> str | None:
         """Check if entry already exists. Returns existing entry if found, None otherwise."""
         for item in getattr(config, list_name):
             if resolve_path:
@@ -90,7 +98,12 @@ class MonitorOperations:
         return None
 
     @staticmethod
-    def add_to_list(config: MonitorConfig, list_name: str, value: str, resolve_path: bool = True) -> ListOperationResult:
+    def add_to_list(
+        config: MonitorConfig,
+        list_name: str,
+        value: str,
+        resolve_path: bool = True,
+    ) -> ListOperationResult:
         """Add value to a monitor config list.
 
         Args:

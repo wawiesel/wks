@@ -86,7 +86,7 @@ def config_command():
 def transform_command(
     engine: str = typer.Argument(..., help="Transformation engine"),
     file_path: str = typer.Argument(..., help="Path to the file to transform"),
-    output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: str | None = None,  # noqa: ARG001 - reserved for future use
 ):
     path = expand_path(file_path)
     if not path.exists():
@@ -269,9 +269,7 @@ def vault_fix_symlinks_command():
 @app.command(name="vault-links", help="Show vault links")
 def vault_links_command(
     file_path: str = typer.Argument(..., help="Path to the file"),
-    direction: str = typer.Option(
-        "both", "--direction", help="Direction of links", rich_help_panel="Vault Options"
-    ),
+    direction: str = typer.Option("both", "--direction", help="Direction of links", rich_help_panel="Vault Options"),
 ):
     r = _call(
         "wksm_vault_links",
@@ -332,10 +330,8 @@ def mcp_command(
         metavar="COMMAND",
     ),
     direct: bool = typer.Option(False, "--direct", help="Run MCP directly (no socket)"),
-    command_path: str | None = typer.Option(None, help="Command path for install"),
-    client: list[str] | None = typer.Option(
-        None, "--client", help="Client for install", rich_help_panel="MCP Options"
-    ),
+    command_path: str | None = None,
+    client: list[str] | None = None,
 ):
     if command == "install":
         from ..mcp_setup import install_mcp_configs
@@ -388,23 +384,28 @@ def main(argv: list[str] | None = None) -> int:
 
     # Handle --display separately
     display_arg_index = -1
-    for i, arg in enumerate(argv or []):
-        if arg.startswith("--display="):
-            display_obj_global = get_display(arg.split("=")[1])
-            display_arg_index = i
-            break
-        elif arg == "--display" and i + 1 < len(argv or []):
-            display_obj_global = get_display(argv[i + 1])
-            display_arg_index = i
-            # Also remove the next argument which is the display value
-            break
-    if display_arg_index != -1:
-        # Remove --display argument and its value from argv
-        if argv[display_arg_index].startswith("--display="):
-            argv.pop(display_arg_index)
-        else:
-            argv.pop(display_arg_index + 1)
-            argv.pop(display_arg_index)
+    if argv:
+        for i, arg in enumerate(argv):
+            if arg.startswith("--display="):
+                display_val = arg.split("=")[1]
+                if display_val in ("cli", "mcp"):
+                    display_obj_global = get_display(display_val)  # type: ignore[arg-type]
+                display_arg_index = i
+                break
+            elif arg == "--display" and i + 1 < len(argv):
+                display_val = argv[i + 1]
+                if display_val in ("cli", "mcp"):
+                    display_obj_global = get_display(display_val)  # type: ignore[arg-type]
+                display_arg_index = i
+                # Also remove the next argument which is the display value
+                break
+        if display_arg_index != -1:
+            # Remove --display argument and its value from argv
+            if argv[display_arg_index].startswith("--display="):
+                argv.pop(display_arg_index)
+            else:
+                argv.pop(display_arg_index + 1)
+                argv.pop(display_arg_index)
 
     try:
         app(argv)

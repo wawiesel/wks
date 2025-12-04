@@ -174,7 +174,9 @@ class TestMonitorController(unittest.TestCase):
     @patch("wks.monitor.controller.MonitorRules.from_config")
     @patch("wks.uri_utils.uri_to_path")
     @patch("pymongo.MongoClient")
-    def test_prune_ignored_files_deletes_matching_docs(self, mock_client, mock_uri_to_path, mock_rules, mock_wks_config_load):
+    def test_prune_ignored_files_deletes_matching_docs(
+        self, mock_client, mock_uri_to_path, mock_rules, mock_wks_config_load
+    ):
         """Ensure prune_ignored_files removes entries matched by ignore rules."""
         mock_config_obj = MagicMock()
         mock_config_obj.mongo.uri = "mongodb://localhost:27017/"

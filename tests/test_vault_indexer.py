@@ -45,7 +45,7 @@ def vault(vault_root):
 
 @pytest.fixture()
 def patched_mongo(monkeypatch):
-    client = mongomock.MongoClient()
+    client: mongomock.MongoClient = mongomock.MongoClient()
     monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)  # noqa: ARG005
     monkeypatch.setattr("wks.vault.status_controller.MongoClient", lambda *a, **k: client)  # noqa: ARG005
     from mongomock.collection import BulkOperationBuilder

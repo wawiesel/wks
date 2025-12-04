@@ -523,14 +523,14 @@ class MCPServer:
             result["nextCursor"] = None
         self._write_response(request_id, result)
 
-    def _build_tool_registry(self) -> dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]]:
+    def _build_tool_registry(self) -> dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]]:
         """Build registry of tool handlers with parameter validation."""
 
         def _require_params(
             *param_names: str,
         ) -> Callable[
-            [Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]],
-            Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+            [Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]],
+            Callable[[WKSConfig, dict[str, Any]], dict[str, Any]],
         ]:
             """Decorator to validate required parameters."""
 
@@ -628,7 +628,7 @@ class MCPServer:
         except Exception as e:
             self._write_error(request_id, -32000, f"Tool execution failed: {e}", {"traceback": str(e)})
 
-    def _tool_service(self, config: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_service(self, config: WKSConfig) -> dict[str, Any]:  # noqa: ARG002
         """Execute wksm_service tool."""
         status = ServiceController.get_status()
         result = MCPResult.success_result(
@@ -764,7 +764,7 @@ class MCPServer:
 
         # Check if file is monitored
         try:
-            monitor_info = MonitorController.check_path(config, str(file_path_expanded))
+            monitor_info = MonitorController.check_path(config.monitor, str(file_path_expanded))
             is_monitored = monitor_info.get("is_monitored", False)
             priority = monitor_info.get("priority", 0) if is_monitored else None
         except Exception:
@@ -780,7 +780,7 @@ class MCPServer:
         # Connect to database
         from pymongo import MongoClient
 
-        uri, db_name, coll_name = get_vault_db_config(config)
+        uri, db_name, coll_name = get_vault_db_config(config.to_dict())
         client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
@@ -863,7 +863,7 @@ class MCPServer:
 
     def _tool_transform(
         self,
-        config: WKSConfig,
+        config: WKSConfig,  # noqa: ARG002
         file_path: str,
         engine: str,
         options: dict[str, Any],
@@ -914,7 +914,7 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_cat(self, config: WKSConfig, target: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wksm_cat tool."""
         from pathlib import Path
 
@@ -952,7 +952,13 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_diff(self, config: WKSConfig | dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
+    def _tool_diff(
+        self,
+        config: WKSConfig | dict[str, Any],
+        engine: str,
+        target_a: str,
+        target_b: str,
+    ) -> dict[str, Any]:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
@@ -978,12 +984,23 @@ class MCPServer:
                 uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
                 raw_config = config
 
-            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            if isinstance(transform_cfg, dict):
+                cache_location_str = transform_cfg.get("cache_location", "~/.wks/cache")
+                max_size_bytes_val = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+                db_name_str = transform_cfg.get("database", "wks.transform")
+            else:
+                cache_location_str = getattr(transform_cfg, "cache_location", "~/.wks/cache")
+                max_size_bytes_val = getattr(transform_cfg, "cache_max_size_bytes", 1024 * 1024 * 1024)
+                db_name_str = getattr(transform_cfg, "database", "wks.transform")
+
+            cache_location = Path(str(cache_location_str)).expanduser()
+            max_size_bytes: int = (
+                int(max_size_bytes_val) if isinstance(max_size_bytes_val, (int, str)) else 1024 * 1024 * 1024
+            )
 
             from pymongo import MongoClient
 
-            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            db_name = str(db_name_str).split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -1040,7 +1057,13 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(self, config: WKSConfig | dict[str, Any], db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
+    def _tool_db_query(
+        self,
+        config: WKSConfig | dict[str, Any],
+        db_type: str,
+        query: dict[str, Any],
+        limit: int,
+    ) -> dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
 

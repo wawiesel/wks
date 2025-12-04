@@ -1,6 +1,6 @@
 """Monitor configuration Pydantic model with validation."""
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -10,16 +10,16 @@ class MonitorConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    include_paths: List[str] = Field(default_factory=list)
-    exclude_paths: List[str] = Field(default_factory=list)
-    include_dirnames: List[str] = Field(default_factory=list)
-    exclude_dirnames: List[str] = Field(default_factory=list)
-    include_globs: List[str] = Field(default_factory=list)
-    exclude_globs: List[str] = Field(default_factory=list)
+    include_paths: list[str] = Field(default_factory=list)
+    exclude_paths: list[str] = Field(default_factory=list)
+    include_dirnames: list[str] = Field(default_factory=list)
+    exclude_dirnames: list[str] = Field(default_factory=list)
+    include_globs: list[str] = Field(default_factory=list)
+    exclude_globs: list[str] = Field(default_factory=list)
     database: str = Field(..., description="Database name in 'database.collection' format")
-    managed_directories: Dict[str, int] = Field(default_factory=dict)
+    managed_directories: dict[str, int] = Field(default_factory=dict)
     touch_weight: float = Field(0.1, ge=0.001, le=1.0)
-    priority: Dict[str, Any] = Field(default_factory=dict)
+    priority: dict[str, Any] = Field(default_factory=dict)
     max_documents: int = Field(1000000, ge=0)
     prune_interval_secs: float = Field(300.0, gt=0)
 
@@ -28,18 +28,14 @@ class MonitorConfig(BaseModel):
     def validate_database_format(cls, v: str) -> str:
         """Validate database string is in 'database.collection' format."""
         if "." not in v:
-            raise ValueError(
-                "Database must be in format 'database.collection' (e.g., 'wks.monitor')"
-            )
+            raise ValueError("Database must be in format 'database.collection' (e.g., 'wks.monitor')")
         parts = v.split(".", 1)
         if not parts[0] or not parts[1]:
-            raise ValueError(
-                "Database must be in format 'database.collection' with both parts non-empty"
-            )
+            raise ValueError("Database must be in format 'database.collection' with both parts non-empty")
         return v
 
     @classmethod
-    def from_config_dict(cls, config: Dict[str, Any]) -> "MonitorConfig":
+    def from_config_dict(cls, config: dict[str, Any]) -> "MonitorConfig":
         """Load monitor config from config dict.
 
         Raises:
@@ -59,7 +55,7 @@ class MonitorConfig(BaseModel):
             # Re-raise Pydantic's ValidationError directly
             raise e
 
-    def get_rules(self) -> Dict[str, List[str]]:
+    def get_rules(self) -> dict[str, list[str]]:
         """Return a dictionary of rule lists."""
         return {
             "include_paths": self.include_paths,
@@ -69,4 +65,3 @@ class MonitorConfig(BaseModel):
             "include_globs": self.include_globs,
             "exclude_globs": self.exclude_globs,
         }
-

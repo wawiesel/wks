@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-import sys
 from typing import Any
 
 from pydantic import ValidationError
@@ -144,7 +143,6 @@ class WKSConfig:
             # Catching Exception to cover VaultConfigError/TransformConfigError if they bubble up
             # Ideally we should import them to catch specifically, but ConfigError wrapper is fine.
             raise ConfigError(f"Configuration validation failed: {e}") from e
-
 
     def to_dict(self) -> dict[str, Any]:
         """Convert WKSConfig instance to a dictionary for serialization.

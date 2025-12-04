@@ -1,6 +1,7 @@
 """Tests for vault package initialization and factory functions."""
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -157,14 +158,14 @@ class TestResolveObsidianSettings:
 
     def test_resolve_obsidian_settings_handles_empty_vault_section(self):
         """Test that _resolve_obsidian_settings() handles empty vault section."""
-        cfg = {"vault": {}}
+        cfg: dict[str, Any] = {"vault": {}}
 
         with pytest.raises(SystemExit):
             load_vault(cfg)
 
     def test_resolve_obsidian_settings_handles_missing_vault_section(self):
         """Test that _resolve_obsidian_settings() handles missing vault section."""
-        cfg = {}
+        cfg: dict[str, Any] = {}
 
         with pytest.raises(SystemExit):
             load_vault(cfg)

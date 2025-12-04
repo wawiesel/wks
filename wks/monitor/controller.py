@@ -41,10 +41,7 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or list_name is missing
         """
-        if isinstance(config, MonitorConfig):
-            monitor_cfg = config
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config if isinstance(config, MonitorConfig) else MonitorConfig.from_config_dict(config)
         supported_lists = {
             "include_paths": monitor_cfg.include_paths,
             "exclude_paths": monitor_cfg.exclude_paths,
@@ -105,10 +102,7 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or required fields are missing
         """
-        if isinstance(config, MonitorConfig):
-            monitor_cfg = config
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config if isinstance(config, MonitorConfig) else MonitorConfig.from_config_dict(config)
 
         # Validate each managed directory
         validation = {}
@@ -220,9 +214,7 @@ class MonitorController:
         wks_home = _canonicalize_path("~/.wks")
         if wks_home in exclude_map:
             for entry in exclude_map[wks_home]:
-                redundancies.append(
-                    f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored"
-                )
+                redundancies.append(f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored")
 
         # vault_base is only available when we have the full raw config dict
         vault_base = None
@@ -340,10 +332,7 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or required fields are missing
         """
-        if isinstance(config, MonitorConfig):
-            monitor_cfg = config
-        else:
-            monitor_cfg = MonitorConfig.from_config_dict(config)
+        monitor_cfg = config if isinstance(config, MonitorConfig) else MonitorConfig.from_config_dict(config)
         rules = MonitorRules.from_config(monitor_cfg)
 
         include_map = _build_canonical_map(monitor_cfg.include_paths)
