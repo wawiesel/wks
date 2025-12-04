@@ -1,15 +1,16 @@
 """Tests for wks/db_helpers.py - database helper functions."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from pymongo.errors import ServerSelectionTimeoutError
 
 from wks.db_helpers import (
-    parse_database_key,
-    get_monitor_db_config,
-    get_vault_db_config,
-    get_transform_db_config,
     connect_to_mongo,
+    get_monitor_db_config,
+    get_transform_db_config,
+    get_vault_db_config,
+    parse_database_key,
 )
 
 
@@ -239,10 +240,7 @@ class TestConnectToMongo:
 
         result = connect_to_mongo("mongodb://localhost:27017/")
 
-        mock_mongo_client_class.assert_called_once_with(
-            "mongodb://localhost:27017/",
-            serverSelectionTimeoutMS=5000
-        )
+        mock_mongo_client_class.assert_called_once_with("mongodb://localhost:27017/", serverSelectionTimeoutMS=5000)
         mock_client.server_info.assert_called_once()
         assert result == mock_client
 
@@ -255,10 +253,7 @@ class TestConnectToMongo:
 
         result = connect_to_mongo("mongodb://localhost:27017/", timeout_ms=10000)
 
-        mock_mongo_client_class.assert_called_once_with(
-            "mongodb://localhost:27017/",
-            serverSelectionTimeoutMS=10000
-        )
+        mock_mongo_client_class.assert_called_once_with("mongodb://localhost:27017/", serverSelectionTimeoutMS=10000)
         assert result == mock_client
 
     @patch("wks.db_helpers.MongoClient")

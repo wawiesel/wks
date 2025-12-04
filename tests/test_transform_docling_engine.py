@@ -1,9 +1,11 @@
 """Tests for DoclingEngine."""
 
-import pytest
 import subprocess
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
+
+import pytest
+
 from wks.transform.engines import DoclingEngine
 
 
@@ -49,7 +51,7 @@ class TestDoclingEngine:
         # The DoclingEngine creates a temp directory and expects docling to write to it.
         # We need to intercept the subprocess.run call, find the temp directory argument,
         # and create the output file there.
-        
+
         def create_output(cmd, *args, **kwargs):
             # cmd is like ["docling", input_path, "--to", "md", "--output", temp_dir]
             # Find output dir (it's after --output)
@@ -62,7 +64,7 @@ class TestDoclingEngine:
             except (ValueError, IndexError):
                 pass
             return Mock(stdout="Done", returncode=0)
-            
+
         mock_run.side_effect = create_output
 
         engine.transform(input_path, output_path, {"ocr": False, "timeout_secs": 30})
@@ -90,7 +92,7 @@ class TestDoclingEngine:
             except (ValueError, IndexError):
                 pass
             return Mock(stdout="Done", returncode=0)
-            
+
         mock_run.side_effect = create_output
 
         engine.transform(input_path, output_path, {"ocr": True, "timeout_secs": 30})
@@ -142,7 +144,7 @@ class TestDoclingEngine:
         def create_output(cmd, *args, **kwargs):
             # Don't create the expected file
             return Mock(stdout="Done", returncode=0)
-            
+
         mock_run.side_effect = create_output
 
         with pytest.raises(RuntimeError, match="Docling did not create expected output"):
@@ -162,4 +164,3 @@ class TestDoclingEngine:
 
         with pytest.raises(RuntimeError, match="Docling error"):
             engine.transform(input_path, output_path, {})
-

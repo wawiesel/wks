@@ -1,6 +1,7 @@
 """Tests for transform configuration."""
 
 import pytest
+
 from wks.transform.config import (
     CacheConfig,
     EngineConfig,
@@ -35,15 +36,13 @@ class TestTransformConfigValidation:
     def test_transform_config_invalid_cache_type(self):
         """Test TransformConfig raises error when cache is not CacheConfig."""
         cache_config = CacheConfig(location=".wks/cache", max_size_bytes=1000)
-        engines = {
-            "docling": EngineConfig(name="docling", enabled=True, options={})
-        }
+        engines = {"docling": EngineConfig(name="docling", enabled=True, options={})}
 
         with pytest.raises(TransformConfigError) as exc_info:
             TransformConfig(
                 cache="not a CacheConfig",  # Invalid type
                 engines=engines,
-                database="wks.transform"
+                database="wks.transform",
             )
 
         assert "CacheConfig" in str(exc_info.value)
@@ -56,7 +55,7 @@ class TestTransformConfigValidation:
             TransformConfig(
                 cache=cache_config,
                 engines="not a dict",  # Invalid type
-                database="wks.transform"
+                database="wks.transform",
             )
 
         assert "engines must be a dict" in str(exc_info.value)
@@ -69,26 +68,16 @@ class TestTransformConfigValidation:
         }
 
         with pytest.raises(TransformConfigError) as exc_info:
-            TransformConfig(
-                cache=cache_config,
-                engines=engines,
-                database="wks.transform"
-            )
+            TransformConfig(cache=cache_config, engines=engines, database="wks.transform")
 
         assert "EngineConfig" in str(exc_info.value)
 
     def test_transform_config_valid(self):
         """Test TransformConfig with valid configuration."""
         cache_config = CacheConfig(location=".wks/cache", max_size_bytes=1000)
-        engines = {
-            "docling": EngineConfig(name="docling", enabled=True, options={})
-        }
+        engines = {"docling": EngineConfig(name="docling", enabled=True, options={})}
 
-        config = TransformConfig(
-            cache=cache_config,
-            engines=engines,
-            database="wks.transform"
-        )
+        config = TransformConfig(cache=cache_config, engines=engines, database="wks.transform")
 
         assert config.cache == cache_config
         assert config.engines == engines
@@ -103,18 +92,10 @@ class TestTransformConfigFromDict:
         """Test from_config_dict with valid config."""
         config_dict = {
             "transform": {
-                "cache": {
-                    "location": ".wks/cache",
-                    "max_size_bytes": 1000
-                },
-                "engines": {
-                    "docling": {
-                        "enabled": True,
-                        "option1": "value1"
-                    }
-                },
+                "cache": {"location": ".wks/cache", "max_size_bytes": 1000},
+                "engines": {"docling": {"enabled": True, "option1": "value1"}},
                 "database": "wks.transform",
-                "default_engine": "docling"
+                "default_engine": "docling",
             }
         }
 
@@ -141,14 +122,11 @@ class TestTransformConfigFromDict:
         """Test from_config_dict raises error when engine config is not dict."""
         config_dict = {
             "transform": {
-                "cache": {
-                    "location": ".wks/cache",
-                    "max_size_bytes": 1000
-                },
+                "cache": {"location": ".wks/cache", "max_size_bytes": 1000},
                 "engines": {
                     "docling": "not a dict"  # Invalid type
                 },
-                "database": "wks.transform"
+                "database": "wks.transform",
             }
         }
 
@@ -161,11 +139,8 @@ class TestTransformConfigFromDict:
         """Test from_config_dict uses defaults."""
         config_dict = {
             "transform": {
-                "cache": {
-                    "location": ".wks/cache",
-                    "max_size_bytes": 1000
-                },
-                "engines": {}
+                "cache": {"location": ".wks/cache", "max_size_bytes": 1000},
+                "engines": {},
             }
         }
 
@@ -178,17 +153,9 @@ class TestTransformConfigFromDict:
         """Test from_config_dict removes 'enabled' from engine options."""
         config_dict = {
             "transform": {
-                "cache": {
-                    "location": ".wks/cache",
-                    "max_size_bytes": 1000
-                },
-                "engines": {
-                    "docling": {
-                        "enabled": True,
-                        "option1": "value1"
-                    }
-                },
-                "database": "wks.transform"
+                "cache": {"location": ".wks/cache", "max_size_bytes": 1000},
+                "engines": {"docling": {"enabled": True, "option1": "value1"}},
+                "database": "wks.transform",
             }
         }
 
@@ -259,13 +226,8 @@ class TestEngineConfigValidation:
 
     def test_engine_config_valid(self):
         """Test EngineConfig with valid configuration."""
-        config = EngineConfig(
-            name="docling",
-            enabled=True,
-            options={"option1": "value1"}
-        )
+        config = EngineConfig(name="docling", enabled=True, options={"option1": "value1"})
 
         assert config.name == "docling"
         assert config.enabled is True
         assert config.options == {"option1": "value1"}
-

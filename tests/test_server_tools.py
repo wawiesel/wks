@@ -1,8 +1,9 @@
 """Tests for new MCP server tools."""
 
-import json
 from unittest.mock import MagicMock, patch
+
 import pytest
+
 from wks.mcp_server import MCPServer
 
 
@@ -19,17 +20,11 @@ def mock_config():
         "transform": {
             "cache_location": "~/.wks/cache",
             "cache_max_size_bytes": 1000,
-            "database": "wks.transform"
+            "database": "wks.transform",
         },
-        "mongo": {
-            "uri": "mongodb://localhost:27017"
-        },
-        "monitor": {
-            "database": "wks.monitor"
-        },
-        "vault": {
-            "database": "wks.vault"
-        }
+        "mongo": {"uri": "mongodb://localhost:27017"},
+        "monitor": {"database": "wks.monitor"},
+        "vault": {"database": "wks.vault"},
     }
 
 
@@ -46,7 +41,9 @@ class TestMCPServerNewTools:
     @patch("wks.config.WKSConfig")
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
-    def test_wks_transform(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path):
+    def test_wks_transform(
+        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path
+    ):
         """Test wksm_transform tool returns MCPResult format."""
         # Mock WKSConfig.load()
         mock_cfg = MagicMock()
@@ -133,12 +130,7 @@ class TestMCPServerNewTools:
 
         result = mock_server._tool_vault_fix_symlinks(mock_config)
 
-        assert result == {
-            "notes_scanned": 10,
-            "links_found": 5,
-            "created": 2,
-            "failed": []
-        }
+        assert result == {"notes_scanned": 10, "links_found": 5, "created": 2, "failed": []}
         mock_load_vault.assert_called_once_with(mock_config)
         mock_controller.fix_symlinks.assert_called_once()
 
@@ -183,7 +175,16 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.utils.expand_path")
-    def test_wks_transform_value_error(self, mock_expand, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path):
+    def test_wks_transform_value_error(
+        self,
+        mock_expand,
+        mock_controller_cls,
+        mock_connect,
+        mock_wks_config,
+        mock_server,
+        mock_config,
+        tmp_path,
+    ):
         """Test wksm_transform tool handles ValueError."""
         test_file = tmp_path / "file.pdf"
         test_file.write_bytes(b"PDF content")
@@ -208,7 +209,16 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.utils.expand_path")
-    def test_wks_transform_runtime_error(self, mock_expand, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path):
+    def test_wks_transform_runtime_error(
+        self,
+        mock_expand,
+        mock_controller_cls,
+        mock_connect,
+        mock_wks_config,
+        mock_server,
+        mock_config,
+        tmp_path,
+    ):
         """Test wksm_transform tool handles RuntimeError."""
         test_file = tmp_path / "file.pdf"
         test_file.write_bytes(b"PDF content")
@@ -233,7 +243,16 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.utils.expand_path")
-    def test_wks_transform_unexpected_error(self, mock_expand, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path):
+    def test_wks_transform_unexpected_error(
+        self,
+        mock_expand,
+        mock_controller_cls,
+        mock_connect,
+        mock_wks_config,
+        mock_server,
+        mock_config,
+        tmp_path,
+    ):
         """Test wksm_transform tool handles unexpected errors."""
         test_file = tmp_path / "file.pdf"
         test_file.write_bytes(b"PDF content")
@@ -277,7 +296,9 @@ class TestMCPServerNewTools:
     @patch("wks.config.WKSConfig")
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
-    def test_wks_cat_unexpected_error(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config):
+    def test_wks_cat_unexpected_error(
+        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config
+    ):
         """Test wksm_cat tool handles unexpected errors."""
         mock_cfg = MagicMock()
         mock_cfg.transform.cache.location = "~/.wks/cache"

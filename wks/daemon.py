@@ -4,30 +4,32 @@ WKS daemon for monitoring file system and updating Obsidian.
 Adds support for ~/.wks/config.json with include/exclude path control.
 """
 
-from .uri_utils import uri_to_path
-from .priority import calculate_priority
-from .utils import get_package_version, expand_path, file_checksum
-from .config import WKSConfig, ConfigError
+import json
+import logging
+import os
+import time
+from collections import deque
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from pymongo.collection import Collection
+
+from .config import ConfigError, WKSConfig
+from .constants import WKS_HOME_EXT
 from .mcp_bridge import MCPBroker
 from .mcp_paths import mcp_socket_path
-from .vault.obsidian import ObsidianVault
-from .vault.indexer import VaultLinkIndexer
-from .monitor import start_monitoring  # Filesystem monitoring (via monitor package)
-from .transform import TransformController
-from .constants import WKS_HOME_EXT, WKS_HOME_DISPLAY
+from .monitor import (
+    start_monitoring,  # Filesystem monitoring (via monitor package)
+)
 from .monitor_rules import MonitorRules
-from .monitor import MonitorConfig  # Config class (from monitor package)
-from pymongo.collection import Collection
-from typing import Optional, Set, List, Dict, Any
-from pathlib import Path
-from dataclasses import dataclass, field, asdict
-import logging
-import time
-import json
-import os
-import threading
-from collections import deque
-from datetime import datetime
+from .priority import calculate_priority
+from .transform import TransformController
+from .uri_utils import uri_to_path
+from .utils import expand_path, file_checksum
+from .vault.indexer import VaultLinkIndexer
+from .vault.obsidian import ObsidianVault
 
 logger = logging.getLogger(__name__)
 try:
@@ -43,16 +45,20 @@ except ImportError:
     MongoGuard = None  # type: ignore
 
 try:
-    from .db_activity import load_db_activity_summary, load_db_activity_history  # type: ignore
+    from .db_activity import load_db_activity_history, load_db_activity_summary  # type: ignore
 except ImportError:
+
     def load_db_activity_summary():  # type: ignore
         return None
+
     def load_db_activity_history(window_secs: int):  # type: ignore
         return []
+
 
 try:
     from .mongo_utils import ensure_mongo_running  # type: ignore
 except ImportError:
+
     def ensure_mongo_running(uri: str, record_start: bool = False):  # type: ignore
         pass
 
@@ -60,6 +66,7 @@ except ImportError:
 @dataclass
 class HealthData:
     """Health data structure for daemon health.json file."""
+
     pending_deletes: int
     pending_mods: int
     last_error: Optional[str]
@@ -93,9 +100,6 @@ class HealthData:
         return asdict(self)
 
 
-
-
-
 class WKSDaemon:
     """Daemon that monitors filesystem and updates Obsidian vault."""
 
@@ -122,7 +126,7 @@ class WKSDaemon:
         """
         self.config = config
         self.vault = ObsidianVault(vault_path, base_dir=base_dir)
-        
+
         self._vault_indexer = VaultLinkIndexer.from_config(self.vault, config)
         # Git-based incremental scanning is fast, so we can check more frequently
         self._vault_sync_interval = float(self.config.vault.update_frequency_seconds)
@@ -168,11 +172,11 @@ class WKSDaemon:
         if self.mongo_uri and self.config.transform:
             try:
                 from pymongo import MongoClient
-                from .db_helpers import get_transform_db_config
+
                 transform_cfg = self.config.transform
                 cache_location = expand_path(transform_cfg.cache.location)
                 max_size_bytes = transform_cfg.cache.max_size_bytes
-                
+
                 client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
                 db_name = transform_cfg.database
                 db = client[db_name]
@@ -234,17 +238,15 @@ class WKSDaemon:
             stat = path.stat()
             checksum = file_checksum(path)
             now = datetime.now()
-            
+
             managed_dirs = self.config.monitor.managed_directories
             priority_config = self.config.monitor.priority
             touch_weight = self._get_touch_weight(self.config.monitor.touch_weight)
-            
+
             priority = calculate_priority(path, managed_dirs, priority_config)
 
             path_uri = path.as_uri()
-            existing_doc = self.monitor_collection.find_one(
-                {"path": path_uri}, {"timestamp": 1, "touches_per_day": 1}
-            )
+            existing_doc = self.monitor_collection.find_one({"path": path_uri}, {"timestamp": 1, "touches_per_day": 1})
             touches_per_day = self._compute_touches_per_day(existing_doc, now, touch_weight)
 
             doc = {
@@ -293,9 +295,9 @@ class WKSDaemon:
             extras = count - max_docs
             if extras > 0:
                 # Find and remove the lowest priority documents
-                lowest_priority_docs = self.monitor_collection.find(
-                    {}, {"_id": 1, "priority": 1}
-                ).sort("priority", 1).limit(extras)
+                lowest_priority_docs = (
+                    self.monitor_collection.find({}, {"_id": 1, "priority": 1}).sort("priority", 1).limit(extras)
+                )
 
                 ids_to_delete = [doc["_id"] for doc in lowest_priority_docs]
                 if ids_to_delete:
@@ -405,6 +407,7 @@ class WKSDaemon:
 
         # Convert paths to appropriate URIs
         from .uri_utils import convert_to_uri
+
         vault_base = self._get_vault_base_path()
         old_uri = convert_to_uri(src, vault_base)
         new_uri = convert_to_uri(dest, vault_base)
@@ -619,7 +622,7 @@ class WKSDaemon:
             # Iterate over all monitor entries
             cursor = self.monitor_collection.find({}, {"path": 1})
             for doc in cursor:
-                uri = doc.get('path')
+                uri = doc.get("path")
                 if not uri:
                     continue
 
@@ -814,10 +817,7 @@ class WKSDaemon:
         """
         short_rate = len(self._fs_events_short) / self.fs_rate_short_window if self.fs_rate_short_window else 0.0
         long_rate = len(self._fs_events_long) / self.fs_rate_long_window if self.fs_rate_long_window else 0.0
-        weighted_rate = (
-            self.fs_rate_short_weight * short_rate
-            + self.fs_rate_long_weight * long_rate
-        )
+        weighted_rate = self.fs_rate_short_weight * short_rate + self.fs_rate_long_weight * long_rate
         return short_rate, long_rate, weighted_rate
 
     def _get_lock_info(self) -> tuple[bool, Optional[int], str]:
@@ -862,10 +862,12 @@ class WKSDaemon:
                 last_error=self._last_error,
                 pid=os.getpid(),
                 last_error_at=int(self._last_error_at) if self._last_error_at else None,
-                last_error_at_iso=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._last_error_at)) if self._last_error_at else None,
+                last_error_at_iso=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self._last_error_at))
+                if self._last_error_at
+                else None,
                 last_error_age_secs=int(now - self._last_error_at) if self._last_error_at else None,
                 started_at=int(self._health_started_at),
-                started_at_iso=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._health_started_at)),
+                started_at_iso=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self._health_started_at)),
                 uptime_secs=uptime_secs,
                 uptime_hms=self._format_uptime(uptime_secs),
                 beats=int(self._beat_count),
@@ -887,7 +889,7 @@ class WKSDaemon:
             )
 
             self.health_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.health_file, 'w') as f:
+            with open(self.health_file, "w") as f:
                 json.dump(health_data.to_dict(), f)
 
             # Vault health page disabled
@@ -944,7 +946,7 @@ class WKSDaemon:
     def _try_advisory_lock(self):
         """Try to acquire POSIX advisory lock using fcntl."""
         try:
-            self._lock_fh = open(self.lock_file, 'w')
+            self._lock_fh = open(self.lock_file, "w")
             fcntl.flock(self._lock_fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             # Write PID and timestamp
             self._lock_fh.seek(0)
@@ -1031,6 +1033,7 @@ class WKSDaemon:
 
 if __name__ == "__main__":
     import sys
+
     from pymongo import MongoClient
 
     # Load and validate config

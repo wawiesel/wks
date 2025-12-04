@@ -1,7 +1,7 @@
 """CLI tests for service command."""
 
 import io
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 
@@ -37,5 +37,3 @@ def test_cli_service_status(mock_call):
     assert rc == 0
     mock_call.assert_called_once_with("wksm_service", {})
     # We don't assert on formatted output here; display layer is tested separately.
-
-

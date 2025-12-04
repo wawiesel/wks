@@ -1,14 +1,24 @@
 """Shared fixtures for integration tests."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
-from wks.config import WKSConfig, MonitorConfig, VaultConfig, MongoSettings, DisplayConfig, TransformConfig, MetricsConfig
-from wks.monitor_rules import MonitorRules
+
+import pytest
+
+from wks.config import (
+    DisplayConfig,
+    MetricsConfig,
+    MongoSettings,
+    MonitorConfig,
+    TransformConfig,
+    VaultConfig,
+    WKSConfig,
+)
 
 
 class FakeCollection:
     """Fake MongoDB collection for testing."""
+
     def __init__(self):
         self.docs = {}
         self.deleted = []
@@ -55,9 +65,10 @@ class FakeCollection:
 
 class FakeVault:
     """Fake vault for testing."""
+
     def __init__(self, *args, **kwargs):
-        self.vault_path = kwargs.get('vault_path', Path('/tmp/test_vault'))
-        self.links_dir = kwargs.get('links_dir', None)
+        self.vault_path = kwargs.get("vault_path", Path("/tmp/test_vault"))
+        self.links_dir = kwargs.get("links_dir", None)
 
     def ensure_structure(self):
         pass
@@ -80,6 +91,7 @@ class FakeVault:
 
 class FakeIndexer:
     """Fake vault indexer for testing."""
+
     def __init__(self, *args, **kwargs):
         pass
 
@@ -99,6 +111,7 @@ class FakeIndexer:
 
 class FakeObserver:
     """Fake filesystem observer for testing."""
+
     def stop(self):
         pass
 
@@ -124,46 +137,49 @@ def temp_watch_directory(tmp_path):
 @pytest.fixture
 def daemon_config(tmp_path):
     """Create a valid daemon configuration."""
-    monitor_cfg = MonitorConfig.from_config_dict({
-        "monitor": {
-            "include_paths": [str(tmp_path)],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-            "managed_directories": {str(tmp_path): 100},
-            "touch_weight": 0.5,
-            "database": "wks.monitor",
-            "max_documents": 1000000,
-            "priority": {},
-            "prune_interval_secs": 300.0,
+    monitor_cfg = MonitorConfig.from_config_dict(
+        {
+            "monitor": {
+                "include_paths": [str(tmp_path)],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+                "managed_directories": {str(tmp_path): 100},
+                "touch_weight": 0.5,
+                "database": "wks.monitor",
+                "max_documents": 1000000,
+                "priority": {},
+                "prune_interval_secs": 300.0,
+            }
         }
-    })
+    )
     vault_cfg = VaultConfig(
         base_dir=str(tmp_path),
         wks_dir="WKS",
         update_frequency_seconds=10,
         database="wks.vault",
-        vault_type="obsidian"
+        vault_type="obsidian",
     )
     mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
     from wks.transform.config import CacheConfig
+
     transform_cfg = TransformConfig(
-        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024*1024*100),
+        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
         engines={},
-        database="wks.transform"
+        database="wks.transform",
     )
     metrics_cfg = MetricsConfig()
-    
+
     return WKSConfig(
         monitor=monitor_cfg,
         vault=vault_cfg,
         mongo=mongo_cfg,
         display=display_cfg,
         transform=transform_cfg,
-        metrics=metrics_cfg
+        metrics=metrics_cfg,
     )
 
 
@@ -180,14 +196,17 @@ def mock_daemon_dependencies(monkeypatch):
     class MockMongoGuard:
         def __init__(self, *args, **kwargs):
             pass
+
         def start(self, *args, **kwargs):
             pass
+
         def stop(self):
             pass
+
     monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
 
     # Mock ensure_mongo_running if it exists
-    if hasattr(daemon_mod, 'ensure_mongo_running'):
+    if hasattr(daemon_mod, "ensure_mongo_running"):
         monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *a, **k: None)
 
     # Mock MCPBroker

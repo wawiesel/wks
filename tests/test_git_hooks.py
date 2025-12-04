@@ -1,7 +1,10 @@
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
-from wks.vault.git_hooks import install_hooks, uninstall_hooks, is_hook_installed
+from unittest.mock import patch
+
+import pytest
+
+from wks.vault.git_hooks import install_hooks, is_hook_installed, uninstall_hooks
+
 
 class TestGitHooks:
     @pytest.fixture
@@ -18,7 +21,7 @@ class TestGitHooks:
     def test_install_hooks_success(self, mock_source, mock_paths):
         vault_path, hooks_dir = mock_paths
         mock_source.return_value = Path("/tmp/source_hook")
-        
+
         # Create dummy source
         with patch("shutil.copy2") as mock_copy:
             with patch("pathlib.Path.chmod") as mock_chmod:
@@ -29,7 +32,7 @@ class TestGitHooks:
     def test_install_hooks_no_git(self, tmp_path):
         vault_path = tmp_path / "vault"
         vault_path.mkdir()
-        
+
         with pytest.raises(RuntimeError, match="Not a git repository"):
             install_hooks(vault_path)
 
@@ -37,11 +40,11 @@ class TestGitHooks:
     def test_install_hooks_exists_no_force(self, mock_source, mock_paths):
         vault_path, hooks_dir = mock_paths
         mock_source.return_value = Path("/tmp/source_hook")
-        
+
         # Create existing hook
         hook_path = hooks_dir / "pre-commit"
         hook_path.touch()
-        
+
         with pytest.raises(FileExistsError):
             install_hooks(vault_path, force=False)
 
@@ -49,11 +52,11 @@ class TestGitHooks:
     def test_install_hooks_exists_force(self, mock_source, mock_paths):
         vault_path, hooks_dir = mock_paths
         mock_source.return_value = Path("/tmp/source_hook")
-        
+
         # Create existing hook
         hook_path = hooks_dir / "pre-commit"
         hook_path.touch()
-        
+
         with patch("shutil.copy2") as mock_copy:
             with patch("pathlib.Path.chmod"):
                 assert install_hooks(vault_path, force=True) is True
@@ -63,7 +66,7 @@ class TestGitHooks:
         vault_path, hooks_dir = mock_paths
         hook_path = hooks_dir / "pre-commit"
         hook_path.touch()
-        
+
         assert uninstall_hooks(vault_path) is True
         assert not hook_path.exists()
 
@@ -74,14 +77,14 @@ class TestGitHooks:
     def test_is_hook_installed(self, mock_paths):
         vault_path, hooks_dir = mock_paths
         hook_path = hooks_dir / "pre-commit"
-        
+
         assert is_hook_installed(vault_path) is False
-        
+
         hook_path.touch()
         # Mock stat mode to be executable
         with patch("pathlib.Path.stat") as mock_stat:
             mock_stat.return_value.st_mode = 0o100755
             assert is_hook_installed(vault_path) is True
-            
+
             mock_stat.return_value.st_mode = 0o100644
             assert is_hook_installed(vault_path) is False

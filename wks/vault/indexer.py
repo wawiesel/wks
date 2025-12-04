@@ -2,6 +2,36 @@
 
 from __future__ import annotations
 
+import hashlib
+import logging
+import platform
+import time
+from collections import Counter
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional
+from urllib.parse import urlparse
+
+from pymongo import MongoClient, UpdateOne
+from pymongo.collection import Collection
+
+from ..config import WKSConfig
+from .constants import (
+    DOC_TYPE_LINK,
+    DOC_TYPE_META,
+    LINK_TYPE_EMBED,
+    LINK_TYPE_MARKDOWN_URL,
+    LINK_TYPE_WIKILINK,
+    MAX_LINE_PREVIEW,
+    META_DOCUMENT_ID,
+    STATUS_OK,
+)
+from .link_resolver import LinkResolver
+from .markdown_parser import extract_headings, parse_markdown_urls, parse_wikilinks
+from .obsidian import ObsidianVault
+
 __all__ = [
     "VaultEdgeRecord",
     "VaultScanStats",
@@ -10,47 +40,7 @@ __all__ = [
     "VaultLinkIndexer",
 ]
 
-import hashlib
-import logging
-import time
-from collections import Counter
-from contextlib import contextmanager
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
-
-from pymongo import MongoClient, UpdateOne
-from pymongo.collection import Collection
-
-import platform
-from urllib.parse import urlparse
-
 logger = logging.getLogger(__name__)
-
-from ..config import load_config
-from .obsidian import ObsidianVault
-from ..config import WKSConfig
-from .link_resolver import LinkResolver
-from .markdown_parser import parse_wikilinks, parse_markdown_urls, extract_headings
-from .constants import (
-    DOC_TYPE_LINK,
-    DOC_TYPE_META,
-    META_DOCUMENT_ID,
-    STATUS_OK,
-    STATUS_MISSING_SYMLINK,
-    STATUS_MISSING_TARGET,
-    STATUS_LEGACY_LINK,
-    LINK_TYPE_WIKILINK,
-    LINK_TYPE_EMBED,
-    LINK_TYPE_MARKDOWN_URL,
-    TARGET_KIND_VAULT_NOTE,
-    TARGET_KIND_LEGACY_PATH,
-    TARGET_KIND_LINKS_SYMLINK,
-    TARGET_KIND_ATTACHMENT,
-    TARGET_KIND_EXTERNAL_URL,
-    MAX_LINE_PREVIEW,
-)
 
 
 def _identity(note_path: str, line_number: int, target_uri: str) -> str:
@@ -467,30 +457,30 @@ class VaultLinkIndexer:
         if cfg is None:
             config = WKSConfig.load()
         elif isinstance(cfg, dict):
-             # Backward compatibility for dict config
-             # We should ideally convert dict to WKSConfig here or just handle it manually
-             # For now, let's try to load WKSConfig if possible, or extract from dict
-             try:
-                 config = WKSConfig.load()
-             except:
-                 # Fallback manual extraction from dict
-                 mongo_uri = cfg.get("db", {}).get("uri")
-                 db_key = cfg.get("vault", {}).get("database")
-                 db_name, coll_name = db_key.split(".", 1)
-                 return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
+            # Backward compatibility for dict config
+            # We should ideally convert dict to WKSConfig here or just handle it manually
+            # For now, let's try to load WKSConfig if possible, or extract from dict
+            try:
+                config = WKSConfig.load()
+            except Exception:
+                # Fallback manual extraction from dict
+                mongo_uri = cfg.get("db", {}).get("uri")
+                db_key = cfg.get("vault", {}).get("database")
+                db_name, coll_name = db_key.split(".", 1)
+                return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
         else:
             config = cfg
 
         mongo_uri = config.mongo.uri
         db_name = config.vault.database.split(".")[0]
         coll_name = config.vault.database.split(".")[1]
-            
+
         return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
 
     def _batch_records(self, records: List[VaultEdgeRecord], batch_size: int) -> Iterator[List[VaultEdgeRecord]]:
         """Yield successive batches of records."""
         for i in range(0, len(records), batch_size):
-            yield records[i:i + batch_size]
+            yield records[i : i + batch_size]
 
     def has_references_to(self, file_path: Path) -> bool:
         """Check if any vault notes reference this file.
@@ -571,6 +561,7 @@ class VaultLinkIndexer:
         if incremental:
             try:
                 from .git_watcher import GitVaultWatcher
+
                 watcher = GitVaultWatcher(self.vault.vault_path)
                 changes = watcher.get_changes()
 
@@ -630,7 +621,7 @@ class VaultLinkIndexer:
             delete_query = {
                 "doc_type": DOC_TYPE_LINK,
                 "last_seen": {"$lt": started_iso},
-                "from": {"$in": list(stats.scanned_files)} if stats.scanned_files else []
+                "from": {"$in": list(stats.scanned_files)} if stats.scanned_files else [],
             }
             deleted = collection.delete_many(delete_query).deleted_count
 

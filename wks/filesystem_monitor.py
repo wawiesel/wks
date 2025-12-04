@@ -3,15 +3,17 @@ File system monitoring for WKS using watchdog.
 Monitors directories and tracks file changes without external dependencies.
 """
 
-import time
 import json
-from pathlib import Path
+import time
 from datetime import datetime
-from typing import Dict, Callable, Optional
+from pathlib import Path
+from typing import Callable, Dict, Optional
+
+from watchdog.observers import Observer
 
 from .constants import WKS_HOME_EXT
 from .monitor_rules import MonitorRules
-from watchdog.observers import Observer
+
 try:
     from watchdog.observers.fsevents import FSEventsObserver  # macOS
 except Exception:  # pragma: no cover
@@ -24,7 +26,7 @@ try:
     from watchdog.observers.polling import PollingObserver  # cross-platform
 except Exception:  # pragma: no cover
     PollingObserver = None  # type: ignore
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 
 class WKSFileMonitor(FileSystemEventHandler):
@@ -61,11 +63,11 @@ class WKSFileMonitor(FileSystemEventHandler):
         """Load state from JSON file."""
         if self.state_file.exists():
             try:
-                with open(self.state_file, 'r') as f:
+                with open(self.state_file, "r") as f:
                     return json.load(f)
-            except (json.JSONDecodeError, OSError) as e:
+            except (json.JSONDecodeError, OSError):
                 # State file corrupted, back it up and start fresh
-                backup_file = self.state_file.with_suffix('.json.backup')
+                backup_file = self.state_file.with_suffix(".json.backup")
                 try:
                     self.state_file.rename(backup_file)
                     print(f"Warning: Corrupted state file backed up to {backup_file}")
@@ -77,7 +79,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         """Save state to JSON file."""
         self.state["last_update"] = datetime.now().isoformat()
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.state_file, 'w') as f:
+        with open(self.state_file, "w") as f:
             json.dump(self.state, f, indent=2)
 
     def _should_ignore(self, path: str) -> bool:
@@ -97,18 +99,16 @@ class WKSFileMonitor(FileSystemEventHandler):
         if path_str not in self.state["files"]:
             self.state["files"][path_str] = {
                 "created": datetime.now().isoformat(),
-                "modifications": []
+                "modifications": [],
             }
 
-        self.state["files"][path_str]["modifications"].append({
-            "type": event_type,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.state["files"][path_str]["modifications"].append(
+            {"type": event_type, "timestamp": datetime.now().isoformat()}
+        )
 
         # Keep only last 10 modifications per file
         if len(self.state["files"][path_str]["modifications"]) > 10:
-            self.state["files"][path_str]["modifications"] = \
-                self.state["files"][path_str]["modifications"][-10:]
+            self.state["files"][path_str]["modifications"] = self.state["files"][path_str]["modifications"][-10:]
 
         self._save_state()
 
@@ -145,20 +145,21 @@ class WKSFileMonitor(FileSystemEventHandler):
             if dest_str not in self.state["files"]:
                 self.state["files"][dest_str] = {
                     "created": datetime.now().isoformat(),
-                    "modifications": []
+                    "modifications": [],
                 }
 
-            self.state["files"][dest_str]["modifications"].append({
-                "type": "moved",
-                "from": src_str,
-                "to": dest_str,
-                "timestamp": datetime.now().isoformat()
-            })
+            self.state["files"][dest_str]["modifications"].append(
+                {
+                    "type": "moved",
+                    "from": src_str,
+                    "to": dest_str,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
             # Keep only last 10 modifications
             if len(self.state["files"][dest_str]["modifications"]) > 10:
-                self.state["files"][dest_str]["modifications"] = \
-                    self.state["files"][dest_str]["modifications"][-10:]
+                self.state["files"][dest_str]["modifications"] = self.state["files"][dest_str]["modifications"][-10:]
 
             self._save_state()
 
@@ -271,7 +272,7 @@ if __name__ == "__main__":
     observer = start_monitoring(
         directories=[Path.home()],
         state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",
-        on_change=on_file_change
+        on_change=on_file_change,
     )
 
     try:

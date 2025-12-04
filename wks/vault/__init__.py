@@ -23,14 +23,10 @@ def _resolve_obsidian_settings(cfg: Dict[str, Any]) -> Dict[str, Any]:
     vault_cfg = cfg.get("vault", {}) or {}
     base_path = vault_cfg.get("base_dir")
     if not base_path:
-        raise SystemExit(
-            f"Fatal: 'vault.base_dir' is required in {WKS_HOME_DISPLAY}/config.json"
-        )
+        raise SystemExit(f"Fatal: 'vault.base_dir' is required in {WKS_HOME_DISPLAY}/config.json")
     wks_dir = vault_cfg.get("wks_dir")
     if not wks_dir:
-        raise SystemExit(
-            f"Fatal: 'vault.wks_dir' is required in {WKS_HOME_DISPLAY}/config.json"
-        )
+        raise SystemExit(f"Fatal: 'vault.wks_dir' is required in {WKS_HOME_DISPLAY}/config.json")
     return {
         "vault_path": expand_path(base_path),
         "base_dir": wks_dir,
@@ -41,6 +37,7 @@ def load_vault(cfg: Optional[Dict[str, Any]] = None) -> ObsidianVault:
     """Build the configured vault implementation."""
     if cfg is None:
         from ..config import load_config
+
         cfg = load_config()
     # cfg = cfg or load_config()
     vault_cfg = cfg.get("vault", {})

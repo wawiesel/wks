@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__ = ["DiffConfigError", "DiffConfig", "DiffEngineConfig", "DiffRouterConfig"]
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 class DiffConfigError(Exception):
@@ -223,10 +223,9 @@ class DiffConfig:
         """
         diff_config = config.get("diff")
         if not diff_config:
-            raise DiffConfigError([
-                "diff section is required in config "
-                "(found: missing, expected: diff section with engines and _router)"
-            ])
+            raise DiffConfigError(
+                ["diff section is required in config (found: missing, expected: diff section with engines and _router)"]
+            )
 
         # Extract engines config
         engines_config = diff_config.get("engines", {})
@@ -234,11 +233,13 @@ class DiffConfig:
 
         for engine_name, engine_dict in engines_config.items():
             if not isinstance(engine_dict, dict):
-                raise DiffConfigError([
-                    f"diff.engines['{engine_name}'] must be a dict "
-                    f"(found: {type(engine_dict).__name__}, "
-                    f"expected: dict with 'enabled', 'is_default', and optional options)"
-                ])
+                raise DiffConfigError(
+                    [
+                        f"diff.engines['{engine_name}'] must be a dict "
+                        f"(found: {type(engine_dict).__name__}, "
+                        f"expected: dict with 'enabled', 'is_default', and optional options)"
+                    ]
+                )
 
             enabled = engine_dict.get("enabled", False)
             is_default = engine_dict.get("is_default", False)
@@ -247,10 +248,7 @@ class DiffConfig:
             options.pop("is_default", None)
 
             engines[engine_name] = DiffEngineConfig(
-                name=engine_name,
-                enabled=enabled,
-                is_default=is_default,
-                options=options
+                name=engine_name, enabled=enabled, is_default=is_default, options=options
             )
 
         # Extract router config
@@ -258,9 +256,6 @@ class DiffConfig:
         rules = router_config.get("rules", [])
         fallback = router_config.get("fallback", "")
 
-        router = DiffRouterConfig(
-            rules=rules,
-            fallback=fallback
-        )
+        router = DiffRouterConfig(rules=rules, fallback=fallback)
 
         return cls(engines=engines, router=router)

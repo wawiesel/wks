@@ -12,6 +12,8 @@ This module provides all monitor-related functionality:
 All imports organized for easy access.
 """
 
+# Import filesystem monitoring functionality from filesystem_monitor module
+from ..filesystem_monitor import WKSFileMonitor, start_monitoring
 from .config import MonitorConfig, ValidationError
 from .controller import MonitorController
 from .operations import MonitorOperations
@@ -23,9 +25,6 @@ from .status import (
     MonitorStatus,
 )
 from .validator import MonitorValidator
-
-# Import filesystem monitoring functionality from filesystem_monitor module
-from ..filesystem_monitor import start_monitoring, WKSFileMonitor
 
 __all__ = [
     # Config

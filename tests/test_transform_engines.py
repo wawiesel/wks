@@ -1,6 +1,6 @@
 """Tests for transform engine registry."""
 
-from wks.transform.engines import get_engine, DoclingEngine, TestEngine
+from wks.transform.engines import DoclingEngine, TestEngine, get_engine
 
 
 def test_get_engine_docling():
@@ -24,4 +24,3 @@ def test_get_engine_unknown():
     engine = get_engine("unknown")
 
     assert engine is None
-

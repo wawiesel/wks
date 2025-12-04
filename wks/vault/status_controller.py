@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__ = ["VaultIssue", "VaultStatusSummary", "VaultStatusController"]
 
 from contextlib import contextmanager
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, Iterator, List, Optional
 
 from pymongo import MongoClient
@@ -14,14 +14,14 @@ from pymongo.collection import Collection
 from ..config import WKSConfig
 from .constants import (
     DOC_TYPE_LINK,
-    META_DOCUMENT_ID,
-    STATUS_OK,
-    STATUS_MISSING_SYMLINK,
-    STATUS_MISSING_TARGET,
-    STATUS_LEGACY_LINK,
-    LINK_TYPE_WIKILINK,
     LINK_TYPE_EMBED,
     LINK_TYPE_MARKDOWN_URL,
+    LINK_TYPE_WIKILINK,
+    META_DOCUMENT_ID,
+    STATUS_LEGACY_LINK,
+    STATUS_MISSING_SYMLINK,
+    STATUS_MISSING_TARGET,
+    STATUS_OK,
 )
 
 
@@ -119,18 +119,22 @@ class VaultStatusController:
 
     def _fetch_issues(self, collection, limit: int = 10) -> List[VaultIssue]:
         """Fetch recent non-ok link issues from collection."""
-        issues_cursor = collection.find(
-            {"doc_type": DOC_TYPE_LINK, "status": {"$ne": STATUS_OK}},
-            {
-                "from_uri": 1,
-                "line_number": 1,
-                "to_uri": 1,
-                "status": 1,
-                "source_heading": 1,
-                "raw_line": 1,
-                "last_updated": 1,
-            },
-        ).sort("last_updated", -1).limit(limit)
+        issues_cursor = (
+            collection.find(
+                {"doc_type": DOC_TYPE_LINK, "status": {"$ne": STATUS_OK}},
+                {
+                    "from_uri": 1,
+                    "line_number": 1,
+                    "to_uri": 1,
+                    "status": 1,
+                    "source_heading": 1,
+                    "raw_line": 1,
+                    "last_updated": 1,
+                },
+            )
+            .sort("last_updated", -1)
+            .limit(limit)
+        )
         return [
             VaultIssue(
                 note_path=(doc.get("from_uri", "") or "").replace("vault:///", ""),

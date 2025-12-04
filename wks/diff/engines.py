@@ -7,6 +7,7 @@ from typing import Optional
 
 try:
     import bsdiff4
+
     BSDIFF4_AVAILABLE = True
 except ImportError:
     BSDIFF4_AVAILABLE = False
@@ -53,9 +54,7 @@ class Bsdiff3Engine(DiffEngine):
             RuntimeError: If bsdiff4 is not available or diff operation fails
         """
         if not BSDIFF4_AVAILABLE:
-            raise RuntimeError(
-                "bsdiff4 package is required for binary diff. Install with: pip install bsdiff4"
-            )
+            raise RuntimeError("bsdiff4 package is required for binary diff. Install with: pip install bsdiff4")
 
         # Read file contents
         try:
@@ -72,10 +71,10 @@ class Bsdiff3Engine(DiffEngine):
         try:
             patch = bsdiff4.diff(old_data, new_data)
             patch_size = len(patch)
-            
+
             size1 = len(old_data)
             size2 = len(new_data)
-            
+
             # Return informative diff summary
             return (
                 f"Binary diff (bsdiff4 patch):\n"
@@ -123,7 +122,7 @@ class MyersEngine(DiffEngine):
                 cmd,
                 capture_output=True,
                 text=True,
-                check=False  # diff returns 1 for differences, which is OK
+                check=False,  # diff returns 1 for differences, which is OK
             )
 
             # Return code 0 = no differences, 1 = differences found, 2+ = error
@@ -151,21 +150,21 @@ class MyersEngine(DiffEngine):
         """
         try:
             # Read first chunk to check for binary content
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 chunk = f.read(8192)
 
             # Check for null bytes (binary indicator)
-            if b'\x00' in chunk:
+            if b"\x00" in chunk:
                 return False
 
             # Try to decode as UTF-8
             try:
-                chunk.decode('utf-8')
+                chunk.decode("utf-8")
                 return True
             except UnicodeDecodeError:
                 # Try ASCII
                 try:
-                    chunk.decode('ascii')
+                    chunk.decode("ascii")
                     return True
                 except UnicodeDecodeError:
                     return False

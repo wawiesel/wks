@@ -2,18 +2,25 @@
 
 import sys
 from typing import Any, Dict, List, Optional
-from pathlib import Path
 
 from ..constants import MAX_DISPLAY_WIDTH
 
 try:
-    from rich.console import Console
-    from rich.table import Table
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
-    from rich.tree import Tree
-    from rich.panel import Panel
-    from rich.syntax import Syntax
     from rich import print as rprint
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeRemainingColumn,
+    )
+    from rich.syntax import Syntax
+    from rich.table import Table
+    from rich.tree import Tree
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -32,6 +39,7 @@ class CLIDisplay(Display):
         detected_width = None
         try:
             import shutil
+
             detected_width = shutil.get_terminal_size().columns
         except Exception:
             pass
@@ -81,7 +89,12 @@ class CLIDisplay(Display):
         if headers is None:
             headers = list(data[0].keys())
 
-        table = Table(title=title, show_header=show_header, header_style="bold cyan", width=min(width, MAX_DISPLAY_WIDTH))
+        table = Table(
+            title=title,
+            show_header=show_header,
+            header_style="bold cyan",
+            width=min(width, MAX_DISPLAY_WIDTH),
+        )
 
         for header in headers:
             justify = column_justify.get(header, "left")
@@ -100,7 +113,7 @@ class CLIDisplay(Display):
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn(),
-            console=self.stderr_console  # Progress goes to STDERR
+            console=self.stderr_console,  # Progress goes to STDERR
         )
         progress.start()
         task_id = progress.add_task(description, total=total)
@@ -180,6 +193,7 @@ class CLIDisplay(Display):
     def json_output(self, data: Any, **kwargs) -> None:
         """Output JSON with syntax highlighting."""
         import json
+
         indent = kwargs.get("indent", 2)
         json_str = json.dumps(data, indent=indent)
         syntax = Syntax(json_str, "json", theme="monokai", line_numbers=False)

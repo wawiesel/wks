@@ -8,7 +8,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -16,21 +15,22 @@ import pytest
 # Path to the wks executable or module
 WKS_CMD = [sys.executable, "-m", "wks.cli", "mcp", "run", "--direct"]
 
+
 @pytest.fixture(scope="module")
 def mcp_process(tmp_path_factory):
     """Start MCP server process."""
     env_dir = tmp_path_factory.mktemp("mcp_env")
     home_dir = env_dir / "home"
     home_dir.mkdir()
-    
+
     # Set HOME to the temp dir to isolate config
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
-    
+
     # Add project root to PYTHONPATH
     project_root = str(Path(__file__).parents[2])
     env["PYTHONPATH"] = project_root
-    
+
     # Create config in current WKSConfig / DiffConfig format
     (home_dir / ".wks").mkdir()
     config = {
@@ -53,10 +53,7 @@ def mcp_process(tmp_path_factory):
             "wks_dir": "WKS",
             "update_frequency_seconds": 3600,
         },
-        "db": {
-            "type": "mongodb",
-            "uri": "mongodb://localhost:27017"
-        },
+        "db": {"type": "mongodb", "uri": "mongodb://localhost:27017"},
         "transform": {
             "cache": {
                 "location": ".wks/cache",
@@ -76,7 +73,7 @@ def mcp_process(tmp_path_factory):
         },
     }
     (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
-    
+
     # Start process
     process = subprocess.Popen(
         WKS_CMD,
@@ -85,38 +82,36 @@ def mcp_process(tmp_path_factory):
         stderr=subprocess.PIPE,
         env=env,
         text=True,
-        bufsize=0 # Unbuffered
+        bufsize=0,  # Unbuffered
     )
-    
+
     yield process
-    
+
     process.terminate()
     process.wait()
 
+
 def send_request(process, method, params=None, req_id=1):
     """Send JSON-RPC request and get response."""
-    request = {
-        "jsonrpc": "2.0",
-        "id": req_id,
-        "method": method,
-        "params": params or {}
-    }
-    
+    request = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params or {}}
+
     # Write request
     process.stdin.write(json.dumps(request) + "\n")
     process.stdin.flush()
-    
+
     # Read response
     line = process.stdout.readline()
     if not line:
         return None
-    
+
     return json.loads(line)
+
 
 def test_mcp_initialize(mcp_process):
     """Test initialize."""
     response = send_request(mcp_process, "initialize")
     assert response["result"]["serverInfo"]["name"] == "wks-mcp-server"
+
 
 def test_mcp_list_tools(mcp_process):
     """Test tools/list."""
@@ -124,22 +119,23 @@ def test_mcp_list_tools(mcp_process):
     tools = response["result"]["tools"]
     assert any(t["name"] == "wksm_monitor_status" for t in tools)
 
+
 def test_mcp_call_monitor_status(mcp_process):
     """Test tools/call wks_monitor_status."""
-    response = send_request(mcp_process, "tools/call", {
-        "name": "wksm_monitor_status",
-        "arguments": {}
-    }, req_id=3)
-    
+    response = send_request(mcp_process, "tools/call", {"name": "wksm_monitor_status", "arguments": {}}, req_id=3)
+
     content = json.loads(response["result"]["content"][0]["text"])
     assert "tracked_files" in content
 
+
 def test_mcp_call_monitor_check(mcp_process):
     """Test tools/call wks_monitor_check."""
-    response = send_request(mcp_process, "tools/call", {
-        "name": "wksm_monitor_check",
-        "arguments": {"path": "/tmp"}
-    }, req_id=4)
-    
+    response = send_request(
+        mcp_process,
+        "tools/call",
+        {"name": "wksm_monitor_check", "arguments": {"path": "/tmp"}},
+        req_id=4,
+    )
+
     content = json.loads(response["result"]["content"][0]["text"])
     assert "is_monitored" in content

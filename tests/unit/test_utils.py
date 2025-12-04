@@ -1,10 +1,10 @@
 """Tests for utility functions."""
 
-import os
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 from wks.utils import (
     expand_path,
     file_checksum,
@@ -68,6 +68,7 @@ class TestGetPackageVersion:
 
         # Clear cache first
         import wks.utils
+
         wks.utils._VERSION_CACHE = None
 
         version = get_package_version()
@@ -180,4 +181,3 @@ class TestWksHomePath:
         assert isinstance(path, Path)
         assert path.parts[-1] == "data"
         assert path.parts[-2] == "mongodb"
-

@@ -11,6 +11,87 @@
 
 2. **Dependencies**: Install whatever you need in `.venv`.
 
+## Git Commit Standards
+
+We follow the **Conventional Commits** specification for clear and machine-readable commit history.
+
+**Format**:
+```text
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Types**:
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc.)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `chore`: Changes to the build process or auxiliary tools and libraries
+
+**Examples**:
+- `feat(auth): implement jwt token validation`
+- `fix(cli): resolve crash on missing config file`
+- `docs: update contributing guidelines`
+
+## Quality Checks & Hooks
+
+To ensure code quality and consistency, we use a combination of local Git hooks and GitHub Actions.
+
+### Local Pre-commit Hooks
+
+We use `pre-commit` to manage Git hooks, which run automatically before you commit or push your changes. These hooks help catch common issues early in the development cycle.
+
+**Setup**:
+1. Install `pre-commit` (it's listed in `setup.py` and installed with `pip install -e .`).
+2. Activate the hooks in your local Git repository:
+   ```bash
+   pre-commit install --hook-type pre-commit --hook-type pre-push
+   ```
+   This command installs scripts into your `.git/hooks` directory that will run the configured checks.
+
+**Checks Performed**:
+*   **`pre-commit` hooks**:
+    *   `trailing-whitespace`: Removes extraneous whitespace at the end of lines.
+    *   `end-of-file-fixer`: Ensures files end with a single newline.
+    *   `check-yaml`: Checks YAML file syntax.
+    *   `check-added-large-files`: Prevents committing very large files.
+    *   `check-format.py`: Runs `ruff format --check` and `ruff check` (linting).
+    *   `check-types.py`: Runs `mypy` for static type checking.
+*   **`pre-push` hooks**:
+    *   `pytest`: Runs the full test suite.
+    *   `check-complexity.py`: Runs `lizard` for code complexity analysis.
+
+To manually run all checks: `./scripts/check_quality.py [--fix]`
+To manually run a specific check: `./scripts/check_format.py [--fix]`
+
+### Continuous Integration (CI) Checks
+
+Our GitHub Actions workflow (`.github/workflows/quality.yml`) enforces these same quality checks on every pull request. This ensures that all code merged into `main` adheres to our standards.
+
+## Test Suites
+
+We have three levels of tests, each runnable independently via scripts:
+
+*   **Smoke Tests**: Quick, high-level tests to ensure basic functionality.
+    ```bash
+    ./scripts/test_smoke.py
+    ```
+*   **Unit Tests**: Isolated tests for individual functions and components.
+    ```bash
+    ./scripts/test_unit.py
+    ```
+*   **Integration Tests**: Tests that verify interactions between different components and external systems.
+    ```bash
+    ./scripts/test_integration.py
+    ```
+These scripts are also integrated into the `pre-push` hook (for the full `pytest` suite) and are run as part of the CI pipeline.
+
 ## Coding Standards
 
 ### General Principles
@@ -85,7 +166,7 @@ WKS follows a three-layer architecture with clear separation of concerns:
   - `log`: optional list of log entries for debugging
 - CLI consumes `MCPResult` and formats messages appropriately:
   - Errors/Warnings/Info → STDERR
-  - Status messages → STDERR  
+  - Status messages → STDERR
   - Result data → STDOUT (if success)
 - MCP protocol sends warnings/errors in JSON-RPC response packets
 

@@ -1,7 +1,6 @@
 """Tests for wks/display/service.py - Service status display helpers."""
 
-import pytest
-from wks.display.service import fmt_bool, format_timestamp, build_status_rows
+from wks.display.service import build_status_rows, fmt_bool, format_timestamp
 from wks.service_controller import ServiceStatusData, ServiceStatusLaunch
 
 
@@ -68,12 +67,12 @@ class TestBuildStatusRows:
             lock=True,
         )
         rows = build_status_rows(status)
-        
+
         # Should have Health and File System sections
         labels = [r[0] for r in rows]
         assert any("Health" in l for l in labels)
         assert any("File System" in l for l in labels)
-        
+
         # Check specific values
         row_dict = {r[0].strip(): r[1] for r in rows}
         assert "[green]true[/green]" in row_dict.get("Running", "")
@@ -91,13 +90,13 @@ class TestBuildStatusRows:
                 stderr="/var/log/wks.err",
                 path="/path/to/plist",
                 type="LaunchAgent",
-            )
+            ),
         )
         rows = build_status_rows(status)
-        
+
         labels = [r[0] for r in rows]
         assert any("Launch" in l for l in labels)
-        
+
         row_dict = {r[0].strip(): r[1] for r in rows}
         assert row_dict.get("Program", "") == "/usr/bin/python3"
 
@@ -105,7 +104,7 @@ class TestBuildStatusRows:
         """Test status without launch agent data."""
         status = ServiceStatusData(running=True)
         rows = build_status_rows(status)
-        
+
         # Should NOT have Launch section (launch is empty)
         labels = [r[0] for r in rows]
         # The "[bold cyan]Launch[/bold cyan]" should not appear
@@ -122,7 +121,7 @@ class TestBuildStatusRows:
             pending_mods=10,
         )
         rows = build_status_rows(status)
-        
+
         row_dict = {r[0].strip(): r[1] for r in rows}
         assert row_dict.get("Pending deletes", "") == "5"
         assert row_dict.get("Pending mods", "") == "10"
@@ -134,7 +133,7 @@ class TestBuildStatusRows:
         """Test status with None values shows dashes."""
         status = ServiceStatusData()
         rows = build_status_rows(status)
-        
+
         row_dict = {r[0].strip(): r[1] for r in rows}
         assert row_dict.get("Uptime", "") == "-"
         assert row_dict.get("PID", "") == "-"
@@ -148,10 +147,9 @@ class TestBuildStatusRows:
                 state="running",
                 arguments="/usr/bin/python3 -m wks.daemon",
                 type="LaunchAgent",
-            )
+            ),
         )
         rows = build_status_rows(status)
-        
+
         row_dict = {r[0].strip(): r[1] for r in rows}
         assert row_dict.get("Program", "") == "/usr/bin/python3 -m wks.daemon"
-

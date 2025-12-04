@@ -2,7 +2,6 @@ import json
 import shutil
 import time
 import unittest
-from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -39,7 +38,10 @@ class TestWKSFileMonitor(unittest.TestCase):
         self.assertEqual(monitor.state, {"files": {}, "last_update": None})
 
     def test_load_state_from_disk(self):
-        stored = {"files": {str(self.temp_dir / "foo.md"): {}}, "last_update": "2025-01-01T00:00:00"}
+        stored = {
+            "files": {str(self.temp_dir / "foo.md"): {}},
+            "last_update": "2025-01-01T00:00:00",
+        }
         self.state_file.write_text(json.dumps(stored))
         monitor = self._build_monitor()
         self.assertEqual(monitor.state, stored)
@@ -152,9 +154,7 @@ class TestStartMonitoring(unittest.TestCase):
     @patch("wks.filesystem_monitor.KqueueObserver")
     @patch("wks.filesystem_monitor.FSEventsObserver")
     @patch("wks.filesystem_monitor.Observer")
-    def test_start_monitoring_selects_available_observer(
-        self, mock_observer, mock_fsevents, mock_kqueue, mock_polling
-    ):
+    def test_start_monitoring_selects_available_observer(self, mock_observer, mock_fsevents, mock_kqueue, mock_polling):
         import wks.filesystem_monitor as monitor_mod
 
         monitor_mod.FSEventsObserver = mock_fsevents
@@ -168,12 +168,15 @@ class TestStartMonitoring(unittest.TestCase):
             monitor_rules=self.rules,
         )
         self.assertIsNotNone(observer)
-        scheduled = any(instance.schedule.called for instance in [
-            mock_observer.return_value,
-            mock_fsevents.return_value,
-            mock_kqueue.return_value,
-            mock_polling.return_value,
-        ])
+        scheduled = any(
+            instance.schedule.called
+            for instance in [
+                mock_observer.return_value,
+                mock_fsevents.return_value,
+                mock_kqueue.return_value,
+                mock_polling.return_value,
+            ]
+        )
         self.assertTrue(scheduled)
 
 

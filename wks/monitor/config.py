@@ -1,7 +1,7 @@
 """Monitor configuration dataclass with validation."""
 
 from dataclasses import dataclass, field, fields
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 
 class ValidationError(Exception):
@@ -16,6 +16,7 @@ class ValidationError(Exception):
 @dataclass
 class MonitorConfig:
     """Monitor configuration loaded from config dict with validation."""
+
     include_paths: List[str]
     exclude_paths: List[str]
     include_dirnames: List[str]
@@ -34,25 +35,39 @@ class MonitorConfig:
         errors = []
 
         if not isinstance(self.include_paths, list):
-            errors.append(f"monitor.include_paths must be a list (found: {type(self.include_paths).__name__} = {self.include_paths!r}, expected: list)")
+            errors.append(
+                f"monitor.include_paths must be a list (found: {type(self.include_paths).__name__} = {self.include_paths!r}, expected: list)"
+            )
 
         if not isinstance(self.exclude_paths, list):
-            errors.append(f"monitor.exclude_paths must be a list (found: {type(self.exclude_paths).__name__} = {self.exclude_paths!r}, expected: list)")
+            errors.append(
+                f"monitor.exclude_paths must be a list (found: {type(self.exclude_paths).__name__} = {self.exclude_paths!r}, expected: list)"
+            )
 
         if not isinstance(self.include_dirnames, list):
-            errors.append(f"monitor.include_dirnames must be a list (found: {type(self.include_dirnames).__name__} = {self.include_dirnames!r}, expected: list)")
+            errors.append(
+                f"monitor.include_dirnames must be a list (found: {type(self.include_dirnames).__name__} = {self.include_dirnames!r}, expected: list)"
+            )
 
         if not isinstance(self.exclude_dirnames, list):
-            errors.append(f"monitor.exclude_dirnames must be a list (found: {type(self.exclude_dirnames).__name__} = {self.exclude_dirnames!r}, expected: list)")
+            errors.append(
+                f"monitor.exclude_dirnames must be a list (found: {type(self.exclude_dirnames).__name__} = {self.exclude_dirnames!r}, expected: list)"
+            )
 
         if not isinstance(self.include_globs, list):
-            errors.append(f"monitor.include_globs must be a list (found: {type(self.include_globs).__name__} = {self.include_globs!r}, expected: list)")
+            errors.append(
+                f"monitor.include_globs must be a list (found: {type(self.include_globs).__name__} = {self.include_globs!r}, expected: list)"
+            )
 
         if not isinstance(self.exclude_globs, list):
-            errors.append(f"monitor.exclude_globs must be a list (found: {type(self.exclude_globs).__name__} = {self.exclude_globs!r}, expected: list)")
+            errors.append(
+                f"monitor.exclude_globs must be a list (found: {type(self.exclude_globs).__name__} = {self.exclude_globs!r}, expected: list)"
+            )
 
         if not isinstance(self.managed_directories, dict):
-            errors.append(f"monitor.managed_directories must be a dict (found: {type(self.managed_directories).__name__} = {self.managed_directories!r}, expected: dict)")
+            errors.append(
+                f"monitor.managed_directories must be a dict (found: {type(self.managed_directories).__name__} = {self.managed_directories!r}, expected: dict)"
+            )
 
         return errors
 
@@ -61,11 +76,15 @@ class MonitorConfig:
         errors = []
 
         if not isinstance(self.database, str) or "." not in self.database:
-            errors.append(f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor')")
+            errors.append(
+                f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor')"
+            )
         elif isinstance(self.database, str):
             parts = self.database.split(".", 1)
             if len(parts) != 2 or not parts[0] or not parts[1]:
-                errors.append(f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor' with both parts non-empty)")
+                errors.append(
+                    f"monitor.database must be in format 'database.collection' (found: {self.database!r}, expected: format like 'wks.monitor' with both parts non-empty)"
+                )
 
         return errors
 
@@ -74,13 +93,19 @@ class MonitorConfig:
         errors = []
 
         if not isinstance(self.touch_weight, (int, float)) or self.touch_weight < 0.001 or self.touch_weight > 1.0:
-            errors.append(f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(self.touch_weight).__name__} = {self.touch_weight!r}, expected: float between 0.001 and 1.0)")
+            errors.append(
+                f"monitor.touch_weight must be a number between 0.001 and 1 (found: {type(self.touch_weight).__name__} = {self.touch_weight!r}, expected: float between 0.001 and 1.0)"
+            )
 
         if not isinstance(self.max_documents, int) or self.max_documents < 0:
-            errors.append(f"monitor.max_documents must be a non-negative integer (found: {type(self.max_documents).__name__} = {self.max_documents!r}, expected: integer >= 0)")
+            errors.append(
+                f"monitor.max_documents must be a non-negative integer (found: {type(self.max_documents).__name__} = {self.max_documents!r}, expected: integer >= 0)"
+            )
 
         if not isinstance(self.prune_interval_secs, (int, float)) or self.prune_interval_secs <= 0:
-            errors.append(f"monitor.prune_interval_secs must be a positive number (found: {type(self.prune_interval_secs).__name__} = {self.prune_interval_secs!r}, expected: float > 0)")
+            errors.append(
+                f"monitor.prune_interval_secs must be a positive number (found: {type(self.prune_interval_secs).__name__} = {self.prune_interval_secs!r}, expected: float > 0)"
+            )
 
         return errors
 
@@ -108,7 +133,9 @@ class MonitorConfig:
         """
         monitor_config = config.get("monitor")
         if not monitor_config:
-            raise KeyError("monitor section is required in config (found: missing, expected: monitor section with include_paths, exclude_paths, etc.)")
+            raise KeyError(
+                "monitor section is required in config (found: missing, expected: monitor section with include_paths, exclude_paths, etc.)"
+            )
 
         monitor_config = dict(monitor_config)
 

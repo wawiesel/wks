@@ -1,6 +1,6 @@
 """Shared constants for WKS dot-directories and artefact locations."""
 
-WKS_HOME_EXT = ".wks"   # user-level state/config directory suffix
+WKS_HOME_EXT = ".wks"  # user-level state/config directory suffix
 
 WKS_HOME_DISPLAY = f"~/{WKS_HOME_EXT}"  # user-readable path hint
 

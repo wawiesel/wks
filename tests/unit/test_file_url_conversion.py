@@ -1,13 +1,12 @@
 """Test automatic conversion of file:// URLs to _links/ symlinks."""
 
-from pathlib import Path
 import platform
+
 import mongomock
 import pytest
 
-from wks.vault.obsidian import ObsidianVault
 from wks.vault.indexer import VaultLinkIndexer, VaultLinkScanner
-
+from wks.vault.obsidian import ObsidianVault
 
 
 @pytest.fixture()
@@ -33,9 +32,12 @@ def test_setup(tmp_path, monkeypatch):
     client = mongomock.MongoClient()
     monkeypatch.setattr("wks.vault.indexer.MongoClient", lambda *a, **k: client)
     from mongomock.collection import BulkOperationBuilder
+
     original = BulkOperationBuilder.add_update
+
     def wrapper(self, selector, document, check_keys, upsert, **kwargs):
         return original(self, selector, document, check_keys, upsert)
+
     monkeypatch.setattr(BulkOperationBuilder, "add_update", wrapper)
 
     return {
@@ -63,7 +65,7 @@ def test_file_url_auto_conversion(test_setup):
     vault = ObsidianVault(vault_path=vault_root, base_dir="Projects")
     scanner = VaultLinkScanner(vault)
 
-    print(f"\n✓ Initial note content:")
+    print("\n✓ Initial note content:")
     print(f"  {note.read_text()}")
     print(f"  File URL: {file_url}")
 
@@ -111,7 +113,7 @@ def test_file_url_with_indexer(test_setup):
         vault=vault,
         mongo_uri="mongodb://localhost:27017",
         db_name="test_wks",
-        coll_name="test_vault"
+        coll_name="test_vault",
     )
 
     print(f"\n✓ Original markdown: {note.read_text()}")
@@ -135,7 +137,7 @@ def test_file_url_with_indexer(test_setup):
     assert link_doc is not None
     assert link_doc["link_type"] == "wikilink"
     assert link_doc["to_uri"].startswith("file://")
-    print(f"✓ Database indexed with:")
+    print("✓ Database indexed with:")
     print(f"  link_type: {link_doc['link_type']}")
     print(f"  to_uri: {link_doc['to_uri']}")
 

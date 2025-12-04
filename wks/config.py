@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional
 
-from .constants import WKS_HOME_EXT
-from .utils import wks_home_path, get_wks_home
-from .transform.config import TransformConfig
 from .diff.config import DiffConfig
+from .monitor.config import MonitorConfig
+from .monitor.config import ValidationError as MonitorValidationError
+from .transform.config import TransformConfig
+from .utils import get_wks_home
 from .vault.config import VaultConfig
-from .monitor.config import MonitorConfig, ValidationError as MonitorValidationError
 
 DEFAULT_MONGO_URI = "mongodb://localhost:27017/"
 DEFAULT_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -18,19 +18,21 @@ DEFAULT_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 class ConfigError(Exception):
     """Base exception for configuration errors."""
+
     pass
 
 
 @dataclass
 class MongoSettings:
     """Normalized MongoDB connection settings."""
+
     uri: str
 
     def __post_init__(self):
         if not self.uri:
             self.uri = DEFAULT_MONGO_URI
         if not self.uri.startswith("mongodb://") and not self.uri.startswith("mongodb+srv://"):
-             if not self.uri.startswith("mongodb"):
+            if not self.uri.startswith("mongodb"):
                 raise ConfigError(f"db.uri must start with 'mongodb://' (found: {self.uri!r})")
 
     @classmethod
@@ -44,6 +46,7 @@ class MongoSettings:
 @dataclass
 class MetricsConfig:
     """Metrics configuration."""
+
     fs_rate_short_window_secs: float = 10.0
     fs_rate_long_window_secs: float = 600.0
     fs_rate_short_weight: float = 0.8
@@ -63,6 +66,7 @@ class MetricsConfig:
 @dataclass
 class DisplayConfig:
     """Display configuration."""
+
     timestamp_format: str = DEFAULT_TIMESTAMP_FORMAT
 
     @classmethod
@@ -114,7 +118,7 @@ class WKSConfig:
             diff = DiffConfig.from_config_dict(raw) if "diff" in raw else None
             transform = TransformConfig.from_config_dict(raw)
             display = DisplayConfig.from_config(raw)
-            
+
             return cls(
                 vault=vault,
                 monitor=monitor,
@@ -134,12 +138,13 @@ def get_config_path() -> Path:
     """Get path to WKS config file."""
     return get_wks_home() / "config.json"
 
+
 # Backwards compatibility - DEPRECATED
 
 
 def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
     """Compatibility wrapper returning a dict-shaped config for legacy callers.
-    
+
     New code should prefer WKSConfig.load() and dataclasses directly. This
     function exists so older modules (MCP tools, vault helpers, etc.) that
     still expect a plain dict can continue to operate without duplicating

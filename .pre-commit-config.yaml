@@ -1,0 +1,38 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: check-format
+        name: Check Formatting (Ruff)
+        entry: scripts/check_format.py
+        language: script
+        types: [python]
+        
+      - id: check-types
+        name: Check Types (Mypy)
+        entry: scripts/check_types.py
+        language: script
+        types: [python]
+        require_serial: true
+
+      - id: check-complexity
+        name: Check Complexity (Lizard)
+        entry: scripts/check_complexity.py
+        language: script
+        types: [python]
+        stages: [pre-push]
+
+      - id: pytest
+        name: pytest
+        entry: .venv/bin/pytest
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

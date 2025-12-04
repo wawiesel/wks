@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="wks",
@@ -8,17 +8,24 @@ setup(
     packages=find_packages(),
     python_requires=">=3.8",
     install_requires=[
-        "watchdog",           # File system monitoring
-        "rich",               # Terminal formatting
-        "pymongo",            # MongoDB
+        "watchdog",  # File system monitoring
+        "rich",  # Terminal formatting
+        "pymongo",  # MongoDB
         "sentence-transformers",  # Embeddings
-        "docling",            # Required content extraction engine
-        "bsdiff4",            # Binary diff size for change snapshots
-        "mongomock",          # In-memory MongoDB for tests
-        "jinja2",             # Template rendering for CLI outputs
-        "pytest>=7.0",        # Testing framework
+        "docling",  # Required content extraction engine
+        "bsdiff4",  # Binary diff size for change snapshots
+        "mongomock",  # In-memory MongoDB for tests
+        "jinja2",  # Template rendering for CLI outputs
+        "pytest>=7.0",  # Testing framework
         "pytest-timeout>=2.1",  # Test timeouts
         "pytest-xdist>=3.0",  # Parallel test execution
+        "pre-commit",  # Git hook management
+        "ruff",  # Linting and formatting
+        "mypy",  # Static type checking
+        "lizard",  # Cyclomatic complexity
+        "types-requests",  # Type stubs
+        "types-PyYAML",  # Type stubs
+        "types-setuptools",  # Type stubs
     ],
     entry_points={
         "console_scripts": [

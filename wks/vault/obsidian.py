@@ -8,8 +8,8 @@ tables are intentionally disabled until those features are needed again.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 import platform
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -29,6 +29,7 @@ class ObsidianVault:
         self._recompute_paths()
         try:
             from ..config import WKSConfig
+
             cfg = WKSConfig.load()
             self.timestamp_format = cfg.display.timestamp_format
         except Exception:
@@ -233,7 +234,9 @@ class ObsidianVault:
         except (OSError, PermissionError):
             pass
 
-    def create_project_note(self, project_path: Path, status: str = "Active", description: Optional[str] = None) -> Path:
+    def create_project_note(
+        self, project_path: Path, status: str = "Active", description: Optional[str] = None
+    ) -> Path:
         project_name = project_path.name
         note_path = self.projects_dir / f"{project_name}.md"
         parts = project_name.split("-", 1)
@@ -241,7 +244,7 @@ class ObsidianVault:
         content = f"""# {project_name}
 
 **Status:** {status}
-**Created:** {datetime.now().strftime('%Y-%m-%d')}
+**Created:** {datetime.now().strftime("%Y-%m-%d")}
 **Location:** `{project_path}`
 
 ## Overview

@@ -36,7 +36,7 @@ class MonitorOperations:
             # Preserve tilde notation if in home directory
             home_dir = str(Path.home())
             if value_resolved.startswith(home_dir):
-                value_to_store = "~" + value_resolved[len(home_dir):]
+                value_to_store = "~" + value_resolved[len(home_dir) :]
             else:
                 value_to_store = value_resolved
         else:
@@ -50,7 +50,9 @@ class MonitorOperations:
         entry = value.strip()
         is_valid, error_msg = MonitorValidator.validate_dirname_entry(entry)
         if not is_valid:
-            return ListOperationResult(success=False, message=error_msg or "Invalid directory name", validation_failed=True)
+            return ListOperationResult(
+                success=False, message=error_msg or "Invalid directory name", validation_failed=True
+            )
 
         opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
         if entry in config_dict["monitor"].get(opposite, []):
@@ -67,11 +69,15 @@ class MonitorOperations:
         entry = value.strip()
         is_valid, error_msg = MonitorValidator.validate_glob_pattern(entry)
         if not is_valid:
-            return ListOperationResult(success=False, message=error_msg or "Invalid glob pattern", validation_failed=True)
+            return ListOperationResult(
+                success=False, message=error_msg or "Invalid glob pattern", validation_failed=True
+            )
         return None
 
     @staticmethod
-    def _check_existing_entry(config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool) -> Optional[str]:
+    def _check_existing_entry(
+        config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool
+    ) -> Optional[str]:
         """Check if entry already exists. Returns existing entry if found, None otherwise."""
         for item in config_dict["monitor"][list_name]:
             if resolve_path:
@@ -125,9 +131,7 @@ class MonitorOperations:
         existing = MonitorOperations._check_existing_entry(config_dict, list_name, value_resolved, resolve_path)
         if existing:
             return ListOperationResult(
-                success=False,
-                message=f"Already in {list_name}: {existing}",
-                already_exists=True
+                success=False, message=f"Already in {list_name}: {existing}", already_exists=True
             )
 
         # Add to list
@@ -135,11 +139,13 @@ class MonitorOperations:
         return ListOperationResult(
             success=True,
             message=f"Added to {list_name}: {value_to_store}",
-            value_stored=value_to_store
+            value_stored=value_to_store,
         )
 
     @staticmethod
-    def remove_from_list(config_dict: dict, list_name: str, value: str, resolve_path: bool = True) -> ListOperationResult:
+    def remove_from_list(
+        config_dict: dict, list_name: str, value: str, resolve_path: bool = True
+    ) -> ListOperationResult:
         """Remove value from a monitor config list.
 
         Args:
@@ -152,11 +158,7 @@ class MonitorOperations:
             ListOperationResult with success status and message
         """
         if "monitor" not in config_dict or list_name not in config_dict["monitor"]:
-            return ListOperationResult(
-                success=False,
-                message=f"No {list_name} configured",
-                not_found=True
-            )
+            return ListOperationResult(success=False, message=f"No {list_name} configured", not_found=True)
 
         # Find matching entry
         existing = None
@@ -168,7 +170,12 @@ class MonitorOperations:
                     existing = item
                     break
         else:
-            if list_name in ("include_dirnames", "exclude_dirnames", "include_globs", "exclude_globs"):
+            if list_name in (
+                "include_dirnames",
+                "exclude_dirnames",
+                "include_globs",
+                "exclude_globs",
+            ):
                 search_value = value.strip()
             else:
                 search_value = value
@@ -178,18 +185,12 @@ class MonitorOperations:
                     break
 
         if not existing:
-            return ListOperationResult(
-                success=False,
-                message=f"Not in {list_name}: {value}",
-                not_found=True
-            )
+            return ListOperationResult(success=False, message=f"Not in {list_name}: {value}", not_found=True)
 
         # Remove from list
         config_dict["monitor"][list_name].remove(existing)
         return ListOperationResult(
-            success=True,
-            message=f"Removed from {list_name}: {existing}",
-            value_removed=existing
+            success=True, message=f"Removed from {list_name}: {existing}", value_removed=existing
         )
 
     @staticmethod
@@ -219,7 +220,7 @@ class MonitorOperations:
             return {
                 "success": False,
                 "message": f"Already a managed directory: {existing_key}",
-                "already_exists": True
+                "already_exists": True,
             }
 
         # Add to managed directories
@@ -229,7 +230,7 @@ class MonitorOperations:
             "success": True,
             "message": f"Added managed directory: {path_resolved} (priority {priority})",
             "path_stored": path_resolved,
-            "priority": priority
+            "priority": priority,
         }
 
     @staticmethod
@@ -247,7 +248,7 @@ class MonitorOperations:
             return {
                 "success": False,
                 "message": "No managed_directories configured",
-                "not_found": True
+                "not_found": True,
             }
 
         # Resolve path
@@ -259,7 +260,7 @@ class MonitorOperations:
             return {
                 "success": False,
                 "message": f"Not a managed directory: {path_resolved}",
-                "not_found": True
+                "not_found": True,
             }
 
         # Get priority before removing
@@ -272,7 +273,7 @@ class MonitorOperations:
             "success": True,
             "message": f"Removed managed directory: {existing_key}",
             "path_removed": existing_key,
-            "priority": priority
+            "priority": priority,
         }
 
     @staticmethod
@@ -291,7 +292,7 @@ class MonitorOperations:
             return {
                 "success": False,
                 "message": "No managed_directories configured",
-                "not_found": True
+                "not_found": True,
             }
 
         # Resolve path
@@ -303,7 +304,7 @@ class MonitorOperations:
             return {
                 "success": False,
                 "message": f"Not a managed directory: {path_resolved}",
-                "not_found": True
+                "not_found": True,
             }
 
         # Get old priority
@@ -317,5 +318,5 @@ class MonitorOperations:
             "message": f"Updated priority for {existing_key}: {old_priority} → {priority}",
             "path": existing_key,
             "old_priority": old_priority,
-            "new_priority": priority
+            "new_priority": priority,
         }

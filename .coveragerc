@@ -2,7 +2,7 @@
 
 [run]
 source = wks
-omit = 
+omit =
     */tests/*
     */.venv/*
     */setup.py

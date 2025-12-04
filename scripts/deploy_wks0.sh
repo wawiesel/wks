@@ -4,4 +4,3 @@
 # make sure ~/bin has symlink to new pipx install (verify version)
 # restart service from ~/bin/wks0
 # verify no data loss in monitor db
-

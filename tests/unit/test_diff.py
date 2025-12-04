@@ -1,11 +1,12 @@
 """Tests for Diff layer."""
 
+from unittest.mock import Mock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch, Mock
-from wks.diff.engines import Bsdiff3Engine, MyersEngine, get_engine
-from wks.diff.controller import DiffController
+
 from wks.diff.config import DiffConfig, DiffEngineConfig, DiffRouterConfig
+from wks.diff.controller import DiffController
+from wks.diff.engines import Bsdiff3Engine, MyersEngine, get_engine
 
 
 @pytest.mark.unit
@@ -156,7 +157,7 @@ class TestMyersEngine:
         # Create file with invalid UTF-8 but valid ASCII won't work either
         binary_file = tmp_path / "invalid.txt"
         # Write bytes that are not valid UTF-8 or ASCII
-        binary_file.write_bytes(b'\xff\xfe\x00\x01')
+        binary_file.write_bytes(b"\xff\xfe\x00\x01")
 
         assert engine._is_text_file(binary_file) is False
 
@@ -166,7 +167,7 @@ class TestMyersEngine:
 
         # Create file with ASCII-only content (should pass)
         text_file = tmp_path / "ascii.txt"
-        text_file.write_bytes(b'Hello world')
+        text_file.write_bytes(b"Hello world")
 
         assert engine._is_text_file(text_file) is True
 
@@ -232,11 +233,7 @@ class TestDiffController:
     def test_diff_file1_not_found(self, tmp_path):
         """Diff raises on missing file1."""
         config = DiffConfig(
-            engines={
-                "myers": DiffEngineConfig(
-                    name="myers", enabled=True, is_default=True, options={}
-                )
-            },
+            engines={"myers": DiffEngineConfig(name="myers", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="myers"),
         )
         controller = DiffController(config)
@@ -250,11 +247,7 @@ class TestDiffController:
     def test_diff_file2_not_found(self, tmp_path):
         """Diff raises on missing file2."""
         config = DiffConfig(
-            engines={
-                "myers": DiffEngineConfig(
-                    name="myers", enabled=True, is_default=True, options={}
-                )
-            },
+            engines={"myers": DiffEngineConfig(name="myers", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="myers"),
         )
         controller = DiffController(config)
@@ -268,11 +261,7 @@ class TestDiffController:
     def test_diff_unknown_engine(self, tmp_path):
         """Diff raises on unknown engine."""
         config = DiffConfig(
-            engines={
-                "myers": DiffEngineConfig(
-                    name="myers", enabled=True, is_default=True, options={}
-                )
-            },
+            engines={"myers": DiffEngineConfig(name="myers", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="myers"),
         )
         controller = DiffController(config)
@@ -288,11 +277,7 @@ class TestDiffController:
     def test_diff_success_myers(self, tmp_path):
         """Diff succeeds with myers engine."""
         config = DiffConfig(
-            engines={
-                "myers": DiffEngineConfig(
-                    name="myers", enabled=True, is_default=True, options={}
-                )
-            },
+            engines={"myers": DiffEngineConfig(name="myers", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="myers"),
         )
         controller = DiffController(config)
@@ -310,11 +295,7 @@ class TestDiffController:
     def test_diff_success_bsdiff3(self, tmp_path):
         """Diff succeeds with bsdiff3 engine."""
         config = DiffConfig(
-            engines={
-                "bsdiff3": DiffEngineConfig(
-                    name="bsdiff3", enabled=True, is_default=True, options={}
-                )
-            },
+            engines={"bsdiff3": DiffEngineConfig(name="bsdiff3", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="bsdiff3"),
         )
         controller = DiffController(config)
@@ -331,11 +312,7 @@ class TestDiffController:
     def test_diff_options_passed_to_engine(self, tmp_path):
         """Diff passes options to engine."""
         config = DiffConfig(
-            engines={
-                "myers": DiffEngineConfig(
-                    name="myers", enabled=True, is_default=True, options={}
-                )
-            },
+            engines={"myers": DiffEngineConfig(name="myers", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="myers"),
         )
         controller = DiffController(config)
@@ -377,11 +354,7 @@ class TestDiffController:
         cache_file.write_text("cached content")
 
         config = DiffConfig(
-            engines={
-                "myers": DiffEngineConfig(
-                    name="myers", enabled=True, is_default=True, options={}
-                )
-            },
+            engines={"myers": DiffEngineConfig(name="myers", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="myers"),
         )
         controller = DiffController(config=config, transform_controller=mock_transform)

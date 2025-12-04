@@ -1,7 +1,7 @@
 """CLI tests for db commands (monitor, vault, transform)."""
 
 import io
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 
@@ -54,5 +54,3 @@ def test_cli_db_transform(mock_call):
     assert rc == 0
     mock_call.assert_called_once_with("wksm_db_transform", {})
     assert out.strip() != "" or err.strip() != ""
-
-

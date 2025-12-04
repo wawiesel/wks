@@ -7,11 +7,11 @@ __all__ = [
     "VaultChanges",
 ]
 
-import subprocess
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import List, Set, Optional
 import logging
+import subprocess
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import List, Set
 
 logger = logging.getLogger(__name__)
 

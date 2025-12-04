@@ -1,7 +1,5 @@
 """Tests for TestEngine."""
 
-import pytest
-from pathlib import Path
 from wks.transform.engines import TestEngine
 
 
@@ -46,4 +44,3 @@ class TestTestEngine:
         assert content.startswith("Transformed: ")
         assert "Original content" in content
         assert "With multiple lines" in content
-
