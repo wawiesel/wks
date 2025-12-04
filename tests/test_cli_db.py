@@ -24,7 +24,7 @@ def test_cli_db_monitor(mock_call):
     """wksc db monitor should call wksm_db_monitor via MCP."""
     mock_call.return_value = {"success": True, "data": {"results": []}, "messages": []}
 
-    rc, out, err = run_cli(["db", "monitor"])
+    rc, out, err = run_cli(["db-monitor"])
 
     assert rc == 0
     mock_call.assert_called_once_with("wksm_db_monitor", {})
@@ -37,7 +37,7 @@ def test_cli_db_vault(mock_call):
     """wksc db vault should call wksm_db_vault via MCP."""
     mock_call.return_value = {"success": True, "data": {"results": []}, "messages": []}
 
-    rc, out, err = run_cli(["db", "vault"])
+    rc, out, err = run_cli(["db-vault"])
 
     assert rc == 0
     mock_call.assert_called_once_with("wksm_db_vault", {})
@@ -49,7 +49,7 @@ def test_cli_db_transform(mock_call):
     """wksc db transform should call wksm_db_transform via MCP."""
     mock_call.return_value = {"success": True, "data": {"results": []}, "messages": []}
 
-    rc, out, err = run_cli(["db", "transform"])
+    rc, out, err = run_cli(["db-transform"])
 
     assert rc == 0
     mock_call.assert_called_once_with("wksm_db_transform", {})

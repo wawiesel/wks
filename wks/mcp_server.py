@@ -13,7 +13,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from .config import load_config
+from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
 from .service_controller import ServiceController
@@ -611,7 +611,7 @@ class MCPServer:
             return
 
         try:
-            config = load_config()
+            config = WKSConfig.load()
             registry = self._build_tool_registry()
 
             if tool_name not in registry:
@@ -637,179 +637,117 @@ class MCPServer:
         )
         return result.to_dict()
 
-    def _tool_monitor_status(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_monitor_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_monitor_status tool."""
-        status = MonitorController.get_status(config)
-        return status.to_dict()
+        status = MonitorController.get_status(config.monitor)
+        return status.model_dump()
 
-    def _tool_monitor_check(self, config: dict[str, Any], path: str) -> dict[str, Any]:
+    def _tool_monitor_check(self, config: WKSConfig, path: str) -> dict[str, Any]:
         """Execute wks_monitor_check tool."""
-        return MonitorController.check_path(config, path)
+        return MonitorController.check_path(config.monitor, path)
 
-    def _tool_monitor_validate(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_monitor_validate(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_monitor_validate tool."""
-        from dataclasses import asdict
+        result = MonitorController.validate_config(config.monitor)
+        return result.model_dump()
 
-        result = MonitorController.validate_config(config)
-        return asdict(result)
-
-    def _tool_monitor_list(self, config: dict[str, Any], list_name: str) -> dict[str, Any]:
+    def _tool_monitor_list(self, config: WKSConfig, list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
-        return MonitorController.get_list(config, list_name)
+        return MonitorController.get_list(config.monitor, list_name)
 
-    def _tool_monitor_add(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_add(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_add tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Determine if we need to resolve paths
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Add to list
-        from dataclasses import asdict
-
-        result_obj = MonitorController.add_to_list(config_dict, list_name, value, resolve_path)
-        result = asdict(result_obj)
+        result_obj = MonitorController.add_to_list(config.monitor, list_name, value, resolve_path)
+        result = result_obj.model_dump()
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_remove(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_remove(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_remove tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Determine if we need to resolve paths
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Remove from list
-        from dataclasses import asdict
-
-        result_obj = MonitorController.remove_from_list(config_dict, list_name, value, resolve_path)
-        result = asdict(result_obj)
+        result_obj = MonitorController.remove_from_list(config.monitor, list_name, value, resolve_path)
+        result = result_obj.model_dump()
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_list(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_monitor_managed_list(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_monitor_managed_list tool."""
-        from dataclasses import asdict
+        result = MonitorController.get_managed_directories(config.monitor)
+        return result.model_dump()
 
-        result = MonitorController.get_managed_directories(config)
-        return asdict(result)
-
-    def _tool_monitor_managed_add(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_managed_add(self, config: WKSConfig, path: str, priority: int) -> dict[str, Any]:
         """Execute wks_monitor_managed_add tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Add managed directory
-        result = MonitorController.add_managed_directory(config_dict, path, priority)
+        result = MonitorController.add_managed_directory(config.monitor, path, priority)
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_remove(self, config: dict[str, Any], path: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_managed_remove(self, config: WKSConfig, path: str) -> dict[str, Any]:
         """Execute wks_monitor_managed_remove tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Remove managed directory
-        result = MonitorController.remove_managed_directory(config_dict, path)
+        result = MonitorController.remove_managed_directory(config.monitor, path)
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_set_priority(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_managed_set_priority(self, config: WKSConfig, path: str, priority: int) -> dict[str, Any]:
         """Execute wks_monitor_managed_set_priority tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Set priority
-        result = MonitorController.set_managed_priority(config_dict, path, priority)
+        result = MonitorController.set_managed_priority(config.monitor, path, priority)
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_vault_status(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_status tool."""
-        controller = VaultStatusController(config)
+        # Legacy controller expects dict
+        controller = VaultStatusController(config.to_dict())
         summary = controller.summarize()
         return summary.to_dict()
 
-    def _tool_vault_sync(self, config: dict[str, Any], batch_size: int) -> dict[str, Any]:
+    def _tool_vault_sync(self, config: WKSConfig, batch_size: int) -> dict[str, Any]:
         """Execute wks_vault_sync tool."""
-        return VaultController.sync_vault(config, batch_size)
+        # Legacy controller expects dict
+        return VaultController.sync_vault(config.to_dict(), batch_size)
 
-    def _tool_vault_links(self, config: dict[str, Any], file_path: str, direction: str = "both") -> dict[str, Any]:
+    def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
         from .db_helpers import connect_to_mongo, get_vault_db_config
         from .uri_utils import convert_to_uri
         from .utils import expand_path
 
         # Get vault configuration
-        vault_cfg = config.get("vault", {})
-        vault_path_str = vault_cfg.get("base_dir")
+        vault_path_str = config.vault.base_dir
         if not vault_path_str:
             return {"error": "vault.base_dir not configured"}
 
@@ -824,7 +762,7 @@ class MCPServer:
 
         # Check if file is monitored
         try:
-            monitor_info = MonitorController.check_path(config, str(file_path_expanded))
+            monitor_info = MonitorController.check_path(config.monitor, str(file_path_expanded))
             is_monitored = monitor_info.get("is_monitored", False)
             priority = monitor_info.get("priority", 0) if is_monitored else None
         except Exception:
@@ -840,7 +778,7 @@ class MCPServer:
         # Connect to database
         from pymongo import MongoClient
 
-        uri, db_name, coll_name = get_vault_db_config(config)
+        uri, db_name, coll_name = get_vault_db_config(config.to_dict())
         client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
@@ -909,15 +847,15 @@ class MCPServer:
                 break
             self._handle_request(message)
 
-    def _tool_config(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_config(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wksm_config tool."""
-        result = MCPResult(success=True, data=config)
+        result = MCPResult(success=True, data=config.to_dict())
         result.add_success("Configuration loaded successfully")
         return result.to_dict()
 
     def _tool_transform(
         self,
-        config: dict[str, Any],  # noqa: ARG002
+        config: WKSConfig,
         file_path: str,
         engine: str,
         options: dict[str, Any],
@@ -925,7 +863,6 @@ class MCPServer:
         """Execute wksm_transform tool."""
         from pathlib import Path
 
-        from .config import WKSConfig
         from .db_helpers import connect_to_mongo
         from .transform import TransformController
         from .utils import expand_path
@@ -938,15 +875,14 @@ class MCPServer:
             if not path.exists():
                 return result.error_result(f"File not found: {path}", data={}).to_dict()
 
-            # Load config dataclass for proper cache location resolution
-            wks_cfg = WKSConfig.load()
-            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
-            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
+            # Use passed config
+            cache_location = Path(config.transform.cache.location).expanduser()
+            max_size_bytes = config.transform.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = wks_cfg.mongo.uri
-            db_name = wks_cfg.transform.database.split(".")[0]
+            uri = config.mongo.uri
+            db_name = config.transform.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -968,26 +904,24 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_cat(self, config: WKSConfig, target: str) -> dict[str, Any]:
         """Execute wksm_cat tool."""
         from pathlib import Path
 
-        from .config import WKSConfig
         from .db_helpers import connect_to_mongo
         from .transform import TransformController
 
         result = MCPResult(success=False, data={})
 
         try:
-            # Load config dataclass for proper cache location resolution
-            wks_cfg = WKSConfig.load()
-            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
-            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
+            # Use passed config
+            cache_location = Path(config.transform.cache.location).expanduser()
+            max_size_bytes = config.transform.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = wks_cfg.mongo.uri
-            db_name = wks_cfg.transform.database.split(".")[0]
+            uri = config.mongo.uri
+            db_name = config.transform.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -1006,7 +940,7 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_diff(self, config: dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
+    def _tool_diff(self, config: WKSConfig, engine: str, target_a: str, target_b: str) -> dict[str, Any]:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
@@ -1019,14 +953,14 @@ class MCPServer:
 
         try:
             # Setup transform controller for checksum resolution
-            transform_cfg = config.get("transform", {})
-            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            transform_cfg = config.transform
+            cache_location = Path(transform_cfg.cache.location).expanduser()
+            max_size_bytes = transform_cfg.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            uri = config.mongo.uri
+            db_name = transform_cfg.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -1034,8 +968,13 @@ class MCPServer:
             transform_controller = TransformController(db, cache_location, max_size_bytes)
 
             # Load diff configuration and construct controller when available.
+            # DiffConfig currently expects dict in from_config_dict
+            # We should convert WKSConfig back to dict for legacy compatibility if needed
+            # or update DiffConfig to support WKSConfig.
+            # For now, let's convert config to dict for DiffConfig.
+            config_dict = config.to_dict()
             try:
-                diff_config = DiffConfig.from_config_dict(config)
+                diff_config = DiffConfig.from_config_dict(config_dict)
             except DiffConfigError:
                 diff_config = None
 
@@ -1055,19 +994,21 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_vault_validate(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_validate(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
 
-        vault = load_vault(config)
+        # Legacy helpers expect dict
+        vault = load_vault(config.to_dict())
         controller = VaultController(vault)
         return controller.validate_vault()
 
-    def _tool_vault_fix_symlinks(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_fix_symlinks(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
 
-        vault = load_vault(config)
+        # Legacy helpers expect dict
+        vault = load_vault(config.to_dict())
         controller = VaultController(vault)
         result = controller.fix_symlinks()
 
@@ -1079,21 +1020,21 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(self, config: dict[str, Any], db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
+    def _tool_db_query(self, config: WKSConfig, db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
 
-        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+        uri = config.mongo.uri
 
         if db_type == "monitor":
-            db_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[0]
-            coll_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[1]
+            db_name = config.monitor.database.split(".")[0]
+            coll_name = config.monitor.database.split(".")[1]
         elif db_type == "vault":
-            db_name = config.get("vault", {}).get("database", "wks.vault").split(".")[0]
-            coll_name = config.get("vault", {}).get("database", "wks.vault").split(".")[1]
+            db_name = config.vault.database.split(".")[0]
+            coll_name = config.vault.database.split(".")[1]
         elif db_type == "transform":
-            db_name = config.get("transform", {}).get("database", "wks.transform").split(".")[0]
-            coll_name = config.get("transform", {}).get("database", "wks.transform").split(".")[1]
+            db_name = config.transform.database.split(".")[0]
+            coll_name = config.transform.database.split(".")[1]
         else:
             raise ValueError(f"Unknown db type: {db_type}")
 
@@ -1132,7 +1073,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         KeyError: If tool name is not found
         ValueError: If required parameters are missing (from tool validation)
     """
-    config = load_config()
+    config_obj = WKSConfig.load()
     server = MCPServer()
     registry = server._build_tool_registry()
 
@@ -1143,7 +1084,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return error_result.to_dict()
 
     handler = registry[tool_name]
-    return handler(config, arguments)
+    return handler(config_obj, arguments)
 
 
 def main() -> None:

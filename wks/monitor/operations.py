@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any
 
+from wks.monitor.config import MonitorConfig
+
 from .status import ListOperationResult
 from .validator import MonitorValidator
 
@@ -45,7 +47,7 @@ class MonitorOperations:
         return value_resolved, value_to_store
 
     @staticmethod
-    def _validate_dirname_entry(value: str, list_name: str, config_dict: dict) -> ListOperationResult | None:
+    def _validate_dirname_entry(value: str, list_name: str, config: MonitorConfig) -> ListOperationResult | None:
         """Validate dirname entry. Returns ListOperationResult if validation fails, None if valid."""
         entry = value.strip()
         is_valid, error_msg = MonitorValidator.validate_dirname_entry(entry)
@@ -54,11 +56,11 @@ class MonitorOperations:
                 success=False, message=error_msg or "Invalid directory name", validation_failed=True
             )
 
-        opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
-        if entry in config_dict["monitor"].get(opposite, []):
+        opposite_list = getattr(config, "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames")
+        if entry in opposite_list:
             return ListOperationResult(
                 success=False,
-                message=f"Directory name '{entry}' already present in {opposite}",
+                message=f"Directory name '{entry}' already present in {'exclude_dirnames' if list_name == 'include_dirnames' else 'include_dirnames'}",
                 validation_failed=True,
             )
         return None
@@ -75,9 +77,9 @@ class MonitorOperations:
         return None
 
     @staticmethod
-    def _check_existing_entry(config_dict: dict, list_name: str, value_resolved: str, resolve_path: bool) -> str | None:
+    def _check_existing_entry(config: MonitorConfig, list_name: str, value_resolved: str, resolve_path: bool) -> str | None:
         """Check if entry already exists. Returns existing entry if found, None otherwise."""
-        for item in config_dict["monitor"][list_name]:
+        for item in getattr(config, list_name):
             if resolve_path:
                 item_resolved = _canonicalize_path(item)
                 if item_resolved == value_resolved:
@@ -88,11 +90,11 @@ class MonitorOperations:
         return None
 
     @staticmethod
-    def add_to_list(config_dict: dict, list_name: str, value: str, resolve_path: bool = True) -> ListOperationResult:
+    def add_to_list(config: MonitorConfig, list_name: str, value: str, resolve_path: bool = True) -> ListOperationResult:
         """Add value to a monitor config list.
 
         Args:
-            config_dict: Configuration dictionary (will be modified)
+            config: MonitorConfig object (will be modified)
             list_name: Name of list to modify
             value: Value to add
             resolve_path: Whether to resolve paths (for include/exclude_paths)
@@ -100,18 +102,12 @@ class MonitorOperations:
         Returns:
             ListOperationResult with success status and message
         """
-        # Ensure monitor section exists
-        if "monitor" not in config_dict:
-            config_dict["monitor"] = {}
-        if list_name not in config_dict["monitor"]:
-            config_dict["monitor"][list_name] = []
-
         # Normalize value
         value_resolved, value_to_store = MonitorOperations._normalize_value(value, resolve_path)
 
         # Validate dirnames
         if list_name in ("include_dirnames", "exclude_dirnames"):
-            error_result = MonitorOperations._validate_dirname_entry(value, list_name, config_dict)
+            error_result = MonitorOperations._validate_dirname_entry(value, list_name, config)
             if error_result:
                 return error_result
             value_resolved = value.strip()
@@ -126,14 +122,14 @@ class MonitorOperations:
             value_to_store = value.strip()
 
         # Check if already exists
-        existing = MonitorOperations._check_existing_entry(config_dict, list_name, value_resolved, resolve_path)
+        existing = MonitorOperations._check_existing_entry(config, list_name, value_resolved, resolve_path)
         if existing:
             return ListOperationResult(
                 success=False, message=f"Already in {list_name}: {existing}", already_exists=True
             )
 
         # Add to list
-        config_dict["monitor"][list_name].append(value_to_store)
+        getattr(config, list_name).append(value_to_store)
         return ListOperationResult(
             success=True,
             message=f"Added to {list_name}: {value_to_store}",
@@ -142,12 +138,12 @@ class MonitorOperations:
 
     @staticmethod
     def remove_from_list(
-        config_dict: dict, list_name: str, value: str, resolve_path: bool = True
+        config: MonitorConfig, list_name: str, value: str, resolve_path: bool = True
     ) -> ListOperationResult:
         """Remove value from a monitor config list.
 
         Args:
-            config_dict: Configuration dictionary (will be modified)
+            config: MonitorConfig object (will be modified)
             list_name: Name of list to modify
             value: Value to remove
             resolve_path: Whether to resolve paths (for include/exclude_paths)
@@ -155,14 +151,14 @@ class MonitorOperations:
         Returns:
             ListOperationResult with success status and message
         """
-        if "monitor" not in config_dict or list_name not in config_dict["monitor"]:
+        if not hasattr(config, list_name) or not getattr(config, list_name):
             return ListOperationResult(success=False, message=f"No {list_name} configured", not_found=True)
 
         # Find matching entry
         existing = None
         if resolve_path:
             value_resolved = _canonicalize_path(value)
-            for item in config_dict["monitor"][list_name]:
+            for item in getattr(config, list_name):
                 item_resolved = _canonicalize_path(item)
                 if item_resolved == value_resolved:
                     existing = item
@@ -177,7 +173,7 @@ class MonitorOperations:
                 search_value = value.strip()
             else:
                 search_value = value
-            for item in config_dict["monitor"][list_name]:
+            for item in getattr(config, list_name):
                 if item == search_value:
                     existing = item
                     break
@@ -186,34 +182,28 @@ class MonitorOperations:
             return ListOperationResult(success=False, message=f"Not in {list_name}: {value}", not_found=True)
 
         # Remove from list
-        config_dict["monitor"][list_name].remove(existing)
+        getattr(config, list_name).remove(existing)
         return ListOperationResult(
             success=True, message=f"Removed from {list_name}: {existing}", value_removed=existing
         )
 
     @staticmethod
-    def add_managed_directory(config_dict: dict, path: str, priority: int) -> dict:
+    def add_managed_directory(config: MonitorConfig, path: str, priority: int) -> dict:
         """Add a managed directory with priority.
 
         Args:
-            config_dict: Configuration dictionary (will be modified)
+            config: MonitorConfig object (will be modified)
             path: Directory path to add
             priority: Priority score
 
         Returns:
             dict with 'success' (bool), 'message' (str), 'path_stored' (str if success)
         """
-        # Ensure sections exist
-        if "monitor" not in config_dict:
-            config_dict["monitor"] = {}
-        if "managed_directories" not in config_dict["monitor"]:
-            config_dict["monitor"]["managed_directories"] = {}
-
         # Resolve path
         path_resolved = _canonicalize_path(path)
 
         # Check if already exists
-        existing_key = _find_matching_path_key(config_dict["monitor"]["managed_directories"], path_resolved)
+        existing_key = _find_matching_path_key(config.managed_directories, path_resolved)
         if existing_key is not None:
             return {
                 "success": False,
@@ -222,7 +212,7 @@ class MonitorOperations:
             }
 
         # Add to managed directories
-        config_dict["monitor"]["managed_directories"][path_resolved] = priority
+        config.managed_directories[path_resolved] = priority
 
         return {
             "success": True,
@@ -232,17 +222,17 @@ class MonitorOperations:
         }
 
     @staticmethod
-    def remove_managed_directory(config_dict: dict, path: str) -> dict:
+    def remove_managed_directory(config: MonitorConfig, path: str) -> dict:
         """Remove a managed directory.
 
         Args:
-            config_dict: Configuration dictionary (will be modified)
+            config: MonitorConfig object (will be modified)
             path: Directory path to remove
 
         Returns:
             dict with 'success' (bool), 'message' (str), 'path_removed' (str if success)
         """
-        if "monitor" not in config_dict or "managed_directories" not in config_dict["monitor"]:
+        if not config.managed_directories:
             return {
                 "success": False,
                 "message": "No managed_directories configured",
@@ -251,7 +241,7 @@ class MonitorOperations:
 
         # Resolve path
         path_resolved = _canonicalize_path(path)
-        existing_key = _find_matching_path_key(config_dict["monitor"]["managed_directories"], path_resolved)
+        existing_key = _find_matching_path_key(config.managed_directories, path_resolved)
 
         # Check if exists
         if existing_key is None:
@@ -262,10 +252,10 @@ class MonitorOperations:
             }
 
         # Get priority before removing
-        priority = config_dict["monitor"]["managed_directories"][existing_key]
+        priority = config.managed_directories[existing_key]
 
         # Remove from managed directories
-        del config_dict["monitor"]["managed_directories"][existing_key]
+        del config.managed_directories[existing_key]
 
         return {
             "success": True,
@@ -275,18 +265,18 @@ class MonitorOperations:
         }
 
     @staticmethod
-    def set_managed_priority(config_dict: dict, path: str, priority: int) -> dict:
+    def set_managed_priority(config: MonitorConfig, path: str, priority: int) -> dict:
         """Update priority for a managed directory.
 
         Args:
-            config_dict: Configuration dictionary (will be modified)
+            config: MonitorConfig object (will be modified)
             path: Directory path
             priority: New priority score
 
         Returns:
             dict with 'success' (bool), 'message' (str), 'old_priority', 'new_priority'
         """
-        if "monitor" not in config_dict or "managed_directories" not in config_dict["monitor"]:
+        if not config.managed_directories:
             return {
                 "success": False,
                 "message": "No managed_directories configured",
@@ -295,7 +285,7 @@ class MonitorOperations:
 
         # Resolve path
         path_resolved = _canonicalize_path(path)
-        existing_key = _find_matching_path_key(config_dict["monitor"]["managed_directories"], path_resolved)
+        existing_key = _find_matching_path_key(config.managed_directories, path_resolved)
 
         # Check if exists
         if existing_key is None:
@@ -306,10 +296,10 @@ class MonitorOperations:
             }
 
         # Get old priority
-        old_priority = config_dict["monitor"]["managed_directories"][existing_key]
+        old_priority = config.managed_directories[existing_key]
 
         # Update priority
-        config_dict["monitor"]["managed_directories"][existing_key] = priority
+        config.managed_directories[existing_key] = priority
 
         return {
             "success": True,
