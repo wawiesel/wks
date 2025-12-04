@@ -4,9 +4,19 @@
 
 For long-running MCP tool operations, WKS supports a 2-stage return pattern that provides immediate feedback with a runtime estimate, followed by progress notifications and a final result. This improves UX by giving users immediate feedback and managing expectations for operations that may take significant time.
 
+**Unified Pattern**: The async MCP pattern mirrors the 4-step CLI pattern, allowing the same function implementation to work for both CLI and MCP with different display mechanisms:
+
+- **CLI 4-Step** → **MCP Async Stages**:
+  1. Announce (STDERR) → Stage 1: Immediate response with estimate
+  2. Progress (STDERR) → Stage 2: Progress notifications
+  3. Result (STDERR) → Stage 3: Result notification (messages)
+  4. Output (STDOUT) → Stage 3: Result notification (data)
+
+This unified approach means Typer functions can implement the 4-step pattern once, and it works for both CLI (via `CLIDisplay`) and MCP (via `MCPDisplay` + async notifications).
+
 ## Design
 
-### Stage 1: Immediate Response (Estimate)
+### Stage 1: Immediate Response (Estimate) - Maps to CLI "Announce"
 
 When a tool is called, if it's a long-running operation, it can return immediately with:
 - `success: true`
@@ -15,17 +25,29 @@ When a tool is called, if it's a long-running operation, it can return immediate
 - `data.status: "queued" | "running"` - Current status
 - `messages`: Info message explaining the operation is in progress
 
-### Stage 2: Progress Notifications (Optional)
+**CLI equivalent**: `display.status("Syncing files...")` (Step 1: Announce)
+
+### Stage 2: Progress Notifications - Maps to CLI "Progress"
 
 During execution, the tool can send progress notifications:
 - Method: `notifications/progress` (JSON-RPC notification, no ID)
 - Payload: `{ "job_id": "...", "progress": 0.0-1.0, "message": "...", "timestamp": "..." }`
 
-### Stage 3: Final Result
+**CLI equivalent**: `with display.progress(total=N, description="Processing..."):` (Step 2: Progress)
+
+### Stage 3: Final Result - Maps to CLI "Result" + "Output"
 
 When complete, the tool sends a final notification:
 - Method: `notifications/tool_result` (JSON-RPC notification, no ID)
 - Payload: `{ "job_id": "...", "result": MCPResult.to_dict(), "timestamp": "..." }`
+
+The `result` contains:
+- `messages`: Status/error messages (maps to CLI Step 3: Result)
+- `data`: Actual result data (maps to CLI Step 4: Output)
+
+**CLI equivalent**:
+- `display.success("Done")` or `display.error("Failed")` (Step 3: Result)
+- `display.json_output(data)` or `display.table(data)` (Step 4: Output)
 
 ## Implementation
 
@@ -104,6 +126,64 @@ Runtime estimation can be:
 - **Advanced**: Historical data, complexity analysis, file count estimation
 
 Initial implementation uses simple fixed estimates. Historical data can be added later.
+
+## Unified Implementation Pattern
+
+The same Typer function can implement the 4-step pattern for both CLI and MCP async tools. The function detects the context and adapts:
+
+```python
+@monitor_app.command(name="sync")
+@inject_config
+def sync(
+    path: str = typer.Argument(..., help="Path to sync"),
+    recursive: bool = typer.Option(False, "--recursive"),
+    config: WKSConfig | None = None,
+) -> dict[str, Any]:
+    display = get_display("cli")
+    is_cli = isinstance(display, CLIDisplay)
+
+    if is_cli:
+        # CLI: Follow 4-step pattern directly
+        # Step 1: Announce
+        display.status("Syncing files...")
+
+        # Step 2: Progress
+        file_count = _count_files(path, recursive)
+        with display.progress(total=file_count, description="Processing files..."):
+            result = _do_sync(path, recursive, display)
+
+        # Step 3: Result
+        if result["success"]:
+            display.success(f"Synced {result['files_processed']} files")
+        else:
+            display.error(f"Sync failed: {result['error']}")
+
+        # Step 4: Output
+        display.json_output(result)
+
+        return result
+    else:
+        # MCP Async: Return immediately with estimate, execute in background
+        job_id = str(uuid.uuid4())
+        estimated_time = _estimate_sync_time(path, recursive)
+
+        # Stage 1: Immediate response (maps to Step 1: Announce)
+        # MCP server will handle this and execute in background
+        # The function returns early, background thread handles Steps 2-4
+        return {
+            "job_id": job_id,
+            "estimated_runtime_seconds": estimated_time,
+            "status": "queued"
+        }
+```
+
+For MCP async tools, the MCP server:
+1. Receives the immediate response with `job_id`
+2. Executes the tool in a background thread
+3. Sends progress notifications (Step 2 equivalent)
+4. Sends final result notification (Steps 3+4 equivalent)
+
+The background execution can use the same `_do_sync()` function, which internally uses `display.progress()` calls that get converted to MCP progress notifications.
 
 ## Protocol Flow
 
@@ -252,5 +332,6 @@ Future tools that may support async:
 - [ ] Notification sending (`_write_notification`, `_send_progress_notification`, `_send_result_notification`)
 - [ ] Tool schema extension (`async: bool` field)
 - [ ] Runtime estimation logic
+- [ ] Unified 4-step pattern in Typer functions (works for both CLI and MCP async)
 - [ ] `wksm_monitor_sync` async implementation
 - [ ] Client support for progress/result notifications
