@@ -13,6 +13,10 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+import typer
+
+from .api.base import get_typer_command_schema
+from .api.monitor import monitor_app, monitor_check, monitor_status, monitor_validate
 from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
