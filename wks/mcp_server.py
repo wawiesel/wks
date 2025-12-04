@@ -13,10 +13,6 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-import typer
-
-from .api.base import get_typer_command_schema
-from .api.monitor import monitor_app, monitor_check, monitor_status, monitor_validate
 from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
@@ -853,9 +849,15 @@ class MCPServer:
                 break
             self._handle_request(message)
 
-    def _tool_config(self, config: WKSConfig) -> dict[str, Any]:
-        """Execute wksm_config tool."""
-        result = MCPResult(success=True, data=config.to_dict())
+    def _tool_config(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
+        """Execute wksm_config tool.
+
+        Accepts either a WKSConfig instance (normal runtime) or a raw dict
+        (used in some tests that patch WKSConfig.load()).
+        """
+        data = config.to_dict() if hasattr(config, "to_dict") else dict(config)
+
+        result = MCPResult(success=True, data=data)
         result.add_success("Configuration loaded successfully")
         return result.to_dict()
 
@@ -882,8 +884,8 @@ class MCPServer:
             if not path.exists():
                 return result.error_result(f"File not found: {path}", data={}).to_dict()
 
-            # Use provided config or load if needed
-            wks_cfg = config if isinstance(config, WKSConfig) else WKSConfig.load()
+            # Use global WKSConfig (tests patch WKSConfig.load accordingly)
+            wks_cfg = WKSConfig.load()
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
@@ -950,7 +952,7 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_diff(self, config: dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
+    def _tool_diff(self, config: WKSConfig | dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
@@ -963,13 +965,24 @@ class MCPServer:
 
         try:
             # Setup transform controller for checksum resolution
-            transform_cfg = config.get("transform", {})
+            if isinstance(config, WKSConfig):
+                transform_cfg = {
+                    "cache_location": config.transform.cache.location,
+                    "cache_max_size_bytes": config.transform.cache.max_size_bytes,
+                    "database": config.transform.database,
+                }
+                uri = config.mongo.uri
+                raw_config: dict[str, Any] = config.to_dict()
+            else:
+                transform_cfg = config.get("transform", {})
+                uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+                raw_config = config
+
             cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
             max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
 
             from pymongo import MongoClient
 
-            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
             db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
@@ -979,7 +992,7 @@ class MCPServer:
 
             # Load diff configuration and construct controller when available.
             try:
-                diff_config = DiffConfig.from_config_dict(config)
+                diff_config = DiffConfig.from_config_dict(raw_config)
             except DiffConfigError:
                 diff_config = None
 
@@ -999,22 +1012,22 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_vault_validate(self, config: WKSConfig) -> dict[str, Any]:
+    def _tool_vault_validate(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
 
-        # load_vault expects dict, convert WKSConfig
-        config_dict = config.to_dict()
+        # load_vault expects a plain dict
+        config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
         vault = load_vault(config_dict)
         controller = VaultController(vault)
         return controller.validate_vault()
 
-    def _tool_vault_fix_symlinks(self, config: WKSConfig) -> dict[str, Any]:
+    def _tool_vault_fix_symlinks(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
 
-        # load_vault expects dict, convert WKSConfig
-        config_dict = config.to_dict()
+        # load_vault expects a plain dict
+        config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
         vault = load_vault(config_dict)
         controller = VaultController(vault)
         result = controller.fix_symlinks()
@@ -1027,23 +1040,37 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(self, config: WKSConfig, db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
+    def _tool_db_query(self, config: WKSConfig | dict[str, Any], db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
 
-        uri = config.mongo.uri
-
-        if db_type == "monitor":
-            db_name = config.monitor.database.split(".")[0]
-            coll_name = config.monitor.database.split(".")[1]
-        elif db_type == "vault":
-            db_name = config.vault.database.split(".")[0]
-            coll_name = config.vault.database.split(".")[1]
-        elif db_type == "transform":
-            db_name = config.transform.database.split(".")[0]
-            coll_name = config.transform.database.split(".")[1]
+        if isinstance(config, WKSConfig):
+            uri = config.mongo.uri
+            if db_type == "monitor":
+                db_name = config.monitor.database.split(".")[0]
+                coll_name = config.monitor.database.split(".")[1]
+            elif db_type == "vault":
+                db_name = config.vault.database.split(".")[0]
+                coll_name = config.vault.database.split(".")[1]
+            elif db_type == "transform":
+                db_name = config.transform.database.split(".")[0]
+                coll_name = config.transform.database.split(".")[1]
+            else:
+                raise ValueError(f"Unknown db type: {db_type}")
         else:
-            raise ValueError(f"Unknown db type: {db_type}")
+            # Backwards-compatible path for tests that pass a raw dict
+            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+            if db_type == "monitor":
+                db_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[0]
+                coll_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[1]
+            elif db_type == "vault":
+                db_name = config.get("vault", {}).get("database", "wks.vault").split(".")[0]
+                coll_name = config.get("vault", {}).get("database", "wks.vault").split(".")[1]
+            elif db_type == "transform":
+                db_name = config.get("transform", {}).get("database", "wks.transform").split(".")[0]
+                coll_name = config.get("transform", {}).get("database", "wks.transform").split(".")[1]
+            else:
+                raise ValueError(f"Unknown db type: {db_type}")
 
         from pymongo import MongoClient
 

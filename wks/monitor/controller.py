@@ -198,8 +198,14 @@ class MonitorController:
         return issues
 
     @staticmethod
-    def _validate_path_redundancy(include_map: dict, exclude_map: dict, config: dict) -> list[str]:
-        """Validate duplicate canonical paths and auto-ignored paths."""
+    def _validate_path_redundancy(
+        include_map: dict, exclude_map: dict, config: dict | MonitorConfig | object
+    ) -> list[str]:
+        """Validate duplicate canonical paths and auto-ignored paths.
+
+        When a full raw config dict is not available (e.g., only MonitorConfig),
+        vault-related redundancy checks are skipped.
+        """
         redundancies = []
 
         # Duplicate canonical entries within the same list
@@ -214,9 +220,15 @@ class MonitorController:
         wks_home = _canonicalize_path("~/.wks")
         if wks_home in exclude_map:
             for entry in exclude_map[wks_home]:
-                redundancies.append(f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored")
+                redundancies.append(
+                    f"exclude_paths entry '{entry}' is redundant - WKS home is automatically ignored"
+                )
 
-        vault_base = config.get("vault", {}).get("base_dir")
+        # vault_base is only available when we have the full raw config dict
+        vault_base = None
+        if isinstance(config, dict):
+            vault_base = config.get("vault", {}).get("base_dir")
+
         if vault_base:
             vault_resolved = _canonicalize_path(vault_base)
             if vault_resolved in exclude_map:

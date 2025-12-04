@@ -6,16 +6,14 @@ Per CONTRIBUTING.md: CLI → MCP → API (CLI never calls API directly)
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 import typer
-from typer import Typer
 
 from ..display.context import get_display
 from ..mcp_client import proxy_stdio_to_socket
 from ..mcp_paths import mcp_socket_path
 from ..utils import expand_path, get_package_version
-
 
 # =============================================================================
 # Typer Apps
@@ -88,7 +86,7 @@ def config_command():
 def transform_command(
     engine: str = typer.Argument(..., help="Transformation engine"),
     file_path: str = typer.Argument(..., help="Path to the file to transform"),
-    output: Optional[str] = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     path = expand_path(file_path)
     if not path.exists():
@@ -103,7 +101,7 @@ def transform_command(
 @app.command(name="cat", help="Display content")
 def cat_command(
     input_path: str = typer.Argument(..., help="Input file path"),
-    output_path: Optional[str] = typer.Option(None, "-o", "--output", help="Output file path"),
+    output_path: str | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     r = _call("wksm_cat", {"target": input_path})
     if r.get("success"):
@@ -204,7 +202,7 @@ for list_name in lists:
 
 @monitor_app.command(name="managed-list", help="List managed paths")
 def monitor_managed_list_command():
-    _out(_call("wksm_monitor_managed_list"))
+    _out(_call("wksm_monitor_managed_list", {}))
 
 
 @monitor_app.command(name="managed-add", help="Add a managed path")
@@ -243,7 +241,7 @@ def monitor_managed_set_priority_command(
 
 @app.command(name="vault-status", help="Show vault status")
 def vault_status_command():
-    _out(_call("wksm_vault_status"))
+    _out(_call("wksm_vault_status", {}))
     sys.exit(0)
 
 
@@ -258,13 +256,13 @@ def vault_sync_command(
 
 @app.command(name="vault-validate", help="Validate vault configuration")
 def vault_validate_command():
-    _out(_call("wksm_vault_validate"))
+    _out(_call("wksm_vault_validate", {}))
     sys.exit(0)
 
 
 @app.command(name="vault-fix-symlinks", help="Fix vault symlinks")
 def vault_fix_symlinks_command():
-    _out(_call("wksm_vault_fix_symlinks"))
+    _out(_call("wksm_vault_fix_symlinks", {}))
     sys.exit(0)
 
 
@@ -328,27 +326,36 @@ def service_status_command():
 
 @app.command(name="mcp", help="MCP server operations")
 def mcp_command(
+    command: str = typer.Argument(
+        "run",
+        help="MCP command to execute ('run' or 'install')",
+        metavar="COMMAND",
+    ),
     direct: bool = typer.Option(False, "--direct", help="Run MCP directly (no socket)"),
-    install: bool = typer.Option(False, help="Install MCP configs"),
-    command_path: Optional[str] = typer.Option(None, help="Command path for install"),
-    client: Optional[List[str]] = typer.Option(
+    command_path: str | None = typer.Option(None, help="Command path for install"),
+    client: list[str] | None = typer.Option(
         None, "--client", help="Client for install", rich_help_panel="MCP Options"
     ),
 ):
-    if install:
+    if command == "install":
         from ..mcp_setup import install_mcp_configs
 
         for r in install_mcp_configs(clients=client, command_override=command_path):
             print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")
         sys.exit(0)
 
-    if not direct and proxy_stdio_to_socket(mcp_socket_path()):
+    if command == "run":
+        if not direct and proxy_stdio_to_socket(mcp_socket_path()):
+            sys.exit(0)
+
+        from ..mcp_server import main as mcp_main
+
+        mcp_main()
         sys.exit(0)
 
-    from ..mcp_server import main as mcp_main
-
-    mcp_main()
-    sys.exit(0)
+    # Unknown command
+    print(f"Unknown MCP command: {command}", file=sys.stderr)
+    sys.exit(2)
 
 
 # =============================================================================

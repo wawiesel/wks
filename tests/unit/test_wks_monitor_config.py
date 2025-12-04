@@ -39,10 +39,12 @@ class TestMonitorConfig:
 
     def test_from_config_dict_unsupported_key(self, valid_monitor_dict):
         valid_monitor_dict["unsupported_key"] = "value"
-        # Pydantic allows extra fields by default, so this won't raise
-        # If we want to reject extra fields, we'd need to set model_config
-        cfg = MonitorConfig.from_config_dict({"monitor": valid_monitor_dict})
-        assert cfg.database == "wks.monitor"
+        # Extra keys should be rejected by MonitorConfig (extra='forbid')
+        with pytest.raises(ValidationError) as exc:
+            MonitorConfig.from_config_dict({"monitor": valid_monitor_dict})
+        # Ensure we get a clear error about the unsupported key
+        msg = str(exc.value)
+        assert "unsupported_key" in msg or "extra_forbidden" in msg
 
     # List field validation
     def test_invalid_include_paths_type(self, valid_monitor_dict):
