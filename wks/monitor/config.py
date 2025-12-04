@@ -117,7 +117,8 @@ class MonitorConfig:
         if not isinstance(self.prune_interval_secs, (int, float)) or self.prune_interval_secs <= 0:
             errors.append(
                 f"monitor.prune_interval_secs must be a positive number "
-                f"(found: {type(self.prune_interval_secs).__name__} = {self.prune_interval_secs!r}, expected: float > 0)"
+                f"(found: {type(self.prune_interval_secs).__name__} = {self.prune_interval_secs!r}, "
+                "expected: float > 0)"
             )
 
         return errors

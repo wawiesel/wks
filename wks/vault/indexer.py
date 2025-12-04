@@ -157,12 +157,7 @@ class VaultLinkScanner:
         self._file_url_rewrites = []  # Reset rewrites
 
         # Determine which files to scan
-        if files is not None:
-            # Incremental scan - only scan specified files
-            files_to_scan = files
-        else:
-            # Full scan - scan all markdown files
-            files_to_scan = list(self.vault.iter_markdown_files())
+        files_to_scan = files if files is not None else list(self.vault.iter_markdown_files())
 
         for note_path in files_to_scan:
             # Skip non-markdown files if specific files provided
