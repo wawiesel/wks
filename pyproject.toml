@@ -9,6 +9,8 @@ requires-python = ">=3.10"
 dependencies = [
     "watchdog",
     "rich",
+    "typer[all]",
+    "pydantic>=2.0",
     "pymongo",
     "sentence-transformers",
     "docling",

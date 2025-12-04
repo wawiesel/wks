@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+import sys
 from typing import Any
+
+from pydantic import ValidationError
 
 from .diff.config import DiffConfig
 from .monitor.config import MonitorConfig
-from .monitor.config import ValidationError as MonitorValidationError
 from .transform.config import CacheConfig, TransformConfig
 from .utils import get_wks_home
 from .vault.config import VaultConfig
@@ -121,6 +123,7 @@ class WKSConfig:
 
         try:
             mongo = MongoSettings.from_config(raw)
+            # Pass the raw config (which contains the 'monitor' key)
             monitor = MonitorConfig.from_config_dict(raw)
             vault = VaultConfig.from_config_dict(raw)
             metrics = MetricsConfig.from_config(raw)
@@ -137,15 +140,36 @@ class WKSConfig:
                 transform=transform,
                 display=display,
             )
-        except (MonitorValidationError, KeyError, ValueError, Exception) as e:
+        except (ValidationError, KeyError, ValueError, Exception) as e:
             # Catching Exception to cover VaultConfigError/TransformConfigError if they bubble up
             # Ideally we should import them to catch specifically, but ConfigError wrapper is fine.
             raise ConfigError(f"Configuration validation failed: {e}") from e
 
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert WKSConfig instance to a dictionary for serialization.
+
+        Handles nested Pydantic models by calling .model_dump().
+        """
+        data = asdict(self)
+        if isinstance(self.monitor, MonitorConfig):
+            data["monitor"] = self.monitor.model_dump()
+        # Add other Pydantic models here as they are migrated
+        return data
+
+    def save(self, path: Path | None = None) -> None:
+        """Save the current configuration to a JSON file."""
+        if path is None:
+            path = get_config_path()
+
+        with path.open("w") as fh:
+            json.dump(self.to_dict(), fh, indent=4)
+
+
 def get_config_path() -> Path:
     """Get path to WKS config file."""
-    return get_wks_home() / "config.json"
+    config_path = get_wks_home() / "config.json"
+    return config_path
 
 
 # Backwards compatibility - DEPRECATED
@@ -165,7 +189,7 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
         # Preserve previous behaviour - callers must handle empty config.
         return {}
 
-    data: dict[str, Any] = asdict(cfg)
+    data: dict[str, Any] = cfg.to_dict()
 
     # Provide a normalized DB section for helpers that expect "db.uri".
     data["db"] = {"uri": cfg.mongo.uri}

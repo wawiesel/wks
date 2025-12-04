@@ -13,7 +13,7 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from .config import load_config
+from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
 from .service_controller import ServiceController
@@ -611,7 +611,7 @@ class MCPServer:
             return
 
         try:
-            config = load_config()
+            config = WKSConfig.load()
             registry = self._build_tool_registry()
 
             if tool_name not in registry:
@@ -637,156 +637,93 @@ class MCPServer:
         )
         return result.to_dict()
 
-    def _tool_monitor_status(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_monitor_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_monitor_status tool."""
-        status = MonitorController.get_status(config)
-        return status.to_dict()
+        status = MonitorController.get_status(config.monitor)
+        return status.model_dump()
 
-    def _tool_monitor_check(self, config: dict[str, Any], path: str) -> dict[str, Any]:
+    def _tool_monitor_check(self, config: WKSConfig, path: str) -> dict[str, Any]:
         """Execute wks_monitor_check tool."""
-        return MonitorController.check_path(config, path)
+        return MonitorController.check_path(config.monitor, path)
 
-    def _tool_monitor_validate(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_monitor_validate(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_monitor_validate tool."""
-        from dataclasses import asdict
+        result = MonitorController.validate_config(config.monitor)
+        return result.model_dump()
 
-        result = MonitorController.validate_config(config)
-        return asdict(result)
-
-    def _tool_monitor_list(self, config: dict[str, Any], list_name: str) -> dict[str, Any]:
+    def _tool_monitor_list(self, config: WKSConfig, list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
-        return MonitorController.get_list(config, list_name)
+        return MonitorController.get_list(config.monitor, list_name)
 
-    def _tool_monitor_add(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_add(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_add tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Determine if we need to resolve paths
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Add to list
-        from dataclasses import asdict
-
-        result_obj = MonitorController.add_to_list(config_dict, list_name, value, resolve_path)
-        result = asdict(result_obj)
+        result_obj = MonitorController.add_to_list(config.monitor, list_name, value, resolve_path)
+        result = result_obj.model_dump()
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_remove(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_remove(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_remove tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Determine if we need to resolve paths
         resolve_path = list_name in ["include_paths", "exclude_paths"]
 
         # Remove from list
-        from dataclasses import asdict
-
-        result_obj = MonitorController.remove_from_list(config_dict, list_name, value, resolve_path)
-        result = asdict(result_obj)
+        result_obj = MonitorController.remove_from_list(config.monitor, list_name, value, resolve_path)
+        result = result_obj.model_dump()
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_list(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_monitor_managed_list(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_monitor_managed_list tool."""
-        from dataclasses import asdict
+        result = MonitorController.get_managed_directories(config.monitor)
+        return result.model_dump()
 
-        result = MonitorController.get_managed_directories(config)
-        return asdict(result)
-
-    def _tool_monitor_managed_add(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_managed_add(self, config: WKSConfig, path: str, priority: int) -> dict[str, Any]:
         """Execute wks_monitor_managed_add tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Add managed directory
-        result = MonitorController.add_managed_directory(config_dict, path, priority)
+        result = MonitorController.add_managed_directory(config.monitor, path, priority)
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_remove(self, config: dict[str, Any], path: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_managed_remove(self, config: WKSConfig, path: str) -> dict[str, Any]:
         """Execute wks_monitor_managed_remove tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Remove managed directory
-        result = MonitorController.remove_managed_directory(config_dict, path)
+        result = MonitorController.remove_managed_directory(config.monitor, path)
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
 
-    def _tool_monitor_managed_set_priority(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_monitor_managed_set_priority(self, config: WKSConfig, path: str, priority: int) -> dict[str, Any]:
         """Execute wks_monitor_managed_set_priority tool."""
-        from .config import get_config_path
-
-        config_path = get_config_path()
-        if not config_path.exists():
-            return {"success": False, "message": f"Config file not found: {config_path}"}
-
-        # Load config from file
-        with config_path.open() as f:
-            config_dict = json.load(f)
-
         # Set priority
-        result = MonitorController.set_managed_priority(config_dict, path, priority)
+        result = MonitorController.set_managed_priority(config.monitor, path, priority)
 
         # Save if successful
         if result.get("success"):
-            with config_path.open("w") as f:
-                json.dump(config_dict, f, indent=4)
+            config.save()
             result["note"] = "Restart the monitor service for changes to take effect"
 
         return result
@@ -909,9 +846,9 @@ class MCPServer:
                 break
             self._handle_request(message)
 
-    def _tool_config(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_config(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wksm_config tool."""
-        result = MCPResult(success=True, data=config)
+        result = MCPResult(success=True, data=config.to_dict())
         result.add_success("Configuration loaded successfully")
         return result.to_dict()
 
@@ -1132,7 +1069,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         KeyError: If tool name is not found
         ValueError: If required parameters are missing (from tool validation)
     """
-    config = load_config()
+    config_obj = WKSConfig.load()
     server = MCPServer()
     registry = server._build_tool_registry()
 
@@ -1143,7 +1080,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return error_result.to_dict()
 
     handler = registry[tool_name]
-    return handler(config, arguments)
+    return handler(config_obj, arguments)
 
 
 def main() -> None:

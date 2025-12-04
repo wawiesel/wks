@@ -3,16 +3,43 @@
 Per CONTRIBUTING.md: CLI → MCP → API (CLI never calls API directly)
 """
 
-import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Optional
 
-from ..display.context import add_display_argument, get_display
+import typer
+from typer import Typer
+
+from ..display.context import get_display
 from ..mcp_client import proxy_stdio_to_socket
 from ..mcp_paths import mcp_socket_path
 from ..utils import expand_path, get_package_version
+
+
+# =============================================================================
+# Typer Apps
+# =============================================================================
+
+app = typer.Typer(
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
+    help="WKS CLI",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+monitor_app = typer.Typer(
+    name="monitor",
+    help="Monitor operations",
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+app.add_typer(monitor_app, name="monitor")
+
+
+# =============================================================================
+# Common Helpers
+# =============================================================================
 
 
 def _call(tool: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -22,10 +49,18 @@ def _call(tool: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     return call_tool(tool, args or {})
 
 
-def _out(data: Any, display) -> None:
+# Global variable for display object
+display_obj_global = None
+
+
+def _out(data: Any) -> None:
     """Output result."""
+    global display_obj_global
+    if display_obj_global is None:
+        display_obj_global = get_display("cli")  # Default to cli if not set
+
     if isinstance(data, dict):
-        display.json_output(data)
+        display_obj_global.json_output(data)
     else:
         print(data)
 
@@ -42,40 +77,55 @@ def _err(result: dict) -> int:
 # =============================================================================
 
 
-def _cmd_config(args: argparse.Namespace) -> int:
+@app.command(name="config", help="Show config")
+def config_command():
     r = _call("wksm_config")
-    _out(r.get("data", r), args.display_obj)
-    return _err(r)
+    _out(r.get("data", r))
+    sys.exit(_err(r))
 
 
-def _cmd_transform(args: argparse.Namespace) -> int:
-    path = expand_path(args.file_path)
+@app.command(name="transform", help="Transform file")
+def transform_command(
+    engine: str = typer.Argument(..., help="Transformation engine"),
+    file_path: str = typer.Argument(..., help="Path to the file to transform"),
+    output: Optional[str] = typer.Option(None, "-o", "--output", help="Output file path"),
+):
+    path = expand_path(file_path)
     if not path.exists():
         print(f"Error: File not found: {path}", file=sys.stderr)
-        return 2
-    r = _call("wksm_transform", {"file_path": str(path), "engine": args.engine, "options": {}})
+        sys.exit(2)
+    r = _call("wksm_transform", {"file_path": str(path), "engine": engine, "options": {}})
     if r.get("success"):
         print(r.get("data", {}).get("checksum", ""))
-    return _err(r)
+    sys.exit(_err(r))
 
 
-def _cmd_cat(args: argparse.Namespace) -> int:
-    r = _call("wksm_cat", {"target": args.input})
+@app.command(name="cat", help="Display content")
+def cat_command(
+    input_path: str = typer.Argument(..., help="Input file path"),
+    output_path: Optional[str] = typer.Option(None, "-o", "--output", help="Output file path"),
+):
+    r = _call("wksm_cat", {"target": input_path})
     if r.get("success"):
         content = r.get("data", {}).get("content", "")
-        if args.output:
-            Path(args.output).write_text(content)
-            print(f"Saved to {args.output}", file=sys.stderr)
+        if output_path:
+            Path(output_path).write_text(content)
+            print(f"Saved to {output_path}", file=sys.stderr)
         else:
             print(content)
-    return _err(r)
+    sys.exit(_err(r))
 
 
-def _cmd_diff(args: argparse.Namespace) -> int:
-    r = _call("wksm_diff", {"engine": args.engine, "target_a": args.file1, "target_b": args.file2})
+@app.command(name="diff", help="Compare files")
+def diff_command(
+    engine: str = typer.Argument(..., help="Diff engine"),
+    file1: str = typer.Argument(..., help="Path to the first file"),
+    file2: str = typer.Argument(..., help="Path to the second file"),
+):
+    r = _call("wksm_diff", {"engine": engine, "target_a": file1, "target_b": file2})
     if r.get("success"):
         print(r.get("data", {}).get("diff", ""))
-    return _err(r)
+    sys.exit(_err(r))
 
 
 # =============================================================================
@@ -83,60 +133,107 @@ def _cmd_diff(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def _cmd_monitor_status(args: argparse.Namespace) -> int:
-    _out(_call("wksm_monitor_status"), args.display_obj)
-    return 0
+@monitor_app.command(name="status", help="Show monitor status")
+def monitor_status_command():
+    _out(_call("wksm_monitor_status"))
 
 
-def _cmd_monitor_check(args: argparse.Namespace) -> int:
-    _out(_call("wksm_monitor_check", {"path": args.path}), args.display_obj)
-    return 0
+@monitor_app.command(name="check", help="Check monitor path")
+def monitor_check_command(
+    path: str = typer.Argument(..., help="Path to check"),
+):
+    _out(_call("wksm_monitor_check", {"path": path}))
 
 
-def _cmd_monitor_validate(args: argparse.Namespace) -> int:
+@monitor_app.command(name="validate", help="Validate monitor configuration")
+def monitor_validate_command():
     r = _call("wksm_monitor_validate")
-    _out(r, args.display_obj)
-    return 1 if r.get("issues") else 0
+    _out(r)
+    if r.get("issues"):
+        sys.exit(1)
 
 
-def _cmd_monitor_list(args: argparse.Namespace) -> int:
-    _out(_call("wksm_monitor_list", {"list_name": args.list_name}), args.display_obj)
-    return 0
+# =============================================================================
+# Monitor list commands (include_paths, exclude_paths, etc.)
+# =============================================================================
+
+lists = [
+    "include_paths",
+    "exclude_paths",
+    "include_dirnames",
+    "exclude_dirnames",
+    "include_globs",
+    "exclude_globs",
+]
 
 
-def _cmd_monitor_add(args: argparse.Namespace) -> int:
-    r = _call("wksm_monitor_add", {"list_name": args.list_name, "value": args.value})
-    print(f"{'Added' if r.get('success') else 'Failed'}: {args.value}", file=sys.stderr)
-    return 0 if r.get("success") else 1
+def create_list_commands(list_name: str):
+    list_app = typer.Typer(
+        name=list_name.replace("_", "-"),
+        help=f"Manage {list_name.replace('_', ' ')}",
+        pretty_exceptions_show_locals=False,
+        pretty_exceptions_enable=False,
+        context_settings={"help_option_names": ["-h", "--help"]},
+    )
+    monitor_app.add_typer(list_app)
+
+    @list_app.command(name="list", help=f"List {list_name.replace('_', ' ')}")
+    def _list_cmd():
+        _out(_call("wksm_monitor_list", {"list_name": list_name}))
+
+    @list_app.command(name="add", help=f"Add to {list_name.replace('_', ' ')}")
+    def _add_cmd(value: str = typer.Argument(..., help="Value to add")):
+        r = _call("wksm_monitor_add", {"list_name": list_name, "value": value})
+        print(f"{'Added' if r.get('success') else 'Failed'}: {value}", file=sys.stderr)
+        sys.exit(0 if r.get("success") else 1)
+
+    @list_app.command(name="remove", help=f"Remove from {list_name.replace('_', ' ')}")
+    def _remove_cmd(value: str = typer.Argument(..., help="Value to remove")):
+        r = _call("wksm_monitor_remove", {"list_name": list_name, "value": value})
+        print(f"{'Removed' if r.get('success') else 'Failed'}: {value}", file=sys.stderr)
+        sys.exit(0 if r.get("success") else 1)
 
 
-def _cmd_monitor_remove(args: argparse.Namespace) -> int:
-    r = _call("wksm_monitor_remove", {"list_name": args.list_name, "value": args.value})
-    print(f"{'Removed' if r.get('success') else 'Failed'}: {args.value}", file=sys.stderr)
-    return 0 if r.get("success") else 1
+for list_name in lists:
+    create_list_commands(list_name)
+
+# =============================================================================
+# Monitor managed commands
+# =============================================================================
 
 
-def _cmd_monitor_managed_list(args: argparse.Namespace) -> int:
-    _out(_call("wksm_monitor_managed_list"), args.display_obj)
-    return 0
+@monitor_app.command(name="managed-list", help="List managed paths")
+def monitor_managed_list_command():
+    _out(_call("wksm_monitor_managed_list"))
 
 
-def _cmd_monitor_managed_add(args: argparse.Namespace) -> int:
-    r = _call("wksm_monitor_managed_add", {"path": args.path, "priority": args.priority})
+@monitor_app.command(name="managed-add", help="Add a managed path")
+def monitor_managed_add_command(
+    path: str = typer.Argument(..., help="Path to manage"),
+    priority: int = typer.Argument(..., help="Priority of the path"),
+):
+    r = _call("wksm_monitor_managed_add", {"path": path, "priority": priority})
     print(f"{'Added' if r.get('success') else 'Failed'}", file=sys.stderr)
-    return 0 if r.get("success") else 1
+    sys.exit(0 if r.get("success") else 1)
 
 
-def _cmd_monitor_managed_remove(args: argparse.Namespace) -> int:
-    r = _call("wksm_monitor_managed_remove", {"path": args.path})
+@monitor_app.command(name="managed-remove", help="Remove a managed path")
+def monitor_managed_remove_command(
+    path: str = typer.Argument(..., help="Path to unmanage"),
+):
+    r = _call("wksm_monitor_managed_remove", {"path": path})
     print(f"{'Removed' if r.get('success') else 'Failed'}", file=sys.stderr)
-    return 0 if r.get("success") else 1
+    sys.exit(0 if r.get("success") else 1)
 
 
-def _cmd_monitor_managed_priority(args: argparse.Namespace) -> int:
-    r = _call("wksm_monitor_managed_set_priority", {"path": args.path, "priority": args.priority})
+@monitor_app.command(name="managed-set-priority", help="Set priority of a managed path")
+def monitor_managed_set_priority_command(
+    path: str = typer.Argument(..., help="Path to set priority for"),
+    priority: int = typer.Argument(..., help="New priority of the path"),
+):
+    r = _call("wksm_monitor_managed_set_priority", {"path": path, "priority": priority})
     print(f"{'Updated' if r.get('success') else 'Failed'}", file=sys.stderr)
-    return 0 if r.get("success") else 1
+    sys.exit(0 if r.get("success") else 1)
 
 
 # =============================================================================
@@ -144,34 +241,46 @@ def _cmd_monitor_managed_priority(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def _cmd_vault_status(args: argparse.Namespace) -> int:
-    _out(_call("wksm_vault_status"), args.display_obj)
-    return 0
+@app.command(name="vault-status", help="Show vault status")
+def vault_status_command():
+    _out(_call("wksm_vault_status"))
+    sys.exit(0)
 
 
-def _cmd_vault_sync(args: argparse.Namespace) -> int:
-    r = _call("wksm_vault_sync", {"batch_size": getattr(args, "batch_size", 1000)})
-    _out(r, args.display_obj)
-    return 0
+@app.command(name="vault-sync", help="Sync vault")
+def vault_sync_command(
+    batch_size: int = typer.Option(1000, "--batch-size", help="Batch size for sync"),
+):
+    r = _call("wksm_vault_sync", {"batch_size": batch_size})
+    _out(r)
+    sys.exit(0)
 
 
-def _cmd_vault_validate(args: argparse.Namespace) -> int:
-    _out(_call("wksm_vault_validate"), args.display_obj)
-    return 0
+@app.command(name="vault-validate", help="Validate vault configuration")
+def vault_validate_command():
+    _out(_call("wksm_vault_validate"))
+    sys.exit(0)
 
 
-def _cmd_vault_fix_symlinks(args: argparse.Namespace) -> int:
-    _out(_call("wksm_vault_fix_symlinks"), args.display_obj)
-    return 0
+@app.command(name="vault-fix-symlinks", help="Fix vault symlinks")
+def vault_fix_symlinks_command():
+    _out(_call("wksm_vault_fix_symlinks"))
+    sys.exit(0)
 
 
-def _cmd_vault_links(args: argparse.Namespace) -> int:
+@app.command(name="vault-links", help="Show vault links")
+def vault_links_command(
+    file_path: str = typer.Argument(..., help="Path to the file"),
+    direction: str = typer.Option(
+        "both", "--direction", help="Direction of links", rich_help_panel="Vault Options"
+    ),
+):
     r = _call(
         "wksm_vault_links",
-        {"file_path": args.path, "direction": getattr(args, "direction", "both")},
+        {"file_path": file_path, "direction": direction},
     )
-    _out(r, args.display_obj)
-    return 0
+    _out(r)
+    sys.exit(0)
 
 
 # =============================================================================
@@ -179,25 +288,25 @@ def _cmd_vault_links(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def _cmd_db_monitor(args: argparse.Namespace) -> int:
-    """Query monitor database via MCP."""
+@app.command(name="db-monitor", help="Query monitor database via MCP")
+def db_monitor_command():
     r = _call("wksm_db_monitor", {})
-    _out(r, args.display_obj)
-    return _err(r)
+    _out(r)
+    sys.exit(_err(r))
 
 
-def _cmd_db_vault(args: argparse.Namespace) -> int:
-    """Query vault database via MCP."""
+@app.command(name="db-vault", help="Query vault database via MCP")
+def db_vault_command():
     r = _call("wksm_db_vault", {})
-    _out(r, args.display_obj)
-    return _err(r)
+    _out(r)
+    sys.exit(_err(r))
 
 
-def _cmd_db_transform(args: argparse.Namespace) -> int:
-    """Query transform database via MCP."""
+@app.command(name="db-transform", help="Query transform database via MCP")
+def db_transform_command():
     r = _call("wksm_db_transform", {})
-    _out(r, args.display_obj)
-    return _err(r)
+    _out(r)
+    sys.exit(_err(r))
 
 
 # =============================================================================
@@ -205,188 +314,96 @@ def _cmd_db_transform(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def _cmd_service_status(args: argparse.Namespace) -> int:
-    """Show daemon/service status via MCP."""
+@app.command(name="service-status", help="Show daemon/service status via MCP")
+def service_status_command():
     r = _call("wksm_service", {})
-    _out(r.get("data", r), args.display_obj)
-    return _err(r)
+    _out(r.get("data", r))
+    sys.exit(_err(r))
 
 
 # =============================================================================
-# Parser setup
+# MCP server commands
 # =============================================================================
 
 
-def _setup_monitor(sub) -> None:
-    lists = [
-        "include_paths",
-        "exclude_paths",
-        "include_dirnames",
-        "exclude_dirnames",
-        "include_globs",
-        "exclude_globs",
-    ]
+@app.command(name="mcp", help="MCP server operations")
+def mcp_command(
+    direct: bool = typer.Option(False, "--direct", help="Run MCP directly (no socket)"),
+    install: bool = typer.Option(False, help="Install MCP configs"),
+    command_path: Optional[str] = typer.Option(None, help="Command path for install"),
+    client: Optional[List[str]] = typer.Option(
+        None, "--client", help="Client for install", rich_help_panel="MCP Options"
+    ),
+):
+    if install:
+        from ..mcp_setup import install_mcp_configs
 
-    mon = sub.add_parser("monitor", help="Monitor operations")
-    m = mon.add_subparsers(dest="monitor_cmd")
+        for r in install_mcp_configs(clients=client, command_override=command_path):
+            print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")
+        sys.exit(0)
 
-    m.add_parser("status").set_defaults(func=_cmd_monitor_status)
-    p = m.add_parser("check")
-    p.add_argument("path")
-    p.set_defaults(func=_cmd_monitor_check)
-    m.add_parser("validate").set_defaults(func=_cmd_monitor_validate)
+    if not direct and proxy_stdio_to_socket(mcp_socket_path()):
+        sys.exit(0)
 
-    for name in lists:
-        p = m.add_parser(name)
-        s = p.add_subparsers(dest=f"{name}_cmd")
-        s.add_parser("list").set_defaults(func=_cmd_monitor_list, list_name=name)
-        a = s.add_parser("add")
-        a.add_argument("value")
-        a.set_defaults(func=_cmd_monitor_add, list_name=name)
-        r = s.add_parser("remove")
-        r.add_argument("value")
-        r.set_defaults(func=_cmd_monitor_remove, list_name=name)
+    from ..mcp_server import main as mcp_main
 
-    mg = m.add_parser("managed")
-    ms = mg.add_subparsers(dest="managed_cmd")
-    ms.add_parser("list").set_defaults(func=_cmd_monitor_managed_list)
-    a = ms.add_parser("add")
-    a.add_argument("path")
-    a.add_argument("priority", type=int)
-    a.set_defaults(func=_cmd_monitor_managed_add)
-    r = ms.add_parser("remove")
-    r.add_argument("path")
-    r.set_defaults(func=_cmd_monitor_managed_remove)
-    p = ms.add_parser("set-priority")
-    p.add_argument("path")
-    p.add_argument("priority", type=int)
-    p.set_defaults(func=_cmd_monitor_managed_priority)
+    mcp_main()
+    sys.exit(0)
 
 
-def _setup_vault(sub) -> None:
-    v = sub.add_parser("vault", help="Vault operations")
-    s = v.add_subparsers(dest="vault_cmd")
-
-    s.add_parser("status").set_defaults(func=_cmd_vault_status)
-    p = s.add_parser("sync")
-    p.add_argument("--batch-size", type=int, default=1000)
-    p.set_defaults(func=_cmd_vault_sync)
-    s.add_parser("validate").set_defaults(func=_cmd_vault_validate)
-    s.add_parser("fix-symlinks").set_defaults(func=_cmd_vault_fix_symlinks)
-    p = s.add_parser("links")
-    p.add_argument("path")
-    p.add_argument("--direction", choices=["both", "to", "from"], default="both")
-    p.set_defaults(func=_cmd_vault_links)
-
-
-def _setup_db(sub) -> None:
-    db = sub.add_parser("db", help="Database queries")
-    s = db.add_subparsers(dest="db_cmd")
-
-    s.add_parser("monitor").set_defaults(func=_cmd_db_monitor)
-    s.add_parser("vault").set_defaults(func=_cmd_db_vault)
-    s.add_parser("transform").set_defaults(func=_cmd_db_transform)
-
-
-def _setup_service(sub) -> None:
-    svc = sub.add_parser("service", help="Service operations")
-    s = svc.add_subparsers(dest="service_cmd")
-
-    s.add_parser("status").set_defaults(func=_cmd_service_status)
+# =============================================================================
+# Main entry point
+# =============================================================================
 
 
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entry point."""
-    parser = argparse.ArgumentParser(prog="wksc", description="WKS CLI")
-    sub = parser.add_subparsers(dest="cmd")
+    global display_obj_global
 
-    # Version
-    v = get_package_version()
-    try:
-        sha = (
-            subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                stderr=subprocess.DEVNULL,
-                cwd=str(Path(__file__).resolve().parents[2]),
+    # Handle --version separately as Typer's built-in --version is harder to customize
+    if argv and ("--version" in argv or "-v" in argv):
+        v = get_package_version()
+        try:
+            sha = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    stderr=subprocess.DEVNULL,
+                    cwd=str(Path(__file__).resolve().parents[2]),
+                )
+                .decode()
+                .strip()
             )
-            .decode()
-            .strip()
-        )
-        v = f"{v} ({sha})"
-    except Exception:
-        pass
-    parser.add_argument("--version", action="version", version=f"wksc {v}")
-    add_display_argument(parser)
-
-    # Simple commands
-    sub.add_parser("config", help="Show config").set_defaults(func=_cmd_config)
-
-    p = sub.add_parser("transform", help="Transform file")
-    p.add_argument("engine")
-    p.add_argument("file_path")
-    p.add_argument("-o", "--output")
-    p.set_defaults(func=_cmd_transform)
-    p = sub.add_parser("cat", help="Display content")
-    p.add_argument("input")
-    p.add_argument("-o", "--output")
-    p.set_defaults(func=_cmd_cat)
-    p = sub.add_parser("diff", help="Compare files")
-    p.add_argument("engine")
-    p.add_argument("file1")
-    p.add_argument("file2")
-    p.set_defaults(func=_cmd_diff)
-
-    _setup_monitor(sub)
-    _setup_vault(sub)
-    _setup_db(sub)
-    _setup_service(sub)
-
-    # MCP server
-    mcp = sub.add_parser("mcp", help="MCP server")
-    ms = mcp.add_subparsers(dest="mcp_cmd")
-    run = ms.add_parser("run")
-    run.add_argument("--direct", action="store_true")
-
-    def mcp_run(args) -> int:
-        if not args.direct and proxy_stdio_to_socket(mcp_socket_path()):
-            return 0
-        from ..mcp_server import main as mcp_main
-
-        mcp_main()
+            v = f"{v} ({sha})"
+        except Exception:
+            pass
+        print(f"wksc {v}")
         return 0
 
-    run.set_defaults(func=mcp_run)
-
-    inst = ms.add_parser("install")
-    inst.add_argument("--command-path")
-    inst.add_argument("--client", dest="clients", action="append", choices=["cursor", "claude", "gemini"])
-
-    def mcp_install(args) -> int:
-        from ..mcp_setup import install_mcp_configs
-
-        for r in install_mcp_configs(clients=args.clients, command_override=args.command_path):
-            print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")
-        return 0
-
-    inst.set_defaults(func=mcp_install)
-
-    # Parse and execute
-    args = parser.parse_args(argv)
-    args.display = getattr(args, "display", None) or "cli"
-    args.display_obj = get_display(args.display)
-
-    if not hasattr(args, "func"):
-        parser.print_help()
-        return 2
+    # Handle --display separately
+    display_arg_index = -1
+    for i, arg in enumerate(argv or []):
+        if arg.startswith("--display="):
+            display_obj_global = get_display(arg.split("=")[1])
+            display_arg_index = i
+            break
+        elif arg == "--display" and i + 1 < len(argv or []):
+            display_obj_global = get_display(argv[i + 1])
+            display_arg_index = i
+            # Also remove the next argument which is the display value
+            break
+    if display_arg_index != -1:
+        # Remove --display argument and its value from argv
+        if argv[display_arg_index].startswith("--display="):
+            argv.pop(display_arg_index)
+        else:
+            argv.pop(display_arg_index + 1)
+            argv.pop(display_arg_index)
 
     try:
-        return args.func(args)
-    except KeyboardInterrupt:
-        return 130
+        app(argv)
+    except typer.Exit as e:
+        return e.exit_code
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    return 0
