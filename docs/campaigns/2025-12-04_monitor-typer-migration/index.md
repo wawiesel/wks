@@ -134,7 +134,39 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
    - Register all monitor commands using `@monitor_app.command()` decorators
    - **Command names match function names**: `@monitor_app.command(name="status")` decorates `status()` function
    - Apply `@inject_config` decorator to all commands
-   - Functions handle display directly using `get_display("cli")` when called from CLI
+   - **4-Step CLI Pattern**: Each function must follow the pattern when called from CLI:
+     1. **Announce** (STDERR): `display.status("Checking monitor status...")` - immediate feedback
+     2. **Progress** (STDERR): `with display.progress(total=N, description="Processing..."):` - progress bar context manager
+     3. **Result** (STDERR): `display.success("Done")` or `display.error("Failed")` - completion status
+     4. **Output** (STDOUT): `display.json_output(data)` or `display.table(data)` - final structured output
+   - **Detection**: Functions check if called from CLI using `get_display("cli")` - if it returns `CLIDisplay`, follow 4-step pattern
+   - **MCP calls**: When called from MCP, functions return raw data (no display calls, no 4-step pattern)
+   - **Example implementation**:
+     ```python
+     @monitor_app.command(name="status")
+     @inject_config
+     def status(config: WKSConfig) -> dict[str, Any]:
+         display = get_display("cli")
+         is_cli = isinstance(display, CLIDisplay)
+
+         if is_cli:
+             # Step 1: Announce
+             display.status("Checking monitor status...")
+
+             # Step 2: Progress
+             with display.progress(total=1, description="Querying monitor database..."):
+                 result = MonitorController.get_status(config.monitor)
+                 data = result.model_dump()
+
+             # Step 3: Result
+             display.success("Monitor status retrieved")
+
+             # Step 4: Output
+             display.json_output(data)
+
+         # Always return data (for MCP or programmatic use)
+         return result.model_dump() if is_cli else MonitorController.get_status(config.monitor).model_dump()
+     ```
    - **Naming consistency**: CLI command name = Typer command name = function name = filename (without extension)
 
 ### Phase 3: Update MCP Server
