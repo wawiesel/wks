@@ -185,6 +185,57 @@ Every CLI command must follow this 4-step behavior:
    - Show OK/FAIL status before the last error.
    - If failed, STDOUT should be empty.
 
+### Implementing the 4-Step Pattern with Typer
+
+For Typer-based commands, use the `Display` object to follow the pattern:
+
+```python
+from typer import Typer
+from ..display.context import get_display
+from ..mcp.result import MCPResult, Message, MessageType
+
+@monitor_app.command(name="status")
+def monitor_status(display=None):
+    """Get monitor status."""
+    # Step 1: Announce (STDERR)
+    if display is None:
+        display = get_display("cli")
+    display.status("Checking monitor status...")
+
+    # Step 2: Progress (STDERR) - using context manager
+    try:
+        with display.progress(total=1, description="Querying monitor..."):
+            # Business logic here
+            from ..monitor.controller import MonitorController
+            from ..config import WKSConfig
+
+            config = WKSConfig.load()
+            status = MonitorController.get_status(config.monitor)
+
+        # Step 3: Result (STDERR)
+        display.success("Monitor status retrieved successfully")
+
+        # Step 4: Output (STDOUT) - return data for decorator to handle
+        return MCPResult(success=True, data=status.model_dump(), messages=[])
+    except Exception as e:
+        display.error(f"Failed to get monitor status: {e}")
+        return MCPResult(
+            success=False,
+            data={},
+            messages=[Message(type=MessageType.ERROR, text=str(e))]
+        )
+```
+
+**Progress Bar Patterns:**
+- **Simple operation**: Use `with display.progress(total=1, description="..."):` for instant operations
+- **Iterative operation**: Use `display.progress_start()`, `display.progress_update()`, `display.progress_finish()` for multi-step operations
+- **Context manager**: The `display.progress()` context manager automatically handles start/finish
+
+**Display Object:**
+- `display.status()`, `display.success()`, `display.error()`, `display.warning()` → STDERR
+- `display.table()`, `display.json_output()` → STDOUT
+- Progress bars automatically go to STDERR
+
 ## Testing
 
 - **Clean Up**: Remove or disable obsolete tests tied to deprecated functionality.

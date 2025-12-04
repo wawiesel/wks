@@ -12,11 +12,11 @@ A **Campaign** is a cohesive, strategic effort to update the WKS codebase, execu
 
 ### 1. Initialization
 1.  **Director** conceives the campaign idea.
-2.  **Orchestrator** creates a new branch off `main` following the naming convention: `YYYY-MM-DD_campaign-name`.
+2.  **Orchestrator** creates a new branch off `main` following the naming convention: `YYYY-MM-DD_campaign-name` and creates a PR.
 3.  **Orchestrator** initializes the campaign documentation at `docs/campaigns/<branch>/index.md`, defining the goals and scope.
 
 ### 2. Delegation
-1.  **Orchestrator** identifies subtasks and creates branches/goals for agents (e.g., adding `docs/campaigns/<branch>/agent1/GOAL.md`).
+1.  **Orchestrator** identifies subtasks and creates branches and PRs for agents (e.g., adding `docs/campaigns/<branch>/agent1/GOAL.md` only on that branch).
 2.  **Director** instantiates Agent bots and assigns them to their respective tasks/branches.
 
 ### 3. Execution & Review
