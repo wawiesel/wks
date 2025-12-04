@@ -156,7 +156,7 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
     try:
         cfg = WKSConfig.load(path)
     except Exception:
-        # Preserve previous behaviour – callers must handle empty config.
+        # Preserve previous behaviour - callers must handle empty config.
         return {}
 
     data: dict[str, Any] = asdict(cfg)

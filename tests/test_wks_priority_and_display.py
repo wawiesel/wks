@@ -133,7 +133,7 @@ class TestPriorityCalculation:
         home = Path.home()
 
         # Test exact match
-        matched, priority = find_managed_directory(home / "Desktop", managed_dirs)
+        _matched, priority = find_managed_directory(home / "Desktop", managed_dirs)
         assert priority == 150
 
         # Test nested path

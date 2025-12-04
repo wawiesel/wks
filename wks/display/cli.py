@@ -50,7 +50,7 @@ class CLIDisplay(Display):
 
     def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a status message in blue."""
-        self.console.print(f"[blue]ℹ[/blue] {message}")
+        self.console.print(f"[blue]i[/blue] {message}")
 
     def success(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a success message in green."""

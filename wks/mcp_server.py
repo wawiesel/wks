@@ -763,7 +763,7 @@ class MCPServer:
 
     def _tool_transform(
         self,
-        config: dict[str, Any],
+        config: dict[str, Any],  # noqa: ARG002
         file_path: str,
         engine: str,
         options: dict[str, Any],
