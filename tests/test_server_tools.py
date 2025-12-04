@@ -16,7 +16,7 @@ def mock_server():
 @pytest.fixture
 def mock_config():
     """Mock configuration."""
-    data = {
+    return {
         "transform": {
             "cache_location": "~/.wks/cache",
             "cache_max_size_bytes": 1000,
@@ -26,11 +26,6 @@ def mock_config():
         "monitor": {"database": "wks.monitor"},
         "vault": {"database": "wks.vault"},
     }
-    mock_obj = MagicMock()
-    mock_obj.to_dict.return_value = data
-    # Support attribute access for some tests that might need it
-    mock_obj.mongo.uri = data["mongo"]["uri"]
-    return mock_obj
 
 
 class TestMCPServerNewTools:
@@ -38,9 +33,15 @@ class TestMCPServerNewTools:
 
     def test_wks_config(self, mock_server, mock_config):
         """Test wksm_config tool returns MCPResult format."""
-        result = mock_server._tool_config(mock_config)
+        from wks.config import WKSConfig
+
+        # Create a mock WKSConfig object
+        mock_wks_config = MagicMock(spec=WKSConfig)
+        mock_wks_config.to_dict.return_value = mock_config
+
+        result = mock_server._tool_config(mock_wks_config)
         assert result["success"] is True
-        assert result["data"] == mock_config.to_dict.return_value
+        assert result["data"] == mock_config
         assert "messages" in result
 
     @patch("wks.config.WKSConfig")
@@ -123,7 +124,7 @@ class TestMCPServerNewTools:
         result = mock_server._tool_vault_validate(mock_config)
 
         assert result == {"status": "ok"}
-        mock_load_vault.assert_called_once_with(mock_config.to_dict.return_value)
+        mock_load_vault.assert_called_once_with(mock_config)
         mock_controller.validate_vault.assert_called_once()
 
     @patch("wks.vault.load_vault")
@@ -142,7 +143,7 @@ class TestMCPServerNewTools:
         result = mock_server._tool_vault_fix_symlinks(mock_config)
 
         assert result == {"notes_scanned": 10, "links_found": 5, "created": 2, "failed": []}
-        mock_load_vault.assert_called_once_with(mock_config.to_dict.return_value)
+        mock_load_vault.assert_called_once_with(mock_config)
         mock_controller.fix_symlinks.assert_called_once()
 
     @patch("wks.db_helpers.connect_to_mongo")
@@ -370,7 +371,7 @@ class TestMCPServerNewTools:
         assert result["success"] is False
         assert "Unexpected error" in result["messages"][0]["text"]
 
-    @patch("wks.mcp_server.WKSConfig.load")
+    @patch("wks.config.WKSConfig.load")
     def test_call_tool_not_found(self, mock_load_config, mock_config):
         """Test call_tool returns error for unknown tool."""
         from wks.mcp_server import call_tool
@@ -382,7 +383,7 @@ class TestMCPServerNewTools:
         assert result["success"] is False
         assert "Tool not found" in result["messages"][0]["text"]
 
-    @patch("wks.mcp_server.WKSConfig.load")
+    @patch("wks.config.WKSConfig.load")
     def test_call_tool_success(self, mock_load_config, mock_config):
         """Test call_tool successfully calls a tool."""
         from wks.mcp_server import call_tool

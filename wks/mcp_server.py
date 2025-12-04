@@ -13,6 +13,10 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+import typer
+
+from .api.base import get_typer_command_schema
+from .api.monitor import monitor_app, monitor_check, monitor_status, monitor_validate
 from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
@@ -535,9 +539,9 @@ class MCPServer:
             """Decorator to validate required parameters."""
 
             def decorator(
-                handler: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
-            ) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
-                def wrapper(config: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
+                handler: Callable[[WKSConfig, dict[str, Any]], dict[str, Any]],
+            ) -> Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]:
+                def wrapper(config: WKSConfig, arguments: dict[str, Any]) -> dict[str, Any]:
                     missing = [p for p in param_names if arguments.get(p) is None]
                     if missing:
                         raise ValueError(f"Missing required parameters: {', '.join(missing)}")
@@ -730,15 +734,17 @@ class MCPServer:
 
     def _tool_vault_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_status tool."""
-        # Legacy controller expects dict
-        controller = VaultStatusController(config.to_dict())
+        # VaultStatusController expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        controller = VaultStatusController(config_dict)
         summary = controller.summarize()
         return summary.to_dict()
 
     def _tool_vault_sync(self, config: WKSConfig, batch_size: int) -> dict[str, Any]:
         """Execute wks_vault_sync tool."""
-        # Legacy controller expects dict
-        return VaultController.sync_vault(config.to_dict(), batch_size)
+        # VaultController.sync_vault expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        return VaultController.sync_vault(config_dict, batch_size)
 
     def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
@@ -762,7 +768,7 @@ class MCPServer:
 
         # Check if file is monitored
         try:
-            monitor_info = MonitorController.check_path(config.monitor, str(file_path_expanded))
+            monitor_info = MonitorController.check_path(config, str(file_path_expanded))
             is_monitored = monitor_info.get("is_monitored", False)
             priority = monitor_info.get("priority", 0) if is_monitored else None
         except Exception:
@@ -778,7 +784,7 @@ class MCPServer:
         # Connect to database
         from pymongo import MongoClient
 
-        uri, db_name, coll_name = get_vault_db_config(config.to_dict())
+        uri, db_name, coll_name = get_vault_db_config(config)
         client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
@@ -863,6 +869,7 @@ class MCPServer:
         """Execute wksm_transform tool."""
         from pathlib import Path
 
+        from .config import WKSConfig
         from .db_helpers import connect_to_mongo
         from .transform import TransformController
         from .utils import expand_path
@@ -875,14 +882,15 @@ class MCPServer:
             if not path.exists():
                 return result.error_result(f"File not found: {path}", data={}).to_dict()
 
-            # Use passed config
-            cache_location = Path(config.transform.cache.location).expanduser()
-            max_size_bytes = config.transform.cache.max_size_bytes
+            # Use provided config or load if needed
+            wks_cfg = config if isinstance(config, WKSConfig) else WKSConfig.load()
+            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
+            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = config.mongo.uri
-            db_name = config.transform.database.split(".")[0]
+            uri = wks_cfg.mongo.uri
+            db_name = wks_cfg.transform.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -904,24 +912,26 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_cat(self, config: WKSConfig, target: str) -> dict[str, Any]:
+    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wksm_cat tool."""
         from pathlib import Path
 
+        from .config import WKSConfig
         from .db_helpers import connect_to_mongo
         from .transform import TransformController
 
         result = MCPResult(success=False, data={})
 
         try:
-            # Use passed config
-            cache_location = Path(config.transform.cache.location).expanduser()
-            max_size_bytes = config.transform.cache.max_size_bytes
+            # Load config dataclass for proper cache location resolution
+            wks_cfg = WKSConfig.load()
+            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
+            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = config.mongo.uri
-            db_name = config.transform.database.split(".")[0]
+            uri = wks_cfg.mongo.uri
+            db_name = wks_cfg.transform.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -940,7 +950,7 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_diff(self, config: WKSConfig, engine: str, target_a: str, target_b: str) -> dict[str, Any]:
+    def _tool_diff(self, config: dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
@@ -953,14 +963,14 @@ class MCPServer:
 
         try:
             # Setup transform controller for checksum resolution
-            transform_cfg = config.transform
-            cache_location = Path(transform_cfg.cache.location).expanduser()
-            max_size_bytes = transform_cfg.cache.max_size_bytes
+            transform_cfg = config.get("transform", {})
+            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
+            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
 
             from pymongo import MongoClient
 
-            uri = config.mongo.uri
-            db_name = transform_cfg.database.split(".")[0]
+            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -968,13 +978,8 @@ class MCPServer:
             transform_controller = TransformController(db, cache_location, max_size_bytes)
 
             # Load diff configuration and construct controller when available.
-            # DiffConfig currently expects dict in from_config_dict
-            # We should convert WKSConfig back to dict for legacy compatibility if needed
-            # or update DiffConfig to support WKSConfig.
-            # For now, let's convert config to dict for DiffConfig.
-            config_dict = config.to_dict()
             try:
-                diff_config = DiffConfig.from_config_dict(config_dict)
+                diff_config = DiffConfig.from_config_dict(config)
             except DiffConfigError:
                 diff_config = None
 
@@ -998,8 +1003,9 @@ class MCPServer:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
 
-        # Legacy helpers expect dict
-        vault = load_vault(config.to_dict())
+        # load_vault expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        vault = load_vault(config_dict)
         controller = VaultController(vault)
         return controller.validate_vault()
 
@@ -1007,8 +1013,9 @@ class MCPServer:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
 
-        # Legacy helpers expect dict
-        vault = load_vault(config.to_dict())
+        # load_vault expects dict, convert WKSConfig
+        config_dict = config.to_dict()
+        vault = load_vault(config_dict)
         controller = VaultController(vault)
         result = controller.fix_symlinks()
 

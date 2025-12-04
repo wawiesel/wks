@@ -1,6 +1,7 @@
 """Tests for CLI display implementation."""
 
 import io
+import sys
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
@@ -11,75 +12,110 @@ class TestCLIDisplay:
     """Test CLIDisplay methods."""
 
     def test_status(self):
-        """Test status message."""
-        display = CLIDisplay()
+        """Test status message (goes to STDERR)."""
+        from io import StringIO
 
-        with redirect_stdout(io.StringIO()) as f:
+        stderr_backup = sys.stderr
+        try:
+            f = StringIO()
+            sys.stderr = f
+            display = CLIDisplay()
             display.status("Processing...")
-
-        output = f.getvalue()
-        assert "Processing" in output
+            output = f.getvalue()
+            assert "Processing" in output
+        finally:
+            sys.stderr = stderr_backup
 
     def test_success(self):
-        """Test success message."""
-        display = CLIDisplay()
+        """Test success message (goes to STDERR)."""
+        from io import StringIO
 
-        with redirect_stdout(io.StringIO()) as f:
+        stderr_backup = sys.stderr
+        try:
+            f = StringIO()
+            sys.stderr = f
+            display = CLIDisplay()
             display.success("Done!")
-
-        output = f.getvalue()
-        assert "Done" in output
+            output = f.getvalue()
+            assert "Done" in output
+        finally:
+            sys.stderr = stderr_backup
 
     def test_error_without_details(self):
-        """Test error message without details."""
-        display = CLIDisplay()
+        """Test error message without details (goes to STDERR)."""
+        from io import StringIO
 
-        with redirect_stdout(io.StringIO()) as f:
+        stderr_backup = sys.stderr
+        try:
+            f = StringIO()
+            sys.stderr = f
+            display = CLIDisplay()
             display.error("Error occurred")
-
-        output = f.getvalue()
-        assert "Error occurred" in output
+            output = f.getvalue()
+            assert "Error occurred" in output
+        finally:
+            sys.stderr = stderr_backup
 
     def test_error_with_details(self):
-        """Test error message with details."""
-        display = CLIDisplay()
+        """Test error message with details (goes to STDERR)."""
+        from io import StringIO
 
-        with redirect_stdout(io.StringIO()) as f:
+        stderr_backup = sys.stderr
+        try:
+            f = StringIO()
+            sys.stderr = f
+            display = CLIDisplay()
             display.error("Error occurred", details="Detailed error info")
-
-        output = f.getvalue()
-        assert "Error occurred" in output
-        assert "Detailed error info" in output
+            output = f.getvalue()
+            assert "Error occurred" in output
+            assert "Detailed error info" in output
+        finally:
+            sys.stderr = stderr_backup
 
     def test_warning(self):
-        """Test warning message."""
-        display = CLIDisplay()
+        """Test warning message (goes to STDERR)."""
+        from io import StringIO
 
-        with redirect_stdout(io.StringIO()) as f:
+        stderr_backup = sys.stderr
+        try:
+            f = StringIO()
+            sys.stderr = f
+            display = CLIDisplay()
             display.warning("Warning message")
-
-        output = f.getvalue()
-        assert "Warning message" in output
+            output = f.getvalue()
+            assert "Warning message" in output
+        finally:
+            sys.stderr = stderr_backup
 
     def test_info(self):
-        """Test info message."""
-        display = CLIDisplay()
+        """Test info message (goes to STDERR)."""
+        from io import StringIO
 
-        with redirect_stdout(io.StringIO()) as f:
+        stderr_backup = sys.stderr
+        try:
+            f = StringIO()
+            sys.stderr = f
+            display = CLIDisplay()
             display.info("Info message")
-
-        output = f.getvalue()
-        assert "Info message" in output
+            output = f.getvalue()
+            assert "Info message" in output
+        finally:
+            sys.stderr = stderr_backup
 
     def test_table_empty(self):
-        """Test table with empty data."""
-        display = CLIDisplay()
+        """Test table with empty data (info message goes to STDERR)."""
+        from io import StringIO
 
-        with redirect_stdout(io.StringIO()) as f:
+        stderr_backup = sys.stderr
+        try:
+            f = StringIO()
+            sys.stderr = f
+            display = CLIDisplay()
             display.table([])
-
-        output = f.getvalue()
-        assert "No data to display" in output
+            output = f.getvalue()
+            assert "No data to display" in output
+        finally:
+            sys.stderr = stderr_backup
 
     def test_table_with_data(self):
         """Test table with data."""
@@ -223,7 +259,7 @@ class TestCLIDisplay:
         """Test tree with list."""
         display = CLIDisplay()
 
-        data = [1, 2, {"nested": "value"}]
+        data = {"items": [1, 2, {"nested": "value"}]}
 
         with redirect_stdout(io.StringIO()) as f:
             display.tree(data)

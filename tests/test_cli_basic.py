@@ -41,10 +41,11 @@ def test_cli_help_flag():
 
 
 def test_cli_no_command():
-    """Test CLI with no command shows help and returns 2 or 0."""
-    rc, out, err = run_cli([])
-    assert rc in (2, 0)
-    assert "usage:" in out.lower() or "wksc" in out.lower() or "usage:" in err.lower() or "wksc" in err.lower()
+    """Test CLI with no command shows help and returns 2."""
+    rc, _out, err = run_cli([])
+    assert rc == 2
+    # Typer outputs help/errors to stderr
+    assert "usage:" in err.lower() or "wksc" in err.lower() or "Missing command" in err
 
 
 @patch("wks.cli._call")
@@ -201,7 +202,9 @@ def test_cli_monitor_list_operations(mock_call):
         "include_globs",
         "exclude_globs",
     ]:
-        rc, _out, _err = run_cli(["monitor", list_name.replace("_", "-"), "list"])
+        # CLI uses hyphens, but MCP uses underscores
+        cli_name = list_name.replace("_", "-")
+        rc, _out, _err = run_cli(["monitor", cli_name, "list"])
         assert rc == 0
         mock_call.assert_called_once_with("wksm_monitor_list", {"list_name": list_name})
         mock_call.reset_mock()
@@ -231,7 +234,7 @@ def test_cli_monitor_managed_list(mock_call):
     mock_call.return_value = {"success": True, "data": {"items": []}, "messages": []}
     rc, _out, _err = run_cli(["monitor", "managed-list"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_monitor_managed_list")
+    mock_call.assert_called_once_with("wksm_monitor_managed_list", {})
 
 
 @patch("wks.cli._call")
@@ -267,7 +270,7 @@ def test_cli_vault_status(mock_call):
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
     rc, _out, _err = run_cli(["vault-status"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_vault_status")
+    mock_call.assert_called_once_with("wksm_vault_status", {})
 
 
 @patch("wks.cli._call")
@@ -294,7 +297,7 @@ def test_cli_vault_validate(mock_call):
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
     rc, _out, _err = run_cli(["vault-validate"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_vault_validate")
+    mock_call.assert_called_once_with("wksm_vault_validate", {})
 
 
 @patch("wks.cli._call")
@@ -303,7 +306,7 @@ def test_cli_vault_fix_symlinks(mock_call):
     mock_call.return_value = {"success": True, "data": {}, "messages": []}
     rc, _out, _err = run_cli(["vault-fix-symlinks"])
     assert rc == 0
-    mock_call.assert_called_once_with("wksm_vault_fix_symlinks")
+    mock_call.assert_called_once_with("wksm_vault_fix_symlinks", {})
 
 
 @patch("wks.cli._call")
@@ -327,17 +330,20 @@ def test_cli_vault_links_with_direction(mock_call):
 @patch("wks.cli._call")
 def test_cli_out_with_string(mock_call):  # noqa: ARG001
     """Test _out function with non-dict (string) output."""
-    from wks.cli import _out
     import wks.cli
+    from wks.cli import _out
     from wks.display.cli import CLIDisplay
 
-    # Set global display object
+    # Set the global display object
     wks.cli.display_obj_global = CLIDisplay()
 
     out_buf = io.StringIO()
     with redirect_stdout(out_buf):
         _out("plain string")
     assert "plain string" in out_buf.getvalue()
+
+    # Clean up
+    wks.cli.display_obj_global = None
 
 
 @patch("wks.cli._call")
@@ -416,7 +422,7 @@ def test_cli_mcp_run_with_proxy(mock_socket_path, mock_proxy, tmp_path):
     mock_socket_path.return_value = tmp_path / "socket"
     mock_proxy.return_value = True  # Proxy succeeds
 
-    rc, _out, _err = run_cli(["mcp"])
+    rc, _out, _err = run_cli(["mcp", "run"])
     assert rc == 0
     mock_proxy.assert_called_once()
 
@@ -427,7 +433,7 @@ def test_cli_mcp_run_direct(mock_mcp_main, mock_proxy):
     """Test wksc mcp run --direct bypasses proxy."""
     mock_proxy.return_value = False
 
-    rc, _out, _err = run_cli(["mcp", "--direct"])
+    rc, _out, _err = run_cli(["mcp", "run", "--direct"])
     assert rc == 0
     mock_mcp_main.assert_called_once()
     # Proxy should not be called when --direct
@@ -441,7 +447,7 @@ def test_cli_mcp_install(mock_install):
 
     mock_install.return_value = [InstallResult("cursor", Path("/path/to/cursor"), "created", "Registered MCP server")]
 
-    rc, out, _err = run_cli(["mcp", "--install", "--client", "cursor"])
+    rc, out, _err = run_cli(["mcp", "install", "--client", "cursor"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor"], command_override=None)
     assert "[cursor]" in out or "[CURSOR]" in out.upper()
@@ -456,7 +462,7 @@ def test_cli_mcp_install_with_command_path(mock_install):
         InstallResult("cursor", Path("/path/to/cursor"), "updated", "Updated MCP server entry")
     ]
 
-    rc, _out, _err = run_cli(["mcp", "--install", "--client", "cursor", "--command-path", "/custom/path"])
+    rc, _out, _err = run_cli(["mcp", "install", "--client", "cursor", "--command-path", "/custom/path"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor"], command_override="/custom/path")
 
@@ -471,6 +477,6 @@ def test_cli_mcp_install_multiple_clients(mock_install):
         InstallResult("claude", Path("/path/to/claude"), "updated", ""),
     ]
 
-    rc, _out, _err = run_cli(["mcp", "--install", "--client", "cursor", "--client", "claude"])
+    rc, _out, _err = run_cli(["mcp", "install", "--client", "cursor", "--client", "claude"])
     assert rc == 0
     mock_install.assert_called_once_with(clients=["cursor", "claude"], command_override=None)
