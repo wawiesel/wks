@@ -110,41 +110,47 @@ Systematically fix:
 
 ---
 
-## Implementation Plan
+## Agent Delegation
 
-### Phase 1: Enable Ruff Rules (Incremental)
+This campaign is organized into three agent tasks:
 
-1. Start with additional safe rule categories:
-   - `W` (warnings)
-   - `N` (naming)
-   - `UP` (upgrades)
-   - `C4` (comprehensions)
-   - `SIM` (simplify)
+### Agent 1: Fix Formatting and Basic Linting
+**Goal:** Fix all auto-fixable formatting and basic linting issues
+**Branch:** `2025-12-03_linting-baseline/agent1-formatting`
+**Status:** 🟡 PENDING ASSIGNMENT
+**Details:** See `agent1/GOAL.md`
 
-2. Fix issues from these rules
+Tasks:
+- Fix formatting issues (ruff format)
+- Fix unused variables (F841)
+- Fix unused loop variables (B007)
+- Fix ambiguous variable names (E741)
+- Fix unused imports (F401)
+- Fix line length violations (E501)
+- Fix exception handling (B904)
 
-3. Gradually enable more rules:
-   - `ARG` (unused arguments)
-   - `PTH` (pathlib)
-   - `ERA` (eradicate)
-   - `RUF` (ruff-specific)
+### Agent 2: Enable Additional Ruff Rules
+**Goal:** Gradually enable additional ruff linting rule categories and fix issues
+**Branch:** `2025-12-03_linting-baseline/agent2-additional-rules`
+**Status:** 🟡 PENDING ASSIGNMENT
+**Details:** See `agent2/GOAL.md`
 
-4. Enable remaining rules and fix issues
+Tasks:
+- Enable safe rule categories (W, N, UP, C4, SIM)
+- Fix issues from new rules
+- Enable more rules (ARG, PTH, RUF)
+- Fix additional issues
 
-### Phase 2: Enable Strict Mypy
+### Agent 3: Enable Strict Mypy and Fix Type Errors
+**Goal:** Enable strict mypy type checking and fix all type errors
+**Branch:** `2025-12-03_linting-baseline/agent3-strict-mypy`
+**Status:** 🟡 PENDING ASSIGNMENT
+**Details:** See `agent3/GOAL.md`
 
-1. First enable `check_untyped_defs = true`
-2. Fix missing type annotations
-3. Enable `ignore_missing_imports = false`
-4. Fix import-related type issues
-5. Enable `strict = true`
-6. Fix remaining strict mode issues
-
-### Phase 3: Verification
-
-1. Run full test suite
-2. Verify all quality checks pass
-3. Ensure no regressions
+Tasks:
+- Enable `check_untyped_defs = true` and fix missing annotations
+- Enable `ignore_missing_imports = false` and fix import issues
+- Enable `strict = true` and fix all strict mode violations
 
 ---
 
@@ -155,16 +161,16 @@ Systematically fix:
 - [x] Created campaign documentation
 - [x] Analyzed current state
 
-### In Progress
-- [ ] Enable additional ruff rules
-- [ ] Fix formatting issues
-- [ ] Fix linting errors
+### Agent Status
+- [ ] Agent 1: Formatting and basic linting (PENDING)
+- [ ] Agent 2: Additional ruff rules (PENDING)
+- [ ] Agent 3: Strict mypy (PENDING)
 
 ### Pending
-- [ ] Enable strict mypy
-- [ ] Fix type errors
-- [ ] Verify all tests pass
-- [x] Create PR
+- [ ] All agent PRs merged
+- [ ] Final integration verification
+- [ ] All tests pass
+- [x] Campaign PR created
 
 ---
 
