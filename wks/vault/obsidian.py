@@ -177,7 +177,7 @@ class ObsidianVault:
 
     # ---------------------------------------------------------------- no-op stubs
 
-    def log_file_operation(self, *args, **kwargs) -> None:  # pragma: no cover - disabled
+    def log_file_operation(self, *args, **kwargs) -> None:  # pragma: no cover - disabled  # noqa: ARG002
         return
 
     def update_active_files(self, *args, **kwargs) -> None:  # pragma: no cover - disabled  # noqa: ARG002

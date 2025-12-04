@@ -162,7 +162,7 @@ class TestMCPServer:
 
     @patch("wks.mcp_server.load_config")
     @patch("wks.mcp_server.MonitorController")
-    def test_call_tool_missing_params(self, mock_controller, mock_load_config, mcp_server, mock_config):
+    def test_call_tool_missing_params(self, mock_controller, mock_load_config, mcp_server, mock_config):  # noqa: ARG002
         """Test calling tool with missing params."""
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config

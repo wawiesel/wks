@@ -357,7 +357,7 @@ class MCPServer:
             error["data"] = data
         self._write_message({"jsonrpc": "2.0", "id": request_id, "error": error})
 
-    def _handle_initialize(self, request_id: Any, params: dict[str, Any]) -> None:
+    def _handle_initialize(self, request_id: Any, params: dict[str, Any]) -> None:  # noqa: ARG002
         """Handle initialize request."""
         self._write_response(
             request_id,
@@ -405,7 +405,7 @@ class MCPServer:
             return decorator
 
         return {
-            "wksm_config": lambda config, args: self._tool_config(config),
+            "wksm_config": lambda config, args: self._tool_config(config),  # noqa: ARG005
             "wksm_transform": _require_params("file_path", "engine")(
                 lambda config, args: self._tool_transform(
                     config, args["file_path"], args["engine"], args.get("options", {})
@@ -415,9 +415,9 @@ class MCPServer:
             "wksm_diff": _require_params("engine", "target_a", "target_b")(
                 lambda config, args: self._tool_diff(config, args["engine"], args["target_a"], args["target_b"])
             ),
-            "wksm_service": lambda config, args: self._tool_service(config),
-            "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),
-            "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),
+            "wksm_service": lambda config, args: self._tool_service(config),  # noqa: ARG005
+            "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),  # noqa: ARG005
+            "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),  # noqa: ARG005
             "wksm_db_monitor": lambda config, args: self._tool_db_query(
                 config, "monitor", args.get("query", {}), args.get("limit", 50)
             ),
@@ -427,11 +427,11 @@ class MCPServer:
             "wksm_db_transform": lambda config, args: self._tool_db_query(
                 config, "transform", args.get("query", {}), args.get("limit", 50)
             ),
-            "wksm_monitor_status": lambda config, args: self._tool_monitor_status(config),
+            "wksm_monitor_status": lambda config, args: self._tool_monitor_status(config),  # noqa: ARG005
             "wksm_monitor_check": _require_params("path")(
                 lambda config, args: self._tool_monitor_check(config, args["path"])
             ),
-            "wksm_monitor_validate": lambda config, args: self._tool_monitor_validate(config),
+            "wksm_monitor_validate": lambda config, args: self._tool_monitor_validate(config),  # noqa: ARG005
             "wksm_monitor_list": _require_params("list_name")(
                 lambda config, args: self._tool_monitor_list(config, args["list_name"])
             ),
@@ -441,7 +441,7 @@ class MCPServer:
             "wksm_monitor_remove": _require_params("list_name", "value")(
                 lambda config, args: self._tool_monitor_remove(config, args["list_name"], args["value"])
             ),
-            "wksm_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),
+            "wksm_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),  # noqa: ARG005
             "wksm_monitor_managed_add": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_add(config, args["path"], args["priority"])
             ),
@@ -451,7 +451,7 @@ class MCPServer:
             "wksm_monitor_managed_set_priority": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_set_priority(config, args["path"], args["priority"])
             ),
-            "wksm_vault_status": lambda config, args: self._tool_vault_status(config),
+            "wksm_vault_status": lambda config, args: self._tool_vault_status(config),  # noqa: ARG005
             "wksm_vault_sync": lambda config, args: self._tool_vault_sync(config, args.get("batch_size", 1000)),
             "wksm_vault_links": _require_params("file_path")(
                 lambda config, args: self._tool_vault_links(config, args["file_path"], args.get("direction", "both"))
@@ -485,7 +485,7 @@ class MCPServer:
         except Exception as e:
             self._write_error(request_id, -32000, f"Tool execution failed: {e}", {"traceback": str(e)})
 
-    def _tool_service(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_service(self, config: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG002
         """Execute wksm_service tool."""
         status = ServiceController.get_status()
         result = MCPResult.success_result(
@@ -511,7 +511,7 @@ class MCPServer:
         """Execute wks_monitor_list tool."""
         return MonitorController.get_list(config, list_name)
 
-    def _tool_monitor_add(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:
+    def _tool_monitor_add(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_add tool."""
         from .config import get_config_path
 
@@ -537,7 +537,7 @@ class MCPServer:
 
         return result
 
-    def _tool_monitor_remove(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:
+    def _tool_monitor_remove(self, config: dict[str, Any], list_name: str, value: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_remove tool."""
         from .config import get_config_path
 
@@ -567,7 +567,7 @@ class MCPServer:
         """Execute wks_monitor_managed_list tool."""
         return MonitorController.get_managed_directories(config)
 
-    def _tool_monitor_managed_add(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:
+    def _tool_monitor_managed_add(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_managed_add tool."""
         from .config import get_config_path
 
@@ -590,7 +590,7 @@ class MCPServer:
 
         return result
 
-    def _tool_monitor_managed_remove(self, config: dict[str, Any], path: str) -> dict[str, Any]:
+    def _tool_monitor_managed_remove(self, config: dict[str, Any], path: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_managed_remove tool."""
         from .config import get_config_path
 
@@ -613,7 +613,7 @@ class MCPServer:
 
         return result
 
-    def _tool_monitor_managed_set_priority(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:
+    def _tool_monitor_managed_set_priority(self, config: dict[str, Any], path: str, priority: int) -> dict[str, Any]:  # noqa: ARG002
         """Execute wks_monitor_managed_set_priority tool."""
         from .config import get_config_path
 
@@ -752,7 +752,7 @@ class MCPServer:
         return result.to_dict()
 
     def _tool_transform(
-        self, config: dict[str, Any], file_path: str, engine: str, options: dict[str, Any]
+        self, config: dict[str, Any], file_path: str, engine: str, options: dict[str, Any]  # noqa: ARG002
     ) -> dict[str, Any]:
         """Execute wksm_transform tool."""
         from pathlib import Path
@@ -798,7 +798,7 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:
+    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:  # noqa: ARG002
         """Execute wksm_cat tool."""
         from pathlib import Path
 

@@ -32,7 +32,7 @@ class TestVaultPackageInitialization:
 class TestLoadVault:
     """Test load_vault() factory function."""
 
-    def test_load_vault_requires_base_dir(self, tmp_path):
+    def test_load_vault_requires_base_dir(self, tmp_path):  # noqa: ARG002
         """Test that load_vault() requires vault.base_dir in config."""
         cfg = {
             "vault": {

@@ -91,11 +91,11 @@ def build_daemon(monkeypatch, tmp_path):
 
     # Mock MCPBroker
     mock_broker = MagicMock()
-    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *a, **k: mock_broker)
+    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
 
     # Mock db_activity functions
     monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
-    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])
+    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *_a: [])
 
     config = build_daemon_config(tmp_path)
     monitor_rules = MonitorRules.from_config(config.monitor)

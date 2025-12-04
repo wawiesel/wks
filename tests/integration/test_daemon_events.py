@@ -43,7 +43,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
     monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *_a, **_k: MagicMock())
     monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
-    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])
+    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *_a: [])
     # monkeypatch.setattr(daemon_mod.WKSDaemon, "_enforce_monitor_db_limit", lambda self: None)
 
     monitor_rules = MonitorRules(

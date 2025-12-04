@@ -23,7 +23,7 @@ class MCPDisplay(Display):
         """Output JSON to stdout."""
         print(json.dumps(data), flush=True)
 
-    def status(self, message: str, **kwargs) -> None:
+    def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Output status as JSON."""
         self._output({"type": "status", "message": message, "timestamp": _now_iso()})
 
@@ -41,11 +41,11 @@ class MCPDisplay(Display):
             output["details"] = kwargs["details"]
         self._output(output)
 
-    def warning(self, message: str, **kwargs) -> None:
+    def warning(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Output warning as JSON."""
         self._output({"type": "warning", "message": message, "timestamp": _now_iso()})
 
-    def info(self, message: str, **kwargs) -> None:
+    def info(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Output info as JSON."""
         self._output({"type": "info", "message": message, "timestamp": _now_iso()})
 
@@ -58,7 +58,7 @@ class MCPDisplay(Display):
             output["title"] = kwargs["title"]
         self._output(output)
 
-    def progress_start(self, total: int, description: str = "", **kwargs) -> Any:
+    def progress_start(self, total: int, description: str = "", **kwargs) -> Any:  # noqa: ARG002
         """Record progress start (MCP doesn't show live progress)."""
         handle = id(self)  # Simple handle
         self._progress_states[handle] = {"total": total, "current": 0, "description": description}
@@ -71,7 +71,7 @@ class MCPDisplay(Display):
             if "description" in kwargs:
                 self._progress_states[handle]["description"] = kwargs["description"]
 
-    def progress_finish(self, handle: Any, **kwargs) -> None:
+    def progress_finish(self, handle: Any, **kwargs) -> None:  # noqa: ARG002
         """Output final progress state."""
         if handle in self._progress_states:
             state = self._progress_states[handle]
@@ -86,7 +86,7 @@ class MCPDisplay(Display):
             )
             del self._progress_states[handle]
 
-    def spinner_start(self, description: str = "", **kwargs) -> Any:
+    def spinner_start(self, description: str = "", **kwargs) -> Any:  # noqa: ARG002
         """Record spinner start (MCP doesn't show spinners)."""
         handle = id(self) + 1000  # Different from progress handles
         return handle
@@ -95,23 +95,23 @@ class MCPDisplay(Display):
         """No-op for MCP (spinners not shown)."""
         pass
 
-    def spinner_finish(self, handle: Any, message: str = "", **kwargs) -> None:
+    def spinner_finish(self, handle: Any, message: str = "", **kwargs) -> None:  # noqa: ARG002
         """Output completion message if provided."""
         if message:
             self.status(message)
 
-    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:
+    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:  # noqa: ARG002
         """Output tree data as nested JSON."""
         output = {"type": "tree", "data": data, "timestamp": _now_iso()}
         if title:
             output["title"] = title
         self._output(output)
 
-    def json_output(self, data: Any, **kwargs) -> None:
+    def json_output(self, data: Any, **kwargs) -> None:  # noqa: ARG002
         """Output structured data (primary method for MCP)."""
         self._output({"type": "data", "data": data, "timestamp": _now_iso()})
 
-    def panel(self, content: str, title: str = "", **kwargs) -> None:
+    def panel(self, content: str, title: str = "", **kwargs) -> None:  # noqa: ARG002
         """Output panel content as simple JSON."""
         output = {"type": "panel", "content": content, "timestamp": _now_iso()}
         if title:

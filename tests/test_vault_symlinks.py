@@ -125,7 +125,7 @@ class TestFixSymlinks:
         assert not old_file.exists()
         assert result.created == 0
 
-    def test_fix_symlinks_handles_missing_targets(self, controller, vault_root, mock_mongo_client):
+    def test_fix_symlinks_handles_missing_targets(self, controller, vault_root, mock_mongo_client):  # noqa: ARG002
         """Test that missing target files are reported in failed list."""
         mock_config = Mock()
         mock_config.mongo.uri = "mongodb://localhost:27017"
@@ -146,7 +146,7 @@ class TestFixSymlinks:
         assert len(result.failed) == 1
         assert "Target file not found" in result.failed[0][1]
 
-    def test_fix_symlinks_handles_permission_errors(self, controller, vault_root, tmp_path, mock_mongo_client):
+    def test_fix_symlinks_handles_permission_errors(self, controller, vault_root, tmp_path, mock_mongo_client):  # noqa: ARG002
         """Test error handling when symlink creation fails."""
         target = tmp_path / "file.pdf"
         target.write_text("content")
@@ -223,7 +223,7 @@ class TestFixSymlinks:
         assert "_links/test-machine" in result.failed[0][0]
         assert "Cannot delete" in result.failed[0][1]
 
-    def test_fix_symlinks_filters_non_file_uris(self, controller, vault_root, mock_mongo_client):
+    def test_fix_symlinks_filters_non_file_uris(self, controller, vault_root, mock_mongo_client):  # noqa: ARG002
         """Test that only file:// URIs are processed."""
         mock_config = Mock()
         mock_config.mongo.uri = "mongodb://localhost:27017"

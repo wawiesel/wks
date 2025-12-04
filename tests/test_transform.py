@@ -316,7 +316,7 @@ class TestTransformController:
         mock_engine.compute_options_hash.return_value = "optshash"
         mock_engine.get_extension.return_value = "md"
 
-        def transform_side_effect(input_path, output_path_internal, options):
+        def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
             output_path_internal.write_text("Transformed content")
 
         mock_engine.transform.side_effect = transform_side_effect
@@ -350,7 +350,7 @@ class TestTransformController:
         mock_engine.compute_options_hash.return_value = "optshash"
         mock_engine.get_extension.return_value = "md"
 
-        def transform_side_effect(input_path, output_path_internal, options):
+        def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
             output_path_internal.write_text("Transformed content")
 
         mock_engine.transform.side_effect = transform_side_effect
@@ -531,7 +531,7 @@ class TestTransformController:
             mock_engine.compute_options_hash.return_value = "optshash"
             mock_engine.get_extension.return_value = "md"
 
-            def transform_side_effect(input_path, output_path_internal, options):
+            def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
                 output_path_internal.write_text("Transformed: Original content")
 
             mock_engine.transform.side_effect = transform_side_effect
@@ -617,7 +617,7 @@ class TestTransformController:
         mock_engine.compute_options_hash.return_value = "def456"
         mock_engine.get_extension.return_value = "md"
 
-        def transform_side_effect(input_path, output_path_internal, options):
+        def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
             output_path_internal.write_text("Transformed content")
 
         mock_engine.transform.side_effect = transform_side_effect
@@ -682,7 +682,7 @@ class TestTransformController:
                 mock_engine.compute_options_hash.return_value = "optshash"
                 mock_engine.get_extension.return_value = "md"
 
-                def transform_side_effect(input_path, output_path_internal, options):
+                def transform_side_effect(input_path, output_path_internal, options):  # noqa: ARG001
                     output_path_internal.write_text("Transformed: Original content")
 
                 mock_engine.transform.side_effect = transform_side_effect

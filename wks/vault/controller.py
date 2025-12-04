@@ -170,7 +170,7 @@ class VaultController:
 
     # ------------------------------------------------------------------ sync helper
     @staticmethod
-    def sync_vault(cfg: dict | None = None, batch_size: int = 1000, incremental: bool = False) -> dict:
+    def sync_vault(cfg: dict | None = None, batch_size: int = 1000, incremental: bool = False) -> dict:  # noqa: ARG004
         """Sync vault links to MongoDB (wrapper for CLI/MCP)."""
         from ..config import WKSConfig
         from ..utils import expand_path

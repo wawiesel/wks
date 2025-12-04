@@ -66,7 +66,7 @@ class FakeCollection:
 class FakeVault:
     """Fake vault for testing."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):  # noqa: ARG002
         self.vault_path = kwargs.get("vault_path", Path("/tmp/test_vault"))
         self.links_dir = kwargs.get("links_dir")
 
@@ -96,16 +96,16 @@ class FakeIndexer:
         pass
 
     @classmethod
-    def from_config(cls, vault, cfg):
+    def from_config(cls, vault, cfg):  # noqa: ARG003
         return cls()
 
     def sync(self, incremental=False):
         pass
 
-    def update_links_on_file_move(self, old_uri, new_uri):
+    def update_links_on_file_move(self, old_uri, new_uri):  # noqa: ARG002
         return 0
 
-    def has_references_to(self, path):
+    def has_references_to(self, path):  # noqa: ARG002
         return False
 
 

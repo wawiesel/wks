@@ -42,7 +42,7 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     def test_wks_transform(
-        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path
+        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config, tmp_path  # noqa: ARG002
     ):
         """Test wksm_transform tool returns MCPResult format."""
         # Mock WKSConfig.load()
@@ -69,7 +69,7 @@ class TestMCPServerNewTools:
     @patch("wks.config.WKSConfig")
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
-    def test_wks_cat(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config):
+    def test_wks_cat(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config):  # noqa: ARG002
         """Test wksm_cat tool returns MCPResult format."""
         # Mock WKSConfig.load()
         mock_cfg = MagicMock()
@@ -91,7 +91,7 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.diff.DiffController")
-    def test_wks_diff(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):
+    def test_wks_diff(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):  # noqa: ARG002
         """Test wksm_diff tool returns MCPResult format."""
         mock_diff = mock_diff_cls.return_value
         mock_diff.diff.return_value = "diff result"
@@ -161,7 +161,7 @@ class TestMCPServerNewTools:
 
     @patch("wks.config.WKSConfig")
     @patch("wks.utils.expand_path")
-    def test_wks_transform_file_not_found(self, mock_expand, mock_wks_config, mock_server, mock_config, tmp_path):
+    def test_wks_transform_file_not_found(self, mock_expand, mock_wks_config, mock_server, mock_config, tmp_path):  # noqa: ARG002
         """Test wksm_transform tool handles file not found."""
         nonexistent = tmp_path / "nonexistent.pdf"
         mock_expand.return_value = nonexistent
@@ -179,7 +179,7 @@ class TestMCPServerNewTools:
         self,
         mock_expand,
         mock_controller_cls,
-        mock_connect,
+        mock_connect,  # noqa: ARG002
         mock_wks_config,
         mock_server,
         mock_config,
@@ -213,7 +213,7 @@ class TestMCPServerNewTools:
         self,
         mock_expand,
         mock_controller_cls,
-        mock_connect,
+        mock_connect,  # noqa: ARG002
         mock_wks_config,
         mock_server,
         mock_config,
@@ -247,7 +247,7 @@ class TestMCPServerNewTools:
         self,
         mock_expand,
         mock_controller_cls,
-        mock_connect,
+        mock_connect,  # noqa: ARG002
         mock_wks_config,
         mock_server,
         mock_config,
@@ -276,7 +276,7 @@ class TestMCPServerNewTools:
     @patch("wks.config.WKSConfig")
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
-    def test_wks_cat_file_not_found(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config):
+    def test_wks_cat_file_not_found(self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config):  # noqa: ARG002
         """Test wksm_cat tool handles FileNotFoundError."""
         mock_cfg = MagicMock()
         mock_cfg.transform.cache.location = "~/.wks/cache"
@@ -297,7 +297,7 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     def test_wks_cat_unexpected_error(
-        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config
+        self, mock_controller_cls, mock_connect, mock_wks_config, mock_server, mock_config  # noqa: ARG002
     ):
         """Test wksm_cat tool handles unexpected errors."""
         mock_cfg = MagicMock()
@@ -318,7 +318,7 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.diff.DiffController")
-    def test_wks_diff_value_error(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):
+    def test_wks_diff_value_error(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):  # noqa: ARG002
         """Test wksm_diff tool handles ValueError."""
         mock_diff = mock_diff_cls.return_value
         mock_diff.diff.side_effect = ValueError("Invalid input")
@@ -331,7 +331,7 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.diff.DiffController")
-    def test_wks_diff_runtime_error(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):
+    def test_wks_diff_runtime_error(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):  # noqa: ARG002
         """Test wksm_diff tool handles RuntimeError."""
         mock_diff = mock_diff_cls.return_value
         mock_diff.diff.side_effect = RuntimeError("Diff failed")
@@ -344,7 +344,7 @@ class TestMCPServerNewTools:
     @patch("wks.db_helpers.connect_to_mongo")
     @patch("wks.transform.TransformController")
     @patch("wks.diff.DiffController")
-    def test_wks_diff_unexpected_error(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):
+    def test_wks_diff_unexpected_error(self, mock_diff_cls, mock_transform_cls, mock_connect, mock_server, mock_config):  # noqa: ARG002
         """Test wksm_diff tool handles unexpected errors."""
         mock_diff = mock_diff_cls.return_value
         mock_diff.diff.side_effect = KeyError("Unexpected")

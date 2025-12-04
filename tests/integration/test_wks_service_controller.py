@@ -199,7 +199,7 @@ class TestServiceController:
     @patch("wks.service_controller.agent_installed", return_value=True)
     @patch("subprocess.check_output")
     @patch("os.getuid", return_value=501)
-    def test_read_launch_agent(self, mock_uid, mock_check_output, mock_installed, mock_macos):
+    def test_read_launch_agent(self, mock_uid, mock_check_output, mock_installed, mock_macos):  # noqa: ARG002
         """Test reading launch agent info."""
         mock_check_output.return_value = b"""
             active count = 1
@@ -219,7 +219,7 @@ class TestServiceController:
     @patch("wks.service_controller.agent_installed", return_value=True)
     @patch("subprocess.check_output")
     @patch("os.getuid", return_value=501)
-    def test_read_launch_agent_with_arguments(self, mock_uid, mock_check_output, mock_installed, mock_macos):
+    def test_read_launch_agent_with_arguments(self, mock_uid, mock_check_output, mock_installed, mock_macos):  # noqa: ARG002
         """Test reading launch agent with arguments block."""
         mock_check_output.return_value = b"""
             active count = 1
@@ -238,7 +238,7 @@ class TestServiceController:
     @patch("wks.service_controller.LOCK_FILE")
     @patch("pathlib.Path.exists")
     @patch("builtins.open", new_callable=mock_open)
-    def test_read_health_success(self, mock_file, mock_exists, mock_lock):
+    def test_read_health_success(self, mock_file, mock_exists, mock_lock):  # noqa: ARG002
         """Test reading health from file."""
         # Mock health.json exists
         mock_exists.side_effect = lambda: True  # health.json exists
@@ -403,7 +403,7 @@ class TestServiceController:
 
     @patch("wks.service_controller.is_macos", return_value=False)
     @patch("wks.service_controller.ServiceController._read_health")
-    def test_read_launch_agent_not_macos(self, mock_health, mock_macos):
+    def test_read_launch_agent_not_macos(self, mock_health, mock_macos):  # noqa: ARG002
         """Test _read_launch_agent returns None on non-macOS."""
         result = ServiceController._read_launch_agent()
         assert result is None
@@ -412,7 +412,7 @@ class TestServiceController:
     @patch("wks.service_controller.agent_installed", return_value=True)
     @patch("subprocess.check_output")
     @patch("os.getuid", return_value=501)
-    def test_read_launch_agent_exception(self, mock_uid, mock_check, mock_installed, mock_macos):
+    def test_read_launch_agent_exception(self, mock_uid, mock_check, mock_installed, mock_macos):  # noqa: ARG002
         """Test _read_launch_agent returns None on exception."""
         mock_check.side_effect = subprocess.CalledProcessError(1, "launchctl")
         result = ServiceController._read_launch_agent()
@@ -421,7 +421,7 @@ class TestServiceController:
     @patch("wks.service_controller.is_macos", return_value=True)
     @patch("wks.service_controller.agent_installed", return_value=True)
     @patch("wks.service_controller.ServiceController._read_health")
-    def test_get_status_with_agent_error(self, mock_health, mock_installed, mock_macos):
+    def test_get_status_with_agent_error(self, mock_health, mock_installed, mock_macos):  # noqa: ARG002
         """Test get_status adds note when launch agent unavailable."""
         with patch.object(ServiceController, "_read_launch_agent", return_value=None):
             status = ServiceController.get_status()

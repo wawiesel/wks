@@ -52,7 +52,7 @@ except ImportError:
     def load_db_activity_summary():  # type: ignore
         return None
 
-    def load_db_activity_history(window_secs: int):  # type: ignore
+    def load_db_activity_history(window_secs: int):  # type: ignore  # noqa: ARG001
         return []
 
 

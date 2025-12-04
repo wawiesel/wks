@@ -96,21 +96,21 @@ def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
 
     # Mock ensure_mongo_running
-    monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *a, **k: None)
+    monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *_a, **_k: None)
 
     # Mock MCPBroker
     mock_broker = MagicMock()
     mock_broker.start = MagicMock()
     mock_broker.stop = MagicMock()
-    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *a, **k: mock_broker)
+    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
 
     # Mock start_monitoring
     mock_observer = FakeObserver()
-    monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *a, **k: mock_observer)
+    monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *a, **k: mock_observer)  # noqa: ARG005
 
     # Mock db_activity functions
     monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
-    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])
+    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])  # noqa: ARG005
 
     config = build_daemon_config(tmp_path)
     monitor_rules = MonitorRules.from_config(config.monitor)

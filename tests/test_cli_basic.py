@@ -325,7 +325,7 @@ def test_cli_vault_links_with_direction(mock_call):
 
 
 @patch("wks.cli._call")
-def test_cli_out_with_string(mock_call):
+def test_cli_out_with_string(mock_call):  # noqa: ARG001
     """Test _out function with non-dict (string) output."""
     from wks.cli import _out
     from wks.display.cli import CLIDisplay
@@ -337,7 +337,7 @@ def test_cli_out_with_string(mock_call):
 
 
 @patch("wks.cli._call")
-def test_cli_err_with_error_messages(mock_call):
+def test_cli_err_with_error_messages(mock_call):  # noqa: ARG001
     """Test _err function with error messages."""
     from wks.cli import _err
 
