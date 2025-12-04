@@ -48,6 +48,8 @@ class TestCLIDisplayTableExtended:
 
     def test_table_with_none_values(self, capsys):
         """table handles None values in data."""
+        from typing import Any
+
         display = CLIDisplay()
 
         data: list[dict[str, Any]] = [{"name": "Alice", "age": None}, {"name": None, "age": 25}]
