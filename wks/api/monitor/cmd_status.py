@@ -66,10 +66,10 @@ def _format_status_for_table(status_obj) -> list[dict]:
         paths_data = []
         for path in include_paths:
             paths_data.append({"Type": "Include", "Path": path})
-            for path in exclude_paths:
-                paths_data.append({"Type": "Exclude", "Path": path})
-            if paths_data:
-                tables.append({"data": paths_data, "headers": ["Type", "Path"], "title": "Path Rules"})
+        for path in exclude_paths:
+            paths_data.append({"Type": "Exclude", "Path": path})
+        if paths_data:
+            tables.append({"data": paths_data, "headers": ["Type", "Path"], "title": "Path Rules"})
 
     # Include/Exclude dirnames table
     include_dirnames = data.get("include_dirnames", [])
@@ -78,12 +78,10 @@ def _format_status_for_table(status_obj) -> list[dict]:
         dirnames_data = []
         for dirname in include_dirnames:
             dirnames_data.append({"Type": "Include", "Directory Name": dirname})
-            for dirname in exclude_dirnames:
-                dirnames_data.append({"Type": "Exclude", "Directory Name": dirname})
-            if dirnames_data:
-                tables.append(
-                    {"data": dirnames_data, "headers": ["Type", "Directory Name"], "title": "Directory Name Rules"}
-                )
+        for dirname in exclude_dirnames:
+            dirnames_data.append({"Type": "Exclude", "Directory Name": dirname})
+        if dirnames_data:
+            tables.append({"data": dirnames_data, "headers": ["Type", "Directory Name"], "title": "Directory Name Rules"})
 
     # Include/Exclude globs table
     include_globs = data.get("include_globs", [])
@@ -92,10 +90,10 @@ def _format_status_for_table(status_obj) -> list[dict]:
         globs_data = []
         for glob in include_globs:
             globs_data.append({"Type": "Include", "Glob Pattern": glob})
-            for glob in exclude_globs:
-                globs_data.append({"Type": "Exclude", "Glob Pattern": glob})
-            if globs_data:
-                tables.append({"data": globs_data, "headers": ["Type", "Glob Pattern"], "title": "Glob Pattern Rules"})
+        for glob in exclude_globs:
+            globs_data.append({"Type": "Exclude", "Glob Pattern": glob})
+        if globs_data:
+            tables.append({"data": globs_data, "headers": ["Type", "Glob Pattern"], "title": "Glob Pattern Rules"})
 
     return tables
 

@@ -55,6 +55,9 @@ class StageResult:
         result: str,
         output: dict[str, Any],
         progress_callback: Callable[[Callable], Any] | None = None,
+        *,
+        success: bool | None = None,
+        progress_total: int | None = None,
     ):
         """Initialize 4-stage result.
 
@@ -64,12 +67,16 @@ class StageResult:
             output: Data for Step 4 (Output)
             progress_callback: Optional function that takes a progress update callback
                 and executes work, calling the callback with progress updates
+            success: Optional explicit success flag (falls back to output["success"])
+            progress_total: Optional total units for progress reporting
         """
         self.announce = announce
         self.result = result
         self.output = output
         self.progress_callback = progress_callback
-        self.success = output.get("success", True) if isinstance(output, dict) else True
+        self.progress_total = progress_total
+        inferred_success = output.get("success", True) if isinstance(output, dict) else True
+        self.success = inferred_success if success is None else success
 
 
 def _find_typer_command(app: typer.Typer, command_name: str) -> Any:

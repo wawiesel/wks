@@ -48,18 +48,29 @@ def _handle_stage_result(func: Callable) -> Callable:
             display.status(result.announce)
 
             # Step 2: Progress
+            total = result.progress_total if result.progress_total else 1
             if result.progress_callback:
-                # Use progress callback if provided
-                def progress_update(description: str, progress: float):
-                    # Progress updates handled by callback
-                    pass
+                completed = 0
 
-                with display.progress(total=1, description="Processing..."):  # type: ignore[attr-defined]
+                def progress_update(description: str, progress: float):
+                    nonlocal completed
+                    target = max(int(progress * total), completed)
+                    advance = max(target - completed, 0)
+                    completed = target
+                    progress_context.update(advance=advance or 0, description=description)
+
+                with display.progress(total=total, description="Processing...") as progress_context:  # type: ignore[attr-defined]
                     result.progress_callback(progress_update)
             else:
                 # Simple progress for instant operations
                 with display.progress(total=1, description="Processing..."):  # type: ignore[attr-defined]
                     pass
+
+            # Recompute success after work is done
+            if isinstance(result.output, dict):
+                result.success = result.output.get("success", result.success)
+                if "message" in result.output:
+                    result.result = str(result.output["message"])
 
             # Step 3: Result
             if result.success:
@@ -124,7 +135,11 @@ def _handle_stage_result(func: Callable) -> Callable:
             # Exit with appropriate code
             sys.exit(0 if result.success else 1)
         else:
-            # MCP: Return output data directly
+            # MCP: Execute work if needed then return output data directly
+            if result.progress_callback:
+                result.progress_callback(lambda *_args, **_kwargs: None)
+                if isinstance(result.output, dict):
+                    result.success = result.output.get("success", result.success)
             return result.output
 
     return wrapper

@@ -1,8 +1,12 @@
 """Monitor Controller - Business logic for filesystem monitoring operations."""
 
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from pymongo import MongoClient
+
+from ..config import DEFAULT_MONGO_URI, WKSConfig
 from ..monitor_rules import MonitorRules
 from ..utils import canonicalize_path
 from .config import MonitorConfig
@@ -27,6 +31,196 @@ def _build_canonical_map(values: list[str]) -> dict[str, list[str]]:
 
 class MonitorController:
     """Controller for monitor operations - returns data structures for any view."""
+
+    @staticmethod
+    def _normalize_touch_weight(weight: float) -> float:
+        """Clamp touch weight to safe bounds."""
+        return min(1.0, max(weight, 0.001))
+
+    @staticmethod
+    def _compute_touches_per_day(doc: dict[str, Any] | None, now: datetime, weight: float) -> float:
+        """Compute touches_per_day using weighted interval like daemon."""
+        if not doc:
+            return 0.0
+
+        timestamp = doc.get("timestamp")
+        if not isinstance(timestamp, str):
+            return 0.0
+
+        try:
+            last_modified_time = datetime.fromisoformat(timestamp)
+        except Exception:
+            return 0.0
+
+        dt = max((now - last_modified_time).total_seconds(), 0.0)
+        prev_rate = doc.get("touches_per_day")
+
+        if not isinstance(prev_rate, (int, float)) or prev_rate <= 0.0:
+            interval = dt
+        else:
+            prev_interval = 1.0 / (prev_rate / 86400.0)
+            interval = weight * dt + (1.0 - weight) * prev_interval
+
+        if interval <= 0.0:
+            return 0.0
+
+        return 86400.0 / interval
+
+    @staticmethod
+    def _enforce_monitor_db_limit(collection, max_docs: int) -> None:
+        """Ensure monitor collection does not exceed max_docs."""
+        if max_docs <= 0:
+            return
+
+        try:
+            count = collection.count_documents({})
+            if count <= max_docs:
+                return
+
+            extras = count - max_docs
+            if extras <= 0:
+                return
+
+            lowest_priority_docs = collection.find({}, {"_id": 1, "priority": 1}).sort("priority", 1).limit(extras)
+            ids_to_delete = [doc["_id"] for doc in lowest_priority_docs]
+            if ids_to_delete:
+                collection.delete_many({"_id": {"$in": ids_to_delete}})
+        except Exception:
+            # Silent on purpose: sync should not crash on enforcement issues
+            return
+
+    @staticmethod
+    def sync_path(
+        config: WKSConfig | MonitorConfig | dict[str, Any],
+        path: Path,
+        recursive: bool,
+        progress_cb: Callable[[str, float], None] | None = None,
+    ) -> dict:
+        """Sync a file or directory into the monitor database.
+
+        Args:
+            config: Loaded WKSConfig/MonitorConfig or raw config dict
+            path: File or directory path
+            recursive: Whether to walk subdirectories
+
+        Returns:
+            dict containing success flag, counts, and errors list
+        """
+        from ..priority import calculate_priority
+        from ..utils import file_checksum
+
+        if isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+            mongo_uri = config.mongo.uri
+        elif isinstance(config, MonitorConfig):
+            monitor_cfg = config
+            mongo_uri = DEFAULT_MONGO_URI
+            if hasattr(config, "mongo"):
+                try:
+                    mongo_uri = config.mongo.uri  # type: ignore[attr-defined]
+                except Exception:
+                    mongo_uri = DEFAULT_MONGO_URI
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+            mongo_uri = config.get("db", {}).get("uri", DEFAULT_MONGO_URI)
+
+        path_obj = Path(path).expanduser().resolve()
+        if not path_obj.exists():
+            return {
+                "success": False,
+                "message": f"Path does not exist: {path_obj}",
+                "files_synced": 0,
+                "files_skipped": 0,
+                "errors": [f"Path does not exist: {path_obj}"],
+            }
+
+        rules = MonitorRules.from_config(monitor_cfg)
+
+        try:
+            db_name, collection_name = monitor_cfg.database.split(".", 1)
+        except ValueError:
+            return {
+                "success": False,
+                "message": f"Invalid database name: {monitor_cfg.database}",
+                "files_synced": 0,
+                "files_skipped": 0,
+                "errors": [f"Invalid database name: {monitor_cfg.database}"],
+            }
+
+        client = MongoClient(mongo_uri)
+        db = client[db_name]
+        collection = db[collection_name]
+
+        files_to_process: list[Path]
+        if path_obj.is_file():
+            files_to_process = [path_obj]
+        elif recursive:
+            files_to_process = [p for p in path_obj.rglob("*") if p.is_file()]
+        else:
+            files_to_process = [p for p in path_obj.iterdir() if p.is_file()]
+
+        total_files = len(files_to_process)
+        files_synced = 0
+        files_skipped = 0
+        errors: list[str] = []
+
+        touch_weight = MonitorController._normalize_touch_weight(monitor_cfg.touch_weight)
+
+        try:
+            for idx, file_path in enumerate(files_to_process, start=1):
+                if not rules.allows(file_path):
+                    files_skipped += 1
+                    if progress_cb:
+                        progress_cb(f"Skipping {file_path.name}", idx / total_files if total_files else 1.0)
+                    continue
+
+                try:
+                    stat = file_path.stat()
+                    checksum = file_checksum(file_path)
+                    now = datetime.now()
+
+                    priority = calculate_priority(file_path, monitor_cfg.managed_directories, monitor_cfg.priority)
+
+                    path_uri = file_path.as_uri()
+                    existing_doc = collection.find_one({"path": path_uri}, {"timestamp": 1, "touches_per_day": 1})
+                    touches_per_day = MonitorController._compute_touches_per_day(existing_doc, now, touch_weight)
+
+                    doc = {
+                        "path": path_uri,
+                        "checksum": checksum,
+                        "bytes": stat.st_size,
+                        "priority": priority,
+                        "timestamp": now.isoformat(),
+                        "touches_per_day": touches_per_day,
+                    }
+
+                    collection.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
+                    files_synced += 1
+                except Exception as exc:  # pragma: no cover - defensive
+                    errors.append(f"{file_path}: {exc}")
+                    files_skipped += 1
+                finally:
+                    if progress_cb:
+                        progress_cb(f"Processed {file_path.name}", idx / total_files if total_files else 1.0)
+        finally:
+            MonitorController._enforce_monitor_db_limit(collection, monitor_cfg.max_documents)
+            client.close()
+
+        success = len(errors) == 0
+        result_msg = (
+            f"Synced {files_synced} file(s), skipped {files_skipped}"
+            if success
+            else f"Synced {files_synced} file(s), skipped {files_skipped}, {len(errors)} error(s)"
+        )
+
+        return {
+            "success": success,
+            "message": result_msg,
+            "files_synced": files_synced,
+            "files_skipped": files_skipped,
+            "errors": errors,
+            "total_files": total_files,
+        }
 
     @staticmethod
     def get_list(config: dict | MonitorConfig, list_name: str) -> dict:

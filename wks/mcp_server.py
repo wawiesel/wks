@@ -182,7 +182,7 @@ class MCPServer:
         from .api.monitor import monitor_app
 
         tools = {}
-        for cmd_name in ["status", "check"]:
+        for cmd_name in ["status", "check", "sync"]:
             schema = get_typer_command_schema(monitor_app, cmd_name)
             mcp_tool_name = f"wksm_monitor_{cmd_name}"
             # Get command description from docstring or use default

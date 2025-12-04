@@ -32,4 +32,3 @@ def cmd_list(
         result=f"Retrieved {list_name} ({result.get('count', 0)} items)",
         output=result,
     )
-
