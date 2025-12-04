@@ -103,23 +103,29 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
      - Move `canonicalize_path()` from `wks/monitor/operations.py` to `wks/utils/monitor/canonicalize_path.py`
      - Move `_build_canonical_map()` from `wks/monitor/controller.py` to `wks/utils/monitor/build_canonical_map.py`
      - Move validation helpers to individual files in `wks/utils/monitor/`
-   - `get_status.py` - Convert `MonitorController.get_status()` to `get_status()` function
-   - `check_path.py` - Convert `MonitorController.check_path()` to `check_path()` function
-   - `validate_config.py` - Convert `MonitorController.validate_config()` to `validate_config()` function
-   - `get_list.py` - Convert `MonitorController.get_list()` to `get_list()` function
-   - `add_to_list.py` - Convert `MonitorOperations.add_to_list()` to `add_to_list()` function
-   - `remove_from_list.py` - Convert `MonitorOperations.remove_from_list()` to `remove_from_list()` function
-   - `get_managed_directories.py` - Convert `MonitorController.get_managed_directories()` to function
-   - `add_managed_directory.py` - Convert `MonitorOperations.add_managed_directory()` to function
-   - `remove_managed_directory.py` - Convert `MonitorOperations.remove_managed_directory()` to function
-   - `set_managed_priority.py` - Convert `MonitorOperations.set_managed_priority()` to function
+   - `status.py` - Convert `MonitorController.get_status()` to `status()` function (matches CLI: `wksc monitor status`)
+   - `check.py` - Convert `MonitorController.check_path()` to `check()` function (matches CLI: `wksc monitor check`)
+   - `validate.py` - Convert `MonitorController.validate_config()` to `validate()` function (matches CLI: `wksc monitor validate`)
+   - `list.py` - Convert `MonitorController.get_list()` to `list()` function (matches CLI: `wksc monitor <list>/list`)
+   - `add.py` - Convert `MonitorOperations.add_to_list()` to `add()` function (matches CLI: `wksc monitor <list>/add`)
+   - `remove.py` - Convert `MonitorOperations.remove_from_list()` to `remove()` function (matches CLI: `wksc monitor <list>/remove`)
+   - `managed_list.py` - Convert `MonitorController.get_managed_directories()` to `managed_list()` function (matches CLI: `wksc monitor managed/list`)
+   - `managed_add.py` - Convert `MonitorOperations.add_managed_directory()` to `managed_add()` function (matches CLI: `wksc monitor managed/add`)
+   - `managed_remove.py` - Convert `MonitorOperations.remove_managed_directory()` to `managed_remove()` function (matches CLI: `wksc monitor managed/remove`)
+   - `managed_set_priority.py` - Convert `MonitorOperations.set_managed_priority()` to `managed_set_priority()` function (matches CLI: `wksc monitor managed/set-priority`)
    - `app.py` - Create Typer app, import all functions, and register all commands
 
 7. **Convert classes to functions (one function per file)**
-   - Replace `MonitorController.get_status()` → `wks.api.monitor.get_status.get_status()`
-   - Replace `MonitorController.check_path()` → `wks.api.monitor.check_path.check_path()`
-   - Replace `MonitorController.validate_config()` → `wks.api.monitor.validate_config.validate_config()`
-   - Replace `MonitorOperations.add_to_list()` → `wks.api.monitor.add_to_list.add_to_list()`
+   - Replace `MonitorController.get_status()` → `wks.api.monitor.status.status()`
+   - Replace `MonitorController.check_path()` → `wks.api.monitor.check.check()`
+   - Replace `MonitorController.validate_config()` → `wks.api.monitor.validate.validate()`
+   - Replace `MonitorOperations.add_to_list()` → `wks.api.monitor.add.add()`
+   - **Naming Convention**: Function names match CLI command names exactly
+     - CLI: `wksc monitor status` → API: `status()` in `wks/api/monitor/status.py`
+     - CLI: `wksc monitor check` → API: `check()` in `wks/api/monitor/check.py`
+     - CLI: `wksc monitor validate` → API: `validate()` in `wks/api/monitor/validate.py`
+     - MCP: `wksm_monitor_status` → calls `status()` function
+     - MCP: `wksm_monitor_check` → calls `check()` function
    - Replace all static methods with plain functions, one per file
    - Import shared utilities from `wks.utils` (e.g., `from wks.utils.canonicalize_path import canonicalize_path`)
    - Import monitor-specific helpers from `wks.api.monitor._*` modules
@@ -128,15 +134,18 @@ Migrate all monitor-related tools to use Typer for CLI and Pydantic for validati
 9. **Create Typer app** (`wks/api/monitor/app.py`)
    - `monitor_app = typer.Typer()` for monitor subcommands
    - Register all monitor commands using `@monitor_app.command()` decorators
+   - **Command names match function names**: `@monitor_app.command(name="status")` decorates `status()` function
    - Apply `@inject_config` decorator to all commands
    - Functions handle display directly using `get_display("cli")` when called from CLI
+   - **Naming consistency**: CLI command name = Typer command name = function name = filename (without extension)
 
 ### Phase 3: Update MCP Server
 
 9. **Create MCP adapter for Typer commands** (`wks/mcp_server.py`)
    - New method `_get_typer_tools_schema()` that introspects `wks.api.monitor.monitor_app`
    - Generates MCP tool schemas from Typer command signatures
-   - Maps function names to MCP tool names (e.g., `monitor_status` → `wksm_monitor_status`)
+   - Maps Typer command names to MCP tool names: `status` → `wksm_monitor_status`, `check` → `wksm_monitor_check`, etc.
+   - **Naming consistency**: MCP tool name = `wksm_monitor_` + CLI command name
 
 10. **Update `_define_monitor_tools()`** (`wks/mcp_server.py`)
     - Replace manual schema definitions with calls to `_get_typer_tools_schema()`
