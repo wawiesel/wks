@@ -3,8 +3,6 @@
 from pathlib import Path
 from typing import Any
 
-from pymongo import MongoClient
-
 from ..monitor_rules import MonitorRules
 from .config import MonitorConfig
 from .operations import MonitorOperations, _canonicalize_path

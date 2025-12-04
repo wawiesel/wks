@@ -10,9 +10,9 @@ from __future__ import annotations
 import contextlib
 import logging
 import platform
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator
 
 # from ..config import WKSConfig
 from ..constants import DEFAULT_TIMESTAMP_FORMAT

@@ -2,7 +2,7 @@
 
 import os
 import sys
-from typing import Literal, Optional
+from typing import Literal
 
 from .base import Display
 from .cli import CLIDisplay
@@ -30,7 +30,7 @@ def is_mcp_context() -> bool:
     return not sys.stdout.isatty() and os.getenv("TERM") is None
 
 
-def get_display(mode: Optional[DisplayMode] = None) -> Display:
+def get_display(mode: DisplayMode | None = None) -> Display:
     """Get appropriate display implementation.
 
     Args:

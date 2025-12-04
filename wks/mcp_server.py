@@ -10,7 +10,8 @@ All MCP tools return structured MCPResult objects.
 
 import json
 import sys
-from typing import Any, Callable, TextIO
+from collections.abc import Callable
+from typing import Any, TextIO
 
 from .config import load_config
 from .mcp.result import MCPResult
@@ -399,10 +400,17 @@ class MCPServer:
     def _build_tool_registry(self) -> dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]]:
         """Build registry of tool handlers with parameter validation."""
 
-        def _require_params(*param_names: str) -> Callable[[Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]], Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]]:
+        def _require_params(
+            *param_names: str,
+        ) -> Callable[
+            [Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]],
+            Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+        ]:
             """Decorator to validate required parameters."""
 
-            def decorator(handler: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
+            def decorator(
+                handler: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+            ) -> Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]:
                 def wrapper(config: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
                     missing = [p for p in param_names if arguments.get(p) is None]
                     if missing:
@@ -515,6 +523,7 @@ class MCPServer:
     def _tool_monitor_validate(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_validate tool."""
         from dataclasses import asdict
+
         result = MonitorController.validate_config(config)
         return asdict(result)
 
@@ -539,6 +548,7 @@ class MCPServer:
 
         # Add to list
         from dataclasses import asdict
+
         result_obj = MonitorController.add_to_list(config_dict, list_name, value, resolve_path)
         result = asdict(result_obj)
 
@@ -567,6 +577,7 @@ class MCPServer:
 
         # Remove from list
         from dataclasses import asdict
+
         result_obj = MonitorController.remove_from_list(config_dict, list_name, value, resolve_path)
         result = asdict(result_obj)
 
@@ -581,6 +592,7 @@ class MCPServer:
     def _tool_monitor_managed_list(self, config: dict[str, Any]) -> dict[str, Any]:
         """Execute wks_monitor_managed_list tool."""
         from dataclasses import asdict
+
         result = MonitorController.get_managed_directories(config)
         return asdict(result)
 
