@@ -237,7 +237,7 @@ class TestServiceController:
 
     @patch("wks.service_controller.LOCK_FILE")
     @patch("pathlib.Path.exists")
-    @patch("builtins.open", new_callable=mock_open)
+    @patch("pathlib.Path.open", new_callable=mock_open)
     def test_read_health_success(self, mock_file, mock_exists, mock_lock):  # noqa: ARG002
         """Test reading health from file."""
         # Mock health.json exists
