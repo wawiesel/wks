@@ -31,7 +31,7 @@ def find_managed_directory(path: Path, managed_dirs: dict[str, int]) -> tuple[Pa
         if ancestor in resolved_managed and (best_match is None or len(ancestor.parts) > len(best_match.parts)):
             # Deeper match wins (first match is deepest)
             best_match = ancestor
-                best_priority = resolved_managed[ancestor]
+            best_priority = resolved_managed[ancestor]
 
     return best_match, best_priority
 
