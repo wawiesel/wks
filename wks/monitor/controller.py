@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from pymongo import MongoClient
+
 from ..monitor_rules import MonitorRules
 from .config import MonitorConfig
 from .operations import MonitorOperations, _canonicalize_path
@@ -139,7 +141,7 @@ class MonitorController:
 
         # Get total tracked files
         try:
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]
@@ -447,7 +449,7 @@ class MonitorController:
             mongo_uri = "mongodb://localhost:27017"
 
         try:
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()  # Will raise an exception if connection fails
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]
@@ -510,7 +512,7 @@ class MonitorController:
             mongo_uri = "mongodb://localhost:27017"
 
         try:
-            client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             client.server_info()
             db_name, coll_name = monitor_cfg.database.split(".", 1)
             db = client[db_name]

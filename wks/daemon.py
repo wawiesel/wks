@@ -177,7 +177,7 @@ class WKSDaemon:
                 cache_location = expand_path(transform_cfg.cache.location)
                 max_size_bytes = transform_cfg.cache.max_size_bytes
 
-                client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
+                client: MongoClient = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
                 db_name = transform_cfg.database
                 db = client[db_name]
                 self._transform_controller = TransformController(db, cache_location, max_size_bytes)
@@ -1056,7 +1056,7 @@ if __name__ == "__main__":
     mongo_uri = config.mongo.uri
     ensure_mongo_running(mongo_uri, record_start=True)
 
-    client = MongoClient(mongo_uri)
+    client: MongoClient = MongoClient(mongo_uri)
     monitor_db_key = monitor_cfg_obj.database
     # Validation already done in MonitorConfig
     monitor_db_name, monitor_coll_name = monitor_db_key.split(".", 1)

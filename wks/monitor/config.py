@@ -32,7 +32,7 @@ class MonitorConfig:
 
     def _validate_list_fields(self) -> List[str]:
         """Validate that all list fields are actually lists."""
-        errors = []
+        errors: List[str] = []
 
         if not isinstance(self.include_paths, list):
             errors.append(
@@ -73,7 +73,7 @@ class MonitorConfig:
 
     def _validate_database_format(self) -> List[str]:
         """Validate database string is in 'database.collection' format."""
-        errors = []
+        errors: List[str] = []
 
         if not isinstance(self.database, str) or "." not in self.database:
             errors.append(
@@ -90,7 +90,7 @@ class MonitorConfig:
 
     def _validate_numeric_fields(self) -> List[str]:
         """Validate numeric fields are correct types and in valid ranges."""
-        errors = []
+        errors: List[str] = []
 
         if not isinstance(self.touch_weight, (int, float)) or self.touch_weight < 0.001 or self.touch_weight > 1.0:
             errors.append(
@@ -115,7 +115,7 @@ class MonitorConfig:
         Collects all validation errors and raises a single ValidationError
         with all errors, so the user can see everything that needs fixing.
         """
-        errors = []
+        errors: List[str] = []
         errors.extend(self._validate_list_fields())
         errors.extend(self._validate_database_format())
         errors.extend(self._validate_numeric_fields())
@@ -142,7 +142,7 @@ class MonitorConfig:
         allowed = {f.name for f in fields(cls)}
         unsupported = [key for key in monitor_config.keys() if key not in allowed]
         if unsupported:
-            errors = [
+            errors: List[str] = [
                 (
                     "Unsupported monitor config key '"
                     + key

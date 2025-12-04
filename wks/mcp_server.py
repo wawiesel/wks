@@ -686,8 +686,10 @@ class MCPServer:
             target_uri_no_ext = target_uri
 
         # Connect to database
+        from pymongo import MongoClient
+
         uri, db_name, coll_name = get_vault_db_config(config)
-        client = connect_to_mongo(uri)
+        client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
         result = {
@@ -778,10 +780,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
+            from pymongo import MongoClient
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             controller = TransformController(db, cache_location, max_size_bytes)
@@ -817,10 +821,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
+            from pymongo import MongoClient
+
             uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             controller = TransformController(db, cache_location, max_size_bytes)
@@ -854,10 +860,12 @@ class MCPServer:
             cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
             max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
 
+            from pymongo import MongoClient
+
             uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
             db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
 
-            client = connect_to_mongo(uri)
+            client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
 
             transform_controller = TransformController(db, cache_location, max_size_bytes)
@@ -926,7 +934,9 @@ class MCPServer:
         else:
             raise ValueError(f"Unknown db type: {db_type}")
 
-        client = connect_to_mongo(uri)
+        from pymongo import MongoClient
+
+        client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
         results = list(coll.find(query, {"_id": 0}).limit(limit))

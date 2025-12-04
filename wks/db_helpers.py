@@ -123,6 +123,6 @@ def connect_to_mongo(uri: str, timeout_ms: int = 5000) -> MongoClient:
     Raises:
         Exception: If connection fails
     """
-    client = MongoClient(uri, serverSelectionTimeoutMS=timeout_ms)
+    client: MongoClient = MongoClient(uri, serverSelectionTimeoutMS=timeout_ms)
     client.server_info()  # Test connection
     return client

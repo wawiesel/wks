@@ -3,7 +3,9 @@
 import platform
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from pymongo import MongoClient
 
 from .obsidian import ObsidianVault
 
@@ -74,7 +76,7 @@ class VaultController:
             )
 
         try:
-            client = MongoClient(
+            client: MongoClient = MongoClient(
                 mongo_uri,
                 serverSelectionTimeoutMS=5000,
                 retryWrites=True,
@@ -150,7 +152,7 @@ class VaultController:
         stats = scanner.stats
 
         broken_links = [r for r in records if r.status != "ok"]
-        broken_by_status = {}
+        broken_by_status: Dict[str, List[Dict[str, Any]]] = {}
         for record in broken_links:
             broken_by_status.setdefault(record.status, []).append(
                 {
