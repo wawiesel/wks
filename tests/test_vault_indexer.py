@@ -176,7 +176,7 @@ def test_scanner_error_handling(vault_root, tmp_path):
     from wks.vault.indexer import VaultLinkScanner
 
     scanner = VaultLinkScanner(vault)
-    records = scanner.scan()
+    scanner.scan()
 
     # Should have scanned the good note despite bad one
     assert scanner.stats.notes_scanned >= 1

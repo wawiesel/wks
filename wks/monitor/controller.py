@@ -52,7 +52,8 @@ class MonitorController:
         }
         if list_name not in supported_lists:
             raise ValueError(
-                f"Unknown list_name: {list_name} (found: {list_name!r}, expected one of {', '.join(sorted(supported_lists.keys()))})"
+                f"Unknown list_name: {list_name} "
+                f"(found: {list_name!r}, expected one of {', '.join(sorted(supported_lists.keys()))})"
             )
         items = supported_lists[list_name]
 
@@ -180,7 +181,8 @@ class MonitorController:
             includes = include_map.get(canonical, [])
             excludes = exclude_map.get(canonical, [])
             issues.append(
-                f"Path listed in both include_paths and exclude_paths after resolving to {canonical}: include [{', '.join(includes)}], exclude [{', '.join(excludes)}]"
+                f"Path listed in both include_paths and exclude_paths after resolving to {canonical}: "
+                f"include [{', '.join(includes)}], exclude [{', '.join(excludes)}]"
             )
         return issues
 
