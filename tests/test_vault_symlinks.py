@@ -226,10 +226,10 @@ class TestFixSymlinks:
         with (
             patch("wks.config.WKSConfig.load", return_value=mock_config),
             patch("pymongo.MongoClient", return_value=mock_mongo_client),
+            patch("shutil.rmtree", side_effect=PermissionError("Cannot delete")),
         ):
-                # Mock shutil.rmtree to raise exception
-                with patch("shutil.rmtree", side_effect=PermissionError("Cannot delete")):
-                    result = controller.fix_symlinks()
+            # Mock shutil.rmtree to raise exception
+            result = controller.fix_symlinks()
 
         assert len(result.failed) == 1
         assert "_links/test-machine" in result.failed[0][0]

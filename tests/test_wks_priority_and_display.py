@@ -137,7 +137,7 @@ class TestPriorityCalculation:
         assert priority == 150
 
         # Test nested path
-        matched, priority = find_managed_directory(home / "Documents/2025-Project", managed_dirs)
+        _matched, priority = find_managed_directory(home / "Documents/2025-Project", managed_dirs)
         assert priority == 100
 
         # Test deepest match wins
