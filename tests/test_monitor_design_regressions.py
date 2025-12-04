@@ -94,4 +94,3 @@ def test_monitor_rules_default_to_exclude_without_matching_root(tmp_path):
 
     assert allowed is False
     assert any("Outside include_paths" in msg or "excluded" in msg.lower() for msg in trace)
-
