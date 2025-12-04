@@ -212,7 +212,7 @@ class ServiceController:
 
         if health_path.exists():
             try:
-                with open(health_path) as f:
+                with health_path.open() as f:
                     health = json.load(f)
             except Exception:
                 status.notes.append("Failed to read health metrics")
