@@ -2,11 +2,13 @@
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
 class MonitorConfig(BaseModel):
     """Monitor configuration loaded from config dict with validation."""
+
+    model_config = ConfigDict(extra="forbid")
 
     include_paths: List[str] = Field(default_factory=list)
     exclude_paths: List[str] = Field(default_factory=list)

@@ -13,12 +13,28 @@ from pathlib import Path
 import pytest
 
 # Path to the wks executable or module
-WKS_CMD = [sys.executable, "-m", "wks.cli", "mcp", "run", "--direct"]
+WKS_CMD = [sys.executable, "-m", "wks.cli", "mcp", "--direct"]
+
+
+def _mongo_available():
+    """Check if MongoDB is available."""
+    try:
+        from pymongo import MongoClient
+
+        client = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=2000)
+        client.server_info()
+        client.close()
+        return True
+    except Exception:
+        return False
 
 
 @pytest.fixture(scope="module")
 def mcp_process(tmp_path_factory):
     """Start MCP server process."""
+    if not _mongo_available():
+        pytest.skip("MongoDB not available")
+
     env_dir = tmp_path_factory.mktemp("mcp_env")
     home_dir = env_dir / "home"
     home_dir.mkdir()

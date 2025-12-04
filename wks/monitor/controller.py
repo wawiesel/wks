@@ -28,11 +28,11 @@ class MonitorController:
     """Controller for monitor operations - returns data structures for any view."""
 
     @staticmethod
-    def get_list(config: dict, list_name: str) -> dict:
+    def get_list(config: dict | MonitorConfig, list_name: str) -> dict:
         """Get contents of a monitor config list.
 
         Args:
-            config: Configuration dictionary
+            config: Configuration dictionary or MonitorConfig object
             list_name: Name of list (include/exclude paths, dirnames, or globs)
 
         Returns:
@@ -41,7 +41,11 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or list_name is missing
         """
-        monitor_cfg = MonitorConfig.from_config_dict(config)
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+
         supported_lists = {
             "include_paths": monitor_cfg.include_paths,
             "exclude_paths": monitor_cfg.exclude_paths,
@@ -90,11 +94,11 @@ class MonitorController:
     set_managed_priority = staticmethod(MonitorOperations.set_managed_priority)
 
     @staticmethod
-    def get_managed_directories(config: dict) -> ManagedDirectoriesResult:
+    def get_managed_directories(config: dict | MonitorConfig) -> ManagedDirectoriesResult:
         """Get managed directories with their priorities.
 
         Args:
-            config: Configuration dictionary
+            config: Configuration dictionary or MonitorConfig object
 
         Returns:
             ManagedDirectoriesResult with managed directories, count, and validation
@@ -102,7 +106,10 @@ class MonitorController:
         Raises:
             KeyError: If monitor section or required fields are missing
         """
-        monitor_cfg = MonitorConfig.from_config_dict(config)
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
 
         # Validate each managed directory
         validation = {}
@@ -118,7 +125,7 @@ class MonitorController:
         )
 
     @staticmethod
-    def get_status(config: dict[str, Any]) -> MonitorStatus:
+    def get_status(config: dict[str, Any] | MonitorConfig) -> MonitorStatus:
         """Get monitor status, including validation issues.
 
         Raises:
@@ -128,12 +135,15 @@ class MonitorController:
 
         from ..config import WKSConfig
 
-        monitor_cfg = config.monitor if hasattr(config, "monitor") else MonitorConfig.from_config_dict(config)
-        try:
-            wks_config = WKSConfig.load()
-            mongo_uri = wks_config.mongo.uri
-        except Exception:
-            mongo_uri = "mongodb://localhost:27017"
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        elif hasattr(config, "monitor"):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+        
+        wks_config = WKSConfig.load()
+        mongo_uri = wks_config.mongo.uri
 
         # Get total tracked files
         try:
@@ -305,13 +315,17 @@ class MonitorController:
         return issues, include_glob_validation, exclude_glob_validation
 
     @staticmethod
-    def validate_config(config: dict) -> ConfigValidationResult:
+    def validate_config(config: dict | MonitorConfig) -> ConfigValidationResult:
         """Validate monitor configuration for conflicts and issues.
 
         Raises:
             KeyError: If monitor section or required fields are missing
         """
-        monitor_cfg = MonitorConfig.from_config_dict(config)
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+
         rules = MonitorRules.from_config(monitor_cfg)
 
         include_map = _build_canonical_map(monitor_cfg.include_paths)
@@ -325,7 +339,8 @@ class MonitorController:
         issues.extend(MonitorController._validate_path_conflicts(include_map, exclude_map))
 
         # Path redundancy
-        redundancies.extend(MonitorController._validate_path_redundancy(include_map, exclude_map, config))
+        config_dict = config if isinstance(config, dict) else {}
+        redundancies.extend(MonitorController._validate_path_redundancy(include_map, exclude_map, config_dict))
 
         # Managed directories
         mgd_issues, mgd_redundancies, managed_directories = MonitorController._validate_managed_directories(
@@ -361,7 +376,6 @@ class MonitorController:
             exclude_glob_validation=exclude_glob_validation,
         )
 
-    @staticmethod
     @staticmethod
     def _build_decisions_from_trace(trace: list[str], path_exists: bool, test_path: Path) -> list[dict[str, str]]:
         """Build decision list from trace messages and path existence.
@@ -421,7 +435,7 @@ class MonitorController:
             return None, decisions
 
     @staticmethod
-    def check_path(config: dict, path_str: str) -> dict:
+    def check_path(config: dict | MonitorConfig, path_str: str) -> dict:
         """Check if a path would be monitored and calculate its priority.
 
         Raises:
@@ -429,7 +443,13 @@ class MonitorController:
         """
         from ..config import WKSConfig
 
-        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        elif isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+
         rules = MonitorRules.from_config(monitor_cfg)
 
         # Resolve path
@@ -459,19 +479,22 @@ class MonitorController:
         }
 
     @staticmethod
-    def prune_ignored_files(config: dict) -> dict:
+    def prune_ignored_files(config: dict | MonitorConfig) -> dict:
         """Prune ignored files from the monitor database."""
         from pymongo import MongoClient
 
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
 
-        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
-        try:
-            wks_config = WKSConfig.load()
-            mongo_uri = wks_config.mongo.uri
-        except Exception:
-            mongo_uri = "mongodb://localhost:27017"
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        elif isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+
+        wks_config = WKSConfig.load()
+        mongo_uri = wks_config.mongo.uri
 
         try:
             client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
@@ -519,19 +542,22 @@ class MonitorController:
         }
 
     @staticmethod
-    def prune_deleted_files(config: dict) -> dict:
+    def prune_deleted_files(config: dict | MonitorConfig) -> dict:
         """Prune deleted files from the monitor database."""
         from pymongo import MongoClient
 
         from ..config import WKSConfig
         from ..uri_utils import uri_to_path
 
-        monitor_cfg = config.monitor if isinstance(config, WKSConfig) else MonitorConfig.from_config_dict(config)
-        try:
-            wks_config = WKSConfig.load()
-            mongo_uri = wks_config.mongo.uri
-        except Exception:
-            mongo_uri = "mongodb://localhost:27017"
+        if isinstance(config, MonitorConfig):
+            monitor_cfg = config
+        elif isinstance(config, WKSConfig):
+            monitor_cfg = config.monitor
+        else:
+            monitor_cfg = MonitorConfig.from_config_dict(config)
+
+        wks_config = WKSConfig.load()
+        mongo_uri = wks_config.mongo.uri
 
         try:
             client: MongoClient = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)

@@ -728,25 +728,26 @@ class MCPServer:
 
         return result
 
-    def _tool_vault_status(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_status tool."""
-        controller = VaultStatusController(config)
+        # Legacy controller expects dict
+        controller = VaultStatusController(config.to_dict())
         summary = controller.summarize()
         return summary.to_dict()
 
-    def _tool_vault_sync(self, config: dict[str, Any], batch_size: int) -> dict[str, Any]:
+    def _tool_vault_sync(self, config: WKSConfig, batch_size: int) -> dict[str, Any]:
         """Execute wks_vault_sync tool."""
-        return VaultController.sync_vault(config, batch_size)
+        # Legacy controller expects dict
+        return VaultController.sync_vault(config.to_dict(), batch_size)
 
-    def _tool_vault_links(self, config: dict[str, Any], file_path: str, direction: str = "both") -> dict[str, Any]:
+    def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
         from .db_helpers import connect_to_mongo, get_vault_db_config
         from .uri_utils import convert_to_uri
         from .utils import expand_path
 
         # Get vault configuration
-        vault_cfg = config.get("vault", {})
-        vault_path_str = vault_cfg.get("base_dir")
+        vault_path_str = config.vault.base_dir
         if not vault_path_str:
             return {"error": "vault.base_dir not configured"}
 
@@ -761,7 +762,7 @@ class MCPServer:
 
         # Check if file is monitored
         try:
-            monitor_info = MonitorController.check_path(config, str(file_path_expanded))
+            monitor_info = MonitorController.check_path(config.monitor, str(file_path_expanded))
             is_monitored = monitor_info.get("is_monitored", False)
             priority = monitor_info.get("priority", 0) if is_monitored else None
         except Exception:
@@ -777,7 +778,7 @@ class MCPServer:
         # Connect to database
         from pymongo import MongoClient
 
-        uri, db_name, coll_name = get_vault_db_config(config)
+        uri, db_name, coll_name = get_vault_db_config(config.to_dict())
         client: MongoClient = connect_to_mongo(uri)
         coll = client[db_name][coll_name]
 
@@ -854,7 +855,7 @@ class MCPServer:
 
     def _tool_transform(
         self,
-        config: dict[str, Any],  # noqa: ARG002
+        config: WKSConfig,
         file_path: str,
         engine: str,
         options: dict[str, Any],
@@ -862,7 +863,6 @@ class MCPServer:
         """Execute wksm_transform tool."""
         from pathlib import Path
 
-        from .config import WKSConfig
         from .db_helpers import connect_to_mongo
         from .transform import TransformController
         from .utils import expand_path
@@ -875,15 +875,14 @@ class MCPServer:
             if not path.exists():
                 return result.error_result(f"File not found: {path}", data={}).to_dict()
 
-            # Load config dataclass for proper cache location resolution
-            wks_cfg = WKSConfig.load()
-            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
-            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
+            # Use passed config
+            cache_location = Path(config.transform.cache.location).expanduser()
+            max_size_bytes = config.transform.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = wks_cfg.mongo.uri
-            db_name = wks_cfg.transform.database.split(".")[0]
+            uri = config.mongo.uri
+            db_name = config.transform.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -905,26 +904,24 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_cat(self, config: dict[str, Any], target: str) -> dict[str, Any]:  # noqa: ARG002
+    def _tool_cat(self, config: WKSConfig, target: str) -> dict[str, Any]:
         """Execute wksm_cat tool."""
         from pathlib import Path
 
-        from .config import WKSConfig
         from .db_helpers import connect_to_mongo
         from .transform import TransformController
 
         result = MCPResult(success=False, data={})
 
         try:
-            # Load config dataclass for proper cache location resolution
-            wks_cfg = WKSConfig.load()
-            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
-            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
+            # Use passed config
+            cache_location = Path(config.transform.cache.location).expanduser()
+            max_size_bytes = config.transform.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = wks_cfg.mongo.uri
-            db_name = wks_cfg.transform.database.split(".")[0]
+            uri = config.mongo.uri
+            db_name = config.transform.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -943,7 +940,7 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_diff(self, config: dict[str, Any], engine: str, target_a: str, target_b: str) -> dict[str, Any]:
+    def _tool_diff(self, config: WKSConfig, engine: str, target_a: str, target_b: str) -> dict[str, Any]:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
@@ -956,14 +953,14 @@ class MCPServer:
 
         try:
             # Setup transform controller for checksum resolution
-            transform_cfg = config.get("transform", {})
-            cache_location = Path(transform_cfg.get("cache_location", "~/.wks/cache")).expanduser()
-            max_size_bytes = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
+            transform_cfg = config.transform
+            cache_location = Path(transform_cfg.cache.location).expanduser()
+            max_size_bytes = transform_cfg.cache.max_size_bytes
 
             from pymongo import MongoClient
 
-            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
-            db_name = transform_cfg.get("database", "wks.transform").split(".")[0]
+            uri = config.mongo.uri
+            db_name = transform_cfg.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -971,8 +968,13 @@ class MCPServer:
             transform_controller = TransformController(db, cache_location, max_size_bytes)
 
             # Load diff configuration and construct controller when available.
+            # DiffConfig currently expects dict in from_config_dict
+            # We should convert WKSConfig back to dict for legacy compatibility if needed
+            # or update DiffConfig to support WKSConfig.
+            # For now, let's convert config to dict for DiffConfig.
+            config_dict = config.to_dict()
             try:
-                diff_config = DiffConfig.from_config_dict(config)
+                diff_config = DiffConfig.from_config_dict(config_dict)
             except DiffConfigError:
                 diff_config = None
 
@@ -992,19 +994,21 @@ class MCPServer:
         except Exception as e:
             return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
 
-    def _tool_vault_validate(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_validate(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
         from .vault import VaultController, load_vault
 
-        vault = load_vault(config)
+        # Legacy helpers expect dict
+        vault = load_vault(config.to_dict())
         controller = VaultController(vault)
         return controller.validate_vault()
 
-    def _tool_vault_fix_symlinks(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _tool_vault_fix_symlinks(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
         from .vault import VaultController, load_vault
 
-        vault = load_vault(config)
+        # Legacy helpers expect dict
+        vault = load_vault(config.to_dict())
         controller = VaultController(vault)
         result = controller.fix_symlinks()
 
@@ -1016,21 +1020,21 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(self, config: dict[str, Any], db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
+    def _tool_db_query(self, config: WKSConfig, db_type: str, query: dict[str, Any], limit: int) -> dict[str, Any]:
         """Execute wks_db_* tools."""
         from .db_helpers import connect_to_mongo
 
-        uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
+        uri = config.mongo.uri
 
         if db_type == "monitor":
-            db_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[0]
-            coll_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[1]
+            db_name = config.monitor.database.split(".")[0]
+            coll_name = config.monitor.database.split(".")[1]
         elif db_type == "vault":
-            db_name = config.get("vault", {}).get("database", "wks.vault").split(".")[0]
-            coll_name = config.get("vault", {}).get("database", "wks.vault").split(".")[1]
+            db_name = config.vault.database.split(".")[0]
+            coll_name = config.vault.database.split(".")[1]
         elif db_type == "transform":
-            db_name = config.get("transform", {}).get("database", "wks.transform").split(".")[0]
-            coll_name = config.get("transform", {}).get("database", "wks.transform").split(".")[1]
+            db_name = config.transform.database.split(".")[0]
+            coll_name = config.transform.database.split(".")[1]
         else:
             raise ValueError(f"Unknown db type: {db_type}")
 
