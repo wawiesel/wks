@@ -327,13 +327,20 @@ def test_cli_vault_links_with_direction(mock_call):
 @patch("wks.cli._call")
 def test_cli_out_with_string(mock_call):  # noqa: ARG001
     """Test _out function with non-dict (string) output."""
+    import wks.cli
     from wks.cli import _out
     from wks.display.cli import CLIDisplay
 
+    # Set the global display object
+    wks.cli.display_obj_global = CLIDisplay()
+
     out_buf = io.StringIO()
     with redirect_stdout(out_buf):
-        _out("plain string", CLIDisplay())
+        _out("plain string")
     assert "plain string" in out_buf.getvalue()
+
+    # Clean up
+    wks.cli.display_obj_global = None
 
 
 @patch("wks.cli._call")

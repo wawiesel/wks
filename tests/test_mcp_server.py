@@ -24,6 +24,9 @@ def mock_config():
         managed_directories={"~": 100},
         priority={"depth_multiplier": 0.9},
         database="wks.monitor",
+        touch_weight=0.1,
+        max_documents=1000000,
+        prune_interval_secs=300.0,
     )
     config.vault = VaultConfig(
         base_dir="~/_vault",
@@ -85,7 +88,7 @@ class TestMCPServer:
         assert len(tools) > 0
         assert any(t["name"] == "wksm_monitor_status" for t in tools)
 
-    @patch("wks.mcp_server.load_config")
+    @patch("wks.config.WKSConfig.load")
     @patch("wks.mcp_server.MonitorController")
     def test_call_tool_monitor_status(self, mock_controller, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_status tool."""
@@ -93,7 +96,7 @@ class TestMCPServer:
         mock_load_config.return_value = mock_config
 
         mock_status = MagicMock()
-        mock_status.to_dict.return_value = {"tracked_files": 100}
+        mock_status.model_dump.return_value = {"tracked_files": 100}
         mock_controller.get_status.return_value = mock_status
 
         request = {
@@ -113,7 +116,7 @@ class TestMCPServer:
         content = json.loads(response["result"]["content"][0]["text"])
         assert content["tracked_files"] == 100
 
-    @patch("wks.mcp_server.load_config")
+    @patch("wks.config.WKSConfig.load")
     @patch("wks.mcp_server.MonitorController")
     def test_call_tool_monitor_check(self, mock_controller, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_check tool."""
@@ -160,7 +163,7 @@ class TestMCPServer:
         assert "error" in response
         assert response["error"]["code"] == -32601
 
-    @patch("wks.mcp_server.load_config")
+    @patch("wks.config.WKSConfig.load")
     @patch("wks.mcp_server.MonitorController")
     def test_call_tool_missing_params(self, mock_controller, mock_load_config, mcp_server, mock_config):  # noqa: ARG002
         """Test calling tool with missing params."""

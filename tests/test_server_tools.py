@@ -33,7 +33,13 @@ class TestMCPServerNewTools:
 
     def test_wks_config(self, mock_server, mock_config):
         """Test wksm_config tool returns MCPResult format."""
-        result = mock_server._tool_config(mock_config)
+        from wks.config import WKSConfig
+
+        # Create a mock WKSConfig object
+        mock_wks_config = MagicMock(spec=WKSConfig)
+        mock_wks_config.model_dump.return_value = mock_config
+
+        result = mock_server._tool_config(mock_wks_config)
         assert result["success"] is True
         assert result["data"] == mock_config
         assert "messages" in result
@@ -365,7 +371,7 @@ class TestMCPServerNewTools:
         assert result["success"] is False
         assert "Unexpected error" in result["messages"][0]["text"]
 
-    @patch("wks.mcp_server.load_config")
+    @patch("wks.config.WKSConfig.load")
     def test_call_tool_not_found(self, mock_load_config, mock_config):
         """Test call_tool returns error for unknown tool."""
         from wks.mcp_server import call_tool
@@ -377,7 +383,7 @@ class TestMCPServerNewTools:
         assert result["success"] is False
         assert "Tool not found" in result["messages"][0]["text"]
 
-    @patch("wks.mcp_server.load_config")
+    @patch("wks.config.WKSConfig.load")
     def test_call_tool_success(self, mock_load_config, mock_config):
         """Test call_tool successfully calls a tool."""
         from wks.mcp_server import call_tool

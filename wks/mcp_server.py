@@ -848,7 +848,14 @@ class MCPServer:
 
     def _tool_config(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wksm_config tool."""
-        result = MCPResult(success=True, data=config.to_dict())
+        # WKSConfig is a Pydantic model, use model_dump()
+        if hasattr(config, "model_dump"):
+            data = config.model_dump()
+        elif hasattr(config, "to_dict"):
+            data = config.to_dict()
+        else:
+            data = dict(config) if hasattr(config, "__dict__") else {}
+        result = MCPResult(success=True, data=data)
         result.add_success("Configuration loaded successfully")
         return result.to_dict()
 
