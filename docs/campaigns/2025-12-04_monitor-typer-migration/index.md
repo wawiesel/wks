@@ -346,7 +346,7 @@ Final phase refactors service, config, and DB tools.
 3. **Config Injection**: Use decorator pattern to inject config, keeping function signatures clean
 4. **Direct CLI Access**: CLI calls Typer functions directly (no MCP bridge) - `CLI → Typer function → Controller logic`
 5. **MCP Wraps API**: MCP server wraps Typer functions in MCPResult for external clients
-6. **Incremental Migration**: Only monitor tools migrate; other tools remain unchanged
+6. **Phased Migration**: Monitor tools first (Phase 1), then vault, transform/diff, and service/infrastructure in subsequent phases
 7. **Backward Compatibility**: MCP tool names and CLI command names remain the same
 8. **Type Safety**: Use Pydantic models for validation and schema generation
 9. **Return Raw Data**: Functions return dict/data directly; MCP layer wraps in MCPResult when needed
@@ -382,16 +382,24 @@ Final phase refactors service, config, and DB tools.
 
 ## Success Criteria
 
+### Phase 1: Monitor (Agent 1)
 - All monitor CLI commands work identically to before
 - All monitor MCP tools work identically to before
 - Zero code duplication between CLI and MCP definitions
 - Type hints and Pydantic models provide validation
 - Tests pass
 - Code complexity reduced (fewer manual schema definitions)
-- Dependencies added to pyproject.toml
 - CLI calls Typer functions directly (no MCP bridge)
 - Functions handle display internally when called from CLI
 - `wks/monitor/` directory removed (functionality in `wks/api/monitor/`)
+- Foundation patterns established for subsequent phases
+
+### Phase 2-4: Vault, Transform/Diff, Service/Infrastructure
+- Each phase follows the same patterns established in Phase 1
+- All tools in each phase work identically to before
+- Zero code duplication between CLI and MCP definitions
+- Tests pass for each phase
+- Legacy code removed after each phase is complete
 
 ## Implementation Todos
 
