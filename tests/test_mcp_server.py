@@ -89,15 +89,15 @@ class TestMCPServer:
         assert any(t["name"] == "wksm_monitor_status" for t in tools)
 
     @patch("wks.config.WKSConfig.load")
-    @patch("wks.mcp_server.MonitorController")
-    def test_call_tool_monitor_status(self, mock_controller, mock_load_config, mcp_server, mock_config):
+    @patch("wks.monitor.controller.MonitorController.get_status")
+    def test_call_tool_monitor_status(self, mock_get_status, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_status tool."""
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
 
         mock_status = MagicMock()
         mock_status.model_dump.return_value = {"tracked_files": 100}
-        mock_controller.get_status.return_value = mock_status
+        mock_get_status.return_value = mock_status
 
         request = {
             "jsonrpc": "2.0",
@@ -117,13 +117,13 @@ class TestMCPServer:
         assert content["tracked_files"] == 100
 
     @patch("wks.config.WKSConfig.load")
-    @patch("wks.mcp_server.MonitorController")
-    def test_call_tool_monitor_check(self, mock_controller, mock_load_config, mcp_server, mock_config):
+    @patch("wks.monitor.controller.MonitorController.check_path")
+    def test_call_tool_monitor_check(self, mock_check_path, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_check tool."""
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
 
-        mock_controller.check_path.return_value = {"is_monitored": True}
+        mock_check_path.return_value = {"is_monitored": True}
 
         request = {
             "jsonrpc": "2.0",

@@ -13,6 +13,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from .api.base import get_typer_command_schema
+from .api.monitor import monitor_check, monitor_status, monitor_validate
 from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
@@ -160,29 +162,22 @@ class MCPServer:
 
     @staticmethod
     def _define_monitor_basic_tools() -> dict[str, dict[str, Any]]:
-        """Define basic monitor tools (status, check, validate).
+        """Define basic monitor tools (status, check, validate) using Typer introspection.
 
         Returns:
             Dictionary of basic monitor tool definitions
         """
-        return {
-            "wksm_monitor_status": {
-                "description": "Get filesystem monitoring status and configuration",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-            "wksm_monitor_check": {
-                "description": "Check if a path would be monitored and calculate its priority",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"path": {"type": "string", "description": "File or directory path to check"}},
-                    "required": ["path"],
-                },
-            },
-            "wksm_monitor_validate": {
-                "description": "Validate monitor configuration for conflicts and issues",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-        }
+        from .api.monitor import monitor_app
+
+        tools = {}
+        for cmd_name in ["status", "check", "validate"]:
+            schema = get_typer_command_schema(monitor_app, cmd_name)
+            mcp_tool_name = f"wksm_monitor_{cmd_name}"
+            tools[mcp_tool_name] = {
+                "description": schema["description"],
+                "inputSchema": schema["inputSchema"],
+            }
+        return tools
 
     @staticmethod
     def _define_monitor_list_tools() -> dict[str, dict[str, Any]]:
@@ -570,11 +565,11 @@ class MCPServer:
             "wksm_db_transform": lambda config, args: self._tool_db_query(
                 config, "transform", args.get("query", {}), args.get("limit", 50)
             ),
-            "wksm_monitor_status": lambda config, args: self._tool_monitor_status(config),  # noqa: ARG005
+            "wksm_monitor_status": lambda config, args: monitor_status(config=config).get("data", {}),  # noqa: ARG005
             "wksm_monitor_check": _require_params("path")(
-                lambda config, args: self._tool_monitor_check(config, args["path"])
+                lambda config, args: monitor_check(path=args["path"], config=config).get("data", {})
             ),
-            "wksm_monitor_validate": lambda config, args: self._tool_monitor_validate(config),  # noqa: ARG005
+            "wksm_monitor_validate": lambda config, args: monitor_validate(config=config).get("data", {}),  # noqa: ARG005
             "wksm_monitor_list": _require_params("list_name")(
                 lambda config, args: self._tool_monitor_list(config, args["list_name"])
             ),
@@ -636,20 +631,6 @@ class MCPServer:
             "Service status retrieved successfully",
         )
         return result.to_dict()
-
-    def _tool_monitor_status(self, config: WKSConfig) -> dict[str, Any]:
-        """Execute wks_monitor_status tool."""
-        status = MonitorController.get_status(config.monitor)
-        return status.model_dump()
-
-    def _tool_monitor_check(self, config: WKSConfig, path: str) -> dict[str, Any]:
-        """Execute wks_monitor_check tool."""
-        return MonitorController.check_path(config.monitor, path)
-
-    def _tool_monitor_validate(self, config: WKSConfig) -> dict[str, Any]:
-        """Execute wks_monitor_validate tool."""
-        result = MonitorController.validate_config(config.monitor)
-        return result.model_dump()
 
     def _tool_monitor_list(self, config: WKSConfig, list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
