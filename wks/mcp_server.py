@@ -16,7 +16,7 @@ from typing import Any
 from .api.base import StageResult, get_typer_command_schema
 from .api.monitor.cmd_add import cmd_add
 from .api.monitor.cmd_check import cmd_check as monitor_check
-from .api.monitor.cmd_list import cmd_list
+from .api.monitor.cmd_show import cmd_show
 from .api.monitor.cmd_remove import cmd_remove
 from .api.monitor.cmd_status import cmd_status as monitor_status
 from .api.monitor.cmd_sync import cmd_sync
@@ -204,7 +204,7 @@ class MCPServer:
 
     @staticmethod
     def _define_monitor_list_tools() -> dict[str, dict[str, Any]]:
-        """Define monitor list management tools.
+        """Define monitor filter tools (show/add/remove).
 
         Returns:
             Dictionary of monitor list tool definitions
@@ -218,23 +218,23 @@ class MCPServer:
             "exclude_globs",
         ]
         return {
-            "wksm_monitor_list": {
+            "wksm_monitor_filter_show": {
                 "description": (
-                    "Get contents of a monitor configuration list (include/exclude paths, dirnames, or globs)"
+                    "Show contents of a monitor configuration list or list available monitor lists"
                 ),
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "list_name": {
                             "type": "string",
-                            "description": "Name of the list to retrieve",
+                            "description": "Name of the list to retrieve (optional)",
                             "enum": list_name_enum,
                         }
                     },
-                    "required": ["list_name"],
+                    "required": [],
                 },
             },
-            "wksm_monitor_add": {
+            "wksm_monitor_filter_add": {
                 "description": "Add a value to a monitor configuration list",
                 "inputSchema": {
                     "type": "object",
@@ -256,7 +256,7 @@ class MCPServer:
                     "required": ["list_name", "value"],
                 },
             },
-            "wksm_monitor_remove": {
+            "wksm_monitor_filter_remove": {
                 "description": "Remove a value from a monitor configuration list",
                 "inputSchema": {
                     "type": "object",
@@ -281,39 +281,17 @@ class MCPServer:
             Dictionary of managed directory tool definitions
         """
         return {
-            "wksm_monitor_managed_list": {
+            "wksm_monitor_priority_show": {
                 "description": "Get all managed directories with their priorities",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
-            "wksm_monitor_managed_add": {
-                "description": "Add a managed directory with priority",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "path": {"type": "string", "description": "Directory path to add"},
-                        "priority": {
-                            "type": "integer",
-                            "description": "Priority score (higher = more important)",
-                        },
-                    },
-                    "required": ["path", "priority"],
-                },
-            },
-            "wksm_monitor_managed_remove": {
-                "description": "Remove a managed directory",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"path": {"type": "string", "description": "Directory path to remove"}},
-                    "required": ["path"],
-                },
-            },
-            "wksm_monitor_managed_set_priority": {
-                "description": "Update priority for a managed directory",
+            "wksm_monitor_priority_set": {
+                "description": "Set or update priority for a managed directory",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "path": {"type": "string", "description": "Directory path"},
-                        "priority": {"type": "integer", "description": "New priority score"},
+                        "priority": {"type": "integer", "description": "Priority score"},
                     },
                     "required": ["path", "priority"],
                 },
@@ -596,17 +574,16 @@ class MCPServer:
                     success=True, data=_extract_data_from_stage_result(monitor_check(path=args["path"]))
                 ).to_dict()
             ),
-            "wksm_monitor_list": _require_params("list_name")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True, data=_extract_data_from_stage_result(cmd_list(list_name=args["list_name"]))
-                ).to_dict()
-            ),
-            "wksm_monitor_add": _require_params("list_name", "value")(
+            "wksm_monitor_filter_show": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True,
+                data=_extract_data_from_stage_result(cmd_show(list_name=args.get("list_name"))),
+            ).to_dict(),
+            "wksm_monitor_filter_add": _require_params("list_name", "value")(
                 lambda config, args: MCPResult(  # noqa: ARG005
                     success=True, data=_extract_data_from_stage_result(cmd_add(list_name=args["list_name"], value=args["value"]))
                 ).to_dict()
             ),
-            "wksm_monitor_remove": _require_params("list_name", "value")(
+            "wksm_monitor_filter_remove": _require_params("list_name", "value")(
                 lambda config, args: MCPResult(  # noqa: ARG005
                     success=True, data=_extract_data_from_stage_result(cmd_remove(list_name=args["list_name"], value=args["value"]))
                 ).to_dict()
@@ -616,14 +593,8 @@ class MCPServer:
                     success=True, data=_extract_data_from_stage_result(cmd_sync(path=args["path"], recursive=args.get("recursive", False)))
                 ).to_dict()
             ),
-            "wksm_monitor_managed_list": lambda config, args: self._tool_monitor_managed_list(config),  # noqa: ARG005
-            "wksm_monitor_managed_add": _require_params("path", "priority")(
-                lambda config, args: self._tool_monitor_managed_add(config, args["path"], args["priority"])
-            ),
-            "wksm_monitor_managed_remove": _require_params("path")(
-                lambda config, args: self._tool_monitor_managed_remove(config, args["path"])
-            ),
-            "wksm_monitor_managed_set_priority": _require_params("path", "priority")(
+            "wksm_monitor_priority_show": lambda config, args: self._tool_monitor_managed_list(config),  # noqa: ARG005
+            "wksm_monitor_priority_set": _require_params("path", "priority")(
                 lambda config, args: self._tool_monitor_managed_set_priority(config, args["path"], args["priority"])
             ),
             "wksm_vault_status": lambda config, args: self._tool_vault_status(config),  # noqa: ARG005

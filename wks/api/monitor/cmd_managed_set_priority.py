@@ -27,50 +27,34 @@ def cmd_managed_set_priority(
 
     config = WKSConfig.load()
 
-    if not config.monitor.managed_directories:
-        result = {
-            "success": False,
-            "message": "No managed_directories configured",
-            "not_found": True,
-        }
-        return StageResult(
-            announce=f"Setting priority for managed directory: {path} to {priority}",
-            result=str(result.get("message", "")),
-            output=result,
-        )
-
     # Resolve path
     path_resolved = canonicalize_path(path)
     existing_key = find_matching_path_key(config.monitor.managed_directories, path_resolved)
 
-    # Check if exists
+    # If not present, create with given priority
     if existing_key is None:
+        config.monitor.managed_directories[path_resolved] = priority
         result = {
-            "success": False,
-            "message": f"Not a managed directory: {path_resolved}",
-            "not_found": True,
+            "success": True,
+            "message": f"Set priority for {path_resolved}: {priority} (created)",
+            "path_stored": path_resolved,
+            "new_priority": priority,
+            "created": True,
         }
-        return StageResult(
-            announce=f"Setting priority for managed directory: {path} to {priority}",
-            result=str(result.get("message", "")),
-            output=result,
-        )
+    else:
+        # Update existing priority
+        old_priority = config.monitor.managed_directories[existing_key]
+        config.monitor.managed_directories[existing_key] = priority
+        result = {
+            "success": True,
+            "message": f"Updated priority for {existing_key}: {old_priority} → {priority}",
+            "old_priority": old_priority,
+            "new_priority": priority,
+            "path_stored": existing_key,
+            "created": False,
+        }
 
-    # Get old priority
-    old_priority = config.monitor.managed_directories[existing_key]
-
-    # Update priority
-    config.monitor.managed_directories[existing_key] = priority
-
-    result = {
-        "success": True,
-        "message": f"Updated priority for {existing_key}: {old_priority} → {priority}",
-        "old_priority": old_priority,
-        "new_priority": priority,
-    }
-
-    if result.get("success"):
-        config.save()
+    config.save()
 
     return StageResult(
         announce=f"Setting priority for managed directory: {path} to {priority}",

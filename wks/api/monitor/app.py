@@ -11,10 +11,8 @@ from ...display.context import get_display
 from ..base import StageResult
 from .cmd_add import cmd_add
 from .cmd_check import cmd_check
-from .cmd_list import cmd_list
-from .cmd_managed_add import cmd_managed_add
+from .cmd_show import cmd_show
 from .cmd_managed_list import cmd_managed_list
-from .cmd_managed_remove import cmd_managed_remove
 from .cmd_managed_set_priority import cmd_managed_set_priority
 from .cmd_remove import cmd_remove
 from .cmd_status import cmd_status
@@ -23,6 +21,23 @@ from .cmd_sync import cmd_sync
 monitor_app = typer.Typer(
     name="monitor",
     help="Monitor operations",
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+# Sub-apps for filter and priority
+filter_app = typer.Typer(
+    name="filter",
+    help="Manage include/exclude rules",
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+priority_app = typer.Typer(
+    name="priority",
+    help="Manage managed_directories priority",
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -149,10 +164,16 @@ def _handle_stage_result(func: Callable) -> Callable:
 monitor_app.command(name="status")(_handle_stage_result(cmd_status))
 monitor_app.command(name="check")(_handle_stage_result(cmd_check))
 monitor_app.command(name="sync")(_handle_stage_result(cmd_sync))
-monitor_app.command(name="list")(_handle_stage_result(cmd_list))
-monitor_app.command(name="add")(_handle_stage_result(cmd_add))
-monitor_app.command(name="remove")(_handle_stage_result(cmd_remove))
-monitor_app.command(name="managed-list")(_handle_stage_result(cmd_managed_list))
-monitor_app.command(name="managed-add")(_handle_stage_result(cmd_managed_add))
-monitor_app.command(name="managed-remove")(_handle_stage_result(cmd_managed_remove))
-monitor_app.command(name="managed-set-priority")(_handle_stage_result(cmd_managed_set_priority))
+
+# Filter subcommands
+filter_app.command(name="show")(_handle_stage_result(cmd_show))
+filter_app.command(name="add")(_handle_stage_result(cmd_add))
+filter_app.command(name="remove")(_handle_stage_result(cmd_remove))
+
+# Priority subcommands
+priority_app.command(name="show")(_handle_stage_result(cmd_managed_list))
+priority_app.command(name="set")(_handle_stage_result(cmd_managed_set_priority))
+
+# Attach sub-apps
+monitor_app.add_typer(filter_app, name="filter")
+monitor_app.add_typer(priority_app, name="priority")
