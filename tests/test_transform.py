@@ -722,7 +722,7 @@ class TestTransformController:
         ):
             content = controller.get_content(checksum)
 
-                assert content == "Cached content"
+        assert content == "Cached content"
 
     def test_get_content_with_checksum_db_resolution_finds_matching_record(self, tmp_path):
         """get_content finds matching record in database by computing cache key."""
