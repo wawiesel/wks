@@ -11,10 +11,11 @@ from wks.monitor_rules import MonitorRules
 
 def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     from wks import daemon as daemon_mod
-    from wks.config import (
+    from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+from wks.config import (
         DisplayConfig,
         MetricsConfig,
-        MongoSettings,
+        MongoDbConfig,
         MonitorConfig,
         TransformConfig,
         VaultConfig,
@@ -85,7 +86,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         database="wks.vault",
         vault_type="obsidian",
     )
-    mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
+    mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
     from pathlib import Path
 
@@ -101,7 +102,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
     wks_config = WKSConfig(
         monitor=monitor_cfg,
         vault=vault_cfg,
-        mongo=mongo_cfg,
+        db=mongo_cfg,
         display=display_cfg,
         transform=transform_cfg,
         metrics=metrics_cfg,

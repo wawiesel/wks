@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wks.config import MongoSettings, MonitorConfig, VaultConfig, WKSConfig
+from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+from wks.config import MonitorConfig, VaultConfig, WKSConfig
 from wks.mcp_server import MCPServer
 
 
@@ -35,7 +36,7 @@ def mock_config():
         database="wks.vault",
         vault_type="obsidian",
     )
-    config.mongo = MongoSettings(uri="mongodb://localhost:27017")
+    config.db = MongoDbConfig(uri="mongodb://localhost:27017")
     return config
 
 
@@ -99,7 +100,7 @@ class TestMCPServer:
         mock_load_config.return_value = mock_config
         mock_config.monitor.priority.dirs = {}
         mock_config.monitor.sync.database = "test.monitor"
-        mock_config.mongo.uri = "mongodb://localhost:27017/"
+        mock_config.db.uri = "mongodb://localhost:27017/"
 
         mock_client = MagicMock()
         mock_collection = MagicMock()

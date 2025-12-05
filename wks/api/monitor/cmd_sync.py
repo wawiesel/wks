@@ -11,9 +11,9 @@ from typing import Any
 import typer
 
 from ...config import WKSConfig
-from ...db_helpers import connect_to_mongo, parse_database_key
 from ...utils import file_checksum
 from ..base import StageResult
+from ..db.DatabaseCollection import DatabaseCollection
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
@@ -34,7 +34,6 @@ def cmd_sync(
     """
     config = WKSConfig.load()
     monitor_cfg = config.monitor
-    mongo_uri = config.mongo.uri
 
     path_obj = Path(path).expanduser().resolve()
     if not path_obj.exists():
@@ -52,27 +51,6 @@ def cmd_sync(
             success=sync_result.get("success", True),
         )
 
-    try:
-        db_name, collection_name = parse_database_key(monitor_cfg.sync.database)
-    except ValueError:
-        sync_result = {
-            "success": False,
-            "message": f"Invalid database name: {monitor_cfg.sync.database}",
-            "files_synced": 0,
-            "files_skipped": 0,
-            "errors": [f"Invalid database name: {monitor_cfg.sync.database}"],
-        }
-        return StageResult(
-            announce=f"Syncing {path}...",
-            result=sync_result.get("message", "Monitor sync completed"),
-            output=sync_result,
-            success=sync_result.get("success", True),
-        )
-
-    client = connect_to_mongo(mongo_uri)
-    db = client[db_name]
-    collection = db[collection_name]
-
     files_to_process: list[Path]
     if path_obj.is_file():
         files_to_process = [path_obj]
@@ -86,48 +64,48 @@ def cmd_sync(
     files_skipped = 0
     errors: list[str] = []
 
-    try:
-        for idx, file_path in enumerate(files_to_process, start=1):
-            if not explain_path(monitor_cfg, file_path)[0]:
-                files_skipped += 1
-                continue
-
-            try:
-                stat = file_path.stat()
-                checksum = file_checksum(file_path)
-                now = datetime.now()
-
-                priority = calculate_priority(file_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump())
-
-                # Skip files below min_priority
-                if priority < monitor_cfg.sync.min_priority:
+    with DatabaseCollection(monitor_cfg.sync.database) as collection:
+        try:
+            for idx, file_path in enumerate(files_to_process, start=1):
+                if not explain_path(monitor_cfg, file_path)[0]:
                     files_skipped += 1
                     continue
 
-                path_uri = file_path.as_uri()
-                # Check if file content changed (checksum comparison)
-                existing_doc = collection.find_one({"path": path_uri}, {"checksum": 1, "timestamp": 1})
-                timestamp = now.isoformat()
-                # If file unchanged (same checksum), preserve existing timestamp
-                if existing_doc and existing_doc.get("checksum") == checksum:
-                    timestamp = existing_doc.get("timestamp", timestamp)
+                try:
+                    stat = file_path.stat()
+                    checksum = file_checksum(file_path)
+                    now = datetime.now()
 
-                doc = {
-                    "path": path_uri,
-                    "checksum": checksum,
-                    "bytes": stat.st_size,
-                    "priority": priority,
-                    "timestamp": timestamp,
-                }
+                    priority = calculate_priority(file_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump())
 
-                collection.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
-                files_synced += 1
-            except Exception as exc:  # pragma: no cover - defensive
-                errors.append(f"{file_path}: {exc}")
-                files_skipped += 1
-    finally:
-        _enforce_monitor_db_limit(collection, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority)
-        client.close()
+                    # Skip files below min_priority
+                    if priority < monitor_cfg.sync.min_priority:
+                        files_skipped += 1
+                        continue
+
+                    path_uri = file_path.as_uri()
+                    # Check if file content changed (checksum comparison)
+                    existing_doc = collection.find_one({"path": path_uri}, {"checksum": 1, "timestamp": 1})
+                    timestamp = now.isoformat()
+                    # If file unchanged (same checksum), preserve existing timestamp
+                    if existing_doc and existing_doc.get("checksum") == checksum:
+                        timestamp = existing_doc.get("timestamp", timestamp)
+
+                    doc = {
+                        "path": path_uri,
+                        "checksum": checksum,
+                        "bytes": stat.st_size,
+                        "priority": priority,
+                        "timestamp": timestamp,
+                    }
+
+                    collection.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
+                    files_synced += 1
+                except Exception as exc:  # pragma: no cover - defensive
+                    errors.append(f"{file_path}: {exc}")
+                    files_skipped += 1
+        finally:
+            _enforce_monitor_db_limit(collection, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority)
 
     success = len(errors) == 0
     result_msg = (

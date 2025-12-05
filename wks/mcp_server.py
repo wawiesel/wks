@@ -871,7 +871,7 @@ class MCPServer:
 
             from pymongo import MongoClient
 
-            uri = wks_cfg.mongo.uri
+            uri = wks_cfg.db.get_uri()
             db_name = wks_cfg.transform.database.split(".")[0]
 
             client: MongoClient = connect_to_mongo(uri)
@@ -882,8 +882,6 @@ class MCPServer:
             # Transform
             result.add_status(f"Transforming {path.name} using {engine}...")
             cache_key = controller.transform(path, engine, options)
-
-            client.close()
 
             return result.success_result({"checksum": cache_key}, "Transform completed successfully").to_dict()
 
@@ -910,20 +908,15 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
-            from pymongo import MongoClient
+            from .api.db.helpers import get_database
 
-            uri = wks_cfg.mongo.uri
             db_name = wks_cfg.transform.database.split(".")[0]
-
-            client: MongoClient = connect_to_mongo(uri)
-            db = client[db_name]
+            db = get_database(db_name)
 
             controller = TransformController(db, cache_location, max_size_bytes)
 
             # Get content
             content = controller.get_content(target)
-
-            client.close()
 
             return result.success_result({"content": content}, "Content retrieved successfully").to_dict()
 
@@ -957,11 +950,9 @@ class MCPServer:
                     "cache_max_size_bytes": config.transform.cache.max_size_bytes,
                     "database": config.transform.database,
                 }
-                uri = config.mongo.uri
                 raw_config: dict[str, Any] = config.to_dict()
             else:
                 transform_cfg = config.get("transform", {})
-                uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
                 raw_config = config
 
             if isinstance(transform_cfg, dict):
@@ -1045,45 +1036,29 @@ class MCPServer:
         limit: int,
     ) -> dict[str, Any]:
         """Execute wks_db_* tools."""
-        from .db_helpers import connect_to_mongo
+        from .api.db.query import query as db_query
 
         if isinstance(config, WKSConfig):
-            uri = config.mongo.uri
             if db_type == "monitor":
-                db_name = config.monitor.database.split(".")[0]
-                coll_name = config.monitor.database.split(".")[1]
+                database_key = config.monitor.sync.database
             elif db_type == "vault":
-                db_name = config.vault.database.split(".")[0]
-                coll_name = config.vault.database.split(".")[1]
+                database_key = config.vault.database
             elif db_type == "transform":
-                db_name = config.transform.database.split(".")[0]
-                coll_name = config.transform.database.split(".")[1]
+                database_key = config.transform.database
             else:
                 raise ValueError(f"Unknown db type: {db_type}")
         else:
             # Backwards-compatible path for tests that pass a raw dict
-            uri = config.get("mongo", {}).get("uri", "mongodb://localhost:27017/")
             if db_type == "monitor":
-                db_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[0]
-                coll_name = config.get("monitor", {}).get("database", "wks.monitor").split(".")[1]
+                database_key = config.get("monitor", {}).get("sync", {}).get("database", "wks.monitor")
             elif db_type == "vault":
-                db_name = config.get("vault", {}).get("database", "wks.vault").split(".")[0]
-                coll_name = config.get("vault", {}).get("database", "wks.vault").split(".")[1]
+                database_key = config.get("vault", {}).get("database", "wks.vault")
             elif db_type == "transform":
-                db_name = config.get("transform", {}).get("database", "wks.transform").split(".")[0]
-                coll_name = config.get("transform", {}).get("database", "wks.transform").split(".")[1]
+                database_key = config.get("transform", {}).get("database", "wks.transform")
             else:
                 raise ValueError(f"Unknown db type: {db_type}")
 
-        from pymongo import MongoClient
-
-        client: MongoClient = connect_to_mongo(uri)
-        coll = client[db_name][coll_name]
-
-        results = list(coll.find(query, {"_id": 0}).limit(limit))
-
-        client.close()
-        return {"results": results, "count": len(results)}
+        return db_query(database_key, query, limit, projection={"_id": 0})
 
 
 def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

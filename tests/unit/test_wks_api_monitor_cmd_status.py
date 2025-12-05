@@ -26,11 +26,16 @@ def test_cmd_status_mongodb_error(monkeypatch):
     cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
 
-    # Mock MongoDB connection to raise exception
-    def mock_connect(*args, **kwargs):
-        raise Exception("Connection failed")
+    # Mock DatabaseCollection to raise exception on __enter__
+    class MockDatabaseCollection:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            raise Exception("Connection failed")
+        def __exit__(self, *args):
+            pass
 
-    monkeypatch.setattr("wks.api.monitor.cmd_status.connect_to_mongo", mock_connect)
+    monkeypatch.setattr("wks.api.monitor.cmd_status.DatabaseCollection", MockDatabaseCollection)
 
     result = cmd_status.cmd_status()
     assert result.output["tracked_files"] == 0
@@ -59,17 +64,19 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
         return True, []
 
     monkeypatch.setattr("wks.api.monitor.cmd_status.explain_path", mock_explain_path)
-    monkeypatch.setattr("wks.api.monitor.cmd_status.parse_database_key", lambda _key: ("db", "coll"))
 
-    # Mock MongoDB client with proper structure
-    mock_collection = SimpleNamespace(count_documents=lambda *args, **kwargs: 0)
-    mock_db = SimpleNamespace()
-    mock_db.__getitem__ = lambda _key: mock_collection
-    mock_client = SimpleNamespace()
-    mock_client.__getitem__ = lambda _key: mock_db
-    mock_client.close = lambda: None
+    # Mock DatabaseCollection
+    class MockDatabaseCollection:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def count_documents(self, *args, **kwargs):
+            return 0
 
-    monkeypatch.setattr("wks.api.monitor.cmd_status.connect_to_mongo", lambda *args, **kwargs: mock_client)
+    monkeypatch.setattr("wks.api.monitor.cmd_status.DatabaseCollection", MockDatabaseCollection)
 
     result = cmd_status.cmd_status()
     assert result.output["issues"] == ["Priority directory invalid: /invalid/path (Excluded by rules)"]

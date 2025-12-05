@@ -162,7 +162,6 @@ class WKSDaemon:
         self.fs_rate_long_weight = float(fs_rate_long_weight)
         self._fs_events_short: deque[float] = deque()
         self._fs_events_long: deque[float] = deque()
-        self.mongo_uri = self.config.mongo.uri
         self.monitor_collection = monitor_collection
         self._mongo_guard: Any | None = None  # MongoGuard type, but may be None if import fails
         self._mcp_broker: MCPBroker | None = None
@@ -170,17 +169,16 @@ class WKSDaemon:
 
         # Initialize transform controller if transform config exists
         self._transform_controller: TransformController | None = None
-        if self.mongo_uri and self.config.transform:
+        if self.config.transform:
             try:
-                from pymongo import MongoClient
+                from .api.db.helpers import get_database
 
                 transform_cfg = self.config.transform
                 cache_location = expand_path(transform_cfg.cache.location)
                 max_size_bytes = transform_cfg.cache.max_size_bytes
 
-                client: MongoClient = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
-                db_name = transform_cfg.database
-                db = client[db_name]
+                db_name = transform_cfg.database.split(".")[0]
+                db = get_database(db_name)
                 self._transform_controller = TransformController(db, cache_location, max_size_bytes)
             except Exception:
                 pass
@@ -568,13 +566,15 @@ class WKSDaemon:
         self._stop_mcp_broker()
 
     def _start_mongo_guard(self):
-        if not self.mongo_uri:
-            return
         if MongoGuard is None:
             return  # MongoGuard not available
         guard = self._mongo_guard
         if guard is None:
-            guard = MongoGuard(self.mongo_uri, ping_interval=10.0)
+            from .api.db.helpers import get_database_client
+            client = get_database_client()
+            # MongoGuard needs the URI string, so we get it from the client
+            uri = getattr(client, "uri", None) or str(client.address)
+            guard = MongoGuard(uri, ping_interval=10.0)
             self._mongo_guard = guard
         guard.start(record_start=True)
 
@@ -1113,8 +1113,6 @@ class WKSDaemon:
 if __name__ == "__main__":
     import sys
 
-    from pymongo import MongoClient
-
     # Load and validate config
     try:
         config = WKSConfig.load()
@@ -1132,14 +1130,21 @@ if __name__ == "__main__":
     include_paths = [expand_path(p) for p in monitor_cfg_obj.include_paths]
 
     # DB config
-    mongo_uri = config.mongo.uri
-    ensure_mongo_running(mongo_uri, record_start=True)
-
-    client: MongoClient = MongoClient(mongo_uri)
+    from .api.db.helpers import get_database_client, get_database
+    
+    client = get_database_client()
+    # ensure_mongo_running needs URI - this is MongoDB-specific, so we get it from config
+    if config.db.type == "mongo":
+        from .api.db._mongo.MongoDbConfigData import MongoDbConfigData
+        if isinstance(config.db.data, MongoDbConfigData):
+            mongo_uri = config.db.data.uri
+            ensure_mongo_running(mongo_uri, record_start=True)
+    
     monitor_db_key = monitor_cfg_obj.database
     # Validation already done in MonitorConfig
     monitor_db_name, monitor_coll_name = monitor_db_key.split(".", 1)
-    monitor_collection = client[monitor_db_name][monitor_coll_name]
+    db = get_database(monitor_db_name)
+    monitor_collection = db[monitor_coll_name]
 
     auto_project_notes = False  # Default, not in vault section
 

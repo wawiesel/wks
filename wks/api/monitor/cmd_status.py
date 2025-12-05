@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..base import StageResult
-from ...db_helpers import connect_to_mongo, parse_database_key
+from ..db.DatabaseCollection import DatabaseCollection
 from .explain_path import explain_path
 
 
@@ -20,54 +20,44 @@ def cmd_status() -> StageResult:
     config = WKSConfig.load()
     monitor_cfg = config.monitor
 
-    # Count tracked files and time-based statistics via DB helpers
+    # Count tracked files and time-based statistics via DB API
     total_files = 0
     time_based_counts: dict[str, int] = {}
-    client = None
     try:
-        mongo_uri = config.mongo.uri  # type: ignore[attr-defined]
-        db_name, coll_name = parse_database_key(monitor_cfg.sync.database)
-        client = connect_to_mongo(mongo_uri)
-        collection = client[db_name][coll_name]
-        total_files = collection.count_documents({})
+        with DatabaseCollection(monitor_cfg.sync.database) as collection:
+            total_files = collection.count_documents({})
 
-        # Calculate time ranges
-        now = datetime.now()
-        time_ranges = [
-            ("Last hour", timedelta(hours=1)),
-            ("4 hours", timedelta(hours=4)),
-            ("8 hours", timedelta(hours=8)),
-            ("1 day", timedelta(days=1)),
-            ("3 days", timedelta(days=3)),
-            ("7 days", timedelta(days=7)),
-            ("2 weeks", timedelta(weeks=2)),
-            ("1 month", timedelta(days=30)),
-            ("3 months", timedelta(days=90)),
-            ("6 months", timedelta(days=180)),
-            ("1 year", timedelta(days=365)),
-        ]
+            # Calculate time ranges
+            now = datetime.now()
+            time_ranges = [
+                ("Last hour", timedelta(hours=1)),
+                ("4 hours", timedelta(hours=4)),
+                ("8 hours", timedelta(hours=8)),
+                ("1 day", timedelta(days=1)),
+                ("3 days", timedelta(days=3)),
+                ("7 days", timedelta(days=7)),
+                ("2 weeks", timedelta(weeks=2)),
+                ("1 month", timedelta(days=30)),
+                ("3 months", timedelta(days=90)),
+                ("6 months", timedelta(days=180)),
+                ("1 year", timedelta(days=365)),
+            ]
 
-        # Count files in each time range
-        for label, delta in time_ranges:
-            cutoff = now - delta
-            cutoff_iso = cutoff.isoformat()
-            # Query for files with timestamp >= cutoff (modified within the range)
-            count = collection.count_documents({"timestamp": {"$gte": cutoff_iso}})
-            time_based_counts[label] = count
+            # Count files in each time range
+            for label, delta in time_ranges:
+                cutoff = now - delta
+                cutoff_iso = cutoff.isoformat()
+                # Query for files with timestamp >= cutoff (modified within the range)
+                count = collection.count_documents({"timestamp": {"$gte": cutoff_iso}})
+                time_based_counts[label] = count
 
-        # Count files older than 1 year
-        one_year_ago = (now - timedelta(days=365)).isoformat()
-        time_based_counts[">1 year"] = collection.count_documents({"timestamp": {"$lt": one_year_ago}})
+            # Count files older than 1 year
+            one_year_ago = (now - timedelta(days=365)).isoformat()
+            time_based_counts[">1 year"] = collection.count_documents({"timestamp": {"$lt": one_year_ago}})
 
     except Exception:
         total_files = 0
         time_based_counts = {}
-    finally:
-        if client:
-            try:
-                client.close()
-            except Exception:
-                pass
 
     # Validate priority directories
     issues: list[str] = []

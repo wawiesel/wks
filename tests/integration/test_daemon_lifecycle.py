@@ -10,10 +10,11 @@ import pytest
 
 # Import shared fixtures
 from tests.integration.conftest import FakeCollection, FakeIndexer, FakeObserver, FakeVault
+from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import (
     DisplayConfig,
     MetricsConfig,
-    MongoSettings,
+    MongoDbConfig,
     MonitorConfig,
     TransformConfig,
     VaultConfig,
@@ -50,7 +51,7 @@ def build_daemon_config(tmp_path):
         database="wks.vault",
         vault_type="obsidian",
     )
-    mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
+    mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
     from wks.transform.config import CacheConfig
 
@@ -64,7 +65,7 @@ def build_daemon_config(tmp_path):
     return WKSConfig(
         monitor=monitor_cfg,
         vault=vault_cfg,
-        mongo=mongo_cfg,
+        db=mongo_cfg,
         display=display_cfg,
         transform=transform_cfg,
         metrics=metrics_cfg,

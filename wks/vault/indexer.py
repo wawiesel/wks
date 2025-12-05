@@ -467,7 +467,7 @@ class VaultLinkIndexer:
         else:
             config = cfg
 
-        mongo_uri = config.mongo.uri
+        mongo_uri = config.db.get_uri()
         db_name = config.vault.database.split(".")[0]
         coll_name = config.vault.database.split(".")[1]
 

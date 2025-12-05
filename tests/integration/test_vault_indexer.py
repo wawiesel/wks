@@ -4,7 +4,8 @@ from unittest.mock import Mock, patch
 import mongomock
 import pytest
 
-from wks.config import MongoSettings, VaultConfig, WKSConfig
+from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+from wks.config import VaultConfig, WKSConfig
 from wks.vault.constants import (
     LINK_TYPE_EMBED,
     LINK_TYPE_MARKDOWN_URL,
@@ -86,8 +87,8 @@ def test_vault_link_indexer_and_status(vault, vault_root, patched_mongo):
     mock_config = Mock(spec=WKSConfig)
     mock_config.vault = Mock(spec=VaultConfig)
     mock_config.vault.database = "test_wks.test_vault"
-    mock_config.mongo = Mock(spec=MongoSettings)
-    mock_config.mongo.uri = "mongodb://localhost:27017"
+    mock_config.db = Mock(spec=MongoDbConfig)
+    mock_config.db.uri = "mongodb://localhost:27017"
 
     with patch("wks.config.WKSConfig.load", return_value=mock_config):
         summary = VaultStatusController().summarize()

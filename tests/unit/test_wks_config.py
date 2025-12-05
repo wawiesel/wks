@@ -10,41 +10,129 @@ from wks.config import (
     ConfigError,
     DisplayConfig,
     MetricsConfig,
-    MongoSettings,
     WKSConfig,
     get_config_path,
 )
+from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 
 
 @pytest.mark.unit
-class TestMongoSettings:
-    """Tests for MongoSettings dataclass."""
+class TestMongoDbConfig:
+    """Tests for MongoDbConfig dataclass."""
 
-    def test_valid_uri(self):
-        s = MongoSettings(uri="mongodb://localhost:27017/")
+    def test_valid_mongo_config(self):
+        s = MongoDbConfig(uri="mongodb://localhost:27017/")
         assert s.uri == "mongodb://localhost:27017/"
 
     def test_valid_srv_uri(self):
-        s = MongoSettings(uri="mongodb+srv://cluster.example.com/")
+        s = MongoDbConfig(uri="mongodb+srv://cluster.example.com/")
         assert s.uri == "mongodb+srv://cluster.example.com/"
 
-    def test_empty_uri_uses_default(self):
-        s = MongoSettings(uri="")
-        assert s.uri == DEFAULT_MONGO_URI
+    def test_missing_uri_raises(self):
+        with pytest.raises(ConfigError) as exc:
+            MongoDbConfig(uri="")
+        assert "db.uri is required when db.type is 'mongo'" in str(exc.value)
 
     def test_invalid_uri_raises(self):
         with pytest.raises(ConfigError) as exc:
-            MongoSettings(uri="http://localhost")
+            MongoDbConfig(uri="http://localhost")
         assert "must start with 'mongodb://'" in str(exc.value)
 
     def test_from_config_with_uri(self):
-        cfg = {"db": {"uri": "mongodb://custom:27017/"}}
-        s = MongoSettings.from_config(cfg)
+        cfg = {"db": {"type": "mongo", "uri": "mongodb://custom:27017/"}}
+        s = MongoDbConfig.from_config(cfg)
         assert s.uri == "mongodb://custom:27017/"
 
-    def test_from_config_uses_default(self):
-        s = MongoSettings.from_config({})
-        assert s.uri == DEFAULT_MONGO_URI
+    def test_from_config_missing_uri_raises(self):
+        with pytest.raises(ConfigError) as exc:
+            MongoDbConfig.from_config({"db": {"type": "mongo"}})
+        assert "db.uri is required when db.type is 'mongo'" in str(exc.value)
+
+
+@pytest.mark.unit
+class TestDbConfigLoading:
+    """Tests for DbConfig loading via WKSConfig.load()."""
+
+    def test_load_mongo_config(self, tmp_path):
+        """Test that WKSConfig.load() creates MongoDbConfig when type='mongo'."""
+        config = {
+            "monitor": {
+                "include_paths": ["~"],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+                "managed_directories": {"~": 100},
+                "database": "wks.monitor",
+            },
+            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "transform": {
+                "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
+                "engines": {},
+            },
+            "db": {"type": "mongo", "uri": "mongodb://custom:27017/"},
+        }
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config))
+        
+        cfg = WKSConfig.load(config_path)
+        assert isinstance(cfg.db, MongoDbConfig)
+        assert cfg.db.uri == "mongodb://custom:27017/"
+
+    def test_load_missing_type_raises(self, tmp_path):
+        """Test that missing db.type raises ConfigError."""
+        config = {
+            "monitor": {
+                "include_paths": ["~"],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+                "managed_directories": {"~": 100},
+                "database": "wks.monitor",
+            },
+            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "transform": {
+                "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
+                "engines": {},
+            },
+            "db": {"uri": "mongodb://localhost:27017/"},
+        }
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config))
+        
+        with pytest.raises(ConfigError) as exc:
+            WKSConfig.load(config_path)
+        assert "db.type is required" in str(exc.value)
+
+    def test_load_unknown_type_raises(self, tmp_path):
+        """Test that unknown db.type raises ConfigError."""
+        config = {
+            "monitor": {
+                "include_paths": ["~"],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+                "managed_directories": {"~": 100},
+                "database": "wks.monitor",
+            },
+            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "transform": {
+                "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
+                "engines": {},
+            },
+            "db": {"type": "postgres", "uri": "postgres://localhost"},
+        }
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(config))
+        
+        with pytest.raises(ConfigError) as exc:
+            WKSConfig.load(config_path)
+        assert "Unknown db.type" in str(exc.value)
 
 
 @pytest.mark.unit
@@ -124,6 +212,10 @@ class TestWKSConfig:
                     "fallback": "myers",
                 },
             },
+            "db": {
+                "type": "mongo",
+                "uri": "mongodb://localhost:27017/"
+            },
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
@@ -133,7 +225,8 @@ class TestWKSConfig:
         cfg = WKSConfig.load(valid_config)
         assert cfg.monitor.database == "wks.monitor"
         assert cfg.vault.database == "wks.vault"
-        assert cfg.mongo.uri == DEFAULT_MONGO_URI
+        assert isinstance(cfg.db, MongoDbConfig)
+        assert cfg.db.uri == "mongodb://localhost:27017/"
 
     def test_load_file_not_found(self, tmp_path):
         with pytest.raises(ConfigError) as exc:
@@ -182,6 +275,10 @@ class TestWKSConfig:
                     "rules": [],
                     "fallback": "myers",
                 },
+            },
+            "db": {
+                "type": "mongo",
+                "uri": "mongodb://localhost:27017/"
             },
         }
         (tmp_path / ".wks" / "config.json").write_text(json.dumps(config))

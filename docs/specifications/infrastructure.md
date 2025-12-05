@@ -2,13 +2,17 @@
 
 ## Database
 
-All layers store data in MongoDB:
+All layers store data in a configurable database backend. See [Database Specification](database.md) for details on database abstraction and supported backends.
+
+Database operations:
 
 ```bash
-# Query databases
-wksc db monitor              # Filesystem state
-wksc db vault                # Knowledge graph links
-wksc db transform            # Transform cache metadata
+# Query databases (simple pass-through to MongoDB)
+wksc db query monitor              # Query filesystem state
+wksc db query vault                # Query knowledge graph links
+wksc db query transform            # Query transform cache metadata
+wksc db query wks.monitor         # Query using full database.collection key
+wksc db query monitor --query '{"priority": {"$gt": 10}}'  # Query with filter
 
 # Reset databases (destructive)
 wksc db reset monitor        # Clear filesystem state

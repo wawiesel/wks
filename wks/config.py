@@ -23,28 +23,8 @@ class ConfigError(Exception):
     pass
 
 
-@dataclass
-class MongoSettings:
-    """Normalized MongoDB connection settings."""
-
-    uri: str
-
-    def __post_init__(self):
-        if not self.uri:
-            self.uri = DEFAULT_MONGO_URI
-        if (
-            not self.uri.startswith("mongodb://")
-            and not self.uri.startswith("mongodb+srv://")
-            and not self.uri.startswith("mongodb")
-        ):
-            raise ConfigError(f"db.uri must start with 'mongodb://' (found: {self.uri!r})")
-
-    @classmethod
-    def from_config(cls, cfg: dict[str, Any]) -> MongoSettings:
-        db_cfg = cfg.get("db", {})
-        return cls(
-            uri=db_cfg.get("uri", DEFAULT_MONGO_URI),
-        )
+# Import DbConfig from the db API module
+from .api.db.DbConfig import DbConfig
 
 
 @dataclass
@@ -93,7 +73,7 @@ class WKSConfig:
 
     vault: VaultConfig
     monitor: MonitorConfig
-    mongo: MongoSettings
+    db: DbConfig
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     diff: DiffConfig | None = None
     transform: TransformConfig = field(
@@ -121,7 +101,9 @@ class WKSConfig:
             raise ConfigError(f"Invalid JSON in config file {path}: {e}") from e
 
         try:
-            mongo = MongoSettings.from_config(raw)
+            # Load db config using unified DbConfig
+            db = DbConfig.from_config_dict(raw)
+            
             # Pass the raw config (which contains the 'monitor' key)
             monitor = MonitorConfig.from_config_dict(raw)
             vault = VaultConfig.from_config_dict(raw)
@@ -133,7 +115,7 @@ class WKSConfig:
             return cls(
                 vault=vault,
                 monitor=monitor,
-                mongo=mongo,
+                db=db,
                 metrics=metrics,
                 diff=diff,
                 transform=transform,

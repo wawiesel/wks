@@ -109,11 +109,16 @@ def handle_stage_result(func: Callable) -> Callable:
         bound_args.apply_defaults()
         
         # Check if any positional arguments typed as Optional[str] are None
+        # Skip this check if the parameter has a default value (it's not truly required)
         for param_name, param in sig.parameters.items():
             if param_name in bound_args.arguments:
                 value = bound_args.arguments[param_name]
                 # If value is None and it's a positional argument
-                if value is None and param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                # AND it doesn't have a default (truly required)
+                # AND it's typed as Optional
+                if (value is None 
+                    and param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                    and param.default == inspect.Parameter.empty):
                     # Check if the annotation is Optional[str] or str | None
                     param_type = param.annotation
                     is_optional = False

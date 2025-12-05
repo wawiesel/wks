@@ -8,7 +8,7 @@ import pytest
 from wks.config import (
     DisplayConfig,
     MetricsConfig,
-    MongoSettings,
+    DbConfig,
     MonitorConfig,
     TransformConfig,
     VaultConfig,
@@ -162,7 +162,8 @@ def daemon_config(tmp_path):
         database="wks.vault",
         vault_type="obsidian",
     )
-    mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
+    from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+    mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
     from wks.transform.config import CacheConfig
 
@@ -176,7 +177,7 @@ def daemon_config(tmp_path):
     return WKSConfig(
         monitor=monitor_cfg,
         vault=vault_cfg,
-        mongo=mongo_cfg,
+        db=mongo_cfg,
         display=display_cfg,
         transform=transform_cfg,
         metrics=metrics_cfg,
