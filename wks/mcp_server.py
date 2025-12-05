@@ -1036,7 +1036,7 @@ class MCPServer:
         limit: int,
     ) -> dict[str, Any]:
         """Execute wks_db_* tools."""
-        from .api.db.query import query as db_query
+        from .api.db.DbCollection import DbCollection
 
         if isinstance(config, WKSConfig):
             if db_type == "monitor":
@@ -1058,7 +1058,7 @@ class MCPServer:
             else:
                 raise ValueError(f"Unknown db type: {db_type}")
 
-        return db_query(database_key, query, limit, projection={"_id": 0})
+        return DbCollection.query(database_key, query, limit, projection={"_id": 0})
 
 
 def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

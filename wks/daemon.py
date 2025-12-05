@@ -1131,15 +1131,15 @@ if __name__ == "__main__":
 
     # DB config
     from .api.db.helpers import get_database_client, get_database
-    
+
     client = get_database_client()
     # ensure_mongo_running needs URI - this is MongoDB-specific, so we get it from config
     if config.db.type == "mongo":
-        from .api.db._mongo.MongoDbConfigData import MongoDbConfigData
-        if isinstance(config.db.data, MongoDbConfigData):
+        from .api.db._mongo._DbConfigData import _DbConfigData
+        if isinstance(config.db.data, _DbConfigData):
             mongo_uri = config.db.data.uri
             ensure_mongo_running(mongo_uri, record_start=True)
-    
+
     monitor_db_key = monitor_cfg_obj.database
     # Validation already done in MonitorConfig
     monitor_db_name, monitor_coll_name = monitor_db_key.split(".", 1)

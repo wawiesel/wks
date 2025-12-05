@@ -102,7 +102,7 @@ class WKSConfig:
 
         try:
             # Load db config using unified DbConfig
-            db = DbConfig.from_config_dict(raw)
+            db = DbConfig(**raw.get("db", {}))
             
             # Pass the raw config (which contains the 'monitor' key)
             monitor = MonitorConfig.from_config_dict(raw)

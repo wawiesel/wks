@@ -90,8 +90,8 @@ def default_mongo_uri() -> str:
     try:
         config = WKSConfig.load()
         # This function is for backwards compatibility - access URI from config.data
-        from wks.api.db._mongo.MongoDbConfigData import MongoDbConfigData
-        if config.db.type == "mongo" and isinstance(config.db.data, MongoDbConfigData):
+        from wks.api.db._mongo._DbConfigData import _DbConfigData
+        if config.db.type == "mongo" and isinstance(config.db.data, _DbConfigData):
             return config.db.data.uri
         # Fallback for non-mongo or invalid config
         return "mongodb://localhost:27017"

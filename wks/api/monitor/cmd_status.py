@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..base import StageResult
-from ..db.DatabaseCollection import DatabaseCollection
+from ..db.DbCollection import DbCollection
 from .explain_path import explain_path
 
 
@@ -24,7 +24,7 @@ def cmd_status() -> StageResult:
     total_files = 0
     time_based_counts: dict[str, int] = {}
     try:
-        with DatabaseCollection(monitor_cfg.sync.database) as collection:
+        with DbCollection(monitor_cfg.sync.database) as collection:
             total_files = collection.count_documents({})
 
             # Calculate time ranges

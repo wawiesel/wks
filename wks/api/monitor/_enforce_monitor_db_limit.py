@@ -1,9 +1,9 @@
 """Enforce monitor database limits and min_priority."""
 
-from ..db.DatabaseCollection import DatabaseCollection
+from ..db.DbCollection import DbCollection
 
 
-def _enforce_monitor_db_limit(collection: DatabaseCollection, max_docs: int, min_priority: float) -> None:
+def _enforce_monitor_db_limit(collection: DbCollection, max_docs: int, min_priority: float) -> None:
     """Ensure monitor collection does not exceed max_docs and remove entries below min_priority."""
     try:
         # First, remove entries below min_priority

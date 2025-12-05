@@ -13,7 +13,7 @@ import typer
 from ...config import WKSConfig
 from ...utils import file_checksum
 from ..base import StageResult
-from ..db.DatabaseCollection import DatabaseCollection
+from ..db.DbCollection import DbCollection
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
@@ -64,7 +64,7 @@ def cmd_sync(
     files_skipped = 0
     errors: list[str] = []
 
-    with DatabaseCollection(monitor_cfg.sync.database) as collection:
+    with DbCollection(monitor_cfg.sync.database) as collection:
         try:
             for idx, file_path in enumerate(files_to_process, start=1):
                 if not explain_path(monitor_cfg, file_path)[0]:
