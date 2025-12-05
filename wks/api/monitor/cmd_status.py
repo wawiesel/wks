@@ -4,9 +4,12 @@ This function provides filesystem monitoring status and configuration.
 Matches CLI: wksc monitor status, MCP: wksm_monitor_status
 """
 
+from pathlib import Path
+from typing import Any
+
 from ..base import StageResult
-from ._validator import _validator
 from ...db_helpers import connect_to_mongo, parse_database_key
+from .MonitorRules import MonitorRules
 
 
 def cmd_status() -> StageResult:
@@ -32,16 +35,44 @@ def cmd_status() -> StageResult:
         except Exception:
             pass
 
-    # Validate config
-    validation = _validator(monitor_cfg)
-    result = validation.model_dump()
-    result["tracked_files"] = total_files
+    # Validate priority directories
+    rules = MonitorRules.from_config(monitor_cfg)
+    issues: list[str] = []
+    priority_directories: dict[str, dict[str, Any]] = {}
 
-    has_issues = bool(result.get("issues"))
-    result["success"] = not has_issues
+    for path, priority in monitor_cfg.priority.dirs.items():
+        managed_resolved = Path(path).expanduser().resolve()
+        allowed, trace = rules.explain(managed_resolved)
+        err = None if allowed else (trace[-1] if trace else "Excluded by monitor rules")
+        priority_directories[path] = {
+            "priority": priority,
+            "valid": allowed,
+            "error": err,
+        }
+        if err:
+            issues.append(f"Managed directory invalid: {path} ({err})")
+
+    result = {
+        "tracked_files": total_files,
+        "issues": issues,
+        "redundancies": [],
+        "priority_directories": priority_directories,
+        "include_paths": list(monitor_cfg.filter.include_paths),
+        "exclude_paths": list(monitor_cfg.filter.exclude_paths),
+        "include_dirnames": list(monitor_cfg.filter.include_dirnames),
+        "exclude_dirnames": list(monitor_cfg.filter.exclude_dirnames),
+        "include_globs": list(monitor_cfg.filter.include_globs),
+        "exclude_globs": list(monitor_cfg.filter.exclude_globs),
+        "include_dirname_validation": {},
+        "exclude_dirname_validation": {},
+        "include_glob_validation": {},
+        "exclude_glob_validation": {},
+        "success": len(issues) == 0,
+    }
+
     result_msg = (
-        f"Monitor status retrieved ({len(result.get('issues', []))} issue(s) found)"
-        if has_issues
+        f"Monitor status retrieved ({len(issues)} issue(s) found)"
+        if issues
         else "Monitor status retrieved"
     )
 

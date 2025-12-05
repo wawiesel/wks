@@ -58,37 +58,38 @@ def test_get_typer_command_schema_skips_config_and_marks_required():
 
 
 def test_cmd_status_sets_success_based_on_issues(monkeypatch):
-    cfg = DummyConfig(SimpleNamespace())
+    from wks.api.monitor._FilterConfig import _FilterConfig
+    from wks.api.monitor._PriorityConfig import _PriorityConfig
+    from wks.api.monitor._SyncConfig import _SyncConfig
+
+    monitor_cfg = SimpleNamespace()
+    monitor_cfg.filter = _FilterConfig()
+    monitor_cfg.priority = _PriorityConfig()
+    monitor_cfg.priority.dirs = {"/invalid/path": 100.0}
+    monitor_cfg.sync = _SyncConfig(database="wks.monitor")
+
+    cfg = DummyConfig(monitor_cfg)
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
 
+    class DummyRules:
+        def explain(self, _path):
+            return False, ["Excluded by rules"]
+
+    monkeypatch.setattr("wks.api.monitor.cmd_status.MonitorRules.from_config", lambda _cfg: DummyRules())
+    monkeypatch.setattr("wks.api.monitor.cmd_status.connect_to_mongo", lambda *args, **kwargs: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr("wks.api.monitor.cmd_status.parse_database_key", lambda _key: ("db", "coll"))
     monkeypatch.setattr(
-        "wks.api.monitor.cmd_status._validator",
-        lambda _cfg: SimpleNamespace(
-            model_dump=lambda: {
-                "issues": ["bad"],
-                "redundancies": [],
-                "managed_directories": {},
-                "include_paths": [],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-            }
+        "wks.api.monitor.cmd_status.MongoClient",
+        lambda *args, **kwargs: SimpleNamespace(
+            __getitem__=lambda _key: SimpleNamespace(
+                __getitem__=lambda _key2: SimpleNamespace(count_documents=lambda *args, **kwargs: 0)
+            )
         ),
     )
-    monkeypatch.setattr(
-        "pymongo.MongoClient",
-        lambda *args, **kwargs: SimpleNamespace(
-            server_info=lambda: None,
-            __getitem__=lambda self, k: SimpleNamespace(__getitem__=lambda _s, _k: SimpleNamespace(count_documents=lambda _q: 1)),
-            close=lambda: None,
-        ),
-    )  # type: ignore
 
     result = cmd_status.cmd_status()
+    assert result.output["issues"] == ["Managed directory invalid: /invalid/path (Excluded by rules)"]
     assert result.output["success"] is False
-    assert "issue" in result.result
 
 
 def test_cmd_check_reports_monitored(monkeypatch):
