@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from .diff.config import DiffConfig
-from .api.monitor.MonitorConfig import MonitorConfig
+from .monitor.config import MonitorConfig
 from .transform.config import CacheConfig, TransformConfig
 from .utils import get_wks_home
 from .vault.config import VaultConfig

@@ -2,15 +2,15 @@
 
 from pathlib import Path
 
-from ._priority_find_priority_dir import priority_find_priority_dir
-from ._priority_underscore_multiplier import priority_calculate_underscore_multiplier
+from ._priority_find_priority_dir import _priority_find_priority_dir
+from ._calculate_underscore_multiplier import _calculate_underscore_multiplier
 
 
-def priority_calculate_priority(path: Path, managed_dirs: dict[str, float], priority_config: dict) -> float:
+def _calculate_priority(path: Path, managed_dirs: dict[str, float], priority_config: dict) -> float:
     """Calculate priority score for a file."""
     path = path.resolve()
 
-    priority_dir, base_priority = priority_find_priority_dir(path, managed_dirs)
+    priority_dir, base_priority = _priority_find_priority_dir(path, managed_dirs)
 
     depth_multiplier = float(priority_config["depth_multiplier"])
     underscore_divisor = float(priority_config["underscore_divisor"])
@@ -31,16 +31,17 @@ def priority_calculate_priority(path: Path, managed_dirs: dict[str, float], prio
     # Apply depth and underscore multipliers for directory components
     for component in relative_parts[:-1]:
         score *= depth_multiplier
-        score *= priority_calculate_underscore_multiplier(component, underscore_divisor, only_underscore_multiplier)
+        score *= _calculate_underscore_multiplier(component, underscore_divisor, only_underscore_multiplier)
 
     # Apply underscore penalty for filename stem
     filename_stem = path.stem
     if filename_stem and (filename_stem.startswith("_") or filename_stem == "_"):
         score *= depth_multiplier
-        score *= priority_calculate_underscore_multiplier(filename_stem, underscore_divisor, only_underscore_multiplier)
+        score *= _calculate_underscore_multiplier(filename_stem, underscore_divisor, only_underscore_multiplier)
 
     extension = path.suffix.lower()
     weight = float(extension_weights.get(extension, default_weight))
     score *= weight
 
     return max(0.0, score)
+

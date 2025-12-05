@@ -10,9 +10,9 @@ import typer
 
 from ...config import WKSConfig
 from ..base import StageResult
-from ._check_build_decisions import _check_build_decisions_from_trace
+from ._check_build_decisions import _check_build_decisions
 from ._check_calculate_path_priority import _check_calculate_path_priority
-from ._rules import MonitorRules
+from .MonitorRules import MonitorRules
 
 
 def cmd_check(
@@ -27,7 +27,7 @@ def cmd_check(
     path_exists = test_path.exists()
 
     allowed, trace = rules.explain(test_path)
-    decisions = _check_build_decisions_from_trace(trace, path_exists, test_path)
+    decisions = _check_build_decisions(trace, path_exists, test_path)
 
     if not allowed:
         output = {

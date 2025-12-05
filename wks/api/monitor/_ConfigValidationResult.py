@@ -8,7 +8,7 @@ from ._ManagedDirectoryInfo import _ManagedDirectoryInfo
 
 
 class _ConfigValidationResult(BaseModel):
-    """Result of validator_validate_config()."""
+    """Result of _validator()."""
 
     issues: list[str] = Field(default_factory=list)
     redundancies: list[str] = Field(default_factory=list)

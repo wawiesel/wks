@@ -3,7 +3,7 @@
 from pathlib import Path
 
 
-def priority_find_priority_dir(path: Path, priority_dirs: dict[str, float]) -> tuple[Path | None, float]:
+def _priority_find_priority_dir(path: Path, priority_dirs: dict[str, float]) -> tuple[Path | None, float]:
     path = path.resolve()
     resolved_priority = {Path(k).expanduser().resolve(): v for k, v in priority_dirs.items()}
 

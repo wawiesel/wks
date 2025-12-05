@@ -1,7 +1,7 @@
 """Format monitor status data for display."""
 
 
-def status_format_for_table(data: dict) -> list[dict]:
+def _status_format(data: dict) -> list[dict]:
     """Format monitor status data for table display."""
     tables = []
 

@@ -4,14 +4,16 @@ Single-source monitor commands live here. Each command is a plain function, one 
 
 ### Layout
 - `app.py` — Typer app; wires commands via the StageResult-aware wrapper.
+- `_handle_stage_result.py` — StageResult wrapper function for CLI/MCP handling.
 - `cmd_*.py` — one command per file (status, check, sync, filter show/add/remove, priority show/add/remove). File name == function name.
-- `_*.py` — private helpers, exactly one function or class per file. The exported name must begin with `_` and reflect the file name (e.g., `_sync_execute.py` → `_sync_execute`, `_check_build_decisions.py` → `_check_build_decisions_from_trace`).
+- `_*.py` — private helpers, exactly one function or class per file. The exported name must begin with `_` and reflect the file name (e.g., `_sync_execute.py` → `_sync_execute`, `_check_build_decisions.py` → `_check_build_decisions`, `_PriorityDirectoriesResult.py` → `_PriorityDirectoriesResult`).
 - `MonitorConfig.py` — monitor config model.
+- `MonitorRules.py` — monitor rules evaluation class.
 - `_*.py` models — one Pydantic model per file, private (e.g., `_MonitorStatus`, `_ConfigValidationResult`, `_PriorityDirectoriesResult`, `_ManagedDirectoryInfo`, `_ListOperationResult`).
 
 ### Naming rules
 - Public commands: `cmd_<name>.py` contains only `cmd_<name>()`.
-- Private helpers: file starts with `_` and exports only symbols starting with `_` that align with the filename.
+- Private helpers and classes: file starts with `_` and exports only symbols starting with `_` that align with the filename.
 - Models: private, one per file, named with leading `_` matching the file.
 - Constants: private constants start with `_` (e.g., `_LIST_NAMES`).
 - No mixed exports: do not define multiple public helpers/classes in one file.

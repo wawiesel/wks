@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ._rules import MonitorRules
+from .MonitorRules import MonitorRules
 from ._ConfigValidationResult import _ConfigValidationResult
 from ._ManagedDirectoryInfo import _ManagedDirectoryInfo
 
 
-def validator_validate_config(cfg) -> _ConfigValidationResult:
+def _validator(cfg) -> _ConfigValidationResult:
     """Validate monitor config and return ConfigValidationResult.
 
     Structural validation is provided by the Pydantic MonitorConfig; this adds

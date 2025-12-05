@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Dict
 
 
-def _check_build_decisions_from_trace(trace: list[str], path_exists: bool, test_path: Path) -> list[dict[str, str]]:
+def _check_build_decisions(trace: list[str], path_exists: bool, test_path: Path) -> list[dict[str, str]]:
     """Build decision list from trace messages and path existence."""
     decisions: List[Dict[str, str]] = []
     decisions.append(

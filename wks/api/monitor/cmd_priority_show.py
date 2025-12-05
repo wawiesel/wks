@@ -8,9 +8,9 @@ from pathlib import Path
 
 from ...config import WKSConfig
 from ..base import StageResult
-from ._ManagedDirectoriesResult import _PriorityDirectoriesResult
+from ._PriorityDirectoriesResult import _PriorityDirectoriesResult
 from ._ManagedDirectoryInfo import _ManagedDirectoryInfo
-from ._rules import MonitorRules
+from .MonitorRules import MonitorRules
 
 
 def cmd_priority_show() -> StageResult:

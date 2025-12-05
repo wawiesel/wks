@@ -305,13 +305,13 @@ def test_cli_monitor_priority_show(mock_load_config, mock_get_managed):
     """Test wksc monitor priority show."""
     from unittest.mock import MagicMock
 
-    from wks.api.monitor._ManagedDirectoriesResult import _ManagedDirectoriesResult
+    from wks.api.monitor._PriorityDirectoriesResult import _PriorityDirectoriesResult
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    mock_result = _ManagedDirectoriesResult(managed_directories={}, count=0, validation={})
+    mock_result = _PriorityDirectoriesResult(priority_directories={}, count=0, validation={})
     mock_get_managed.return_value = mock_result
 
     rc, _out, _err = run_cli(["monitor", "priority", "show"])

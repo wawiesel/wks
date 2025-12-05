@@ -2,31 +2,15 @@
 
 from __future__ import annotations
 
-import fnmatch
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ...constants import WKS_DOT_DIRS
+from ._matches_glob import _matches_glob
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from .MonitorConfig import MonitorConfig
-
-
-def _matches_glob(patterns: list[str], path_obj: Path) -> bool:
-    if not patterns:
-        return False
-    path_str = path_obj.as_posix()
-    name = path_obj.name
-    for pattern in patterns:
-        if not pattern:
-            continue
-        try:
-            if fnmatch.fnmatchcase(path_str, pattern) or fnmatch.fnmatchcase(name, pattern):
-                return True
-        except Exception:
-            continue
-    return False
 
 
 class MonitorRules:

@@ -62,7 +62,7 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
 
     monkeypatch.setattr(
-        "wks.api.monitor.cmd_status.validator_validate_config",
+        "wks.api.monitor.cmd_status._validator",
         lambda _cfg: SimpleNamespace(
             model_dump=lambda: {
                 "issues": ["bad"],
@@ -101,7 +101,7 @@ def test_cmd_check_reports_monitored(monkeypatch):
 
     monkeypatch.setattr("wks.api.monitor.cmd_check.MonitorRules.from_config", lambda _cfg: DummyRules())
     monkeypatch.setattr(
-        "wks.api.monitor._check_calculate_path_priority.priority_calculate_priority",
+        "wks.api.monitor._check_calculate_path_priority._calculate_priority",
         lambda _path, _dirs, _weights: 5,
     )
 
@@ -282,7 +282,9 @@ def test_monitor_app_wrapper_non_cli(monkeypatch):
         progress_total=2,
     )
 
-    wrapped = monitor_app_module._handle_stage_result(lambda: stage)
+    from wks.api.monitor._handle_stage_result import _handle_stage_result
+
+    wrapped = _handle_stage_result(lambda: stage)
     output = wrapped()
     assert output["payload"] == 1
     assert calls == ["progress"]

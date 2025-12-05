@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-from wks.api.monitor.MonitorConfig import MonitorConfig
+from wks.monitor.config import MonitorConfig
 from wks.utils import canonicalize_path
 
 from .status import ListOperationResult
@@ -30,7 +30,7 @@ class MonitorOperations:
             # Preserve tilde notation if in home directory
             home_dir = str(Path.home())
             if value_resolved.startswith(home_dir):
-                value_to_store = "~" + value_resolved[len(home_dir) :]
+                value_to_store = "~" + value_resolved[len(home_dir):]
             else:
                 value_to_store = value_resolved
         else:
