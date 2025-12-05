@@ -64,7 +64,7 @@ def cmd_sync(
     files_skipped = 0
     errors: list[str] = []
 
-    with DbCollection(monitor_cfg.database) as collection:
+    with DbCollection(config.db, monitor_cfg.database) as collection:
         try:
             for idx, file_path in enumerate(files_to_process, start=1):
                 if not explain_path(monitor_cfg, file_path)[0]:

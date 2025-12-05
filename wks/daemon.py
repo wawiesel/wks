@@ -171,14 +171,13 @@ class WKSDaemon:
         self._transform_controller: TransformController | None = None
         if self.config.transform:
             try:
-                from .api.db.helpers import get_database
+                from .api.db.get_database import get_database
 
                 transform_cfg = self.config.transform
                 cache_location = expand_path(transform_cfg.cache.location)
                 max_size_bytes = transform_cfg.cache.max_size_bytes
 
-                db_name = transform_cfg.database.split(".")[0]
-                db = get_database(db_name)
+                db = get_database(self.config.db, self.config.db.prefix)
                 self._transform_controller = TransformController(db, cache_location, max_size_bytes)
             except Exception:
                 pass
@@ -570,8 +569,8 @@ class WKSDaemon:
             return  # MongoGuard not available
         guard = self._mongo_guard
         if guard is None:
-            from .api.db.helpers import get_database_client
-            client = get_database_client()
+            from .api.db.get_database_client import get_database_client
+            client = get_database_client(self.config.db)
             # MongoGuard needs the URI string, so we get it from the client
             uri = getattr(client, "uri", None) or str(client.address)
             guard = MongoGuard(uri, ping_interval=10.0)
@@ -1130,9 +1129,10 @@ if __name__ == "__main__":
     include_paths = [expand_path(p) for p in monitor_cfg_obj.filter.include_paths]
 
     # DB config
-    from .api.db.helpers import get_database_client, get_database
+    from .api.db.get_database_client import get_database_client
+    from .api.db.get_database import get_database
 
-    client = get_database_client()
+    client = get_database_client(config.db)
     # ensure_mongo_running needs URI - this is MongoDB-specific, so we get it from config
     if config.db.type == "mongo":
         from .api.db._mongo._DbConfigData import _DbConfigData
@@ -1141,7 +1141,7 @@ if __name__ == "__main__":
             ensure_mongo_running(mongo_uri, record_start=True)
 
     # Get database using prefix - collection name is just "monitor" now
-    db = get_database(config.db.prefix)
+    db = get_database(config.db, config.db.prefix)
     monitor_collection = db[monitor_cfg_obj.database]
 
     auto_project_notes = False  # Default, not in vault section

@@ -9,25 +9,20 @@ from .DbConfig import DbConfig
 class DbCollection:
     """Public API for database collection operations."""
 
-    def __init__(self, collection_name: str):
-        from ...config import WKSConfig
-        config = WKSConfig.load()
-        self.db_config = config.db
-        # If collection_name already contains ".", treat as "database.collection" for backwards compatibility
-        # Otherwise, prepend prefix from config
-        if "." in collection_name:
-            self.db_name, self.coll_name = collection_name.split(".", 1)
-        else:
-            self.db_name = self.db_config.prefix
-            self.coll_name = collection_name
+    def __init__(self, db_config: DbConfig, collection_name: str):
+        self.db_config = db_config
+        self.db_name = db_config.prefix
+        self.coll_name = collection_name
         self._impl: _AbstractImpl | None = None
 
     def __enter__(self):
         backend_type = self.db_config.type
 
         # Validate backend type using DbConfig registry (single source of truth)
-        if backend_type not in DbConfig._BACKEND_REGISTRY:
-            raise ValueError(f"Unsupported backend type: {backend_type!r} (supported: {list(DbConfig._BACKEND_REGISTRY.keys())})")
+        from .DbConfig import _BACKEND_REGISTRY
+        backend_registry = _BACKEND_REGISTRY
+        if backend_type not in backend_registry:
+            raise ValueError(f"Unsupported backend type: {backend_type!r} (supported: {list(backend_registry.keys())})")
 
         # Import collection class directly from backend _Impl module
         module = __import__(f"wks.api.db._{backend_type}._Impl", fromlist=[""])
@@ -57,10 +52,11 @@ class DbCollection:
         return self._impl.find(filter, projection)  # type: ignore[union-attr]
 
     @classmethod
-    def query(cls, collection_name: str, query_filter: dict[str, Any] | None = None, limit: int = 50, projection: dict[str, Any] | None = None) -> dict[str, Any]:
+    def query(cls, db_config: DbConfig, collection_name: str, query_filter: dict[str, Any] | None = None, limit: int = 50, projection: dict[str, Any] | None = None) -> dict[str, Any]:
         """Query database with simple pass-through interface.
 
         Args:
+            db_config: Database configuration
             collection_name: Collection name (e.g., "monitor"). Prefix from config is automatically prepended.
                 For backwards compatibility, "database.collection" format is also accepted.
             query_filter: Query filter dict (MongoDB-style). Examples:
@@ -81,11 +77,11 @@ class DbCollection:
 
         Example:
             ```python
-            result = DbCollection.query("monitor", {"status": "active"}, limit=10)
+            result = DbCollection.query(db_config, "monitor", {"status": "active"}, limit=10)
             # Returns: {"results": [...], "count": 5}
             ```
         """
-        with cls(collection_name) as collection:
+        with cls(db_config, collection_name) as collection:
             results = list(collection.find(query_filter, projection or {"_id": 0}).limit(limit))  # type: ignore[attr-defined]
             return {"results": results, "count": len(results)}
 

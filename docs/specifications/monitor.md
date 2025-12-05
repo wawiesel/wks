@@ -1,52 +1,14 @@
 # Monitor Layer Specification
 
-**Purpose**: Track filesystem state and calculate priorities
+## Overview
 
-**Database**: `wks.monitor` (Strict `<collection>.<database>` format required)
+**Purpose**: Track filesystem state and calculate priorities for files and directories.
 
-**Schema**:
-- `path` — absolute URI (e.g., `file:///Users/ww5/Documents/report.pdf`)
-- `timestamp` — ISO 8601 UTC string for last modification (unchanged by sync if the file is unchanged)
-- `checksum` — SHA256 hash of file contents
-- `bytes` — file size in bytes
-- `priority` — float based on path structure and weights (see Priority Calculation)
+The monitor layer provides filesystem tracking with configurable filtering, priority calculation, and automatic synchronization. It maintains a database of tracked files with their metadata and calculated priorities.
 
-## Priority Calculation
-1. Match file to deepest managed directory entry (e.g., `~/Documents` → 100.0). Recompute on moves because ancestry changes.
-2. For each path component after the managed base: multiply by the configured `depth_multiplier` (example: 0.9).
-3. For each leading `_` in a component: multiply by the configured `underscore_multiplier` per underscore (example: 0.5 each).
-4. If the component is exactly `_`: multiply by the configured `only_underscore_multiplier` (example: 0.1).
-5. Multiply by extension weight from the configured `extension_weights` map (unspecified extensions use 1.0).
-6. Final priority remains a float; round/format only at presentation time.
+## Configuration
 
-## Filter (include/exclude logic)
-- `include_paths` and `exclude_paths` store canonical directories (fully-resolved on load). A path must appear in exactly one list; identical entries across both lists are a validation error. When evaluating a file/directory, resolve it and walk its ancestors until one appears in either list. The nearest match wins. If the closest ancestor is in `exclude_paths` (or no ancestor is found at all), the path is excluded immediately and no further checks run.
-- Once a path survives the root check, the daemon applies directory/glob rules in two phases:
-  - **Exclusion phase**: evaluate `exclude_dirnames` (the immediate parent directory) and `exclude_globs` (full path/basename). If either matches, the path becomes “tentatively excluded”.
-  - **Inclusion overrides**: evaluate `include_dirnames` and `include_globs`. If a path was tentatively excluded but matches an include rule, the exclusion is reversed and the path is monitored. If neither include rule fires, the exclusion stands. Dirname/glob lists must not share entries; duplicates are validation errors, and entries that duplicate the opposite glob list are flagged as redundant.
-
-## Priority (managed directories + scoring)
-- Managed directories map canonical paths to priority **floats** for finer-grained weighting.
-- Priority calculation multiplies by the managed directory weight and the configured multipliers (depth, underscore, only-underscore, extension).
-- Managed directories are created/updated via priority commands; removal deletes the entry.
-- `min_priority`: Files with calculated priority below this threshold are not added to the database. During sync/prune operations, existing entries with priority below `min_priority` are expunged.
-
-## Sync (database + housekeeping)
-- `database`: `wks.monitor` (`<database>.<collection>` format required).
-- `max_documents`: cap on monitor collection; excess pruned from lowest priority.
-- `prune_interval_secs`: how often pruning runs.
-- When the daemon is running, significant file operations (move/delete) implicitly trigger a sync for the affected paths; manual `wksc monitor sync` is still available when the service is not running.
-
-### Pruning
-- Triggered on schedule (`prune_interval_secs`) or before inserts when over `max_documents`.
-- Removes lowest-priority documents first (ties broken arbitrarily) and drops entries whose files no longer exist.
-- Removes entries with priority below `min_priority` (recalculated on each prune/sync operation).
-- Keeps the collection bounded so sync/queries remain fast.
-- Independent of the service: `wksc monitor sync` can add data; pruning enforces the cap even without the daemon running.
-
-## Monitor config (shape)
-
-Only the `monitor` section is shown here; other config sections are omitted. Priority values are floats.
+Monitor configuration is specified in the WKS config file under the `monitor` section:
 
 ```json
 {
@@ -70,8 +32,8 @@ Only the `monitor` section is shown here; other config sections are omitted. Pri
         "extension_weights": {}
       }
     },
+    "database": "monitor",
     "sync": {
-      "database": "wks.monitor",
       "max_documents": 1000000,
       "min_priority": 0.0,
       "prune_interval_secs": 300.0
@@ -79,6 +41,85 @@ Only the `monitor` section is shown here; other config sections are omitted. Pri
   }
 }
 ```
+
+**Required Fields**:
+- `filter`: Object containing include/exclude rules for paths, directory names, and glob patterns
+- `priority`: Object containing managed directories and priority calculation weights
+- `database`: String specifying the collection name (prefix from `db.prefix` is automatically prepended)
+- `sync`: Object containing synchronization and pruning configuration
+
+**Configuration Requirements**:
+- All configuration values must be present in the config file - no defaults are permitted in code
+- If a required field is missing, validation must fail immediately with a clear error message
+- Priority values are floats
+- Collection names are automatically prefixed with `db.prefix` from the database configuration
+
+## Filter Logic
+
+The monitor uses a two-phase filtering system to determine which files and directories are tracked:
+
+**Phase 1: Root Path Matching**
+- Paths are resolved to canonical (fully-resolved) form
+- The system walks up the directory tree from the file to find the nearest ancestor in either `include_paths` or `exclude_paths`
+- If the nearest ancestor is in `exclude_paths`, or no ancestor is found, the path is excluded immediately
+- If the nearest ancestor is in `include_paths`, the path proceeds to Phase 2
+- A path must appear in exactly one list; identical entries across both lists are a validation error
+
+**Phase 2: Directory Name and Glob Matching**
+- **Exclusion phase**: Evaluate `exclude_dirnames` (matches immediate parent directory name) and `exclude_globs` (matches full path or basename). If either matches, the path is tentatively excluded
+- **Inclusion overrides**: Evaluate `include_dirnames` and `include_globs`. If a path was tentatively excluded but matches an include rule, the exclusion is reversed and the path is monitored
+- If neither include rule matches, the exclusion stands
+- Duplicate entries within the same list or across opposite lists are validation errors
+
+## Priority Calculation
+
+Priority is calculated as a float value based on path structure and configured weights:
+
+1. **Base Priority**: Match the file to the deepest managed directory entry in `priority.dirs`. The base priority is the value associated with that directory (e.g., `~/Documents` → 100.0). If the file is moved, ancestry is recalculated.
+
+2. **Depth Multiplier**: For each path component after the managed base directory, multiply by `priority.weights.depth_multiplier` (example: 0.9).
+
+3. **Underscore Multiplier**: For each leading underscore in a path component, multiply by `priority.weights.underscore_multiplier` per underscore (example: 0.5 each).
+
+4. **Only Underscore Multiplier**: If a path component is exactly `_`, multiply by `priority.weights.only_underscore_multiplier` (example: 0.1).
+
+5. **Extension Weight**: Multiply by the weight from `priority.weights.extension_weights` for the file's extension. If the extension is not in the map, use 1.0.
+
+6. **Final Priority**: The result remains a float; rounding/formatting only occurs at presentation time.
+
+Files with calculated priority below `sync.min_priority` are not added to the database. During sync/prune operations, existing entries with priority below `min_priority` are removed.
+
+## Synchronization
+
+The monitor synchronizes filesystem state with the database:
+
+- **Manual Sync**: The `wksc monitor sync` command forces an update of specified files or directories, allowing monitor to work without the service running
+- **Automatic Sync**: When the daemon is running, significant file operations (move/delete) automatically trigger synchronization for affected paths
+- **File Processing**: For files, updates the entry in the database (checksum, priority, etc.). For directories, processes files that match monitor rules (recursive with `--recursive` flag)
+- **Timestamp Preservation**: Updates timestamp when content changes; unchanged files retain their original timestamp
+- **Priority Threshold**: Only adds/updates entries if calculated priority >= `min_priority`. Removes existing entries if recalculated priority < `min_priority`
+
+## Pruning
+
+Pruning maintains the database size and removes low-priority or invalid entries:
+
+- **Triggers**: Runs on schedule (`prune_interval_secs`) or before inserts when the collection exceeds `max_documents`
+- **Removal Order**: Removes lowest-priority documents first (ties broken arbitrarily)
+- **Invalid Entries**: Drops entries whose files no longer exist on the filesystem
+- **Priority Threshold**: Removes entries with priority below `min_priority` (recalculated on each prune/sync operation)
+- **Independence**: Pruning works independently of the service - `wksc monitor sync` can add data, and pruning enforces the cap even without the daemon running
+
+## Database Schema
+
+The monitor database stores tracked files with the following schema:
+
+- `path` — absolute URI (e.g., `file:///Users/ww5/Documents/report.pdf`)
+- `timestamp` — ISO 8601 UTC string for last modification (unchanged by sync if the file is unchanged)
+- `checksum` — SHA256 hash of file contents
+- `bytes` — file size in bytes
+- `priority` — float based on path structure and weights (see Priority Calculation)
+
+The collection name is specified in `monitor.database` and is automatically prefixed with `db.prefix` from the database configuration.
 
 ## MCP Interface (Primary)
 
@@ -99,40 +140,19 @@ Complete control over monitoring configuration and status.
 
 Human-friendly wrappers for the MCP tools.
 
-**Help behavior**: When a CLI command is called without required arguments, it automatically shows help. Commands use `str | None = typer.Argument(None, ...)` for required positional arguments. The `handle_stage_result()` wrapper automatically detects `None` values and displays help (CLI only). MCP validates parameters separately using `_require_params` decorator before calling command functions, so this help behavior only applies to CLI. This provides a consistent user experience across all CLI commands without requiring manual checks in each function.
+- `wksc monitor status` — Show monitoring statistics including validation (exits with error code if configuration issues found)
+- `wksc monitor check <path>` — Check if path would be monitored and report priority
+- `wksc monitor sync <path> [--recursive]` — Force update of file or directory into monitor database (works without service)
+- `wksc monitor filter show [<list_name>]` — Show available lists or contents of a specific list
+- `wksc monitor filter add <list_name> <value>` — Add to include/exclude lists
+- `wksc monitor filter remove <list_name> <value>` — Remove from include/exclude lists
+- `wksc monitor priority show` — List managed directories with priorities (float values)
+- `wksc monitor priority add <path> <priority>` — Set or update priority for a managed directory
+- `wksc monitor priority remove <path>` — Remove a managed directory
+- `wksc db monitor` — Query filesystem database
 
-- `wksc monitor status` — show monitoring statistics including validation (exits with error code if configuration issues found)
-- `wksc monitor check <path>` — check if path would be monitored and report priority
-- `wksc monitor sync <path> [--recursive]` — force update of file or directory into monitor database (works without service)
-- `wksc monitor filter show [<list_name>]` — show available lists or contents of a specific list
-- `wksc monitor filter add <list_name> <value>` — add to include/exclude lists
-- `wksc monitor filter remove <list_name> <value>` — remove from include/exclude lists
-- `wksc monitor priority show` — list managed directories with priorities (float values)
-- `wksc monitor priority add <path> <priority>` — set or update priority for a managed directory
-- `wksc monitor priority remove <path>` — remove a managed directory
-- `wksc db monitor` — query filesystem database
-
-### Monitor Sync Command
-
-The `wksc monitor sync <path>` command forces an update of a file or directory into the monitor database, allowing monitor to work without the service running. This is useful for:
-- Initial population of the monitor database
-- Manual synchronization after bulk file operations
-- Testing monitor configuration without starting the service
-
-**Behavior:**
-- For files: Updates the file's entry in the monitor database (checksum, priority, etc.)
-- For directories (default, non-recursive): Processes only files directly in the directory that match monitor rules
-- For directories (with `--recursive` flag): Recursively processes all files in the directory and subdirectories that match monitor rules
-- Respects all monitor include/exclude rules (same logic as service)
-- Calculates priority based on managed directories and configured weights
-- Only adds/updates entries if calculated priority >= `min_priority`
-- Removes existing entries if recalculated priority < `min_priority`
-- Updates existing entries or creates new ones (upsert) for files above threshold
-- Updates timestamp when content changes; unchanged files retain their timestamp
-
-
-- **Progress indicator required**: This command must follow the 4-step pattern from CONTRIBUTING.md (works for both CLI and MCP):
-  1. Announce (CLI: STDERR, MCP: status message): "Syncing files..."
-  2. Progress indicator (CLI: progress bar on STDERR, MCP: progress notifications): Shows progress as files are processed with time estimate (total = number of files to process)
-  3. Result (CLI: STDERR, MCP: result notification messages): "Synced X files, skipped Y files" or error message
-  4. Output (CLI: STDOUT, MCP: result notification data): Summary data (counts, paths, etc.)
+**Progress Indicators**: Commands that process multiple files (e.g., `sync`) must follow the 4-step pattern:
+1. Announce: Initial status message
+2. Progress: Progress indicator showing files processed
+3. Result: Summary message with counts
+4. Output: Structured data with details

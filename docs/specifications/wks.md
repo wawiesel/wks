@@ -52,12 +52,12 @@ WKS is built as a stack of independent, composable layers:
 ## Design Principles
 
 -   **Interfaces**: Support **only CLI and MCP** interfaces. All other modes are unsupported.
--   **Config-First**: All defaults defined in `~/.wks/config.json`.
+-   **Config-First**: All configuration values must be defined in `~/.wks/config.json`. **Defaults in code are an error** - if a value is missing from the config file, validation must fail immediately.
 -   **Override Anywhere**: CLI and MCP can override any config parameter.
 -   **Engine Plugins**: Each layer supports multiple engines with dedicated configuration.
 -   **Zero Duplication**: CLI and MCP share identical business logic via controllers.
--   **Strict Validation**: Configuration access is centralized through **dataclasses** with strict validation on load. Fail immediately if data is missing or invalid.
--   **No Hedging**: Remove fallback logic; no silent defaults or implicit substitutions. Fail fast and visibly.
+-   **Strict Validation**: Configuration access is centralized through **dataclasses** with strict validation on load. Fail immediately if data is missing or invalid. All required fields must be present in the config file - no code-level defaults are permitted.
+-   **No Hedging**: Remove fallback logic; no silent defaults or implicit substitutions. Fail fast and visibly. If a configuration value is missing, raise a validation error rather than using a default.
 
 ## Layer Specifications
 

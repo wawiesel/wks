@@ -871,8 +871,12 @@ class MCPServer:
 
             from pymongo import MongoClient
 
-            uri = wks_cfg.db.get_uri()
-            db_name = wks_cfg.transform.database.split(".")[0]
+            from .api.db._mongo._DbConfigData import _DbConfigData
+            if isinstance(wks_cfg.db.data, _DbConfigData):
+                uri = wks_cfg.db.data.uri
+            else:
+                uri = "mongodb://localhost:27017/"
+            db_name = wks_cfg.db.prefix
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -908,10 +912,9 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
-            from .api.db.helpers import get_database
+            from .api.db.get_database import get_database
 
-            db_name = wks_cfg.transform.database.split(".")[0]
-            db = get_database(db_name)
+            db = get_database(wks_cfg.db, wks_cfg.db.prefix)
 
             controller = TransformController(db, cache_location, max_size_bytes)
 
@@ -1030,7 +1033,7 @@ class MCPServer:
 
     def _tool_db_query(
         self,
-        config: WKSConfig | dict[str, Any],
+        config: WKSConfig,
         db_type: str,
         query: dict[str, Any],
         limit: int,
@@ -1038,27 +1041,16 @@ class MCPServer:
         """Execute wks_db_* tools."""
         from .api.db.DbCollection import DbCollection
 
-        if isinstance(config, WKSConfig):
-            if db_type == "monitor":
-                database_key = config.monitor.database
-            elif db_type == "vault":
-                database_key = config.vault.database
-            elif db_type == "transform":
-                database_key = config.transform.database
-            else:
-                raise ValueError(f"Unknown db type: {db_type}")
+        if db_type == "monitor":
+            database_key = config.monitor.database
+        elif db_type == "vault":
+            database_key = config.vault.database
+        elif db_type == "transform":
+            database_key = config.transform.database
         else:
-            # Backwards-compatible path for tests that pass a raw dict
-            if db_type == "monitor":
-                database_key = config.get("monitor", {}).get("database", "monitor")
-            elif db_type == "vault":
-                database_key = config.get("vault", {}).get("database", "wks.vault")
-            elif db_type == "transform":
-                database_key = config.get("transform", {}).get("database", "wks.transform")
-            else:
-                raise ValueError(f"Unknown db type: {db_type}")
+            raise ValueError(f"Unknown db type: {db_type}")
 
-        return DbCollection.query(database_key, query, limit, projection={"_id": 0})
+        return DbCollection.query(config.db, database_key, query, limit, projection={"_id": 0})
 
 
 def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

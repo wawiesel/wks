@@ -22,8 +22,7 @@ def db_callback(ctx: typer.Context) -> None:
         from .DbCollection import DbCollection
         try:
             config = WKSConfig.load()
-            prefix = config.db.prefix
-            with DbCollection("_") as collection:
+            with DbCollection(config.db, "_") as collection:
                 collection_names = sorted(collection._impl.list_collection_names())  # type: ignore[attr-defined]
         except Exception:
             collection_names = []

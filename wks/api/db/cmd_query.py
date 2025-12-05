@@ -14,10 +14,11 @@ def cmd_query(
     query_filter: str | None = typer.Option(None, "--query", "-q", help="Query filter as JSON string (MongoDB-style, e.g., '{\"status\": \"active\"}' or '{\"age\": {\"$gt\": 18}}')"),
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of documents to return"),
 ) -> StageResult:
-    parsed_query = json.loads(query_filter) if query_filter else None
-
+    from ...config import WKSConfig
+    config = WKSConfig.load()
     try:
-        result = DbCollection.query(collection, parsed_query, limit)
+        parsed_query = json.loads(query_filter) if query_filter else None
+        result = DbCollection.query(config.db, collection, parsed_query, limit)
         return StageResult(
             announce=f"Querying {collection} collection...",
             result=f"Found {result['count']} document(s)",

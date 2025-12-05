@@ -111,21 +111,23 @@ Locality of data is important: Config files and data structures should be define
 When engines are introduced, engine-specific config should be in separate files:
 - Docling config for transform engine should be at `wks/transform/docling/config.py`
 - Myers diff engine config should be at `wks/diff/myers/config.py`
-- Each engine's config module defines its own parameters, defaults, validation, and schema
+- Each engine's config module defines its own parameters, validation, and schema
+
+**Note**: Defaults are NOT defined in code - they must be in the config file. All fields are required unless explicitly marked as `Optional[...]`.
 
 ### Single Source of Truth for Arguments
 
-CLI arguments, MCP parameters, and config defaults must be defined in ONE place.
+CLI arguments, MCP parameters, and config validation must be defined in ONE place.
 
 - The engine's config module (e.g., `wks/transform/docling/config.py`) should define:
   - Parameter names and types
-  - Default values
   - Validation rules
   - Schema for MCP inputSchema
   - Argument parser definitions for CLI
 - CLI and MCP should import and reference this single definition, not duplicate it
 - This ensures consistency across all interfaces and reduces maintenance burden
 - Refactor existing code to consolidate argument definitions into engine-specific config modules
+- **No defaults in code**: All configuration values must come from the config file
 
 ### MCP and CLI Consistency
 
