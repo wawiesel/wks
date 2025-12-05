@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from .constants import WKS_DOT_DIRS
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
-    from .monitor import MonitorConfig
+    from .api.monitor.MonitorConfig import MonitorConfig
 
 
 def _matches_glob(patterns: list[str], path_obj: Path) -> bool:
@@ -134,5 +134,5 @@ class MonitorRules:
             if parent == cur:
                 if self.include_root_set:
                     return False, "Outside include_paths"
-                return True, "No include_paths defined; default allow"
+                return False, "No include_paths defined; default exclude"
             cur = parent

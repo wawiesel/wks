@@ -65,7 +65,7 @@ class VaultStatusController:
     def __init__(self, cfg: dict[str, Any] | None = None):  # noqa: ARG002
         try:
             config = WKSConfig.load()
-            self.mongo_uri = config.mongo.uri
+            self.mongo_uri = config.db.get_uri()
             self.db_name = config.vault.database.split(".")[0]
             self.coll_name = config.vault.database.split(".")[1]
         except Exception:

@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from wks.config import MongoSettings, WKSConfig
+from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+from wks.config import WKSConfig
 from wks.service_controller import (
     ServiceController,
     ServiceStatusData,
@@ -73,7 +74,7 @@ class TestServiceHelpers:
     def test_default_mongo_uri(self, mock_load):
         """Test default mongo URI."""
         mock_config = MagicMock(spec=WKSConfig)
-        mock_config.mongo = MongoSettings(uri="mongodb://test:27017")
+        mock_config.db = MongoDbConfig(uri="mongodb://test:27017")
         mock_load.return_value = mock_config
 
         assert default_mongo_uri() == "mongodb://test:27017"

@@ -1,5 +1,7 @@
 # Index Layer Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
 **Purpose**: Maintain searchable indices of file content and structure
 
 Indices are populated based on rules that chain a transform to an embedding scheme to a database. Two main types of embeddings shall be supported:

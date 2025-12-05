@@ -6,10 +6,11 @@ import pytest
 
 from wks.diff.config import DiffConfig, DiffEngineConfig, DiffRouterConfig
 from wks.diff.controller import DiffController
-from wks.diff.engines import Bsdiff3Engine, MyersEngine, get_engine
+from wks.diff.engines import BSDIFF4_AVAILABLE, Bsdiff3Engine, MyersEngine, get_engine
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(not BSDIFF4_AVAILABLE, reason="bsdiff4 is not available")
 class TestBsdiff3Engine:
     """Test Bsdiff3Engine."""
 
@@ -294,6 +295,8 @@ class TestDiffController:
 
     def test_diff_success_bsdiff3(self, tmp_path):
         """Diff succeeds with bsdiff3 engine."""
+        if not BSDIFF4_AVAILABLE:
+            pytest.skip("bsdiff4 is not available")
         config = DiffConfig(
             engines={"bsdiff3": DiffEngineConfig(name="bsdiff3", enabled=True, is_default=True, options={})},
             router=DiffRouterConfig(rules=[], fallback="bsdiff3"),

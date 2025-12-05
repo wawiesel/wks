@@ -174,16 +174,67 @@ WKS follows a three-layer architecture with clear separation of concerns:
 - **Strategy Pattern**: Use for display modes and engine implementations.
 - **Controller Pattern**: Centralize business logic in controllers shared by CLI and MCP.
 
-## CLI Guidelines
+## Command Execution Pattern (CLI & MCP)
 
-Every CLI command must follow this 4-step behavior:
-1. **Announce**: Immediately say what you are doing on STDERR.
-2. **Progress**: Start a progress bar on STDERR.
-3. **Result**: Say what you did and report problems on STDERR.
-4. **Output**: Display the final output on STDOUT.
+Every command (CLI or MCP) must follow this 4-step behavior:
+1. **Announce**: Immediately say what you are doing (CLI: STDERR, MCP: status message).
+2. **Progress**: Start a progress indicator with time estimate (CLI: progress bar on STDERR, MCP: progress notifications).
+3. **Result**: Say what you did and report problems (CLI: STDERR, MCP: result notification messages).
+4. **Output**: Display the final output (CLI: STDOUT, MCP: result notification data).
    - Use colorized output (red for failures).
    - Show OK/FAIL status before the last error.
-   - If failed, STDOUT should be empty.
+   - If failed, output should be empty (CLI: STDOUT empty, MCP: data empty).
+
+### Implementing the 4-Step Pattern with Typer
+
+For Typer-based commands, use the `Display` object to follow the pattern. The same pattern works for both CLI and MCP:
+
+```python
+from typer import Typer
+from ..display.context import get_display
+from ..mcp.result import MCPResult, Message, MessageType
+
+@monitor_app.command(name="status")
+def monitor_status(display=None):
+    """Get monitor status."""
+    # Step 1: Announce (STDERR)
+    if display is None:
+        display = get_display("cli")
+    display.status("Checking monitor status...")
+
+    # Step 2: Progress (STDERR) - using context manager
+    try:
+        with display.progress(total=1, description="Querying monitor..."):
+            # Business logic here
+            from ..monitor.controller import MonitorController
+            from ..config import WKSConfig
+
+            config = WKSConfig.load()
+            status = MonitorController.get_status(config.monitor)
+
+        # Step 3: Result (STDERR)
+        display.success("Monitor status retrieved successfully")
+
+        # Step 4: Output (STDOUT) - return data for decorator to handle
+        return MCPResult(success=True, data=status.model_dump(), messages=[])
+    except Exception as e:
+        display.error(f"Failed to get monitor status: {e}")
+        return MCPResult(
+            success=False,
+            data={},
+            messages=[Message(type=MessageType.ERROR, text=str(e))]
+        )
+```
+
+**Progress Bar Patterns:**
+- **Simple operation**: Use `with display.progress(total=1, description="..."):` for instant operations
+- **Iterative operation**: Use `display.progress_start()`, `display.progress_update()`, `display.progress_finish()` for multi-step operations
+- **Context manager**: The `display.progress()` context manager automatically handles start/finish
+
+**Display Object:**
+- `display.status()`, `display.success()`, `display.error()`, `display.warning()` → STDERR
+- `display.table()`, `display.json_output()` → STDOUT
+- Progress bars automatically go to STDERR
 
 ## Testing
 

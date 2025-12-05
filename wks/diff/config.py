@@ -254,7 +254,7 @@ class DiffConfig:
         # Extract router config
         router_config = diff_config.get("_router", {})
         rules = router_config.get("rules", [])
-        fallback = router_config.get("fallback", "")
+        fallback = router_config.get("fallback", "text")  # Default to "text" if not present
 
         router = DiffRouterConfig(rules=rules, fallback=fallback)
 

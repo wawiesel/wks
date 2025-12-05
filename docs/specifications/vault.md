@@ -1,5 +1,7 @@
 # Vault Layer Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
 **Goal**: Manage a knowledge vault that links transient priorities to monitored file system resources.
 
 **Database**: `wks.vault`

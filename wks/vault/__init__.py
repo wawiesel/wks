@@ -36,9 +36,9 @@ def _resolve_obsidian_settings(cfg: dict[str, Any]) -> dict[str, Any]:
 def load_vault(cfg: dict[str, Any] | None = None) -> ObsidianVault:
     """Build the configured vault implementation."""
     if cfg is None:
-        from ..config import load_config
+        from ..config import WKSConfig
 
-        cfg = load_config()
+        cfg = WKSConfig.load().to_dict()
     # cfg = cfg or load_config()
     vault_cfg = cfg.get("vault", {})
     vault_type = (vault_cfg.get("type") or "obsidian").lower()

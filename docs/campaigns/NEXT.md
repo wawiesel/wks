@@ -57,6 +57,9 @@ There should be no code that is not used by the MCP or CLI. There should be 100%
 Follow @CONTRIBUTING.md for contribution guidelines.
 Follow @.cursor/rules/important.mdc for important rules.
 
+Action items:
+- Monitor status must call our database API, not use MongoClient directly from the command.
+
 Refactor code to remove duplication and have better structure.
 Delete all unused code.
 
@@ -68,6 +71,13 @@ Delete all unused code.
 - No business logic in CLI - it's strictly argument parsing → MCP call → output formatting
 - Controllers accessible via `wks.monitor.controller`, `wks.transform.controller`, etc.
 - Engines accessible via `wks.transform.engines`, `wks.diff.engines`
+
+**Source Code Reorganization:**
+- Reorganize source code to have a cleaner hierarchy:
+  - `wks/mcp/*` - All MCP-related code (server, client, tools, etc.)
+  - `wks/infrastructure/*` - Infrastructure code (config, display, utils, etc.)
+  - Minimize files in `wks/*.py` root level - move to appropriate subdirectories
+  - Goal: Clear module boundaries and easier navigation
 
 ### Renaming
 
@@ -101,21 +111,23 @@ Locality of data is important: Config files and data structures should be define
 When engines are introduced, engine-specific config should be in separate files:
 - Docling config for transform engine should be at `wks/transform/docling/config.py`
 - Myers diff engine config should be at `wks/diff/myers/config.py`
-- Each engine's config module defines its own parameters, defaults, validation, and schema
+- Each engine's config module defines its own parameters, validation, and schema
+
+**Note**: Defaults are NOT defined in code - they must be in the config file. All fields are required unless explicitly marked as `Optional[...]`.
 
 ### Single Source of Truth for Arguments
 
-CLI arguments, MCP parameters, and config defaults must be defined in ONE place.
+CLI arguments, MCP parameters, and config validation must be defined in ONE place.
 
 - The engine's config module (e.g., `wks/transform/docling/config.py`) should define:
   - Parameter names and types
-  - Default values
   - Validation rules
   - Schema for MCP inputSchema
   - Argument parser definitions for CLI
 - CLI and MCP should import and reference this single definition, not duplicate it
 - This ensures consistency across all interfaces and reduces maintenance burden
 - Refactor existing code to consolidate argument definitions into engine-specific config modules
+- **No defaults in code**: All configuration values must come from the config file
 
 ### MCP and CLI Consistency
 
