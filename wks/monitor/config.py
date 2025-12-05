@@ -21,6 +21,7 @@ class MonitorConfig(BaseModel):
     touch_weight: float = Field(0.1, ge=0.001, le=1.0)
     priority: dict[str, Any] = Field(default_factory=dict)
     max_documents: int = Field(1000000, ge=0)
+    min_priority: float = Field(0.0, ge=0.0)
     prune_interval_secs: float = Field(300.0, gt=0)
 
     @field_validator("database")

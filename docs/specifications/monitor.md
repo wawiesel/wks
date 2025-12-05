@@ -29,6 +29,7 @@
 - Managed directories map canonical paths to priority **floats** for finer-grained weighting.
 - Priority calculation multiplies by the managed directory weight and the configured multipliers (depth, underscore, only-underscore, extension).
 - Managed directories are created/updated via priority commands; removal deletes the entry.
+- `min_priority`: Files with calculated priority below this threshold are not added to the database. During sync/prune operations, existing entries with priority below `min_priority` are expunged.
 
 ## Sync (database + housekeeping)
 - `database`: `wks.monitor` (`<database>.<collection>` format required).
@@ -39,6 +40,7 @@
 ### Pruning
 - Triggered on schedule (`prune_interval_secs`) or before inserts when over `max_documents`.
 - Removes lowest-priority documents first (ties broken arbitrarily) and drops entries whose files no longer exist.
+- Removes entries with priority below `min_priority` (recalculated on each prune/sync operation).
 - Keeps the collection bounded so sync/queries remain fast.
 - Independent of the service: `wksc monitor sync` can add data; pruning enforces the cap even without the daemon running.
 
@@ -71,6 +73,7 @@ Only the `monitor` section is shown here; other config sections are omitted. Pri
     "sync": {
       "database": "wks.monitor",
       "max_documents": 1000000,
+      "min_priority": 0.0,
       "prune_interval_secs": 300.0
     }
   }
@@ -119,8 +122,10 @@ The `wksc monitor sync <path>` command forces an update of a file or directory i
 - For directories (default, non-recursive): Processes only files directly in the directory that match monitor rules
 - For directories (with `--recursive` flag): Recursively processes all files in the directory and subdirectories that match monitor rules
 - Respects all monitor include/exclude rules (same logic as service)
-- Updates existing entries or creates new ones (upsert)
 - Calculates priority based on managed directories and configured weights
+- Only adds/updates entries if calculated priority >= `min_priority`
+- Removes existing entries if recalculated priority < `min_priority`
+- Updates existing entries or creates new ones (upsert) for files above threshold
 - Updates timestamp when content changes; unchanged files retain their timestamp
 
 

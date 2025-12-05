@@ -11,7 +11,7 @@ import typer
 from ...config import WKSConfig
 from ..base import StageResult
 from ._check_build_decisions import _check_build_decisions
-from ._check_calculate_path_priority import _check_calculate_path_priority
+from .calculate_priority import calculate_priority
 from .MonitorRules import MonitorRules
 
 
@@ -40,7 +40,8 @@ def cmd_check(
         }
         res_msg = "Path is not monitored"
     else:
-        priority, decisions = _check_calculate_path_priority(test_path, monitor_cfg, decisions)
+        priority = calculate_priority(test_path, monitor_cfg.priority["dirs"], monitor_cfg.priority["weights"])
+        decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
         output = {
             "path": str(test_path),
             "is_monitored": True,

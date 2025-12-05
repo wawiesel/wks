@@ -101,7 +101,7 @@ def test_cmd_check_reports_monitored(monkeypatch):
 
     monkeypatch.setattr("wks.api.monitor.cmd_check.MonitorRules.from_config", lambda _cfg: DummyRules())
     monkeypatch.setattr(
-        "wks.api.monitor._check_calculate_path_priority._calculate_priority",
+        "wks.api.monitor.calculate_priority.calculate_priority",
         lambda _path, _dirs, _weights: 5,
     )
 
@@ -110,21 +110,43 @@ def test_cmd_check_reports_monitored(monkeypatch):
     assert "priority" in result.result
 
 
-def test_cmd_sync_wraps_output(monkeypatch):
+def test_cmd_sync_wraps_output(monkeypatch, tmp_path):
     cfg = DummyConfig(SimpleNamespace())
     monkeypatch.setattr("wks.api.monitor.cmd_sync.WKSConfig.load", lambda: cfg)
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr(
-        "wks.api.monitor.cmd_sync._sync_execute",
-        lambda _cfg, path, recursive: {
-            "success": True,
-            "message": f"synced {path}",
-            "files_synced": 1,
-            "files_skipped": 0,
-        },
-    )
 
-    result = cmd_sync.cmd_sync(path=".", recursive=False)
+    # Create a test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    class DummyRules:
+        def allows(self, _path):
+            return True
+
+    # Mock MongoDB operations
+    mock_collection = SimpleNamespace()
+    mock_collection.find_one = lambda *args, **kwargs: None
+    mock_collection.update_one = lambda *args, **kwargs: None
+    mock_collection.count_documents = lambda *args, **kwargs: 0
+    mock_collection.find = lambda *args, **kwargs: []
+    mock_collection.delete_many = lambda *args, **kwargs: None
+
+    mock_db = SimpleNamespace()
+    mock_db.__getitem__ = lambda *args, **kwargs: mock_collection
+
+    mock_client = SimpleNamespace()
+    mock_client.__getitem__ = lambda *args, **kwargs: mock_db
+    mock_client.close = lambda: None
+
+    monkeypatch.setattr("wks.api.monitor.cmd_sync.connect_to_mongo", lambda *args, **kwargs: mock_client)
+    monkeypatch.setattr("wks.api.monitor.cmd_sync.MonitorRules.from_config", lambda _cfg: DummyRules())
+    monkeypatch.setattr(
+        "wks.api.monitor.cmd_sync.calculate_priority",
+        lambda _path, _dirs, _weights: 1.0,
+    )
+    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", lambda _path: "abc123")
+
+    result = cmd_sync.cmd_sync(path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 1
     assert result.success is True
 
@@ -282,9 +304,9 @@ def test_monitor_app_wrapper_non_cli(monkeypatch):
         progress_total=2,
     )
 
-    from wks.api.monitor._handle_stage_result import _handle_stage_result
+    from wks.api.base import handle_stage_result
 
-    wrapped = _handle_stage_result(lambda: stage)
+    wrapped = handle_stage_result(lambda: stage)
     output = wrapped()
     assert output["payload"] == 1
     assert calls == ["progress"]

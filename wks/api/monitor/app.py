@@ -2,7 +2,7 @@
 
 import typer
 
-from ._handle_stage_result import _handle_stage_result
+from ..base import handle_stage_result
 from .cmd_check import cmd_check
 from .cmd_filter_add import cmd_filter_add
 from .cmd_filter_remove import cmd_filter_remove
@@ -39,19 +39,19 @@ priority_app = typer.Typer(
 )
 
 # Register commands with StageResult handler
-monitor_app.command(name="status")(_handle_stage_result(cmd_status))
-monitor_app.command(name="check")(_handle_stage_result(cmd_check))
-monitor_app.command(name="sync")(_handle_stage_result(cmd_sync))
+monitor_app.command(name="status")(handle_stage_result(cmd_status))
+monitor_app.command(name="check")(handle_stage_result(cmd_check))
+monitor_app.command(name="sync")(handle_stage_result(cmd_sync))
 
 # Filter subcommands
-filter_app.command(name="show")(_handle_stage_result(cmd_filter_show))
-filter_app.command(name="add")(_handle_stage_result(cmd_filter_add))
-filter_app.command(name="remove")(_handle_stage_result(cmd_filter_remove))
+filter_app.command(name="show")(handle_stage_result(cmd_filter_show))
+filter_app.command(name="add")(handle_stage_result(cmd_filter_add))
+filter_app.command(name="remove")(handle_stage_result(cmd_filter_remove))
 
 # Priority subcommands
-priority_app.command(name="show")(_handle_stage_result(cmd_priority_show))
-priority_app.command(name="add")(_handle_stage_result(cmd_priority_add))
-priority_app.command(name="remove")(_handle_stage_result(cmd_priority_remove))
+priority_app.command(name="show")(handle_stage_result(cmd_priority_show))
+priority_app.command(name="add")(handle_stage_result(cmd_priority_add))
+priority_app.command(name="remove")(handle_stage_result(cmd_priority_remove))
 
 # Attach sub-apps
 monitor_app.add_typer(filter_app, name="filter")

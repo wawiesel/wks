@@ -25,7 +25,7 @@ def cmd_priority_remove(
 
     config = WKSConfig.load()
 
-    if not config.monitor.managed_directories:
+    if not config.monitor.priority.dirs:
         result = {
             "success": False,
             "message": "No managed_directories configured",
@@ -39,7 +39,7 @@ def cmd_priority_remove(
 
     # Resolve path
     path_resolved = canonicalize_path(path)
-    existing_key = find_matching_path_key(config.monitor.managed_directories, path_resolved)
+    existing_key = find_matching_path_key(config.monitor.priority.dirs, path_resolved)
 
     # Check if exists
     if existing_key is None:
@@ -55,10 +55,10 @@ def cmd_priority_remove(
         )
 
     # Get priority before removing
-    priority = config.monitor.managed_directories[existing_key]
+    priority = config.monitor.priority.dirs[existing_key]
 
     # Remove from managed directories
-    del config.monitor.managed_directories[existing_key]
+    del config.monitor.priority.dirs[existing_key]
 
     result = {
         "success": True,

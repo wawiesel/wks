@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from ._ManagedDirectoryInfo import _ManagedDirectoryInfo
+from ._PriorityDirectoryInfo import _PriorityDirectoryInfo
 
 
 class _PriorityDirectoriesResult(BaseModel):
@@ -10,5 +10,5 @@ class _PriorityDirectoriesResult(BaseModel):
 
     priority_directories: dict[str, float]
     count: int
-    validation: dict[str, _ManagedDirectoryInfo]
+    validation: dict[str, _PriorityDirectoryInfo]
 

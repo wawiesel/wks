@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ._ManagedDirectoryInfo import _ManagedDirectoryInfo
+from ._PriorityDirectoryInfo import _PriorityDirectoryInfo
 
 
 class _MonitorStatus(BaseModel):
@@ -13,7 +13,7 @@ class _MonitorStatus(BaseModel):
     tracked_files: int = Field(..., ge=0)
     issues: list[str] = Field(default_factory=list)
     redundancies: list[str] = Field(default_factory=list)
-    managed_directories: dict[str, _ManagedDirectoryInfo] = Field(default_factory=dict)
+    managed_directories: dict[str, _PriorityDirectoryInfo] = Field(default_factory=dict)
     include_paths: list[str] = Field(default_factory=list)
     exclude_paths: list[str] = Field(default_factory=list)
     include_dirnames: list[str] = Field(default_factory=list)

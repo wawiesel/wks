@@ -3,13 +3,12 @@
 Single-source monitor commands live here. Each command is a plain function, one per file, registered on the Typer app and reused by MCP.
 
 ### Layout
-- `app.py` — Typer app; wires commands via the StageResult-aware wrapper.
-- `_handle_stage_result.py` — StageResult wrapper function for CLI/MCP handling.
+- `app.py` — Typer app; wires commands via the StageResult-aware wrapper (from `wks.api.base.handle_stage_result`).
 - `cmd_*.py` — one command per file (status, check, sync, filter show/add/remove, priority show/add/remove). File name == function name.
-- `_*.py` — private helpers, exactly one function or class per file. The exported name must begin with `_` and reflect the file name (e.g., `_sync_execute.py` → `_sync_execute`, `_check_build_decisions.py` → `_check_build_decisions`, `_PriorityDirectoriesResult.py` → `_PriorityDirectoriesResult`).
+- `_*.py` — private helpers, exactly one function or class per file. The exported name must begin with `_` and reflect the file name (e.g., `_check_build_decisions.py` → `_check_build_decisions`, `_PriorityDirectoriesResult.py` → `_PriorityDirectoriesResult`).
 - `MonitorConfig.py` — monitor config model.
 - `MonitorRules.py` — monitor rules evaluation class.
-- `_*.py` models — one Pydantic model per file, private (e.g., `_MonitorStatus`, `_ConfigValidationResult`, `_PriorityDirectoriesResult`, `_ManagedDirectoryInfo`, `_ListOperationResult`).
+- `_*.py` models — one Pydantic model per file, private (e.g., `_MonitorStatus`, `_ConfigValidationResult`, `_PriorityDirectoriesResult`, `_PriorityDirectoryInfo`, `_ListOperationResult`).
 
 ### Naming rules
 - Public commands: `cmd_<name>.py` contains only `cmd_<name>()`.

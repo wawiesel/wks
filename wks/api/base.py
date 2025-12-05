@@ -79,6 +79,44 @@ class StageResult:
         self.success = inferred_success if success is None else success
 
 
+def handle_stage_result(func: Callable) -> Callable:
+    """Wrapper to execute StageResult progress callback if present.
+    
+    This wrapper ensures the progress_callback is executed to perform the actual work.
+    It does not handle display/rendering - that is done by the CLI/MCP layers.
+    
+    Args:
+        func: Function that returns a StageResult
+        
+    Returns:
+        Wrapped function that executes progress callback and returns StageResult
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+
+        # If result is not a StageResult, return as-is (for backward compatibility)
+        if not isinstance(result, StageResult):
+            return result
+
+        # Execute progress callback if present (this performs the actual work)
+        if result.progress_callback:
+            # Pass a no-op progress update function - actual progress reporting
+            # is handled by the CLI/MCP layers
+            result.progress_callback(lambda *_args, **_kwargs: None)
+
+        # Update success from output if available
+        if isinstance(result.output, dict):
+            result.success = result.output.get("success", result.success)
+            if "message" in result.output:
+                result.result = str(result.output["message"])
+
+        return result
+
+    return wrapper
+
+
 def _find_typer_command(app: typer.Typer, command_name: str) -> Any:
     """Find a Typer command by name."""
     for cmd in app.registered_commands:

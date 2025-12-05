@@ -30,7 +30,7 @@ The main CLI file (`wks/cli/__init__.py`) contains:
 
 To add a new command:
 1. Create the API function in `wks/api/{domain}/{command}.py` that returns `StageResult`
-2. Register it in `wks/api/{domain}/app.py` using the `_handle_stage_result` wrapper
+2. Register it in `wks/api/{domain}/app.py` using the `handle_stage_result` wrapper from `wks.api.base`
 3. The CLI automatically picks it up through the domain app registration
 
 No business logic should be added to the CLI layer - it's purely a router.

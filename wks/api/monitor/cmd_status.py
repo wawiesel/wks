@@ -5,7 +5,6 @@ Matches CLI: wksc monitor status, MCP: wksm_monitor_status
 """
 
 from ..base import StageResult
-from ._status_format import _status_format
 from ._validator import _validator
 from ...db_helpers import connect_to_mongo, parse_database_key
 
@@ -37,9 +36,6 @@ def cmd_status() -> StageResult:
     validation = _validator(monitor_cfg)
     result = validation.model_dump()
     result["tracked_files"] = total_files
-
-    tables = _status_format(result)
-    result["_tables"] = tables
 
     has_issues = bool(result.get("issues"))
     result["success"] = not has_issues

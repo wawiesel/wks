@@ -29,11 +29,11 @@ def cmd_priority_add(
 
     # Resolve path
     path_resolved = canonicalize_path(path)
-    existing_key = find_matching_path_key(config.monitor.managed_directories, path_resolved)
+    existing_key = find_matching_path_key(config.monitor.priority.dirs, path_resolved)
 
     # If not present, create with given priority
     if existing_key is None:
-        config.monitor.managed_directories[path_resolved] = priority
+        config.monitor.priority.dirs[path_resolved] = priority
         result = {
             "success": True,
             "message": f"Set priority for {path_resolved}: {priority} (created)",
@@ -44,8 +44,8 @@ def cmd_priority_add(
         }
     else:
         # Update existing priority
-        old_priority = config.monitor.managed_directories[existing_key]
-        config.monitor.managed_directories[existing_key] = priority
+        old_priority = config.monitor.priority.dirs[existing_key]
+        config.monitor.priority.dirs[existing_key] = priority
         result = {
             "success": True,
             "message": f"Updated priority for {existing_key}: {old_priority} → {priority}",

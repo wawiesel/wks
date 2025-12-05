@@ -9,7 +9,7 @@ from pathlib import Path
 from ...config import WKSConfig
 from ..base import StageResult
 from ._PriorityDirectoriesResult import _PriorityDirectoriesResult
-from ._ManagedDirectoryInfo import _ManagedDirectoryInfo
+from ._PriorityDirectoryInfo import _PriorityDirectoryInfo
 from .MonitorRules import MonitorRules
 
 
@@ -19,10 +19,10 @@ def cmd_priority_show() -> StageResult:
     monitor_cfg = config.monitor
     rules = MonitorRules.from_config(monitor_cfg)
 
-    validation: dict[str, _ManagedDirectoryInfo] = {}
+    validation: dict[str, _PriorityDirectoryInfo] = {}
     for path, priority in monitor_cfg.managed_directories.items():
         allowed, trace = rules.explain(Path(path).expanduser().resolve())
-        validation[path] = _ManagedDirectoryInfo(
+        validation[path] = _PriorityDirectoryInfo(
             priority=priority, valid=allowed, error=None if allowed else (trace[-1] if trace else "Excluded by rules")
         )
 

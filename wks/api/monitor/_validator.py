@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .MonitorRules import MonitorRules
 from ._ConfigValidationResult import _ConfigValidationResult
-from ._ManagedDirectoryInfo import _ManagedDirectoryInfo
+from ._PriorityDirectoryInfo import _PriorityDirectoryInfo
 
 
 def _validator(cfg) -> _ConfigValidationResult:
@@ -17,14 +17,14 @@ def _validator(cfg) -> _ConfigValidationResult:
     """
     rules = MonitorRules.from_config(cfg)
 
-    managed_validation: dict[str, _ManagedDirectoryInfo] = {}
+    managed_validation: dict[str, _PriorityDirectoryInfo] = {}
     issues: list[str] = []
 
     for path, priority in cfg.managed_directories.items():
         managed_resolved = Path(path).expanduser().resolve()
         allowed, trace = rules.explain(managed_resolved)
         err = None if allowed else (trace[-1] if trace else "Excluded by monitor rules")
-        managed_validation[path] = _ManagedDirectoryInfo(priority=priority, valid=allowed, error=err)
+        managed_validation[path] = _PriorityDirectoryInfo(priority=priority, valid=allowed, error=err)
         if err:
             issues.append(f"Managed directory invalid: {path} ({err})")
 
