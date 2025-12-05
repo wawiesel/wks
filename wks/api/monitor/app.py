@@ -42,7 +42,7 @@ filter_app = typer.Typer(
 
 priority_app = typer.Typer(
     name="priority",
-    help="Manage managed_directories priority",
+    help="Manage priority directories",
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
     context_settings={"help_option_names": ["-h", "--help"]},

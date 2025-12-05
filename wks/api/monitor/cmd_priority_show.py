@@ -13,7 +13,7 @@ from .explain_path import explain_path
 
 
 def cmd_priority_show() -> StageResult:
-    """List all managed directories with their priorities."""
+    """List all priority directories with their priorities."""
     config = WKSConfig.load()
     monitor_cfg = config.monitor
 
@@ -33,7 +33,7 @@ def cmd_priority_show() -> StageResult:
     }
 
     return StageResult(
-        announce="Listing managed directories...",
-        result="Managed directories retrieved",
+        announce="Listing priority directories...",
+        result="Priority directories retrieved",
         output=result,
     )

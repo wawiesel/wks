@@ -1,6 +1,6 @@
 """Monitor priority-add API function.
 
-This function sets or updates the priority of a managed directory.
+This function sets or updates the priority of a priority directory.
 Matches CLI: wksc monitor priority add <path> <priority>, MCP: wksm_monitor_priority_add
 """
 
@@ -14,7 +14,7 @@ def cmd_priority_add(
     path: str = typer.Argument(..., help="Path to set priority for"),
     priority: float = typer.Argument(..., help="New priority of the path"),
 ) -> StageResult:
-    """Set or update priority for a managed directory (creates if missing).
+    """Set or update priority for a priority directory (creates if missing).
 
     Args:
         path: Directory path
@@ -59,7 +59,7 @@ def cmd_priority_add(
     config.save()
 
     return StageResult(
-        announce=f"Setting priority for managed directory: {path} to {priority}",
+        announce=f"Setting priority for priority directory: {path} to {priority}",
         result=str(result.get("message", "")),
         output=result,
     )

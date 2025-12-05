@@ -1,6 +1,6 @@
 """Monitor priority-remove API function.
 
-This function removes a managed directory.
+This function removes a priority directory.
 Matches CLI: wksc monitor priority remove <path>, MCP: wksm_monitor_priority_remove
 """
 
@@ -13,7 +13,7 @@ from ..base import StageResult
 def cmd_priority_remove(
     path: str = typer.Argument(..., help="Path to unmanage"),
 ) -> StageResult:
-    """Remove a managed directory.
+    """Remove a priority directory.
 
     Args:
         path: Directory path to remove
@@ -28,11 +28,11 @@ def cmd_priority_remove(
     if not config.monitor.priority.dirs:
         result = {
             "success": False,
-            "message": "No managed_directories configured",
+            "message": "No priority directories configured",
             "not_found": True,
         }
         return StageResult(
-            announce=f"Removing managed directory: {path}",
+            announce=f"Removing priority directory: {path}",
             result=str(result.get("message", "")),
             output=result,
         )
@@ -45,11 +45,11 @@ def cmd_priority_remove(
     if existing_key is None:
         result = {
             "success": False,
-            "message": f"Not a managed directory: {path_resolved}",
+            "message": f"Not a priority directory: {path_resolved}",
             "not_found": True,
         }
         return StageResult(
-            announce=f"Removing managed directory: {path}",
+            announce=f"Removing priority directory: {path}",
             result=str(result.get("message", "")),
             output=result,
         )
@@ -57,12 +57,12 @@ def cmd_priority_remove(
     # Get priority before removing
     priority = config.monitor.priority.dirs[existing_key]
 
-    # Remove from managed directories
+    # Remove from priority directories
     del config.monitor.priority.dirs[existing_key]
 
     result = {
         "success": True,
-        "message": f"Removed managed directory: {existing_key}",
+        "message": f"Removed priority directory: {existing_key}",
         "path_removed": existing_key,
         "priority": priority,
     }
@@ -71,7 +71,7 @@ def cmd_priority_remove(
         config.save()
 
     return StageResult(
-        announce=f"Removing managed directory: {path}",
+        announce=f"Removing priority directory: {path}",
         result=str(result.get("message", "")),
         output=result,
     )
