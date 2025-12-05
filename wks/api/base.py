@@ -81,39 +81,62 @@ class StageResult:
 
 
 def handle_stage_result(func: Callable) -> Callable:
-    """Wrapper to execute StageResult progress callback if present.
+    """Wrapper to execute StageResult and display output.
     
-    This wrapper ensures the progress_callback is executed to perform the actual work.
-    It does not handle display/rendering - that is done by the CLI/MCP layers.
+    This wrapper:
+    1. Executes the function to get StageResult
+    2. Executes progress callback if present
+    3. Displays output using the display system
+    4. Exits with appropriate code based on success
     
     Args:
         func: Function that returns a StageResult
         
     Returns:
-        Wrapped function that executes progress callback and returns StageResult
+        Wrapped function that displays StageResult output
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        from ..display.context import get_display
+        from ..display.format import data_to_tables
+        
+        display = get_display()
         result = func(*args, **kwargs)
 
         # If result is not a StageResult, return as-is (for backward compatibility)
         if not isinstance(result, StageResult):
             return result
 
-        # Execute progress callback if present (this performs the actual work)
+        # Step 1: Announce
+        if result.announce:
+            display.status(result.announce)
+
+        # Step 2: Progress (execute callback if present)
         if result.progress_callback:
-            # Pass a no-op progress update function - actual progress reporting
-            # is handled by the CLI/MCP layers
-            result.progress_callback(lambda *_args, **_kwargs: None)
+            with display.progress(total=result.progress_total or 1, description=result.announce or "Processing..."):
+                result.progress_callback(lambda *_args, **_kwargs: None)
 
-        # Update success from output if available
-        if isinstance(result.output, dict):
-            result.success = result.output.get("success", result.success)
-            if "message" in result.output:
-                result.result = str(result.output["message"])
+        # Step 3: Result message
+        if result.result:
+            if result.success:
+                display.success(result.result)
+            else:
+                display.error(result.result)
 
-        return result
+        # Step 4: Output (display tables)
+        if result.output:
+            tables = data_to_tables(result.output)
+            for table in tables:
+                display.table(
+                    table["data"],
+                    headers=table.get("headers"),
+                    title=table.get("title", ""),
+                )
+
+        # Exit with appropriate code
+        import sys
+        sys.exit(0 if result.success else 1)
 
     return wrapper
 

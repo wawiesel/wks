@@ -51,23 +51,102 @@ def cmd_status() -> StageResult:
         if err:
             issues.append(f"Managed directory invalid: {path} ({err})")
 
+    # Format priority directories as a list of dicts for better table display
+    priority_dir_rows = [
+        {
+            "Path": path,
+            "Priority": priority_info["priority"],
+            "Valid": "✓" if priority_info["valid"] else "✗",
+            "Error": priority_info["error"] or "-",
+        }
+        for path, priority_info in priority_directories.items()
+    ]
+
+    # Build structured output with _tables key for custom formatting
     result = {
+        "_tables": [
+            # Summary table
+            {
+                "data": [
+                    {"Metric": "Tracked Files", "Value": total_files},
+                    {"Metric": "Issues", "Value": len(issues)},
+                    {"Metric": "Priority Directories", "Value": len(priority_directories)},
+                ],
+                "headers": ["Metric", "Value"],
+                "title": "Summary",
+            },
+            # Priority directories table
+            {
+                "data": priority_dir_rows,
+                "headers": ["Path", "Priority", "Valid", "Error"],
+                "title": "Priority Directories",
+            },
+        ],
         "tracked_files": total_files,
         "issues": issues,
-        "redundancies": [],
         "priority_directories": priority_directories,
-        "include_paths": list(monitor_cfg.include_paths),
-        "exclude_paths": list(monitor_cfg.exclude_paths),
-        "include_dirnames": list(monitor_cfg.include_dirnames),
-        "exclude_dirnames": list(monitor_cfg.exclude_dirnames),
-        "include_globs": list(monitor_cfg.include_globs),
-        "exclude_globs": list(monitor_cfg.exclude_globs),
-        "include_dirname_validation": {},
-        "exclude_dirname_validation": {},
-        "include_glob_validation": {},
-        "exclude_glob_validation": {},
         "success": len(issues) == 0,
     }
+
+    # Add filter tables only if they have content
+    if monitor_cfg.include_paths:
+        result["_tables"].append(
+            {
+                "data": [{"Path": p} for p in monitor_cfg.include_paths],
+                "headers": ["Path"],
+                "title": "Include Paths",
+            }
+        )
+    if monitor_cfg.exclude_paths:
+        result["_tables"].append(
+            {
+                "data": [{"Path": p} for p in monitor_cfg.exclude_paths],
+                "headers": ["Path"],
+                "title": "Exclude Paths",
+            }
+        )
+    if monitor_cfg.include_dirnames:
+        result["_tables"].append(
+            {
+                "data": [{"Directory": d} for d in monitor_cfg.include_dirnames],
+                "headers": ["Directory"],
+                "title": "Include Dirnames",
+            }
+        )
+    if monitor_cfg.exclude_dirnames:
+        result["_tables"].append(
+            {
+                "data": [{"Directory": d} for d in monitor_cfg.exclude_dirnames],
+                "headers": ["Directory"],
+                "title": "Exclude Dirnames",
+            }
+        )
+    if monitor_cfg.include_globs:
+        result["_tables"].append(
+            {
+                "data": [{"Pattern": g} for g in monitor_cfg.include_globs],
+                "headers": ["Pattern"],
+                "title": "Include Globs",
+            }
+        )
+    if monitor_cfg.exclude_globs:
+        result["_tables"].append(
+            {
+                "data": [{"Pattern": g} for g in monitor_cfg.exclude_globs],
+                "headers": ["Pattern"],
+                "title": "Exclude Globs",
+            }
+        )
+
+    # Add issues table if there are any
+    if issues:
+        result["_tables"].append(
+            {
+                "data": [{"Issue": issue} for issue in issues],
+                "headers": ["Issue"],
+                "title": "Issues",
+            }
+        )
 
     result_msg = (
         f"Monitor status retrieved ({len(issues)} issue(s) found)"
