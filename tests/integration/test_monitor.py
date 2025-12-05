@@ -5,10 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent
 
 from wks.monitor import WKSFileMonitor, start_monitoring
 from wks.monitor_rules import MonitorRules
+
+pytestmark = pytest.mark.monitor
 
 
 class TestWKSFileMonitor(unittest.TestCase):

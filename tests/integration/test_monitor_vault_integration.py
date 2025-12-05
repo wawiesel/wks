@@ -5,6 +5,7 @@ import pytest
 
 from wks.vault.indexer import VaultLinkIndexer
 from wks.vault.obsidian import ObsidianVault
+pytestmark = pytest.mark.monitor
 
 
 @pytest.fixture()

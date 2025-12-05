@@ -157,6 +157,7 @@ def test_cli_diff_error(mock_call):
 
 
 @patch("wks.config.WKSConfig.load")
+@pytest.mark.monitor
 def test_cli_monitor_status(mock_load_config):
     """Test wksc monitor status."""
     from unittest.mock import MagicMock, patch
@@ -179,6 +180,7 @@ def test_cli_monitor_status(mock_load_config):
         assert rc == 0
 
 
+@pytest.mark.monitor
 @patch("wks.config.WKSConfig.load")
 def test_cli_monitor_check(mock_load_config):
     """Test wksc monitor check."""
@@ -251,6 +253,7 @@ def test_cli_monitor_status_no_issues(mock_connect, mock_load_config):
 
 
 
+@pytest.mark.monitor
 @pytest.mark.monitor
 @patch("wks.config.WKSConfig.load")
 @patch("wks.config.WKSConfig.save")

@@ -51,6 +51,7 @@ class TestParseDatabaseKey:
             parse_database_key("")
 
 
+@pytest.mark.monitor
 class TestGetMonitorDbConfig:
     """Test get_monitor_db_config() function."""
 
