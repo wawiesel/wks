@@ -11,6 +11,6 @@ def _filter_validate_dirname(entry: str, list_name: str, monitor_cfg) -> str | N
     if "/" in entry or "\\" in entry:
         return "Directory names cannot contain path separators"
     opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
-    if entry in getattr(monitor_cfg, opposite, []):
+    if entry in getattr(monitor_cfg, opposite):
         return f"Directory name '{entry}' already present in {opposite}"
     return None

@@ -9,7 +9,7 @@ import typer
 from ...config import WKSConfig
 from ...utils import canonicalize_path
 from ..base import StageResult
-from ._LIST_NAMES import _LIST_NAMES
+from .MonitorConfig import MonitorConfig
 
 
 def cmd_filter_remove(
@@ -21,7 +21,7 @@ def cmd_filter_remove(
     config = WKSConfig.load()
     monitor_cfg = config.monitor
 
-    if list_name not in _LIST_NAMES:
+    if list_name not in MonitorConfig.get_filter_list_names():
         raise ValueError(f"Unknown list_name: {list_name!r}")
 
     resolve_path = list_name in ("include_paths", "exclude_paths")

@@ -1,12 +1,11 @@
 """Build decision trace entries for monitor check."""
 
 from pathlib import Path
-from typing import List, Dict
 
 
 def _check_build_decisions(trace: list[str], path_exists: bool, test_path: Path) -> list[dict[str, str]]:
     """Build decision list from trace messages and path existence."""
-    decisions: List[Dict[str, str]] = []
+    decisions: list[dict[str, str]] = []
     decisions.append(
         {
             "symbol": "✓" if path_exists else "⚠",

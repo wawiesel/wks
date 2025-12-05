@@ -9,7 +9,7 @@ import typer
 
 from ...config import WKSConfig
 from ..base import StageResult
-from ._LIST_NAMES import _LIST_NAMES
+from .MonitorConfig import MonitorConfig
 
 
 def cmd_filter_show(
@@ -25,17 +25,17 @@ def cmd_filter_show(
     monitor_cfg = config.monitor
 
     if not isinstance(list_name, str) or not list_name:
-        result = {"available_lists": list(_LIST_NAMES), "success": True}
+        result = {"available_lists": list(MonitorConfig.get_filter_list_names()), "success": True}
         return StageResult(
             announce="Listing available monitor lists...",
             result="Available monitor lists",
             output=result,
         )
 
-    if list_name not in _LIST_NAMES:
+    if list_name not in MonitorConfig.get_filter_list_names():
         raise ValueError(f"Unknown list_name: {list_name!r}")
 
-    items = getattr(monitor_cfg, list_name, [])
+    items = getattr(monitor_cfg, list_name)
     result = {"list_name": list_name, "items": list(items), "count": len(items), "success": True}
 
     return StageResult(

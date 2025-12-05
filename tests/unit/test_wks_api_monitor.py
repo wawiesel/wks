@@ -58,12 +58,16 @@ def test_get_typer_command_schema_skips_config_and_marks_required():
 
 
 def test_cmd_status_sets_success_based_on_issues(monkeypatch):
-    from wks.api.monitor._FilterConfig import _FilterConfig
     from wks.api.monitor._PriorityConfig import _PriorityConfig
     from wks.api.monitor._SyncConfig import _SyncConfig
 
     monitor_cfg = SimpleNamespace()
-    monitor_cfg.filter = _FilterConfig()
+    monitor_cfg.include_paths = []
+    monitor_cfg.exclude_paths = []
+    monitor_cfg.include_dirnames = []
+    monitor_cfg.exclude_dirnames = []
+    monitor_cfg.include_globs = []
+    monitor_cfg.exclude_globs = []
     monitor_cfg.priority = _PriorityConfig()
     monitor_cfg.priority.dirs = {"/invalid/path": 100.0}
     monitor_cfg.sync = _SyncConfig(database="wks.monitor")
@@ -162,20 +166,21 @@ def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch):
 
 
 def test_cmd_filter_show_returns_list(monkeypatch):
-    cfg = DummyConfig(SimpleNamespace())
+    from wks.api.monitor._PriorityConfig import _PriorityConfig
+    from wks.api.monitor._SyncConfig import _SyncConfig
+
+    monitor_cfg = SimpleNamespace()
+    monitor_cfg.include_paths = ["a", "b"]
+    monitor_cfg.exclude_paths = []
+    monitor_cfg.include_dirnames = []
+    monitor_cfg.exclude_dirnames = []
+    monitor_cfg.include_globs = []
+    monitor_cfg.exclude_globs = []
+    monitor_cfg.priority = _PriorityConfig()
+    monitor_cfg.sync = _SyncConfig(database="wks.monitor")
+
+    cfg = DummyConfig(monitor_cfg)
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr(
-        "wks.api.monitor.cmd_filter_show._LIST_NAMES",
-        (
-            "include_paths",
-            "exclude_paths",
-            "include_dirnames",
-            "exclude_dirnames",
-            "include_globs",
-            "exclude_globs",
-        ),
-    )
-    cfg.monitor.include_paths = ["a", "b"]
 
     result = cmd_filter_show.cmd_filter_show(list_name="include_paths")
     assert result.output["count"] == 2

@@ -11,8 +11,8 @@ import typer
 from ...config import WKSConfig
 from ..base import StageResult
 from ._check_build_decisions import _check_build_decisions
+from .explain_path import explain_path
 from .calculate_priority import calculate_priority
-from .MonitorRules import MonitorRules
 
 
 def cmd_check(
@@ -21,12 +21,11 @@ def cmd_check(
     """Check if a path would be monitored and calculate its priority."""
     config = WKSConfig.load()
     monitor_cfg = config.monitor
-    rules = MonitorRules.from_config(monitor_cfg)
 
     test_path = Path(path).expanduser().resolve()
     path_exists = test_path.exists()
 
-    allowed, trace = rules.explain(test_path)
+    allowed, trace = explain_path(monitor_cfg, test_path)
     decisions = _check_build_decisions(trace, path_exists, test_path)
 
     if not allowed:

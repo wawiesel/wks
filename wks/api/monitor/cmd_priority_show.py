@@ -5,33 +5,32 @@ Matches CLI: wksc monitor priority show, MCP: wksm_monitor_priority_show
 """
 
 from pathlib import Path
+from typing import Any
 
 from ...config import WKSConfig
 from ..base import StageResult
-from ._PriorityDirectoriesResult import _PriorityDirectoriesResult
-from ._PriorityDirectoryInfo import _PriorityDirectoryInfo
-from .MonitorRules import MonitorRules
+from .explain_path import explain_path
 
 
 def cmd_priority_show() -> StageResult:
     """List all managed directories with their priorities."""
     config = WKSConfig.load()
     monitor_cfg = config.monitor
-    rules = MonitorRules.from_config(monitor_cfg)
 
-    validation: dict[str, _PriorityDirectoryInfo] = {}
+    validation: dict[str, dict[str, Any]] = {}
     for path, priority in monitor_cfg.priority.dirs.items():
-        allowed, trace = rules.explain(Path(path).expanduser().resolve())
-        validation[path] = _PriorityDirectoryInfo(
-            priority=priority, valid=allowed, error=None if allowed else (trace[-1] if trace else "Excluded by rules")
-        )
+        allowed, trace = explain_path(monitor_cfg, Path(path).expanduser().resolve())
+        validation[path] = {
+            "priority": priority,
+            "valid": allowed,
+            "error": None if allowed else (trace[-1] if trace else "Excluded by rules"),
+        }
 
-    result_obj = _PriorityDirectoriesResult(
-        priority_directories=monitor_cfg.priority.dirs,
-        count=len(monitor_cfg.priority.dirs),
-        validation=validation,
-    )
-    result = result_obj.model_dump()
+    result = {
+        "priority_directories": monitor_cfg.priority.dirs,
+        "count": len(monitor_cfg.priority.dirs),
+        "validation": validation,
+    }
 
     return StageResult(
         announce="Listing managed directories...",

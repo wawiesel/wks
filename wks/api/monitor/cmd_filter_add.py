@@ -11,7 +11,7 @@ import typer
 from ...config import WKSConfig
 from ...utils import canonicalize_path
 from ..base import StageResult
-from ._LIST_NAMES import _LIST_NAMES
+from .MonitorConfig import MonitorConfig
 from ._filter_validate_dirname import _filter_validate_dirname
 from ._filter_validate_glob import _filter_validate_glob
 
@@ -25,7 +25,7 @@ def cmd_filter_add(
     config = WKSConfig.load()
     monitor_cfg = config.monitor
 
-    if list_name not in _LIST_NAMES:
+    if list_name not in MonitorConfig.get_filter_list_names():
         raise ValueError(f"Unknown list_name: {list_name!r}")
 
     resolve_path = list_name in ("include_paths", "exclude_paths")
@@ -54,8 +54,9 @@ def cmd_filter_add(
         value_to_store = value
 
     # Check duplicates
+    items = getattr(monitor_cfg, list_name)
     existing = None
-    for item in getattr(monitor_cfg, list_name):
+    for item in items:
         cmp_item = canonicalize_path(item) if resolve_path else item
         cmp_value = canonicalize_path(value_resolved) if resolve_path else value_resolved
         if cmp_item == cmp_value:
@@ -72,7 +73,7 @@ def cmd_filter_add(
         )
 
     # Add and save
-    getattr(monitor_cfg, list_name).append(value_to_store)
+    items.append(value_to_store)
     config.save()
 
     result = {"success": True, "message": f"Added to {list_name}: {value_to_store}", "value_stored": value_to_store}

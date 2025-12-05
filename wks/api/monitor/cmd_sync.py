@@ -15,8 +15,8 @@ from ...db_helpers import connect_to_mongo, parse_database_key
 from ...utils import file_checksum
 from ..base import StageResult
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
-from .MonitorRules import MonitorRules
 from .calculate_priority import calculate_priority
+from .explain_path import explain_path
 
 
 def cmd_sync(
@@ -51,8 +51,6 @@ def cmd_sync(
             output=sync_result,
             success=sync_result.get("success", True),
         )
-
-    rules = MonitorRules.from_config(monitor_cfg)
 
     try:
         db_name, collection_name = parse_database_key(monitor_cfg.sync.database)
@@ -90,7 +88,7 @@ def cmd_sync(
 
     try:
         for idx, file_path in enumerate(files_to_process, start=1):
-            if not rules.allows(file_path):
+            if not explain_path(monitor_cfg, file_path)[0]:
                 files_skipped += 1
                 continue
 
