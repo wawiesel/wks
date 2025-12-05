@@ -1040,7 +1040,7 @@ class MCPServer:
 
         if isinstance(config, WKSConfig):
             if db_type == "monitor":
-                database_key = config.monitor.sync.database
+                database_key = config.monitor.database
             elif db_type == "vault":
                 database_key = config.vault.database
             elif db_type == "transform":
@@ -1050,7 +1050,7 @@ class MCPServer:
         else:
             # Backwards-compatible path for tests that pass a raw dict
             if db_type == "monitor":
-                database_key = config.get("monitor", {}).get("sync", {}).get("database", "wks.monitor")
+                database_key = config.get("monitor", {}).get("database", "monitor")
             elif db_type == "vault":
                 database_key = config.get("vault", {}).get("database", "wks.vault")
             elif db_type == "transform":

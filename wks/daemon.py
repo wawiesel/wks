@@ -1127,7 +1127,7 @@ if __name__ == "__main__":
     # Monitor config
     monitor_cfg_obj = config.monitor
     monitor_rules = MonitorRules.from_config(monitor_cfg_obj)
-    include_paths = [expand_path(p) for p in monitor_cfg_obj.include_paths]
+    include_paths = [expand_path(p) for p in monitor_cfg_obj.filter.include_paths]
 
     # DB config
     from .api.db.helpers import get_database_client, get_database
@@ -1140,11 +1140,9 @@ if __name__ == "__main__":
             mongo_uri = config.db.data.uri
             ensure_mongo_running(mongo_uri, record_start=True)
 
-    monitor_db_key = monitor_cfg_obj.database
-    # Validation already done in MonitorConfig
-    monitor_db_name, monitor_coll_name = monitor_db_key.split(".", 1)
-    db = get_database(monitor_db_name)
-    monitor_collection = db[monitor_coll_name]
+    # Get database using prefix - collection name is just "monitor" now
+    db = get_database(config.db.prefix)
+    monitor_collection = db[monitor_cfg_obj.database]
 
     auto_project_notes = False  # Default, not in vault section
 

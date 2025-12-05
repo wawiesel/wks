@@ -16,6 +16,7 @@ class MonitorConfig(BaseModel):
 
     filter: _FilterConfig = Field(default_factory=_FilterConfig)
     priority: _PriorityConfig = Field(default_factory=_PriorityConfig)
+    database: str = Field(..., description="Collection name (prefix from db config is automatically prepended)")
     sync: _SyncConfig = Field(...)
 
     @classmethod

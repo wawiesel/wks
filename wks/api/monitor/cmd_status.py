@@ -24,7 +24,7 @@ def cmd_status() -> StageResult:
     total_files = 0
     time_based_counts: dict[str, int] = {}
     try:
-        with DbCollection(monitor_cfg.sync.database) as collection:
+        with DbCollection(monitor_cfg.database) as collection:
             total_files = collection.count_documents({})
 
             # Calculate time ranges
