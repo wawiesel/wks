@@ -90,15 +90,22 @@ class TestMCPServer:
 
     @pytest.mark.monitor
     @patch("wks.config.WKSConfig.load")
-    @patch("wks.monitor.controller.MonitorController.get_status")
-    def test_call_tool_monitor_status(self, mock_get_status, mock_load_config, mcp_server, mock_config):
+    @patch("wks.api.monitor.cmd_status.connect_to_mongo")
+    def test_call_tool_monitor_status(self, mock_connect, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_status tool."""
+        from unittest.mock import MagicMock
+
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
+        mock_config.monitor.priority.dirs = {}
+        mock_config.monitor.sync.database = "test.monitor"
+        mock_config.mongo.uri = "mongodb://localhost:27017/"
 
-        mock_status = MagicMock()
-        mock_status.model_dump.return_value = {"tracked_files": 100}
-        mock_get_status.return_value = mock_status
+        mock_client = MagicMock()
+        mock_collection = MagicMock()
+        mock_collection.count_documents.return_value = 100
+        mock_client.__getitem__.return_value.__getitem__.return_value = mock_collection
+        mock_connect.return_value = mock_client
 
         request = {
             "jsonrpc": "2.0",
@@ -115,18 +122,20 @@ class TestMCPServer:
 
         assert response["id"] == 3
         content = json.loads(response["result"]["content"][0]["text"])
-        # New API returns StageResult.output, which contains the status data
         assert content["data"]["tracked_files"] == 100
 
     @pytest.mark.monitor
     @patch("wks.config.WKSConfig.load")
-    @patch("wks.monitor.controller.MonitorController.check_path")
-    def test_call_tool_monitor_check(self, mock_check_path, mock_load_config, mcp_server, mock_config):
+    @patch("wks.api.monitor.cmd_check.explain_path")
+    @patch("wks.api.monitor.cmd_check.calculate_priority")
+    def test_call_tool_monitor_check(self, mock_calc_priority, mock_explain, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_check tool."""
+        from pathlib import Path
+
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
-
-        mock_check_path.return_value = {"is_monitored": True}
+        mock_explain.return_value = (True, ["Included"])
+        mock_calc_priority.return_value = 5.0
 
         request = {
             "jsonrpc": "2.0",
@@ -135,7 +144,7 @@ class TestMCPServer:
             "params": {"name": "wksm_monitor_check", "arguments": {"path": "/tmp/test.txt"}},
         }
 
-        with patch.object(server, "_read_message", side_effect=[request, None]):
+        with patch.object(server, "_read_message", side_effect=[request, None]), patch("pathlib.Path.exists", return_value=True):
             server.run()
 
         output = output_stream.getvalue()
@@ -143,7 +152,6 @@ class TestMCPServer:
 
         assert response["id"] == 4
         content = json.loads(response["result"]["content"][0]["text"])
-        # New API returns StageResult.output, which contains the check data
         assert content["data"]["is_monitored"] is True
 
     def test_call_unknown_tool(self, mcp_server):
@@ -168,8 +176,7 @@ class TestMCPServer:
         assert response["error"]["code"] == -32601
 
     @patch("wks.config.WKSConfig.load")
-    @patch("wks.mcp_server.MonitorController")
-    def test_call_tool_missing_params(self, mock_controller, mock_load_config, mcp_server, mock_config):  # noqa: ARG002
+    def test_call_tool_missing_params(self, mock_load_config, mcp_server, mock_config):  # noqa: ARG002
         """Test calling tool with missing params."""
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config

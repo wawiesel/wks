@@ -9,14 +9,15 @@ from typing import Any
 
 import typer
 
-from ..config import WKSConfig
-
 
 def inject_config(func: Callable) -> Callable:
     """Decorator to inject WKSConfig as first parameter if not provided."""
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        # Lazy import to avoid circular dependency
+        from ..config import WKSConfig
+        
         # Check if config is already provided
         sig = inspect.signature(func)
         param_names = list(sig.parameters.keys())

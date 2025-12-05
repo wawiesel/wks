@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from .constants import WKS_DOT_DIRS
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
-    from .monitor import MonitorConfig
+    from .api.monitor.MonitorConfig import MonitorConfig
 
 
 def _matches_glob(patterns: list[str], path_obj: Path) -> bool:

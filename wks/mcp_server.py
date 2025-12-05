@@ -25,7 +25,14 @@ from .api.monitor.cmd_priority_add import cmd_priority_add
 from .api.monitor.cmd_priority_remove import cmd_priority_remove
 from .config import WKSConfig
 from .mcp.result import MCPResult
-from .monitor import MonitorController
+from .api.monitor.cmd_check import cmd_check
+from .api.monitor.cmd_filter_add import cmd_filter_add
+from .api.monitor.cmd_filter_remove import cmd_filter_remove
+from .api.monitor.cmd_filter_show import cmd_filter_show
+from .api.monitor.cmd_priority_add import cmd_priority_add
+from .api.monitor.cmd_priority_remove import cmd_priority_remove
+from .api.monitor.cmd_priority_show import cmd_priority_show
+from .api.monitor.cmd_status import cmd_status
 from .service_controller import ServiceController
 from .vault import VaultController
 from .vault.status_controller import VaultStatusController
@@ -664,52 +671,41 @@ class MCPServer:
 
     def _tool_monitor_list(self, config: WKSConfig, list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
-        return MonitorController.get_list(config.monitor, list_name)
+        result = cmd_filter_show(list_name)
+        return result.output
 
     def _tool_monitor_add(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_add tool."""
-        # Determine if we need to resolve paths
-        resolve_path = list_name in ["include_paths", "exclude_paths"]
-
-        # Add to list
-        result_obj = MonitorController.add_to_list(config.monitor, list_name, value, resolve_path)
-        result = result_obj.model_dump()
-
-        # Save if successful
-        if result.get("success"):
+        result = cmd_filter_add(list_name, value)
+        output = result.output
+        if output.get("success"):
             config.save()
-            result["note"] = "Restart the monitor service for changes to take effect"
-
-        return result
+            output["note"] = "Restart the monitor service for changes to take effect"
+        return output
 
     def _tool_monitor_remove(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
         """Execute wks_monitor_remove tool."""
-        # Determine if we need to resolve paths
-        resolve_path = list_name in ["include_paths", "exclude_paths"]
-
-        # Remove from list
-        result_obj = MonitorController.remove_from_list(config.monitor, list_name, value, resolve_path)
-        result = result_obj.model_dump()
-
-        # Save if successful
-        if result.get("success"):
+        result = cmd_filter_remove(list_name, value)
+        output = result.output
+        if output.get("success"):
             config.save()
-            result["note"] = "Restart the monitor service for changes to take effect"
-
-        return result
+            output["note"] = "Restart the monitor service for changes to take effect"
+        return output
 
     def _tool_monitor_managed_list(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_monitor_managed_list tool."""
-        result = MonitorController.get_managed_directories(config.monitor)
-        return result.model_dump()
+        result = cmd_priority_show()
+        return result.output
 
     def _tool_monitor_managed_remove(self, config: WKSConfig, path: str) -> dict[str, Any]:
         """Legacy helper (unused)."""
-        return MonitorController.remove_managed_directory(config.monitor, path)
+        result = cmd_priority_remove(path)
+        return result.output
 
     def _tool_monitor_managed_set_priority(self, config: WKSConfig, path: str, priority: float) -> dict[str, Any]:
         """Legacy helper (unused)."""
-        return MonitorController.set_managed_priority(config.monitor, path, priority)
+        result = cmd_priority_add(path, priority)
+        return result.output
 
     def _tool_vault_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_status tool."""
@@ -747,9 +743,10 @@ class MCPServer:
 
         # Check if file is monitored
         try:
-            monitor_info = MonitorController.check_path(config.monitor, str(file_path_expanded))
-            is_monitored = monitor_info.get("is_monitored", False)
-            priority = monitor_info.get("priority", 0) if is_monitored else None
+            result = cmd_check(str(file_path_expanded))
+            output = result.output
+            is_monitored = output.get("is_monitored", False)
+            priority = output.get("priority", 0) if is_monitored else None
         except Exception:
             is_monitored = False
             priority = None
