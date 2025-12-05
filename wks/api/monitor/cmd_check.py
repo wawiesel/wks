@@ -10,7 +10,6 @@ import typer
 
 from ...config import WKSConfig
 from ..base import StageResult
-from ._check_build_decisions import _check_build_decisions
 from .explain_path import explain_path
 from .calculate_priority import calculate_priority
 
@@ -26,7 +25,24 @@ def cmd_check(
     path_exists = test_path.exists()
 
     allowed, trace = explain_path(monitor_cfg, test_path)
-    decisions = _check_build_decisions(trace, path_exists, test_path)
+
+    # Build decision list from trace messages and path existence
+    decisions: list[dict[str, str]] = []
+    decisions.append(
+        {
+            "symbol": "✓" if path_exists else "⚠",
+            "message": f"Path exists: {test_path}" if path_exists else f"Path does not exist (checking as if it did): {test_path}",
+        }
+    )
+    for message in trace:
+        lower = message.lower()
+        if lower.startswith("excluded"):
+            symbol = "✗"
+        elif "override" in lower or lower.startswith("included"):
+            symbol = "✓"
+        else:
+            symbol = "•"
+        decisions.append({"symbol": symbol, "message": message})
 
     if not allowed:
         output = {

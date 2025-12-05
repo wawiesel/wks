@@ -12,8 +12,6 @@ from ...config import WKSConfig
 from ...utils import canonicalize_path
 from ..base import StageResult
 from .MonitorConfig import MonitorConfig
-from ._filter_validate_dirname import _filter_validate_dirname
-from ._filter_validate_glob import _filter_validate_glob
 
 
 def cmd_filter_add(
@@ -36,18 +34,43 @@ def cmd_filter_add(
         home_dir = str(Path.home())
         value_to_store = "~" + value_resolved[len(home_dir) :] if value_resolved.startswith(home_dir) else value_resolved
     elif list_name in ("include_dirnames", "exclude_dirnames"):
-        err = _filter_validate_dirname(value, list_name, monitor_cfg)
+        # Validate directory name
+        entry = value.strip()
+        if not entry:
+            err = "Directory name cannot be empty"
+        elif any(ch in entry for ch in "*?[]"):
+            err = "Directory names cannot contain wildcard characters"
+        elif "/" in entry or "\\" in entry:
+            err = "Directory names cannot contain path separators"
+        else:
+            opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
+            if entry in getattr(monitor_cfg, opposite):
+                err = f"Directory name '{entry}' already present in {opposite}"
+            else:
+                err = None
+        
         if err:
             result = {"success": False, "message": err, "validation_failed": True}
             return StageResult(announce=f"Adding to {list_name}: {value}", result=err, output=result, success=False)
-        value_resolved = value.strip()
+        value_resolved = entry
         value_to_store = value_resolved
     elif list_name in ("include_globs", "exclude_globs"):
-        err = _filter_validate_glob(value)
+        # Validate glob pattern
+        import fnmatch
+        entry = value.strip()
+        if not entry:
+            err = "Glob pattern cannot be empty"
+        else:
+            try:
+                fnmatch.fnmatch("test", entry)
+                err = None
+            except Exception as exc:  # pragma: no cover - defensive
+                err = f"Invalid glob syntax: {exc}"
+        
         if err:
             result = {"success": False, "message": err, "validation_failed": True}
             return StageResult(announce=f"Adding to {list_name}: {value}", result=err, output=result, success=False)
-        value_resolved = value.strip()
+        value_resolved = entry
         value_to_store = value_resolved
     else:
         value_resolved = value
