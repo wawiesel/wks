@@ -47,6 +47,18 @@ WKS is built as a stack of independent, composable layers:
                     │  Filesystem tracking + priority scoring  │
                     │  Paths, checksums, modification times    │
                     └──────────────────────────────────────────┘
+                                      ↓
+                    ┌──────────────────────────────────────────┐
+                    │  Database Layer                          │
+                    │  Database abstraction with pluggable     │
+                    │  backends (mongo, mongomock, ...)        │
+                    └──────────────────────────────────────────┘
+                                      ↓
+                    ┌──────────────────────────────────────────┐
+                    │  Configuration Layer                     │
+                    │  System-wide configuration management    │
+                    │  Config file validation and loading      │
+                    └──────────────────────────────────────────┘
 ```
 
 ## Design Principles
