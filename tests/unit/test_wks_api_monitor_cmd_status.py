@@ -72,5 +72,5 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
     monkeypatch.setattr("wks.api.monitor.cmd_status.connect_to_mongo", lambda *args, **kwargs: mock_client)
 
     result = cmd_status.cmd_status()
-    assert result.output["issues"] == ["Managed directory invalid: /invalid/path (Excluded by rules)"]
+    assert result.output["issues"] == ["Priority directory invalid: /invalid/path (Excluded by rules)"]
     assert result.output["success"] is False

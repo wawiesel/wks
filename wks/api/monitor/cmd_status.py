@@ -83,7 +83,7 @@ def cmd_status() -> StageResult:
             "error": err,
         }
         if err:
-            issues.append(f"Managed directory invalid: {path} ({err})")
+            issues.append(f"Priority directory invalid: {path} ({err})")
 
     # Format priority directories as a list of dicts for better table display
     priority_dir_rows = [

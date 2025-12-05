@@ -1,7 +1,7 @@
 """Calculate priority score for a file according to monitor specification.
 
 Priority Calculation (from spec):
-1. Match file to deepest managed directory entry (e.g., ~/Documents → 100.0)
+1. Match file to deepest priority directory entry (e.g., ~/Documents → 100.0)
 2. For each path component after the managed base: multiply by depth_multiplier
 3. For each leading _ in a component: multiply by underscore_multiplier per underscore
 4. If the component is exactly _: multiply by only_underscore_multiplier
