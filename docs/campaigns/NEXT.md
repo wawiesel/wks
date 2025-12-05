@@ -57,6 +57,9 @@ There should be no code that is not used by the MCP or CLI. There should be 100%
 Follow @CONTRIBUTING.md for contribution guidelines.
 Follow @.cursor/rules/important.mdc for important rules.
 
+Action items:
+- Monitor status must call our database API, not use MongoClient directly from the command.
+
 Refactor code to remove duplication and have better structure.
 Delete all unused code.
 

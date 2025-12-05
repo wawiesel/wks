@@ -4,34 +4,56 @@ This function checks if a path would be monitored and calculates its priority.
 Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 """
 
+from pathlib import Path
+
 import typer
 
 from ...config import WKSConfig
-from ...monitor import MonitorController
 from ..base import StageResult
+from ._check_build_decisions import _check_build_decisions_from_trace
+from ._check_calculate_path_priority import _check_calculate_path_priority
+from ._rules import MonitorRules
 
 
 def cmd_check(
     path: str = typer.Argument(..., help="File or directory path to check"),
 ) -> StageResult:
-    """Check if a path would be monitored and calculate its priority.
-
-    Args:
-        path: File or directory path to check
-
-    Returns:
-        StageResult with is_monitored, priority, and path information
-    """
+    """Check if a path would be monitored and calculate its priority."""
     config = WKSConfig.load()
-    result = MonitorController.check_path(config.monitor, path)
+    monitor_cfg = config.monitor
+    rules = MonitorRules.from_config(monitor_cfg)
 
-    if result.get("is_monitored"):
-        res_msg = f"Path is monitored with priority {result.get('priority', 0)}"
-    else:
+    test_path = Path(path).expanduser().resolve()
+    path_exists = test_path.exists()
+
+    allowed, trace = rules.explain(test_path)
+    decisions = _check_build_decisions_from_trace(trace, path_exists, test_path)
+
+    if not allowed:
+        output = {
+            "path": str(test_path),
+            "is_monitored": False,
+            "reason": trace[-1] if trace else "Excluded by monitor rules",
+            "priority": None,
+            "decisions": decisions,
+            "success": False,
+        }
         res_msg = "Path is not monitored"
+    else:
+        priority, decisions = _check_calculate_path_priority(test_path, monitor_cfg, decisions)
+        output = {
+            "path": str(test_path),
+            "is_monitored": True,
+            "reason": "Would be monitored",
+            "priority": priority,
+            "decisions": decisions,
+            "success": True,
+        }
+        res_msg = f"Path is monitored with priority {priority}"
 
     return StageResult(
         announce=f"Checking if path would be monitored: {path}",
         result=res_msg,
-        output=result,
+        output=output,
+        success=output["success"],
     )

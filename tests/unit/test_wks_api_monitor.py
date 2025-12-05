@@ -5,14 +5,13 @@ import typer
 from wks.api import base as api_base
 from wks.api.monitor import app as monitor_app_module
 from wks.api.monitor import (
-    cmd_add,
+    cmd_filter_add,
+    cmd_filter_show,
+    cmd_filter_remove,
     cmd_check,
-    cmd_managed_add,
-    cmd_managed_list,
-    cmd_managed_remove,
-    cmd_managed_set_priority,
-    cmd_remove,
-    cmd_show,
+    cmd_priority_add,
+    cmd_priority_show,
+    cmd_priority_remove,
     cmd_status,
     cmd_sync,
 )
@@ -60,22 +59,32 @@ def test_get_typer_command_schema_skips_config_and_marks_required():
 
 def test_cmd_status_sets_success_based_on_issues(monkeypatch):
     cfg = DummyConfig(SimpleNamespace())
-    status_obj = SimpleNamespace(
-        model_dump=lambda: {
-            "tracked_files": 1,
-            "issues": ["bad"],
-            "redundancies": [],
-            "managed_directories": {},
-            "include_paths": [],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-        }
-    )
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_status.MonitorController.get_status", lambda _cfg: status_obj)
+
+    monkeypatch.setattr(
+        "wks.api.monitor.cmd_status.validator_validate_config",
+        lambda _cfg: SimpleNamespace(
+            model_dump=lambda: {
+                "issues": ["bad"],
+                "redundancies": [],
+                "managed_directories": {},
+                "include_paths": [],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "pymongo.MongoClient",
+        lambda *args, **kwargs: SimpleNamespace(
+            server_info=lambda: None,
+            __getitem__=lambda self, k: SimpleNamespace(__getitem__=lambda _s, _k: SimpleNamespace(count_documents=lambda _q: 1)),
+            close=lambda: None,
+        ),
+    )  # type: ignore
 
     result = cmd_status.cmd_status()
     assert result.output["success"] is False
@@ -85,9 +94,15 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
 def test_cmd_check_reports_monitored(monkeypatch):
     cfg = DummyConfig(SimpleNamespace())
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+
+    class DummyRules:
+        def explain(self, _path):
+            return True, ["Included by rule"]
+
+    monkeypatch.setattr("wks.api.monitor.cmd_check.MonitorRules.from_config", lambda _cfg: DummyRules())
     monkeypatch.setattr(
-        "wks.api.monitor.cmd_check.MonitorController.check_path",
-        lambda _cfg, path: {"is_monitored": True, "priority": 5, "path": path},
+        "wks.api.monitor._check_calculate_path_priority.priority_calculate_priority",
+        lambda _path, _dirs, _weights: 5,
     )
 
     result = cmd_check.cmd_check(path="/tmp/demo.txt")
@@ -100,8 +115,8 @@ def test_cmd_sync_wraps_output(monkeypatch):
     monkeypatch.setattr("wks.api.monitor.cmd_sync.WKSConfig.load", lambda: cfg)
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
     monkeypatch.setattr(
-        "wks.api.monitor.cmd_sync.MonitorController.sync_path",
-        lambda _cfg, path, recursive, progress_cb=None: {
+        "wks.api.monitor.cmd_sync._sync_execute",
+        lambda _cfg, path, recursive: {
             "success": True,
             "message": f"synced {path}",
             "files_synced": 1,
@@ -114,144 +129,138 @@ def test_cmd_sync_wraps_output(monkeypatch):
     assert result.success is True
 
 
-def test_cmd_show_lists_available_when_no_arg(monkeypatch):
+def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch):
     cfg = DummyConfig(SimpleNamespace())
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
 
-    result = cmd_show.cmd_show()
+    result = cmd_filter_show.cmd_filter_show()
     assert result.output["available_lists"]
     assert result.output["success"] is True
 
 
-def test_cmd_show_returns_list(monkeypatch):
+def test_cmd_filter_show_returns_list(monkeypatch):
     cfg = DummyConfig(SimpleNamespace())
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
     monkeypatch.setattr(
-        "wks.api.monitor.cmd_show.MonitorController.get_list",
-        lambda _cfg, list_name: {"success": True, "count": 2, "list_name": list_name},
+        "wks.api.monitor.cmd_filter_show._LIST_NAMES",
+        (
+            "include_paths",
+            "exclude_paths",
+            "include_dirnames",
+            "exclude_dirnames",
+            "include_globs",
+            "exclude_globs",
+        ),
     )
+    cfg.monitor.include_paths = ["a", "b"]
 
-    result = cmd_show.cmd_show(list_name="include_paths")
+    result = cmd_filter_show.cmd_filter_show(list_name="include_paths")
     assert result.output["count"] == 2
     assert "Showing" in result.result
 
 
-def test_cmd_add_saves_on_success(monkeypatch):
-    cfg = DummyConfig(SimpleNamespace(monitor=SimpleNamespace()))
-    cfg.monitor = SimpleNamespace()  # type: ignore[attr-defined]
+def test_cmd_filter_add_saves_on_success(monkeypatch):
+    cfg = DummyConfig(SimpleNamespace())
+    cfg.monitor.include_paths = []
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
 
-    class DummyResult:
-        def model_dump(self):
-            return {"success": True, "message": "added"}
-
-    monkeypatch.setattr(
-        "wks.api.monitor.cmd_add.MonitorOperations.add_to_list",
-        lambda monitor_cfg, list_name, value, resolve_path=False: DummyResult(),
-    )
-
-    result = cmd_add.cmd_add(list_name="include_paths", value="/tmp/x")
+    result = cmd_filter_add.cmd_filter_add(list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
 
 
-def test_cmd_remove_saves_on_success(monkeypatch):
-    cfg = DummyConfig(SimpleNamespace(monitor=SimpleNamespace()))
-    cfg.monitor = SimpleNamespace()  # type: ignore[attr-defined]
+def test_cmd_filter_remove_saves_on_success(monkeypatch):
+    cfg = DummyConfig(SimpleNamespace())
+    cfg.monitor.include_paths = ["/tmp/x"]
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
 
-    class DummyResult:
-        def model_dump(self):
-            return {"success": True, "message": "removed"}
-
-    monkeypatch.setattr(
-        "wks.api.monitor.cmd_remove.MonitorOperations.remove_from_list",
-        lambda monitor_cfg, list_name, value, resolve_path=False: DummyResult(),
-    )
-
-    result = cmd_remove.cmd_remove(list_name="include_paths", value="/tmp/x")
+    result = cmd_filter_remove.cmd_filter_remove(list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
 
 
-def test_cmd_managed_add_existing_returns_flag(monkeypatch):
+def test_cmd_priority_add_existing_returns_flag(monkeypatch):
     cfg = DummyConfig(SimpleNamespace(managed_directories={"existing": 1}))
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_add.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_add.find_matching_path_key", lambda mapping, path: path)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: path)
 
-    result = cmd_managed_add.cmd_managed_add(path="existing", priority=5)
+    result = cmd_priority_add.cmd_priority_add(path="existing", priority=5)
     assert result.output["already_exists"] is True
-    assert cfg.save_calls == 0
+    assert cfg.save_calls == 1
 
 
-def test_cmd_managed_add_stores_and_saves(monkeypatch):
+def test_cmd_priority_add_stores_and_saves(monkeypatch):
     cfg = DummyConfig(SimpleNamespace(managed_directories={}))
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_add.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_add.find_matching_path_key", lambda mapping, path: None)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: None)
 
-    result = cmd_managed_add.cmd_managed_add(path="/tmp/new", priority=2)
+    result = cmd_priority_add.cmd_priority_add(path="/tmp/new", priority=2)
     assert result.output["success"] is True
     assert cfg.save_calls == 1
     assert "/tmp/new" in cfg.monitor.managed_directories
 
 
-def test_cmd_managed_remove_not_found(monkeypatch):
+def test_cmd_priority_remove_not_found(monkeypatch):
     cfg = DummyConfig(SimpleNamespace(managed_directories={}))
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_remove.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_remove.find_matching_path_key", lambda mapping, path: None)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_remove.canonicalize_path", lambda p: p)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_remove.find_matching_path_key", lambda mapping, path: None)
 
-    result = cmd_managed_remove.cmd_managed_remove(path="/tmp/miss")
+    result = cmd_priority_remove.cmd_priority_remove(path="/tmp/miss")
     assert result.output["not_found"] is True
     assert cfg.save_calls == 0
 
 
-def test_cmd_managed_remove_success(monkeypatch):
+def test_cmd_priority_remove_success(monkeypatch):
     cfg = DummyConfig(SimpleNamespace(managed_directories={"/tmp/a": 3}))
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_remove.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_remove.find_matching_path_key", lambda mapping, path: path)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_remove.canonicalize_path", lambda p: p)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_remove.find_matching_path_key", lambda mapping, path: path)
 
-    result = cmd_managed_remove.cmd_managed_remove(path="/tmp/a")
+    result = cmd_priority_remove.cmd_priority_remove(path="/tmp/a")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
     assert "/tmp/a" not in cfg.monitor.managed_directories
 
 
-def test_cmd_managed_set_priority_not_found(monkeypatch):
+def test_cmd_priority_add_not_found_creates(monkeypatch):
     cfg = DummyConfig(SimpleNamespace(managed_directories={}))
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_set_priority.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_set_priority.find_matching_path_key", lambda mapping, path: None)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: None)
 
-    result = cmd_managed_set_priority.cmd_managed_set_priority(path="/tmp/a", priority=5)
-    assert result.output["not_found"] is True
+    result = cmd_priority_add.cmd_priority_add(path="/tmp/a", priority=5)
+    assert result.output["success"] is True
+    assert cfg.monitor.managed_directories["/tmp/a"] == 5
+    assert cfg.save_calls == 1
 
 
-def test_cmd_managed_set_priority_success(monkeypatch):
+def test_cmd_priority_add_updates(monkeypatch):
     cfg = DummyConfig(SimpleNamespace(managed_directories={"/tmp/a": 1}))
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_set_priority.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_managed_set_priority.find_matching_path_key", lambda mapping, path: path)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: path)
 
-    result = cmd_managed_set_priority.cmd_managed_set_priority(path="/tmp/a", priority=7)
+    result = cmd_priority_add.cmd_priority_add(path="/tmp/a", priority=7)
     assert result.output["success"] is True
     assert cfg.monitor.managed_directories["/tmp/a"] == 7
     assert cfg.save_calls == 1
 
 
-def test_cmd_managed_list_returns_stage_result(monkeypatch):
-    cfg = DummyConfig(SimpleNamespace())
-    dummy_result = SimpleNamespace(model_dump=lambda: {"managed_directories": {}, "count": 0, "validation": {}})
+def test_cmd_priority_show_returns_stage_result(monkeypatch):
+    cfg = DummyConfig(SimpleNamespace(managed_directories={"/tmp/a": 1.0}))
     monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr(
-        "wks.api.monitor.cmd_managed_list.MonitorController.get_managed_directories", lambda _cfg: dummy_result
-    )
 
-    result = cmd_managed_list.cmd_managed_list()
-    assert result.output["count"] == 0
+    class DummyRules:
+        def explain(self, _path):
+            return True, []
+
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_show.MonitorRules.from_config", lambda _cfg: DummyRules())
+
+    result = cmd_priority_show.cmd_priority_show()
+    assert result.output["count"] == 1
 
 
 def test_monitor_app_wrapper_non_cli(monkeypatch):
@@ -277,4 +286,3 @@ def test_monitor_app_wrapper_non_cli(monkeypatch):
     output = wrapped()
     assert output["payload"] == 1
     assert calls == ["progress"]
-

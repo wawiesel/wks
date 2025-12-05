@@ -1,8 +1,4 @@
-"""Monitor configuration Pydantic model.
-
-This module contains the MonitorConfig Pydantic model used for monitor
-configuration validation and type safety.
-"""
+"""Monitor configuration Pydantic model."""
 
 from typing import Any
 
@@ -40,12 +36,7 @@ class MonitorConfig(BaseModel):
 
     @classmethod
     def from_config_dict(cls, config: dict[str, Any]) -> "MonitorConfig":
-        """Load monitor config from config dict.
-
-        Raises:
-            KeyError: If monitor section is missing
-            PydanticValidationError: If field values are invalid
-        """
+        """Load monitor config from config dict."""
         monitor_config_data = config.get("monitor")
         if not monitor_config_data:
             raise KeyError(
@@ -56,7 +47,6 @@ class MonitorConfig(BaseModel):
         try:
             return cls(**monitor_config_data)
         except ValidationError as e:
-            # Re-raise Pydantic's ValidationError directly
             raise e
 
     def get_rules(self) -> dict[str, list[str]]:
@@ -69,3 +59,4 @@ class MonitorConfig(BaseModel):
             "include_globs": self.include_globs,
             "exclude_globs": self.exclude_globs,
         }
+

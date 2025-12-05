@@ -176,19 +176,23 @@ def test_cli_monitor_status(mock_get_status, mock_load_config):
 
 
 @patch("wks.config.WKSConfig.load")
-@patch("wks.monitor.controller.MonitorController.check_path")
-def test_cli_monitor_check(mock_check_path, mock_load_config):
+def test_cli_monitor_check(mock_load_config):
     """Test wksc monitor check."""
     from unittest.mock import MagicMock
+
+    class DummyRules:
+        def explain(self, _path):
+            return True, ["Included by rule"]
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    mock_check_path.return_value = {"is_monitored": True}
-    rc, _out, _err = run_cli(["monitor", "check", "/some/path"])
-    assert rc == 0
-    mock_check_path.assert_called_once()
+    with patch("wks.api.monitor.cmd_check.MonitorRules.from_config", return_value=DummyRules()), patch(
+        "wks.api.monitor.cmd_check.calculate_priority", return_value=5
+    ), patch("pathlib.Path.exists", return_value=True):
+        rc, _out, _err = run_cli(["monitor", "check", "/some/path"])
+        assert rc == 0
 
 
 @pytest.mark.monitor
@@ -197,13 +201,13 @@ def test_cli_monitor_status_with_issues(mock_load_config):
     """Test wksc monitor status with issues returns 1."""
     from unittest.mock import MagicMock, patch
 
-    from wks.api.monitor.models import MonitorStatus
+    from wks.api.monitor._MonitorStatus import _MonitorStatus
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    mock_status = MonitorStatus(
+    mock_status = _MonitorStatus(
         tracked_files=0,
         issues=["issue1"],
         redundancies=[],
@@ -219,13 +223,13 @@ def test_cli_monitor_status_no_issues(mock_load_config):
     """Test wksc monitor status with no issues returns 0."""
     from unittest.mock import MagicMock, patch
 
-    from wks.api.monitor.models import MonitorStatus
+    from wks.api.monitor._MonitorStatus import _MonitorStatus
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    mock_status = MonitorStatus(
+    mock_status = _MonitorStatus(
         tracked_files=0,
         issues=[],
         redundancies=[],
@@ -235,44 +239,40 @@ def test_cli_monitor_status_no_issues(mock_load_config):
         assert rc == 0
 
 
-@patch("wks.cli._call")
-def test_cli_monitor_list_operations(mock_call):
-    """Test wksc monitor list operations."""
-    mock_call.return_value = {"success": True, "data": {"items": []}, "messages": []}
+@pytest.mark.monitor
+@patch("wks.config.WKSConfig.load")
+@patch("wks.monitor.controller.MonitorController.get_list")
+def test_cli_monitor_filter_show(mock_get_list, mock_load_config):
+    """Test wksc monitor filter show."""
+    from unittest.mock import MagicMock
 
-    for list_name in [
-        "include_paths",
-        "exclude_paths",
-        "include_dirnames",
-        "exclude_dirnames",
-        "include_globs",
-        "exclude_globs",
-    ]:
-        # CLI uses hyphens, but MCP uses underscores
-        cli_name = list_name.replace("_", "-")
-        rc, _out, _err = run_cli(["monitor", cli_name, "list"])
-        assert rc == 0
-        mock_call.assert_called_once_with("wksm_monitor_list", {"list_name": list_name})
-        mock_call.reset_mock()
+    mock_config = MagicMock()
+    mock_config.monitor = MagicMock()
+    mock_load_config.return_value = mock_config
+    mock_get_list.return_value = {"list_name": "include_paths", "items": [], "count": 0}
+
+    rc, _out, _err = run_cli(["monitor", "filter", "show", "include_paths"])
+    assert rc == 0
+    mock_get_list.assert_called_once_with(mock_config.monitor, "include_paths")
 
 
 @pytest.mark.monitor
 @patch("wks.monitor.operations.MonitorOperations.add_to_list")
 @patch("wks.config.WKSConfig.load")
-def test_cli_monitor_add(mock_load_config, mock_add):
-    """Test wksc monitor add operations."""
+def test_cli_monitor_filter_add(mock_load_config, mock_add):
+    """Test wksc monitor filter add operations."""
     from unittest.mock import MagicMock
 
-    from wks.api.monitor.models import ListOperationResult
+    from wks.api.monitor._ListOperationResult import _ListOperationResult
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    mock_result = ListOperationResult(success=True, message="Added", value_stored="/path")
+    mock_result = _ListOperationResult(success=True, message="Added", value_stored="/path")
     mock_add.return_value = mock_result
 
-    rc, _out, _err = run_cli(["monitor", "add", "include_paths", "/path"])
+    rc, _out, _err = run_cli(["monitor", "filter", "add", "include_paths", "/path"])
     assert rc == 0
     mock_add.assert_called_once()
 
@@ -280,20 +280,20 @@ def test_cli_monitor_add(mock_load_config, mock_add):
 @pytest.mark.monitor
 @patch("wks.monitor.operations.MonitorOperations.remove_from_list")
 @patch("wks.config.WKSConfig.load")
-def test_cli_monitor_remove(mock_load_config, mock_remove):
-    """Test wksc monitor remove operations."""
+def test_cli_monitor_filter_remove(mock_load_config, mock_remove):
+    """Test wksc monitor filter remove operations."""
     from unittest.mock import MagicMock
 
-    from wks.api.monitor.models import ListOperationResult
+    from wks.api.monitor._ListOperationResult import _ListOperationResult
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    mock_result = ListOperationResult(success=True, message="Removed", value_removed="/path")
+    mock_result = _ListOperationResult(success=True, message="Removed", value_removed="/path")
     mock_remove.return_value = mock_result
 
-    rc, _out, _err = run_cli(["monitor", "remove", "include_paths", "/path"])
+    rc, _out, _err = run_cli(["monitor", "filter", "remove", "include_paths", "/path"])
     assert rc == 0
     mock_remove.assert_called_once()
 
@@ -301,20 +301,20 @@ def test_cli_monitor_remove(mock_load_config, mock_remove):
 @pytest.mark.monitor
 @patch("wks.monitor.controller.MonitorController.get_managed_directories")
 @patch("wks.config.WKSConfig.load")
-def test_cli_monitor_managed_list(mock_load_config, mock_get_managed):
-    """Test wksc monitor managed list."""
+def test_cli_monitor_priority_show(mock_load_config, mock_get_managed):
+    """Test wksc monitor priority show."""
     from unittest.mock import MagicMock
 
-    from wks.api.monitor.models import ManagedDirectoriesResult
+    from wks.api.monitor._ManagedDirectoriesResult import _ManagedDirectoriesResult
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    mock_result = ManagedDirectoriesResult(managed_directories={}, count=0, validation={})
+    mock_result = _ManagedDirectoriesResult(managed_directories={}, count=0, validation={})
     mock_get_managed.return_value = mock_result
 
-    rc, _out, _err = run_cli(["monitor", "managed-list"])
+    rc, _out, _err = run_cli(["monitor", "priority", "show"])
     assert rc == 0
     mock_get_managed.assert_called_once()
 
@@ -322,8 +322,8 @@ def test_cli_monitor_managed_list(mock_load_config, mock_get_managed):
 @pytest.mark.monitor
 @patch("wks.config.WKSConfig.load")
 @patch("wks.config.WKSConfig.save")
-def test_cli_monitor_managed_add(mock_save, mock_load_config):
-    """Test wksc monitor managed add."""
+def test_cli_monitor_priority_add(mock_save, mock_load_config):
+    """Test wksc monitor priority add."""
     from unittest.mock import MagicMock
 
     mock_config = MagicMock()
@@ -331,8 +331,10 @@ def test_cli_monitor_managed_add(mock_save, mock_load_config):
     mock_config.monitor.managed_directories = {}
     mock_load_config.return_value = mock_config
 
-    with patch("wks.utils.find_matching_path_key", return_value=None):
-        rc, _out, _err = run_cli(["monitor", "managed-add", "/path", "5"])
+    with patch("wks.api.monitor.cmd_priority_add.find_matching_path_key", return_value=None), patch(
+        "wks.api.monitor.cmd_priority_add.canonicalize_path", return_value="/path"
+    ):
+        rc, _out, _err = run_cli(["monitor", "priority", "add", "/path", "5"])
         assert rc == 0
         assert "/path" in str(mock_config.monitor.managed_directories) or mock_config.save.called
 
@@ -340,8 +342,8 @@ def test_cli_monitor_managed_add(mock_save, mock_load_config):
 @pytest.mark.monitor
 @patch("wks.config.WKSConfig.load")
 @patch("wks.config.WKSConfig.save")
-def test_cli_monitor_managed_remove(mock_save, mock_load_config):
-    """Test wksc monitor managed remove."""
+def test_cli_monitor_priority_remove(mock_save, mock_load_config):
+    """Test wksc monitor priority remove."""
     from unittest.mock import MagicMock
 
     mock_config = MagicMock()
@@ -349,8 +351,10 @@ def test_cli_monitor_managed_remove(mock_save, mock_load_config):
     mock_config.monitor.managed_directories = {"/path": 5}
     mock_load_config.return_value = mock_config
 
-    with patch("wks.utils.find_matching_path_key", return_value="/path"):
-        rc, _out, _err = run_cli(["monitor", "managed-remove", "/path"])
+    with patch("wks.api.monitor.cmd_priority_remove.find_matching_path_key", return_value="/path"), patch(
+        "wks.api.monitor.cmd_priority_remove.canonicalize_path", return_value="/path"
+    ):
+        rc, _out, _err = run_cli(["monitor", "priority", "remove", "/path"])
         assert rc == 0
         mock_config.save.assert_called_once()
 
@@ -358,8 +362,8 @@ def test_cli_monitor_managed_remove(mock_save, mock_load_config):
 @pytest.mark.monitor
 @patch("wks.config.WKSConfig.load")
 @patch("wks.config.WKSConfig.save")
-def test_cli_monitor_managed_set_priority(mock_save, mock_load_config):
-    """Test wksc monitor managed set-priority."""
+def test_cli_monitor_priority_add_updates(mock_save, mock_load_config):
+    """Test wksc monitor priority add updates existing."""
     from unittest.mock import MagicMock
 
     mock_config = MagicMock()
@@ -367,8 +371,10 @@ def test_cli_monitor_managed_set_priority(mock_save, mock_load_config):
     mock_config.monitor.managed_directories = {"/path": 5}
     mock_load_config.return_value = mock_config
 
-    with patch("wks.utils.find_matching_path_key", return_value="/path"):
-        rc, _out, _err = run_cli(["monitor", "managed-set-priority", "/path", "10"])
+    with patch("wks.api.monitor.cmd_priority_add.find_matching_path_key", return_value="/path"), patch(
+        "wks.api.monitor.cmd_priority_add.canonicalize_path", return_value="/path"
+    ):
+        rc, _out, _err = run_cli(["monitor", "priority", "add", "/path", "10"])
         assert rc == 0
         assert mock_config.monitor.managed_directories["/path"] == 10
         mock_config.save.assert_called_once()

@@ -5,13 +5,12 @@ Matches CLI: wksc monitor sync <path> [--recursive], MCP: wksm_monitor_sync
 """
 
 from pathlib import Path
-from typing import Any
 
 import typer
 
 from ...config import WKSConfig
-from ...monitor import MonitorController
 from ..base import StageResult
+from ._sync_execute import _sync_execute
 
 
 def cmd_sync(
@@ -30,11 +29,7 @@ def cmd_sync(
     config = WKSConfig.load()
     path_obj = Path(path).expanduser().resolve()
 
-    sync_result: dict[str, Any] = MonitorController.sync_path(
-        config,
-        path_obj,
-        recursive,
-    )
+    sync_result = _sync_execute(config, path_obj, recursive)
 
     return StageResult(
         announce=f"Syncing {path}...",

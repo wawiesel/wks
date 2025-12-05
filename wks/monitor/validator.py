@@ -4,6 +4,7 @@ import fnmatch
 from pathlib import Path
 
 from ..monitor_rules import MonitorRules
+from ..monitor.status import ConfigValidationResult, ManagedDirectoryInfo
 
 
 class MonitorValidator:
@@ -69,3 +70,29 @@ class MonitorValidator:
         if trace:
             return False, trace[-1]
         return False, "Excluded by monitor rules"
+
+    @staticmethod
+    def validate_config(cfg) -> ConfigValidationResult:
+        """Basic config validation producing ConfigValidationResult."""
+        rules = MonitorRules.from_config(cfg)
+
+        managed_validation = {}
+        for path, priority in cfg.managed_directories.items():
+            is_valid, error_msg = MonitorValidator.validate_managed_directory(path, rules)
+            managed_validation[path] = ManagedDirectoryInfo(priority=priority, valid=is_valid, error=error_msg)
+
+        return ConfigValidationResult(
+            issues=[],
+            redundancies=[],
+            managed_directories=managed_validation,
+            include_paths=list(cfg.include_paths),
+            exclude_paths=list(cfg.exclude_paths),
+            include_dirnames=list(cfg.include_dirnames),
+            exclude_dirnames=list(cfg.exclude_dirnames),
+            include_globs=list(cfg.include_globs),
+            exclude_globs=list(cfg.exclude_globs),
+            include_dirname_validation={},
+            exclude_dirname_validation={},
+            include_glob_validation={},
+            exclude_glob_validation={},
+        )

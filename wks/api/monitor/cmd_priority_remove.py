@@ -1,7 +1,7 @@
-"""Monitor managed-remove API function.
+"""Monitor priority-remove API function.
 
 This function removes a managed directory.
-Matches CLI: wksc monitor managed-remove <path>, MCP: wksm_monitor_managed_remove
+Matches CLI: wksc monitor priority remove <path>, MCP: wksm_monitor_priority_remove
 """
 
 import typer
@@ -10,7 +10,7 @@ from ...utils import canonicalize_path, find_matching_path_key
 from ..base import StageResult
 
 
-def cmd_managed_remove(
+def cmd_priority_remove(
     path: str = typer.Argument(..., help="Path to unmanage"),
 ) -> StageResult:
     """Remove a managed directory.

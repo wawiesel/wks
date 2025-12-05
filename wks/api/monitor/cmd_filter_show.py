@@ -1,27 +1,18 @@
-"""Monitor show API function.
+"""Monitor filter-show API function.
 
 This function gets the contents of a monitor configuration list or, if no list
 is specified, returns the available list names.
-Matches CLI: wksc monitor show [<list-name>], MCP: wksm_monitor_show
+Matches CLI: wksc monitor filter show [<list-name>], MCP: wksm_monitor_filter_show
 """
 
 import typer
 
 from ...config import WKSConfig
-from ...monitor import MonitorController
 from ..base import StageResult
-
-LIST_NAMES = (
-    "include_paths",
-    "exclude_paths",
-    "include_dirnames",
-    "exclude_dirnames",
-    "include_globs",
-    "exclude_globs",
-)
+from ._LIST_NAMES import _LIST_NAMES
 
 
-def cmd_show(
+def cmd_filter_show(
     list_name: str | None = typer.Argument(
         None,
         help="Name of list to show (leave empty to list available)",
@@ -31,16 +22,21 @@ def cmd_show(
     """Get contents of a monitor configuration list or list available names."""
 
     config = WKSConfig.load()
+    monitor_cfg = config.monitor
 
     if not isinstance(list_name, str) or not list_name:
-        result = {"available_lists": list(LIST_NAMES), "success": True}
+        result = {"available_lists": list(_LIST_NAMES), "success": True}
         return StageResult(
             announce="Listing available monitor lists...",
             result="Available monitor lists",
             output=result,
         )
 
-    result = MonitorController.get_list(config.monitor, list_name)
+    if list_name not in _LIST_NAMES:
+        raise ValueError(f"Unknown list_name: {list_name!r}")
+
+    items = getattr(monitor_cfg, list_name, [])
+    result = {"list_name": list_name, "items": list(items), "count": len(items), "success": True}
 
     return StageResult(
         announce=f"Showing {list_name}...",

@@ -2,7 +2,7 @@
 
 import pytest
 
-from wks.monitor.config import MonitorConfig, ValidationError
+from wks.api.monitor.MonitorConfig import MonitorConfig, ValidationError
 
 
 @pytest.mark.unit

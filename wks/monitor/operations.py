@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-from wks.monitor.config import MonitorConfig
+from wks.api.monitor.MonitorConfig import MonitorConfig
 from wks.utils import canonicalize_path
 
 from .status import ListOperationResult

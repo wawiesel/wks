@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from wks.api.monitor import cmd_sync
-from wks.monitor.config import MonitorConfig
+from wks.api.monitor.MonitorConfig import MonitorConfig
 from wks.monitor_rules import MonitorRules
 
 
@@ -24,7 +24,6 @@ def test_monitor_sync_uses_mongo_settings_and_returns_stage_result(monkeypatch, 
         exclude_globs=[],
         database="wks.monitor",
         managed_directories={},
-        touch_weight=0.1,
         priority={},
         max_documents=1000000,
         prune_interval_secs=300.0,

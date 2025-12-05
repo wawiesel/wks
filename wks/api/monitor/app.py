@@ -9,12 +9,13 @@ import typer
 from ...display.cli import CLIDisplay
 from ...display.context import get_display
 from ..base import StageResult
-from .cmd_add import cmd_add
 from .cmd_check import cmd_check
-from .cmd_show import cmd_show
-from .cmd_managed_list import cmd_managed_list
-from .cmd_managed_set_priority import cmd_managed_set_priority
-from .cmd_remove import cmd_remove
+from .cmd_filter_show import cmd_filter_show
+from .cmd_filter_add import cmd_filter_add
+from .cmd_filter_remove import cmd_filter_remove
+from .cmd_priority_show import cmd_priority_show
+from .cmd_priority_remove import cmd_priority_remove
+from .cmd_priority_add import cmd_priority_add
 from .cmd_status import cmd_status
 from .cmd_sync import cmd_sync
 
@@ -166,13 +167,14 @@ monitor_app.command(name="check")(_handle_stage_result(cmd_check))
 monitor_app.command(name="sync")(_handle_stage_result(cmd_sync))
 
 # Filter subcommands
-filter_app.command(name="show")(_handle_stage_result(cmd_show))
-filter_app.command(name="add")(_handle_stage_result(cmd_add))
-filter_app.command(name="remove")(_handle_stage_result(cmd_remove))
+filter_app.command(name="show")(_handle_stage_result(cmd_filter_show))
+filter_app.command(name="add")(_handle_stage_result(cmd_filter_add))
+filter_app.command(name="remove")(_handle_stage_result(cmd_filter_remove))
 
 # Priority subcommands
-priority_app.command(name="show")(_handle_stage_result(cmd_managed_list))
-priority_app.command(name="set")(_handle_stage_result(cmd_managed_set_priority))
+priority_app.command(name="show")(_handle_stage_result(cmd_priority_show))
+priority_app.command(name="add")(_handle_stage_result(cmd_priority_add))
+priority_app.command(name="remove")(_handle_stage_result(cmd_priority_remove))
 
 # Attach sub-apps
 monitor_app.add_typer(filter_app, name="filter")

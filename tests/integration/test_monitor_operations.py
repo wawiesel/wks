@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from wks.monitor.config import MonitorConfig
+from wks.api.monitor.MonitorConfig import MonitorConfig
 from wks.monitor.operations import MonitorOperations, _find_matching_path_key
 from wks.utils import canonicalize_path
 

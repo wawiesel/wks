@@ -14,12 +14,15 @@ from collections.abc import Callable
 from typing import Any
 
 from .api.base import StageResult, get_typer_command_schema
-from .api.monitor.cmd_add import cmd_add
 from .api.monitor.cmd_check import cmd_check as monitor_check
-from .api.monitor.cmd_show import cmd_show
-from .api.monitor.cmd_remove import cmd_remove
+from .api.monitor.cmd_filter_show import cmd_filter_show as cmd_show
+from .api.monitor.cmd_filter_add import cmd_filter_add as cmd_add
+from .api.monitor.cmd_filter_remove import cmd_filter_remove as cmd_remove
 from .api.monitor.cmd_status import cmd_status as monitor_status
 from .api.monitor.cmd_sync import cmd_sync
+from .api.monitor.cmd_priority_show import cmd_priority_show
+from .api.monitor.cmd_priority_add import cmd_priority_add
+from .api.monitor.cmd_priority_remove import cmd_priority_remove
 from .config import WKSConfig
 from .mcp.result import MCPResult
 from .monitor import MonitorController
@@ -275,25 +278,31 @@ class MCPServer:
 
     @staticmethod
     def _define_monitor_managed_tools() -> dict[str, dict[str, Any]]:
-        """Define monitor managed directory tools.
-
-        Returns:
-            Dictionary of managed directory tool definitions
-        """
+        """Define monitor priority tools."""
         return {
             "wksm_monitor_priority_show": {
                 "description": "Get all managed directories with their priorities",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
-            "wksm_monitor_priority_set": {
-                "description": "Set or update priority for a managed directory",
+            "wksm_monitor_priority_add": {
+                "description": "Set or update priority for a managed directory (creates if missing)",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "path": {"type": "string", "description": "Directory path"},
-                        "priority": {"type": "integer", "description": "Priority score"},
+                        "priority": {"type": "number", "description": "Priority score (float)"},
                     },
                     "required": ["path", "priority"],
+                },
+            },
+            "wksm_monitor_priority_remove": {
+                "description": "Remove a managed directory",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Directory path to remove"},
+                    },
+                    "required": ["path"],
                 },
             },
         }
@@ -576,7 +585,7 @@ class MCPServer:
             ),
             "wksm_monitor_filter_show": lambda config, args: MCPResult(  # noqa: ARG005
                 success=True,
-                data=_extract_data_from_stage_result(cmd_show(list_name=args.get("list_name"))),
+                data=_extract_data_from_stage_result(cmd_filter_show(list_name=args.get("list_name"))),
             ).to_dict(),
             "wksm_monitor_filter_add": _require_params("list_name", "value")(
                 lambda config, args: MCPResult(  # noqa: ARG005
@@ -593,9 +602,22 @@ class MCPServer:
                     success=True, data=_extract_data_from_stage_result(cmd_sync(path=args["path"], recursive=args.get("recursive", False)))
                 ).to_dict()
             ),
-            "wksm_monitor_priority_show": lambda config, args: self._tool_monitor_managed_list(config),  # noqa: ARG005
-            "wksm_monitor_priority_set": _require_params("path", "priority")(
-                lambda config, args: self._tool_monitor_managed_set_priority(config, args["path"], args["priority"])
+            "wksm_monitor_priority_show": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True, data=_extract_data_from_stage_result(cmd_priority_show())
+            ).to_dict(),
+            "wksm_monitor_priority_add": _require_params("path", "priority")(
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True,
+                    data=_extract_data_from_stage_result(
+                        cmd_priority_add(path=args["path"], priority=args["priority"])
+                    ),
+                ).to_dict()
+            ),
+            "wksm_monitor_priority_remove": _require_params("path")(
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True,
+                    data=_extract_data_from_stage_result(cmd_priority_remove(path=args["path"])),
+                ).to_dict()
             ),
             "wksm_vault_status": lambda config, args: self._tool_vault_status(config),  # noqa: ARG005
             "wksm_vault_sync": lambda config, args: self._tool_vault_sync(config, args.get("batch_size", 1000)),
@@ -681,41 +703,13 @@ class MCPServer:
         result = MonitorController.get_managed_directories(config.monitor)
         return result.model_dump()
 
-    def _tool_monitor_managed_add(self, config: WKSConfig, path: str, priority: int) -> dict[str, Any]:
-        """Execute wks_monitor_managed_add tool."""
-        # Add managed directory
-        result = MonitorController.add_managed_directory(config.monitor, path, priority)
-
-        # Save if successful
-        if result.get("success"):
-            config.save()
-            result["note"] = "Restart the monitor service for changes to take effect"
-
-        return result
-
     def _tool_monitor_managed_remove(self, config: WKSConfig, path: str) -> dict[str, Any]:
-        """Execute wks_monitor_managed_remove tool."""
-        # Remove managed directory
-        result = MonitorController.remove_managed_directory(config.monitor, path)
+        """Legacy helper (unused)."""
+        return MonitorController.remove_managed_directory(config.monitor, path)
 
-        # Save if successful
-        if result.get("success"):
-            config.save()
-            result["note"] = "Restart the monitor service for changes to take effect"
-
-        return result
-
-    def _tool_monitor_managed_set_priority(self, config: WKSConfig, path: str, priority: int) -> dict[str, Any]:
-        """Execute wks_monitor_managed_set_priority tool."""
-        # Set priority
-        result = MonitorController.set_managed_priority(config.monitor, path, priority)
-
-        # Save if successful
-        if result.get("success"):
-            config.save()
-            result["note"] = "Restart the monitor service for changes to take effect"
-
-        return result
+    def _tool_monitor_managed_set_priority(self, config: WKSConfig, path: str, priority: float) -> dict[str, Any]:
+        """Legacy helper (unused)."""
+        return MonitorController.set_managed_priority(config.monitor, path, priority)
 
     def _tool_vault_status(self, config: WKSConfig) -> dict[str, Any]:
         """Execute wks_vault_status tool."""

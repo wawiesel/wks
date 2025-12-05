@@ -1,7 +1,7 @@
-"""Monitor managed-set-priority API function.
+"""Monitor priority-add API function.
 
-This function updates the priority of a managed directory.
-Matches CLI: wksc monitor managed-set-priority <path> <priority>, MCP: wksm_monitor_managed_set_priority
+This function sets or updates the priority of a managed directory.
+Matches CLI: wksc monitor priority add <path> <priority>, MCP: wksm_monitor_priority_add
 """
 
 import typer
@@ -10,11 +10,11 @@ from ...utils import canonicalize_path, find_matching_path_key
 from ..base import StageResult
 
 
-def cmd_managed_set_priority(
+def cmd_priority_add(
     path: str = typer.Argument(..., help="Path to set priority for"),
-    priority: int = typer.Argument(..., help="New priority of the path"),
+    priority: float = typer.Argument(..., help="New priority of the path"),
 ) -> StageResult:
-    """Update priority for a managed directory.
+    """Set or update priority for a managed directory (creates if missing).
 
     Args:
         path: Directory path
@@ -40,6 +40,7 @@ def cmd_managed_set_priority(
             "path_stored": path_resolved,
             "new_priority": priority,
             "created": True,
+            "already_exists": False,
         }
     else:
         # Update existing priority
@@ -52,6 +53,7 @@ def cmd_managed_set_priority(
             "new_priority": priority,
             "path_stored": existing_key,
             "created": False,
+            "already_exists": True,
         }
 
     config.save()
