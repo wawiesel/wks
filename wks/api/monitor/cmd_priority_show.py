@@ -20,15 +20,15 @@ def cmd_priority_show() -> StageResult:
     rules = MonitorRules.from_config(monitor_cfg)
 
     validation: dict[str, _PriorityDirectoryInfo] = {}
-    for path, priority in monitor_cfg.managed_directories.items():
+    for path, priority in monitor_cfg.priority.dirs.items():
         allowed, trace = rules.explain(Path(path).expanduser().resolve())
         validation[path] = _PriorityDirectoryInfo(
             priority=priority, valid=allowed, error=None if allowed else (trace[-1] if trace else "Excluded by rules")
         )
 
     result_obj = _PriorityDirectoriesResult(
-        priority_directories=monitor_cfg.managed_directories,
-        count=len(monitor_cfg.managed_directories),
+        priority_directories=monitor_cfg.priority.dirs,
+        count=len(monitor_cfg.priority.dirs),
         validation=validation,
     )
     result = result_obj.model_dump()

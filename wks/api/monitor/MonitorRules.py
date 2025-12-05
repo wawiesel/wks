@@ -47,12 +47,12 @@ class MonitorRules:
     @classmethod
     def from_config(cls, cfg: MonitorConfig) -> "MonitorRules":
         return cls(
-            include_paths=cfg.include_paths,
-            exclude_paths=cfg.exclude_paths,
-            include_dirnames=cfg.include_dirnames,
-            exclude_dirnames=cfg.exclude_dirnames,
-            include_globs=cfg.include_globs,
-            exclude_globs=cfg.exclude_globs,
+            include_paths=cfg.filter.include_paths,
+            exclude_paths=cfg.filter.exclude_paths,
+            include_dirnames=cfg.filter.include_dirnames,
+            exclude_dirnames=cfg.filter.exclude_dirnames,
+            include_globs=cfg.filter.include_globs,
+            exclude_globs=cfg.filter.exclude_globs,
         )
 
     def allows(self, path: Path) -> bool:

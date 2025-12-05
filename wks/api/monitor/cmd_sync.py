@@ -55,14 +55,14 @@ def cmd_sync(
     rules = MonitorRules.from_config(monitor_cfg)
 
     try:
-        db_name, collection_name = parse_database_key(monitor_cfg.database)
+        db_name, collection_name = parse_database_key(monitor_cfg.sync.database)
     except ValueError:
         sync_result = {
             "success": False,
-            "message": f"Invalid database name: {monitor_cfg.database}",
+            "message": f"Invalid database name: {monitor_cfg.sync.database}",
             "files_synced": 0,
             "files_skipped": 0,
-            "errors": [f"Invalid database name: {monitor_cfg.database}"],
+            "errors": [f"Invalid database name: {monitor_cfg.sync.database}"],
         }
         return StageResult(
             announce=f"Syncing {path}...",
@@ -99,10 +99,10 @@ def cmd_sync(
                 checksum = file_checksum(file_path)
                 now = datetime.now()
 
-                priority = calculate_priority(file_path, monitor_cfg.priority["dirs"], monitor_cfg.priority["weights"])
+                priority = calculate_priority(file_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump())
 
                 # Skip files below min_priority
-                if priority < monitor_cfg.min_priority:
+                if priority < monitor_cfg.sync.min_priority:
                     files_skipped += 1
                     continue
 
@@ -128,7 +128,7 @@ def cmd_sync(
                 errors.append(f"{file_path}: {exc}")
                 files_skipped += 1
     finally:
-        _enforce_monitor_db_limit(collection, monitor_cfg.max_documents, monitor_cfg.min_priority)
+        _enforce_monitor_db_limit(collection, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority)
         client.close()
 
     success = len(errors) == 0

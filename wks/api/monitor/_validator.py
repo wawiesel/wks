@@ -20,7 +20,7 @@ def _validator(cfg) -> _ConfigValidationResult:
     managed_validation: dict[str, _PriorityDirectoryInfo] = {}
     issues: list[str] = []
 
-    for path, priority in cfg.managed_directories.items():
+    for path, priority in cfg.priority.dirs.items():
         managed_resolved = Path(path).expanduser().resolve()
         allowed, trace = rules.explain(managed_resolved)
         err = None if allowed else (trace[-1] if trace else "Excluded by monitor rules")
@@ -32,12 +32,12 @@ def _validator(cfg) -> _ConfigValidationResult:
         issues=issues,
         redundancies=[],
         priority_directories=managed_validation,
-        include_paths=list(cfg.include_paths),
-        exclude_paths=list(cfg.exclude_paths),
-        include_dirnames=list(cfg.include_dirnames),
-        exclude_dirnames=list(cfg.exclude_dirnames),
-        include_globs=list(cfg.include_globs),
-        exclude_globs=list(cfg.exclude_globs),
+        include_paths=list(cfg.filter.include_paths),
+        exclude_paths=list(cfg.filter.exclude_paths),
+        include_dirnames=list(cfg.filter.include_dirnames),
+        exclude_dirnames=list(cfg.filter.exclude_dirnames),
+        include_globs=list(cfg.filter.include_globs),
+        exclude_globs=list(cfg.filter.exclude_globs),
         include_dirname_validation={},
         exclude_dirname_validation={},
         include_glob_validation={},

@@ -20,7 +20,7 @@ def cmd_status() -> StageResult:
     total_files = 0
     try:
         mongo_uri = config.mongo.uri  # type: ignore[attr-defined]
-        db_name, coll_name = parse_database_key(monitor_cfg.database)
+        db_name, coll_name = parse_database_key(monitor_cfg.sync.database)
         client = connect_to_mongo(mongo_uri)
         collection = client[db_name][coll_name]
         total_files = collection.count_documents({})

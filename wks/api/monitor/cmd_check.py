@@ -40,7 +40,7 @@ def cmd_check(
         }
         res_msg = "Path is not monitored"
     else:
-        priority = calculate_priority(test_path, monitor_cfg.priority["dirs"], monitor_cfg.priority["weights"])
+        priority = calculate_priority(test_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump())
         decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
         output = {
             "path": str(test_path),
