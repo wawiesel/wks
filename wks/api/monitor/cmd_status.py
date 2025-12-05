@@ -100,37 +100,37 @@ def cmd_status() -> StageResult:
         )
 
     # Paths table (include/exclude combined)
-    max_paths = max(len(monitor_cfg.include_paths), len(monitor_cfg.exclude_paths))
+    max_paths = max(len(monitor_cfg.filter.include_paths), len(monitor_cfg.filter.exclude_paths))
     if max_paths > 0:
         path_rows = []
         for i in range(max_paths):
             row = {
-                "Include": monitor_cfg.include_paths[i] if i < len(monitor_cfg.include_paths) else "",
-                "Exclude": monitor_cfg.exclude_paths[i] if i < len(monitor_cfg.exclude_paths) else "",
+                "Include": monitor_cfg.filter.include_paths[i] if i < len(monitor_cfg.filter.include_paths) else "",
+                "Exclude": monitor_cfg.filter.exclude_paths[i] if i < len(monitor_cfg.filter.exclude_paths) else "",
             }
             path_rows.append(row)
         tables.append({"data": path_rows, "headers": ["Include", "Exclude"], "title": "Paths"})
 
     # Dirnames table (include/exclude combined)
-    max_dirnames = max(len(monitor_cfg.include_dirnames), len(monitor_cfg.exclude_dirnames))
+    max_dirnames = max(len(monitor_cfg.filter.include_dirnames), len(monitor_cfg.filter.exclude_dirnames))
     if max_dirnames > 0:
         dirname_rows = []
         for i in range(max_dirnames):
             row = {
-                "Include": monitor_cfg.include_dirnames[i] if i < len(monitor_cfg.include_dirnames) else "",
-                "Exclude": monitor_cfg.exclude_dirnames[i] if i < len(monitor_cfg.exclude_dirnames) else "",
+                "Include": monitor_cfg.filter.include_dirnames[i] if i < len(monitor_cfg.filter.include_dirnames) else "",
+                "Exclude": monitor_cfg.filter.exclude_dirnames[i] if i < len(monitor_cfg.filter.exclude_dirnames) else "",
             }
             dirname_rows.append(row)
         tables.append({"data": dirname_rows, "headers": ["Include", "Exclude"], "title": "Dirnames"})
 
     # Globs table (include/exclude combined)
-    max_globs = max(len(monitor_cfg.include_globs), len(monitor_cfg.exclude_globs))
+    max_globs = max(len(monitor_cfg.filter.include_globs), len(monitor_cfg.filter.exclude_globs))
     if max_globs > 0:
         glob_rows = []
         for i in range(max_globs):
             row = {
-                "Include": monitor_cfg.include_globs[i] if i < len(monitor_cfg.include_globs) else "",
-                "Exclude": monitor_cfg.exclude_globs[i] if i < len(monitor_cfg.exclude_globs) else "",
+                "Include": monitor_cfg.filter.include_globs[i] if i < len(monitor_cfg.filter.include_globs) else "",
+                "Exclude": monitor_cfg.filter.exclude_globs[i] if i < len(monitor_cfg.filter.exclude_globs) else "",
             }
             glob_rows.append(row)
         tables.append({"data": glob_rows, "headers": ["Include", "Exclude"], "title": "Globs"})

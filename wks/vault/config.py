@@ -60,21 +60,14 @@ class VaultConfig:
         return errors
 
     def _validate_database_format(self) -> list[str]:
-        """Validate database string is in 'database.collection' format."""
+        """Validate database string is a non-empty collection name."""
         errors = []
 
-        if not isinstance(self.database, str) or "." not in self.database:
+        if not isinstance(self.database, str) or not self.database:
             errors.append(
-                f"vault.database must be in format 'database.collection' "
-                f"(found: {self.database!r}, expected: format like 'wks.vault')"
+                f"vault.database must be a non-empty string "
+                f"(found: {self.database!r}, expected: collection name like 'vault')"
             )
-        elif isinstance(self.database, str):
-            parts = self.database.split(".", 1)
-            if len(parts) != 2 or not parts[0] or not parts[1]:
-                errors.append(
-                    f"vault.database must be in format 'database.collection' "
-                    f"(found: {self.database!r}, expected: format like 'wks.vault' with both parts non-empty)"
-                )
 
         return errors
 

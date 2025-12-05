@@ -27,7 +27,7 @@ def cmd_filter_remove(
     resolve_path = list_name in ("include_paths", "exclude_paths")
     value_resolved = canonicalize_path(value) if resolve_path else value.strip()
 
-    items = getattr(monitor_cfg, list_name)
+    items = getattr(monitor_cfg.filter, list_name)
 
     removed_value = None
     for idx, item in enumerate(list(items)):

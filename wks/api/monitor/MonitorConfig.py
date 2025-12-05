@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from ._FilterConfig import _FilterConfig
 from ._PriorityConfig import _PriorityConfig
 from ._SyncConfig import _SyncConfig
 
@@ -13,14 +14,7 @@ class MonitorConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Filter section - inlined (no special validation needed)
-    include_paths: list[str] = Field(default_factory=list)
-    exclude_paths: list[str] = Field(default_factory=list)
-    include_dirnames: list[str] = Field(default_factory=list)
-    exclude_dirnames: list[str] = Field(default_factory=list)
-    include_globs: list[str] = Field(default_factory=list)
-    exclude_globs: list[str] = Field(default_factory=list)
-
+    filter: _FilterConfig = Field(default_factory=_FilterConfig)
     priority: _PriorityConfig = Field(default_factory=_PriorityConfig)
     sync: _SyncConfig = Field(...)
 
@@ -34,22 +28,16 @@ class MonitorConfig(BaseModel):
                 "(found: missing, expected: monitor section with filter, priority, sync)"
             )
 
-        # Flatten filter section into top-level fields
-        flattened = dict(monitor_config_data)
-        if "filter" in flattened:
-            filter_data = flattened.pop("filter")
-            flattened.update(filter_data)
-
         try:
-            return cls(**flattened)
+            return cls(**monitor_config_data)
         except ValidationError as e:
             raise e
 
     @classmethod
     def get_filter_list_names(cls) -> tuple[str, ...]:
         """Return tuple of filter list field names (single source of truth)."""
-        return tuple(name for name in cls.model_fields.keys() if name.startswith(("include", "exclude")))
+        return tuple(name for name in _FilterConfig.model_fields.keys() if name.startswith(("include", "exclude")))
 
     def get_rules(self) -> dict[str, list[str]]:
         """Return a dictionary of rule lists."""
-        return {name: getattr(self, name) for name in self.get_filter_list_names()}
+        return {name: getattr(self.filter, name) for name in self.get_filter_list_names()}

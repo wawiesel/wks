@@ -26,14 +26,14 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
             return False, trace
 
     # Normalize filter lists
-    include_roots = [Path(p).expanduser().resolve() for p in cfg.include_paths]
-    exclude_roots = [Path(p).expanduser().resolve() for p in cfg.exclude_paths]
+    include_roots = [Path(p).expanduser().resolve() for p in cfg.filter.include_paths]
+    exclude_roots = [Path(p).expanduser().resolve() for p in cfg.filter.exclude_paths]
     include_root_set = set(include_roots)
     exclude_root_set = set(exclude_roots)
-    include_dirnames = {d.strip() for d in cfg.include_dirnames if d and d.strip()}
-    exclude_dirnames = {d.strip() for d in cfg.exclude_dirnames if d and d.strip()}
-    include_globs = [g.strip() for g in cfg.include_globs if g]
-    exclude_globs = [g.strip() for g in cfg.exclude_globs if g]
+    include_dirnames = {d.strip() for d in cfg.filter.include_dirnames if d and d.strip()}
+    exclude_dirnames = {d.strip() for d in cfg.filter.exclude_dirnames if d and d.strip()}
+    include_globs = [g.strip() for g in cfg.filter.include_globs if g]
+    exclude_globs = [g.strip() for g in cfg.filter.exclude_globs if g]
 
     # Evaluate root paths
     root_allowed, root_reason = _evaluate_roots(resolved, include_root_set, exclude_root_set)

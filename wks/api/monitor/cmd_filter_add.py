@@ -44,7 +44,7 @@ def cmd_filter_add(
             err = "Directory names cannot contain path separators"
         else:
             opposite = "exclude_dirnames" if list_name == "include_dirnames" else "include_dirnames"
-            if entry in getattr(monitor_cfg, opposite):
+            if entry in getattr(monitor_cfg.filter, opposite):
                 err = f"Directory name '{entry}' already present in {opposite}"
             else:
                 err = None
@@ -77,7 +77,7 @@ def cmd_filter_add(
         value_to_store = value
 
     # Check duplicates
-    items = getattr(monitor_cfg, list_name)
+    items = getattr(monitor_cfg.filter, list_name)
     existing = None
     for item in items:
         cmp_item = canonicalize_path(item) if resolve_path else item

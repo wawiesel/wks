@@ -18,22 +18,25 @@ db_app = typer.Typer(
 @db_app.callback(invoke_without_command=True)
 def db_callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
+        from ...config import WKSConfig
         from .DbCollection import DbCollection
         try:
-            with DbCollection("wks._") as collection:
+            config = WKSConfig.load()
+            prefix = config.db.prefix
+            with DbCollection("_") as collection:
                 collection_names = sorted(collection._impl.list_collection_names())  # type: ignore[attr-defined]
         except Exception:
             collection_names = []
 
         if collection_names:
-            typer.echo("Available databases:", err=True)
+            typer.echo("Available collections:", err=True)
             for name in collection_names:
-                typer.echo(f"  {name} (accessed as wks.{name})", err=True)
-            typer.echo("\nUse 'wksc db query <name>' to query a database.", err=True)
+                typer.echo(f"  {name}", err=True)
+            typer.echo(f"\nUse 'wksc db query <name>' to query a collection.", err=True)
         else:
-            typer.echo("No databases found. Use 'wksc db query <name>' to query a database.", err=True)
+            typer.echo("No collections found. Use 'wksc db query <name>' to query a collection.", err=True)
         raise typer.Exit()
 
 
-# Register the query command - takes collection name as argument (e.g., "monitor" becomes "wks.monitor")
+# Register the query command - takes collection name as argument (prefix is auto-prepended from config)
 db_app.command(name="query")(handle_stage_result(cmd_query))
