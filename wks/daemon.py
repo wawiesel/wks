@@ -21,10 +21,7 @@ from .config import ConfigError, WKSConfig
 from .constants import WKS_HOME_EXT
 from .mcp_bridge import MCPBroker
 from .mcp_paths import mcp_socket_path
-from .monitor import (
-    start_monitoring,  # Filesystem monitoring (via monitor package)
-)
-from .monitor_rules import MonitorRules
+from .filesystem_monitor import start_monitoring
 from .priority import calculate_priority
 from .transform import TransformController
 from .uri_utils import uri_to_path
@@ -110,7 +107,6 @@ class WKSDaemon:
         vault_path: Path,
         base_dir: str,
         monitor_paths: list[Path],
-        monitor_rules: MonitorRules,
         auto_project_notes: bool = False,
         fs_rate_short_window_secs: float = 10.0,
         fs_rate_long_window_secs: float = 600.0,
@@ -133,7 +129,6 @@ class WKSDaemon:
         self._vault_sync_interval = float(self.config.vault.update_frequency_seconds)
         self._last_vault_sync = 0.0
         self.monitor_paths = [Path(p).expanduser().resolve() for p in monitor_paths]
-        self.monitor_rules = monitor_rules
         self.observer = None
         self.auto_project_notes = auto_project_notes
         # Single-instance lock
@@ -548,7 +543,7 @@ class WKSDaemon:
         self.observer = start_monitoring(
             directories=self.monitor_paths,
             state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",  # Temporary default
-            monitor_rules=self.monitor_rules,
+            monitor_config=self.config.monitor,
             on_change=self.on_file_change,
         )
 
@@ -624,7 +619,9 @@ class WKSDaemon:
 
     def _should_ignore_by_rules(self, path: Path) -> bool:
         try:
-            return not self.monitor_rules.allows(path)
+            from .api.monitor.explain_path import explain_path
+            allowed, _ = explain_path(self.config.monitor, path)
+            return not allowed
         except Exception:
             return False
 
@@ -1125,7 +1122,6 @@ if __name__ == "__main__":
 
     # Monitor config
     monitor_cfg_obj = config.monitor
-    monitor_rules = MonitorRules.from_config(monitor_cfg_obj)
     include_paths = [expand_path(p) for p in monitor_cfg_obj.filter.include_paths]
 
     # DB config
@@ -1152,7 +1148,6 @@ if __name__ == "__main__":
         base_dir=base_dir,
         auto_project_notes=auto_project_notes,
         monitor_paths=include_paths,
-        monitor_rules=monitor_rules,
         monitor_collection=monitor_collection,
     )
 

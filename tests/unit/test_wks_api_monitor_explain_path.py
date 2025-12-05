@@ -37,7 +37,7 @@ def test_explain_path_wks_home_excluded(tmp_path, monkeypatch):
     test_file.write_text("test")
 
     monkeypatch.setenv("WKS_HOME", str(wks_home))
-    monkeypatch.setattr("wks.api.monitor.explain_path.get_wks_home", lambda: wks_home)
+    monkeypatch.setattr("wks.api.monitor.explain_path.get_home_dir", lambda: wks_home)
 
     cfg = build_monitor_config()
     allowed, trace = explain_path(cfg, test_file)
@@ -192,7 +192,7 @@ def test_explain_path_valueerror_different_drives(tmp_path, monkeypatch):
     test_file = wks_home / "test.txt"
     test_file.write_text("test")
 
-    monkeypatch.setattr("wks.api.monitor.explain_path.get_wks_home", lambda: wks_home)
+    monkeypatch.setattr("wks.api.monitor.explain_path.get_home_dir", lambda: wks_home)
 
     cfg = build_monitor_config()
 

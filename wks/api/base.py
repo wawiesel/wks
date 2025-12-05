@@ -1,272 +1,119 @@
-"""Base utilities for API functions."""
+"""Base API utilities for WKS commands."""
 
-from __future__ import annotations
-
-import functools
-import inspect
+import sys
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 import typer
 
 
-def inject_config(func: Callable) -> Callable:
-    """Decorator to inject WKSConfig as first parameter if not provided."""
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # Lazy import to avoid circular dependency
-        from ..config import WKSConfig
-        
-        # Check if config is already provided
-        sig = inspect.signature(func)
-        param_names = list(sig.parameters.keys())
-
-        # If first param is 'config' and it's not provided, inject it
-        if param_names and param_names[0] == "config" and "config" not in kwargs and len(args) == 0:
-            kwargs["config"] = WKSConfig.load()
-        # If config is passed as positional arg, it's already there
-        elif len(args) > 0 and param_names and param_names[0] == "config":
-            pass  # Config already provided
-        else:
-            # Load config if needed
-            config = WKSConfig.load()
-            # Try to inject if function accepts config
-            if param_names and param_names[0] == "config":
-                kwargs["config"] = config
-
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
+@dataclass
 class StageResult:
-    """Result structure for 4-stage API pattern.
+    """Result from a command function following the 4-stage pattern.
 
-    API functions return this structure containing all 4 stages:
-    - announce: Message for Step 1
-    - progress: Generator or callback for Step 2 (optional)
-    - result: Message for Step 3
-    - output: Data for Step 4
+    Attributes:
+        announce: Initial status message (Stage 1)
+        result: Final result message (Stage 3)
+        output: Structured output data (Stage 4)
+        success: Whether the operation succeeded (inferred from output if not provided)
+        progress_callback: Optional callback for progress updates (Stage 2)
+        progress_total: Total items for progress tracking
     """
 
-    def __init__(
-        self,
-        announce: str,
-        result: str,
-        output: dict[str, Any],
-        progress_callback: Callable[[Callable], Any] | None = None,
-        *,
-        success: bool | None = None,
-        progress_total: int | None = None,
-    ):
-        """Initialize 4-stage result.
+    announce: str
+    result: str
+    output: dict[str, Any]
+    success: bool | None = None
+    progress_callback: Callable[[Callable], None] | None = None
+    progress_total: int | None = None
 
-        Args:
-            announce: Message for Step 1 (Announce)
-            result: Message for Step 3 (Result)
-            output: Data for Step 4 (Output)
-            progress_callback: Optional function that takes a progress update callback
-                and executes work, calling the callback with progress updates
-            success: Optional explicit success flag (falls back to output["success"])
-            progress_total: Optional total units for progress reporting
-        """
-        self.announce = announce
-        self.result = result
-        self.output = output
-        self.progress_callback = progress_callback
-        self.progress_total = progress_total
-        inferred_success = output.get("success", True) if isinstance(output, dict) else True
-        self.success = inferred_success if success is None else success
+    def __post_init__(self):
+        """Infer success from output if not explicitly set."""
+        if self.success is None:
+            # Infer success from output dict if it has a 'success' key
+            if isinstance(self.output, dict) and "success" in self.output:
+                self.success = bool(self.output["success"])
+            else:
+                # Default to True if no success indicator
+                self.success = True
 
 
-def handle_stage_result(func: Callable) -> Callable:
-    """Wrapper to execute StageResult and display output (CLI only).
-    
-    This wrapper is used only for CLI commands via Typer. MCP calls command functions
-    directly and validates parameters separately using `_require_params` decorator.
-    
-    This wrapper:
-    1. Checks for missing required arguments (None values) and shows help (CLI only)
-    2. Executes the function to get StageResult
-    3. Executes progress callback if present
-    4. Displays output using the display system
-    5. Exits with appropriate code based on success
-    
+def handle_stage_result(func: Callable[[], StageResult]) -> Callable[[], Any]:
+    """Wrap a command function to handle StageResult for CLI display.
+
+    This wrapper handles the 4-stage pattern for CLI:
+    1. Announce (print to stderr)
+    2. Progress (if callback provided)
+    3. Result (print to stderr)
+    4. Output (print to stdout as JSON)
+
     Args:
-        func: Function that returns a StageResult
-        
-    Returns:
-        Wrapped function that displays StageResult output
-    """
+        func: Function that returns StageResult
 
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # Check for missing required arguments (None values for positional args)
-        # This only applies to CLI - MCP validates parameters separately
-        sig = inspect.signature(func)
-        bound_args = sig.bind_partial(*args, **kwargs)
-        bound_args.apply_defaults()
-        
-        # Check if any positional arguments typed as Optional[str] are None
-        # Skip this check if the parameter has a default value (it's not truly required)
-        for param_name, param in sig.parameters.items():
-            if param_name in bound_args.arguments:
-                value = bound_args.arguments[param_name]
-                # If value is None and it's a positional argument
-                # AND it doesn't have a default (truly required)
-                # AND it's typed as Optional
-                if (value is None 
-                    and param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-                    and param.default == inspect.Parameter.empty):
-                    # Check if the annotation is Optional[str] or str | None
-                    param_type = param.annotation
-                    is_optional = False
-                    if param_type != inspect.Parameter.empty:
-                        # Check for Union or | syntax
-                        if hasattr(param_type, "__origin__"):
-                            origin = param_type.__origin__
-                            if hasattr(origin, "__name__") and origin.__name__ == "Union":
-                                is_optional = type(None) in getattr(param_type, "__args__", ())
-                        # Check for | syntax (Python 3.10+)
-                        if hasattr(param_type, "__args__"):
-                            args_list = param_type.__args__
-                            if type(None) in args_list:
-                                is_optional = True
-                    
-                    # If it's Optional and None, show help (CLI only)
-                    if is_optional:
-                        import click
-                        try:
-                            ctx = click.get_current_context()
-                            typer.echo(ctx.get_help(), err=True)
-                        except RuntimeError:
-                            typer.echo(f"Usage: {func.__name__} [OPTIONS] [ARGS]...\n\nMissing required argument: {param_name}\nUse -h or --help for more information.", err=True)
-                        raise typer.Exit(2)
-        
-        from ..display.context import get_display
-        from ..display.format import data_to_tables
-        
-        display = get_display()
+    Returns:
+        Wrapped function that handles display and exits with appropriate code
+    """
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         result = func(*args, **kwargs)
 
-        # If result is not a StageResult, return as-is (for backward compatibility)
-        if not isinstance(result, StageResult):
-            return result
+        # Stage 1: Announce
+        print(result.announce, file=sys.stderr)
 
-        # Step 1: Announce
-        if result.announce:
-            display.status(result.announce)
-
-        # Step 2: Progress (execute callback if present)
+        # Stage 2: Progress (if callback provided)
         if result.progress_callback:
-            with display.progress(total=result.progress_total or 1, description=result.announce or "Processing..."):
-                result.progress_callback(lambda *_args, **_kwargs: None)
+            result.progress_callback(lambda msg, progress: print(f"Progress: {msg} ({progress:.1%})", file=sys.stderr))
 
-        # Step 3: Result message
-        if result.result:
-            if result.success:
-                display.success(result.result)
-            else:
-                display.error(result.result)
+        # Stage 3: Result
+        print(result.result, file=sys.stderr)
 
-        # Step 4: Output (display tables)
-        if result.output:
-            tables = data_to_tables(result.output)
-            for table in tables:
-                display.table(
-                    table["data"],
-                    headers=table.get("headers"),
-                    title=table.get("title", ""),
-                )
+        # Stage 4: Output (JSON to stdout)
+        import json
+        print(json.dumps(result.output, indent=2))
 
         # Exit with appropriate code
-        import sys
         sys.exit(0 if result.success else 1)
 
     return wrapper
 
 
-def _find_typer_command(app: typer.Typer, command_name: str) -> Any:
-    """Find a Typer command by name."""
+def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict[str, Any]:
+    """Extract JSON schema from a Typer command for MCP tool definition.
+
+    Args:
+        app: Typer application
+        command_name: Name of the command
+
+    Returns:
+        JSON schema dictionary
+    """
+    # Find the command
     for cmd in app.registered_commands:
         if cmd.name == command_name:
-            return cmd
-    return None
-
-
-def _map_python_type_to_json_schema(python_type: type) -> dict[str, Any]:
-    """Map Python type to JSON Schema type."""
-    type_mapping = {
-        str: {"type": "string"},
-        int: {"type": "integer"},
-        float: {"type": "number"},
-        bool: {"type": "boolean"},
-        list: {"type": "array"},
-        dict: {"type": "object"},
-    }
-
-    # Handle Optional/Union types
-    origin = getattr(python_type, "__origin__", None)
-    if origin is not None:
-        # Handle Optional[X] which is Union[X, None]
-        args = getattr(python_type, "__args__", ())
-        if len(args) >= 2 and type(None) in args:
-            # Find the non-None type
-            non_none_type = next((arg for arg in args if arg is not type(None)), args[0] if args else str)
-            schema = _map_python_type_to_json_schema(non_none_type)
+            # Extract schema from command info
+            # This is a simplified version - full implementation would parse Typer's internal structure
+            schema: dict[str, Any] = {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+            # TODO: Parse actual command parameters from Typer
             return schema
 
-    return type_mapping.get(python_type, {"type": "string"})
+    raise ValueError(f"Command {command_name} not found in app")
 
 
-def _process_typer_parameter(
-    param_name: str,  # noqa: ARG001
-    param: inspect.Parameter,
-    param_type: Any,
-    default: Any,
-) -> tuple[dict[str, Any], bool]:
-    """Process a Typer parameter and return JSON schema property."""
-    prop_schema = _map_python_type_to_json_schema(param_type)
+def inject_config(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator to inject WKSConfig as first parameter.
 
-    # Add description if available from Typer
-    if hasattr(param, "help") and param.help:
-        prop_schema["description"] = param.help
+    Args:
+        func: Function to wrap
 
-    # Mark as required if no default
-    is_required = default is inspect.Parameter.empty
-
-    return prop_schema, is_required
-
-
-def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict[str, Any]:
-    """Generate MCP JSON schema from Typer command signature."""
-    command = _find_typer_command(app, command_name)
-    if not command:
-        raise ValueError(f"Command {command_name} not found")
-
-    func = command.callback
-    sig = inspect.signature(func)
-
-    properties = {}
-    required = []
-
-    for param_name, param in sig.parameters.items():
-        # Skip 'config' parameter (injected by decorator)
-        if param_name == "config":
-            continue
-
-        param_type = param.annotation if param.annotation != inspect.Parameter.empty else str
-        default = param.default if param.default != inspect.Parameter.empty else inspect.Parameter.empty
-
-        prop_schema, is_required = _process_typer_parameter(param_name, param, param_type, default)
-        properties[param_name] = prop_schema
-
-        if is_required:
-            required.append(param_name)
-
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": required if required else None,
-    }
+    Returns:
+        Wrapped function that automatically loads and injects config
+    """
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        from ..config import WKSConfig
+        config = WKSConfig.load()
+        return func(config, *args, **kwargs)
+    return wrapper

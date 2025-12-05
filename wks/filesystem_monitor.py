@@ -13,7 +13,6 @@ from typing import Any
 from watchdog.observers import Observer
 
 from .constants import WKS_HOME_EXT
-from .monitor_rules import MonitorRules
 
 try:
     from watchdog.observers.fsevents import FSEventsObserver  # macOS
@@ -43,7 +42,7 @@ class WKSFileMonitor(FileSystemEventHandler):
     def __init__(
         self,
         state_file: Path,
-        monitor_rules: MonitorRules,
+        monitor_config: Any,  # MonitorConfig from wks.api.monitor
         on_change: Callable[[str, str | tuple[str, str]], None] | None = None,
     ):
         """
@@ -51,15 +50,13 @@ class WKSFileMonitor(FileSystemEventHandler):
 
         Args:
             state_file: Path to JSON file for tracking state
+            monitor_config: MonitorConfig instance for path filtering
             on_change: Callback function(event_type, file_path) when files change
-            ignore_patterns: Set of patterns to ignore (e.g., {'.git', 'venv'})
-            ignore_dirs: Set of directory names to completely ignore
-            dot_whitelist: Iterable of dot-directory names that should never be ignored
         """
         super().__init__()
         self.state_file = Path(state_file)
         self.on_change = on_change
-        self.monitor_rules = monitor_rules
+        self.monitor_config = monitor_config
         self.state = self._load_state()
 
     def _load_state(self) -> dict:
@@ -89,7 +86,9 @@ class WKSFileMonitor(FileSystemEventHandler):
         """Check if path should be ignored based on monitor rules."""
         try:
             path_str = path.decode() if isinstance(path, bytes) else path
-            return not self.monitor_rules.allows(Path(path_str))
+            from .api.monitor.explain_path import explain_path
+            allowed, _ = explain_path(self.monitor_config, Path(path_str))
+            return not allowed
         except Exception:
             return False
 
@@ -209,7 +208,7 @@ class WKSFileMonitor(FileSystemEventHandler):
 def start_monitoring(
     directories: list[Path],
     state_file: Path,
-    monitor_rules: MonitorRules,
+    monitor_config: Any,  # MonitorConfig from wks.api.monitor
     on_change: Callable[[str, str | tuple[str, str]], None] | None = None,
 ) -> Any:  # Observer type from watchdog
     """
@@ -218,15 +217,15 @@ def start_monitoring(
     Args:
         directories: List of directories to monitor
         state_file: Path to state tracking file
+        monitor_config: MonitorConfig instance for path filtering
         on_change: Optional callback for changes
-        monitor_rules: Shared include/exclude evaluation helper
 
     Returns:
         Observer instance (call .stop() to stop monitoring)
     """
     event_handler = WKSFileMonitor(
         state_file=state_file,
-        monitor_rules=monitor_rules,
+        monitor_config=monitor_config,
         on_change=on_change,
     )
     # Try observers in order of preference with fallback on start failures
@@ -273,20 +272,28 @@ if __name__ == "__main__":
             console.print(f"[yellow]{event_type}[/yellow]: {path_info}")
 
     # Monitor home directory
-    from .monitor_rules import MonitorRules
+    from .api.monitor.MonitorConfig import MonitorConfig
+    from .api.monitor._FilterConfig import _FilterConfig
+    from .api.monitor._PriorityConfig import _PriorityConfig
+    from .api.monitor._SyncConfig import _SyncConfig
 
-    monitor_rules = MonitorRules(
-        include_paths=[],
-        exclude_paths=[],
-        include_dirnames=[],
-        exclude_dirnames=[],
-        include_globs=[],
-        exclude_globs=[],
+    monitor_config = MonitorConfig(
+        filter=_FilterConfig(
+            include_paths=[],
+            exclude_paths=[],
+            include_dirnames=[],
+            exclude_dirnames=[],
+            include_globs=[],
+            exclude_globs=[],
+        ),
+        database="monitor",
+        priority=_PriorityConfig(dirs={}, weights={}),
+        sync=_SyncConfig(max_documents=1000000, min_priority=0.0, prune_interval_secs=300.0),
     )
     observer = start_monitoring(
         directories=[Path.home()],
         state_file=Path.home() / WKS_HOME_EXT / "monitor_state.json",
-        monitor_rules=monitor_rules,
+        monitor_config=monitor_config,
         on_change=on_file_change,
     )
 

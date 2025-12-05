@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ...utils import get_wks_home
+from ..config.get_home_dir import get_home_dir
 from ._evaluate_roots import _evaluate_roots
 from ._matches_glob import _matches_glob
 from .MonitorConfig import MonitorConfig
@@ -14,7 +14,7 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
     resolved = path.expanduser().resolve()
 
     # Check if path is within WKS home directory (automatically excluded)
-    wks_home = get_wks_home()
+    wks_home = get_home_dir()
     try:
         if resolved == wks_home or resolved.is_relative_to(wks_home):
             trace.append(f"In WKS home directory {wks_home} (automatically ignored)")

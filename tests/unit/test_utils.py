@@ -5,12 +5,15 @@ from unittest.mock import patch
 
 import pytest
 
+from wks.api.config.get_home_dir import get_home_dir
+
+# Backwards compatibility aliases for tests
+get_wks_home = get_home_dir
+wks_home_path = get_home_dir
 from wks.utils import (
     expand_path,
     file_checksum,
     get_package_version,
-    get_wks_home,
-    wks_home_path,
 )
 
 

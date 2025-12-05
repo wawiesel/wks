@@ -12,8 +12,13 @@ export WKS_HOME="/custom/path"  # Config at /custom/path/config.json
 
 **Viewing Configuration**:
 ```bash
-wksc config    # Print effective config (table in CLI, JSON in MCP)
+wksc config              # List all configuration section names
+wksc config <section>    # Show configuration for a specific section (e.g., 'monitor', 'db', 'vault')
 ```
+
+**Output Format**:
+- **CLI**: Auto-formatted table for section names, JSON for section data
+- **MCP**: JSON format for both section names and section data
 
 ## Configuration Requirements
 

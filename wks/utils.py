@@ -43,53 +43,6 @@ def expand_path(path: str) -> Path:
     return Path(path).expanduser()
 
 
-def get_wks_home() -> Path:
-    """Get WKS home directory path.
-
-    Checks WKS_HOME environment variable first, defaults to ~/.wks if not set.
-
-    Returns:
-        Path to WKS home directory
-
-    Examples:
-        >>> # WKS_HOME not set
-        >>> get_wks_home()
-        Path("/Users/user/.wks")
-        >>> # WKS_HOME="/custom/path"
-        >>> get_wks_home()
-        Path("/custom/path")
-    """
-    wks_home_env = os.environ.get("WKS_HOME")
-    if wks_home_env:
-        return Path(wks_home_env).expanduser().resolve()
-
-    # Check HOME environment variable (for test isolation)
-    home_env = os.environ.get("HOME")
-    if home_env:
-        return Path(home_env) / WKS_HOME_EXT
-
-    return Path.home() / WKS_HOME_EXT
-
-
-def wks_home_path(*parts: str) -> Path:
-    """Get path under WKS home directory.
-
-    Args:
-        *parts: Path components to join (e.g., "config.json", "mongodb", etc.)
-
-    Returns:
-        Absolute path under WKS home directory
-
-    Examples:
-        >>> wks_home_path("config.json")
-        Path("/Users/user/.wks/config.json")
-        >>> wks_home_path("mongodb", "data")
-        Path("/Users/user/.wks/mongodb/data")
-    """
-    wks_home = get_wks_home()
-    return wks_home / Path(*parts) if parts else wks_home
-
-
 def canonicalize_path(path_str: str) -> str:
     """Normalize a path string for comparison.
 
