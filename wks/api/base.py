@@ -81,13 +81,17 @@ class StageResult:
 
 
 def handle_stage_result(func: Callable) -> Callable:
-    """Wrapper to execute StageResult and display output.
+    """Wrapper to execute StageResult and display output (CLI only).
+    
+    This wrapper is used only for CLI commands via Typer. MCP calls command functions
+    directly and validates parameters separately using `_require_params` decorator.
     
     This wrapper:
-    1. Executes the function to get StageResult
-    2. Executes progress callback if present
-    3. Displays output using the display system
-    4. Exits with appropriate code based on success
+    1. Checks for missing required arguments (None values) and shows help (CLI only)
+    2. Executes the function to get StageResult
+    3. Executes progress callback if present
+    4. Displays output using the display system
+    5. Exits with appropriate code based on success
     
     Args:
         func: Function that returns a StageResult
@@ -98,6 +102,43 @@ def handle_stage_result(func: Callable) -> Callable:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        # Check for missing required arguments (None values for positional args)
+        # This only applies to CLI - MCP validates parameters separately
+        sig = inspect.signature(func)
+        bound_args = sig.bind_partial(*args, **kwargs)
+        bound_args.apply_defaults()
+        
+        # Check if any positional arguments typed as Optional[str] are None
+        for param_name, param in sig.parameters.items():
+            if param_name in bound_args.arguments:
+                value = bound_args.arguments[param_name]
+                # If value is None and it's a positional argument
+                if value is None and param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                    # Check if the annotation is Optional[str] or str | None
+                    param_type = param.annotation
+                    is_optional = False
+                    if param_type != inspect.Parameter.empty:
+                        # Check for Union or | syntax
+                        if hasattr(param_type, "__origin__"):
+                            origin = param_type.__origin__
+                            if hasattr(origin, "__name__") and origin.__name__ == "Union":
+                                is_optional = type(None) in getattr(param_type, "__args__", ())
+                        # Check for | syntax (Python 3.10+)
+                        if hasattr(param_type, "__args__"):
+                            args_list = param_type.__args__
+                            if type(None) in args_list:
+                                is_optional = True
+                    
+                    # If it's Optional and None, show help (CLI only)
+                    if is_optional:
+                        import click
+                        try:
+                            ctx = click.get_current_context()
+                            typer.echo(ctx.get_help(), err=True)
+                        except RuntimeError:
+                            typer.echo(f"Usage: {func.__name__} [OPTIONS] [ARGS]...\n\nMissing required argument: {param_name}\nUse -h or --help for more information.", err=True)
+                        raise typer.Exit(2)
+        
         from ..display.context import get_display
         from ..display.format import data_to_tables
         

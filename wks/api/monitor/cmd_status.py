@@ -4,6 +4,7 @@ This function provides filesystem monitoring status and configuration.
 Matches CLI: wksc monitor status, MCP: wksm_monitor_status
 """
 
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -19,21 +20,54 @@ def cmd_status() -> StageResult:
     config = WKSConfig.load()
     monitor_cfg = config.monitor
 
-    # Count tracked files via DB helpers
+    # Count tracked files and time-based statistics via DB helpers
     total_files = 0
+    time_based_counts: dict[str, int] = {}
+    client = None
     try:
         mongo_uri = config.mongo.uri  # type: ignore[attr-defined]
         db_name, coll_name = parse_database_key(monitor_cfg.sync.database)
         client = connect_to_mongo(mongo_uri)
         collection = client[db_name][coll_name]
         total_files = collection.count_documents({})
+
+        # Calculate time ranges
+        now = datetime.now()
+        time_ranges = [
+            ("Last hour", timedelta(hours=1)),
+            ("4 hours", timedelta(hours=4)),
+            ("8 hours", timedelta(hours=8)),
+            ("1 day", timedelta(days=1)),
+            ("3 days", timedelta(days=3)),
+            ("7 days", timedelta(days=7)),
+            ("2 weeks", timedelta(weeks=2)),
+            ("1 month", timedelta(days=30)),
+            ("3 months", timedelta(days=90)),
+            ("6 months", timedelta(days=180)),
+            ("1 year", timedelta(days=365)),
+        ]
+
+        # Count files in each time range
+        for label, delta in time_ranges:
+            cutoff = now - delta
+            cutoff_iso = cutoff.isoformat()
+            # Query for files with timestamp >= cutoff (modified within the range)
+            count = collection.count_documents({"timestamp": {"$gte": cutoff_iso}})
+            time_based_counts[label] = count
+
+        # Count files older than 1 year
+        one_year_ago = (now - timedelta(days=365)).isoformat()
+        time_based_counts[">1 year"] = collection.count_documents({"timestamp": {"$lt": one_year_ago}})
+
     except Exception:
         total_files = 0
+        time_based_counts = {}
     finally:
-        try:
-            client.close()  # type: ignore[name-defined]
-        except Exception:
-            pass
+        if client:
+            try:
+                client.close()
+            except Exception:
+                pass
 
     # Validate priority directories
     issues: list[str] = []
@@ -62,91 +96,107 @@ def cmd_status() -> StageResult:
         for path, priority_info in priority_directories.items()
     ]
 
-    # Build structured output with _tables key for custom formatting
-    result = {
-        "_tables": [
-            # Summary table
-            {
-                "data": [
-                    {"Metric": "Tracked Files", "Value": total_files},
-                    {"Metric": "Issues", "Value": len(issues)},
-                    {"Metric": "Priority Directories", "Value": len(priority_directories)},
-                ],
-                "headers": ["Metric", "Value"],
-                "title": "Summary",
-            },
-            # Priority directories table
+    # Build combined include/exclude tables
+    tables = []
+
+    # Priority directories table
+    if priority_dir_rows:
+        tables.append(
             {
                 "data": priority_dir_rows,
                 "headers": ["Path", "Priority", "Valid", "Error"],
                 "title": "Priority Directories",
-            },
-        ],
-        "tracked_files": total_files,
-        "issues": issues,
-        "priority_directories": priority_directories,
-        "success": len(issues) == 0,
-    }
+            }
+        )
 
-    # Add filter tables only if they have content
-    if monitor_cfg.include_paths:
-        result["_tables"].append(
-            {
-                "data": [{"Path": p} for p in monitor_cfg.include_paths],
-                "headers": ["Path"],
-                "title": "Include Paths",
+    # Paths table (include/exclude combined)
+    max_paths = max(len(monitor_cfg.include_paths), len(monitor_cfg.exclude_paths))
+    if max_paths > 0:
+        path_rows = []
+        for i in range(max_paths):
+            row = {
+                "Include": monitor_cfg.include_paths[i] if i < len(monitor_cfg.include_paths) else "",
+                "Exclude": monitor_cfg.exclude_paths[i] if i < len(monitor_cfg.exclude_paths) else "",
             }
-        )
-    if monitor_cfg.exclude_paths:
-        result["_tables"].append(
-            {
-                "data": [{"Path": p} for p in monitor_cfg.exclude_paths],
-                "headers": ["Path"],
-                "title": "Exclude Paths",
+            path_rows.append(row)
+        tables.append({"data": path_rows, "headers": ["Include", "Exclude"], "title": "Paths"})
+
+    # Dirnames table (include/exclude combined)
+    max_dirnames = max(len(monitor_cfg.include_dirnames), len(monitor_cfg.exclude_dirnames))
+    if max_dirnames > 0:
+        dirname_rows = []
+        for i in range(max_dirnames):
+            row = {
+                "Include": monitor_cfg.include_dirnames[i] if i < len(monitor_cfg.include_dirnames) else "",
+                "Exclude": monitor_cfg.exclude_dirnames[i] if i < len(monitor_cfg.exclude_dirnames) else "",
             }
-        )
-    if monitor_cfg.include_dirnames:
-        result["_tables"].append(
-            {
-                "data": [{"Directory": d} for d in monitor_cfg.include_dirnames],
-                "headers": ["Directory"],
-                "title": "Include Dirnames",
+            dirname_rows.append(row)
+        tables.append({"data": dirname_rows, "headers": ["Include", "Exclude"], "title": "Dirnames"})
+
+    # Globs table (include/exclude combined)
+    max_globs = max(len(monitor_cfg.include_globs), len(monitor_cfg.exclude_globs))
+    if max_globs > 0:
+        glob_rows = []
+        for i in range(max_globs):
+            row = {
+                "Include": monitor_cfg.include_globs[i] if i < len(monitor_cfg.include_globs) else "",
+                "Exclude": monitor_cfg.exclude_globs[i] if i < len(monitor_cfg.exclude_globs) else "",
             }
-        )
-    if monitor_cfg.exclude_dirnames:
-        result["_tables"].append(
-            {
-                "data": [{"Directory": d} for d in monitor_cfg.exclude_dirnames],
-                "headers": ["Directory"],
-                "title": "Exclude Dirnames",
-            }
-        )
-    if monitor_cfg.include_globs:
-        result["_tables"].append(
-            {
-                "data": [{"Pattern": g} for g in monitor_cfg.include_globs],
-                "headers": ["Pattern"],
-                "title": "Include Globs",
-            }
-        )
-    if monitor_cfg.exclude_globs:
-        result["_tables"].append(
-            {
-                "data": [{"Pattern": g} for g in monitor_cfg.exclude_globs],
-                "headers": ["Pattern"],
-                "title": "Exclude Globs",
-            }
-        )
+            glob_rows.append(row)
+        tables.append({"data": glob_rows, "headers": ["Include", "Exclude"], "title": "Globs"})
 
     # Add issues table if there are any
     if issues:
-        result["_tables"].append(
+        tables.append(
             {
                 "data": [{"Issue": issue} for issue in issues],
                 "headers": ["Issue"],
                 "title": "Issues",
             }
         )
+
+    # Summary table (last)
+    summary_data = [
+        {"Metric": "Tracked Files", "Value": total_files},
+        {"Metric": "Issues", "Value": len(issues)},
+        {"Metric": "Priority Directories", "Value": len(priority_directories)},
+    ]
+
+    # Add time-based file counts
+    if time_based_counts:
+        summary_data.append({"Metric": "", "Value": ""})  # Separator
+        for label in [
+            "Last hour",
+            "4 hours",
+            "8 hours",
+            "1 day",
+            "3 days",
+            "7 days",
+            "2 weeks",
+            "1 month",
+            "3 months",
+            "6 months",
+            "1 year",
+            ">1 year",
+        ]:
+            count = time_based_counts.get(label, 0)
+            summary_data.append({"Metric": f"Modified ({label})", "Value": count})
+
+    tables.append(
+        {
+            "data": summary_data,
+            "headers": ["Metric", "Value"],
+            "title": "Summary",
+        }
+    )
+
+    result = {
+        "_tables": tables,
+        "tracked_files": total_files,
+        "issues": issues,
+        "priority_directories": priority_directories,
+        "success": len(issues) == 0,
+    }
 
     result_msg = (
         f"Monitor status retrieved ({len(issues)} issue(s) found)"

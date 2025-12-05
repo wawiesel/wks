@@ -18,6 +18,17 @@ This directory implements the monitor API following a strict one-file-per-functi
 
 **Unit test public functions**: All public functions (those without a leading `_`) must have unit tests. Private helpers (`_*`) are tested indirectly through their callers.
 
+**Help on missing arguments**: Commands that require positional arguments should use `str | None = typer.Argument(None, ...)` for those arguments. The `handle_stage_result()` wrapper automatically detects `None` values and shows help (CLI only), so no manual checks are needed. MCP validates parameters separately using `_require_params` decorator, so this behavior only applies to CLI. Example:
+
+```python
+def cmd_sync(
+    path: str | None = typer.Argument(None, help="File or directory path to sync"),
+) -> StageResult:
+    # No need to check for None - handle_stage_result does it automatically for CLI
+    # MCP validates parameters separately before calling this function
+    # ... rest of function
+```
+
 ### Naming Conventions
 
 - **Public commands**: `cmd_<name>.py` → `cmd_<name>()`

@@ -19,7 +19,17 @@ monitor_app = typer.Typer(
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
     context_settings={"help_option_names": ["-h", "--help"]},
+    invoke_without_command=True,
 )
+
+
+@monitor_app.callback(invoke_without_command=True)
+def monitor_callback(ctx: typer.Context) -> None:
+    """Monitor operations - shows available commands."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
+
 
 # Sub-apps for filter and priority
 filter_app = typer.Typer(

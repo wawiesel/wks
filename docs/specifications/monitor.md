@@ -99,6 +99,8 @@ Complete control over monitoring configuration and status.
 
 Human-friendly wrappers for the MCP tools.
 
+**Help behavior**: When a CLI command is called without required arguments, it automatically shows help. Commands use `str | None = typer.Argument(None, ...)` for required positional arguments. The `handle_stage_result()` wrapper automatically detects `None` values and displays help (CLI only). MCP validates parameters separately using `_require_params` decorator before calling command functions, so this help behavior only applies to CLI. This provides a consistent user experience across all CLI commands without requiring manual checks in each function.
+
 - `wksc monitor status` — show monitoring statistics including validation (exits with error code if configuration issues found)
 - `wksc monitor check <path>` — check if path would be monitored and report priority
 - `wksc monitor sync <path> [--recursive]` — force update of file or directory into monitor database (works without service)

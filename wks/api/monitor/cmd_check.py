@@ -15,7 +15,7 @@ from .calculate_priority import calculate_priority
 
 
 def cmd_check(
-    path: str = typer.Argument(..., help="File or directory path to check"),
+    path: str | None = typer.Argument(None, help="File or directory path to check"),
 ) -> StageResult:
     """Check if a path would be monitored and calculate its priority."""
     config = WKSConfig.load()

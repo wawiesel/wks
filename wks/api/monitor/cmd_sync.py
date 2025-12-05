@@ -20,7 +20,7 @@ from .explain_path import explain_path
 
 
 def cmd_sync(
-    path: str = typer.Argument(..., help="File or directory path to sync"),
+    path: str | None = typer.Argument(None, help="File or directory path to sync"),
     recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
 ) -> StageResult:
     """Force update of file or directory into monitor database.
