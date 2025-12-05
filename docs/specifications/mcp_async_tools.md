@@ -1,5 +1,8 @@
 # MCP Async Tools Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
+
 ## Overview
 
 For long-running operations (both CLI and MCP), WKS uses a unified 4-step pattern that provides immediate feedback, progress with time estimates, and final results. This improves UX by giving users immediate feedback and managing expectations for operations that may take significant time.

@@ -1,5 +1,7 @@
 # Infrastructure Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
 ## Database
 
 All layers store data in a configurable database backend. See [Database Specification](database.md) for details on database abstraction and supported backends.
@@ -11,7 +13,6 @@ Database operations:
 wksc db query monitor              # Query filesystem state
 wksc db query vault                # Query knowledge graph links
 wksc db query transform            # Query transform cache metadata
-wksc db query wks.monitor         # Query using full database.collection key
 wksc db query monitor --query '{"priority": {"$gt": 10}}'  # Query with filter
 
 # Reset databases (destructive)
