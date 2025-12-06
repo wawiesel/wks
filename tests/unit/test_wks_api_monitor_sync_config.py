@@ -1,10 +1,10 @@
 """Unit tests for _SyncConfig validation."""
 
 import pytest
-
 from pydantic import ValidationError
 
 from wks.api.monitor._SyncConfig import _SyncConfig
+
 pytestmark = pytest.mark.monitor
 
 
@@ -27,4 +27,3 @@ def test_sync_config_database_empty_collection():
     with pytest.raises(ValidationError) as exc:
         _SyncConfig(database="database.", max_documents=1000, min_priority=0.0, prune_interval_secs=300.0)
     assert "must be in format 'database.collection'" in str(exc.value)
-

@@ -29,4 +29,3 @@ def _enforce_monitor_db_limit(collection: DbCollection, max_docs: int, min_prior
     except Exception:
         # Silent on purpose: sync should not crash on enforcement issues
         return
-

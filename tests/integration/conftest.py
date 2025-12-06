@@ -4,11 +4,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from wks.config import (
     DisplayConfig,
     MetricsConfig,
-    DbConfig,
     MonitorConfig,
     TransformConfig,
     VaultConfig,
@@ -163,6 +161,7 @@ def daemon_config(tmp_path):
         vault_type="obsidian",
     )
     from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+
     mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
     from wks.transform.config import CacheConfig

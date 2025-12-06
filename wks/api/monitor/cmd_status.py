@@ -15,7 +15,7 @@ from .explain_path import explain_path
 
 def cmd_status() -> StageResult:
     """Get filesystem monitoring status and configuration."""
-    from ...config import WKSConfig
+    from ...api.config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
     monitor_cfg = config.monitor
@@ -117,8 +117,12 @@ def cmd_status() -> StageResult:
         dirname_rows = []
         for i in range(max_dirnames):
             row = {
-                "Include": monitor_cfg.filter.include_dirnames[i] if i < len(monitor_cfg.filter.include_dirnames) else "",
-                "Exclude": monitor_cfg.filter.exclude_dirnames[i] if i < len(monitor_cfg.filter.exclude_dirnames) else "",
+                "Include": monitor_cfg.filter.include_dirnames[i]
+                if i < len(monitor_cfg.filter.include_dirnames)
+                else "",
+                "Exclude": monitor_cfg.filter.exclude_dirnames[i]
+                if i < len(monitor_cfg.filter.exclude_dirnames)
+                else "",
             }
             dirname_rows.append(row)
         tables.append({"data": dirname_rows, "headers": ["Include", "Exclude"], "title": "Dirnames"})
@@ -188,11 +192,7 @@ def cmd_status() -> StageResult:
         "success": len(issues) == 0,
     }
 
-    result_msg = (
-        f"Monitor status retrieved ({len(issues)} issue(s) found)"
-        if issues
-        else "Monitor status retrieved"
-    )
+    result_msg = f"Monitor status retrieved ({len(issues)} issue(s) found)" if issues else "Monitor status retrieved"
 
     return StageResult(
         announce="Checking monitor status...",

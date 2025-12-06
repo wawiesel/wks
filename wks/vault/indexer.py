@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
 
-from ..config import WKSConfig
+from ...api.config.WKSConfig import WKSConfig
 from .constants import (
     DOC_TYPE_LINK,
     DOC_TYPE_META,

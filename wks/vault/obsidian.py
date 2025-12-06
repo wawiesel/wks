@@ -29,7 +29,7 @@ class ObsidianVault:
         self.machine = (machine_name or platform.node().split(".")[0]).strip()
         self._recompute_paths()
         try:
-            from ..config import WKSConfig
+            from ...api.config.WKSConfig import WKSConfig
 
             cfg = WKSConfig.load()
             self.timestamp_format = cfg.display.timestamp_format

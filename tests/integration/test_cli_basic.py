@@ -194,9 +194,11 @@ def test_cli_monitor_check(mock_load_config):
     mock_config.monitor = MagicMock()
     mock_load_config.return_value = mock_config
 
-    with patch("wks.api.monitor.cmd_check.MonitorRules.from_config", return_value=DummyRules()), patch(
-        "wks.api.monitor.cmd_check.calculate_priority", return_value=5
-    ), patch("pathlib.Path.exists", return_value=True):
+    with (
+        patch("wks.api.monitor.cmd_check.MonitorRules.from_config", return_value=DummyRules()),
+        patch("wks.api.monitor.cmd_check.calculate_priority", return_value=5),
+        patch("pathlib.Path.exists", return_value=True),
+    ):
         rc, _out, _err = run_cli(["monitor", "check", "/some/path"])
         assert rc == 0
 
@@ -207,7 +209,6 @@ def test_cli_monitor_status_with_issues(mock_load_config):
     """Test wksc monitor status with issues returns 1."""
     from unittest.mock import MagicMock, patch
 
-    from wks.api.monitor._MonitorStatus import _MonitorStatus
 
     mock_config = MagicMock()
     mock_config.monitor = MagicMock()
@@ -251,8 +252,6 @@ def test_cli_monitor_status_no_issues(mock_connect, mock_load_config):
     assert rc == 0
 
 
-
-
 @pytest.mark.monitor
 @pytest.mark.monitor
 @patch("wks.config.WKSConfig.load")
@@ -266,8 +265,9 @@ def test_cli_monitor_priority_add(mock_save, mock_load_config):
     mock_config.monitor.managed_directories = {}
     mock_load_config.return_value = mock_config
 
-    with patch("wks.api.monitor.cmd_priority_add.find_matching_path_key", return_value=None), patch(
-        "wks.api.monitor.cmd_priority_add.canonicalize_path", return_value="/path"
+    with (
+        patch("wks.api.monitor.cmd_priority_add.find_matching_path_key", return_value=None),
+        patch("wks.api.monitor.cmd_priority_add.canonicalize_path", return_value="/path"),
     ):
         rc, _out, _err = run_cli(["monitor", "priority", "add", "/path", "5"])
         assert rc == 0
@@ -286,8 +286,9 @@ def test_cli_monitor_priority_remove(mock_save, mock_load_config):
     mock_config.monitor.managed_directories = {"/path": 5}
     mock_load_config.return_value = mock_config
 
-    with patch("wks.api.monitor.cmd_priority_remove.find_matching_path_key", return_value="/path"), patch(
-        "wks.api.monitor.cmd_priority_remove.canonicalize_path", return_value="/path"
+    with (
+        patch("wks.api.monitor.cmd_priority_remove.find_matching_path_key", return_value="/path"),
+        patch("wks.api.monitor.cmd_priority_remove.canonicalize_path", return_value="/path"),
     ):
         rc, _out, _err = run_cli(["monitor", "priority", "remove", "/path"])
         assert rc == 0
@@ -306,8 +307,9 @@ def test_cli_monitor_priority_add_updates(mock_save, mock_load_config):
     mock_config.monitor.managed_directories = {"/path": 5}
     mock_load_config.return_value = mock_config
 
-    with patch("wks.api.monitor.cmd_priority_add.find_matching_path_key", return_value="/path"), patch(
-        "wks.api.monitor.cmd_priority_add.canonicalize_path", return_value="/path"
+    with (
+        patch("wks.api.monitor.cmd_priority_add.find_matching_path_key", return_value="/path"),
+        patch("wks.api.monitor.cmd_priority_add.canonicalize_path", return_value="/path"),
     ):
         rc, _out, _err = run_cli(["monitor", "priority", "add", "/path", "10"])
         assert rc == 0

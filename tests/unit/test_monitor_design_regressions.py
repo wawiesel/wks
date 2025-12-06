@@ -2,10 +2,11 @@ import types
 from pathlib import Path
 
 import pytest
+from wks.monitor_rules import MonitorRules
 
 from wks.api.monitor import cmd_sync
 from wks.api.monitor.MonitorConfig import MonitorConfig
-from wks.monitor_rules import MonitorRules
+
 pytestmark = pytest.mark.monitor
 
 

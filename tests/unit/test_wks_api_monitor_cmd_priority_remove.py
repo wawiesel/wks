@@ -1,10 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_priority_remove module."""
 
-import pytest
-from types import SimpleNamespace
 
-from wks.api.monitor import cmd_priority_remove
+import pytest
+
 from tests.unit.conftest import DummyConfig
+from wks.api.monitor import cmd_priority_remove
+
 pytestmark = pytest.mark.monitor
 
 
@@ -29,6 +30,7 @@ def test_cmd_priority_remove_not_found(monkeypatch):
     result = cmd_priority_remove.cmd_priority_remove(path="/tmp/miss")
     assert result.output["not_found"] is True
     assert cfg.save_calls == 0
+
 
 def test_cmd_priority_remove_success(monkeypatch):
     from wks.api.monitor.MonitorConfig import MonitorConfig

@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from wks.api.monitor.MonitorConfig import MonitorConfig
 from wks.api.monitor.explain_path import explain_path
+from wks.api.monitor.MonitorConfig import MonitorConfig
+
 pytestmark = pytest.mark.monitor
 
 

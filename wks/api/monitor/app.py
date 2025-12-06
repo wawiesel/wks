@@ -48,10 +48,38 @@ priority_app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
+
 # Register commands with StageResult handler
+def check_command(
+    ctx: typer.Context,
+    path: str | None = typer.Argument(None, help="File or directory path to check"),
+) -> None:
+    """Check if a path would be monitored and calculate its priority."""
+    if path is None:
+        typer.echo("Error: Path is required", err=True)
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit(1)
+    wrapped = handle_stage_result(cmd_check)
+    wrapped(path)
+
+
+def sync_command(
+    ctx: typer.Context,
+    path: str | None = typer.Argument(None, help="File or directory path to sync"),
+    recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
+) -> None:
+    """Force update of file or directory into monitor database."""
+    if path is None:
+        typer.echo("Error: Path is required", err=True)
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit(1)
+    wrapped = handle_stage_result(cmd_sync)
+    wrapped(path, recursive)
+
+
 monitor_app.command(name="status")(handle_stage_result(cmd_status))
-monitor_app.command(name="check")(handle_stage_result(cmd_check))
-monitor_app.command(name="sync")(handle_stage_result(cmd_sync))
+monitor_app.command(name="check")(check_command)
+monitor_app.command(name="sync")(sync_command)
 
 # Filter subcommands
 filter_app.command(name="show")(handle_stage_result(cmd_filter_show))

@@ -12,7 +12,8 @@ from typing import Any
 from pymongo import MongoClient
 from pymongo.collection import Collection
 
-from ..config import WKSConfig
+from wks.api.config.WKSConfig import WKSConfig
+
 from .constants import (
     DOC_TYPE_LINK,
     LINK_TYPE_EMBED,

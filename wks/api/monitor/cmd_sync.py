@@ -6,11 +6,8 @@ Matches CLI: wksc monitor sync <path> [--recursive], MCP: wksm_monitor_sync
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
-import typer
-
-from ...config import WKSConfig
+from ...api.config.WKSConfig import WKSConfig
 from ...utils import file_checksum
 from ..base import StageResult
 from ..db.DbCollection import DbCollection
@@ -20,8 +17,8 @@ from .explain_path import explain_path
 
 
 def cmd_sync(
-    path: str | None = typer.Argument(None, help="File or directory path to sync"),
-    recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
+    path: str,
+    recursive: bool = False,
 ) -> StageResult:
     """Force update of file or directory into monitor database.
 
@@ -59,14 +56,13 @@ def cmd_sync(
     else:
         files_to_process = [p for p in path_obj.iterdir() if p.is_file()]
 
-    total_files = len(files_to_process)
     files_synced = 0
     files_skipped = 0
     errors: list[str] = []
 
     with DbCollection(config.db, monitor_cfg.database) as collection:
         try:
-            for idx, file_path in enumerate(files_to_process, start=1):
+            for file_path in files_to_process:
                 if not explain_path(monitor_cfg, file_path)[0]:
                     files_skipped += 1
                     continue
@@ -76,7 +72,9 @@ def cmd_sync(
                     checksum = file_checksum(file_path)
                     now = datetime.now()
 
-                    priority = calculate_priority(file_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump())
+                    priority = calculate_priority(
+                        file_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump()
+                    )
 
                     # Skip files below min_priority
                     if priority < monitor_cfg.sync.min_priority:

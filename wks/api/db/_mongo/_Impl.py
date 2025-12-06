@@ -5,8 +5,8 @@ from typing import Any
 from pymongo import MongoClient
 from pymongo.collection import Collection
 
-from ..DbConfig import DbConfig
 from .._AbstractImpl import _AbstractImpl
+from ..DbConfig import DbConfig
 from ._DbConfigData import _DbConfigData
 
 

@@ -1,10 +1,11 @@
 """Unit tests for _matches_glob function (tested through explain_path)."""
 
-import pytest
-from pathlib import Path
 
-from wks.api.monitor.MonitorConfig import MonitorConfig
+import pytest
+
 from wks.api.monitor.explain_path import explain_path
+from wks.api.monitor.MonitorConfig import MonitorConfig
+
 pytestmark = pytest.mark.monitor
 
 
@@ -56,4 +57,3 @@ def test_matches_glob_exception_handling(tmp_path, monkeypatch):
     # Should handle exception gracefully
     allowed, trace = explain_path(cfg, test_file)
     # Function should not crash
-

@@ -17,11 +17,12 @@ from typing import Any, cast
 
 from pymongo.collection import Collection
 
-from .config import ConfigError, WKSConfig
+from .api.config.ConfigError import ConfigError
+from .api.config.WKSConfig import WKSConfig
 from .constants import WKS_HOME_EXT
+from .filesystem_monitor import start_monitoring
 from .mcp_bridge import MCPBroker
 from .mcp_paths import mcp_socket_path
-from .filesystem_monitor import start_monitoring
 from .priority import calculate_priority
 from .transform import TransformController
 from .uri_utils import uri_to_path
@@ -565,6 +566,7 @@ class WKSDaemon:
         guard = self._mongo_guard
         if guard is None:
             from .api.db.get_database_client import get_database_client
+
             client = get_database_client(self.config.db)
             # MongoGuard needs the URI string, so we get it from the client
             uri = getattr(client, "uri", None) or str(client.address)
@@ -620,6 +622,7 @@ class WKSDaemon:
     def _should_ignore_by_rules(self, path: Path) -> bool:
         try:
             from .api.monitor.explain_path import explain_path
+
             allowed, _ = explain_path(self.config.monitor, path)
             return not allowed
         except Exception:
@@ -1125,13 +1128,14 @@ if __name__ == "__main__":
     include_paths = [expand_path(p) for p in monitor_cfg_obj.filter.include_paths]
 
     # DB config
-    from .api.db.get_database_client import get_database_client
     from .api.db.get_database import get_database
+    from .api.db.get_database_client import get_database_client
 
     client = get_database_client(config.db)
     # ensure_mongo_running needs URI - this is MongoDB-specific, so we get it from config
     if config.db.type == "mongo":
         from .api.db._mongo._DbConfigData import _DbConfigData
+
         if isinstance(config.db.data, _DbConfigData):
             mongo_uri = config.db.data.uri
             ensure_mongo_running(mongo_uri, record_start=True)

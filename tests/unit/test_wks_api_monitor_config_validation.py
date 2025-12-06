@@ -1,10 +1,10 @@
 """Unit tests for MonitorConfig validation error handling."""
 
 import pytest
-
 from pydantic import ValidationError
 
 from wks.api.monitor.MonitorConfig import MonitorConfig
+
 pytestmark = pytest.mark.monitor
 
 
@@ -38,4 +38,3 @@ def test_monitor_config_invalid_priority_type():
             }
         )
     assert isinstance(exc.value, ValidationError)
-

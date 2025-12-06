@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from ....constants import WKS_HOME_EXT
+from ...constants import WKS_HOME_EXT
 
 
 def get_home_dir(*parts: str) -> Path:
@@ -40,4 +40,3 @@ def get_home_dir(*parts: str) -> Path:
             wks_home = Path.home() / WKS_HOME_EXT
 
     return wks_home / Path(*parts) if parts else wks_home
-

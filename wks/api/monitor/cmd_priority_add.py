@@ -23,7 +23,7 @@ def cmd_priority_add(
     Returns:
         StageResult with all 4 stages of data
     """
-    from ...config import WKSConfig
+    from ...api.config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
 

@@ -9,17 +9,19 @@ All layers store data in a configurable database backend. See [Database Specific
 Database operations:
 
 ```bash
-# Query databases (simple pass-through to MongoDB)
-wksc db query monitor              # Query filesystem state
-wksc db query vault                # Query knowledge graph links
-wksc db query transform            # Query transform cache metadata
-wksc db query monitor --query '{"priority": {"$gt": 10}}'  # Query with filter
+# List collections
+wksc db list                           # List available collections
 
-# Reset databases (destructive)
-wksc db reset monitor        # Clear filesystem state
-wksc db reset vault          # Clear link graph
-wksc db reset transform      # Clear transform cache and DB
+# Show collections (collection names are examples, not fixed)
+wksc db show <collection>              # Show collection contents
+wksc db show <collection> --query '{"key": "value"}'  # Show with filter
+wksc db show <collection> --limit 100  # Limit number of results
+
+# Reset collections (destructive)
+wksc db reset <collection>        # Clear all documents from collection
 ```
+
+**Collection Names**: Collection names are specified without the database prefix. The prefix from `db.prefix` configuration is automatically prepended. For example, with `prefix: "wks"`, specifying `monitor` accesses the `wks.monitor` collection. Users must never specify the prefix in collection names - only provide the collection name itself.
 
 ## Service
 

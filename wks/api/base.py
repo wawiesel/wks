@@ -1,11 +1,14 @@
 """Base API utilities for WKS commands."""
 
+import functools
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, TypeVar
 
 import typer
+
+F = TypeVar("F", bound=Callable)
 
 
 @dataclass
@@ -23,7 +26,7 @@ class StageResult:
 
     announce: str
     result: str
-    output: dict[str, Any]
+    output: dict
     success: bool | None = None
     progress_callback: Callable[[Callable], None] | None = None
     progress_total: int | None = None
@@ -39,7 +42,7 @@ class StageResult:
                 self.success = True
 
 
-def handle_stage_result(func: Callable[[], StageResult]) -> Callable[[], Any]:
+def handle_stage_result(func: F) -> F:
     """Wrap a command function to handle StageResult for CLI display.
 
     This wrapper handles the 4-stage pattern for CLI:
@@ -54,30 +57,51 @@ def handle_stage_result(func: Callable[[], StageResult]) -> Callable[[], Any]:
     Returns:
         Wrapped function that handles display and exits with appropriate code
     """
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
 
+        # Get display context
+        from wks.display.context import get_display
+
+        display = get_display("cli")
+
         # Stage 1: Announce
-        print(result.announce, file=sys.stderr)
+        display.status(result.announce)
 
         # Stage 2: Progress (if callback provided)
         if result.progress_callback:
-            result.progress_callback(lambda msg, progress: print(f"Progress: {msg} ({progress:.1%})", file=sys.stderr))
+            result.progress_callback(lambda msg, progress: display.info(f"Progress: {msg} ({progress:.1%})"))
 
         # Stage 3: Result
-        print(result.result, file=sys.stderr)
+        if result.success:
+            display.success(result.result)
+        else:
+            display.error(result.result)
 
-        # Stage 4: Output (JSON to stdout)
-        import json
-        print(json.dumps(result.output, indent=2))
+        # Stage 4: Output - check for tables first
+        if "_tables" in result.output:
+            from wks.display.format import data_to_tables
+
+            tables = data_to_tables(result.output)
+            for table_data in tables:
+                display.table(
+                    table_data["data"],
+                    headers=table_data.get("headers"),
+                    title=table_data.get("title", ""),
+                )
+        else:
+            # Output JSON for non-table data
+            display.json_output(result.output)
 
         # Exit with appropriate code
         sys.exit(0 if result.success else 1)
 
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
-def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict[str, Any]:
+def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict:
     """Extract JSON schema from a Typer command for MCP tool definition.
 
     Args:
@@ -103,7 +127,7 @@ def get_typer_command_schema(app: typer.Typer, command_name: str) -> dict[str, A
     raise ValueError(f"Command {command_name} not found in app")
 
 
-def inject_config(func: Callable[..., Any]) -> Callable[..., Any]:
+def inject_config(func: F) -> F:
     """Decorator to inject WKSConfig as first parameter.
 
     Args:
@@ -112,8 +136,11 @@ def inject_config(func: Callable[..., Any]) -> Callable[..., Any]:
     Returns:
         Wrapped function that automatically loads and injects config
     """
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        from ..config import WKSConfig
+
+    def wrapper(*args, **kwargs):
+        from ..config.WKSConfig import WKSConfig
+
         config = WKSConfig.load()
         return func(config, *args, **kwargs)
+
     return wrapper

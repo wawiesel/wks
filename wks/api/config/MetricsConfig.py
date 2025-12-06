@@ -23,4 +23,3 @@ class MetricsConfig:
             fs_rate_short_weight=float(metrics_cfg.get("fs_rate_short_weight", 0.8)),
             fs_rate_long_weight=float(metrics_cfg.get("fs_rate_long_weight", 0.2)),
         )
-

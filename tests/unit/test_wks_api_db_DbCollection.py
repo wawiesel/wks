@@ -1,9 +1,9 @@
 """Unit tests for wks.api.db.DbCollection module."""
 
 import builtins
-import pytest
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from wks.api.db.DbCollection import DbCollection
 from wks.api.db.DbConfig import DbConfig
@@ -19,13 +19,7 @@ def build_db_config(type: str = "mongo", prefix: str = "wks", uri: str = "mongod
         data = {}
     else:
         data = {}
-    return DbConfig(
-        type=type,
-        prefix=prefix,
-        data=data
-    )
-
-
+    return DbConfig(type=type, prefix=prefix, data=data)
 
 
 class TestDbCollectionInit:
@@ -71,7 +65,7 @@ class TestDbCollectionContextManager:
         mock_impl = MagicMock()
         mock_impl.__enter__ = MagicMock(return_value=mock_impl)
 
-        with patch('builtins.__import__') as mock_import:
+        with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
             mock_import.return_value = mock_module
@@ -91,7 +85,7 @@ class TestDbCollectionContextManager:
         mock_impl = MagicMock()
         mock_impl.__enter__ = MagicMock(return_value=mock_impl)
 
-        with patch('builtins.__import__') as mock_import:
+        with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
             mock_import.return_value = mock_module
@@ -104,6 +98,7 @@ class TestDbCollectionContextManager:
         """Test __enter__ raises ValueError for unsupported backend."""
         # Create a DbConfig with invalid type by directly constructing it
         from wks.api.db._mongo._DbConfigData import _DbConfigData
+
         db_config = DbConfig(type="invalid", data=_DbConfigData(uri="mongodb://localhost:27017/"))
 
         collection = DbCollection(db_config, "monitor")
@@ -272,16 +267,17 @@ class TestDbCollectionQuery:
         mock_impl.__enter__ = MagicMock(return_value=mock_impl)
 
         original_import = builtins.__import__
-        with patch('builtins.__import__') as mock_import:
+        with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
             # Make __import__ return mock_module for any wks.api.db._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and 'wks.api.db._' in name and '_Impl' in name:
+                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
+
             mock_import.side_effect = import_side_effect
 
             result = DbCollection.query(db_config, "monitor", {"status": "active"}, limit=10)
@@ -301,16 +297,17 @@ class TestDbCollectionQuery:
         mock_impl.__enter__ = MagicMock(return_value=mock_impl)
 
         original_import = builtins.__import__
-        with patch('builtins.__import__') as mock_import:
+        with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
             # Make __import__ return mock_module for any wks.api.db._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and 'wks.api.db._' in name and '_Impl' in name:
+                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
+
             mock_import.side_effect = import_side_effect
 
             result = DbCollection.query(db_config, "monitor", None, limit=50)
@@ -330,15 +327,16 @@ class TestDbCollectionQuery:
         mock_impl.__enter__ = MagicMock(return_value=mock_impl)
 
         original_import = builtins.__import__
-        with patch('builtins.__import__') as mock_import:
+        with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
             # Make __import__ return the module when called with the expected arguments
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and 'wks.api.db._' in name and '_Impl' in name:
+                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
                     return mock_module
                 return original_import(name, *args, **kwargs)
+
             mock_import.side_effect = import_side_effect
 
             result = DbCollection.query(db_config, "monitor", {}, limit=50, projection={"name": 1})
@@ -357,16 +355,17 @@ class TestDbCollectionQuery:
         mock_impl.__enter__ = MagicMock(return_value=mock_impl)
 
         original_import = builtins.__import__
-        with patch('builtins.__import__') as mock_import:
+        with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
             # Make __import__ return mock_module for any wks.api.db._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and 'wks.api.db._' in name and '_Impl' in name:
+                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
+
             mock_import.side_effect = import_side_effect
 
             result = DbCollection.query(db_config, "monitor", {}, limit=50, projection=None)
@@ -386,16 +385,17 @@ class TestDbCollectionQuery:
         mock_impl.__enter__ = MagicMock(return_value=mock_impl)
 
         original_import = builtins.__import__
-        with patch('builtins.__import__') as mock_import:
+        with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
             # Make __import__ return mock_module for any wks.api.db._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and 'wks.api.db._' in name and '_Impl' in name:
+                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
+
             mock_import.side_effect = import_side_effect
 
             result = DbCollection.query(db_config, "custom.monitor", {}, limit=50)

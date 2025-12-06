@@ -7,9 +7,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Import shared fixtures
-from tests.integration.conftest import FakeCollection, FakeIndexer, FakeObserver, FakeVault
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import (
     DisplayConfig,
@@ -20,8 +17,11 @@ from wks.config import (
     VaultConfig,
     WKSConfig,
 )
-from wks.daemon import HealthData, WKSDaemon
 from wks.monitor_rules import MonitorRules
+
+# Import shared fixtures
+from tests.integration.conftest import FakeCollection, FakeIndexer, FakeObserver, FakeVault
+from wks.daemon import HealthData, WKSDaemon
 
 
 def build_daemon_config(tmp_path):

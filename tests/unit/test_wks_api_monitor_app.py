@@ -3,7 +3,6 @@
 import pytest
 
 from wks.api import base as api_base
-from wks.api.monitor import app
 
 pytestmark = pytest.mark.monitor
 
@@ -23,8 +22,9 @@ def test_monitor_app_wrapper_non_cli(monkeypatch):
         progress_total=2,
     )
 
-    from wks.api.base import handle_stage_result
     import pytest
+
+    from wks.api.base import handle_stage_result
 
     wrapped = handle_stage_result(lambda: stage)
     # handle_stage_result calls sys.exit() for CLI, so we need to catch SystemExit

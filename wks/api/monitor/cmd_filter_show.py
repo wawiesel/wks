@@ -7,7 +7,7 @@ Matches CLI: wksc monitor filter show [<list-name>], MCP: wksm_monitor_filter_sh
 
 import typer
 
-from ...config import WKSConfig
+from ...api.config.WKSConfig import WKSConfig
 from ..base import StageResult
 from .MonitorConfig import MonitorConfig
 
@@ -43,4 +43,3 @@ def cmd_filter_show(
         result=f"Showing {list_name} ({result.get('count', 0)} items)",
         output=result,
     )
-

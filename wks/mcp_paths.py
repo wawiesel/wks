@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from .api.config.get_home_dir import get_home_dir
+from wks.api.config.get_home_dir import get_home_dir
 
 
 def mcp_socket_path() -> Path:

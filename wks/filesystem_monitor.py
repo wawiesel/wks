@@ -87,6 +87,7 @@ class WKSFileMonitor(FileSystemEventHandler):
         try:
             path_str = path.decode() if isinstance(path, bytes) else path
             from .api.monitor.explain_path import explain_path
+
             allowed, _ = explain_path(self.monitor_config, Path(path_str))
             return not allowed
         except Exception:
@@ -272,10 +273,10 @@ if __name__ == "__main__":
             console.print(f"[yellow]{event_type}[/yellow]: {path_info}")
 
     # Monitor home directory
-    from .api.monitor.MonitorConfig import MonitorConfig
     from .api.monitor._FilterConfig import _FilterConfig
     from .api.monitor._PriorityConfig import _PriorityConfig
     from .api.monitor._SyncConfig import _SyncConfig
+    from .api.monitor.MonitorConfig import MonitorConfig
 
     monitor_config = MonitorConfig(
         filter=_FilterConfig(

@@ -10,4 +10,3 @@ class _PriorityConfig(BaseModel):
 
     dirs: dict[str, float] = Field(default_factory=dict)
     weights: _PriorityWeightsConfig = Field(default_factory=_PriorityWeightsConfig)
-

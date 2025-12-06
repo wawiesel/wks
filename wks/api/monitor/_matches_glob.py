@@ -18,4 +18,3 @@ def _matches_glob(patterns: list[str], path_obj: Path) -> bool:
         except Exception:
             continue
     return False
-

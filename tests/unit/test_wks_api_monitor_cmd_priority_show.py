@@ -1,10 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_priority_show module."""
 
-import pytest
-from types import SimpleNamespace
 
-from wks.api.monitor import cmd_priority_show
+import pytest
+
 from tests.unit.conftest import DummyConfig
+from wks.api.monitor import cmd_priority_show
+
 pytestmark = pytest.mark.monitor
 
 

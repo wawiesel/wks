@@ -23,51 +23,42 @@ def run_cli(args):
     return rc, out_buf.getvalue(), err_buf.getvalue()
 
 
-@patch("wks.api.db.cmd_query.db_query")
-def test_cli_db_query_monitor(mock_db_query):
-    """wksc db query monitor should query wks.monitor database directly."""
-    mock_db_query.return_value = {"results": [], "count": 0}
+@patch("wks.api.db.DbCollection.DbCollection.query")
+def test_cli_db_show_monitor(mock_query):
+    """wksc db show monitor should show monitor collection."""
+    mock_query.return_value = {"results": [], "count": 0}
 
-    rc, out, err = run_cli(["db", "query", "monitor"])
+    rc, out, err = run_cli(["db", "show", "monitor"])
 
     assert rc == 0, f"Expected exit code 0, got {rc}. stdout: {out}, stderr: {err}"
-    # projection parameter has default None, so it's not passed (defaults to {"_id": 0} inside function)
-    mock_db_query.assert_called_once_with("wks.monitor", None, 50)
+    # DbCollection.query is called with collection name without prefix
+    mock_query.assert_called_once()
+    assert mock_query.call_args[0][1] == "monitor"  # collection name
     # Output is displayed via display layer; we just ensure something was printed
     assert out.strip() != "" or err.strip() != ""
 
 
-@patch("wks.api.db.cmd_query.db_query")
-def test_cli_db_query_vault(mock_db_query):
-    """wksc db query vault should query wks.vault database directly."""
-    mock_db_query.return_value = {"results": [], "count": 0}
+@patch("wks.api.db.DbCollection.DbCollection.query")
+def test_cli_db_show_vault(mock_query):
+    """wksc db show vault should show vault collection."""
+    mock_query.return_value = {"results": [], "count": 0}
 
-    rc, out, err = run_cli(["db", "query", "vault"])
+    rc, out, err = run_cli(["db", "show", "vault"])
 
     assert rc == 0
-    mock_db_query.assert_called_once_with("wks.vault", None, 50)
+    mock_query.assert_called_once()
+    assert mock_query.call_args[0][1] == "vault"  # collection name
     assert out.strip() != "" or err.strip() != ""
 
 
-@patch("wks.api.db.cmd_query.db_query")
-def test_cli_db_query_transform(mock_db_query):
-    """wksc db query transform should query wks.transform database directly."""
-    mock_db_query.return_value = {"results": [], "count": 0}
+@patch("wks.api.db.DbCollection.DbCollection.query")
+def test_cli_db_show_transform(mock_query):
+    """wksc db show transform should show transform collection."""
+    mock_query.return_value = {"results": [], "count": 0}
 
-    rc, out, err = run_cli(["db", "query", "transform"])
-
-    assert rc == 0
-    mock_db_query.assert_called_once_with("wks.transform", None, 50)
-    assert out.strip() != "" or err.strip() != ""
-
-
-@patch("wks.api.db.cmd_query.db_query")
-def test_cli_db_query_with_wks_prefix(mock_db_query):
-    """wksc db query with wks. prefix should work (no double prefix)."""
-    mock_db_query.return_value = {"results": [], "count": 0}
-
-    rc, out, err = run_cli(["db", "query", "wks.custom"])
+    rc, out, err = run_cli(["db", "show", "transform"])
 
     assert rc == 0
-    mock_db_query.assert_called_once_with("wks.custom", None, 50)
+    mock_query.assert_called_once()
+    assert mock_query.call_args[0][1] == "transform"  # collection name
     assert out.strip() != "" or err.strip() != ""

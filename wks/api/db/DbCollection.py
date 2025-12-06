@@ -20,13 +20,14 @@ class DbCollection:
 
         # Validate backend type using DbConfig registry (single source of truth)
         from .DbConfig import _BACKEND_REGISTRY
+
         backend_registry = _BACKEND_REGISTRY
         if backend_type not in backend_registry:
             raise ValueError(f"Unsupported backend type: {backend_type!r} (supported: {list(backend_registry.keys())})")
 
         # Import collection class directly from backend _Impl module
         module = __import__(f"wks.api.db._{backend_type}._Impl", fromlist=[""])
-        collection_class = getattr(module, "_Impl")
+        collection_class = module._Impl
         self._impl = collection_class(self.db_config, self.db_name, self.coll_name)
         self._impl.__enter__()
         return self
@@ -52,13 +53,20 @@ class DbCollection:
         return self._impl.find(filter, projection)  # type: ignore[union-attr]
 
     @classmethod
-    def query(cls, db_config: DbConfig, collection_name: str, query_filter: dict[str, Any] | None = None, limit: int = 50, projection: dict[str, Any] | None = None) -> dict[str, Any]:
+    def query(
+        cls,
+        db_config: DbConfig,
+        collection_name: str,
+        query_filter: dict[str, Any] | None = None,
+        limit: int = 50,
+        projection: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Query database with simple pass-through interface.
 
         Args:
             db_config: Database configuration
             collection_name: Collection name (e.g., "monitor"). Prefix from config is automatically prepended.
-                For backwards compatibility, "database.collection" format is also accepted.
+                Collection names must NOT include the prefix - only specify the collection name itself.
             query_filter: Query filter dict (MongoDB-style). Examples:
                 - `{"status": "active"}` - exact match
                 - `{"age": {"$gt": 18}}` - greater than

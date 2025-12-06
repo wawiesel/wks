@@ -1,10 +1,12 @@
 """Unit tests for wks.api.monitor.cmd_filter_show module."""
 
-import pytest
 from types import SimpleNamespace
 
-from wks.api.monitor import cmd_filter_show
+import pytest
+
 from tests.unit.conftest import DummyConfig
+from wks.api.monitor import cmd_filter_show
+
 pytestmark = pytest.mark.monitor
 
 
@@ -15,6 +17,7 @@ def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch):
     result = cmd_filter_show.cmd_filter_show()
     assert result.output["available_lists"]
     assert result.output["success"] is True
+
 
 def test_cmd_filter_show_returns_list(monkeypatch):
     from wks.api.monitor.MonitorConfig import MonitorConfig
@@ -35,6 +38,7 @@ def test_cmd_filter_show_returns_list(monkeypatch):
     result = cmd_filter_show.cmd_filter_show(list_name="include_paths")
     assert result.output["count"] == 2
     assert "Showing" in result.result
+
 
 def test_cmd_filter_show_unknown_list_name(monkeypatch):
     """Test cmd_filter_show with unknown list_name."""

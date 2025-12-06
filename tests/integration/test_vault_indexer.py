@@ -3,9 +3,9 @@ from unittest.mock import Mock, patch
 
 import mongomock
 import pytest
-
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import VaultConfig, WKSConfig
+
 from wks.vault.constants import (
     LINK_TYPE_EMBED,
     LINK_TYPE_MARKDOWN_URL,

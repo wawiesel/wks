@@ -1,6 +1,6 @@
 """Database configuration with Pydantic validation."""
 
-from typing import Any, Type
+from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -8,14 +8,14 @@ from ._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
 from ._mongomock._DbConfigData import _DbConfigData as _MongoMockDbConfigData
 
 # Registry: add new backends here (ONLY place backend types are enumerated)
-_BACKEND_REGISTRY: dict[str, Type[BaseModel]] = {
+_BACKEND_REGISTRY: dict[str, type[BaseModel]] = {
     "mongo": _MongoDbConfigData,
     "mongomock": _MongoMockDbConfigData,
 }
 
 
 class DbConfig(BaseModel):
-    _BACKEND_REGISTRY: dict[str, Type[BaseModel]] = _BACKEND_REGISTRY
+    _BACKEND_REGISTRY: dict[str, type[BaseModel]] = _BACKEND_REGISTRY
 
     type: str = Field(..., description="Database backend type")
     prefix: str = Field(..., description="Database prefix for collection names")

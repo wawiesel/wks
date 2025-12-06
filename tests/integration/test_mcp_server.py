@@ -5,9 +5,9 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import MonitorConfig, VaultConfig, WKSConfig
+
 from wks.mcp_server import MCPServer
 
 
@@ -131,7 +131,6 @@ class TestMCPServer:
     @patch("wks.api.monitor.cmd_check.calculate_priority")
     def test_call_tool_monitor_check(self, mock_calc_priority, mock_explain, mock_load_config, mcp_server, mock_config):
         """Test calling wksm_monitor_check tool."""
-        from pathlib import Path
 
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config
@@ -145,7 +144,10 @@ class TestMCPServer:
             "params": {"name": "wksm_monitor_check", "arguments": {"path": "/tmp/test.txt"}},
         }
 
-        with patch.object(server, "_read_message", side_effect=[request, None]), patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch.object(server, "_read_message", side_effect=[request, None]),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             server.run()
 
         output = output_stream.getvalue()
@@ -177,7 +179,7 @@ class TestMCPServer:
         assert response["error"]["code"] == -32601
 
     @patch("wks.config.WKSConfig.load")
-    def test_call_tool_missing_params(self, mock_load_config, mcp_server, mock_config):  # noqa: ARG002
+    def test_call_tool_missing_params(self, mock_load_config, mcp_server, mock_config):
         """Test calling tool with missing params."""
         server, _input_stream, output_stream = mcp_server
         mock_load_config.return_value = mock_config

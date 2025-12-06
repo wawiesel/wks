@@ -1,7 +1,6 @@
 """Common utility functions for WKS."""
 
 import hashlib
-import os
 from pathlib import Path
 
 try:
@@ -9,7 +8,6 @@ try:
 except ImportError:  # pragma: no cover
     import importlib_metadata  # type: ignore
 
-from .constants import WKS_HOME_EXT
 
 
 def file_checksum(path: Path) -> str:

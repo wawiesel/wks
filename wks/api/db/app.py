@@ -3,7 +3,9 @@
 import typer
 
 from ..base import handle_stage_result
-from .cmd_query import cmd_query
+from .cmd_list import cmd_list
+from .cmd_reset import cmd_reset
+from .cmd_show import cmd_show
 
 db_app = typer.Typer(
     name="db",
@@ -17,25 +19,47 @@ db_app = typer.Typer(
 
 @db_app.callback(invoke_without_command=True)
 def db_callback(ctx: typer.Context) -> None:
+    """Database operations - shows available commands."""
     if ctx.invoked_subcommand is None:
-        from ...config import WKSConfig
-        from .DbCollection import DbCollection
-        try:
-            config = WKSConfig.load()
-            with DbCollection(config.db, "_") as collection:
-                collection_names = sorted(collection._impl.list_collection_names())  # type: ignore[attr-defined]
-        except Exception:
-            collection_names = []
-
-        if collection_names:
-            typer.echo("Available collections:", err=True)
-            for name in collection_names:
-                typer.echo(f"  {name}", err=True)
-            typer.echo(f"\nUse 'wksc db query <name>' to query a collection.", err=True)
-        else:
-            typer.echo("No collections found. Use 'wksc db query <name>' to query a collection.", err=True)
+        typer.echo(ctx.get_help(), err=True)
         raise typer.Exit()
 
 
-# Register the query command - takes collection name as argument (prefix is auto-prepended from config)
-db_app.command(name="query")(handle_stage_result(cmd_query))
+# Register commands with StageResult handler
+def show_command(
+    ctx: typer.Context,
+    collection: str | None = typer.Argument(
+        None,
+        help="Collection name (without prefix, e.g., 'monitor'). Use 'wksc db list' to find available collections.",
+    ),
+    query: str | None = typer.Option(None, "--query", "-q", help="Query filter as JSON string (MongoDB-style)"),
+    limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of documents to return"),
+) -> None:
+    """Show a database collection."""
+    if collection is None:
+        typer.echo("Error: Collection name is required", err=True)
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit(1)
+    wrapped = handle_stage_result(cmd_show)
+    wrapped(collection, query, limit)
+
+
+def reset_command(
+    ctx: typer.Context,
+    collection: str | None = typer.Argument(
+        None,
+        help="Collection name (without prefix, e.g., 'monitor'). Use 'wksc db list' to find available collections.",
+    ),
+) -> None:
+    """Reset (clear) a database collection by deleting all documents."""
+    if collection is None:
+        typer.echo("Error: Collection name is required", err=True)
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit(1)
+    wrapped = handle_stage_result(cmd_reset)
+    wrapped(collection)
+
+
+db_app.command(name="list")(handle_stage_result(cmd_list))
+db_app.command(name="reset")(reset_command)
+db_app.command(name="show")(show_command)

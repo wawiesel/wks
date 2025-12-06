@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from wks.api.monitor.find_priority_dir import find_priority_dir
+
 pytestmark = pytest.mark.monitor
 
 
@@ -166,4 +167,3 @@ def test_find_priority_dir_path_resolution(tmp_path):
 
     assert priority_dir == tmp_path.resolve()
     assert base_priority == 100.0
-

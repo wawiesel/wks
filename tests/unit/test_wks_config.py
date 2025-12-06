@@ -4,49 +4,15 @@ import json
 
 import pytest
 
-from wks.config import (
-    DEFAULT_MONGO_URI,
-    DEFAULT_TIMESTAMP_FORMAT,
-    ConfigError,
-    DisplayConfig,
-    MetricsConfig,
-    WKSConfig,
-    get_config_path,
-)
-from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+from wks.api.config.ConfigError import ConfigError
+from wks.api.config.DisplayConfig import DEFAULT_TIMESTAMP_FORMAT, DisplayConfig
+from wks.api.config.get_config_path import get_config_path
+from wks.api.config.MetricsConfig import MetricsConfig
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.db.DbConfig import DbConfig
 
-
-@pytest.mark.unit
-class TestMongoDbConfig:
-    """Tests for MongoDbConfig dataclass."""
-
-    def test_valid_mongo_config(self):
-        s = MongoDbConfig(uri="mongodb://localhost:27017/")
-        assert s.uri == "mongodb://localhost:27017/"
-
-    def test_valid_srv_uri(self):
-        s = MongoDbConfig(uri="mongodb+srv://cluster.example.com/")
-        assert s.uri == "mongodb+srv://cluster.example.com/"
-
-    def test_missing_uri_raises(self):
-        with pytest.raises(ConfigError) as exc:
-            MongoDbConfig(uri="")
-        assert "db.uri is required when db.type is 'mongo'" in str(exc.value)
-
-    def test_invalid_uri_raises(self):
-        with pytest.raises(ConfigError) as exc:
-            MongoDbConfig(uri="http://localhost")
-        assert "must start with 'mongodb://'" in str(exc.value)
-
-    def test_from_config_with_uri(self):
-        cfg = {"db": {"type": "mongo", "uri": "mongodb://custom:27017/"}}
-        s = MongoDbConfig.from_config(cfg)
-        assert s.uri == "mongodb://custom:27017/"
-
-    def test_from_config_missing_uri_raises(self):
-        with pytest.raises(ConfigError) as exc:
-            MongoDbConfig.from_config({"db": {"type": "mongo"}})
-        assert "db.uri is required when db.type is 'mongo'" in str(exc.value)
+# Note: MongoDbConfig tests removed - now using DbConfig with backend-specific data
+# See test_wks_api_db_DbConfig.py for DbConfig tests
 
 
 @pytest.mark.unit
@@ -54,56 +20,84 @@ class TestDbConfigLoading:
     """Tests for DbConfig loading via WKSConfig.load()."""
 
     def test_load_mongo_config(self, tmp_path):
-        """Test that WKSConfig.load() creates MongoDbConfig when type='mongo'."""
+        """Test that WKSConfig.load() creates DbConfig when type='mongo'."""
         config = {
             "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {"~": 100},
-                "database": "wks.monitor",
+                "filter": {
+                    "include_paths": ["~"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {"~": 100.0},
+                    "weights": {},
+                },
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             },
-            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "vault": {
+                "vault_type": "obsidian",
+                "base_dir": str(tmp_path / "vault"),
+                "wks_dir": "WKS",
+                "update_frequency_seconds": 3600.0,
+                "database": "vault",
+            },
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
                 "engines": {},
+                "database": "transform",
             },
-            "db": {"type": "mongo", "uri": "mongodb://custom:27017/"},
+            "db": {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://custom:27017/"}},
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
-        
+
         cfg = WKSConfig.load(config_path)
-        assert isinstance(cfg.db, MongoDbConfig)
-        assert cfg.db.uri == "mongodb://custom:27017/"
+        assert isinstance(cfg.db, DbConfig)
+        assert cfg.db.type == "mongo"
+        assert cfg.db.data.uri == "mongodb://custom:27017/"
 
     def test_load_missing_type_raises(self, tmp_path):
         """Test that missing db.type raises ConfigError."""
         config = {
             "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {"~": 100},
-                "database": "wks.monitor",
+                "filter": {
+                    "include_paths": ["~"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {"dirs": {"~": 100.0}, "weights": {}},
+                "database": "monitor",
+                "sync": {"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
             },
-            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "vault": {
+                "vault_type": "obsidian",
+                "base_dir": str(tmp_path / "vault"),
+                "wks_dir": "WKS",
+                "update_frequency_seconds": 3600.0,
+                "database": "vault",
+            },
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
                 "engines": {},
+                "database": "transform",
             },
-            "db": {"uri": "mongodb://localhost:27017/"},
+            "db": {"prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}},
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
-        
-        with pytest.raises(ConfigError) as exc:
+
+        with pytest.raises(ValueError) as exc:
             WKSConfig.load(config_path)
         assert "db.type is required" in str(exc.value)
 
@@ -111,28 +105,38 @@ class TestDbConfigLoading:
         """Test that unknown db.type raises ConfigError."""
         config = {
             "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {"~": 100},
-                "database": "wks.monitor",
+                "filter": {
+                    "include_paths": ["~"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {"dirs": {"~": 100.0}, "weights": {}},
+                "database": "monitor",
+                "sync": {"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
             },
-            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "vault": {
+                "vault_type": "obsidian",
+                "base_dir": str(tmp_path / "vault"),
+                "wks_dir": "WKS",
+                "update_frequency_seconds": 3600.0,
+                "database": "vault",
+            },
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
                 "engines": {},
+                "database": "transform",
             },
-            "db": {"type": "postgres", "uri": "postgres://localhost"},
+            "db": {"type": "postgres", "prefix": "wks", "data": {}},
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
-        
-        with pytest.raises(ConfigError) as exc:
+
+        with pytest.raises(ValueError) as exc:
             WKSConfig.load(config_path)
-        assert "Unknown db.type" in str(exc.value)
+        assert "Unknown backend type" in str(exc.value)
 
 
 @pytest.mark.unit
@@ -189,33 +193,40 @@ class TestWKSConfig:
         """Create a valid config file."""
         config = {
             "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {"~": 100},
-                "database": "wks.monitor",
+                "filter": {
+                    "include_paths": ["~"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {"dirs": {"~": 100.0}, "weights": {}},
+                "database": "monitor",
+                "sync": {"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
             },
-            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "vault": {
+                "vault_type": "obsidian",
+                "base_dir": str(tmp_path / "vault"),
+                "wks_dir": "WKS",
+                "update_frequency_seconds": 3600.0,
+                "database": "vault",
+            },
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
                 "engines": {},
+                "database": "transform",
             },
             "diff": {
                 "engines": {
                     "myers": {"enabled": True, "is_default": True},
                 },
-                "_router": {
+                "router": {
                     "rules": [],
                     "fallback": "myers",
                 },
             },
-            "db": {
-                "type": "mongo",
-                "uri": "mongodb://localhost:27017/"
-            },
+            "db": {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}},
         }
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(config))
@@ -223,10 +234,11 @@ class TestWKSConfig:
 
     def test_load_valid(self, valid_config):
         cfg = WKSConfig.load(valid_config)
-        assert cfg.monitor.database == "wks.monitor"
-        assert cfg.vault.database == "wks.vault"
-        assert isinstance(cfg.db, MongoDbConfig)
-        assert cfg.db.uri == "mongodb://localhost:27017/"
+        assert cfg.monitor.database == "monitor"
+        assert cfg.vault.database == "vault"
+        assert isinstance(cfg.db, DbConfig)
+        assert cfg.db.type == "mongo"
+        assert cfg.db.data.uri == "mongodb://localhost:27017/"
 
     def test_load_file_not_found(self, tmp_path):
         with pytest.raises(ConfigError) as exc:
@@ -249,43 +261,51 @@ class TestWKSConfig:
 
     def test_load_uses_default_path(self, tmp_path, monkeypatch):
         """Test that load() with no arg uses get_config_path()."""
-        monkeypatch.setenv("HOME", str(tmp_path))
-        (tmp_path / ".wks").mkdir()
+        monkeypatch.setenv("WKS_HOME", str(tmp_path))
+        monkeypatch.delenv("HOME", raising=False)
+        (tmp_path).mkdir()
         config = {
             "monitor": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {"~": 100},
-                "database": "wks.monitor",
+                "filter": {
+                    "include_paths": ["~"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {"dirs": {"~": 100.0}, "weights": {}},
+                "database": "monitor",
+                "sync": {"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
             },
-            "vault": {"base_dir": str(tmp_path / "vault"), "database": "wks.vault"},
+            "vault": {
+                "vault_type": "obsidian",
+                "base_dir": str(tmp_path / "vault"),
+                "wks_dir": "WKS",
+                "update_frequency_seconds": 3600.0,
+                "database": "vault",
+            },
             "transform": {
                 "cache": {"location": ".wks/cache", "max_size_bytes": 1000000},
                 "engines": {},
+                "database": "transform",
             },
             "diff": {
                 "engines": {
                     "myers": {"enabled": True, "is_default": True},
                 },
-                "_router": {
+                "router": {
                     "rules": [],
                     "fallback": "myers",
                 },
             },
-            "db": {
-                "type": "mongo",
-                "uri": "mongodb://localhost:27017/"
-            },
+            "db": {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}},
         }
-        (tmp_path / ".wks" / "config.json").write_text(json.dumps(config))
+        (tmp_path / "config.json").write_text(json.dumps(config))
 
         # Call without path argument - should use default
         cfg = WKSConfig.load()
-        assert cfg.monitor.database == "wks.monitor"
+        assert cfg.monitor.database == "monitor"
 
 
 @pytest.mark.unit

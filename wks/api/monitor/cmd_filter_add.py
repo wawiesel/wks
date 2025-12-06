@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from ...config import WKSConfig
+from ...api.config.WKSConfig import WKSConfig
 from ...utils import canonicalize_path
 from ..base import StageResult
 from .MonitorConfig import MonitorConfig
@@ -32,7 +32,9 @@ def cmd_filter_add(
     if resolve_path:
         value_resolved = canonicalize_path(value)
         home_dir = str(Path.home())
-        value_to_store = "~" + value_resolved[len(home_dir) :] if value_resolved.startswith(home_dir) else value_resolved
+        value_to_store = (
+            "~" + value_resolved[len(home_dir) :] if value_resolved.startswith(home_dir) else value_resolved
+        )
     elif list_name in ("include_dirnames", "exclude_dirnames"):
         # Validate directory name
         entry = value.strip()
@@ -48,7 +50,7 @@ def cmd_filter_add(
                 err = f"Directory name '{entry}' already present in {opposite}"
             else:
                 err = None
-        
+
         if err:
             result = {"success": False, "message": err, "validation_failed": True}
             return StageResult(announce=f"Adding to {list_name}: {value}", result=err, output=result, success=False)
@@ -57,6 +59,7 @@ def cmd_filter_add(
     elif list_name in ("include_globs", "exclude_globs"):
         # Validate glob pattern
         import fnmatch
+
         entry = value.strip()
         if not entry:
             err = "Glob pattern cannot be empty"
@@ -66,7 +69,7 @@ def cmd_filter_add(
                 err = None
             except Exception as exc:  # pragma: no cover - defensive
                 err = f"Invalid glob syntax: {exc}"
-        
+
         if err:
             result = {"success": False, "message": err, "validation_failed": True}
             return StageResult(announce=f"Adding to {list_name}: {value}", result=err, output=result, success=False)

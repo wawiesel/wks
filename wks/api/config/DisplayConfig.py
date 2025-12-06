@@ -19,4 +19,3 @@ class DisplayConfig:
         return cls(
             timestamp_format=display_cfg.get("timestamp_format", DEFAULT_TIMESTAMP_FORMAT),
         )
-

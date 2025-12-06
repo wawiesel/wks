@@ -1,7 +1,9 @@
 """Unit tests for MonitorConfig public methods."""
 
 import pytest
+
 from wks.api.monitor.MonitorConfig import MonitorConfig
+
 pytestmark = pytest.mark.monitor
 
 
@@ -36,7 +38,7 @@ def test_get_rules():
             }
         }
     )
-    
+
     rules = cfg.get_rules()
     assert isinstance(rules, dict)
     assert rules["include_paths"] == ["/tmp"]
@@ -59,7 +61,7 @@ def test_get_rules_empty():
             }
         }
     )
-    
+
     rules = cfg.get_rules()
     assert isinstance(rules, dict)
     assert all(rules[key] == [] for key in rules)
@@ -78,7 +80,7 @@ def test_from_config_dict_with_filter_section():
             }
         }
     )
-    
+
     assert cfg.include_paths == ["/tmp"]
 
 
@@ -93,7 +95,7 @@ def test_from_config_dict_without_filter_section():
             }
         }
     )
-    
+
     assert cfg.include_paths == ["/tmp"]
 
 
@@ -104,4 +106,3 @@ def test_from_config_dict_missing_monitor_section():
         assert False, "Should have raised KeyError"
     except KeyError as e:
         assert "monitor section is required" in str(e)
-

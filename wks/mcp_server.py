@@ -14,25 +14,20 @@ from collections.abc import Callable
 from typing import Any
 
 from .api.base import StageResult, get_typer_command_schema
-from .api.monitor.cmd_check import cmd_check as monitor_check
-from .api.monitor.cmd_filter_show import cmd_filter_show as cmd_show
-from .api.monitor.cmd_filter_add import cmd_filter_add as cmd_add
-from .api.monitor.cmd_filter_remove import cmd_filter_remove as cmd_remove
-from .api.monitor.cmd_status import cmd_status as monitor_status
-from .api.monitor.cmd_sync import cmd_sync
-from .api.monitor.cmd_priority_show import cmd_priority_show
-from .api.monitor.cmd_priority_add import cmd_priority_add
-from .api.monitor.cmd_priority_remove import cmd_priority_remove
-from .config import WKSConfig
-from .mcp.result import MCPResult
+from .api.config.WKSConfig import WKSConfig
 from .api.monitor.cmd_check import cmd_check
+from .api.monitor.cmd_check import cmd_check as monitor_check
 from .api.monitor.cmd_filter_add import cmd_filter_add
+from .api.monitor.cmd_filter_add import cmd_filter_add as cmd_add
 from .api.monitor.cmd_filter_remove import cmd_filter_remove
+from .api.monitor.cmd_filter_remove import cmd_filter_remove as cmd_remove
 from .api.monitor.cmd_filter_show import cmd_filter_show
 from .api.monitor.cmd_priority_add import cmd_priority_add
 from .api.monitor.cmd_priority_remove import cmd_priority_remove
 from .api.monitor.cmd_priority_show import cmd_priority_show
-from .api.monitor.cmd_status import cmd_status
+from .api.monitor.cmd_status import cmd_status as monitor_status
+from .api.monitor.cmd_sync import cmd_sync
+from .mcp.result import MCPResult
 from .service_controller import ServiceController
 from .vault import VaultController
 from .vault.status_controller import VaultStatusController
@@ -229,9 +224,7 @@ class MCPServer:
         ]
         return {
             "wksm_monitor_filter_show": {
-                "description": (
-                    "Show contents of a monitor configuration list or list available monitor lists"
-                ),
+                "description": ("Show contents of a monitor configuration list or list available monitor lists"),
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -596,17 +589,22 @@ class MCPServer:
             ).to_dict(),
             "wksm_monitor_filter_add": _require_params("list_name", "value")(
                 lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True, data=_extract_data_from_stage_result(cmd_add(list_name=args["list_name"], value=args["value"]))
+                    success=True,
+                    data=_extract_data_from_stage_result(cmd_add(list_name=args["list_name"], value=args["value"])),
                 ).to_dict()
             ),
             "wksm_monitor_filter_remove": _require_params("list_name", "value")(
                 lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True, data=_extract_data_from_stage_result(cmd_remove(list_name=args["list_name"], value=args["value"]))
+                    success=True,
+                    data=_extract_data_from_stage_result(cmd_remove(list_name=args["list_name"], value=args["value"])),
                 ).to_dict()
             ),
             "wksm_monitor_sync": _require_params("path")(
                 lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True, data=_extract_data_from_stage_result(cmd_sync(path=args["path"], recursive=args.get("recursive", False)))
+                    success=True,
+                    data=_extract_data_from_stage_result(
+                        cmd_sync(path=args["path"], recursive=args.get("recursive", False))
+                    ),
                 ).to_dict()
             ),
             "wksm_monitor_priority_show": lambda config, args: MCPResult(  # noqa: ARG005
@@ -851,7 +849,7 @@ class MCPServer:
         """Execute wksm_transform tool."""
         from pathlib import Path
 
-        from .config import WKSConfig
+        from .api.config.WKSConfig import WKSConfig
         from .db_helpers import connect_to_mongo
         from .transform import TransformController
         from .utils import expand_path
@@ -872,6 +870,7 @@ class MCPServer:
             from pymongo import MongoClient
 
             from .api.db._mongo._DbConfigData import _DbConfigData
+
             if isinstance(wks_cfg.db.data, _DbConfigData):
                 uri = wks_cfg.db.data.uri
             else:
@@ -900,8 +899,7 @@ class MCPServer:
         """Execute wksm_cat tool."""
         from pathlib import Path
 
-        from .config import WKSConfig
-        from .db_helpers import connect_to_mongo
+        from .api.config.WKSConfig import WKSConfig
         from .transform import TransformController
 
         result = MCPResult(success=False, data={})

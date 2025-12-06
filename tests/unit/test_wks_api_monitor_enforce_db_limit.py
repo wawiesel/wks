@@ -1,9 +1,11 @@
 """Unit tests for _enforce_monitor_db_limit function."""
 
-import pytest
 from types import SimpleNamespace
 
+import pytest
+
 from wks.api.monitor._enforce_monitor_db_limit import _enforce_monitor_db_limit
+
 pytestmark = pytest.mark.monitor
 
 
@@ -93,6 +95,7 @@ def test_enforce_monitor_db_limit_enforces_max_docs():
 
 def test_enforce_monitor_db_limit_exception_handling():
     """Test _enforce_monitor_db_limit handles exceptions gracefully."""
+
     class MockCollection:
         def delete_many(self, query):
             raise Exception("Database error")
@@ -123,4 +126,3 @@ def test_enforce_monitor_db_limit_no_extras():
     # Should not delete for max_docs (extras = 0)
     delete_calls = [c for c in calls if "$in" in str(c[1])]
     assert len(delete_calls) == 0
-

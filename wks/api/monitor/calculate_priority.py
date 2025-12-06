@@ -12,8 +12,8 @@ Priority Calculation (from spec):
 from pathlib import Path
 from typing import Any
 
-from .find_priority_dir import find_priority_dir
 from ._calculate_underscore_multiplier import _calculate_underscore_multiplier
+from .find_priority_dir import find_priority_dir
 
 
 def calculate_priority(path: Path, priority_dirs: dict[str, float], weights: dict[str, Any]) -> float:

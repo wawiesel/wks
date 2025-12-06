@@ -6,17 +6,13 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 
 from pathlib import Path
 
-import typer
-
-from ...config import WKSConfig
+from ...api.config.WKSConfig import WKSConfig
 from ..base import StageResult
-from .explain_path import explain_path
 from .calculate_priority import calculate_priority
+from .explain_path import explain_path
 
 
-def cmd_check(
-    path: str | None = typer.Argument(None, help="File or directory path to check"),
-) -> StageResult:
+def cmd_check(path: str) -> StageResult:
     """Check if a path would be monitored and calculate its priority."""
     config = WKSConfig.load()
     monitor_cfg = config.monitor
@@ -31,7 +27,9 @@ def cmd_check(
     decisions.append(
         {
             "symbol": "✓" if path_exists else "⚠",
-            "message": f"Path exists: {test_path}" if path_exists else f"Path does not exist (checking as if it did): {test_path}",
+            "message": f"Path exists: {test_path}"
+            if path_exists
+            else f"Path does not exist (checking as if it did): {test_path}",
         }
     )
     for message in trace:

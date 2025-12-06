@@ -12,4 +12,3 @@ def get_database(db_config: DbConfig, database_name: str) -> Any:
     collection.__enter__()
     # Don't call __exit__ so client stays alive
     return collection.get_database(database_name)
-

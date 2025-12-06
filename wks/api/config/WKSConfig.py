@@ -1,7 +1,6 @@
 """Top-level WKS configuration."""
 
 import json
-import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -13,10 +12,10 @@ from ...transform.config import CacheConfig, TransformConfig
 from ...vault.config import VaultConfig
 from ..db.DbConfig import DbConfig
 from ..monitor.MonitorConfig import MonitorConfig
-from .DisplayConfig import DisplayConfig
-from .MetricsConfig import MetricsConfig
 from .ConfigError import ConfigError
+from .DisplayConfig import DisplayConfig
 from .get_config_path import get_config_path
+from .MetricsConfig import MetricsConfig
 
 
 @dataclass
@@ -61,7 +60,7 @@ class WKSConfig:
         try:
             # Load db config using unified DbConfig
             db = DbConfig(**raw.get("db", {}))
-            
+
             # Pass the raw config (which contains the 'monitor' key)
             monitor = MonitorConfig.from_config_dict(raw)
             vault = VaultConfig.from_config_dict(raw)
@@ -90,9 +89,12 @@ class WKSConfig:
         Handles nested Pydantic models by calling .model_dump().
         """
         data = asdict(self)
+        # Handle Pydantic models
         if isinstance(self.monitor, MonitorConfig):
             data["monitor"] = self.monitor.model_dump()
-        # Add other Pydantic models here as they are migrated
+        if isinstance(self.db, DbConfig):
+            data["db"] = self.db.model_dump()
+        # Handle other Pydantic models if they exist
         return data
 
     def save(self, path: Path | None = None) -> None:
@@ -117,4 +119,3 @@ class WKSConfig:
             if temp_path.exists():
                 temp_path.unlink()
             raise
-

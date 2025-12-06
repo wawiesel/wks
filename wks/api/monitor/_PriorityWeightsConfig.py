@@ -10,4 +10,3 @@ class _PriorityWeightsConfig(BaseModel):
     underscore_multiplier: float = Field(0.5, gt=0.0)
     only_underscore_multiplier: float = Field(0.1, gt=0.0)
     extension_weights: dict[str, float] = Field(default_factory=dict)
-

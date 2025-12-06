@@ -12,4 +12,3 @@ def get_database_client(db_config: DbConfig) -> Any:
     collection.__enter__()
     # Don't call __exit__ so client stays alive
     return collection.get_client()
-

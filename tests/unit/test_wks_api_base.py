@@ -37,4 +37,3 @@ def test_get_typer_command_schema_skips_config_and_marks_required():
     assert "config" not in schema["properties"]
     assert "path" in schema["required"]
     assert "optional" not in (schema["required"] or [])
-

@@ -12,4 +12,3 @@ class _FilterConfig(BaseModel):
     exclude_dirnames: list[str] = Field(default_factory=list)
     include_globs: list[str] = Field(default_factory=list)
     exclude_globs: list[str] = Field(default_factory=list)
-

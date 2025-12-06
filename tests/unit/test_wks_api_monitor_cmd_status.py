@@ -1,10 +1,12 @@
 """Unit tests for wks.api.monitor.cmd_status module."""
 
-import pytest
 from types import SimpleNamespace
 
-from wks.api.monitor import cmd_status
+import pytest
+
 from tests.unit.conftest import DummyConfig
+from wks.api.monitor import cmd_status
+
 pytestmark = pytest.mark.monitor
 
 
@@ -30,8 +32,10 @@ def test_cmd_status_mongodb_error(monkeypatch):
     class MockDatabaseCollection:
         def __init__(self, *args, **kwargs):
             pass
+
         def __enter__(self):
             raise Exception("Connection failed")
+
         def __exit__(self, *args):
             pass
 
@@ -40,6 +44,7 @@ def test_cmd_status_mongodb_error(monkeypatch):
     result = cmd_status.cmd_status()
     assert result.output["tracked_files"] == 0
     assert result.output["success"] is True  # No issues if no priority dirs
+
 
 def test_cmd_status_sets_success_based_on_issues(monkeypatch):
     from wks.api.monitor.MonitorConfig import MonitorConfig
@@ -69,10 +74,13 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
     class MockDatabaseCollection:
         def __init__(self, *args, **kwargs):
             pass
+
         def __enter__(self):
             return self
+
         def __exit__(self, *args):
             pass
+
         def count_documents(self, *args, **kwargs):
             return 0
 

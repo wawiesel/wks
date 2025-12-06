@@ -5,9 +5,9 @@ import subprocess
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import WKSConfig
+
 from wks.service_controller import (
     ServiceController,
     ServiceStatusData,

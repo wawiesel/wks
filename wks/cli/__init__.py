@@ -8,35 +8,47 @@ import subprocess
 import sys
 from pathlib import Path
 
+import click
 import typer
 
-from ..api.config.app import config_app
-from ..api.db.app import db_app
-from ..api.diff.app import diff_app
-from ..api.monitor.app import monitor_app
-from ..api.service.app import service_app
-from ..api.transform.app import transform_app
-from ..api.vault.app import vault_app
-from ..display.context import get_display
-from ..mcp_client import proxy_stdio_to_socket
-from ..mcp_paths import mcp_socket_path
-from ..utils import get_package_version
+from wks.api.config.app import config_app
+from wks.api.db.app import db_app
+from wks.api.monitor.app import monitor_app
+
+# TODO: Create wks/api/diff/app.py
+# from wks.api.diff.app import diff_app
+# from wks.api.service.app import service_app
+# from wks.api.transform.app import transform_app
+# from wks.api.vault.app import vault_app
+from wks.display.context import get_display
+from wks.mcp_client import proxy_stdio_to_socket
+from wks.mcp_paths import mcp_socket_path
+from wks.utils import get_package_version
 
 app = typer.Typer(
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
     help="WKS CLI",
     context_settings={"help_option_names": ["-h", "--help"]},
+    invoke_without_command=True,
 )
 
 # Register all domain apps
 app.add_typer(monitor_app, name="monitor")
-app.add_typer(vault_app, name="vault")
-app.add_typer(transform_app, name="transform")
-app.add_typer(diff_app, name="diff")
-app.add_typer(service_app, name="service")
+# app.add_typer(vault_app, name="vault")
+# app.add_typer(transform_app, name="transform")
+# app.add_typer(diff_app, name="diff")
+# app.add_typer(service_app, name="service")
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="db")
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(ctx: typer.Context) -> None:
+    """Main CLI callback - shows help when no command is provided."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
 
 
 @app.command(name="mcp", help="MCP server operations")
@@ -48,7 +60,7 @@ def mcp_command(
 ):
     """MCP server infrastructure command."""
     if command == "install":
-        from ..mcp_setup import install_mcp_configs
+        from wks.mcp_setup import install_mcp_configs
 
         for r in install_mcp_configs(clients=client, command_override=command_path):
             print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")
@@ -57,7 +69,7 @@ def mcp_command(
     if command == "run":
         if not direct and proxy_stdio_to_socket(mcp_socket_path()):
             sys.exit(0)
-        from ..mcp_server import main as mcp_main
+        from wks.mcp_server import main as mcp_main
 
         mcp_main()
         sys.exit(0)
@@ -117,6 +129,9 @@ def main(argv: list[str] | None = None) -> int:
         app(argv)
     except typer.Exit as e:
         return e.exit_code
+    except click.exceptions.UsageError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
