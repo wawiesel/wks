@@ -28,7 +28,7 @@ def cmd_list() -> StageResult:
     collections = []
     for name in collection_names:
         if name.startswith(f"{config.db.prefix}."):
-            display_name = name[len(f"{config.db.prefix}.") :]
+            display_name = name[len(f"{config.db.prefix}."):]
             collections.append({"name": display_name, "full_name": name})
         else:
             collections.append({"name": name, "full_name": name})
@@ -38,13 +38,6 @@ def cmd_list() -> StageResult:
         result=f"Found {len(collections)} collection(s)",
         output={
             "collections": [c["name"] for c in collections],
-            "_tables": [
-                {
-                    "data": [{"Collection": c["name"]} for c in collections],
-                    "headers": ["Collection"],
-                    "title": "Available Collections",
-                }
-            ],
         },
         success=True,
     )

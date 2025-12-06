@@ -13,24 +13,25 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from .api.base import StageResult, get_typer_command_schema
-from .api.config.WKSConfig import WKSConfig
-from .api.monitor.cmd_check import cmd_check
-from .api.monitor.cmd_check import cmd_check as monitor_check
-from .api.monitor.cmd_filter_add import cmd_filter_add
-from .api.monitor.cmd_filter_add import cmd_filter_add as cmd_add
-from .api.monitor.cmd_filter_remove import cmd_filter_remove
-from .api.monitor.cmd_filter_remove import cmd_filter_remove as cmd_remove
-from .api.monitor.cmd_filter_show import cmd_filter_show
-from .api.monitor.cmd_priority_add import cmd_priority_add
-from .api.monitor.cmd_priority_remove import cmd_priority_remove
-from .api.monitor.cmd_priority_show import cmd_priority_show
-from .api.monitor.cmd_status import cmd_status as monitor_status
-from .api.monitor.cmd_sync import cmd_sync
-from .mcp.result import MCPResult
-from .service_controller import ServiceController
-from .vault import VaultController
-from .vault.status_controller import VaultStatusController
+from wks.api.base import StageResult, get_typer_command_schema
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.monitor.cmd_check import cmd_check
+from wks.api.monitor.cmd_check import cmd_check as monitor_check
+from wks.api.monitor.cmd_filter_add import cmd_filter_add
+from wks.api.monitor.cmd_filter_add import cmd_filter_add as cmd_add
+from wks.api.monitor.cmd_filter_remove import cmd_filter_remove
+from wks.api.monitor.cmd_filter_remove import cmd_filter_remove as cmd_remove
+from wks.api.monitor.cmd_filter_show import cmd_filter_show
+from wks.api.monitor.cmd_priority_add import cmd_priority_add
+from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
+from wks.api.monitor.cmd_priority_show import cmd_priority_show
+from wks.api.monitor.cmd_status import cmd_status as monitor_status
+from wks.api.monitor.cmd_sync import cmd_sync
+from wks.service_controller import ServiceController
+from wks.vault import VaultController
+from wks.vault.status_controller import VaultStatusController
+
+from .result import MCPResult
 
 
 def _extract_data_from_stage_result(result: Any) -> dict[str, Any]:
@@ -184,7 +185,7 @@ class MCPServer:
         Returns:
             Dictionary of basic monitor tool definitions
         """
-        from .api.monitor import monitor_app
+        from wks.api.monitor import monitor_app
 
         tools = {}
         for cmd_name in ["status", "check", "sync"]:
@@ -721,7 +722,8 @@ class MCPServer:
 
     def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
-        from .db_helpers import connect_to_mongo, get_vault_db_config
+        from wks.db_helpers import connect_to_mongo, get_vault_db_config
+
         from .uri_utils import convert_to_uri
         from .utils import expand_path
 
@@ -869,7 +871,7 @@ class MCPServer:
 
             from pymongo import MongoClient
 
-            from .api.db._mongo._DbConfigData import _DbConfigData
+            from wks.api.db._mongo._DbConfigData import _DbConfigData
 
             if isinstance(wks_cfg.db.data, _DbConfigData):
                 uri = wks_cfg.db.data.uri
@@ -899,8 +901,8 @@ class MCPServer:
         """Execute wksm_cat tool."""
         from pathlib import Path
 
-        from .api.config.WKSConfig import WKSConfig
-        from .transform import TransformController
+        from wks.api.config.WKSConfig import WKSConfig
+        from wks.transform import TransformController
 
         result = MCPResult(success=False, data={})
 
@@ -910,9 +912,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
-            from .api.db.get_database import get_database
+            from wks.api.db.DbCollection import DbCollection
 
-            db = get_database(wks_cfg.db, wks_cfg.db.prefix)
+            # Get database using DbCollection directly
+            collection = DbCollection(wks_cfg.db, "_")
+            collection.__enter__()
+            db = collection.get_database(wks_cfg.db.prefix)
 
             controller = TransformController(db, cache_location, max_size_bytes)
 
@@ -936,10 +941,10 @@ class MCPServer:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
-        from .db_helpers import connect_to_mongo
-        from .diff import DiffController
-        from .diff.config import DiffConfig, DiffConfigError
-        from .transform import TransformController
+        from wks.db_helpers import connect_to_mongo
+        from wks.diff import DiffController
+        from wks.diff.config import DiffConfig, DiffConfigError
+        from wks.transform import TransformController
 
         result = MCPResult(success=False, data={})
 
@@ -972,7 +977,15 @@ class MCPServer:
 
             from pymongo import MongoClient
 
+            from wks.api.db._mongo._DbConfigData import _DbConfigData
+
             db_name = str(db_name_str).split(".")[0]
+
+            # Get URI from config if available
+            if isinstance(config, WKSConfig) and isinstance(config.db.data, _DbConfigData):
+                uri = config.db.data.uri
+            else:
+                uri = "mongodb://localhost:27017/"
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -1003,7 +1016,7 @@ class MCPServer:
 
     def _tool_vault_validate(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
-        from .vault import VaultController, load_vault
+        from wks.vault import VaultController, load_vault
 
         # load_vault expects a plain dict
         config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
@@ -1013,7 +1026,7 @@ class MCPServer:
 
     def _tool_vault_fix_symlinks(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
-        from .vault import VaultController, load_vault
+        from wks.vault import VaultController, load_vault
 
         # load_vault expects a plain dict
         config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
@@ -1037,7 +1050,7 @@ class MCPServer:
         limit: int,
     ) -> dict[str, Any]:
         """Execute wks_db_* tools."""
-        from .api.db.DbCollection import DbCollection
+        from wks.api.db.DbCollection import DbCollection
 
         if db_type == "monitor":
             database_key = config.monitor.database
@@ -1080,7 +1093,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     registry = server._build_tool_registry()
 
     if tool_name not in registry:
-        from .mcp.result import MCPResult
+        from .result import MCPResult
 
         error_result = MCPResult.error_result(f"Tool not found: {tool_name}", data={})
         return error_result.to_dict()

@@ -42,6 +42,36 @@ class StageResult:
                 self.success = True
 
 
+def _run_single_execution(
+    func: F,
+    args: tuple,
+    kwargs: dict,
+    display: Any,
+    display_format: str,
+) -> None:
+    """Run command once and display result."""
+    result = func(*args, **kwargs)
+
+    # Stage 1: Announce
+    display.status(result.announce)
+
+    # Stage 2: Progress (if callback provided)
+    if result.progress_callback:
+        result.progress_callback(lambda msg, progress: display.info(f"Progress: {msg} ({progress:.1%})"))
+
+    # Stage 3: Result
+    if result.success:
+        display.success(result.result)
+    else:
+        display.error(result.result)
+
+    # Stage 4: Output - JSON or YAML based on --display flag
+    display.json_output(result.output, format=display_format)
+
+    # Exit with appropriate code
+    sys.exit(0 if result.success else 1)
+
+
 def handle_stage_result(func: F) -> F:
     """Wrap a command function to handle StageResult for CLI display.
 
@@ -60,43 +90,29 @@ def handle_stage_result(func: F) -> F:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-
         # Get display context
+
+        import typer
+
         from wks.display.context import get_display
 
         display = get_display("cli")
 
-        # Stage 1: Announce
-        display.status(result.announce)
+        # Get display format from Typer context if available
+        display_format = "yaml"  # default
+        try:
+            ctx = typer.get_current_context(silent=True)
+            while ctx:
+                if hasattr(ctx, "meta") and ctx.meta:
+                    display_format = ctx.meta.get("display_format", display_format)
+                    break
+                # Try parent context
+                ctx = getattr(ctx, "parent", None)
+        except Exception:
+            pass
 
-        # Stage 2: Progress (if callback provided)
-        if result.progress_callback:
-            result.progress_callback(lambda msg, progress: display.info(f"Progress: {msg} ({progress:.1%})"))
-
-        # Stage 3: Result
-        if result.success:
-            display.success(result.result)
-        else:
-            display.error(result.result)
-
-        # Stage 4: Output - check for tables first
-        if "_tables" in result.output:
-            from wks.display.format import data_to_tables
-
-            tables = data_to_tables(result.output)
-            for table_data in tables:
-                display.table(
-                    table_data["data"],
-                    headers=table_data.get("headers"),
-                    title=table_data.get("title", ""),
-                )
-        else:
-            # Output JSON for non-table data
-            display.json_output(result.output)
-
-        # Exit with appropriate code
-        sys.exit(0 if result.success else 1)
+        # Always single execution (live mode handled at CLI level)
+        _run_single_execution(func, args, kwargs, display, display_format)
 
     return wrapper  # type: ignore[return-value]
 

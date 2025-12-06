@@ -16,11 +16,12 @@ def cmd_show(
     config = WKSConfig.load()
     try:
         parsed_query = json.loads(query_filter) if query_filter else None
-        result = DbCollection.query(config.db, collection, parsed_query, limit)
+        query_result = DbCollection.query(config.db, collection, parsed_query, limit)
+
         return StageResult(
             announce=f"Showing {collection} collection...",
-            result=f"Found {result['count']} document(s)",
-            output=result,
+            result=f"Found {query_result['count']} document(s)",
+            output=query_result,
             success=True,
         )
     except json.JSONDecodeError as e:

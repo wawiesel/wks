@@ -3,8 +3,6 @@
 import sys
 from typing import Any
 
-from ..constants import MAX_DISPLAY_WIDTH
-
 try:
     from rich.console import Console
     from rich.panel import Panel
@@ -66,18 +64,9 @@ class CLIDisplay(Display):
         if not RICH_AVAILABLE:
             raise ImportError("Rich library required for CLI display. Install with: pip install rich")
 
-        # Limit console width to MAX_DISPLAY_WIDTH for consistent display
-        detected_width = None
-        try:
-            import shutil
-
-            detected_width = shutil.get_terminal_size().columns
-        except Exception:
-            pass
-
-        console_width = min(detected_width or MAX_DISPLAY_WIDTH, MAX_DISPLAY_WIDTH)
-        self.console = Console(force_terminal=True, width=console_width)
-        self.stderr_console = Console(file=sys.stderr, width=console_width)
+        # Use full terminal width (no truncation)
+        self.console = Console(force_terminal=True)
+        self.stderr_console = Console(file=sys.stderr)
         self._progress_contexts = {}  # Store Progress contexts by handle
 
     def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
@@ -114,7 +103,7 @@ class CLIDisplay(Display):
         title = kwargs.get("title", "")
         column_justify = kwargs.get("column_justify", {})  # dict[str, str] mapping header to justify
         show_header = kwargs.get("show_header", True)
-        width = kwargs.get("width", MAX_DISPLAY_WIDTH)
+        width = kwargs.get("width", None)  # None = use full terminal width
 
         # Infer headers from first row if not provided
         if headers is None:
@@ -124,7 +113,7 @@ class CLIDisplay(Display):
             title=title,
             show_header=show_header,
             header_style="bold cyan",
-            width=min(width, MAX_DISPLAY_WIDTH),
+            width=width,  # None = no width limit
         )
 
         for header in headers:
@@ -241,13 +230,47 @@ class CLIDisplay(Display):
             tree.add(str(data))
 
     def json_output(self, data: Any, **kwargs) -> None:
-        """Output JSON with syntax highlighting."""
-        import json
+        """Output JSON or YAML with syntax highlighting in terminal, valid when redirected.
 
+        Rich automatically detects when stdout is not a TTY and outputs plain text,
+        ensuring valid JSON/YAML when redirected to a file.
+
+        Args:
+            data: Data to output
+            format: Output format - "yaml" (default) or "json"
+        """
+        import json
+        import sys
+
+        output_format = kwargs.get("format", "yaml")
         indent = kwargs.get("indent", 2)
-        json_str = json.dumps(data, indent=indent)
-        syntax = Syntax(json_str, "json", theme="monokai", line_numbers=False)
-        self.console.print(syntax)
+
+        if output_format == "yaml":
+            try:
+                import yaml
+            except ImportError:
+                raise ImportError("PyYAML required for YAML output. Install with: pip install pyyaml")
+
+            yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+            # Only use syntax highlighting if stdout is a TTY (interactive terminal)
+            if sys.stdout.isatty():
+                syntax = Syntax(yaml_str, "yaml", theme="monokai", line_numbers=False)
+                self.console.print(syntax)
+            else:
+                # Non-TTY: output raw YAML
+                print(yaml_str, flush=True)
+        else:
+            # JSON output (default)
+            json_str = json.dumps(data, indent=indent, ensure_ascii=False)
+
+            # Only use syntax highlighting if stdout is a TTY (interactive terminal)
+            if sys.stdout.isatty():
+                syntax = Syntax(json_str, "json", theme="monokai", line_numbers=False)
+                self.console.print(syntax)
+            else:
+                # Non-TTY: output raw JSON
+                print(json_str, flush=True)
 
     def panel(self, content: Any, title: str = "", **kwargs) -> None:
         """Display content in a panel."""

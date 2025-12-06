@@ -4,15 +4,11 @@ This function removes a priority directory.
 Matches CLI: wksc monitor priority remove <path>, MCP: wksm_monitor_priority_remove
 """
 
-import typer
-
 from ...utils import canonicalize_path, find_matching_path_key
 from ..base import StageResult
 
 
-def cmd_priority_remove(
-    path: str = typer.Argument(..., help="Path to unmanage"),
-) -> StageResult:
+def cmd_priority_remove(path: str) -> StageResult:
     """Remove a priority directory.
 
     Args:

@@ -20,6 +20,7 @@ dependencies = [
     "bsdiff4",
     "mongomock",
     "jinja2",
+    "pyyaml",
     "pytest>=7.0",
     "pytest-timeout>=2.1",
     "pytest-xdist>=3.0",

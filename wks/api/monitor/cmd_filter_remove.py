@@ -4,18 +4,13 @@ Remove a value from a monitor configuration list.
 Matches CLI: wksc monitor filter remove <list-name> <value>, MCP: wksm_monitor_filter_remove
 """
 
-import typer
-
 from ...api.config.WKSConfig import WKSConfig
 from ...utils import canonicalize_path
 from ..base import StageResult
 from .MonitorConfig import MonitorConfig
 
 
-def cmd_filter_remove(
-    list_name: str = typer.Argument(..., help="Name of list to modify"),
-    value: str = typer.Argument(..., help="Value to remove"),
-) -> StageResult:
+def cmd_filter_remove(list_name: str, value: str) -> StageResult:
     """Remove a value from a monitor configuration list."""
 
     config = WKSConfig.load()

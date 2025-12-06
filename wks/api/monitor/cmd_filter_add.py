@@ -6,18 +6,13 @@ Matches CLI: wksc monitor filter add <list-name> <value>, MCP: wksm_monitor_filt
 
 from pathlib import Path
 
-import typer
-
 from ...api.config.WKSConfig import WKSConfig
 from ...utils import canonicalize_path
 from ..base import StageResult
 from .MonitorConfig import MonitorConfig
 
 
-def cmd_filter_add(
-    list_name: str = typer.Argument(..., help="Name of list to modify"),
-    value: str = typer.Argument(..., help="Value to add"),
-) -> StageResult:
+def cmd_filter_add(list_name: str, value: str) -> StageResult:
     """Add a value to a monitor configuration list."""
 
     config = WKSConfig.load()

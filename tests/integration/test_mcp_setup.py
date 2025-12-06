@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-import wks.mcp_setup as mcp_setup
+import wks.mcp.setup as mcp_setup
 
 
 def _fake_command(tmp_path: Path):

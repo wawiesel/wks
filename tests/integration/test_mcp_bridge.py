@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from wks.mcp_bridge import MCPBroker
-from wks.mcp_client import proxy_stdio_to_socket
+from wks.mcp.bridge import MCPBroker
+from wks.mcp.client import proxy_stdio_to_socket
 
 
 def _tmp_socket() -> Path:

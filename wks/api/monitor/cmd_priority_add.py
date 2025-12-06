@@ -4,16 +4,11 @@ This function sets or updates the priority of a priority directory.
 Matches CLI: wksc monitor priority add <path> <priority>, MCP: wksm_monitor_priority_add
 """
 
-import typer
-
 from ...utils import canonicalize_path, find_matching_path_key
 from ..base import StageResult
 
 
-def cmd_priority_add(
-    path: str = typer.Argument(..., help="Path to set priority for"),
-    priority: float = typer.Argument(..., help="New priority of the path"),
-) -> StageResult:
+def cmd_priority_add(path: str, priority: float) -> StageResult:
     """Set or update priority for a priority directory (creates if missing).
 
     Args:

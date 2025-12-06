@@ -14,7 +14,7 @@ from .explain_path import explain_path
 
 
 def cmd_status() -> StageResult:
-    """Get filesystem monitoring status and configuration."""
+    """Get filesystem monitoring status (not configuration - use 'wksc config monitor' for config)."""
     from ...api.config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
@@ -75,120 +75,12 @@ def cmd_status() -> StageResult:
         if err:
             issues.append(f"Priority directory invalid: {path} ({err})")
 
-    # Format priority directories as a list of dicts for better table display
-    priority_dir_rows = [
-        {
-            "Path": path,
-            "Priority": priority_info["priority"],
-            "Valid": "✓" if priority_info["valid"] else "✗",
-            "Error": priority_info["error"] or "-",
-        }
-        for path, priority_info in priority_directories.items()
-    ]
-
-    # Build combined include/exclude tables
-    tables = []
-
-    # Priority directories table
-    if priority_dir_rows:
-        tables.append(
-            {
-                "data": priority_dir_rows,
-                "headers": ["Path", "Priority", "Valid", "Error"],
-                "title": "Priority Directories",
-            }
-        )
-
-    # Paths table (include/exclude combined)
-    max_paths = max(len(monitor_cfg.filter.include_paths), len(monitor_cfg.filter.exclude_paths))
-    if max_paths > 0:
-        path_rows = []
-        for i in range(max_paths):
-            row = {
-                "Include": monitor_cfg.filter.include_paths[i] if i < len(monitor_cfg.filter.include_paths) else "",
-                "Exclude": monitor_cfg.filter.exclude_paths[i] if i < len(monitor_cfg.filter.exclude_paths) else "",
-            }
-            path_rows.append(row)
-        tables.append({"data": path_rows, "headers": ["Include", "Exclude"], "title": "Paths"})
-
-    # Dirnames table (include/exclude combined)
-    max_dirnames = max(len(monitor_cfg.filter.include_dirnames), len(monitor_cfg.filter.exclude_dirnames))
-    if max_dirnames > 0:
-        dirname_rows = []
-        for i in range(max_dirnames):
-            row = {
-                "Include": monitor_cfg.filter.include_dirnames[i]
-                if i < len(monitor_cfg.filter.include_dirnames)
-                else "",
-                "Exclude": monitor_cfg.filter.exclude_dirnames[i]
-                if i < len(monitor_cfg.filter.exclude_dirnames)
-                else "",
-            }
-            dirname_rows.append(row)
-        tables.append({"data": dirname_rows, "headers": ["Include", "Exclude"], "title": "Dirnames"})
-
-    # Globs table (include/exclude combined)
-    max_globs = max(len(monitor_cfg.filter.include_globs), len(monitor_cfg.filter.exclude_globs))
-    if max_globs > 0:
-        glob_rows = []
-        for i in range(max_globs):
-            row = {
-                "Include": monitor_cfg.filter.include_globs[i] if i < len(monitor_cfg.filter.include_globs) else "",
-                "Exclude": monitor_cfg.filter.exclude_globs[i] if i < len(monitor_cfg.filter.exclude_globs) else "",
-            }
-            glob_rows.append(row)
-        tables.append({"data": glob_rows, "headers": ["Include", "Exclude"], "title": "Globs"})
-
-    # Add issues table if there are any
-    if issues:
-        tables.append(
-            {
-                "data": [{"Issue": issue} for issue in issues],
-                "headers": ["Issue"],
-                "title": "Issues",
-            }
-        )
-
-    # Summary table (last)
-    summary_data = [
-        {"Metric": "Tracked Files", "Value": total_files},
-        {"Metric": "Issues", "Value": len(issues)},
-        {"Metric": "Priority Directories", "Value": len(priority_directories)},
-    ]
-
-    # Add time-based file counts
-    if time_based_counts:
-        summary_data.append({"Metric": "", "Value": ""})  # Separator
-        for label in [
-            "Last hour",
-            "4 hours",
-            "8 hours",
-            "1 day",
-            "3 days",
-            "7 days",
-            "2 weeks",
-            "1 month",
-            "3 months",
-            "6 months",
-            "1 year",
-            ">1 year",
-        ]:
-            count = time_based_counts.get(label, 0)
-            summary_data.append({"Metric": f"Modified ({label})", "Value": count})
-
-    tables.append(
-        {
-            "data": summary_data,
-            "headers": ["Metric", "Value"],
-            "title": "Summary",
-        }
-    )
-
+    # Only include status-specific data (not config that can be retrieved elsewhere)
     result = {
-        "_tables": tables,
         "tracked_files": total_files,
         "issues": issues,
-        "priority_directories": priority_directories,
+        "priority_directories": priority_directories,  # Includes validation status (status-specific)
+        "time_based_counts": time_based_counts,
         "success": len(issues) == 0,
     }
 

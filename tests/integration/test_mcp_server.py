@@ -8,7 +8,7 @@ import pytest
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import MonitorConfig, VaultConfig, WKSConfig
 
-from wks.mcp_server import MCPServer
+from wks.mcp.server import MCPServer
 
 
 @pytest.fixture

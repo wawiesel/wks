@@ -7,7 +7,7 @@ import socket
 import threading
 from pathlib import Path
 
-from .mcp_server import MCPServer
+from .server import MCPServer
 
 
 class MCPBroker:

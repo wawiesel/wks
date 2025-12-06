@@ -17,13 +17,14 @@ def test_cmd_priority_show_returns_stage_result(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {"/tmp/a": 1.0}},
+                "database": "monitor",
                 "sync": {"database": "wks.monitor"},
             }
         }
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr("wks.api.monitor.cmd_priority_show.WKSConfig.load", lambda: cfg)
 
     # Mock explain_path to return True
     monkeypatch.setattr("wks.api.monitor.cmd_priority_show.explain_path", lambda _cfg, _path: (True, []))

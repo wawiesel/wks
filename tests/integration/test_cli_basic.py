@@ -481,7 +481,7 @@ def test_cli_mcp_run_with_proxy(mock_socket_path, mock_proxy, tmp_path):
 
 
 @patch("wks.cli.proxy_stdio_to_socket")
-@patch("wks.mcp_server.main")
+@patch("wks.mcp.server.main")
 def test_cli_mcp_run_direct(mock_mcp_main, mock_proxy):
     """Test wksc mcp run --direct bypasses proxy."""
     mock_proxy.return_value = False
@@ -493,10 +493,10 @@ def test_cli_mcp_run_direct(mock_mcp_main, mock_proxy):
     mock_proxy.assert_not_called()
 
 
-@patch("wks.mcp_setup.install_mcp_configs")
+@patch("wks.mcp.setup.install_mcp_configs")
 def test_cli_mcp_install(mock_install):
     """Test wksc mcp install command."""
-    from wks.mcp_setup import InstallResult
+    from wks.mcp.setup import InstallResult
 
     mock_install.return_value = [InstallResult("cursor", Path("/path/to/cursor"), "created", "Registered MCP server")]
 
@@ -506,10 +506,10 @@ def test_cli_mcp_install(mock_install):
     assert "[cursor]" in out or "[CURSOR]" in out.upper()
 
 
-@patch("wks.mcp_setup.install_mcp_configs")
+@patch("wks.mcp.setup.install_mcp_configs")
 def test_cli_mcp_install_with_command_path(mock_install):
     """Test wksc mcp install with --command-path."""
-    from wks.mcp_setup import InstallResult
+    from wks.mcp.setup import InstallResult
 
     mock_install.return_value = [
         InstallResult("cursor", Path("/path/to/cursor"), "updated", "Updated MCP server entry")
@@ -520,10 +520,10 @@ def test_cli_mcp_install_with_command_path(mock_install):
     mock_install.assert_called_once_with(clients=["cursor"], command_override="/custom/path")
 
 
-@patch("wks.mcp_setup.install_mcp_configs")
+@patch("wks.mcp.setup.install_mcp_configs")
 def test_cli_mcp_install_multiple_clients(mock_install):
     """Test wksc mcp install with multiple clients."""
-    from wks.mcp_setup import InstallResult
+    from wks.mcp.setup import InstallResult
 
     mock_install.return_value = [
         InstallResult("cursor", Path("/path/to/cursor"), "created", ""),

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wks.mcp_server import MCPServer
+from wks.mcp.server import MCPServer
 
 
 @pytest.fixture
@@ -158,7 +158,7 @@ class TestMCPServerNewTools:
         assert result["count"] == 1
         assert result["results"][0]["path"] == "/a"
 
-    @patch("wks.mcp_server.ServiceController")
+    @patch("wks.mcp.server.ServiceController")
     def test_wks_service(self, mock_service_ctrl, mock_server, mock_config):
         """Test wksm_service tool returns MCPResult format."""
         mock_status = MagicMock()
@@ -374,7 +374,7 @@ class TestMCPServerNewTools:
     @patch("wks.config.WKSConfig.load")
     def test_call_tool_not_found(self, mock_load_config, mock_config):
         """Test call_tool returns error for unknown tool."""
-        from wks.mcp_server import call_tool
+        from wks.mcp.server import call_tool
 
         mock_load_config.return_value = mock_config
 
@@ -386,7 +386,7 @@ class TestMCPServerNewTools:
     @patch("wks.config.WKSConfig.load")
     def test_call_tool_success(self, mock_load_config, mock_config):
         """Test call_tool successfully calls a tool."""
-        from wks.mcp_server import call_tool
+        from wks.mcp.server import call_tool
 
         mock_load_config.return_value = mock_config
 

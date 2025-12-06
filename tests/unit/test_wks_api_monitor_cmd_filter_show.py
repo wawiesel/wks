@@ -12,7 +12,7 @@ pytestmark = pytest.mark.monitor
 
 def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch):
     cfg = DummyConfig(SimpleNamespace())
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr("wks.api.monitor.cmd_filter_show.WKSConfig.load", lambda: cfg)
 
     result = cmd_filter_show.cmd_filter_show()
     assert result.output["available_lists"]
@@ -27,17 +27,19 @@ def test_cmd_filter_show_returns_list(monkeypatch):
             "monitor": {
                 "filter": {"include_paths": ["a", "b"]},
                 "priority": {},
+                "database": "monitor",
                 "sync": {"database": "wks.monitor"},
             }
         }
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr("wks.api.monitor.cmd_filter_show.WKSConfig.load", lambda: cfg)
 
     result = cmd_filter_show.cmd_filter_show(list_name="include_paths")
     assert result.output["count"] == 2
     assert "Showing" in result.result
+    assert result.output["items"] == ["a", "b"]
 
 
 def test_cmd_filter_show_unknown_list_name(monkeypatch):
@@ -49,13 +51,14 @@ def test_cmd_filter_show_unknown_list_name(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {},
+                "database": "monitor",
                 "sync": {"database": "wks.monitor"},
             }
         }
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr("wks.api.monitor.cmd_filter_show.WKSConfig.load", lambda: cfg)
 
     try:
         cmd_filter_show.cmd_filter_show(list_name="unknown_list")

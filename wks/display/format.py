@@ -55,10 +55,6 @@ def data_to_tables(data: Any) -> list[dict[str, Any]]:
 
     # Single dict → key-value table
     if isinstance(data, dict):
-        # Check for special keys that indicate pre-formatted tables
-        if "_tables" in data:
-            return data["_tables"]
-
         # Check if dict values are lists (nested structures)
         has_nested_lists = any(isinstance(v, list) for v in data.values() if v is not None)
         has_nested_dicts = any(isinstance(v, dict) for v in data.values() if v is not None)

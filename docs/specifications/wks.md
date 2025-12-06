@@ -71,6 +71,45 @@ WKS is built as a stack of independent, composable layers:
 -   **Strict Validation**: Configuration access is centralized through **dataclasses** with strict validation on load. Fail immediately if data is missing or invalid. All required fields must be present in the config file - no code-level defaults are permitted.
 -   **No Hedging**: Remove fallback logic; no silent defaults or implicit substitutions. Fail fast and visibly. If a configuration value is missing, raise a validation error rather than using a default.
 
+## CLI Global Options
+
+All CLI commands support the following global options:
+
+### `--display` / `-d` (Output Format)
+
+Controls the output format for structured data. Available formats:
+- `yaml` (default) - YAML format with syntax highlighting in interactive terminals
+- `json` - JSON format with syntax highlighting in interactive terminals
+
+When output is redirected to a file, both formats produce valid, unformatted output suitable for parsing.
+
+**Examples**:
+```bash
+wksc monitor status --display json
+wksc db show monitor -d yaml
+wksc config monitor > config.yaml  # Valid YAML when redirected
+```
+
+### `--live` / `-l` (Live Updates)
+
+Continuously runs the command every N seconds, updating the display in place. This is a CLI-only feature (not available in MCP).
+
+**Usage**: `--live <seconds>` or `-l <seconds>`
+
+**Behavior**:
+- Command executes repeatedly at the specified interval
+- Display updates in place using a live terminal interface
+- Shows "Live mode (CNTL-C to end)" message at the bottom
+- Press Ctrl+C to exit
+
+**Examples**:
+```bash
+wksc monitor status --live 5    # Update every 5 seconds
+wksc db show monitor -l 2       # Update every 2 seconds
+```
+
+**Note**: The `--live` option is handled at the CLI layer and does not affect the API or MCP interfaces.
+
 ## Layer Specifications
 
 Detailed specifications for each component:
