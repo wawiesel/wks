@@ -7,8 +7,7 @@ from typing import Any
 from ..base import StageResult
 from ..config.WKSConfig import WKSConfig
 from ..config.get_home_dir import get_home_dir
-from ._macos._launchd import get_service_status
-from ._macos._DaemonConfigData import _DaemonConfigData
+from .DaemonConfig import _BACKEND_REGISTRY
 
 
 def _pid_running(pid: int) -> bool:
@@ -40,17 +39,25 @@ def cmd_status() -> StageResult:
 
     status_data["type"] = config.daemon.type
 
-    # Check service installation status
-    if config.daemon.type == "macos":
-        if isinstance(config.daemon.data, _DaemonConfigData):
-            service_status = get_service_status(config.daemon.data)
+    # Check service installation status via backend implementation
+    backend_type = config.daemon.type
+    if backend_type in _BACKEND_REGISTRY:
+        try:
+            module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
+            impl_class = module._Impl
+            daemon_impl = impl_class(config.daemon)
+            service_status = daemon_impl.get_service_status()
             status_data["service_installed"] = service_status.get("installed", False)
-            status_data["plist_path"] = service_status.get("plist_path")
+            if "plist_path" in service_status:
+                status_data["plist_path"] = service_status.get("plist_path")
 
             if "pid" in service_status:
                 pid = service_status["pid"]
                 status_data["pid"] = pid
                 status_data["daemon_running"] = _pid_running(pid)
+        except (NotImplementedError, Exception):
+            # Backend doesn't support service status or error occurred
+            pass
 
     # Check lock file
     lock_file = get_home_dir("daemon.lock")

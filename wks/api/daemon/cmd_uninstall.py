@@ -1,15 +1,12 @@
 """Daemon uninstall command - removes daemon system service."""
 
 from ..base import StageResult
-from ..config.ConfigError import ConfigError
-from ._macos._launchd import uninstall_service
-from ._macos._DaemonConfigData import _DaemonConfigData
+from ..config.WKSConfig import WKSConfig
+from .DaemonConfig import _BACKEND_REGISTRY
 
 
 def cmd_uninstall() -> StageResult:
     """Uninstall daemon system service."""
-    from ..config.WKSConfig import WKSConfig
-
     config = WKSConfig.load()
 
     if config.daemon is None:
@@ -20,35 +17,47 @@ def cmd_uninstall() -> StageResult:
             success=False,
         )
 
-    if config.daemon.type == "macos":
-        if not isinstance(config.daemon.data, _DaemonConfigData):
-            return StageResult(
-                announce="Uninstalling daemon service...",
-                result="Error: Invalid daemon configuration",
-                output={"success": False, "error": "daemon.data structure mismatch"},
-                success=False,
-            )
-
-        try:
-            uninstall_service(config.daemon.data)
-            return StageResult(
-                announce="Uninstalling daemon service...",
-                result=f"Daemon service uninstalled successfully (label: {config.daemon.data.label})",
-                output={"success": True, "type": "macos", "label": config.daemon.data.label},
-                success=True,
-            )
-        except Exception as e:
-            return StageResult(
-                announce="Uninstalling daemon service...",
-                result=f"Error uninstalling service: {e}",
-                output={"success": False, "error": str(e)},
-                success=False,
-            )
-    else:
+    # Validate backend type
+    backend_type = config.daemon.type
+    if backend_type not in _BACKEND_REGISTRY:
         return StageResult(
             announce="Uninstalling daemon service...",
-            result=f"Error: Unsupported daemon type '{config.daemon.type}'",
-            output={"success": False, "error": f"Unsupported type: {config.daemon.type}"},
+            result=f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})",
+            output={
+                "success": False,
+                "error": f"Unsupported backend type: {backend_type!r}",
+                "supported": list(_BACKEND_REGISTRY.keys()),
+            },
+            success=False,
+        )
+
+    # Import and instantiate backend implementation
+    try:
+        module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
+        impl_class = module._Impl
+        daemon_impl = impl_class(config.daemon)
+
+        # Uninstall via backend implementation
+        result = daemon_impl.uninstall_service()
+
+        return StageResult(
+            announce="Uninstalling daemon service...",
+            result=f"Daemon service uninstalled successfully (label: {result.get('label', 'unknown')})",
+            output=result,
+            success=result.get("success", True),
+        )
+    except NotImplementedError as e:
+        return StageResult(
+            announce="Uninstalling daemon service...",
+            result=f"Error: Service uninstallation not supported for backend '{backend_type}'",
+            output={"success": False, "error": str(e)},
+            success=False,
+        )
+    except Exception as e:
+        return StageResult(
+            announce="Uninstalling daemon service...",
+            result=f"Error uninstalling service: {e}",
+            output={"success": False, "error": str(e)},
             success=False,
         )
 

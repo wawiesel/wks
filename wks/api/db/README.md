@@ -8,7 +8,7 @@ This directory implements the database API following a strict one-file-per-funct
 
 **Database abstraction**: All database-specific code is isolated in `_<backend>/` subdirectories. The public API in this directory uses database-agnostic interfaces that could be swapped out for other database implementations. Each backend directory contains `_Impl.py` (implementation) and `_DbConfigData.py` (configuration data).
 
-**Pure API layer**: This directory contains zero CLI or MCP-specific code (no printing, no protocol handling). Functions only build and return structured data. Display/rendering happens in the `wks/display/` layer.
+**Pure API layer**: This directory contains zero CLI or MCP-specific code (no printing, no protocol handling). Functions only build and return structured data. Display/rendering happens in the `wks/api/display/` layer.
 
 **StageResult pattern**: All commands return `StageResult` with four stages: announce → progress → result → output. This provides consistent structure for CLI and MCP layers while separating work execution from display.
 
@@ -27,11 +27,9 @@ This directory implements the database API following a strict one-file-per-funct
 
 ### Patterns
 
-**Config loading**: Commands load config via `WKSConfig.load()` inside the function body. This keeps signatures simple and makes testing easy via mocking.
-
 **Command structure**: Commands are plain Python functions with Typer annotations. They return `StageResult` containing structured data. The `handle_stage_result()` wrapper in `app.py` executes progress callbacks if present.
 
-**Database access**: Use `Database` context manager from `Database.py` for database operations, or `Database.query()` classmethod for simple pass-through queries. Database names are automatically prefixed with `database.prefix` from configuration (e.g., with `prefix: "wks"`, `"monitor"` becomes `"wks.monitor"`). All backend-specific code is in `_<backend>/` subdirectories.
+**Database access**: Use `Database` context manager from `Database.py` for database operations, or `Database.query()` classmethod for simple pass-through queries. 
 
 ### Database Configuration
 

@@ -8,12 +8,19 @@ The WKS daemon runs as a background service to monitor the filesystem and mainta
 **CLI Interface**:
 ```bash
 wksc daemon status           # Show daemon status and metrics (supports --live for auto-updating display)
-wksc daemon start            # Start daemon
+wksc daemon start            # Start daemon (uses service if installed, otherwise starts directly)
 wksc daemon stop             # Stop daemon
 wksc daemon restart          # Restart daemon
 wksc daemon install          # Install as system service (launchd on macOS)
 wksc daemon uninstall        # Remove system service
 ```
+
+**Start Behavior**:
+The `wksc daemon start` command behaves differently depending on whether the service is installed:
+- **If service is installed**: Starts the daemon via the system service manager (e.g., `launchctl` on macOS)
+- **If service is not installed**: Starts the daemon directly as a background process.
+
+This allows users to start the daemon without installing it as a service, which is useful for testing or temporary runs.
 
 **Status Output**:
 The `status` command displays:
@@ -27,6 +34,18 @@ The `daemon install` command automatically detects the operating system and inst
 - **Other OSes**: Support for additional operating systems will be added in the future
 
 The service can be managed via system-specific tools (e.g., `launchctl` on macOS) or through the `wksc daemon` commands. The installation process reads daemon configuration from `config.json` to determine service parameters.
+
+**Manual Execution**:
+The daemon can be run directly without installing as a service using `wksc daemon start`. This is useful for development, testing, or one-off runs.
+
+When started without a service installation, the daemon will:
+- Load configuration from `{WKS_HOME}/config.json`
+- Detect the operating system and use the appropriate backend implementation
+- Run in the background as a detached process
+- Write status to `{WKS_HOME}/daemon.json`
+- Create a lock file at `{WKS_HOME}/daemon.lock` to prevent multiple instances
+
+**Note**: When running without a service, ensure only one instance is running at a time. The lock file prevents concurrent execution, but if a previous instance crashed without cleaning up the lock file, you may need to manually remove `{WKS_HOME}/daemon.lock` before starting a new instance.
 
 **Behavior**:
 - Only one daemon instance can run at a time (enforced via lock file at `{WKS_HOME}/daemon.lock`)

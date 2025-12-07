@@ -5,8 +5,7 @@ import sys
 
 from ..base import StageResult
 from ..config.WKSConfig import WKSConfig
-from ._macos._launchd import get_service_status
-from ._macos._DaemonConfigData import _DaemonConfigData
+from .DaemonConfig import _BACKEND_REGISTRY
 
 
 def cmd_start() -> StageResult:
@@ -21,54 +20,86 @@ def cmd_start() -> StageResult:
             success=False,
         )
 
-    if config.daemon.type == "macos":
-        if not isinstance(config.daemon.data, _DaemonConfigData):
-            return StageResult(
-                announce="Starting daemon...",
-                result="Error: Invalid daemon configuration",
-                output={"success": False, "error": "daemon.data structure mismatch"},
-                success=False,
-            )
-
-        # Check if service is installed
-        service_status = get_service_status(config.daemon.data)
-        if not service_status.get("installed", False):
-            return StageResult(
-                announce="Starting daemon...",
-                result="Error: Daemon service not installed. Run 'wksc daemon install' first.",
-                output={"success": False, "error": "service not installed"},
-                success=False,
-            )
-
-        # Start via launchctl
-        import os
-
-        uid = os.getuid()
-        try:
-            subprocess.run(
-                ["launchctl", "kickstart", "-k", f"gui/{uid}/{config.daemon.data.label}"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            return StageResult(
-                announce="Starting daemon...",
-                result=f"Daemon started successfully (label: {config.daemon.data.label})",
-                output={"success": True, "type": "macos", "label": config.daemon.data.label},
-                success=True,
-            )
-        except subprocess.CalledProcessError as e:
-            return StageResult(
-                announce="Starting daemon...",
-                result=f"Error starting daemon: {e.stderr}",
-                output={"success": False, "error": e.stderr},
-                success=False,
-            )
-    else:
+    # Validate backend type
+    backend_type = config.daemon.type
+    if backend_type not in _BACKEND_REGISTRY:
         return StageResult(
             announce="Starting daemon...",
-            result=f"Error: Unsupported daemon type '{config.daemon.type}'",
-            output={"success": False, "error": f"Unsupported type: {config.daemon.type}"},
+            result=f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})",
+            output={
+                "success": False,
+                "error": f"Unsupported backend type: {backend_type!r}",
+                "supported": list(_BACKEND_REGISTRY.keys()),
+            },
             success=False,
         )
 
+    # Import and instantiate backend implementation
+    try:
+        module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
+        impl_class = module._Impl
+        daemon_impl = impl_class(config.daemon)
+
+        # Check if service is installed
+        service_status = daemon_impl.get_service_status()
+        if service_status.get("installed", False):
+            # Start via service manager
+            result = daemon_impl.start_service()
+            if result.get("success", False):
+                return StageResult(
+                    announce="Starting daemon...",
+                    result=f"Daemon started successfully (label: {result.get('label', 'unknown')})",
+                    output={**result, "method": "service"},
+                    success=True,
+                )
+            else:
+                return StageResult(
+                    announce="Starting daemon...",
+                    result=f"Error starting daemon: {result.get('error', 'unknown error')}",
+                    output=result,
+                    success=False,
+                )
+        else:
+            # Service not installed - start daemon directly in background
+            python_path = sys.executable
+            daemon_module = f"wks.api.daemon._{backend_type}._Impl"
+
+            try:
+                process = subprocess.Popen(
+                    [python_path, "-m", daemon_module],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,  # Detach from parent process
+                )
+                return StageResult(
+                    announce="Starting daemon...",
+                    result=f"Daemon started successfully (PID: {process.pid})",
+                    output={
+                        "success": True,
+                        "type": backend_type,
+                        "pid": process.pid,
+                        "method": "direct",
+                    },
+                    success=True,
+                )
+            except Exception as e:
+                return StageResult(
+                    announce="Starting daemon...",
+                    result=f"Error starting daemon: {e}",
+                    output={"success": False, "error": str(e)},
+                    success=False,
+                )
+    except NotImplementedError as e:
+        return StageResult(
+            announce="Starting daemon...",
+            result=f"Error: Service start not supported for backend '{backend_type}'",
+            output={"success": False, "error": str(e)},
+            success=False,
+        )
+    except Exception as e:
+        return StageResult(
+            announce="Starting daemon...",
+            result=f"Error starting daemon: {e}",
+            output={"success": False, "error": str(e)},
+            success=False,
+        )
