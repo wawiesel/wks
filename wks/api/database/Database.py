@@ -26,7 +26,7 @@ class Database:
             raise ValueError(f"Unsupported backend type: {backend_type!r} (supported: {list(backend_registry.keys())})")
 
         # Import database implementation class directly from backend _Impl module
-        module = __import__(f"wks.api.db._{backend_type}._Impl", fromlist=[""])
+        module = __import__(f"wks.api.database._{backend_type}._Impl", fromlist=[""])
         impl_class = module._Impl
         self._impl = impl_class(self.db_config, self.db_name, self.database_name)
         self._impl.__enter__()

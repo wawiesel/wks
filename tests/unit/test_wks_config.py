@@ -9,7 +9,7 @@ from wks.api.config.DisplayConfig import DEFAULT_TIMESTAMP_FORMAT, DisplayConfig
 from wks.api.config.get_config_path import get_config_path
 from wks.api.config.MetricsConfig import MetricsConfig
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.db.DbConfig import DbConfig
+from wks.api.database.DbConfig import DbConfig
 
 # Note: MongoDbConfig tests removed - now using DbConfig with backend-specific data
 # See test_wks_api_db_DbConfig.py for DbConfig tests

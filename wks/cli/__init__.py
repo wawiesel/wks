@@ -13,7 +13,7 @@ import typer
 
 from wks.api.config.app import config_app
 from wks.api.daemon.app import daemon_app
-from wks.api.db.app import db_app
+from wks.api.database.app import db_app
 from wks.api.monitor.app import monitor_app
 
 # TODO: Create wks/api/diff/app.py

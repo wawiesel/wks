@@ -1,10 +1,10 @@
-"""Unit tests for wks.api.db.cmd_reset module."""
+"""Unit tests for wks.api.database.cmd_reset module."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wks.api.db.cmd_reset import cmd_reset
+from wks.api.database.cmd_reset import cmd_reset
 
 pytestmark = pytest.mark.db
 
@@ -22,7 +22,7 @@ class TestCmdReset:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.db.cmd_reset.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.return_value = mock_collection
                 result = cmd_reset("monitor")
 
@@ -43,7 +43,7 @@ class TestCmdReset:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.db.cmd_reset.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.return_value = mock_collection
                 result = cmd_reset("vault")
 
@@ -61,7 +61,7 @@ class TestCmdReset:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.db.cmd_reset.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.return_value = mock_collection
                 result = cmd_reset("monitor")
 
@@ -77,7 +77,7 @@ class TestCmdReset:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.db.cmd_reset.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.side_effect = Exception("Connection failed")
                 result = cmd_reset("monitor")
 

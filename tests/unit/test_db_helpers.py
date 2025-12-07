@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pymongo.errors import ServerSelectionTimeoutError
 
-from wks.api.db.db_helpers import (
+from wks.api.database.db_helpers import (
     connect_to_mongo,
     get_monitor_db_config,
     get_transform_db_config,

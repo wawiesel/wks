@@ -1,10 +1,10 @@
-"""Unit tests for wks.api.db.cmd_list module."""
+"""Unit tests for wks.api.database.cmd_list module."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wks.api.db.cmd_list import cmd_list
+from wks.api.database.cmd_list import cmd_list
 
 pytestmark = pytest.mark.db
 
@@ -27,7 +27,7 @@ class TestCmdList:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config) as mock_load:
-            with patch("wks.api.db.cmd_list.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.return_value = mock_collection
                 result = cmd_list()
 
@@ -50,7 +50,7 @@ class TestCmdList:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.db.cmd_list.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.return_value = mock_collection
                 result = cmd_list()
 
@@ -70,7 +70,7 @@ class TestCmdList:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.db.cmd_list.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.return_value = mock_collection
                 result = cmd_list()
 
@@ -83,7 +83,7 @@ class TestCmdList:
         mock_config = MagicMock()
         mock_config.db.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.db.cmd_list.DbCollection") as mock_db_collection_class:
+            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
                 mock_db_collection_class.side_effect = Exception("Connection failed")
                 result = cmd_list()
 

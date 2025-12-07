@@ -5,13 +5,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+from wks.api.database._mongo.MongoDbConfig import MongoDbConfig
 from wks.api.config import (
     DisplayConfig,
     MetricsConfig,
     WKSConfig,
 )
-from wks.api.db.DbConfig import DbConfig
+from wks.api.database.DbConfig import DbConfig
 from wks.api.monitor.MonitorConfig import MonitorConfig
 from wks.api.transform.config import TransformConfig
 from wks.api.vault.config import VaultConfig

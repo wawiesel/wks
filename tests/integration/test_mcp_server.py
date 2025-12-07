@@ -5,7 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+from wks.api.database._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import MonitorConfig, VaultConfig, WKSConfig
 
 from wks.mcp.server import MCPServer

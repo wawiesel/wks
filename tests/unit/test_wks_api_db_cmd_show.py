@@ -1,12 +1,12 @@
-"""Unit tests for wks.api.db.cmd_show module."""
+"""Unit tests for wks.api.database.cmd_show module."""
 
 import json
 from unittest.mock import patch
 
 import pytest
 
-from wks.api.db.cmd_show import cmd_show
-from wks.api.db.DbCollection import DbCollection
+from wks.api.database.cmd_show import cmd_show
+from wks.api.database.DbCollection import DbCollection
 
 pytestmark = pytest.mark.db
 
@@ -17,7 +17,7 @@ class TestCmdShow:
     def test_cmd_show_success(self, monkeypatch):
         """Test cmd_show with valid query."""
         from unittest.mock import MagicMock
-        from wks.api.db.DbConfig import DbConfig
+        from wks.api.database.DbConfig import DbConfig
 
         mock_result = {"results": [{"_id": "1", "path": "/test"}], "count": 1}
         mock_config = MagicMock()
@@ -38,7 +38,7 @@ class TestCmdShow:
     def test_cmd_show_no_filter(self, monkeypatch):
         """Test cmd_show with no filter."""
         from unittest.mock import MagicMock
-        from wks.api.db.DbConfig import DbConfig
+        from wks.api.database.DbConfig import DbConfig
 
         mock_result = {"results": [], "count": 0}
         mock_config = MagicMock()
@@ -66,7 +66,7 @@ class TestCmdShow:
     def test_cmd_show_empty_string_filter(self, monkeypatch):
         """Test cmd_show with empty string filter."""
         from unittest.mock import MagicMock
-        from wks.api.db.DbConfig import DbConfig
+        from wks.api.database.DbConfig import DbConfig
 
         mock_result = {"results": [], "count": 0}
         mock_config = MagicMock()
@@ -93,7 +93,7 @@ class TestCmdShow:
     def test_cmd_show_complex_filter(self, monkeypatch):
         """Test cmd_show with complex filter."""
         from unittest.mock import MagicMock
-        from wks.api.db.DbConfig import DbConfig
+        from wks.api.database.DbConfig import DbConfig
 
         mock_result = {"results": [{"_id": "1"}], "count": 1}
         complex_filter = '{"age": {"$gt": 18}, "name": {"$regex": "^A"}}'

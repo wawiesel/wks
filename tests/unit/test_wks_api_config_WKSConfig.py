@@ -7,7 +7,7 @@ import pytest
 
 from wks.api.config.ConfigError import ConfigError
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.db.DbConfig import DbConfig
+from wks.api.database.DbConfig import DbConfig
 from wks.api.monitor.MonitorConfig import MonitorConfig
 
 pytestmark = pytest.mark.config

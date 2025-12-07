@@ -160,7 +160,7 @@ def daemon_config(tmp_path):
         database="wks.vault",
         vault_type="obsidian",
     )
-    from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
+    from wks.api.database._mongo.MongoDbConfig import MongoDbConfig
 
     mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()

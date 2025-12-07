@@ -760,7 +760,7 @@ class MCPServer:
 
     def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
-        from wks.api.db.db_helpers import connect_to_mongo, get_vault_db_config
+        from wks.api.database.db_helpers import connect_to_mongo, get_vault_db_config
 
         from wks.utils.uri_utils import convert_to_uri
         from wks.utils import expand_path
@@ -890,7 +890,7 @@ class MCPServer:
         from pathlib import Path
 
         from wks.api.config.WKSConfig import WKSConfig
-        from wks.api.db.db_helpers import connect_to_mongo
+        from wks.api.database.db_helpers import connect_to_mongo
         from wks.api.transform.controller import TransformController
         from wks.utils import expand_path
 
@@ -909,7 +909,7 @@ class MCPServer:
 
             from pymongo import MongoClient
 
-            from wks.api.db._mongo._DbConfigData import _DbConfigData
+            from wks.api.database._mongo._DbConfigData import _DbConfigData
 
             if isinstance(wks_cfg.database.data, _DbConfigData):
                 uri = wks_cfg.database.data.uri
@@ -950,7 +950,7 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
-            from wks.api.db.Database import Database
+            from wks.api.database.Database import Database
 
             # Get database using Database directly
             database = Database(wks_cfg.database, "_")
@@ -979,7 +979,7 @@ class MCPServer:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
-        from wks.api.db.db_helpers import connect_to_mongo
+        from wks.api.database.db_helpers import connect_to_mongo
         from wks.api.diff.controller import DiffController
         from wks.api.diff.config import DiffConfig, DiffConfigError
         from wks.api.transform.controller import TransformController
@@ -1015,7 +1015,7 @@ class MCPServer:
 
             from pymongo import MongoClient
 
-            from wks.api.db._mongo._DbConfigData import _DbConfigData
+            from wks.api.database._mongo._DbConfigData import _DbConfigData
 
             db_name = str(db_name_str).split(".")[0]
 
@@ -1088,7 +1088,7 @@ class MCPServer:
         limit: int,
     ) -> dict[str, Any]:
         """Execute wks_db_* tools."""
-        from wks.api.db.Database import Database
+        from wks.api.database.Database import Database
 
         if db_type == "monitor":
             database_key = config.monitor.database

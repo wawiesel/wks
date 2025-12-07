@@ -1,9 +1,9 @@
-"""Unit tests for wks.api.db.DbConfig module."""
+"""Unit tests for wks.api.database.DbConfig module."""
 
 import pytest
 from pydantic import ValidationError
 
-from wks.api.db.DbConfig import DbConfig
+from wks.api.database.DbConfig import DbConfig
 
 pytestmark = pytest.mark.db
 

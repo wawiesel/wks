@@ -15,7 +15,7 @@ def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
         MetricsConfig,
         WKSConfig,
     )
-    from wks.api.db.DbConfig import DbConfig
+    from wks.api.database.DbConfig import DbConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
     from wks.api.transform.config import TransformConfig
     from wks.api.vault.config import VaultConfig

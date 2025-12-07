@@ -23,7 +23,7 @@ def run_cli(args):
     return rc, out_buf.getvalue(), err_buf.getvalue()
 
 
-@patch("wks.api.db.DbCollection.DbCollection.query")
+@patch("wks.api.database.DbCollection.DbCollection.query")
 def test_cli_db_show_monitor(mock_query):
     """wksc db show monitor should show monitor collection."""
     mock_query.return_value = {"results": [], "count": 0}
@@ -38,7 +38,7 @@ def test_cli_db_show_monitor(mock_query):
     assert out.strip() != "" or err.strip() != ""
 
 
-@patch("wks.api.db.DbCollection.DbCollection.query")
+@patch("wks.api.database.DbCollection.DbCollection.query")
 def test_cli_db_show_vault(mock_query):
     """wksc db show vault should show vault collection."""
     mock_query.return_value = {"results": [], "count": 0}
@@ -51,7 +51,7 @@ def test_cli_db_show_vault(mock_query):
     assert out.strip() != "" or err.strip() != ""
 
 
-@patch("wks.api.db.DbCollection.DbCollection.query")
+@patch("wks.api.database.DbCollection.DbCollection.query")
 def test_cli_db_show_transform(mock_query):
     """wksc db show transform should show transform collection."""
     mock_query.return_value = {"results": [], "count": 0}

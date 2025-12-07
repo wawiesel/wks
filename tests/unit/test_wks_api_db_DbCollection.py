@@ -1,12 +1,12 @@
-"""Unit tests for wks.api.db.DbCollection module."""
+"""Unit tests for wks.api.database.DbCollection module."""
 
 import builtins
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wks.api.db.DbCollection import DbCollection
-from wks.api.db.DbConfig import DbConfig
+from wks.api.database.DbCollection import DbCollection
+from wks.api.database.DbConfig import DbConfig
 
 pytestmark = pytest.mark.db
 
@@ -97,7 +97,7 @@ class TestDbCollectionContextManager:
     def test_enter_with_unsupported_backend(self, monkeypatch):
         """Test __enter__ raises ValueError for unsupported backend."""
         # Create a DbConfig with invalid type by directly constructing it
-        from wks.api.db._mongo._DbConfigData import _DbConfigData
+        from wks.api.database._mongo._DbConfigData import _DbConfigData
 
         db_config = DbConfig(type="invalid", data=_DbConfigData(uri="mongodb://localhost:27017/"))
 
@@ -270,10 +270,10 @@ class TestDbCollectionQuery:
         with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
-            # Make __import__ return mock_module for any wks.api.db._* imports
+            # Make __import__ return mock_module for any wks.api.database._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
+                if isinstance(name, str) and "wks.api.database._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
@@ -300,10 +300,10 @@ class TestDbCollectionQuery:
         with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
-            # Make __import__ return mock_module for any wks.api.db._* imports
+            # Make __import__ return mock_module for any wks.api.database._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
+                if isinstance(name, str) and "wks.api.database._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
@@ -333,7 +333,7 @@ class TestDbCollectionQuery:
             # Make __import__ return the module when called with the expected arguments
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
+                if isinstance(name, str) and "wks.api.database._" in name and "_Impl" in name:
                     return mock_module
                 return original_import(name, *args, **kwargs)
 
@@ -358,10 +358,10 @@ class TestDbCollectionQuery:
         with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
-            # Make __import__ return mock_module for any wks.api.db._* imports
+            # Make __import__ return mock_module for any wks.api.database._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
+                if isinstance(name, str) and "wks.api.database._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
@@ -388,10 +388,10 @@ class TestDbCollectionQuery:
         with patch("builtins.__import__") as mock_import:
             mock_module = MagicMock()
             mock_module._Impl = MagicMock(return_value=mock_impl)
-            # Make __import__ return mock_module for any wks.api.db._* imports
+            # Make __import__ return mock_module for any wks.api.database._* imports
 
             def import_side_effect(name, *args, **kwargs):
-                if isinstance(name, str) and "wks.api.db._" in name and "_Impl" in name:
+                if isinstance(name, str) and "wks.api.database._" in name and "_Impl" in name:
                     return mock_module
                 # For other imports (including DbConfig), use original import
                 return original_import(name, *args, **kwargs)
