@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from wks.transform.config import (
+from wks.api.transform.config import (
     CacheConfig,
     EngineConfig,
     TransformConfig,

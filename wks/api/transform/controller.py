@@ -433,7 +433,7 @@ class TransformController:
         Raises:
             ValueError: If file not found
         """
-        from ..utils import expand_path
+        from ...utils import expand_path
 
         try:
             file_path = expand_path(target)

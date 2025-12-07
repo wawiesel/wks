@@ -5,7 +5,7 @@ is specified, returns the available list names.
 Matches CLI: wksc monitor filter show [<list-name>], MCP: wksm_monitor_filter_show
 """
 
-from ...api.config.WKSConfig import WKSConfig
+from ..config.WKSConfig import WKSConfig
 from ..base import StageResult
 from .MonitorConfig import MonitorConfig
 

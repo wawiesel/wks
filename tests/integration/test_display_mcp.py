@@ -4,7 +4,7 @@ import io
 import json
 from contextlib import redirect_stdout
 
-from wks.display.mcp import MCPDisplay
+from wks.api.display.mcp import MCPDisplay
 
 
 class TestMCPDisplay:

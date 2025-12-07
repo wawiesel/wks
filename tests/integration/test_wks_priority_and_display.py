@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from wks.display.cli import CLIDisplay
-from wks.display.context import add_display_argument, get_display, is_mcp_context
-from wks.display.mcp import MCPDisplay
-from wks.priority import calculate_priority, find_managed_directory, priority_examples
+from wks.api.display.cli import CLIDisplay
+from wks.api.display.context import add_display_argument, get_display, is_mcp_context
+from wks.api.display.mcp import MCPDisplay
+from wks.api.monitor.priority import calculate_priority, find_managed_directory, priority_examples
 
 
 class TestDisplayInfrastructure:

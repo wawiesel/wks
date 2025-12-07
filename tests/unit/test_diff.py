@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from wks.diff.config import DiffConfig, DiffEngineConfig, DiffRouterConfig
-from wks.diff.controller import DiffController
-from wks.diff.engines import BSDIFF4_AVAILABLE, Bsdiff3Engine, MyersEngine, get_engine
+from wks.api.diff.config import DiffConfig, DiffEngineConfig, DiffRouterConfig
+from wks.api.diff.controller import DiffController
+from wks.api.diff.engines import BSDIFF4_AVAILABLE, Bsdiff3Engine, MyersEngine, get_engine
 
 
 @pytest.mark.unit

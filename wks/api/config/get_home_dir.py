@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from ...constants import WKS_HOME_EXT
+from ...utils.constants import WKS_HOME_EXT
 
 
 def get_home_dir(*parts: str) -> Path:

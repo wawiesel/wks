@@ -1,6 +1,6 @@
 """Tests for transform engine registry."""
 
-from wks.transform.engines import DoclingEngine, TestEngine, get_engine
+from wks.api.transform.engines import DoclingEngine, TestEngine, get_engine
 
 
 def test_get_engine_docling():

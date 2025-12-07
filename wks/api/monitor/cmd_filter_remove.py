@@ -4,7 +4,7 @@ Remove a value from a monitor configuration list.
 Matches CLI: wksc monitor filter remove <list-name> <value>, MCP: wksm_monitor_filter_remove
 """
 
-from ...api.config.WKSConfig import WKSConfig
+from ..config.WKSConfig import WKSConfig
 from ...utils import canonicalize_path
 from ..base import StageResult
 from .MonitorConfig import MonitorConfig

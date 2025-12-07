@@ -1,6 +1,6 @@
 """Tests for TestEngine."""
 
-from wks.transform.engines import TestEngine
+from wks.api.transform.engines import TestEngine
 
 
 class TestTestEngine:

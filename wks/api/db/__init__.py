@@ -1,5 +1,5 @@
-"""DB API module."""
+"""Database API module."""
 
-from .DbCollection import DbCollection
+from .Database import Database
 
-__all__ = ["DbCollection"]
+__all__ = ["Database"]

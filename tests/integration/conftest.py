@@ -4,14 +4,14 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from wks.config import (
+from wks.api.config import (
     DisplayConfig,
     MetricsConfig,
-    MonitorConfig,
-    TransformConfig,
-    VaultConfig,
     WKSConfig,
 )
+from wks.api.monitor.MonitorConfig import MonitorConfig
+from wks.api.transform.config import TransformConfig
+from wks.api.vault.config import VaultConfig
 
 
 class FakeCollection:
@@ -164,7 +164,7 @@ def daemon_config(tmp_path):
 
     mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
     display_cfg = DisplayConfig()
-    from wks.transform.config import CacheConfig
+    from wks.api.transform.config import CacheConfig
 
     transform_cfg = TransformConfig(
         cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
@@ -186,7 +186,7 @@ def daemon_config(tmp_path):
 @pytest.fixture
 def mock_daemon_dependencies(monkeypatch):
     """Mock all daemon dependencies."""
-    from wks import daemon as daemon_mod
+    from wks.api.service import daemon as daemon_mod
 
     # Mock vault and indexer
     monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)

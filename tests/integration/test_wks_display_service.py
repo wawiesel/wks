@@ -1,7 +1,7 @@
 """Tests for wks/display/service.py - Service status display helpers."""
 
-from wks.display.service import build_status_rows, fmt_bool, format_timestamp
-from wks.service_controller import ServiceStatusData, ServiceStatusLaunch
+from wks.api.display.service import build_status_rows, fmt_bool, format_timestamp
+from wks.api.service.service_controller import ServiceStatusData, ServiceStatusLaunch
 
 
 class TestFmtBool:
@@ -145,11 +145,11 @@ class TestBuildStatusRows:
             running=True,
             launch=ServiceStatusLaunch(
                 state="running",
-                arguments="/usr/bin/python3 -m wks.daemon",
+                arguments="/usr/bin/python3 -m wks.api.service.daemon",
                 type="LaunchAgent",
             ),
         )
         rows = build_status_rows(status)
 
         row_dict = {r[0].strip(): r[1] for r in rows}
-        assert row_dict.get("Program", "") == "/usr/bin/python3 -m wks.daemon"
+        assert row_dict.get("Program", "") == "/usr/bin/python3 -m wks.api.service.daemon"

@@ -6,20 +6,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
-from wks.config import (
+from wks.api.config import (
     DisplayConfig,
     MetricsConfig,
-    MongoDbConfig,
-    MonitorConfig,
-    TransformConfig,
-    VaultConfig,
     WKSConfig,
 )
-from wks.monitor_rules import MonitorRules
-
+from wks.api.db.DbConfig import DbConfig
+from wks.api.monitor.MonitorConfig import MonitorConfig
+from wks.api.transform.config import TransformConfig
+from wks.api.vault.config import VaultConfig
 # Import shared fixtures
 from tests.integration.conftest import FakeCollection, FakeIndexer, FakeVault
-from wks.daemon import WKSDaemon
+from wks.api.service.daemon import WKSDaemon
 
 
 def build_daemon_config(tmp_path):
@@ -49,9 +47,9 @@ def build_daemon_config(tmp_path):
         database="wks.vault",
         vault_type="obsidian",
     )
-    mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
+    mongo_cfg = DbConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
     display_cfg = DisplayConfig()
-    from wks.transform.config import CacheConfig
+    from wks.api.transform.config import CacheConfig
 
     transform_cfg = TransformConfig(
         cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
@@ -72,7 +70,7 @@ def build_daemon_config(tmp_path):
 
 def build_daemon(monkeypatch, tmp_path):
     """Build a test daemon instance."""
-    from wks import daemon as daemon_mod
+    from wks.api.service import daemon as daemon_mod
 
     monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
     monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
@@ -99,14 +97,12 @@ def build_daemon(monkeypatch, tmp_path):
     monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *_a: [])
 
     config = build_daemon_config(tmp_path)
-    monitor_rules = MonitorRules.from_config(config.monitor)
 
     daemon = WKSDaemon(
         config=config,
         vault_path=tmp_path,
         base_dir="WKS",
         monitor_paths=[tmp_path],
-        monitor_rules=monitor_rules,
         monitor_collection=FakeCollection(),
     )
 
@@ -290,8 +286,8 @@ class TestDatabaseOperationLogging:
         daemon = build_daemon(monkeypatch, tmp_path)
 
         with (
-            patch("wks.daemon.load_db_activity_summary", return_value=None),
-            patch("wks.daemon.load_db_activity_history", return_value=[]),
+            patch("wks.api.service.daemon.load_db_activity_summary", return_value=None),
+            patch("wks.api.service.daemon.load_db_activity_history", return_value=[]),
         ):
             op, detail, iso, ops_min = daemon._get_db_activity_info(time.time())
 

@@ -6,21 +6,19 @@ import pytest
 
 # Import shared fixtures
 from tests.integration.conftest import FakeCollection, FakeIndexer, FakeVault
-from wks.monitor_rules import MonitorRules
 
 
 def _build_daemon(monkeypatch, tmp_path, collection: FakeCollection):
-    from wks import daemon as daemon_mod
-    from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
-from wks.config import (
+    from wks.api.service import daemon as daemon_mod
+    from wks.api.config import (
         DisplayConfig,
         MetricsConfig,
-        MongoDbConfig,
-        MonitorConfig,
-        TransformConfig,
-        VaultConfig,
         WKSConfig,
     )
+    from wks.api.db.DbConfig import DbConfig
+    from wks.api.monitor.MonitorConfig import MonitorConfig
+    from wks.api.transform.config import TransformConfig
+    from wks.api.vault.config import VaultConfig
 
     monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
     monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
@@ -41,34 +39,32 @@ from wks.config import (
     from unittest.mock import MagicMock
 
     mock_broker = MagicMock()
-    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
+    from wks.mcp import bridge as mcp_bridge_mod
+    monkeypatch.setattr(mcp_bridge_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
     monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *_a, **_k: MagicMock())
     monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
     monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *_a: [])
     # monkeypatch.setattr(daemon_mod.WKSDaemon, "_enforce_monitor_db_limit", lambda self: None)
 
-    monitor_rules = MonitorRules(
-        include_paths=[str(tmp_path)],
-        exclude_paths=[],
-        include_dirnames=[],
-        exclude_dirnames=[],
-        include_globs=[],
-        exclude_globs=[],
-    )
     config = {
         "monitor": {
-            "include_paths": [str(tmp_path)],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-            "managed_directories": {str(tmp_path): 100},
-            "touch_weight": 0.5,
-            "database": "wks.monitor",
-            "max_documents": 1000000,
-            "priority": {},
-            "prune_interval_secs": 300.0,
+            "filter": {
+                "include_paths": [str(tmp_path)],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+            },
+            "priority": {
+                "dirs": {str(tmp_path): 100},
+                "weights": {},
+            },
+            "database": "monitor",
+            "sync": {
+                "max_documents": 1000000,
+                "prune_interval_secs": 300.0,
+            },
         },
         "vault": {
             "base_dir": str(tmp_path),
@@ -86,11 +82,11 @@ from wks.config import (
         database="wks.vault",
         vault_type="obsidian",
     )
-    mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
+    mongo_cfg = DbConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
     display_cfg = DisplayConfig()
     from pathlib import Path
 
-    from wks.transform.config import CacheConfig
+    from wks.api.transform.config import CacheConfig
 
     transform_cfg = TransformConfig(
         cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
@@ -113,7 +109,6 @@ from wks.config import (
         vault_path=tmp_path,
         base_dir="WKS",
         monitor_paths=[tmp_path],
-        monitor_rules=monitor_rules,
         monitor_collection=collection,
     )
 

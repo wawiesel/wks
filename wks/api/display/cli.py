@@ -65,7 +65,9 @@ class CLIDisplay(Display):
             raise ImportError("Rich library required for CLI display. Install with: pip install rich")
 
         # Use full terminal width (no truncation)
-        self.console = Console(force_terminal=True)
+        # Main console outputs to stdout (for data output)
+        self.console = Console(file=sys.stdout, force_terminal=True)
+        # stderr console for status messages
         self.stderr_console = Console(file=sys.stderr)
         self._progress_contexts = {}  # Store Progress contexts by handle
 

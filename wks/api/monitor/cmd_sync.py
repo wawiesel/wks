@@ -7,10 +7,10 @@ Matches CLI: wksc monitor sync <path> [--recursive], MCP: wksm_monitor_sync
 from datetime import datetime
 from pathlib import Path
 
-from ...api.config.WKSConfig import WKSConfig
+from ..config.WKSConfig import WKSConfig
 from ...utils import file_checksum
 from ..base import StageResult
-from ..db.DbCollection import DbCollection
+from ..db.Database import Database
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
@@ -60,7 +60,7 @@ def cmd_sync(
     files_skipped = 0
     errors: list[str] = []
 
-    with DbCollection(config.db, monitor_cfg.database) as collection:
+    with Database(config.database, monitor_cfg.database) as database:
         try:
             for file_path in files_to_process:
                 if not explain_path(monitor_cfg, file_path)[0]:
@@ -83,7 +83,7 @@ def cmd_sync(
 
                     path_uri = file_path.as_uri()
                     # Check if file content changed (checksum comparison)
-                    existing_doc = collection.find_one({"path": path_uri}, {"checksum": 1, "timestamp": 1})
+                    existing_doc = database.find_one({"path": path_uri}, {"checksum": 1, "timestamp": 1})
                     timestamp = now.isoformat()
                     # If file unchanged (same checksum), preserve existing timestamp
                     if existing_doc and existing_doc.get("checksum") == checksum:
@@ -97,13 +97,13 @@ def cmd_sync(
                         "timestamp": timestamp,
                     }
 
-                    collection.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
+                    database.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
                     files_synced += 1
                 except Exception as exc:  # pragma: no cover - defensive
                     errors.append(f"{file_path}: {exc}")
                     files_skipped += 1
         finally:
-            _enforce_monitor_db_limit(collection, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority)
+            _enforce_monitor_db_limit(database, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority)
 
     success = len(errors) == 0
     result_msg = (

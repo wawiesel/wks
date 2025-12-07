@@ -6,7 +6,7 @@ import pytest
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import VaultConfig, WKSConfig
 
-from wks.vault.constants import (
+from wks.api.vault.constants import (
     LINK_TYPE_EMBED,
     LINK_TYPE_MARKDOWN_URL,
     LINK_TYPE_WIKILINK,
@@ -14,10 +14,10 @@ from wks.vault.constants import (
     STATUS_MISSING_SYMLINK,
     STATUS_OK,
 )
-from wks.vault.indexer import VaultLinkIndexer
-from wks.vault.link_resolver import LinkResolver
-from wks.vault.obsidian import ObsidianVault
-from wks.vault.status_controller import VaultStatusController
+from wks.api.vault.indexer import VaultLinkIndexer
+from wks.api.vault.link_resolver import LinkResolver
+from wks.api.vault.obsidian import ObsidianVault
+from wks.api.vault.status_controller import VaultStatusController
 
 
 @pytest.fixture()
@@ -174,7 +174,7 @@ def test_scanner_error_handling(vault_root, tmp_path):  # noqa: ARG001
     bad_note_dir = vault_root / "Projects" / "Bad.md"
     bad_note_dir.mkdir(exist_ok=True)
 
-    from wks.vault.indexer import VaultLinkScanner
+    from wks.api.vault.indexer import VaultLinkScanner
 
     scanner = VaultLinkScanner(vault)
     scanner.scan()
@@ -190,7 +190,7 @@ def test_embed_vs_wikilink_distinction(vault_root):
     note = vault_root / "Projects" / "Test.md"
     note.write_text("Regular: [[Link1]]\nEmbed: ![[Link2]]")
 
-    from wks.vault.indexer import VaultLinkScanner
+    from wks.api.vault.indexer import VaultLinkScanner
 
     scanner = VaultLinkScanner(vault)
     records = scanner.scan()
@@ -207,7 +207,7 @@ def test_markdown_url_extraction(vault_root):
     note = vault_root / "Projects" / "URLs.md"
     note.write_text("[GitHub](https://github.com)\n[Docs](https://docs.example.com/page)")
 
-    from wks.vault.indexer import VaultLinkScanner
+    from wks.api.vault.indexer import VaultLinkScanner
 
     scanner = VaultLinkScanner(vault)
     records = scanner.scan()
@@ -243,7 +243,7 @@ def test_line_preview_truncation(vault_root):
     note = vault_root / "Projects" / "Long.md"
     note.write_text(long_line)
 
-    from wks.vault.indexer import VaultLinkScanner
+    from wks.api.vault.indexer import VaultLinkScanner
 
     scanner = VaultLinkScanner(vault)
     records = scanner.scan()

@@ -6,7 +6,7 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 
 from pathlib import Path
 
-from ...api.config.WKSConfig import WKSConfig
+from ..config.WKSConfig import WKSConfig
 from ..base import StageResult
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path

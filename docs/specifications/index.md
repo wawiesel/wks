@@ -37,4 +37,4 @@ We will also support the BM25 index for simple text search.
 - `wksc index rule add <index_name> <pattern> <engine>` — Add indexing rule
 - `wksc index rule remove <index_name> <pattern>` — Remove indexing rule
 - `wksc index rule list <index_name>` — List indexing rules
-- `wksc db index <index_name>` — Query index database
+- `wksc database index <index_name>` — Query index database

@@ -12,15 +12,15 @@ import click
 import typer
 
 from wks.api.config.app import config_app
+from wks.api.daemon.app import daemon_app
 from wks.api.db.app import db_app
 from wks.api.monitor.app import monitor_app
 
 # TODO: Create wks/api/diff/app.py
 # from wks.api.diff.app import diff_app
-# from wks.api.service.app import service_app
 # from wks.api.transform.app import transform_app
 # from wks.api.vault.app import vault_app
-from wks.display.context import get_display
+from wks.api.display.context import get_display
 from wks.mcp.client import proxy_stdio_to_socket
 from wks.mcp.paths import mcp_socket_path
 from wks.utils import get_package_version
@@ -38,9 +38,9 @@ app.add_typer(monitor_app, name="monitor")
 # app.add_typer(vault_app, name="vault")
 # app.add_typer(transform_app, name="transform")
 # app.add_typer(diff_app, name="diff")
-# app.add_typer(service_app, name="service")
+app.add_typer(daemon_app, name="daemon")
 app.add_typer(config_app, name="config")
-app.add_typer(db_app, name="db")
+app.add_typer(db_app, name="database")
 
 
 @app.callback(invoke_without_command=True)

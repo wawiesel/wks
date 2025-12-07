@@ -27,9 +27,9 @@ from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
 from wks.api.monitor.cmd_priority_show import cmd_priority_show
 from wks.api.monitor.cmd_status import cmd_status as monitor_status
 from wks.api.monitor.cmd_sync import cmd_sync
-from wks.service_controller import ServiceController
-from wks.vault import VaultController
-from wks.vault.status_controller import VaultStatusController
+# Service/daemon code removed - will be reimplemented
+from wks.api.vault import VaultController
+from wks.api.vault.status_controller import VaultStatusController
 
 from .result import MCPResult
 
@@ -104,15 +104,30 @@ class MCPServer:
         }
 
     @staticmethod
-    def _define_service_tools() -> dict[str, dict[str, Any]]:
-        """Define service-related tools.
+    def _define_daemon_tools() -> dict[str, dict[str, Any]]:
+        """Define daemon-related tools.
 
         Returns:
-            Dictionary of service tool definitions
+            Dictionary of daemon tool definitions
         """
         return {
+            "wksm_daemon": {
+                "description": "Manage daemon (start, stop, restart, status, install, uninstall)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["start", "stop", "restart", "status", "install", "uninstall"],
+                            "description": "Daemon action to perform",
+                        }
+                    },
+                    "required": ["action"],
+                },
+            },
+            # Legacy alias for backwards compatibility
             "wksm_service": {
-                "description": "Get daemon/service status summary",
+                "description": "Get daemon/service status summary (deprecated, use wksm_daemon)",
                 "inputSchema": {"type": "object", "properties": {}, "required": []},
             },
         }
@@ -143,7 +158,7 @@ class MCPServer:
             Dictionary of database tool definitions
         """
         return {
-            "wksm_db_monitor": {
+            "wksm_database_monitor": {
                 "description": "Query filesystem database",
                 "inputSchema": {
                     "type": "object",
@@ -154,7 +169,7 @@ class MCPServer:
                     "required": [],
                 },
             },
-            "wksm_db_vault": {
+            "wksm_database_vault": {
                 "description": "Query vault database",
                 "inputSchema": {
                     "type": "object",
@@ -165,7 +180,7 @@ class MCPServer:
                     "required": [],
                 },
             },
-            "wksm_db_transform": {
+            "wksm_database_transform": {
                 "description": "Query transform database",
                 "inputSchema": {
                     "type": "object",
@@ -386,7 +401,7 @@ class MCPServer:
             }
         )
         tools.update(MCPServer._define_transform_tools())
-        tools.update(MCPServer._define_service_tools())
+        tools.update(MCPServer._define_daemon_tools())
         tools.update(MCPServer._define_vault_tools())
         tools.update(MCPServer._define_db_tools())
         tools.update(MCPServer._define_monitor_tools())
@@ -564,16 +579,17 @@ class MCPServer:
             "wksm_diff": _require_params("engine", "target_a", "target_b")(
                 lambda config, args: self._tool_diff(config, args["engine"], args["target_a"], args["target_b"])
             ),
-            "wksm_service": lambda config, args: self._tool_service(config),  # noqa: ARG005
+            "wksm_daemon": lambda config, args: self._tool_daemon(config, args.get("action", "status")),  # noqa: ARG005
+            "wksm_service": lambda config, args: self._tool_daemon(config, "status"),  # Legacy alias for backwards compatibility
             "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),  # noqa: ARG005
             "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),  # noqa: ARG005
-            "wksm_db_monitor": lambda config, args: self._tool_db_query(
+            "wksm_database_monitor": lambda config, args: self._tool_db_query(
                 config, "monitor", args.get("query", {}), args.get("limit", 50)
             ),
-            "wksm_db_vault": lambda config, args: self._tool_db_query(
+            "wksm_database_vault": lambda config, args: self._tool_db_query(
                 config, "vault", args.get("query", {}), args.get("limit", 50)
             ),
-            "wksm_db_transform": lambda config, args: self._tool_db_query(
+            "wksm_database_transform": lambda config, args: self._tool_db_query(
                 config, "transform", args.get("query", {}), args.get("limit", 50)
             ),
             "wksm_monitor_status": lambda config, args: MCPResult(  # noqa: ARG005
@@ -659,14 +675,36 @@ class MCPServer:
         except Exception as e:
             self._write_error(request_id, -32000, f"Tool execution failed: {e}", {"traceback": str(e)})
 
-    def _tool_service(self, config: WKSConfig) -> dict[str, Any]:  # noqa: ARG002
-        """Execute wksm_service tool."""
-        status = ServiceController.get_status()
-        result = MCPResult.success_result(
-            status.to_dict(),
-            "Service status retrieved successfully",
-        )
-        return result.to_dict()
+    def _tool_daemon(self, config: WKSConfig, action: str) -> dict[str, Any]:  # noqa: ARG002
+        """Execute wksm_daemon tool."""
+        from wks.api.daemon import cmd_install, cmd_restart, cmd_start, cmd_status, cmd_stop, cmd_uninstall
+
+        action_map = {
+            "status": cmd_status,
+            "start": cmd_start,
+            "stop": cmd_stop,
+            "restart": cmd_restart,
+            "install": cmd_install,
+            "uninstall": cmd_uninstall,
+        }
+
+        if action not in action_map:
+            return MCPResult.error_result(
+                f"Unknown daemon action: {action}",
+                data={"action": action, "supported_actions": list(action_map.keys())},
+            ).to_dict()
+
+        try:
+            stage_result = action_map[action]()
+            return MCPResult(
+                success=stage_result.success,
+                data=stage_result.output,
+            ).add_success(stage_result.result).to_dict()
+        except Exception as e:
+            return MCPResult.error_result(
+                f"Daemon {action} failed: {e}",
+                data={"action": action},
+            ).to_dict()
 
     def _tool_monitor_list(self, config: WKSConfig, list_name: str) -> dict[str, Any]:
         """Execute wks_monitor_list tool."""
@@ -679,7 +717,7 @@ class MCPServer:
         output = result.output
         if output.get("success"):
             config.save()
-            output["note"] = "Restart the monitor service for changes to take effect"
+            output["note"] = "Restart the daemon for changes to take effect"
         return output
 
     def _tool_monitor_remove(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
@@ -688,7 +726,7 @@ class MCPServer:
         output = result.output
         if output.get("success"):
             config.save()
-            output["note"] = "Restart the monitor service for changes to take effect"
+            output["note"] = "Restart the daemon for changes to take effect"
         return output
 
     def _tool_monitor_managed_list(self, config: WKSConfig) -> dict[str, Any]:
@@ -722,10 +760,10 @@ class MCPServer:
 
     def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
         """Execute wks_vault_links tool."""
-        from wks.db_helpers import connect_to_mongo, get_vault_db_config
+        from wks.api.db.db_helpers import connect_to_mongo, get_vault_db_config
 
-        from .uri_utils import convert_to_uri
-        from .utils import expand_path
+        from wks.utils.uri_utils import convert_to_uri
+        from wks.utils import expand_path
 
         # Get vault configuration
         vault_path_str = config.vault.base_dir
@@ -851,10 +889,10 @@ class MCPServer:
         """Execute wksm_transform tool."""
         from pathlib import Path
 
-        from .api.config.WKSConfig import WKSConfig
-        from .db_helpers import connect_to_mongo
-        from .transform import TransformController
-        from .utils import expand_path
+        from wks.api.config.WKSConfig import WKSConfig
+        from wks.api.db.db_helpers import connect_to_mongo
+        from wks.api.transform.controller import TransformController
+        from wks.utils import expand_path
 
         result = MCPResult(success=False, data={})
 
@@ -873,11 +911,11 @@ class MCPServer:
 
             from wks.api.db._mongo._DbConfigData import _DbConfigData
 
-            if isinstance(wks_cfg.db.data, _DbConfigData):
-                uri = wks_cfg.db.data.uri
+            if isinstance(wks_cfg.database.data, _DbConfigData):
+                uri = wks_cfg.database.data.uri
             else:
                 uri = "mongodb://localhost:27017/"
-            db_name = wks_cfg.db.prefix
+            db_name = wks_cfg.database.prefix
 
             client: MongoClient = connect_to_mongo(uri)
             db = client[db_name]
@@ -902,7 +940,7 @@ class MCPServer:
         from pathlib import Path
 
         from wks.api.config.WKSConfig import WKSConfig
-        from wks.transform import TransformController
+        from wks.api.transform.controller import TransformController
 
         result = MCPResult(success=False, data={})
 
@@ -912,12 +950,12 @@ class MCPServer:
             cache_location = Path(wks_cfg.transform.cache.location).expanduser()
             max_size_bytes = wks_cfg.transform.cache.max_size_bytes
 
-            from wks.api.db.DbCollection import DbCollection
+            from wks.api.db.Database import Database
 
-            # Get database using DbCollection directly
-            collection = DbCollection(wks_cfg.db, "_")
-            collection.__enter__()
-            db = collection.get_database(wks_cfg.db.prefix)
+            # Get database using Database directly
+            database = Database(wks_cfg.database, "_")
+            database.__enter__()
+            db = database.get_database(wks_cfg.database.prefix)
 
             controller = TransformController(db, cache_location, max_size_bytes)
 
@@ -941,10 +979,10 @@ class MCPServer:
         """Execute wksm_diff tool."""
         from pathlib import Path
 
-        from wks.db_helpers import connect_to_mongo
-        from wks.diff import DiffController
-        from wks.diff.config import DiffConfig, DiffConfigError
-        from wks.transform import TransformController
+        from wks.api.db.db_helpers import connect_to_mongo
+        from wks.api.diff.controller import DiffController
+        from wks.api.diff.config import DiffConfig, DiffConfigError
+        from wks.api.transform.controller import TransformController
 
         result = MCPResult(success=False, data={})
 
@@ -982,8 +1020,8 @@ class MCPServer:
             db_name = str(db_name_str).split(".")[0]
 
             # Get URI from config if available
-            if isinstance(config, WKSConfig) and isinstance(config.db.data, _DbConfigData):
-                uri = config.db.data.uri
+            if isinstance(config, WKSConfig) and isinstance(config.database.data, _DbConfigData):
+                uri = config.database.data.uri
             else:
                 uri = "mongodb://localhost:27017/"
 
@@ -1016,7 +1054,7 @@ class MCPServer:
 
     def _tool_vault_validate(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_validate tool."""
-        from wks.vault import VaultController, load_vault
+        from wks.api.vault import VaultController, load_vault
 
         # load_vault expects a plain dict
         config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
@@ -1026,7 +1064,7 @@ class MCPServer:
 
     def _tool_vault_fix_symlinks(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
         """Execute wks_vault_fix_symlinks tool."""
-        from wks.vault import VaultController, load_vault
+        from wks.api.vault import VaultController, load_vault
 
         # load_vault expects a plain dict
         config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
@@ -1050,7 +1088,7 @@ class MCPServer:
         limit: int,
     ) -> dict[str, Any]:
         """Execute wks_db_* tools."""
-        from wks.api.db.DbCollection import DbCollection
+        from wks.api.db.Database import Database
 
         if db_type == "monitor":
             database_key = config.monitor.database
@@ -1061,7 +1099,7 @@ class MCPServer:
         else:
             raise ValueError(f"Unknown db type: {db_type}")
 
-        return DbCollection.query(config.db, database_key, query, limit, projection={"_id": 0})
+        return Database.query(config.database, database_key, query, limit, projection={"_id": 0})
 
 
 def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

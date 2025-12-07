@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from wks.config import VaultConfig, WKSConfig
-from wks.vault.controller import VaultController
-from wks.vault.obsidian import ObsidianVault
+from wks.api.vault.controller import VaultController
+from wks.api.vault.obsidian import ObsidianVault
 
 
 @pytest.mark.integration

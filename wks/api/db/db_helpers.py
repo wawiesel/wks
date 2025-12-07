@@ -52,13 +52,17 @@ def get_monitor_db_config(cfg: dict) -> tuple[str, str, str]:
             "(found: missing, expected: monitor section with database, include_paths, etc.)"
         )
 
-    db_config = cfg.get("db")
+    db_config = cfg.get("database") or cfg.get("db")  # Support both for backward compatibility
     if not db_config:
-        raise KeyError("db section is required in config (found: missing, expected: db section with type and uri)")
+        raise KeyError("database section is required in config (found: missing, expected: database section with type and data)")
 
-    uri = db_config.get("uri")
+    # Handle new structure (database.data.uri) or old structure (db.uri)
+    if "data" in db_config:
+        uri = db_config.get("data", {}).get("uri")
+    else:
+        uri = db_config.get("uri")
     if not uri:
-        raise KeyError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
+        raise KeyError("database.data.uri is required in config (found: missing, expected: MongoDB connection URI string)")
 
     db_key = monitor_config.get("database")
     if not db_key:
@@ -80,13 +84,17 @@ def get_vault_db_config(cfg: dict) -> tuple[str, str, str]:
             "vault section is required in config (found: missing, expected: vault section with database, wks_dir, etc.)"
         )
 
-    db_config = cfg.get("db")
+    db_config = cfg.get("database") or cfg.get("db")  # Support both for backward compatibility
     if not db_config:
-        raise KeyError("db section is required in config (found: missing, expected: db section with type and uri)")
+        raise KeyError("database section is required in config (found: missing, expected: database section with type and data)")
 
-    uri = db_config.get("uri")
+    # Handle new structure (database.data.uri) or old structure (db.uri)
+    if "data" in db_config:
+        uri = db_config.get("data", {}).get("uri")
+    else:
+        uri = db_config.get("uri")
     if not uri:
-        raise KeyError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
+        raise KeyError("database.data.uri is required in config (found: missing, expected: MongoDB connection URI string)")
 
     db_key = vault_cfg.get("database")
     if not db_key:
@@ -101,13 +109,17 @@ def get_vault_db_config(cfg: dict) -> tuple[str, str, str]:
 
 def get_transform_db_config(cfg: dict) -> tuple[str, str, str]:
     """Extract transform database configuration."""
-    db_config = cfg.get("db")
+    db_config = cfg.get("database") or cfg.get("db")  # Support both for backward compatibility
     if not db_config:
-        raise KeyError("db section is required in config (found: missing, expected: db section with type and uri)")
+        raise KeyError("database section is required in config (found: missing, expected: database section with type and data)")
 
-    uri = db_config.get("uri")
+    # Handle new structure (database.data.uri) or old structure (db.uri)
+    if "data" in db_config:
+        uri = db_config.get("data", {}).get("uri")
+    else:
+        uri = db_config.get("uri")
     if not uri:
-        raise KeyError("db.uri is required in config (found: missing, expected: MongoDB connection URI string)")
+        raise KeyError("database.data.uri is required in config (found: missing, expected: MongoDB connection URI string)")
 
     # Transform always uses wks.transform collection
     return uri, "wks", "transform"

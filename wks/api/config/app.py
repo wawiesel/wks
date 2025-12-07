@@ -21,7 +21,7 @@ def config_callback(
     section: str | None = typer.Argument(
         None,
         help=(
-            "Configuration section name (e.g., 'monitor', 'db', 'vault'). "
+            "Configuration section name (e.g., 'monitor', 'database', 'vault'). "
             "Omit to list all sections."
         ),
     ),

@@ -12,11 +12,16 @@ from ._DbConfigData import _DbConfigData
 
 class _Impl(_AbstractImpl):
     def __init__(self, db_config: DbConfig, database_name: str, collection_name: str):
+        """Initialize MongoDB implementation.
+        
+        Note: Internally MongoDB uses "collections" but the public API uses "database" terminology.
+        The collection_name parameter maps to a MongoDB collection.
+        """
         if not isinstance(db_config.data, _DbConfigData):
             raise ValueError("MongoDB config data is required")
         self.uri = db_config.data.uri
         self.database_name = database_name
-        self.collection_name = collection_name
+        self.collection_name = collection_name  # MongoDB collection name
         self._client: MongoClient | None = None
         self._collection: Collection | None = None
 

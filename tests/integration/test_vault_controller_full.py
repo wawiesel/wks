@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from wks.vault.controller import SymlinkFixResult, VaultController
-from wks.vault.obsidian import ObsidianVault
+from wks.api.vault.controller import SymlinkFixResult, VaultController
+from wks.api.vault.obsidian import ObsidianVault
 
 
 @pytest.mark.integration

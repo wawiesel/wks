@@ -7,7 +7,7 @@ Use to_dict() only at JSON serialization boundaries.
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..service_controller import ServiceStatusData
+    from ..service.service_controller import ServiceStatusData
 
 
 def fmt_bool(value: bool | None, color: bool = False) -> str:

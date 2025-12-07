@@ -64,7 +64,7 @@ WKS is built as a stack of independent, composable layers:
 ## Design Principles
 
 -   **Interfaces**: Support **only CLI and MCP** interfaces. All other modes are unsupported.
--   **Config-First**: All configuration values must be defined in `~/.wks/config.json`. **Defaults in code are an error** - if a value is missing from the config file, validation must fail immediately.
+-   **Config-First**: All configuration values must be defined in `{WKS_HOME}/config.json` (where `WKS_HOME` defaults to `~/.wks` if not set via environment variable). **Defaults in code are an error** - if a value is missing from the config file, validation must fail immediately.
 -   **Override Anywhere**: CLI and MCP can override any config parameter.
 -   **Engine Plugins**: Each layer supports multiple engines with dedicated configuration.
 -   **Zero Duplication**: CLI and MCP share identical business logic via controllers.
@@ -86,7 +86,7 @@ When output is redirected to a file, both formats produce valid, unformatted out
 **Examples**:
 ```bash
 wksc monitor status --display json
-wksc db show monitor -d yaml
+wksc database show monitor -d yaml
 wksc config monitor > config.yaml  # Valid YAML when redirected
 ```
 
@@ -105,7 +105,7 @@ Continuously runs the command every N seconds, updating the display in place. Th
 **Examples**:
 ```bash
 wksc monitor status --live 5    # Update every 5 seconds
-wksc db show monitor -l 2       # Update every 2 seconds
+wksc database show monitor -l 2       # Update every 2 seconds
 ```
 
 **Note**: The `--live` option is handled at the CLI layer and does not affect the API or MCP interfaces.
@@ -122,7 +122,9 @@ Detailed specifications for each component:
 *   **[Index Layer](index_layer.md)**: Searchable indices and embedding management.
 *   **[Search Layer](search.md)**: Query execution and ranking.
 *   **[Patterns Layer](patterns.md)**: Agentic workflows and automation.
-*   **[Infrastructure](infrastructure.md)**: Database, Service Daemon, and MCP Server.
+*   **[Database](database.md)**: Database abstraction and collection operations.
+*   **[Daemon](daemon.md)**: Background service for filesystem monitoring and knowledge graph maintenance.
+*   **[MCP Server](mcp.md)**: AI assistant integration via MCP tools.
 *   **[Quality & Standards](quality.md)**: Code metrics, error handling, and CLI guidelines.
 
 ## What is a Specification?
@@ -135,7 +137,7 @@ A specification describes **WHAT** the system does, not **HOW** it is implemente
 - **Configuration**: What configuration is required and how it is structured
 - **Principles**: Design principles and constraints that implementations must follow
 
-**Note**: The configuration file (`~/.wks/config.json`), MCP commands (`wksm_*`), and CLI commands (`wksc *`) are all part of the public interface and must be fully specified. These are the contracts that users and AI agents interact with, and they must remain stable even if the implementation changes.
+**Note**: The configuration file (`{WKS_HOME}/config.json`), MCP commands (`wksm_*`), and CLI commands (`wksc *`) are all part of the public interface and must be fully specified. These are the contracts that users and AI agents interact with, and they must remain stable even if the implementation changes.
 
 A specification is **not**:
 - An implementation guide or tutorial

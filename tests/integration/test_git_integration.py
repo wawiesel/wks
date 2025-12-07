@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from wks.vault.git_watcher import GitVaultWatcher
+from wks.api.vault.git_watcher import GitVaultWatcher
 
 
 class TestGitVaultWatcher:

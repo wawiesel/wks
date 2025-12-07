@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from wks.constants import DEFAULT_TIMESTAMP_FORMAT
-from wks.vault.obsidian import ObsidianVault
+from wks.utils.constants import DEFAULT_TIMESTAMP_FORMAT
+from wks.api.vault.obsidian import ObsidianVault
 
 
 class TestVaultInitialization:
@@ -169,7 +169,7 @@ class TestTimestampFormat:
             dt = datetime(2024, 1, 15, 10, 30, 45)
             formatted = vault._format_dt(dt)
             # The code should detect invalid format and fall back to DEFAULT_TIMESTAMP_FORMAT
-            from wks.constants import DEFAULT_TIMESTAMP_FORMAT
+            from wks.utils.constants import DEFAULT_TIMESTAMP_FORMAT
 
             expected = dt.strftime(DEFAULT_TIMESTAMP_FORMAT)
             assert formatted == expected

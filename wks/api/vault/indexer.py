@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
 
-from ...api.config.WKSConfig import WKSConfig
+from ..config.WKSConfig import WKSConfig
 from .constants import (
     DOC_TYPE_LINK,
     DOC_TYPE_META,
@@ -460,14 +460,14 @@ class VaultLinkIndexer:
                 config = WKSConfig.load()
             except Exception:
                 # Fallback manual extraction from dict
-                mongo_uri = cfg.get("db", {}).get("uri")
+                mongo_uri = cfg.get("database", {}).get("data", {}).get("uri") or cfg.get("db", {}).get("uri")
                 db_key = cfg.get("vault", {}).get("database")
                 db_name, coll_name = db_key.split(".", 1)
                 return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
         else:
             config = cfg
 
-        mongo_uri = config.db.get_uri()
+        mongo_uri = config.database.get_uri()
         db_name = config.vault.database.split(".")[0]
         coll_name = config.vault.database.split(".")[1]
 

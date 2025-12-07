@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from wks.vault import ObsidianVault, VaultController, load_vault
-from wks.vault.obsidian import ObsidianVault as ObsidianVaultClass
+from wks.api.vault import ObsidianVault, VaultController, load_vault
+from wks.api.vault.obsidian import ObsidianVault as ObsidianVaultClass
 
 
 class TestVaultPackageInitialization:
@@ -15,7 +15,7 @@ class TestVaultPackageInitialization:
 
     def test_package_exports(self):
         """Test that package exports expected symbols."""
-        from wks.vault import ObsidianVault, VaultController, load_vault
+        from wks.api.vault import ObsidianVault, VaultController, load_vault
 
         assert ObsidianVault is not None
         assert VaultController is not None
@@ -24,7 +24,7 @@ class TestVaultPackageInitialization:
 
     def test_obsidian_vault_type(self):
         """Test that VaultType is set to ObsidianVault."""
-        from wks.vault import ObsidianVault
+        from wks.api.vault import ObsidianVault
 
         # VaultType is internal, but we can verify ObsidianVault is available
         assert ObsidianVault is ObsidianVaultClass

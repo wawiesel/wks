@@ -68,7 +68,7 @@ def convert_to_uri(path_or_uri: str | Path, vault_path: Path | None = None) -> s
         >>> convert_to_uri("/Users/ww5/2025-WKS/README.md")
         "file:///Users/ww5/2025-WKS/README.md"
     """
-    from .utils import expand_path
+    from .expand_path import expand_path
 
     # Already a URI - return as-is
     if isinstance(path_or_uri, str) and (path_or_uri.startswith("vault:///") or path_or_uri.startswith("file:///")):

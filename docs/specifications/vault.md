@@ -71,4 +71,4 @@ Each link becomes exactly one document. `_id` is `sha256(note_path + line_number
 - `wksc vault validate` — validate all vault links (check for broken links)
 - `wksc vault fix-symlinks` — rebuild _links/<machine>/ from vault DB
 - `wksc vault links <path>` — show all links to and from a specific file
-- `wksc db vault` — query the underlying collection
+- `wksc database vault` — query the underlying collection

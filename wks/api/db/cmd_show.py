@@ -1,9 +1,9 @@
-"""Show database collection command."""
+"""Show database command."""
 
 import json
 
 from ..base import StageResult
-from .DbCollection import DbCollection
+from .Database import Database
 
 
 def cmd_show(
@@ -11,30 +11,36 @@ def cmd_show(
     query_filter: str | None = None,
     limit: int = 50,
 ) -> StageResult:
-    from ...api.config.WKSConfig import WKSConfig
+    from ..config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
     try:
         parsed_query = json.loads(query_filter) if query_filter else None
-        query_result = DbCollection.query(config.db, collection, parsed_query, limit)
+        query_result = Database.query(config.database, database, parsed_query, limit)
 
         return StageResult(
-            announce=f"Showing {collection} collection...",
-            result=f"Found {query_result['count']} document(s)",
-            output=query_result,
+            announce=f"Querying {database} database...",
+            result=f"Found {query_result['count']} document(s) in {database}",
+            output={
+                "database": database,
+                "query": parsed_query,
+                "limit": limit,
+                "count": query_result["count"],
+                "results": query_result["results"],
+            },
             success=True,
         )
     except json.JSONDecodeError as e:
         return StageResult(
-            announce=f"Showing {collection}...",
+            announce=f"Querying {database} database...",
             result=f"Invalid JSON: {e}",
             output={"error": str(e)},
             success=False,
         )
     except Exception as e:
         return StageResult(
-            announce=f"Showing {collection}...",
-            result=f"Show failed: {e}",
+            announce=f"Querying {database} database...",
+            result=f"Query failed: {e}",
             output={"error": str(e)},
             success=False,
         )

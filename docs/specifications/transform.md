@@ -39,4 +39,4 @@ Collection: `wks.transform`
 
 - `wksc transform` — Transform a file (e.g., `wksc transform docling file.pdf`)
 - `wksc cat` — Retrieve content (e.g., `wksc cat <checksum>` or `wksc cat <file>`)
-- `wksc db transform` — Query transform database
+- `wksc database transform` — Query transform database

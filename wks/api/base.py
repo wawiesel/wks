@@ -94,7 +94,7 @@ def handle_stage_result(func: F) -> F:
 
         import typer
 
-        from wks.display.context import get_display
+        from wks.api.display.context import get_display
 
         display = get_display("cli")
 
@@ -103,6 +103,11 @@ def handle_stage_result(func: F) -> F:
         try:
             ctx = typer.get_current_context(silent=True)
             while ctx:
+                # Check ctx.obj first (Typer's standard way to store custom data)
+                if hasattr(ctx, "obj") and ctx.obj and isinstance(ctx.obj, dict):
+                    display_format = ctx.obj.get("display_format", display_format)
+                    break
+                # Fallback to ctx.meta for backwards compatibility
                 if hasattr(ctx, "meta") and ctx.meta:
                     display_format = ctx.meta.get("display_format", display_format)
                     break

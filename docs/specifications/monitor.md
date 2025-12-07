@@ -48,14 +48,14 @@ Monitor configuration is specified in the WKS config file under the `monitor` se
 **Required Fields**:
 - `filter`: Object containing include/exclude rules for paths, directory names, and glob patterns
 - `priority`: Object containing managed directories and priority calculation weights
-- `database`: String specifying the collection name (prefix from `db.prefix` is automatically prepended)
+- `database`: String specifying the collection name (prefix from `database.prefix` is automatically prepended)
 - `sync`: Object containing synchronization and pruning configuration
 
 **Configuration Requirements**:
 - All configuration values must be present in the config file - no defaults are permitted in code
 - If a required field is missing, validation must fail immediately with a clear error message
 - Priority values are floats
-- Collection names are automatically prefixed with `db.prefix` from the database configuration
+- Collection names are automatically prefixed with `database.prefix` from the database configuration
 
 ## Filter Logic
 
@@ -96,7 +96,7 @@ Files with calculated priority below `sync.min_priority` are not added to the da
 
 The monitor synchronizes filesystem state with the database:
 
-- **Manual Sync**: The `wksc monitor sync` command forces an update of specified files or directories, allowing monitor to work without the service running
+- **Manual Sync**: The `wksc monitor sync` command forces an update of specified files or directories, allowing monitor to work without the daemon running
 - **Automatic Sync**: When the daemon is running, significant file operations (move/delete) automatically trigger synchronization for affected paths
 - **File Processing**: For files, updates the entry in the database (checksum, priority, etc.). For directories, processes files that match monitor rules (recursive with `--recursive` flag)
 - **Timestamp Preservation**: Updates timestamp when content changes; unchanged files retain their original timestamp
@@ -122,7 +122,7 @@ The monitor database stores tracked files with the following schema:
 - `bytes` — file size in bytes
 - `priority` — float based on path structure and weights (see Priority Calculation)
 
-The collection name is specified in `monitor.database` and is automatically prefixed with `db.prefix` from the database configuration.
+The database name is specified in `monitor.database` and is automatically prefixed with `database.prefix` from the database configuration.
 
 ## MCP Interface (Primary)
 
@@ -152,7 +152,7 @@ Human-friendly wrappers for the MCP tools.
 - `wksc monitor priority show` — List managed directories with priorities (float values)
 - `wksc monitor priority add <path> <priority>` — Set or update priority for a managed directory
 - `wksc monitor priority remove <path>` — Remove a managed directory
-- `wksc db monitor` — Query filesystem database
+- `wksc database monitor` — Query filesystem database
 
 **Progress Indicators**: Commands that process multiple files (e.g., `sync`) must follow the 4-step pattern:
 1. Announce: Initial status message

@@ -60,11 +60,11 @@ class VaultController:
         """
         from pymongo import MongoClient
 
-        from ...api.config.WKSConfig import WKSConfig
+        from ..config.WKSConfig import WKSConfig
 
         try:
             config = WKSConfig.load()
-            mongo_uri = config.db.get_uri()
+            mongo_uri = config.database.get_uri()
             db_name = config.vault.database.split(".")[0]
             coll_name = config.vault.database.split(".")[1]
         except Exception as e:
@@ -213,8 +213,8 @@ class VaultController:
     @staticmethod
     def sync_vault(cfg: dict | None = None, batch_size: int = 1000, incremental: bool = False) -> dict:  # noqa: ARG004
         """Sync vault links to MongoDB (wrapper for CLI/MCP)."""
-        from ...api.config.WKSConfig import WKSConfig
-        from ..utils import expand_path
+        from ..config.WKSConfig import WKSConfig
+        from ...utils import expand_path
         from .indexer import VaultLinkIndexer
 
         config = WKSConfig.load()

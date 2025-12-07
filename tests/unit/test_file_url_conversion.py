@@ -5,8 +5,8 @@ import platform
 import mongomock
 import pytest
 
-from wks.vault.indexer import VaultLinkIndexer, VaultLinkScanner
-from wks.vault.obsidian import ObsidianVault
+from wks.api.vault.indexer import VaultLinkIndexer, VaultLinkScanner
+from wks.api.vault.obsidian import ObsidianVault
 
 
 @pytest.fixture()

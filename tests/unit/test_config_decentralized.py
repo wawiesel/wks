@@ -1,7 +1,7 @@
 import pytest
 
-from wks.transform.config import CacheConfig, EngineConfig, TransformConfig, TransformConfigError
-from wks.vault.config import VaultConfig, VaultConfigError
+from wks.api.transform.config import CacheConfig, EngineConfig, TransformConfig, TransformConfigError
+from wks.api.vault.config import VaultConfig, VaultConfigError
 
 
 class TestTransformConfig:

@@ -31,7 +31,7 @@ This directory implements the database API following a strict one-file-per-funct
 
 **Command structure**: Commands are plain Python functions with Typer annotations. They return `StageResult` containing structured data. The `handle_stage_result()` wrapper in `app.py` executes progress callbacks if present.
 
-**Database access**: Use `DbCollection` context manager from `DbCollection.py` for collection operations, or `DbCollection.query()` classmethod for simple pass-through queries. Collection names are automatically prefixed with `db.prefix` from configuration (e.g., with `prefix: "wks"`, `"monitor"` becomes `"wks.monitor"`). All database-specific code is in `_<backend>/` subdirectories.
+**Database access**: Use `Database` context manager from `Database.py` for database operations, or `Database.query()` classmethod for simple pass-through queries. Database names are automatically prefixed with `database.prefix` from configuration (e.g., with `prefix: "wks"`, `"monitor"` becomes `"wks.monitor"`). All backend-specific code is in `_<backend>/` subdirectories.
 
 ### Database Configuration
 
@@ -39,7 +39,7 @@ This directory implements the database API following a strict one-file-per-funct
 
 ```json
 {
-  "db": {
+  "database": {
     "type": "mongo",
     "prefix": "wks",
     "data": {
@@ -49,7 +49,7 @@ This directory implements the database API following a strict one-file-per-funct
 }
 ```
 
-The `prefix` field is required and specifies the database name prefix for collections. For example, with `prefix: "wks"`, a collection named `"monitor"` in config is accessed as `"wks.monitor"` in the database. Users should specify just the collection name (e.g., `"monitor"`) when using `DbCollection` - the prefix is handled automatically.
+The `prefix` field is required and specifies the database name prefix. For example, with `prefix: "wks"`, a database named `"monitor"` in config is accessed as `"wks.monitor"` in the backend. Users should specify just the database name (e.g., `"monitor"`) when using `Database` - the prefix is handled automatically.
 
 **Backend registry**: The `_BACKEND_REGISTRY` in `DbConfig` is the **ONLY** place where backend types are enumerated. To add a new backend:
 

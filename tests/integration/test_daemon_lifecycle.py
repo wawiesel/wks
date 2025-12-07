@@ -7,21 +7,18 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
-from wks.config import (
+from wks.api.config import (
     DisplayConfig,
     MetricsConfig,
-    MongoDbConfig,
-    MonitorConfig,
-    TransformConfig,
-    VaultConfig,
     WKSConfig,
 )
-from wks.monitor_rules import MonitorRules
-
+from wks.api.db.DbConfig import DbConfig
+from wks.api.monitor.MonitorConfig import MonitorConfig
+from wks.api.transform.config import TransformConfig
+from wks.api.vault.config import VaultConfig
 # Import shared fixtures
 from tests.integration.conftest import FakeCollection, FakeIndexer, FakeObserver, FakeVault
-from wks.daemon import HealthData, WKSDaemon
+from wks.api.service.daemon import HealthData, WKSDaemon
 
 
 def build_daemon_config(tmp_path):
@@ -29,18 +26,23 @@ def build_daemon_config(tmp_path):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "include_paths": [str(tmp_path)],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {str(tmp_path): 100},
-                "touch_weight": 0.5,
-                "database": "wks.monitor",
-                "max_documents": 1000000,
-                "priority": {},
-                "prune_interval_secs": 300.0,
+                "filter": {
+                    "include_paths": [str(tmp_path)],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {str(tmp_path): 100},
+                    "weights": {},
+                },
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -51,9 +53,9 @@ def build_daemon_config(tmp_path):
         database="wks.vault",
         vault_type="obsidian",
     )
-    mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
+    mongo_cfg = DbConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
     display_cfg = DisplayConfig()
-    from wks.transform.config import CacheConfig
+    from wks.api.transform.config import CacheConfig
 
     transform_cfg = TransformConfig(
         cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
@@ -74,7 +76,7 @@ def build_daemon_config(tmp_path):
 
 def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     """Build a test daemon instance with mocked dependencies."""
-    from wks import daemon as daemon_mod
+    from wks.api.service import daemon as daemon_mod
 
     if collection is None:
         collection = FakeCollection()
@@ -99,11 +101,12 @@ def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     # Mock ensure_mongo_running
     monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *_a, **_k: None)
 
-    # Mock MCPBroker
+    # Mock MCPBroker (lazily imported, so we patch the import location)
     mock_broker = MagicMock()
     mock_broker.start = MagicMock()
     mock_broker.stop = MagicMock()
-    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
+    from wks.mcp import bridge as mcp_bridge_mod
+    monkeypatch.setattr(mcp_bridge_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
 
     # Mock start_monitoring
     mock_observer = FakeObserver()
@@ -114,14 +117,12 @@ def build_daemon(monkeypatch, tmp_path, collection=None, **daemon_kwargs):
     monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *a: [])  # noqa: ARG005
 
     config = build_daemon_config(tmp_path)
-    monitor_rules = MonitorRules.from_config(config.monitor)
 
     daemon = WKSDaemon(
         config=config,
         vault_path=tmp_path,
         base_dir="WKS",
         monitor_paths=[tmp_path],
-        monitor_rules=monitor_rules,
         monitor_collection=collection,
         **daemon_kwargs,
     )
@@ -154,20 +155,18 @@ class TestDaemonInitialization:
     def test_daemon_init_without_mongo_uri(self, monkeypatch, tmp_path):
         """Test daemon initialization without MongoDB URI."""
         config = build_daemon_config(tmp_path)
-        config.mongo.uri = None
+        config.db.data.uri = None
 
-        from wks import daemon as daemon_mod
+        from wks.api.service import daemon as daemon_mod
 
         monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
         monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
 
-        monitor_rules = MonitorRules.from_config(config.monitor)
         daemon = WKSDaemon(
             config=config,
             vault_path=tmp_path,
             base_dir="WKS",
             monitor_paths=[tmp_path],
-            monitor_rules=monitor_rules,
         )
 
         assert daemon.mongo_uri is None
@@ -253,7 +252,7 @@ class TestDaemonLockManagement:
         expected_path = Path.home() / ".wks" / "daemon.lock"
         assert daemon.lock_file == expected_path
 
-    @patch("wks.daemon.fcntl", None)
+    @patch("wks.api.service.daemon.fcntl", None)
     def test_acquire_lock_pidfile_fallback(self, monkeypatch, tmp_path):
         """Test lock acquisition using PID file when fcntl unavailable."""
         daemon = build_daemon(monkeypatch, tmp_path)
@@ -287,7 +286,7 @@ class TestDaemonLockManagement:
         mock_fh = MagicMock()
         daemon._lock_fh = mock_fh
 
-        with patch("wks.daemon.fcntl") as mock_fcntl:
+        with patch("wks.api.service.daemon.fcntl") as mock_fcntl:
             daemon._release_lock()
             mock_fcntl.flock.assert_called_once()
 

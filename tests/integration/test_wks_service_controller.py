@@ -8,7 +8,7 @@ import pytest
 from wks.api.db._mongo.MongoDbConfig import MongoDbConfig
 from wks.config import WKSConfig
 
-from wks.service_controller import (
+from wks.api.service.service_controller import (
     ServiceController,
     ServiceStatusData,
     ServiceStatusLaunch,
@@ -90,7 +90,7 @@ class TestLaunchctl:
     @patch("subprocess.call")
     def test_launchctl_success(self, mock_call):
         """Test successful launchctl call."""
-        from wks.service_controller import _launchctl
+        from wks.api.service.service_controller import _launchctl
 
         mock_call.return_value = 0
         assert _launchctl("status") == 0
@@ -98,7 +98,7 @@ class TestLaunchctl:
     @patch("subprocess.call")
     def test_launchctl_not_found(self, mock_call):
         """Test when launchctl binary not found."""
-        from wks.service_controller import _launchctl
+        from wks.api.service.service_controller import _launchctl
 
         mock_call.side_effect = FileNotFoundError
         assert _launchctl("status") == 2

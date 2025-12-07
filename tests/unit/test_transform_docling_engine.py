@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from wks.transform.engines import DoclingEngine
+from wks.api.transform.engines import DoclingEngine
 
 
 class TestDoclingEngine:

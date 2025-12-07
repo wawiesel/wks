@@ -2,7 +2,7 @@
 
 import pytest
 
-from wks.diff.config import (
+from wks.api.diff.config import (
     DiffConfig,
     DiffConfigError,
     DiffEngineConfig,

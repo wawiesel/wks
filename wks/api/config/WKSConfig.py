@@ -7,11 +7,12 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from ...diff.config import DiffConfig
-from ...transform.config import CacheConfig, TransformConfig
-from ...vault.config import VaultConfig
+from ..diff.config import DiffConfig
+from ..transform.config import CacheConfig, TransformConfig
+from ..vault.config import VaultConfig
 from ..db.DbConfig import DbConfig
 from ..monitor.MonitorConfig import MonitorConfig
+from ..daemon.DaemonConfig import DaemonConfig
 from .ConfigError import ConfigError
 from .DisplayConfig import DisplayConfig
 from .get_config_path import get_config_path
@@ -30,7 +31,7 @@ class WKSConfig:
 
     vault: VaultConfig
     monitor: MonitorConfig
-    db: DbConfig
+    database: DbConfig
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     diff: DiffConfig | None = None
     transform: TransformConfig = field(
@@ -41,6 +42,7 @@ class WKSConfig:
         )
     )
     display: DisplayConfig = field(default_factory=DisplayConfig)
+    daemon: DaemonConfig | None = None
 
     @classmethod
     def load(cls, path: Path | None = None) -> "WKSConfig":
@@ -58,8 +60,8 @@ class WKSConfig:
             raise ConfigError(f"Invalid JSON in config file {path}: {e}") from e
 
         try:
-            # Load db config using unified DbConfig
-            db = DbConfig(**raw.get("db", {}))
+            # Load database config using unified DbConfig
+            database = DbConfig(**raw.get("database", {}))
 
             # Pass the raw config (which contains the 'monitor' key)
             monitor = MonitorConfig.from_config_dict(raw)
@@ -68,15 +70,17 @@ class WKSConfig:
             diff = DiffConfig.from_config_dict(raw) if "diff" in raw else None
             transform = TransformConfig.from_config_dict(raw)
             display = DisplayConfig.from_config(raw)
+            daemon = DaemonConfig(**raw.get("daemon", {})) if "daemon" in raw else None
 
             return cls(
                 vault=vault,
                 monitor=monitor,
-                db=db,
+                database=database,
                 metrics=metrics,
                 diff=diff,
                 transform=transform,
                 display=display,
+                daemon=daemon,
             )
         except (ValidationError, KeyError, ValueError, Exception) as e:
             # Catching Exception to cover VaultConfigError/TransformConfigError if they bubble up
@@ -92,8 +96,10 @@ class WKSConfig:
         # Handle Pydantic models
         if isinstance(self.monitor, MonitorConfig):
             data["monitor"] = self.monitor.model_dump()
-        if isinstance(self.db, DbConfig):
-            data["db"] = self.db.model_dump()
+        if isinstance(self.database, DbConfig):
+            data["database"] = self.database.model_dump()
+        if isinstance(self.daemon, DaemonConfig):
+            data["daemon"] = self.daemon.model_dump()
         # Handle other Pydantic models if they exist
         return data
 

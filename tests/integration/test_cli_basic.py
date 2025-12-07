@@ -195,7 +195,7 @@ def test_cli_monitor_check(mock_load_config):
     mock_load_config.return_value = mock_config
 
     with (
-        patch("wks.api.monitor.cmd_check.MonitorRules.from_config", return_value=DummyRules()),
+        patch("wks.api.monitor.cmd_check.explain_path", return_value=(True, [])),
         patch("wks.api.monitor.cmd_check.calculate_priority", return_value=5),
         patch("pathlib.Path.exists", return_value=True),
     ):
@@ -385,7 +385,7 @@ def test_cli_out_with_string(mock_call):  # noqa: ARG001
     """Test _out function with non-dict (string) output."""
     import wks.cli
     from wks.cli import _out
-    from wks.display.cli import CLIDisplay
+    from wks.api.display.cli import CLIDisplay
 
     # Set the global display object
     wks.cli.display_obj_global = CLIDisplay()

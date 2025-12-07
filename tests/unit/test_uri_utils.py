@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from wks.uri_utils import convert_to_uri, path_to_uri, uri_to_path
+from wks.utils.uri_utils import convert_to_uri, path_to_uri, uri_to_path
 
 
 @pytest.mark.unit

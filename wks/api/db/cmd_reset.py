@@ -1,31 +1,31 @@
-"""Reset database command - clears all documents from a collection."""
+"""Reset database command - clears all documents from a database."""
 
 from ..base import StageResult
-from .DbCollection import DbCollection
+from .Database import Database
 
 
-def cmd_reset(collection: str) -> StageResult:
-    """Reset (clear) a database collection by deleting all documents.
+def cmd_reset(database: str) -> StageResult:
+    """Reset (clear) a database by deleting all documents.
 
     Args:
-        collection: Collection name (e.g., "monitor", "vault", "transform")
+        database: Database name (e.g., "monitor", "vault", "transform")
 
     Returns:
         StageResult with reset operation status
     """
-    from ...api.config.WKSConfig import WKSConfig
+    from ..config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
 
     try:
-        with DbCollection(config.db, collection) as collection_obj:
-            deleted_count = collection_obj.delete_many({})
+        with Database(config.database, database) as database_obj:
+            deleted_count = database_obj.delete_many({})
 
         return StageResult(
-            announce=f"Resetting {collection} collection...",
-            result=f"Deleted {deleted_count} document(s) from {collection}",
+            announce=f"Resetting {database} database...",
+            result=f"Deleted {deleted_count} document(s) from {database}",
             output={
-                "collection": collection,
+                "database": database,
                 "deleted_count": deleted_count,
                 "success": True,
             },
@@ -33,10 +33,10 @@ def cmd_reset(collection: str) -> StageResult:
         )
     except Exception as e:
         return StageResult(
-            announce=f"Resetting {collection} collection...",
+            announce=f"Resetting {database} database...",
             result=f"Reset failed: {e}",
             output={
-                "collection": collection,
+                "database": database,
                 "error": str(e),
                 "success": False,
             },

@@ -8,7 +8,7 @@ from .cmd_reset import cmd_reset
 from .cmd_show import cmd_show
 
 db_app = typer.Typer(
-    name="db",
+    name="database",
     help="Database operations",
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
@@ -28,27 +28,27 @@ def db_callback(ctx: typer.Context) -> None:
 # Register commands with StageResult handler
 def show_command(
     ctx: typer.Context,
-    collection: str | None = typer.Argument(
+    database: str | None = typer.Argument(
         None,
-        help="Collection name (without prefix, e.g., 'monitor'). Use 'wksc db list' to find available collections.",
+        help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
     query: str | None = typer.Option(None, "--query", "-q", help="Query filter as JSON string (MongoDB-style)"),
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of documents to return"),
 ) -> None:
-    """Show a database collection."""
-    if collection is None:
-        typer.echo("Error: Collection name is required", err=True)
+    """Show a database."""
+    if database is None:
+        typer.echo("Error: Database name is required", err=True)
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit(1)
     wrapped = handle_stage_result(cmd_show)
-    wrapped(collection, query, limit)
+    wrapped(database, query, limit)
 
 
 def reset_command(
     ctx: typer.Context,
-    collection: str | None = typer.Argument(
+    database: str | None = typer.Argument(
         None,
-        help="Collection name (without prefix, e.g., 'monitor'). Use 'wksc db list' to find available collections.",
+        help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
 ) -> None:
     """Reset (clear) a database collection by deleting all documents."""

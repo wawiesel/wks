@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 # from ..config import load_config
-from ..constants import WKS_HOME_DISPLAY
-from ..utils import expand_path
+from ...utils.constants import WKS_HOME_DISPLAY
+from ...utils import expand_path
 from .controller import VaultController
 from .obsidian import ObsidianVault
 
@@ -36,7 +36,7 @@ def _resolve_obsidian_settings(cfg: dict[str, Any]) -> dict[str, Any]:
 def load_vault(cfg: dict[str, Any] | None = None) -> ObsidianVault:
     """Build the configured vault implementation."""
     if cfg is None:
-        from ...api.config.WKSConfig import WKSConfig
+        from ..config.WKSConfig import WKSConfig
 
         cfg = WKSConfig.load().to_dict()
     # cfg = cfg or load_config()

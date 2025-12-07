@@ -3,8 +3,8 @@
 import mongomock
 import pytest
 
-from wks.vault.indexer import VaultLinkIndexer
-from wks.vault.obsidian import ObsidianVault
+from wks.api.vault.indexer import VaultLinkIndexer
+from wks.api.vault.obsidian import ObsidianVault
 
 pytestmark = pytest.mark.monitor
 

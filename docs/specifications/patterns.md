@@ -5,7 +5,7 @@
 **Vision**: Simple script-based organizational patterns with MCP server for AI access. Scripts are the source of truth for both code and documentation.
 
 **Architecture**:
-- **Location**: `~/.wks/patterns/` (configurable)
+- **Location**: `{WKS_HOME}/patterns/` (where `WKS_HOME` defaults to `~/.wks` if not set via environment variable)
 - **Format**: Executable scripts (bash, python, etc.)
 - **Documentation**: Extracted from script header comments
 

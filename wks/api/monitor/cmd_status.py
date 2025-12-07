@@ -9,13 +9,13 @@ from pathlib import Path
 from typing import Any
 
 from ..base import StageResult
-from ..db.DbCollection import DbCollection
+from ..db.Database import Database
 from .explain_path import explain_path
 
 
 def cmd_status() -> StageResult:
     """Get filesystem monitoring status (not configuration - use 'wksc config monitor' for config)."""
-    from ...api.config.WKSConfig import WKSConfig
+    from ..config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
     monitor_cfg = config.monitor
@@ -24,8 +24,8 @@ def cmd_status() -> StageResult:
     total_files = 0
     time_based_counts: dict[str, int] = {}
     try:
-        with DbCollection(config.db, monitor_cfg.database) as collection:
-            total_files = collection.count_documents({})
+        with Database(config.database, monitor_cfg.database) as database:
+            total_files = database.count_documents({})
 
             # Calculate time ranges
             now = datetime.now()
@@ -48,12 +48,12 @@ def cmd_status() -> StageResult:
                 cutoff = now - delta
                 cutoff_iso = cutoff.isoformat()
                 # Query for files with timestamp >= cutoff (modified within the range)
-                count = collection.count_documents({"timestamp": {"$gte": cutoff_iso}})
+                count = database.count_documents({"timestamp": {"$gte": cutoff_iso}})
                 time_based_counts[label] = count
 
             # Count files older than 1 year
             one_year_ago = (now - timedelta(days=365)).isoformat()
-            time_based_counts[">1 year"] = collection.count_documents({"timestamp": {"$lt": one_year_ago}})
+            time_based_counts[">1 year"] = database.count_documents({"timestamp": {"$lt": one_year_ago}})
 
     except Exception:
         total_files = 0

@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from pymongo.collection import Collection
 
-from wks.vault.controller import VaultController
-from wks.vault.obsidian import ObsidianVault
+from wks.api.vault.controller import VaultController
+from wks.api.vault.obsidian import ObsidianVault
 
 
 @pytest.fixture

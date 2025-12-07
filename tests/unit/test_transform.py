@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from wks.transform.cache import CacheManager
-from wks.transform.controller import TransformController
-from wks.transform.models import TransformRecord, now_iso
+from wks.api.transform.cache import CacheManager
+from wks.api.transform.controller import TransformController
+from wks.api.transform.models import TransformRecord, now_iso
 
 
 class TestTransformRecord:

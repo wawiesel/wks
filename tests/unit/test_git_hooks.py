@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from wks.vault.git_hooks import install_hooks, is_hook_installed, uninstall_hooks
+from wks.api.vault.git_hooks import install_hooks, is_hook_installed, uninstall_hooks
 
 
 class TestGitHooks:

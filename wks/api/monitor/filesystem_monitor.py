@@ -12,7 +12,7 @@ from typing import Any
 
 from watchdog.observers import Observer
 
-from .constants import WKS_HOME_EXT
+from ...utils.constants import WKS_HOME_EXT
 
 try:
     from watchdog.observers.fsevents import FSEventsObserver  # macOS
