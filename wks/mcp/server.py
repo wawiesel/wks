@@ -15,6 +15,13 @@ from typing import Any
 
 from wks.api.base import StageResult, get_typer_command_schema
 from wks.api.config.WKSConfig import WKSConfig
+from wks.api.config.cmd_show import cmd_show_all
+from wks.api.database.cmd_show import cmd_show as db_cmd_show
+from wks.api.database.cmd_list import cmd_list as db_cmd_list
+from wks.api.database.cmd_reset import cmd_reset as db_cmd_reset
+from wks.api.mcp.cmd_list import cmd_list as mcp_cmd_list
+from wks.api.mcp.cmd_install import cmd_install as mcp_cmd_install
+from wks.api.mcp.cmd_uninstall import cmd_uninstall as mcp_cmd_uninstall
 from wks.api.monitor.cmd_check import cmd_check
 from wks.api.monitor.cmd_check import cmd_check as monitor_check
 from wks.api.monitor.cmd_filter_add import cmd_filter_add
@@ -337,6 +344,49 @@ class MCPServer:
         return tools
 
     @staticmethod
+    def _define_mcp_tools() -> dict[str, dict[str, Any]]:
+        """Define MCP installation management tools.
+
+        Returns:
+            Dictionary of MCP tool definitions
+        """
+        return {
+            "wksm_mcp_list": {
+                "description": "List MCP installations",
+                "inputSchema": {"type": "object", "properties": {}, "required": []},
+            },
+            "wksm_mcp_install": {
+                "description": "Install WKS MCP server for a named installation",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Installation name"},
+                        "install_type": {
+                            "type": "string",
+                            "description": "Installation type (default: mcpServersJson)",
+                            "default": "mcpServersJson",
+                        },
+                        "settings_path": {
+                            "type": "string",
+                            "description": "Path to settings file (required for mcpServersJson type)",
+                        },
+                    },
+                    "required": ["name"],
+                },
+            },
+            "wksm_mcp_uninstall": {
+                "description": "Uninstall WKS MCP server for a named installation",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Installation name"},
+                    },
+                    "required": ["name"],
+                },
+            },
+        }
+
+    @staticmethod
     def _define_vault_advanced_tools() -> dict[str, dict[str, Any]]:
         """Define advanced vault tools.
 
@@ -406,6 +456,7 @@ class MCPServer:
         tools.update(MCPServer._define_db_tools())
         tools.update(MCPServer._define_monitor_tools())
         tools.update(MCPServer._define_vault_advanced_tools())
+        tools.update(MCPServer._define_mcp_tools())
         return tools
 
     @staticmethod
@@ -569,7 +620,9 @@ class MCPServer:
             return decorator
 
         return {
-            "wksm_config": lambda config, args: self._tool_config(config),  # noqa: ARG005
+            "wksm_config": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True, data=_extract_data_from_stage_result(cmd_show_all())
+            ).to_dict(),
             "wksm_transform": _require_params("file_path", "engine")(
                 lambda config, args: self._tool_transform(
                     config, args["file_path"], args["engine"], args.get("options", {})
@@ -583,15 +636,36 @@ class MCPServer:
             "wksm_service": lambda config, args: self._tool_daemon(config, "status"),  # Legacy alias for backwards compatibility
             "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),  # noqa: ARG005
             "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),  # noqa: ARG005
-            "wksm_database_monitor": lambda config, args: self._tool_db_query(
-                config, "monitor", args.get("query", {}), args.get("limit", 50)
-            ),
-            "wksm_database_vault": lambda config, args: self._tool_db_query(
-                config, "vault", args.get("query", {}), args.get("limit", 50)
-            ),
-            "wksm_database_transform": lambda config, args: self._tool_db_query(
-                config, "transform", args.get("query", {}), args.get("limit", 50)
-            ),
+            "wksm_database_monitor": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True,
+                data=_extract_data_from_stage_result(
+                    db_cmd_show(
+                        "monitor",
+                        json.dumps(args.get("query", {})) if args.get("query") else None,
+                        args.get("limit", 50),
+                    )
+                ),
+            ).to_dict(),
+            "wksm_database_vault": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True,
+                data=_extract_data_from_stage_result(
+                    db_cmd_show(
+                        "vault",
+                        json.dumps(args.get("query", {})) if args.get("query") else None,
+                        args.get("limit", 50),
+                    )
+                ),
+            ).to_dict(),
+            "wksm_database_transform": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True,
+                data=_extract_data_from_stage_result(
+                    db_cmd_show(
+                        "transform",
+                        json.dumps(args.get("query", {})) if args.get("query") else None,
+                        args.get("limit", 50),
+                    )
+                ),
+            ).to_dict(),
             "wksm_monitor_status": lambda config, args: MCPResult(  # noqa: ARG005
                 success=True, data=_extract_data_from_stage_result(monitor_status())
             ).to_dict(),
@@ -645,6 +719,26 @@ class MCPServer:
             "wksm_vault_sync": lambda config, args: self._tool_vault_sync(config, args.get("batch_size", 1000)),
             "wksm_vault_links": _require_params("file_path")(
                 lambda config, args: self._tool_vault_links(config, args["file_path"], args.get("direction", "both"))
+            ),
+            "wksm_mcp_list": lambda config, args: MCPResult(  # noqa: ARG005
+                success=True, data=_extract_data_from_stage_result(mcp_cmd_list())
+            ).to_dict(),
+            "wksm_mcp_install": _require_params("name")(
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True,
+                    data=_extract_data_from_stage_result(
+                        mcp_cmd_install(
+                            args["name"],
+                            args.get("install_type", "mcpServersJson"),
+                            args.get("settings_path"),
+                        )
+                    ),
+                ).to_dict()
+            ),
+            "wksm_mcp_uninstall": _require_params("name")(
+                lambda config, args: MCPResult(  # noqa: ARG005
+                    success=True, data=_extract_data_from_stage_result(mcp_cmd_uninstall(args["name"]))
+                ).to_dict()
             ),
         }
 
@@ -867,17 +961,6 @@ class MCPServer:
                 break
             self._handle_request(message)
 
-    def _tool_config(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
-        """Execute wksm_config tool.
-
-        Accepts either a WKSConfig instance (normal runtime) or a raw dict
-        (used in some tests that patch WKSConfig.load()).
-        """
-        data = config.to_dict() if hasattr(config, "to_dict") else dict(config)
-
-        result = MCPResult(success=True, data=data)
-        result.add_success("Configuration loaded successfully")
-        return result.to_dict()
 
     def _tool_transform(
         self,
@@ -1080,26 +1163,6 @@ class MCPServer:
             "failed": result.failed,
         }
 
-    def _tool_db_query(
-        self,
-        config: WKSConfig,
-        db_type: str,
-        query: dict[str, Any],
-        limit: int,
-    ) -> dict[str, Any]:
-        """Execute wks_db_* tools."""
-        from wks.api.database.Database import Database
-
-        if db_type == "monitor":
-            database_key = config.monitor.database
-        elif db_type == "vault":
-            database_key = config.vault.database
-        elif db_type == "transform":
-            database_key = config.transform.database
-        else:
-            raise ValueError(f"Unknown db type: {db_type}")
-
-        return Database.query(config.database, database_key, query, limit, projection={"_id": 0})
 
 
 def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

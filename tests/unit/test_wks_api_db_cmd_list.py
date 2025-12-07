@@ -25,15 +25,15 @@ class TestCmdList:
         mock_collection.__exit__ = MagicMock(return_value=False)
 
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config) as mock_load:
-            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.return_value = mock_collection
+            with patch("wks.api.database.cmd_list.Database") as mock_database_class:
+                mock_database_class.return_value = mock_collection
                 result = cmd_list()
 
         assert result.success is True
-        assert "Found 3 collection(s)" in result.result
-        assert set(result.output["collections"]) == {"monitor", "vault", "transform"}
+        assert "Found 3 database(s)" in result.result
+        assert set(result.output["databases"]) == {"monitor", "vault", "transform"}
 
     def test_cmd_list_no_prefix_collections(self, monkeypatch):
         """Test cmd_list with collections that don't have prefix."""
@@ -48,14 +48,14 @@ class TestCmdList:
         mock_collection.__exit__ = MagicMock(return_value=False)
 
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.return_value = mock_collection
+            with patch("wks.api.database.cmd_list.Database") as mock_database_class:
+                mock_database_class.return_value = mock_collection
                 result = cmd_list()
 
         assert result.success is True
-        assert result.output["collections"] == ["custom.collection", "other.collection"]
+        assert result.output["databases"] == ["custom.collection", "other.collection"]
 
     def test_cmd_list_empty(self, monkeypatch):
         """Test cmd_list when no collections exist."""
@@ -68,27 +68,27 @@ class TestCmdList:
         mock_collection.__exit__ = MagicMock(return_value=False)
 
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.return_value = mock_collection
+            with patch("wks.api.database.cmd_list.Database") as mock_database_class:
+                mock_database_class.return_value = mock_collection
                 result = cmd_list()
 
         assert result.success is True
-        assert "Found 0 collection(s)" in result.result
-        assert result.output["collections"] == []
+        assert "Found 0 database(s)" in result.result
+        assert result.output["databases"] == []
 
     def test_cmd_list_error(self, monkeypatch):
         """Test cmd_list when database access fails."""
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.database.cmd_list.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.side_effect = Exception("Connection failed")
+            with patch("wks.api.database.cmd_list.Database") as mock_database_class:
+                mock_database_class.side_effect = Exception("Connection failed")
                 result = cmd_list()
 
         assert result.success is False
-        assert "Failed to list collections" in result.result
+        assert "Failed to list databases" in result.result
         assert "error" in result.output
         assert "Connection failed" in result.output["error"]
-        assert result.output["collections"] == []
+        assert result.output["databases"] == []

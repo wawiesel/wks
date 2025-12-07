@@ -28,7 +28,12 @@ def test_cmd_filter_show_returns_list(monkeypatch):
                 "filter": {"include_paths": ["a", "b"]},
                 "priority": {},
                 "database": "monitor",
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -52,7 +57,12 @@ def test_cmd_filter_show_unknown_list_name(monkeypatch):
                 "filter": {},
                 "priority": {},
                 "database": "monitor",
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

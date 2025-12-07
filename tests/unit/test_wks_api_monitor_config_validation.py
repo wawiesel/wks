@@ -33,7 +33,12 @@ def test_monitor_config_invalid_priority_type():
                 "monitor": {
                     "filter": {},
                     "priority": "not a dict",
-                    "sync": {"database": "wks.monitor"},
+                    "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
                 }
             }
         )

@@ -17,7 +17,12 @@ def test_cmd_priority_remove_not_found(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -40,7 +45,12 @@ def test_cmd_priority_remove_success(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {"/tmp/a": 3}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

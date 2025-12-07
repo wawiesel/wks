@@ -16,13 +16,13 @@ def cmd_show(
     config = WKSConfig.load()
     try:
         parsed_query = json.loads(query_filter) if query_filter else None
-        query_result = Database.query(config.database, database, parsed_query, limit)
+        query_result = Database.query(config.database, collection, parsed_query, limit)
 
         return StageResult(
-            announce=f"Querying {database} database...",
-            result=f"Found {query_result['count']} document(s) in {database}",
+            announce=f"Querying {collection} database...",
+            result=f"Found {query_result['count']} document(s) in {collection}",
             output={
-                "database": database,
+                "database": collection,
                 "query": parsed_query,
                 "limit": limit,
                 "count": query_result["count"],
@@ -32,14 +32,14 @@ def cmd_show(
         )
     except json.JSONDecodeError as e:
         return StageResult(
-            announce=f"Querying {database} database...",
+            announce=f"Querying {collection} database...",
             result=f"Invalid JSON: {e}",
             output={"error": str(e)},
             success=False,
         )
     except Exception as e:
         return StageResult(
-            announce=f"Querying {database} database...",
+            announce=f"Querying {collection} database...",
             result=f"Query failed: {e}",
             output={"error": str(e)},
             success=False,

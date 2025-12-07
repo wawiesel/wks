@@ -17,7 +17,12 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch):
             "monitor": {
                 "filter": {"include_paths": ["/tmp/x"]},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -39,7 +44,12 @@ def test_cmd_filter_remove_not_found(monkeypatch):
             "monitor": {
                 "filter": {"include_paths": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -62,7 +72,12 @@ def test_cmd_filter_remove_dirname_list(monkeypatch):
             "monitor": {
                 "filter": {"include_dirnames": ["testdir"]},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

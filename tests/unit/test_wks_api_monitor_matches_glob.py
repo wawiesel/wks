@@ -16,7 +16,12 @@ def test_matches_glob_empty_pattern(tmp_path):
             "monitor": {
                 "filter": {"include_globs": ["", "*.py"]},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -36,7 +41,12 @@ def test_matches_glob_exception_handling(tmp_path, monkeypatch):
             "monitor": {
                 "filter": {"include_globs": ["*.py"]},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

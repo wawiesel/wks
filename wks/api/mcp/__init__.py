@@ -1,0 +1,2 @@
+"""MCP installation management API."""
+

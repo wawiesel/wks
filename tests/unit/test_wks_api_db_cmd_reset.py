@@ -20,15 +20,15 @@ class TestCmdReset:
         mock_collection.__exit__ = MagicMock(return_value=False)
 
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.return_value = mock_collection
+            with patch("wks.api.database.cmd_reset.Database") as mock_database_class:
+                mock_database_class.return_value = mock_collection
                 result = cmd_reset("monitor")
 
         assert result.success is True
         assert "Deleted 5 document(s) from monitor" in result.result
-        assert result.output["collection"] == "monitor"
+        assert result.output["database"] == "monitor"
         assert result.output["deleted_count"] == 5
         assert result.output["success"] is True
         mock_collection.delete_many.assert_called_once_with({})
@@ -41,10 +41,10 @@ class TestCmdReset:
         mock_collection.__exit__ = MagicMock(return_value=False)
 
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.return_value = mock_collection
+            with patch("wks.api.database.cmd_reset.Database") as mock_database_class:
+                mock_database_class.return_value = mock_collection
                 result = cmd_reset("vault")
 
         assert result.success is True
@@ -59,26 +59,26 @@ class TestCmdReset:
         mock_collection.__exit__ = MagicMock(return_value=False)
 
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.return_value = mock_collection
+            with patch("wks.api.database.cmd_reset.Database") as mock_database_class:
+                mock_database_class.return_value = mock_collection
                 result = cmd_reset("monitor")
 
         assert result.success is False
         assert "Reset failed" in result.result
         assert "error" in result.output
         assert "Database error" in result.output["error"]
-        assert result.output["collection"] == "monitor"
+        assert result.output["database"] == "monitor"
         assert result.output["success"] is False
 
     def test_cmd_reset_collection_init_error(self, monkeypatch):
         """Test cmd_reset when collection initialization fails."""
         mock_config = MagicMock()
-        mock_config.db.prefix = "wks"
+        mock_config.database.prefix = "wks"
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
-            with patch("wks.api.database.cmd_reset.DbCollection") as mock_db_collection_class:
-                mock_db_collection_class.side_effect = Exception("Connection failed")
+            with patch("wks.api.database.cmd_reset.Database") as mock_database_class:
+                mock_database_class.side_effect = Exception("Connection failed")
                 result = cmd_reset("monitor")
 
         assert result.success is False

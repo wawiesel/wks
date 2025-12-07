@@ -4,6 +4,23 @@ from ..base import StageResult
 from .WKSConfig import WKSConfig
 
 
+def cmd_show_all() -> StageResult:
+    """Show complete configuration.
+
+    Returns:
+        StageResult with complete configuration dictionary
+    """
+    config = WKSConfig.load()
+    config_dict = config.to_dict()
+
+    return StageResult(
+        announce="Loading complete configuration...",
+        result="Configuration loaded successfully",
+        output=config_dict,
+        success=True,
+    )
+
+
 def cmd_show(section: str | None) -> StageResult:
     """Show configuration sections or a specific section.
 

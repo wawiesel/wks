@@ -19,7 +19,12 @@ def test_cmd_status_mongodb_error(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -54,7 +59,12 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {"/invalid/path": 100.0}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

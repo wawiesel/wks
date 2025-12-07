@@ -18,7 +18,12 @@ def test_cmd_priority_show_returns_stage_result(monkeypatch):
                 "filter": {},
                 "priority": {"dirs": {"/tmp/a": 1.0}},
                 "database": "monitor",
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

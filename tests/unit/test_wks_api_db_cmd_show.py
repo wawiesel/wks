@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from wks.api.database.cmd_show import cmd_show
-from wks.api.database.DbCollection import DbCollection
+from wks.api.database.Database import Database
 
 pytestmark = pytest.mark.db
 
@@ -22,14 +22,14 @@ class TestCmdShow:
         mock_result = {"results": [{"_id": "1", "path": "/test"}], "count": 1}
         mock_config = MagicMock()
         mock_db_config = DbConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
-        mock_config.db = mock_db_config
+        mock_config.database = mock_db_config
 
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config) as mock_load:
-            with patch.object(DbCollection, "query", return_value=mock_result) as mock_query:
+            with patch.object(Database, "query", return_value=mock_result) as mock_query:
                 result = cmd_show(collection="monitor", query_filter='{"status": "active"}', limit=10)
 
                 assert result.success is True
-                assert result.announce == "Showing monitor collection..."
+                assert result.announce == "Querying monitor database..."
                 assert "Found 1 document(s)" in result.result
                 assert "results" in result.output
                 assert "count" in result.output
@@ -43,10 +43,10 @@ class TestCmdShow:
         mock_result = {"results": [], "count": 0}
         mock_config = MagicMock()
         mock_db_config = DbConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
-        mock_config.db = mock_db_config
+        mock_config.database = mock_db_config
 
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config) as mock_load:
-            with patch.object(DbCollection, "query", return_value=mock_result) as mock_query:
+            with patch.object(Database, "query", return_value=mock_result) as mock_query:
                 result = cmd_show(collection="monitor", query_filter=None, limit=50)
 
                 assert result.success is True
@@ -71,10 +71,10 @@ class TestCmdShow:
         mock_result = {"results": [], "count": 0}
         mock_config = MagicMock()
         mock_db_config = DbConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
-        mock_config.db = mock_db_config
+        mock_config.database = mock_db_config
 
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config) as mock_load:
-            with patch.object(DbCollection, "query", return_value=mock_result) as mock_query:
+            with patch.object(Database, "query", return_value=mock_result) as mock_query:
                 result = cmd_show(collection="monitor", query_filter="", limit=50)
 
                 assert result.success is True
@@ -82,11 +82,11 @@ class TestCmdShow:
 
     def test_cmd_show_query_fails(self, monkeypatch):
         """Test cmd_show when query raises exception."""
-        with patch.object(DbCollection, "query", side_effect=Exception("Connection failed")) as mock_query:
+        with patch.object(Database, "query", side_effect=Exception("Connection failed")) as mock_query:
             result = cmd_show(collection="monitor", query_filter='{"status": "active"}', limit=50)
 
             assert result.success is False
-            assert "Show failed" in result.result
+            assert "Query failed" in result.result
             assert "error" in result.output
             assert "Connection failed" in result.output["error"]
 
@@ -99,10 +99,10 @@ class TestCmdShow:
         complex_filter = '{"age": {"$gt": 18}, "name": {"$regex": "^A"}}'
         mock_config = MagicMock()
         mock_db_config = DbConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
-        mock_config.db = mock_db_config
+        mock_config.database = mock_db_config
 
         with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config) as mock_load:
-            with patch.object(DbCollection, "query", return_value=mock_result) as mock_query:
+            with patch.object(Database, "query", return_value=mock_result) as mock_query:
                 result = cmd_show(collection="users", query_filter=complex_filter, limit=100)
 
                 assert result.success is True

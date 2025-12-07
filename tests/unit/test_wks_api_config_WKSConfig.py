@@ -43,7 +43,7 @@ def build_valid_config_dict(tmp_path) -> dict:
             "update_frequency_seconds": 3600.0,
             "database": "vault",
         },
-        "db": {
+        "database": {
             "type": "mongo",
             "prefix": "wks",
             "data": {"uri": "mongodb://localhost:27017/"},
@@ -69,9 +69,9 @@ class TestWKSConfigLoad:
 
         assert isinstance(config, WKSConfig)
         assert isinstance(config.monitor, MonitorConfig)
-        assert isinstance(config.db, DbConfig)
+        assert isinstance(config.database, DbConfig)
         assert config.monitor.database == "monitor"
-        assert config.db.type == "mongo"
+        assert config.database.type == "mongo"
 
     def test_load_uses_default_path(self, tmp_path, monkeypatch):
         """Test load() without path argument uses get_config_path()."""
@@ -152,7 +152,7 @@ class TestWKSConfigToDict:
         assert isinstance(result, dict)
         assert "monitor" in result
         assert "vault" in result
-        assert "db" in result
+        assert "database" in result
 
     def test_to_dict_includes_monitor(self, tmp_path):
         """Test to_dict() includes monitor config."""

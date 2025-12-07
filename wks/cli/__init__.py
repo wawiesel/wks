@@ -14,6 +14,7 @@ import typer
 from wks.api.config.app import config_app
 from wks.api.daemon.app import daemon_app
 from wks.api.database.app import db_app
+from wks.api.mcp.app import mcp_app
 from wks.api.monitor.app import monitor_app
 
 # TODO: Create wks/api/diff/app.py
@@ -41,6 +42,7 @@ app.add_typer(monitor_app, name="monitor")
 app.add_typer(daemon_app, name="daemon")
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="database")
+app.add_typer(mcp_app, name="mcp")
 
 
 @app.callback(invoke_without_command=True)

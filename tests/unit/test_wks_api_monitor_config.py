@@ -34,7 +34,12 @@ def test_get_rules():
                     "exclude_globs": ["*.tmp"],
                 },
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -57,7 +62,12 @@ def test_get_rules_empty():
             "monitor": {
                 "filter": {},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -76,27 +86,37 @@ def test_from_config_dict_with_filter_section():
                     "include_paths": ["/tmp"],
                 },
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
 
-    assert cfg.include_paths == ["/tmp"]
+    assert cfg.filter.include_paths == ["/tmp"]
 
 
 def test_from_config_dict_without_filter_section():
-    """Test that from_config_dict works without filter section."""
+    """Test that from_config_dict works with empty filter section (uses defaults)."""
     cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "include_paths": ["/tmp"],
+                "filter": {},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
 
-    assert cfg.include_paths == ["/tmp"]
+    assert cfg.filter.include_paths == []
 
 
 def test_from_config_dict_missing_monitor_section():

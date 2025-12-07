@@ -17,7 +17,12 @@ def test_cmd_filter_add_saves_on_success(monkeypatch):
             "monitor": {
                 "filter": {"include_paths": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -39,7 +44,12 @@ def test_cmd_filter_add_unknown_list_name(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -63,7 +73,12 @@ def test_cmd_filter_add_empty_dirname(monkeypatch):
             "monitor": {
                 "filter": {"include_dirnames": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -86,7 +101,12 @@ def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
             "monitor": {
                 "filter": {"include_dirnames": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -109,7 +129,12 @@ def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
             "monitor": {
                 "filter": {"exclude_dirnames": ["testdir"]},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -132,7 +157,12 @@ def test_cmd_filter_add_dirname_no_error(monkeypatch):
             "monitor": {
                 "filter": {"include_dirnames": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -154,7 +184,12 @@ def test_cmd_filter_add_empty_glob(monkeypatch):
             "monitor": {
                 "filter": {"include_globs": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -177,7 +212,12 @@ def test_cmd_filter_add_glob_validation_success(monkeypatch):
             "monitor": {
                 "filter": {"include_globs": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -207,7 +247,12 @@ def test_cmd_filter_add_validation_error(monkeypatch):
             "monitor": {
                 "filter": {"include_dirnames": []},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -231,7 +276,12 @@ def test_cmd_filter_add_duplicate(monkeypatch):
             "monitor": {
                 "filter": {"include_paths": ["/tmp/x"]},
                 "priority": {},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

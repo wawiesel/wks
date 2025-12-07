@@ -52,12 +52,12 @@ def reset_command(
     ),
 ) -> None:
     """Reset (clear) a database collection by deleting all documents."""
-    if collection is None:
-        typer.echo("Error: Collection name is required", err=True)
+    if database is None:
+        typer.echo("Error: Database name is required", err=True)
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit(1)
     wrapped = handle_stage_result(cmd_reset)
-    wrapped(collection)
+    wrapped(database)
 
 
 db_app.command(name="list")(handle_stage_result(cmd_list))

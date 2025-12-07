@@ -17,7 +17,12 @@ def test_cmd_priority_add_existing_returns_flag(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {"existing": 1}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -40,7 +45,12 @@ def test_cmd_priority_add_stores_and_saves(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -64,7 +74,12 @@ def test_cmd_priority_add_not_found_creates(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -88,7 +103,12 @@ def test_cmd_priority_add_updates(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {"/tmp/a": 1}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )

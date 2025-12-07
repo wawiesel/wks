@@ -40,7 +40,7 @@ def build_valid_config_dict(tmp_path) -> dict:
             "update_frequency_seconds": 3600.0,
             "database": "vault",
         },
-        "db": {
+        "database": {
             "type": "mongo",
             "prefix": "wks",
             "data": {"uri": "mongodb://localhost:27017/"},
@@ -87,9 +87,9 @@ class TestCmdShow:
             result = cmd_show("monitor")
 
         assert result.success is True
-        assert result.output["section"] == "monitor"
-        assert "data" in result.output
-        assert isinstance(result.output["data"], dict)
+        assert isinstance(result.output, dict)
+        # Output should be the section data directly
+        assert "filter" in result.output or "priority" in result.output or "database" in result.output
 
     def test_cmd_show_with_invalid_section(self, tmp_path, monkeypatch):
         """Test cmd_show() with invalid section returns error."""

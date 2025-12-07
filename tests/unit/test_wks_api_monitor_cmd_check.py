@@ -17,7 +17,12 @@ def test_cmd_check_reports_monitored(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
@@ -46,7 +51,12 @@ def test_cmd_check_path_not_exists(monkeypatch):
             "monitor": {
                 "filter": {},
                 "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor"},
+                "database": "monitor",
+                "sync": {
+                    "max_documents": 1000000,
+                    "min_priority": 0.0,
+                    "prune_interval_secs": 300.0,
+                },
             }
         }
     )
