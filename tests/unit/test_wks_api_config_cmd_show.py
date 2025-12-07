@@ -67,6 +67,12 @@ class TestCmdShow:
 
         with patch("wks.api.config.get_config_path.get_config_path", return_value=config_path):
             result = cmd_show(None)
+            
+            # Execute the progress callback to get actual results
+            def mock_update(msg: str, progress: float) -> None:
+                pass
+            
+            result.progress_callback(mock_update, result)
 
         assert result.success is True
         assert "sections" in result.output
@@ -85,6 +91,12 @@ class TestCmdShow:
 
         with patch("wks.api.config.get_config_path.get_config_path", return_value=config_path):
             result = cmd_show("monitor")
+            
+            # Execute the progress callback to get actual results
+            def mock_update(msg: str, progress: float) -> None:
+                pass
+            
+            result.progress_callback(mock_update, result)
 
         assert result.success is True
         assert isinstance(result.output, dict)
@@ -102,6 +114,12 @@ class TestCmdShow:
 
         with patch("wks.api.config.get_config_path.get_config_path", return_value=config_path):
             result = cmd_show("invalid_section")
+            
+            # Execute the progress callback to get actual results
+            def mock_update(msg: str, progress: float) -> None:
+                pass
+            
+            result.progress_callback(mock_update, result)
 
         assert result.success is False
         assert "error" in result.output

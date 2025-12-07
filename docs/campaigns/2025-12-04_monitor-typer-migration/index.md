@@ -102,6 +102,8 @@ Recommended sequence for single agent execution:
 4. **daemon** - Service management, backend pattern established
 5. **mcp** - New module, create following established patterns
 
+**MANDATORY REQUIREMENT - NO EXCEPTIONS**: Every single command in ALL of these modules MUST use the `progress_callback` pattern. EVERY command MUST have a progress bar, even if it completes in <1 second. This is non-negotiable. There are NO exceptions. Fast commands still show progress - they just complete quickly. The 4-stage execution pattern (Announce → Progress → Result → Output) is mandatory for every command. Do not attempt to skip progress for "fast" commands - this is a violation of the specification and will be rejected.
+
 Each module should be completed (implementation + tests + verification) before moving to the next.
 
 ### Verification Steps

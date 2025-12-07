@@ -11,9 +11,9 @@ def cmd_uninstall() -> StageResult:
 
     if config.daemon is None:
         return StageResult(
-            announce="Checking daemon configuration...",
+            announce="Uninstalling daemon service...",
             result="Error: daemon configuration not found in config.json",
-            output={"success": False, "error": "daemon section missing from config"},
+            output={"error": "daemon section missing from config"},
             success=False,
         )
 
@@ -24,7 +24,6 @@ def cmd_uninstall() -> StageResult:
             announce="Uninstalling daemon service...",
             result=f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})",
             output={
-                "success": False,
                 "error": f"Unsupported backend type: {backend_type!r}",
                 "supported": list(_BACKEND_REGISTRY.keys()),
             },
@@ -39,25 +38,27 @@ def cmd_uninstall() -> StageResult:
 
         # Uninstall via backend implementation
         result = daemon_impl.uninstall_service()
+        # Remove 'success' from output - it's handled by StageResult.success
+        output = {k: v for k, v in result.items() if k != "success"}
 
         return StageResult(
             announce="Uninstalling daemon service...",
             result=f"Daemon service uninstalled successfully (label: {result.get('label', 'unknown')})",
-            output=result,
+            output=output,
             success=result.get("success", True),
         )
     except NotImplementedError as e:
         return StageResult(
             announce="Uninstalling daemon service...",
             result=f"Error: Service uninstallation not supported for backend '{backend_type}'",
-            output={"success": False, "error": str(e)},
+            output={"error": str(e)},
             success=False,
         )
     except Exception as e:
         return StageResult(
             announce="Uninstalling daemon service...",
             result=f"Error uninstalling service: {e}",
-            output={"success": False, "error": str(e)},
+            output={"error": str(e)},
             success=False,
         )
 

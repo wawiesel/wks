@@ -13,7 +13,7 @@ def cmd_stop() -> StageResult:
         return StageResult(
             announce="Stopping daemon...",
             result="Error: daemon configuration not found in config.json",
-            output={"success": False, "error": "daemon section missing from config"},
+            output={"error": "daemon section missing from config"},
             success=False,
         )
 
@@ -24,7 +24,6 @@ def cmd_stop() -> StageResult:
             announce="Stopping daemon...",
             result=f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})",
             output={
-                "success": False,
                 "error": f"Unsupported backend type: {backend_type!r}",
                 "supported": list(_BACKEND_REGISTRY.keys()),
             },
@@ -43,38 +42,40 @@ def cmd_stop() -> StageResult:
             return StageResult(
                 announce="Stopping daemon...",
                 result="Error: Daemon service not installed.",
-                output={"success": False, "error": "service not installed"},
+                output={"error": "service not installed"},
                 success=False,
             )
 
         # Stop via service manager
         result = daemon_impl.stop_service()
+        # Remove 'success' from output - it's handled by StageResult.success
+        output = {k: v for k, v in result.items() if k != "success"}
         if result.get("success", False):
             return StageResult(
                 announce="Stopping daemon...",
                 result=f"Daemon stopped successfully (label: {result.get('label', 'unknown')})",
-                output=result,
+                output=output,
                 success=True,
             )
         else:
             return StageResult(
                 announce="Stopping daemon...",
                 result=f"Error stopping daemon: {result.get('error', 'unknown error')}",
-                output=result,
+                output=output,
                 success=False,
             )
     except NotImplementedError as e:
         return StageResult(
             announce="Stopping daemon...",
             result=f"Error: Service stop not supported for backend '{backend_type}'",
-            output={"success": False, "error": str(e)},
+            output={"error": str(e)},
             success=False,
         )
     except Exception as e:
         return StageResult(
             announce="Stopping daemon...",
             result=f"Error stopping daemon: {e}",
-            output={"success": False, "error": str(e)},
+            output={"error": str(e)},
             success=False,
         )
 

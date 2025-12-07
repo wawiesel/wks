@@ -2,7 +2,7 @@
 
 import functools
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
@@ -15,31 +15,20 @@ F = TypeVar("F", bound=Callable)
 class StageResult:
     """Result from a command function following the 4-stage pattern.
 
-    Attributes:
-        announce: Initial status message (Stage 1)
-        result: Final result message (Stage 3)
-        output: Structured output data (Stage 4)
-        success: Whether the operation succeeded (inferred from output if not provided)
-        progress_callback: Optional callback for progress updates (Stage 2)
-        progress_total: Total items for progress tracking
+    ALL fields are required. No exceptions.
     """
 
     announce: str
-    result: str
-    output: dict
-    success: bool | None = None
-    progress_callback: Callable[[Callable], None] | None = None
-    progress_total: int | None = None
+    progress_callback: Callable[[Callable[[str, float], None], "StageResult"], None]
+    progress_total: int
+    result: str = ""
+    output: dict = None  # type: ignore[assignment]
+    success: bool = False
 
     def __post_init__(self):
-        """Infer success from output if not explicitly set."""
-        if self.success is None:
-            # Infer success from output dict if it has a 'success' key
-            if isinstance(self.output, dict) and "success" in self.output:
-                self.success = bool(self.output["success"])
-            else:
-                # Default to True if no success indicator
-                self.success = True
+        """Initialize output dict."""
+        if self.output is None:
+            object.__setattr__(self, "output", {})
 
 
 def _run_single_execution(
@@ -49,15 +38,31 @@ def _run_single_execution(
     display: Any,
     display_format: str,
 ) -> None:
-    """Run command once and display result."""
+    """Run command once and display result.
+
+    Stage 1 (Announce) must happen IMMEDIATELY before any work starts.
+    """
+    # Stage 1: Announce - display IMMEDIATELY before calling function
+    # We need to get announce first, so call function to get it, then do work in progress_callback
+    # OR: function returns StageResult immediately with announce, work happens in progress_callback
     result = func(*args, **kwargs)
 
-    # Stage 1: Announce
+    # Stage 1: Announce - display IMMEDIATELY (announce is required, no hedging)
     display.status(result.announce)
 
-    # Stage 2: Progress (if callback provided)
-    if result.progress_callback:
-        result.progress_callback(lambda msg, progress: display.info(f"Progress: {msg} ({progress:.1%})"))
+    # Stage 2: Progress - REQUIRED for all commands
+    # progress_callback is a generator that yields (progress_percent, message) tuples
+    progress_gen = result.progress_callback(result)
+    for progress_percent, message in progress_gen:
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        display.info(f"[dim]{timestamp}[/dim] Progress: {message} ({progress_percent:.1%})")
+
+    # Ensure required fields are set after callback completes
+    if not result.result:
+        raise ValueError("progress_callback must set result.result to a non-empty string")
+    if not result.output:
+        raise ValueError("progress_callback must set result.output to a non-empty dict")
 
     # Stage 3: Result
     if result.success:

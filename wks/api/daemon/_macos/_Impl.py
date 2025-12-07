@@ -79,8 +79,49 @@ class _Impl(_AbstractImpl):
         """Start daemon via macOS launchctl."""
         import os
         import subprocess
+        from pathlib import Path
+
+        from ._launchd import _get_plist_path
 
         uid = os.getuid()
+        plist_path = _get_plist_path(self.config.data.label)
+
+        # First check if service is loaded
+        try:
+            result = subprocess.run(
+                ["launchctl", "print", f"gui/{uid}/{self.config.data.label}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            service_loaded = result.returncode == 0
+        except Exception:
+            service_loaded = False
+
+        # If service is not loaded but plist exists, bootstrap it first
+        if not service_loaded and plist_path.exists():
+            try:
+                subprocess.run(
+                    ["launchctl", "bootstrap", f"gui/{uid}", str(plist_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                # Bootstrap also starts the service, so we're done
+                return {
+                    "success": True,
+                    "type": "macos",
+                    "label": self.config.data.label,
+                    "action": "bootstrapped",
+                }
+            except subprocess.CalledProcessError as e:
+                return {
+                    "success": False,
+                    "error": f"Failed to bootstrap service: {e.stderr}",
+                }
+
+        # Service is loaded, use kickstart to start/restart it
+        # Note: -k flag kills and restarts if already running, starts if not running
         try:
             subprocess.run(
                 ["launchctl", "kickstart", "-k", f"gui/{uid}/{self.config.data.label}"],
@@ -92,6 +133,7 @@ class _Impl(_AbstractImpl):
                 "success": True,
                 "type": "macos",
                 "label": self.config.data.label,
+                "action": "kickstarted",  # This restarts if running, starts if not
             }
         except subprocess.CalledProcessError as e:
             return {

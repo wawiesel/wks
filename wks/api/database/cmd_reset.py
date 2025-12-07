@@ -1,5 +1,7 @@
 """Reset database command - clears all documents from a database."""
 
+from collections.abc import Callable
+
 from ..base import StageResult
 from .Database import Database
 
@@ -13,32 +15,36 @@ def cmd_reset(database: str) -> StageResult:
     Returns:
         StageResult with reset operation status
     """
-    from ..config.WKSConfig import WKSConfig
+    def do_work(update_progress: Callable[[str, float], None], result_obj: StageResult) -> None:
+        """Do the actual work - called by wrapper after announce is displayed."""
+        from ..config.WKSConfig import WKSConfig
 
-    config = WKSConfig.load()
+        update_progress("Loading configuration...", 0.2)
+        config = WKSConfig.load()
 
-    try:
-        with Database(config.database, database) as database_obj:
-            deleted_count = database_obj.delete_many({})
+        update_progress("Deleting documents...", 0.6)
+        try:
+            with Database(config.database, database) as database_obj:
+                deleted_count = database_obj.delete_many({})
 
-        return StageResult(
-            announce=f"Resetting {database} database...",
-            result=f"Deleted {deleted_count} document(s) from {database}",
-            output={
+            update_progress("Complete", 1.0)
+            result_obj.result = f"Deleted {deleted_count} document(s) from {database}"
+            result_obj.output = {
                 "database": database,
                 "deleted_count": deleted_count,
-                "success": True,
-            },
-            success=True,
-        )
-    except Exception as e:
-        return StageResult(
-            announce=f"Resetting {database} database...",
-            result=f"Reset failed: {e}",
-            output={
+            }
+            result_obj.success = True
+        except Exception as e:
+            update_progress("Complete", 1.0)
+            result_obj.result = f"Reset failed: {e}"
+            result_obj.output = {
                 "database": database,
                 "error": str(e),
-                "success": False,
-            },
-            success=False,
-        )
+            }
+            result_obj.success = False
+
+    return StageResult(
+        announce=f"Resetting {database} database...",
+        progress_callback=do_work,
+        progress_total=1,
+    )

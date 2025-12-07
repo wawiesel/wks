@@ -65,6 +65,10 @@ WKS is built as a stack of independent, composable layers:
 
 -   **Interfaces**: Support **only CLI and MCP** interfaces. All other modes are unsupported.
 -   **API-First Design**: All business logic lives in the API layer. CLI and MCP are thin wrappers that call the same API functions. There is zero duplication between CLI and MCP - they share identical business logic.
+    -   **API Layer Purity**: The API layer contains ONLY business logic. No display code, no output formatting, no CLI-specific or MCP-specific code. API functions return structured data (StageResult objects) and nothing else.
+    -   **Thin Wrappers**: CLI and MCP layers are thin wrappers that handle display and presentation. They call API functions and format the results for their respective interfaces.
+    -   **NO EXCEPTIONS**: Every single command MUST follow this pattern. There are no exceptions. If a command needs display logic, it belongs in the wrapper, not in the API function.
+    -   **Why**: This ensures a single source of truth, eliminates duplication, makes business logic testable in isolation, and guarantees consistent behavior across CLI and MCP interfaces.
 -   **CLI/MCP Symmetry**: Every CLI command (`wksc <domain> <command>`) has a corresponding MCP tool (`wksm_<domain>_<command>`) that uses the same underlying API function. Both interfaces provide the same functionality with different presentation layers.
 -   **Config-First**: All configuration values must be defined in `{WKS_HOME}/config.json` (where `WKS_HOME` defaults to `~/.wks` if not set via environment variable). **Defaults in code are an error** - if a value is missing from the config file, validation must fail immediately.
 -   **Override Anywhere**: CLI and MCP can override any config parameter.

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from wks.api.config.cmd_show import cmd_show_all
+from wks.api.config.cmd_show import cmd_show
 
 pytestmark = pytest.mark.config
 
@@ -66,7 +66,13 @@ class TestCmdShowAll:
         config_path.write_text(json.dumps(config_dict))
 
         with patch("wks.api.config.get_config_path.get_config_path", return_value=config_path):
-            result = cmd_show_all()
+            result = cmd_show(show_all=True)
+            
+            # Execute the progress callback to get actual results
+            def mock_update(msg: str, progress: float) -> None:
+                pass
+            
+            result.progress_callback(mock_update, result)
 
         assert result.success is True
         assert isinstance(result.output, dict)

@@ -73,20 +73,26 @@ class CLIDisplay(Display):
 
     def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a status message in blue (to STDERR per CLI guidelines)."""
-        self.stderr_console.print(f"[blue]i[/blue] {message}")
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.stderr_console.print(f"[dim]{timestamp}[/dim] [blue]i[/blue] {message}")
 
     def success(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a success message in green (to STDERR per CLI guidelines)."""
-        self.stderr_console.print(f"[green]✓[/green] {message}")
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.stderr_console.print(f"[dim]{timestamp}[/dim] [green]✓[/green] {message}")
 
     def error(self, message: str, **kwargs) -> None:
         """Display an error message in red (to STDERR per CLI guidelines)."""
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
         details = kwargs.get("details", "")
         if details:
-            self.stderr_console.print(f"[red]✗[/red] {message}")
+            self.stderr_console.print(f"[dim]{timestamp}[/dim] [red]✗[/red] {message}")
             self.stderr_console.print(f"  [dim]{details}[/dim]")
         else:
-            self.stderr_console.print(f"[red]✗[/red] {message}")
+            self.stderr_console.print(f"[dim]{timestamp}[/dim] [red]✗[/red] {message}")
 
     def warning(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a warning message in yellow (to STDERR per CLI guidelines)."""

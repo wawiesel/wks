@@ -15,7 +15,7 @@ from typing import Any
 
 from wks.api.base import StageResult, get_typer_command_schema
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.config.cmd_show import cmd_show_all
+from wks.api.config.cmd_show import cmd_show
 from wks.api.database.cmd_show import cmd_show as db_cmd_show
 from wks.api.database.cmd_list import cmd_list as db_cmd_list
 from wks.api.database.cmd_reset import cmd_reset as db_cmd_reset
@@ -621,7 +621,7 @@ class MCPServer:
 
         return {
             "wksm_config": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=_extract_data_from_stage_result(cmd_show_all())
+                success=True, data=_extract_data_from_stage_result(cmd_show(show_all=True))
             ).to_dict(),
             "wksm_transform": _require_params("file_path", "engine")(
                 lambda config, args: self._tool_transform(

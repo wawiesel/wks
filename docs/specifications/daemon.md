@@ -8,19 +8,33 @@ The WKS daemon runs as a background service to monitor the filesystem and mainta
 **CLI Interface**:
 ```bash
 wksc daemon status           # Show daemon status and metrics (supports --live for auto-updating display)
-wksc daemon start            # Start daemon (uses service if installed, otherwise starts directly)
+wksc daemon start            # Start daemon (idempotent - ensures running, restarts if already running)
 wksc daemon stop             # Stop daemon
-wksc daemon restart          # Restart daemon
+wksc daemon restart          # Restart daemon with full reload (unloads and reloads service)
 wksc daemon install          # Install as system service (launchd on macOS)
 wksc daemon uninstall        # Remove system service
 ```
 
-**Start Behavior**:
-The `wksc daemon start` command behaves differently depending on whether the service is installed:
-- **If service is installed**: Starts the daemon via the system service manager (e.g., `launchctl` on macOS)
-- **If service is not installed**: Starts the daemon directly as a background process.
+**Start vs Restart Behavior**:
 
-This allows users to start the daemon without installing it as a service, which is useful for testing or temporary runs.
+**`wksc daemon start`** (idempotent - ensures daemon is running):
+- **If service is installed and loaded**: Uses `launchctl kickstart -k` 
+  - Kills and restarts the process if already running
+  - Starts the process if not running
+  - Does NOT reload the plist file (service stays loaded in launchctl)
+- **If service is installed but not loaded**: Bootstraps the service (loads plist and starts)
+- **If service is not installed**: Starts daemon directly as background process
+
+**`wksc daemon restart`** (full reload):
+- **Always stops first**: Unloads service from launchctl (if service) or kills process (if direct)
+- **Then starts**: Reloads plist into launchctl and starts fresh (if service) or starts new process (if direct)
+- Ensures the service configuration is completely reloaded from the plist file
+
+**Key Difference**: `start` uses `kickstart -k` which restarts the process without reloading the plist. `restart` performs a full unload/reload cycle, ensuring plist changes are picked up.
+
+**When to use**:
+- Use **start** for "ensure running" - safe to run multiple times, will restart process if needed
+- Use **restart** when you need to reload plist configuration or want a clean reload cycle
 
 **Status Output**:
 The `status` command displays:
