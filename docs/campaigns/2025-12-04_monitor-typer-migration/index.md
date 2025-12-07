@@ -19,36 +19,15 @@ This is a **single agent campaign** - one agent will work through all five API m
 
 ### Target Modules
 
-1. **`wks/api/config`**
-   - CLI: `wksc config show`
-   - MCP: `wksm_config`
-   - Specification: `docs/specifications/config.md`
-   - Goal: 100% unit test coverage, fully synchronized with spec
+Implement each module according to its specification with 100% unit test coverage:
 
-2. **`wks/api/database`**
-   - CLI: `wksc database list/show/reset`
-   - MCP: `wksm_database_*` tools
-   - Specification: `docs/specifications/database.md`
-   - Goal: 100% unit test coverage, fully synchronized with spec
+1. **`wks/api/config`** - See `docs/specifications/config.md`
+2. **`wks/api/database`** - See `docs/specifications/database.md`
+3. **`wks/api/monitor`** - See `docs/specifications/monitor.md`
+4. **`wks/api/daemon`** - See `docs/specifications/daemon.md`
+5. **`wks/api/mcp`** - See `docs/specifications/mcp.md`
 
-3. **`wks/api/monitor`**
-   - CLI: `wksc monitor status/check/sync/filter/priority`
-   - MCP: `wksm_monitor_*` tools
-   - Specification: `docs/specifications/monitor.md`
-   - Goal: 100% unit test coverage, fully synchronized with spec
-
-4. **`wks/api/daemon`**
-   - CLI: `wksc daemon status/start/stop/restart/install/uninstall`
-   - MCP: `wksm_daemon_*` tools
-   - Specification: `docs/specifications/daemon.md`
-   - Goal: 100% unit test coverage, fully synchronized with spec
-
-5. **`wks/api/mcp`**
-   - CLI: `wksc mcp list/install/uninstall`
-   - MCP: `wksm_mcp_*` tools
-   - Specification: `docs/specifications/mcp.md`
-   - Goal: 100% unit test coverage, fully synchronized with spec
-   - Note: The MCP server execution itself (`wksm` command) is separate infrastructure, but the MCP installation management commands belong in the API layer
+**Note**: The MCP server execution itself (`wksm` command) is separate infrastructure, but the MCP installation management commands belong in the API layer.
 
 ## Requirements
 
@@ -79,21 +58,6 @@ This is a **single agent campaign** - one agent will work through all five API m
    - Tests must verify specification compliance
    - Tests must verify CLI/MCP parity (same API function, different interfaces)
 
-### MCP Module Requirements
-
-The `wks/api/mcp/` module must be created to handle MCP server installation management:
-
-- **CLI Commands** (via `wks/api/mcp/app.py`):
-  - `wksc mcp list` - List available MCP server locations and installation status
-  - `wksc mcp install <path>` - Add WKS MCP server to specified settings file
-  - `wksc mcp uninstall <path>` - Remove WKS MCP server from specified settings file
-
-- **MCP Tools** (exposed via `wks/mcp/server.py`):
-  - `wksm_mcp_list` - Equivalent to `wksc mcp list`
-  - `wksm_mcp_install` - Equivalent to `wksc mcp install`
-  - `wksm_mcp_uninstall` - Equivalent to `wksc mcp uninstall`
-
-- **Configuration**: Uses `mcp.installs` section in `config.json` (see `docs/specifications/mcp.md`)
 
 ## Success Criteria
 
@@ -223,32 +187,6 @@ For each module, use this checklist before marking it complete:
 - [ ] Code quality checks pass (`./scripts/check_quality.py`)
 - [ ] No lint errors (`ruff check wks/api/<domain>/`)
 
-### Expected CLI/MCP Output Examples
-
-**Config Module**:
-- `wksc config` → List of section names (table format in CLI, JSON in MCP)
-- `wksc config monitor` → Monitor configuration as JSON
-- `wksm_config` → Complete configuration as JSON
-
-**Database Module**:
-- `wksc database list` → List of available database names
-- `wksc database show monitor` → Monitor database contents (JSON)
-- `wksm_database_monitor` → Same as `wksc database show monitor`
-
-**Monitor Module**:
-- `wksc monitor status` → Monitor status and configuration summary
-- `wksc monitor check /path/to/file` → Whether file would be monitored
-- `wksm_monitor_status`, `wksm_monitor_check` → Same functionality via MCP
-
-**Daemon Module**:
-- `wksc daemon status` → Daemon status (running, PID, warnings, errors)
-- `wksc daemon start` → Start daemon (service or direct)
-- `wksm_daemon` → Daemon management via MCP
-
-**MCP Module** (to be created):
-- `wksc mcp list` → List MCP installation locations and status
-- `wksc mcp install /path/to/settings.json` → Install WKS MCP server
-- `wksm_mcp_list`, `wksm_mcp_install` → Same functionality via MCP
 
 ### Coverage Verification Commands
 
