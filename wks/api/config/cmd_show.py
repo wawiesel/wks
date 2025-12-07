@@ -49,9 +49,6 @@ def cmd_show(section: str | None) -> StageResult:
     return StageResult(
         announce=f"Showing configuration for section '{section}'...",
         result=f"Retrieved configuration for '{section}'",
-        output={
-            "section": section,
-            "data": section_data,
-        },
+        output=section_data,
         success=True,
     )

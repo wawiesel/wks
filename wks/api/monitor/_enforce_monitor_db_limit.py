@@ -1,6 +1,6 @@
 """Enforce monitor database limits and min_priority."""
 
-from ..db.Database import Database
+from ..database.Database import Database
 
 
 def _enforce_monitor_db_limit(database: Database, max_docs: int, min_priority: float) -> None:

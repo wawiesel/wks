@@ -49,9 +49,26 @@ When started without a service installation, the daemon will:
 
 **Behavior**:
 - Only one daemon instance can run at a time (enforced via lock file at `{WKS_HOME}/daemon.lock`)
-- Daemon monitors configured paths and updates monitor database
-- Daemon maintains vault links and syncs with Obsidian
-- Daemon provides MCP broker for AI agent access
+- Daemon monitors the filesystem for changes and automatically performs the same operations that users could run manually via CLI commands
+
+**Purpose**:
+The daemon automates filesystem monitoring operations. Everything the daemon does could be done manually by running CLI commands, but the daemon performs these operations automatically in response to filesystem events.
+
+**File System Event Handling**:
+
+The daemon watches configured paths and automatically triggers monitor sync operations when files are created, deleted, or moved. These are the same operations a user would perform manually:
+
+1. **File Move** (OLD_LOC → NEW_LOC):
+   - Automatically performs: `wksc monitor sync DIR_OF_OLD_LOC` - Updates the old location directory, removing the old file entry from the monitor database
+   - Automatically performs: `wksc monitor sync NEW_LOC` - Updates the new location, adding the file entry to the monitor database
+
+2. **File Creation**:
+   - Automatically performs: `wksc monitor sync NEW_LOC` - Updates the location where the file was created, adding the new file entry to the monitor database
+
+3. **File Deletion**:
+   - Automatically performs: `wksc monitor sync DIR_OF_OLD_LOC` - Updates the directory where the file was deleted, removing the file entry from the monitor database
+
+The daemon uses the monitor API's `cmd_sync()` function internally (the same function used by `wksc monitor sync`), ensuring the monitor database stays synchronized with the actual filesystem state without requiring manual intervention.
 
 **Daemon Status File**:
 The daemon writes a simple status file at `{WKS_HOME}/daemon.json` (where `WKS_HOME` defaults to `~/.wks` if not set via environment variable) containing warnings and errors for display in `wksc daemon status`. The file structure is:

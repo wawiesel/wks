@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..base import StageResult
-from ..db.Database import Database
+from ..database.Database import Database
 from .explain_path import explain_path
 
 

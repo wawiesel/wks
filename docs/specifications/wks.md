@@ -64,12 +64,14 @@ WKS is built as a stack of independent, composable layers:
 ## Design Principles
 
 -   **Interfaces**: Support **only CLI and MCP** interfaces. All other modes are unsupported.
+-   **API-First Design**: All business logic lives in the API layer. CLI and MCP are thin wrappers that call the same API functions. There is zero duplication between CLI and MCP - they share identical business logic.
+-   **CLI/MCP Symmetry**: Every CLI command (`wksc <domain> <command>`) has a corresponding MCP tool (`wksm_<domain>_<command>`) that uses the same underlying API function. Both interfaces provide the same functionality with different presentation layers.
 -   **Config-First**: All configuration values must be defined in `{WKS_HOME}/config.json` (where `WKS_HOME` defaults to `~/.wks` if not set via environment variable). **Defaults in code are an error** - if a value is missing from the config file, validation must fail immediately.
 -   **Override Anywhere**: CLI and MCP can override any config parameter.
 -   **Engine Plugins**: Each layer supports multiple engines with dedicated configuration.
--   **Zero Duplication**: CLI and MCP share identical business logic via controllers.
 -   **Strict Validation**: Configuration access is centralized through **dataclasses** with strict validation on load. Fail immediately if data is missing or invalid. All required fields must be present in the config file - no code-level defaults are permitted.
 -   **No Hedging**: Remove fallback logic; no silent defaults or implicit substitutions. Fail fast and visibly. If a configuration value is missing, raise a validation error rather than using a default.
+-   **Structured Error Handling**: Errors are collected and reported together rather than failing immediately. System behavior is deterministic with no optional or hidden recovery logic.
 
 ## CLI Global Options
 
@@ -110,6 +112,49 @@ wksc database show monitor -l 2       # Update every 2 seconds
 
 **Note**: The `--live` option is handled at the CLI layer and does not affect the API or MCP interfaces.
 
+## Command Execution Pattern
+
+All commands (CLI and MCP) follow a unified 4-step execution pattern that provides immediate feedback, progress tracking, and structured results:
+
+1. **Announce**: Immediately output action description
+   - CLI: Status message on STDERR
+   - MCP: Immediate response with status message or `job_id` for long-running operations
+
+2. **Progress**: Display progress indicator with time estimate
+   - CLI: Progress bar on STDERR with time estimate
+   - MCP: Progress notifications (`notifications/progress`) with `job_id`, progress percentage, message, and `estimated_remaining_seconds`
+   - Time estimates are provided when progress starts (Step 2), not in the initial announcement, ensuring estimates are based on actual work being performed
+
+3. **Result**: Report completion status and any issues
+   - CLI: Success/error message on STDERR
+   - MCP: Result notification messages in final response
+
+4. **Output**: Display the final structured output
+   - CLI: Structured data on STDOUT (YAML or JSON based on `--display` option)
+   - MCP: Result notification data (`notifications/tool_result` for async operations, or direct result for synchronous operations)
+
+**Unified Pattern**: The same 4-step pattern works for both CLI and MCP, with different display mechanisms. This ensures consistent behavior and user experience across both interfaces.
+
+### Long-Running Operations (MCP Async)
+
+For operations that may take significant time, MCP supports asynchronous execution:
+
+- **Immediate Response**: Tool returns immediately with `job_id` and status ("queued" or "running")
+- **Progress Notifications**: During execution, the server sends `notifications/progress` messages with:
+  - `job_id`: Correlates notifications to the original request
+  - `progress`: 0.0-1.0 indicating completion percentage
+  - `message`: Human-readable status message
+  - `estimated_remaining_seconds`: Time estimate (provided when progress starts)
+  - `timestamp`: ISO 8601 timestamp
+- **Final Result**: Server sends `notifications/tool_result` with:
+  - `job_id`: Correlates to the original request
+  - `result`: Complete result with `success`, `data`, and `messages` fields
+  - `timestamp`: ISO 8601 timestamp
+
+**Client Requirements**: MCP clients must handle immediate responses with `job_id`, listen for progress and result notifications, correlate by `job_id`, and display progress updates to users.
+
+**Error Handling**: If an error occurs during async execution, the final `notifications/tool_result` contains an error result with `success: false` and error details in the `messages` field.
+
 ## Layer Specifications
 
 Detailed specifications for each component:
@@ -124,8 +169,7 @@ Detailed specifications for each component:
 *   **[Patterns Layer](patterns.md)**: Agentic workflows and automation.
 *   **[Database](database.md)**: Database abstraction and collection operations.
 *   **[Daemon](daemon.md)**: Background service for filesystem monitoring and knowledge graph maintenance.
-*   **[MCP Server](mcp.md)**: AI assistant integration via MCP tools.
-*   **[Quality & Standards](quality.md)**: Code metrics, error handling, and CLI guidelines.
+*   **[MCP Installation Management](mcp.md)**: Commands for managing WKS MCP server installations across various MCP client applications.
 
 ## What is a Specification?
 

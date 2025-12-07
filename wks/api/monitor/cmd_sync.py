@@ -10,7 +10,7 @@ from pathlib import Path
 from ..config.WKSConfig import WKSConfig
 from ...utils import file_checksum
 from ..base import StageResult
-from ..db.Database import Database
+from ..database.Database import Database
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path

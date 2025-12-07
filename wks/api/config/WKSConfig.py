@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from ..diff.config import DiffConfig
 from ..transform.config import CacheConfig, TransformConfig
 from ..vault.config import VaultConfig
-from ..db.DbConfig import DbConfig
+from ..database.DbConfig import DbConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..daemon.DaemonConfig import DaemonConfig
 from .ConfigError import ConfigError
