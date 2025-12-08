@@ -41,6 +41,14 @@ class DatabaseConfig(BaseModel):
         values["data"] = config_data_class(**data_dict)
         return values
 
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Override to properly serialize nested data model."""
+        result = super().model_dump(**kwargs)
+        # Explicitly serialize the data field since it's typed as BaseModel
+        if isinstance(self.data, BaseModel):
+            result["data"] = self.data.model_dump(**kwargs)
+        return result
+
     def get_uri(self) -> str:
         """Get database connection URI from backend-specific config data.
 
