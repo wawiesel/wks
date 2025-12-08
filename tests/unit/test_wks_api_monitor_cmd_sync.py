@@ -33,6 +33,7 @@ def test_cmd_sync_path_not_exists(monkeypatch):
     assert result.output["files_synced"] == 0
     assert result.output["files_skipped"] == 0
     assert any("does not exist" in err for err in result.output["errors"])
+    assert "warnings" in result.output
 
 
 def test_cmd_sync_invalid_database(monkeypatch, tmp_path):
@@ -89,12 +90,13 @@ def test_cmd_sync_wraps_output(monkeypatch, tmp_path):
     monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
     monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     monkeypatch.setattr(cmd_sync, "calculate_priority", lambda _path, _dirs, _weights: 1.0)
-    monkeypatch.setattr(cmd_sync, "file_checksum", lambda _path: "abc123", raising=False)
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc123")
     monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
     result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 1
     assert result.success is True
+    assert "warnings" in result.output
 
 
 def test_cmd_sync_recursive(monkeypatch, tmp_path):
@@ -129,12 +131,13 @@ def test_cmd_sync_recursive(monkeypatch, tmp_path):
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
+    monkeypatch.setattr(cmd_sync, "file_checksum", lambda _path: "abc123", raising=False)
     monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
     result = run_cmd(cmd_sync.cmd_sync, path=str(test_dir), recursive=True)
     assert result.output["files_synced"] == 2
     assert result.success is True
+    assert "warnings" in result.output
 
 
 def test_cmd_sync_directory_non_recursive(monkeypatch, tmp_path):
@@ -169,12 +172,13 @@ def test_cmd_sync_directory_non_recursive(monkeypatch, tmp_path):
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
+    monkeypatch.setattr(cmd_sync, "file_checksum", lambda _path: "abc123", raising=False)
     monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
     result = run_cmd(cmd_sync.cmd_sync, path=str(test_dir), recursive=False)
     assert result.output["files_synced"] == 2
     assert result.success is True
+    assert "warnings" in result.output
 
 
 def test_cmd_sync_file_excluded_by_explain_path(monkeypatch, tmp_path):
@@ -208,6 +212,7 @@ def test_cmd_sync_file_excluded_by_explain_path(monkeypatch, tmp_path):
     assert result.output["files_synced"] == 0
     assert result.output["files_skipped"] == 1
     assert result.success is True
+    assert "warnings" in result.output
 
 
 def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
@@ -242,7 +247,7 @@ def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
     def raise_error(_path):
         raise Exception("File error")
 
-    monkeypatch.setattr(cmd_sync, "file_checksum", , raise_error, raising=False)
+    monkeypatch.setattr("wks.utils.file_checksum", raise_error)
     monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
     result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
@@ -251,6 +256,7 @@ def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
     assert len(result.output["errors"]) == 1
     assert "File error" in result.output["errors"][0]
     assert result.success is False
+    assert "warnings" in result.output
 
 
 def test_cmd_sync_preserve_timestamp(monkeypatch, tmp_path):
@@ -292,12 +298,13 @@ def test_cmd_sync_preserve_timestamp(monkeypatch, tmp_path):
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: test_checksum, raising=False)
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: test_checksum)
     monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
     result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 1
     assert result.success is True
+    assert "warnings" in result.output
     # Verify timestamp was preserved (line 113)
     assert len(update_calls) == 1
     # update_one is called with filter as first arg, update dict as second arg
@@ -310,18 +317,15 @@ def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
     """Test cmd_sync calls _enforce_monitor_db_limit."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0, "max_documents": 100},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 100, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
@@ -339,12 +343,13 @@ def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc123")
     # Don't mock _enforce_monitor_db_limit - let it run
 
     result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 1
     assert result.success is True
+    assert "warnings" in result.output
     # Verify _enforce_monitor_db_limit was called (it calls delete_many)
     # The function should have been called, but we can't easily verify without more complex mocking
 
@@ -353,18 +358,15 @@ def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
     """Test cmd_sync skips files below min_priority."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.5},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.5, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
@@ -380,7 +382,7 @@ def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 0.3,
     )
-    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc123")
     monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
     result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
@@ -388,3 +390,4 @@ def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
     assert result.output["files_synced"] == 0
     assert result.output["files_skipped"] == 1
     assert result.success is True
+    assert "warnings" in result.output

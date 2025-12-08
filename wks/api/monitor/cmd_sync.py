@@ -48,6 +48,7 @@ def cmd_sync(
                 "files_synced": 0,
                 "files_skipped": 0,
                 "errors": [f"Path does not exist: {path_obj}"],
+                "warnings": [],
             }
             result_obj.result = sync_result.get("message", "Monitor sync completed")
             result_obj.output = sync_result
@@ -66,6 +67,7 @@ def cmd_sync(
         files_synced = 0
         files_skipped = 0
         errors: list[str] = []
+        warnings: list[str] = []
 
         yield (0.4, f"Processing {len(files_to_process)} file(s)...")
         with Database(config.database, monitor_cfg.database) as database:
@@ -134,6 +136,7 @@ def cmd_sync(
             "files_synced": files_synced,
             "files_skipped": files_skipped,
             "errors": errors,
+            "warnings": warnings,
         }
         result_obj.result = sync_result.get("message", "Monitor sync completed")
         result_obj.output = sync_result

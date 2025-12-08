@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.unit.conftest import run_cmd
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.mcp.cmd_list import cmd_list
 
 pytestmark = pytest.mark.mcp
@@ -20,17 +22,18 @@ def test_cmd_list_no_mcp_config(tmp_path, monkeypatch):
     config_dict = {
         "monitor": {"filter": {}, "priority": {}, "database": "monitor", "sync": {}},
         "database": {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}},
-        "vault": {"vault_type": "obsidian", "base_dir": str(tmp_path / "vault"), "wks_dir": "WKS"},
-        "transform": {"cache": {}, "engines": {}, "database": "transform"},
+        "daemon": {"type": "macos", "data": {"label": "com.test.wks", "log_file": "daemon.log", "error_log_file": "daemon.error.log", "keep_alive": True, "run_at_load": False}},
     }
     config_path.write_text(json.dumps(config_dict))
 
-    with patch("wks.api.mcp.cmd_list.get_config_path", return_value=config_path):
-        result = cmd_list()
+    monkeypatch.setattr(WKSConfig, "get_config_path", lambda: config_path)
+    result = run_cmd(cmd_list)
 
     assert result.success is True
     assert result.output["count"] == 0
     assert result.output["installations"] == []
+    assert "errors" in result.output
+    assert "warnings" in result.output
 
 
 def test_cmd_list_with_installations(tmp_path, monkeypatch):
@@ -42,8 +45,7 @@ def test_cmd_list_with_installations(tmp_path, monkeypatch):
     config_dict = {
         "monitor": {"filter": {}, "priority": {}, "database": "monitor", "sync": {}},
         "database": {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}},
-        "vault": {"vault_type": "obsidian", "base_dir": str(tmp_path / "vault"), "wks_dir": "WKS"},
-        "transform": {"cache": {}, "engines": {}, "database": "transform"},
+        "daemon": {"type": "macos", "data": {"label": "com.test.wks", "log_file": "daemon.log", "error_log_file": "daemon.error.log", "keep_alive": True, "run_at_load": False}},
         "mcp": {
             "installs": {
                 "gemini": {
@@ -56,12 +58,14 @@ def test_cmd_list_with_installations(tmp_path, monkeypatch):
     }
     config_path.write_text(json.dumps(config_dict))
 
-    with patch("wks.api.mcp.cmd_list.get_config_path", return_value=config_path):
-        result = cmd_list()
+    monkeypatch.setattr(WKSConfig, "get_config_path", lambda: config_path)
+    result = run_cmd(cmd_list)
 
     assert result.success is True
     assert result.output["count"] == 1
     assert len(result.output["installations"]) == 1
     assert result.output["installations"][0]["name"] == "gemini"
     assert result.output["installations"][0]["active"] is True
+    assert "errors" in result.output
+    assert "warnings" in result.output
 
