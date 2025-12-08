@@ -91,6 +91,8 @@ def cmd_status() -> StageResult:
             "issues": issues,
             "priority_directories": priority_directories,  # Includes validation status (status-specific)
             "time_based_counts": time_based_counts,
+            "errors": [],
+            "warnings": [],
             "success": len(issues) == 0,
         }
 

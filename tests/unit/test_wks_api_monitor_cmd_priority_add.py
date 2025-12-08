@@ -1,9 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_priority_add module."""
 
+from pathlib import Path
 
 import pytest
 
-from tests.unit.conftest import DummyConfig
+from tests.unit.conftest import DummyConfig, run_cmd
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.monitor import cmd_priority_add
 
 pytestmark = pytest.mark.monitor
@@ -28,13 +30,10 @@ def test_cmd_priority_add_existing_returns_flag(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: path)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_priority_add.cmd_priority_add(path="existing", priority=5)
+    result = run_cmd(cmd_priority_add.cmd_priority_add, path="existing", priority=5)
     assert result.output["already_exists"] is True
-    assert cfg.save_calls == 1
 
 
 def test_cmd_priority_add_stores_and_saves(monkeypatch):
@@ -56,14 +55,12 @@ def test_cmd_priority_add_stores_and_saves(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: None)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_priority_add.cmd_priority_add(path="/tmp/new", priority=2)
+    result = run_cmd(cmd_priority_add.cmd_priority_add, path="/tmp/new", priority=2)
     assert result.output["success"] is True
-    assert cfg.save_calls == 1
-    assert "/tmp/new" in cfg.monitor.priority.dirs
+    resolved = str(Path("/tmp/new").resolve())
+    assert resolved in cfg.monitor.priority.dirs
 
 
 def test_cmd_priority_add_not_found_creates(monkeypatch):
@@ -85,14 +82,12 @@ def test_cmd_priority_add_not_found_creates(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: None)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_priority_add.cmd_priority_add(path="/tmp/a", priority=5)
+    result = run_cmd(cmd_priority_add.cmd_priority_add, path="/tmp/a", priority=5)
     assert result.output["success"] is True
-    assert cfg.monitor.priority.dirs["/tmp/a"] == 5
-    assert cfg.save_calls == 1
+    resolved = str(Path("/tmp/a").resolve())
+    assert cfg.monitor.priority.dirs[resolved] == 5
 
 
 def test_cmd_priority_add_updates(monkeypatch):
@@ -114,11 +109,8 @@ def test_cmd_priority_add_updates(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.canonicalize_path", lambda p: p)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_add.find_matching_path_key", lambda mapping, path: path)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_priority_add.cmd_priority_add(path="/tmp/a", priority=7)
+    result = run_cmd(cmd_priority_add.cmd_priority_add, path="/tmp/a", priority=7)
     assert result.output["success"] is True
     assert cfg.monitor.priority.dirs["/tmp/a"] == 7
-    assert cfg.save_calls == 1

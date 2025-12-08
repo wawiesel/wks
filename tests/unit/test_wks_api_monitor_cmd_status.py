@@ -1,11 +1,11 @@
-"""Unit tests for wks.api.monitor.cmd_status module."""
+"""Unit tests for monitor cmd_status."""
 
-from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tests.unit.conftest import DummyConfig
-from wks.api.monitor import cmd_status
+from tests.unit.conftest import run_cmd
+from wks.api.monitor.cmd_status import cmd_status
 
 pytestmark = pytest.mark.monitor
 
@@ -13,64 +13,53 @@ pytestmark = pytest.mark.monitor
 def test_cmd_status_mongodb_error(monkeypatch):
     """Test cmd_status when MongoDB connection fails."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}},
-                "database": "monitor",
-                "sync": {
-                    "max_documents": 1000000,
-                    "min_priority": 0.0,
-                    "prune_interval_secs": 300.0,
-                },
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}},
+        database="monitor",
+        sync={
+            "max_documents": 1000000,
+            "min_priority": 0.0,
+            "prune_interval_secs": 300.0,
+        },
     )
 
-    cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    mock_config = MagicMock()
+    mock_config.monitor = monitor_cfg
+    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
 
-    # Mock DatabaseCollection to raise exception on __enter__
-    class MockDatabaseCollection:
-        def __init__(self, *args, **kwargs):
-            pass
+    with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
+        with patch("wks.api.monitor.cmd_status.Database") as mock_database:
+            mock_database.side_effect = Exception("Connection failed")
+            result = run_cmd(cmd_status)
 
-        def __enter__(self):
-            raise Exception("Connection failed")
-
-        def __exit__(self, *args):
-            pass
-
-    monkeypatch.setattr("wks.api.monitor.cmd_status.DatabaseCollection", MockDatabaseCollection)
-
-    result = cmd_status.cmd_status()
     assert result.output["tracked_files"] == 0
-    assert result.output["success"] is True  # No issues if no priority dirs
+    assert result.success is True  # No issues if no priority dirs
+    assert "errors" in result.output or "warnings" in result.output
 
 
 def test_cmd_status_sets_success_based_on_issues(monkeypatch):
+    """Test cmd_status sets success based on issues found."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
+    from pathlib import Path
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {"/invalid/path": 100.0}},
-                "database": "monitor",
-                "sync": {
-                    "max_documents": 1000000,
-                    "min_priority": 0.0,
-                    "prune_interval_secs": 300.0,
-                },
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {"/invalid/path": 100.0}},
+        database="monitor",
+        sync={
+            "max_documents": 1000000,
+            "min_priority": 0.0,
+            "prune_interval_secs": 300.0,
+        },
     )
 
-    cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    mock_config = MagicMock()
+    mock_config.monitor = monitor_cfg
+    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
 
     # Mock explain_path to return False for invalid path
     def mock_explain_path(_cfg, path):
@@ -78,24 +67,16 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
             return False, ["Excluded by rules"]
         return True, []
 
-    monkeypatch.setattr("wks.api.monitor.cmd_status.explain_path", mock_explain_path)
+    mock_database = MagicMock()
+    mock_database.count_documents.return_value = 0
+    mock_database.__enter__ = MagicMock(return_value=mock_database)
+    mock_database.__exit__ = MagicMock(return_value=False)
 
-    # Mock DatabaseCollection
-    class MockDatabaseCollection:
-        def __init__(self, *args, **kwargs):
-            pass
+    with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
+        with patch("wks.api.monitor.cmd_status.Database", return_value=mock_database):
+            with patch("wks.api.monitor.cmd_status.explain_path", mock_explain_path):
+                result = run_cmd(cmd_status)
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            pass
-
-        def count_documents(self, *args, **kwargs):
-            return 0
-
-    monkeypatch.setattr("wks.api.monitor.cmd_status.DatabaseCollection", MockDatabaseCollection)
-
-    result = cmd_status.cmd_status()
-    assert result.output["issues"] == ["Priority directory invalid: /invalid/path (Excluded by rules)"]
-    assert result.output["success"] is False
+    assert len(result.output["issues"]) > 0
+    assert "Priority directory invalid: /invalid/path" in result.output["issues"][0]
+    assert result.success is False

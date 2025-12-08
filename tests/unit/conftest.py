@@ -1,6 +1,11 @@
 """Shared test fixtures for unit tests."""
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from wks.api.database.DatabaseConfig import DatabaseConfig
 
 
 class DummyConfig:
@@ -59,3 +64,25 @@ class MockDatabaseCollection:
     def delete_many(self, filter):
         self.delete_many_calls.append(filter)
         return SimpleNamespace(deleted_count=len(self.find_result))
+
+
+@pytest.fixture
+def mock_config():
+    """Create a minimal mock WKSConfig."""
+    config = MagicMock()
+    config.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    return config
+
+
+def run_cmd(cmd_func, *args, **kwargs):
+    """Execute a cmd function and return the result with progress_callback executed."""
+    result = cmd_func(*args, **kwargs)
+    list(result.progress_callback(result))
+    return result
+
+
+@pytest.fixture
+def patch_wks_config(monkeypatch, mock_config):
+    """Patch WKSConfig.load to return mock_config."""
+    with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
+        yield mock_config

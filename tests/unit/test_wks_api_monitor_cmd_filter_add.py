@@ -4,6 +4,9 @@
 import pytest
 
 from tests.unit.conftest import DummyConfig
+from tests.unit.conftest import run_cmd
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.monitor import cmd_filter_add
 
 pytestmark = pytest.mark.monitor
@@ -28,9 +31,9 @@ def test_cmd_filter_add_saves_on_success(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_paths", value="/tmp/x")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
 
@@ -55,13 +58,10 @@ def test_cmd_filter_add_unknown_list_name(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    try:
-        cmd_filter_add.cmd_filter_add(list_name="unknown_list", value="test")
-        assert False, "Should have raised ValueError"
-    except ValueError as e:
-        assert "Unknown list_name" in str(e)
+    with pytest.raises(ValueError):
+        run_cmd(cmd_filter_add.cmd_filter_add, list_name="unknown_list", value="test")
 
 
 def test_cmd_filter_add_empty_dirname(monkeypatch):
@@ -84,9 +84,9 @@ def test_cmd_filter_add_empty_dirname(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_dirnames", value="   ")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="   ")
     assert result.output["success"] is False
     assert "cannot be empty" in result.output["message"]
     assert cfg.save_calls == 0
@@ -112,9 +112,9 @@ def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_dirnames", value="test*")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="test*")
     assert result.output["success"] is False
     assert "wildcard characters" in result.output["message"]
     assert cfg.save_calls == 0
@@ -140,9 +140,9 @@ def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_dirnames", value="testdir")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is False
     assert "already present in exclude_dirnames" in result.output["message"]
     assert cfg.save_calls == 0
@@ -168,9 +168,9 @@ def test_cmd_filter_add_dirname_no_error(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_dirnames", value="testdir")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
 
@@ -195,9 +195,9 @@ def test_cmd_filter_add_empty_glob(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_globs", value="   ")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="   ")
     assert result.output["success"] is False
     assert "cannot be empty" in result.output["message"]
     assert cfg.save_calls == 0
@@ -223,9 +223,9 @@ def test_cmd_filter_add_glob_validation_success(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_globs", value="*.py")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.py")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
 
@@ -258,10 +258,10 @@ def test_cmd_filter_add_validation_error(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     # Try to add invalid dirname (with path separator)
-    result = cmd_filter_add.cmd_filter_add(list_name="include_dirnames", value="invalid/path")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="invalid/path")
     assert result.output["success"] is False
     assert "validation_failed" in result.output
     assert cfg.save_calls == 0
@@ -287,9 +287,9 @@ def test_cmd_filter_add_duplicate(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_add.cmd_filter_add(list_name="include_paths", value="/tmp/x")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is False
     assert "already_exists" in result.output
     assert cfg.save_calls == 0

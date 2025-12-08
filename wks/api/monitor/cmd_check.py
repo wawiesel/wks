@@ -58,6 +58,8 @@ def cmd_check(path: str) -> StageResult:
                 "reason": trace[-1] if trace else "Excluded by monitor rules",
                 "priority": None,
                 "decisions": decisions,
+                "errors": [],
+                "warnings": [],
                 "success": False,
             }
             res_msg = "Path is not monitored"
@@ -70,6 +72,8 @@ def cmd_check(path: str) -> StageResult:
                 "reason": "Would be monitored",
                 "priority": priority,
                 "decisions": decisions,
+                "errors": [],
+                "warnings": [],
                 "success": True,
             }
             res_msg = f"Path is monitored with priority {priority}"

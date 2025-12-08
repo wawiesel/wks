@@ -3,7 +3,8 @@
 
 import pytest
 
-from tests.unit.conftest import DummyConfig
+from tests.unit.conftest import DummyConfig, run_cmd
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.monitor import cmd_priority_show
 
 pytestmark = pytest.mark.monitor
@@ -29,10 +30,10 @@ def test_cmd_priority_show_returns_stage_result(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.api.monitor.cmd_priority_show.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     # Mock explain_path to return True
     monkeypatch.setattr("wks.api.monitor.cmd_priority_show.explain_path", lambda _cfg, _path: (True, []))
 
-    result = cmd_priority_show.cmd_priority_show()
+    result = run_cmd(cmd_priority_show.cmd_priority_show, )
     assert result.output["count"] == 1

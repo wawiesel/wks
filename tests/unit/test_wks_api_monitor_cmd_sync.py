@@ -1,10 +1,13 @@
 """Unit tests for wks.api.monitor.cmd_sync module."""
 
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 
-from tests.unit.conftest import DummyConfig, MockDatabaseCollection
+from tests.unit.conftest import DummyConfig, MockDatabaseCollection, run_cmd
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.database.DatabaseConfig import DatabaseConfig
 from wks.api.monitor import cmd_sync
 
 pytestmark = pytest.mark.monitor
@@ -14,103 +17,82 @@ def test_cmd_sync_path_not_exists(monkeypatch):
     """Test cmd_sync when path doesn't exist."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_sync.cmd_sync(path="/nonexistent/path", recursive=False)
-    assert result.output["success"] is False
+    result = run_cmd(cmd_sync.cmd_sync, path="/nonexistent/path", recursive=False)
+    assert result.success is False
     assert result.output["files_synced"] == 0
-    assert "does not exist" in result.output["message"]
+    assert result.output["files_skipped"] == 0
+    assert any("does not exist" in err for err in result.output["errors"])
 
 
 def test_cmd_sync_invalid_database(monkeypatch, tmp_path):
-    """Test cmd_sync with invalid database name (DatabaseCollection raises ValueError)."""
+    """Test cmd_sync with invalid database name (Database raises ValueError)."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
     test_file.write_text("test")
 
-    # Mock DatabaseCollection to raise ValueError in __init__ (simulating invalid format)
-    class MockDatabaseCollectionError:
-        def __init__(self, database_key):
+    # Mock Database to raise ValueError on init
+    class MockDatabaseError:
+        def __init__(self, *args, **kwargs):
             raise ValueError("Invalid database format")
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            pass
-
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", MockDatabaseCollectionError)
-
-    # ValueError will propagate - DatabaseCollection raises in __init__ before context manager
-    import pytest
+    monkeypatch.setattr(cmd_sync, "Database", MockDatabaseError)
 
     with pytest.raises(ValueError, match="Invalid database format"):
-        cmd_sync.cmd_sync(path=str(test_file), recursive=False)
+        run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
 
 
 def test_cmd_sync_wraps_output(monkeypatch, tmp_path):
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.WKSConfig.load", lambda: cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     # Create a test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("test content")
 
-    # Mock DatabaseCollection
+    # Mock Database
     mock_collection = MockDatabaseCollection()
     mock_collection.find_one_result = None
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (True, []))
-    monkeypatch.setattr(
-        "wks.api.monitor.cmd_sync.calculate_priority",
-        lambda _path, _dirs, _weights: 1.0,
-    )
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", lambda _path: "abc123")
-    monkeypatch.setattr("wks.api.monitor.cmd_sync._enforce_monitor_db_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr(cmd_sync, "calculate_priority", lambda _path, _dirs, _weights: 1.0)
+    monkeypatch.setattr(cmd_sync, "file_checksum", lambda _path: "abc123", raising=False)
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = cmd_sync.cmd_sync(path=str(test_file), recursive=False)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 1
     assert result.success is True
 
@@ -119,19 +101,16 @@ def test_cmd_sync_recursive(monkeypatch, tmp_path):
     """Test cmd_sync with recursive=True."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     # Create test directory with files
     test_dir = tmp_path / "testdir"
@@ -141,19 +120,19 @@ def test_cmd_sync_recursive(monkeypatch, tmp_path):
     file2 = test_dir / "file2.txt"
     file2.write_text("content2")
 
-    # Mock DatabaseCollection
+    # Mock Database
     mock_collection = MockDatabaseCollection()
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     monkeypatch.setattr(
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", lambda _path: "abc123")
-    monkeypatch.setattr("wks.api.monitor.cmd_sync._enforce_monitor_db_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = cmd_sync.cmd_sync(path=str(test_dir), recursive=True)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_dir), recursive=True)
     assert result.output["files_synced"] == 2
     assert result.success is True
 
@@ -162,19 +141,16 @@ def test_cmd_sync_directory_non_recursive(monkeypatch, tmp_path):
     """Test cmd_sync with directory (non-recursive) uses iterdir."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     # Create test directory with files
     test_dir = tmp_path / "testdir"
@@ -184,19 +160,19 @@ def test_cmd_sync_directory_non_recursive(monkeypatch, tmp_path):
     file2 = test_dir / "file2.txt"
     file2.write_text("content2")
 
-    # Mock DatabaseCollection
+    # Mock Database
     mock_collection = MockDatabaseCollection()
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     monkeypatch.setattr(
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", lambda _path: "abc123")
-    monkeypatch.setattr("wks.api.monitor.cmd_sync._enforce_monitor_db_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = cmd_sync.cmd_sync(path=str(test_dir), recursive=False)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_dir), recursive=False)
     assert result.output["files_synced"] == 2
     assert result.success is True
 
@@ -205,32 +181,29 @@ def test_cmd_sync_file_excluded_by_explain_path(monkeypatch, tmp_path):
     """Test cmd_sync when file is excluded by explain_path."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
     test_file.write_text("test")
 
-    # Mock DatabaseCollection
+    # Mock Database
     mock_collection = MockDatabaseCollection()
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
     # Mock explain_path to return False (excluded) - this should cause file to be skipped
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (False, ["Excluded"]))
-    monkeypatch.setattr("wks.api.monitor.cmd_sync._enforce_monitor_db_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (False, ["Excluded"]))
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = cmd_sync.cmd_sync(path=str(test_file), recursive=False)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     # File should be skipped because explain_path returns False
     assert result.output["files_synced"] == 0
     assert result.output["files_skipped"] == 1
@@ -241,28 +214,25 @@ def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
     """Test cmd_sync when file processing raises exception."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
     test_file.write_text("test")
 
-    # Mock DatabaseCollection
+    # Mock Database
     mock_collection = MockDatabaseCollection()
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     monkeypatch.setattr(
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
@@ -272,10 +242,10 @@ def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
     def raise_error(_path):
         raise Exception("File error")
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", raise_error)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync._enforce_monitor_db_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cmd_sync, "file_checksum", , raise_error, raising=False)
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = cmd_sync.cmd_sync(path=str(test_file), recursive=False)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 0
     assert result.output["files_skipped"] == 1
     assert len(result.output["errors"]) == 1
@@ -287,26 +257,23 @@ def test_cmd_sync_preserve_timestamp(monkeypatch, tmp_path):
     """Test cmd_sync preserves timestamp when checksum unchanged (hits line 113)."""
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "filter": {},
-                "priority": {"dirs": {}, "weights": {}},
-                "sync": {"database": "wks.monitor", "min_priority": 0.0},
-            }
-        }
+    monitor_cfg = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
     test_file.write_text("test")
     test_checksum = "abc123"
     existing_timestamp = "2024-01-01T00:00:00"
 
-    # Mock DatabaseCollection
+    # Mock Database
     mock_collection = MockDatabaseCollection()
     mock_collection.find_one_result = {"checksum": test_checksum, "timestamp": existing_timestamp}
 
@@ -319,16 +286,16 @@ def test_cmd_sync_preserve_timestamp(monkeypatch, tmp_path):
 
     mock_collection.update_one = capture_update_one
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     monkeypatch.setattr(
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", lambda _path: test_checksum)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync._enforce_monitor_db_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: test_checksum, raising=False)
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = cmd_sync.cmd_sync(path=str(test_file), recursive=False)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 1
     assert result.success is True
     # Verify timestamp was preserved (line 113)
@@ -355,27 +322,27 @@ def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
 
     cfg = DummyConfig(monitor_cfg)
     cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
     test_file.write_text("test")
 
-    # Mock DatabaseCollection - need to support _enforce_monitor_db_limit
+    # Mock Database - need to support _enforce_monitor_db_limit
     mock_collection = MockDatabaseCollection()
     mock_collection.find_one_result = None
     mock_collection.count_documents_result = 0
     mock_collection.find_result = []  # Empty - no docs to delete
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     monkeypatch.setattr(
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 1.0,
     )
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", lambda _path: "abc123")
+    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
     # Don't mock _enforce_monitor_db_limit - let it run
 
-    result = cmd_sync.cmd_sync(path=str(test_file), recursive=False)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     assert result.output["files_synced"] == 1
     assert result.success is True
     # Verify _enforce_monitor_db_limit was called (it calls delete_many)
@@ -398,25 +365,25 @@ def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
 
     cfg = DummyConfig(monitor_cfg)
     cfg.mongo = SimpleNamespace(uri="mongodb://localhost:27017")
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
     test_file.write_text("test")
 
-    # Mock DatabaseCollection
+    # Mock Database
     mock_collection = MockDatabaseCollection()
 
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.DatabaseCollection", lambda *args, **kwargs: mock_collection)
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     # Mock calculate_priority to return 0.3 (below min_priority of 0.5) - should be skipped
     monkeypatch.setattr(
         "wks.api.monitor.cmd_sync.calculate_priority",
         lambda _path, _dirs, _weights: 0.3,
     )
-    monkeypatch.setattr("wks.api.monitor.cmd_sync.file_checksum", lambda _path: "abc123")
-    monkeypatch.setattr("wks.api.monitor.cmd_sync._enforce_monitor_db_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cmd_sync, "file_checksum", , lambda _path: "abc123", raising=False)
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = cmd_sync.cmd_sync(path=str(test_file), recursive=False)
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
     # File should be skipped because priority (0.3) < min_priority (0.5)
     assert result.output["files_synced"] == 0
     assert result.output["files_skipped"] == 1

@@ -4,6 +4,9 @@
 import pytest
 
 from tests.unit.conftest import DummyConfig
+from tests.unit.conftest import run_cmd
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.monitor import cmd_filter_remove
 
 pytestmark = pytest.mark.monitor
@@ -28,9 +31,9 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_remove.cmd_filter_remove(list_name="include_paths", value="/tmp/x")
+    result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
 
@@ -55,9 +58,9 @@ def test_cmd_filter_remove_not_found(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_remove.cmd_filter_remove(list_name="include_paths", value="/tmp/x")
+    result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is False
     assert "not_found" in result.output
     assert cfg.save_calls == 0
@@ -83,8 +86,8 @@ def test_cmd_filter_remove_dirname_list(monkeypatch):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    monkeypatch.setattr("wks.config.WKSConfig.load", lambda: cfg)
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
-    result = cmd_filter_remove.cmd_filter_remove(list_name="include_dirnames", value="testdir")
+    result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
