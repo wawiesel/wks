@@ -70,3 +70,28 @@ def test_cmd_check_path_not_exists(monkeypatch):
     assert result.output["is_monitored"] is False
     assert result.output["priority"] is None
     assert "⚠" in result.output["decisions"][0]["symbol"]  # Path doesn't exist symbol
+    assert "errors" in result.output
+    assert "warnings" in result.output
+
+
+def test_cmd_check_other_trace_message(patch_wks_config, monkeypatch):
+    """Test cmd_check with trace message that doesn't match excluded/included patterns (covers line 50)."""
+    patch_wks_config.monitor = MonitorConfig(
+        filter={},
+        priority={"dirs": {}, "weights": {}},
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
+    )
+
+    # Mock explain_path to return a trace message that doesn't match excluded/included patterns
+    monkeypatch.setattr("wks.api.monitor.cmd_check.explain_path", lambda _cfg, _path: (True, ["Some other message"]))
+    monkeypatch.setattr("wks.api.monitor.cmd_check.calculate_priority", lambda _path, _dirs, _weights: 5.0)
+    
+    from pathlib import Path
+    with patch.object(Path, "exists", return_value=True):
+        result = run_cmd(cmd_check, path="/tmp/test.txt")
+
+    assert result.output["is_monitored"] is True
+    # Check that the "•" symbol was used (line 50)
+    decision_symbols = [d["symbol"] for d in result.output["decisions"]]
+    assert "•" in decision_symbols

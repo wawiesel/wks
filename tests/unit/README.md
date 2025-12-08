@@ -2,28 +2,18 @@
 
 This directory contains unit tests for the `wks/api/*/` modules. These tests focus on testing individual public functions and classes in isolation.
 
+There should be 100% coverage of any public function/class in unit tests.
+
+Public functions/classes do not start with an underscore.
+
+Don't monkey patch unnecessarily. For most testing, we should be using a special environment variable WKS_HOME which points to a tmp dir or something. We can do things like try to write to a directory that doesn't exist or other things instead of monkey patching.
+
 ### Scope
 
 - **Unit tests**: Test individual public functions/classes from `wks/api/*/` modules
 - **Integration tests** (`tests/integration/`): Test higher-level CLI and MCP layers
 - **Smoke tests** (`tests/smoke/`): Test end-to-end workflows
 
-### Naming Convention
-
-Unit tests for API functions follow this pattern:
-
-```
-test_wks_api_<package>_<function>.py
-```
-
-Where:
-- `<package>` is the API package name (e.g., `monitor`, `vault`, `transform`)
-- `<function>` is the public function name (e.g., `explain_path`, `calculate_priority`, `cmd_status`)
-
-Examples:
-- `test_wks_api_monitor_explain_path.py` - tests `wks.api.monitor.explain_path`
-- `test_wks_api_monitor_calculate_priority.py` - tests `wks.api.monitor.calculate_priority`
-- `test_wks_api_monitor_cmd_status.py` - tests `wks.api.monitor.cmd_status`
 
 ### Import Rules
 

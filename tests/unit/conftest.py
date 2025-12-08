@@ -31,53 +31,6 @@ class DummyConfig:
         self.save_calls += 1
 
 
-class MockDatabaseCollection:
-    """Mock DatabaseCollection for testing."""
-
-    def __init__(self, *args, **kwargs):
-        self.find_one_result = None
-        self.update_one_calls = []
-        self.count_documents_result = 0
-        self.find_result = []
-        self.delete_many_calls = []
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-    def find_one(self, filter, projection=None):
-        return self.find_one_result
-
-    def update_one(self, filter, update, upsert=False):
-        self.update_one_calls.append({"filter": filter, "update": update, "upsert": upsert})
-
-    def count_documents(self, filter=None):
-        return self.count_documents_result
-
-    def find(self, filter=None, projection=None):
-        # Return a mock cursor that supports .sort().limit()
-        class MockCursor:
-            def __init__(self, data):
-                self.data = data
-
-            def sort(self, *args, **kwargs):
-                return self
-
-            def limit(self, n):
-                return self.data[:n]
-
-            def __iter__(self):
-                return iter(self.data)
-
-        return MockCursor(self.find_result)
-
-    def delete_many(self, filter):
-        self.delete_many_calls.append(filter)
-        return SimpleNamespace(deleted_count=len(self.find_result))
-
-
 @pytest.fixture
 def mock_config():
     """Create a minimal mock WKSConfig."""
@@ -89,6 +42,84 @@ def run_cmd(cmd_func, *args, **kwargs):
     result = cmd_func(*args, **kwargs)
     list(result.progress_callback(result))
     return result
+
+
+@pytest.fixture
+def minimal_config_dict():
+    """Minimal valid WKS configuration dict for testing.
+
+    This is the simplest valid config - all required fields with minimal values.
+    Use this as a base and modify for specific test cases.
+    """
+    return {
+        "monitor": {
+            "filter": {},
+            "priority": {"dirs": {}, "weights": {}},
+            "database": "monitor",
+            "sync": {
+                "max_documents": 1000000,
+                "min_priority": 0.0,
+                "prune_interval_secs": 300.0,
+            },
+        },
+        "database": {
+            "type": "mongomock",
+            "prefix": "wks",
+            "data": {},
+        },
+        "daemon": {
+            "type": "macos",
+            "data": {
+                "label": "com.test.wks",
+                "log_file": "daemon.log",
+                "error_log_file": "daemon.error.log",
+                "keep_alive": True,
+                "run_at_load": False,
+            },
+        },
+    }
+
+
+@pytest.fixture
+def standard_config_dict(minimal_config_dict):
+    """Standard valid WKS configuration dict for testing.
+
+    Alias for minimal_config_dict - use minimal_config_dict directly.
+    """
+    return minimal_config_dict
+
+
+@pytest.fixture
+def config_with_mcp(minimal_config_dict):
+    """Config dict with MCP section added."""
+    minimal_config_dict["mcp"] = {
+        "installs": {}
+    }
+    return minimal_config_dict
+
+
+@pytest.fixture
+def config_with_monitor_priority(minimal_config_dict):
+    """Config dict with monitor priority directories configured."""
+    minimal_config_dict["monitor"]["priority"]["dirs"] = {"~": 100.0}
+    return minimal_config_dict
+
+
+@pytest.fixture
+def wks_home(tmp_path, monkeypatch, minimal_config_dict):
+    """Set up WKS_HOME with a minimal config file.
+
+    Returns:
+        Path to the WKS home directory (tmp_path)
+    """
+    monkeypatch.setenv("WKS_HOME", str(tmp_path))
+
+    # Write minimal config
+    config_path = tmp_path / "config.json"
+    import json
+    config_path.write_text(json.dumps(minimal_config_dict))
+
+    return tmp_path
 
 
 @pytest.fixture

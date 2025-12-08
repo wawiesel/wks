@@ -1,6 +1,7 @@
 """Uninstall MCP server command."""
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
@@ -17,72 +18,99 @@ def cmd_uninstall(name: str) -> StageResult:
     Returns:
         StageResult with uninstallation status
     """
-    config_path = WKSConfig.get_config_path()
-    if not config_path.exists():
-        return StageResult(
-            announce=f"Uninstalling MCP server for '{name}'...",
-            result="Configuration file not found",
-            output={"success": False, "error": "config file not found"},
-            success=False,
-        )
+    def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
+        """Do the actual work - generator that yields progress and updates result."""
+        yield (0.1, "Checking configuration...")
+        config_path = WKSConfig.get_config_path()
+        if not config_path.exists():
+            yield (1.0, "Complete")
+            result_obj.result = "Configuration file not found"
+            result_obj.output = {
+                "success": False,
+                "error": "config file not found",
+                "errors": ["Configuration file not found"],
+                "warnings": [],
+            }
+            result_obj.success = False
+            return
 
-    try:
-        # Load config
-        with config_path.open() as fh:
-            config_dict = json.load(fh)
+        try:
+            yield (0.2, "Loading configuration...")
+            with config_path.open() as fh:
+                config_dict = json.load(fh)
 
-        mcp_config = config_dict.get("mcp", {})
-        installs = mcp_config.get("installs", {})
+            yield (0.3, "Checking installation...")
+            mcp_config = config_dict.get("mcp", {})
+            installs = mcp_config.get("installs", {})
 
-        if name not in installs:
-            return StageResult(
-                announce=f"Uninstalling MCP server for '{name}'...",
-                result=f"Installation '{name}' not found",
-                output={"success": False, "error": f"Installation '{name}' not found"},
-                success=False,
-            )
+            if name not in installs:
+                yield (1.0, "Complete")
+                result_obj.result = f"Installation '{name}' not found"
+                result_obj.output = {
+                    "success": False,
+                    "error": f"Installation '{name}' not found",
+                    "errors": [f"Installation '{name}' not found"],
+                    "warnings": [],
+                }
+                result_obj.success = False
+                return
 
-        install_data = installs[name]
-        install_type = install_data.get("type", "mcpServersJson")
+            install_data = installs[name]
+            install_type = install_data.get("type", "mcpServersJson")
 
-        # Perform actual uninstallation based on type
-        if install_type == "mcpServersJson":
-            settings_path = install_data.get("data", {}).get("settings_path")
-            if settings_path:
-                settings_file = Path(expand_path(settings_path))
-                if settings_file.exists():
-                    try:
-                        with settings_file.open() as fh:
-                            settings = json.load(fh)
+            yield (0.5, "Performing uninstallation...")
+            # Perform actual uninstallation based on type
+            if install_type == "mcpServersJson":
+                settings_path = install_data.get("data", {}).get("settings_path")
+                if settings_path:
+                    settings_file = Path(expand_path(settings_path))
+                    if settings_file.exists():
+                        try:
+                            with settings_file.open() as fh:
+                                settings = json.load(fh)
 
-                        # Remove WKS MCP server
-                        if "mcpServers" in settings and "wks" in settings["mcpServers"]:
-                            del settings["mcpServers"]["wks"]
+                            # Remove WKS MCP server
+                            if "mcpServers" in settings and "wks" in settings["mcpServers"]:
+                                del settings["mcpServers"]["wks"]
 
-                            # Write settings file
-                            with settings_file.open("w") as fh:
-                                json.dump(settings, fh, indent=2)
-                    except Exception:
-                        # If we can't modify the file, continue anyway
-                        pass
+                                # Write settings file
+                                with settings_file.open("w") as fh:
+                                    json.dump(settings, fh, indent=2)
+                        except Exception:
+                            # If we can't modify the file, continue anyway
+                            pass
 
-        # Update config to set active=False
-        installs[name]["active"] = False
+            yield (0.8, "Updating configuration...")
+            # Update config to set active=False
+            installs[name]["active"] = False
 
-        # Save config
-        with config_path.open("w") as fh:
-            json.dump(config_dict, fh, indent=2)
+            yield (0.9, "Saving configuration...")
+            # Save config
+            with config_path.open("w") as fh:
+                json.dump(config_dict, fh, indent=2)
 
-        return StageResult(
-            announce=f"Uninstalling MCP server for '{name}'...",
-            result=f"MCP server uninstalled successfully for '{name}'",
-            output={"success": True, "name": name, "active": False},
-            success=True,
-        )
-    except Exception as e:
-        return StageResult(
-            announce=f"Uninstalling MCP server for '{name}'...",
-            result=f"Uninstallation failed: {e}",
-            output={"success": False, "error": str(e)},
-            success=False,
-        )
+            yield (1.0, "Complete")
+            result_obj.result = f"MCP server uninstalled successfully for '{name}'"
+            result_obj.output = {
+                "success": True,
+                "name": name,
+                "active": False,
+                "errors": [],
+                "warnings": [],
+            }
+            result_obj.success = True
+        except Exception as e:
+            yield (1.0, "Complete")
+            result_obj.result = f"Uninstallation failed: {e}"
+            result_obj.output = {
+                "success": False,
+                "error": str(e),
+                "errors": [str(e)],
+                "warnings": [],
+            }
+            result_obj.success = False
+
+    return StageResult(
+        announce=f"Uninstalling MCP server for '{name}'...",
+        progress_callback=do_work,
+    )

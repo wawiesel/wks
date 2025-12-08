@@ -1,32 +1,17 @@
 """Unit tests for wks.api.monitor.cmd_sync module."""
 
-from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 
-from tests.unit.conftest import DummyConfig, MockDatabaseCollection, run_cmd
-from wks.api.config.WKSConfig import WKSConfig
-from wks.api.database.DatabaseConfig import DatabaseConfig
+from tests.unit.conftest import run_cmd, patch_wks_config
 from wks.api.monitor import cmd_sync
 
 pytestmark = pytest.mark.monitor
 
 
-def test_cmd_sync_path_not_exists(monkeypatch):
+def test_cmd_sync_path_not_exists(patch_wks_config):
     """Test cmd_sync when path doesn't exist."""
-    from wks.api.monitor.MonitorConfig import MonitorConfig
-
-    monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
-        database="monitor",
-        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
-    )
-
-    cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
-    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     result = run_cmd(cmd_sync.cmd_sync, path="/nonexistent/path", recursive=False)
     assert result.success is False
@@ -65,29 +50,13 @@ def test_cmd_sync_invalid_database(monkeypatch, tmp_path):
         run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
 
 
-def test_cmd_sync_wraps_output(monkeypatch, tmp_path):
-    from wks.api.monitor.MonitorConfig import MonitorConfig
-
-    monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
-        database="monitor",
-        sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
-    )
-
-    cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
-    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
-
+def test_cmd_sync_wraps_output(patch_wks_config, tmp_path, monkeypatch):
+    """Test cmd_sync successfully syncs a file."""
     # Create a test file
     test_file = tmp_path / "test.txt"
     test_file.write_text("test content")
 
-    # Mock Database
-    mock_collection = MockDatabaseCollection()
-    mock_collection.find_one_result = None
-
-    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    # Mock helper functions, but use real Database with mongomock
     monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
     monkeypatch.setattr(cmd_sync, "calculate_priority", lambda _path, _dirs, _weights: 1.0)
     monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc123")
