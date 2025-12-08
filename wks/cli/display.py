@@ -22,7 +22,7 @@ try:
 except ImportError:
     RICH_AVAILABLE = False
 
-from .base import Display
+from wks.utils.display.Display import Display
 
 
 class ProgressContext:
@@ -64,9 +64,11 @@ class CLIDisplay(Display):
         if not RICH_AVAILABLE:
             raise ImportError("Rich library required for CLI display. Install with: pip install rich")
 
-        # Use full terminal width (no truncation)
+        # Store original stdout before Rich wraps it
+        self._original_stdout = sys.stdout
         # Main console outputs to stdout (for data output)
-        self.console = Console(file=sys.stdout, force_terminal=True)
+        # Rich automatically detects TTY and outputs plain text when piped
+        self.console = Console(file=sys.stdout)
         # stderr console for status messages
         self.stderr_console = Console(file=sys.stderr)
         self._progress_contexts = {}  # Store Progress contexts by handle
@@ -74,18 +76,21 @@ class CLIDisplay(Display):
     def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a status message in blue (to STDERR per CLI guidelines)."""
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.stderr_console.print(f"[dim]{timestamp}[/dim] [blue]i[/blue] {message}")
 
     def success(self, message: str, **kwargs) -> None:  # noqa: ARG002
         """Display a success message in green (to STDERR per CLI guidelines)."""
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.stderr_console.print(f"[dim]{timestamp}[/dim] [green]✓[/green] {message}")
 
     def error(self, message: str, **kwargs) -> None:
         """Display an error message in red (to STDERR per CLI guidelines)."""
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         details = kwargs.get("details", "")
         if details:
@@ -238,14 +243,14 @@ class CLIDisplay(Display):
             tree.add(str(data))
 
     def json_output(self, data: Any, **kwargs) -> None:
-        """Output JSON or YAML with syntax highlighting in terminal, valid when redirected.
+        """Output JSON or YAML.
 
-        Rich automatically detects when stdout is not a TTY and outputs plain text,
-        ensuring valid JSON/YAML when redirected to a file.
+        Interactive terminal: syntax highlighted output using Rich.
+        Piped/redirected: plain text output (valid JSON/YAML for parsing).
 
         Args:
             data: Data to output
-            format: Output format - "yaml" (default) or "json"
+            format: Output format - "yaml" or "json"
         """
         import json
         import sys
@@ -260,25 +265,22 @@ class CLIDisplay(Display):
                 raise ImportError("PyYAML required for YAML output. Install with: pip install pyyaml")
 
             yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-            # Only use syntax highlighting if stdout is a TTY (interactive terminal)
             if sys.stdout.isatty():
+                # Interactive terminal: syntax highlighted
                 syntax = Syntax(yaml_str, "yaml", theme="monokai", line_numbers=False)
                 self.console.print(syntax)
             else:
-                # Non-TTY: output raw YAML
-                print(yaml_str, flush=True)
+                # Piped/redirected: plain text
+                print(yaml_str, end="")
         else:
-            # JSON output (default)
             json_str = json.dumps(data, indent=indent, ensure_ascii=False)
-
-            # Only use syntax highlighting if stdout is a TTY (interactive terminal)
             if sys.stdout.isatty():
+                # Interactive terminal: syntax highlighted
                 syntax = Syntax(json_str, "json", theme="monokai", line_numbers=False)
                 self.console.print(syntax)
             else:
-                # Non-TTY: output raw JSON
-                print(json_str, flush=True)
+                # Piped/redirected: plain text only (Rich Syntax can add unwanted formatting)
+                print(json_str, file=sys.stdout)
 
     def panel(self, content: Any, title: str = "", **kwargs) -> None:
         """Display content in a panel."""
@@ -291,3 +293,4 @@ class CLIDisplay(Display):
             **panel_kwargs,
         )
         self.console.print(panel)
+

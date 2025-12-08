@@ -2,7 +2,7 @@
 
 import typer
 
-from ..base import handle_stage_result
+from ..handle_stage_result import handle_stage_result
 from .cmd_install import cmd_install
 from .cmd_list import cmd_list
 from .cmd_uninstall import cmd_uninstall

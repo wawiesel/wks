@@ -3,13 +3,13 @@
 from typing import Any
 
 from ._AbstractImpl import _AbstractImpl
-from .DbConfig import DbConfig
+from .DatabaseConfig import DatabaseConfig
 
 
 class Database:
     """Public API for database operations."""
 
-    def __init__(self, db_config: DbConfig, database_name: str):
+    def __init__(self, db_config: DatabaseConfig, database_name: str):
         self.db_config = db_config
         self.db_name = db_config.prefix
         self.database_name = database_name
@@ -18,8 +18,8 @@ class Database:
     def __enter__(self):
         backend_type = self.db_config.type
 
-        # Validate backend type using DbConfig registry (single source of truth)
-        from .DbConfig import _BACKEND_REGISTRY
+        # Validate backend type using DatabaseConfig registry (single source of truth)
+        from .DatabaseConfig import _BACKEND_REGISTRY
 
         backend_registry = _BACKEND_REGISTRY
         if backend_type not in backend_registry:
@@ -46,6 +46,14 @@ class Database:
     def update_one(self, filter: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> None:
         self._impl.update_one(filter, update, upsert)  # type: ignore[union-attr]
 
+    def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
+        """Update multiple documents matching the filter.
+
+        Returns:
+            Number of documents modified
+        """
+        return self._impl.update_many(filter, update)  # type: ignore[union-attr]
+
     def delete_many(self, filter: dict[str, Any]) -> int:
         return self._impl.delete_many(filter)  # type: ignore[union-attr]
 
@@ -53,9 +61,35 @@ class Database:
         return self._impl.find(filter, projection)  # type: ignore[union-attr]
 
     @classmethod
+    def list_databases(cls, db_config: DatabaseConfig) -> list[str]:
+        """List all databases (collections) in the prefix database.
+
+        Args:
+            db_config: Database configuration
+
+        Returns:
+            List of database names. All collections in the `<prefix>` database.
+
+        Example:
+            ```python
+            databases = Database.list_databases(db_config)
+            # Returns: ["monitor", "vault"] for collections in the "wks" database
+            ```
+        """
+        with cls(db_config, "_") as database:
+            client = database.get_client()
+            # Get the database object using the prefix
+            db = client[db_config.prefix]
+            # List all collections in the database
+            # Collections are named after the database name (e.g., "monitor", "vault")
+            # The prefix is the MongoDB database name, not part of the collection name
+            all_collections = db.list_collection_names()
+            return sorted(all_collections)
+
+    @classmethod
     def query(
         cls,
-        db_config: DbConfig,
+        db_config: DatabaseConfig,
         database_name: str,
         query_filter: dict[str, Any] | None = None,
         limit: int = 50,

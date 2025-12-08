@@ -1,9 +1,11 @@
 """Daemon install command - installs daemon as system service."""
 
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
-from ..base import StageResult
+from ..StageResult import StageResult
+from .._normalize_output import normalize_output
 from ..config.WKSConfig import WKSConfig
 from .DaemonConfig import _BACKEND_REGISTRY
 
@@ -14,63 +16,63 @@ def cmd_install() -> StageResult:
     Reads daemon configuration from config.json and installs appropriate service mechanism
     using the backend implementation.
     """
-    config = WKSConfig.load()
+    def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
+        """Do the actual work - generator that yields progress and updates result.
 
-    # Check daemon config exists
-    if config.daemon is None:
-        return StageResult(
-            announce="Installing daemon service...",
-            result="Error: daemon configuration not found in config.json",
-            output={"error": "daemon section missing from config"},
-            success=False,
-        )
+        Yields: (progress_percent: float, message: str) tuples
+        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
+        """
+        yield (0.1, "Loading configuration...")
+        config = WKSConfig.load()
 
-    # Validate backend type
-    backend_type = config.daemon.type
-    if backend_type not in _BACKEND_REGISTRY:
-        return StageResult(
-            announce="Installing daemon service...",
-            result=f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})",
-            output={
+        # Validate backend type
+        yield (0.2, "Validating backend type...")
+        backend_type = config.daemon.type
+        if backend_type not in _BACKEND_REGISTRY:
+            yield (1.0, "Complete")
+            result_obj.result = f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
+            result_obj.output = normalize_output({
                 "error": f"Unsupported backend type: {backend_type!r}",
                 "supported": list(_BACKEND_REGISTRY.keys()),
-            },
-            success=False,
-        )
+            })
+            result_obj.success = False
+            return
 
-    # Import and instantiate backend implementation
-    try:
-        module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
-        impl_class = module._Impl
-        daemon_impl = impl_class(config.daemon)
+        # Import and instantiate backend implementation
+        yield (0.4, "Initializing backend implementation...")
+        try:
+            module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
+            impl_class = module._Impl
+            daemon_impl = impl_class(config.daemon)
 
-        # Get Python path and project root
-        python_path = sys.executable
-        import wks
-        project_root = Path(wks.__file__).parent.parent
+            # Get Python path and project root
+            python_path = sys.executable
+            import wks
 
-        # Install via backend implementation
-        result = daemon_impl.install_service(python_path, project_root)
-        # Remove 'success' from output - it's handled by StageResult.success
-        output = {k: v for k, v in result.items() if k != "success"}
+            project_root = Path(wks.__file__).parent.parent
 
-        return StageResult(
-            announce="Installing daemon service...",
-            result=f"Daemon service installed successfully (label: {result.get('label', 'unknown')})",
-            output=output,
-            success=result.get("success", True),
-        )
-    except NotImplementedError as e:
-        return StageResult(
-            announce="Installing daemon service...",
-            result=f"Error: Service installation not supported for backend '{backend_type}'",
-            output={"error": str(e)},
-            success=False,
-        )
-    except Exception as e:
-        return StageResult(
-            announce="Installing daemon service...",
-            result=f"Error installing service: {e}",
-            output={"error": str(e)},
-            success=False,
-        )
+            # Install via backend implementation
+            yield (0.6, "Installing service...")
+            result = daemon_impl.install_service(python_path, project_root)
+            # Remove 'success' from output - it's handled by StageResult.success
+            output = {k: v for k, v in result.items() if k != "success"}
+
+            yield (1.0, "Complete")
+            result_obj.result = f"Daemon service installed successfully (label: {result.get('label', 'unknown')})"
+            result_obj.output = normalize_output(output)
+            result_obj.success = result.get("success", True)
+        except NotImplementedError as e:
+            yield (1.0, "Complete")
+            result_obj.result = f"Error: Service installation not supported for backend '{backend_type}'"
+            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.success = False
+        except Exception as e:
+            yield (1.0, "Complete")
+            result_obj.result = f"Error installing service: {e}"
+            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.success = False
+
+    return StageResult(
+        announce="Installing daemon service...",
+        progress_callback=do_work,
+    )

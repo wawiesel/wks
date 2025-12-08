@@ -4,29 +4,20 @@ import subprocess
 import sys
 from typing import Any
 
+from ..config.WKSConfig import WKSConfig
 from .DaemonConfig import _BACKEND_REGISTRY
-
-
-def _validate_daemon_config(config: WKSConfig) -> tuple[bool, dict[str, Any] | None]:
-    """Validate daemon configuration exists.
-    
-    Returns:
-        (is_valid, error_output)
-    """
-    if config.daemon is None:
-        return False, {"error": "daemon section missing from config"}
-    return True, None
 
 
 def _validate_backend_type(backend_type: str) -> tuple[bool, dict[str, Any] | None]:
     """Validate backend type is supported.
-    
+
     Returns:
         (is_valid, error_output)
     """
     if backend_type not in _BACKEND_REGISTRY:
         return False, {
-            "error": f"Unsupported backend type: {backend_type!r}",
+            "errors": [f"Unsupported backend type: {backend_type!r}"],
+            "warnings": [],
             "supported": list(_BACKEND_REGISTRY.keys()),
         }
     return True, None
@@ -34,7 +25,7 @@ def _validate_backend_type(backend_type: str) -> tuple[bool, dict[str, Any] | No
 
 def _get_daemon_impl(backend_type: str, config: WKSConfig):
     """Get daemon implementation instance.
-    
+
     Returns:
         Daemon implementation instance
     """
@@ -45,7 +36,7 @@ def _get_daemon_impl(backend_type: str, config: WKSConfig):
 
 def _start_via_service(daemon_impl, backend_type: str) -> dict[str, Any]:
     """Start daemon via service manager.
-    
+
     Returns:
         Result dict with success, label, action, etc.
     """
@@ -65,13 +56,13 @@ def _start_via_service(daemon_impl, backend_type: str) -> dict[str, Any]:
 
 def _start_directly(backend_type: str) -> dict[str, Any]:
     """Start daemon directly as background process.
-    
+
     Returns:
         Result dict with success, output, result_msg
     """
     python_path = sys.executable
     daemon_module = f"wks.api.daemon._{backend_type}._Impl"
-    
+
     try:
         process = subprocess.Popen(
             [python_path, "-m", daemon_module],
@@ -91,7 +82,6 @@ def _start_directly(backend_type: str) -> dict[str, Any]:
     except Exception as e:
         return {
             "success": False,
-            "output": {"error": str(e)},
+            "output": {"errors": [str(e)], "warnings": []},
             "result_msg": f"Error starting daemon: {e}",
         }
-

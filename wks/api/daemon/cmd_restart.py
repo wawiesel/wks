@@ -1,46 +1,66 @@
 """Daemon restart command - restarts the daemon process."""
 
-from ..base import StageResult
-from .cmd_stop import cmd_stop
+from collections.abc import Iterator
+
+from ..StageResult import StageResult
+from .._normalize_output import normalize_output
 from .cmd_start import cmd_start
+from .cmd_stop import cmd_stop
 
 
 def cmd_restart() -> StageResult:
     """Restart daemon with full service reload.
-    
+
     Behavior:
     - **Always stops first**: Unloads service from launchctl (if service is installed)
       or kills direct process (if running directly)
     - **Then starts**: Reloads plist into launchctl and starts fresh (if service)
       or starts new background process (if direct)
-    
+
     **Difference from 'start':**
     - **start**: Uses `launchctl kickstart -k` which kills/restarts the process but
       keeps the service loaded in launchctl (doesn't reload plist)
     - **restart**: Performs full `bootout` (unload) then `bootstrap` (reload plist),
       ensuring the service configuration is completely reloaded from the plist file
-    
+
     **When to use:**
     - Use **restart** when you want to ensure the service is fully reloaded from the
       plist file (e.g., after plist changes, or to ensure clean state)
     - Use **start** for a simple "ensure running" operation (will restart process
       if running, but doesn't reload plist configuration)
     """
-    # Stop first
-    stop_result = cmd_stop()
-    if not stop_result.success:
-        # If stop fails, try start anyway (might not be running)
-        pass
+    def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
+        """Do the actual work - generator that yields progress and updates result.
 
-    # Start
-    start_result = cmd_start()
-    if not start_result.success:
-        return start_result
+        Yields: (progress_percent: float, message: str) tuples
+        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
+        """
+        # Stop first
+        yield (0.2, "Stopping daemon...")
+        stop_result = cmd_stop()
+        stop_gen = stop_result.progress_callback(stop_result)
+        list(stop_gen)  # Consume generator
+        # Don't fail if stop fails - might not be running
+
+        # Start
+        yield (0.6, "Starting daemon...")
+        start_result = cmd_start()
+        start_gen = start_result.progress_callback(start_result)
+        list(start_gen)  # Consume generator
+
+        if not start_result.success:
+            yield (1.0, "Complete")
+            result_obj.result = start_result.result
+            result_obj.output = normalize_output(start_result.output)
+            result_obj.success = False
+            return
+
+        yield (1.0, "Complete")
+        result_obj.result = "Daemon restarted successfully"
+        result_obj.output = normalize_output({**start_result.output, "restarted": True})
+        result_obj.success = True
 
     return StageResult(
         announce="Restarting daemon...",
-        result="Daemon restarted successfully",
-        output={**start_result.output, "restarted": True},
-        success=True,
+        progress_callback=do_work,
     )
-

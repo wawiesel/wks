@@ -2,8 +2,9 @@
 
 import typer
 
-from ..base import handle_stage_result
+from ..handle_stage_result import handle_stage_result
 from .cmd_install import cmd_install
+from .cmd_reinstall import cmd_reinstall
 from .cmd_restart import cmd_restart
 from .cmd_start import cmd_start
 from .cmd_status import cmd_status
@@ -65,10 +66,17 @@ def uninstall_command(ctx: typer.Context) -> None:
     wrapped()
 
 
+def reinstall_command(ctx: typer.Context) -> None:
+    """Reinstall daemon service - uninstalls if exists, then installs."""
+    wrapped = handle_stage_result(cmd_reinstall)
+    wrapped()
+
+
 daemon_app.command(name="status")(status_command)
 daemon_app.command(name="start")(start_command)
 daemon_app.command(name="stop")(stop_command)
 daemon_app.command(name="restart")(restart_command)
 daemon_app.command(name="install")(install_command)
 daemon_app.command(name="uninstall")(uninstall_command)
+daemon_app.command(name="reinstall")(reinstall_command)
 

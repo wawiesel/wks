@@ -66,7 +66,7 @@ Each link becomes exactly one document. `_id` is `sha256(note_path + line_number
 
 ## CLI Interface (Secondary)
 
-- `wksc vault status` — summarize the most recent automated scan (supports `--live`)
+- `wksc vault status` — summarize the most recent automated scan
 - `wksc vault sync` — force immediate vault sync (normally automatic)
 - `wksc vault validate` — validate all vault links (check for broken links)
 - `wksc vault fix-symlinks` — rebuild _links/<machine>/ from vault DB

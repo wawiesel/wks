@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from wks.api.display.cli import CLIDisplay
-from wks.api.display.context import add_display_argument, get_display, is_mcp_context
-from wks.api.display.mcp import MCPDisplay
+from wks.cli.display import CLIDisplay
+from wks.mcp.display import MCPDisplay
+from wks.utils.display.context import add_display_argument, get_display, is_mcp_context
 from wks.api.monitor.priority import calculate_priority, find_managed_directory, priority_examples
 
 

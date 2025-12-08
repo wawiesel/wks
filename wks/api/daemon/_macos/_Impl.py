@@ -22,8 +22,6 @@ class _Impl(_AbstractImpl):
         """
         if daemon_config is None:
             config = WKSConfig.load()
-            if config.daemon is None:
-                raise ValueError("daemon configuration not found in config.json")
             daemon_config = config.daemon
 
         if not isinstance(daemon_config.data, _DaemonConfigData):
@@ -55,11 +53,13 @@ class _Impl(_AbstractImpl):
         """Install daemon as macOS launchd service."""
         module_path = f"wks.api.daemon._{self.config.type}._Impl"
         _install_service(self.config.data, python_path, module_path, project_root)
+        plist_path = str(Path.home() / "Library" / "LaunchAgents" / f"{self.config.data.label}.plist")
+
         return {
             "success": True,
             "type": "macos",
             "label": self.config.data.label,
-            "plist_path": str(Path.home() / "Library" / "LaunchAgents" / f"{self.config.data.label}.plist"),
+            "plist_path": plist_path,
         }
 
     def uninstall_service(self) -> dict[str, Any]:
@@ -107,13 +107,24 @@ class _Impl(_AbstractImpl):
                     capture_output=True,
                     text=True,
                 )
-                # Bootstrap also starts the service, so we're done
-                return {
-                    "success": True,
-                    "type": "macos",
-                    "label": self.config.data.label,
-                    "action": "bootstrapped",
-                }
+                # Bootstrap also starts the service, verify it's running
+                import time
+                time.sleep(0.5)  # Give service a moment to start
+                status = _get_service_status(self.config.data)
+                if "pid" in status:
+                    return {
+                        "success": True,
+                        "type": "macos",
+                        "label": self.config.data.label,
+                        "action": "bootstrapped",
+                        "pid": status["pid"],
+                    }
+                else:
+                    error_log_path = Path(self.config.data.error_log_file).expanduser()
+                    return {
+                        "success": False,
+                        "error": f"Service failed to start after bootstrap (no PID found). Check error logs at: {error_log_path}",
+                    }
             except subprocess.CalledProcessError as e:
                 return {
                     "success": False,
@@ -129,12 +140,25 @@ class _Impl(_AbstractImpl):
                 capture_output=True,
                 text=True,
             )
-            return {
-                "success": True,
-                "type": "macos",
-                "label": self.config.data.label,
-                "action": "kickstarted",  # This restarts if running, starts if not
-            }
+            # Verify service actually started by checking for PID
+            import time
+            time.sleep(0.5)  # Give service a moment to start
+            status = _get_service_status(self.config.data)
+            if "pid" in status:
+                return {
+                    "success": True,
+                    "type": "macos",
+                    "label": self.config.data.label,
+                    "action": "kickstarted",
+                    "pid": status["pid"],
+                }
+            else:
+                # Service didn't start - check error logs
+                error_log_path = Path(self.config.data.error_log_file).expanduser()
+                return {
+                    "success": False,
+                    "error": f"Service failed to start (no PID found). Check error logs at: {error_log_path}",
+                }
         except subprocess.CalledProcessError as e:
             return {
                 "success": False,
@@ -148,7 +172,7 @@ class _Impl(_AbstractImpl):
 
         uid = os.getuid()
         try:
-            subprocess.run(
+            result = subprocess.run(
                 ["launchctl", "bootout", f"gui/{uid}/{self.config.data.label}"],
                 check=True,
                 capture_output=True,
@@ -160,9 +184,18 @@ class _Impl(_AbstractImpl):
                 "label": self.config.data.label,
             }
         except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.strip() if e.stderr else ""
+            # Check for common "not running" errors - treat as success (idempotent)
+            if "No such process" in error_msg or e.returncode == 3:
+                return {
+                    "success": True,
+                    "type": "macos",
+                    "label": self.config.data.label,
+                    "note": "Service was not running (already stopped).",
+                }
             return {
                 "success": False,
-                "error": e.stderr,
+                "error": f"Failed to stop service: {error_msg}" if error_msg else "Failed to stop service.",
             }
 
 
@@ -170,10 +203,6 @@ class _Impl(_AbstractImpl):
 if __name__ == "__main__":
     try:
         config = WKSConfig.load()
-        if config.daemon is None:
-            print("Error: daemon configuration not found in config.json", file=sys.stderr)
-            sys.exit(1)
-
         daemon_impl = _Impl(config.daemon)
         daemon_impl.run()
     except KeyboardInterrupt:

@@ -33,7 +33,7 @@ This directory implements the database API following a strict one-file-per-funct
 
 ### Database Configuration
 
-**DbConfig**: The `DbConfig` class in `DbConfig.py` provides unified database configuration with backend-specific data. The configuration structure is:
+**DatabaseConfig**: The `DatabaseConfig` class in `DatabaseConfig.py` provides unified database configuration with backend-specific data. The configuration structure is:
 
 ```json
 {
@@ -49,15 +49,15 @@ This directory implements the database API following a strict one-file-per-funct
 
 The `prefix` field is required and specifies the database name prefix. For example, with `prefix: "wks"`, a database named `"monitor"` in config is accessed as `"wks.monitor"` in the backend. Users should specify just the database name (e.g., `"monitor"`) when using `Database` - the prefix is handled automatically.
 
-**Backend registry**: The `_BACKEND_REGISTRY` in `DbConfig` is the **ONLY** place where backend types are enumerated. To add a new backend:
+**Backend registry**: The `_BACKEND_REGISTRY` in `DatabaseConfig` is the **ONLY** place where backend types are enumerated. To add a new backend:
 
 1. Add an entry to `_BACKEND_REGISTRY` mapping the type name to its config data class
 2. Create the backend implementation in `_<backend_type>/` following the existing pattern
 3. The rest of the code will automatically work with the new backend via dynamic imports
 
-**Initialization**: `DbConfig` uses Pydantic's `model_validator(mode="before")` to:
+**Initialization**: `DatabaseConfig` uses Pydantic's `model_validator(mode="before")` to:
 - Validate the `type` is supported
 - Automatically instantiate the correct backend config class from the `data` dict
 - Let the backend config class validate itself
 
-This means you can simply call `DbConfig(**db_config_dict)` and all validation happens automatically.
+This means you can simply call `DatabaseConfig(**db_config_dict)` and all validation happens automatically.

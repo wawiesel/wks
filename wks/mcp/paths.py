@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
-from wks.api.config.get_home_dir import get_home_dir
+from wks.api.config.WKSConfig import WKSConfig
 
 
 def mcp_socket_path() -> Path:
     """Return the canonical MCP broker socket path."""
-    return get_home_dir("mcp.sock")
+    return WKSConfig.get_home_dir() / "mcp.sock"
 
 
 __all__ = ["mcp_socket_path"]

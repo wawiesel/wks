@@ -385,7 +385,7 @@ def test_cli_out_with_string(mock_call):  # noqa: ARG001
     """Test _out function with non-dict (string) output."""
     import wks.cli
     from wks.cli import _out
-    from wks.api.display.cli import CLIDisplay
+    from wks.cli.display import CLIDisplay
 
     # Set the global display object
     wks.cli.display_obj_global = CLIDisplay()

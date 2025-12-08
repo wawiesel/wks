@@ -76,6 +76,7 @@ WKS is built as a stack of independent, composable layers:
 -   **Strict Validation**: Configuration access is centralized through **dataclasses** with strict validation on load. Fail immediately if data is missing or invalid. All required fields must be present in the config file - no code-level defaults are permitted.
 -   **No Hedging**: Remove fallback logic; no silent defaults or implicit substitutions. Fail fast and visibly. If a configuration value is missing, raise a validation error rather than using a default.
 -   **Structured Error Handling**: Errors are collected and reported together rather than failing immediately. System behavior is deterministic with no optional or hidden recovery logic.
+-   **Consistent Output Structure**: The `output` dict in `StageResult` must have the exact same structure for every call to the same command. All fields must always be present (even if empty, null, or zero). No conditional fields based on success/failure state. This ensures predictable parsing, consistent MCP/CLI behavior, and reliable programmatic access. If a field is sometimes present and sometimes absent, it violates this rule - either always include it (with a default value when not applicable) or restructure the output to use a different field.
 
 ## CLI Global Options
 
@@ -95,26 +96,6 @@ wksc monitor status --display json
 wksc database show monitor -d yaml
 wksc config monitor > config.yaml  # Valid YAML when redirected
 ```
-
-### `--live` / `-l` (Live Updates)
-
-Continuously runs the command every N seconds, updating the display in place. This is a CLI-only feature (not available in MCP).
-
-**Usage**: `--live <seconds>` or `-l <seconds>`
-
-**Behavior**:
-- Command executes repeatedly at the specified interval
-- Display updates in place using a live terminal interface
-- Shows "Live mode (CNTL-C to end)" message at the bottom
-- Press Ctrl+C to exit
-
-**Examples**:
-```bash
-wksc monitor status --live 5    # Update every 5 seconds
-wksc database show monitor -l 2       # Update every 2 seconds
-```
-
-**Note**: The `--live` option is handled at the CLI layer and does not affect the API or MCP interfaces.
 
 ## Command Execution Pattern
 

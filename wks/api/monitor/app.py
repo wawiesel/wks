@@ -2,7 +2,7 @@
 
 import typer
 
-from ..base import handle_stage_result
+from ..handle_stage_result import handle_stage_result
 from .cmd_check import cmd_check
 from .cmd_filter_add import cmd_filter_add
 from .cmd_filter_remove import cmd_filter_remove

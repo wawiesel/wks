@@ -1,8 +1,8 @@
 """List databases command."""
 
-from collections.abc import Callable
+from collections.abc import Iterator
 
-from ..base import StageResult
+from ..StageResult import StageResult
 from .Database import Database
 
 
@@ -12,43 +12,43 @@ def cmd_list() -> StageResult:
     Returns:
         StageResult with list of databases (displayed as table)
     """
-    def do_work(update_progress: Callable[[str, float], None], result_obj: StageResult) -> None:
-        """Do the actual work - called by wrapper after announce is displayed."""
+    def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
+        """Do the actual work - generator that yields progress and updates result.
+
+        Yields: (progress_percent: float, message: str) tuples
+        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
+        """
         from ..config.WKSConfig import WKSConfig
 
-        update_progress("Loading configuration...", 0.2)
+        yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
-        
-        update_progress("Querying database...", 0.5)
+
+        yield (0.5, "Querying database...")
         try:
-            with Database(config.database, "_") as database_obj:
-                collection_names = sorted(database_obj._impl.list_collection_names())  # type: ignore[attr-defined]
+            database_names = Database.list_databases(config.database)
         except Exception as e:
-            update_progress("Complete", 1.0)
+            yield (1.0, "Complete")
             result_obj.result = f"Failed to list databases: {e}"
-            result_obj.output = {"error": str(e), "databases": []}
+            result_obj.output = {
+                "errors": [str(e)],
+                "warnings": [],
+                "databases": [],
+            }
             result_obj.success = False
             return
 
-        # Filter and display names without prefix
-        update_progress("Processing collection names...", 0.8)
-        collections = []
-        for name in collection_names:
-            if name.startswith(f"{config.database.prefix}."):
-                display_name = name[len(f"{config.database.prefix}."):]
-                collections.append({"name": display_name, "full_name": name})
-            else:
-                collections.append({"name": name, "full_name": name})
+        yield (0.8, "Processing database names...")
 
-        update_progress("Complete", 1.0)
-        result_obj.result = f"Found {len(collections)} database(s)"
+        yield (1.0, "Complete")
+        result_obj.result = f"Found {len(database_names)} database(s)"
         result_obj.output = {
-            "databases": [c["name"] for c in collections],
+            "errors": [],
+            "warnings": [],
+            "databases": database_names,
         }
         result_obj.success = True
 
     return StageResult(
         announce="Listing databases...",
         progress_callback=do_work,
-        progress_total=1,
     )

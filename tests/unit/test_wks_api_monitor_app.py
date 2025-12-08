@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import typer
 
-from wks.api import base as api_base
+from wks.api.StageResult import StageResult
 from wks.api.monitor.app import (
     check_command,
     filter_add_command,
@@ -314,19 +314,20 @@ def test_monitor_app_wrapper_non_cli():
     """Test handle_stage_result wrapper behavior."""
     calls = []
 
-    def progress_cb(callback):
-        callback("step", 1.0)
+    def progress_cb(result_obj: StageResult):
+        from collections.abc import Iterator
         calls.append("progress")
+        result_obj.result = "done"
+        result_obj.output = {"success": True, "payload": 1}
+        result_obj.success = True
+        yield (1.0, "step")
 
-    stage = api_base.StageResult(
+    stage = StageResult(
         announce="a",
-        result="done",
-        output={"success": True, "payload": 1},
         progress_callback=progress_cb,
-        progress_total=2,
     )
 
-    from wks.api.base import handle_stage_result
+    from wks.api.handle_stage_result import handle_stage_result
 
     wrapped = handle_stage_result(lambda: stage)
     # handle_stage_result calls sys.exit() for CLI, so we need to catch SystemExit

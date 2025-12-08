@@ -3,9 +3,8 @@
 import json
 from pathlib import Path
 
-from ..base import StageResult
+from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..config.get_config_path import get_config_path
 
 
 def cmd_list() -> StageResult:
@@ -14,7 +13,7 @@ def cmd_list() -> StageResult:
     Returns:
         StageResult with list of installations and their status
     """
-    config_path = get_config_path()
+    config_path = WKSConfig.get_config_path()
     if not config_path.exists():
         return StageResult(
             announce="Listing MCP installations...",
@@ -54,4 +53,3 @@ def cmd_list() -> StageResult:
         output={"installations": installations, "count": len(installations)},
         success=True,
     )
-

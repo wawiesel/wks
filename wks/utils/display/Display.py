@@ -169,3 +169,4 @@ class Display(ABC):
             kwargs: Implementation-specific options (border style, etc.)
         """
         pass
+

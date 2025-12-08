@@ -5,7 +5,7 @@ import sys
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from wks.api.display.cli import CLIDisplay
+from wks.cli.display import CLIDisplay
 
 
 class TestCLIDisplay:

@@ -7,7 +7,7 @@ The WKS daemon runs as a background service to monitor the filesystem and mainta
 
 **CLI Interface**:
 ```bash
-wksc daemon status           # Show daemon status and metrics (supports --live for auto-updating display)
+wksc daemon status           # Show daemon status and metrics
 wksc daemon start            # Start daemon (idempotent - ensures running, restarts if already running)
 wksc daemon stop             # Stop daemon
 wksc daemon restart          # Restart daemon with full reload (unloads and reloads service)

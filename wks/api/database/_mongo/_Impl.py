@@ -6,12 +6,12 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 
 from .._AbstractImpl import _AbstractImpl
-from ..DbConfig import DbConfig
+from ..DatabaseConfig import DatabaseConfig
 from ._DbConfigData import _DbConfigData
 
 
 class _Impl(_AbstractImpl):
-    def __init__(self, db_config: DbConfig, database_name: str, collection_name: str):
+    def __init__(self, db_config: DatabaseConfig, database_name: str, collection_name: str):
         """Initialize MongoDB implementation.
         
         Note: Internally MongoDB uses "collections" but the public API uses "database" terminology.
@@ -44,6 +44,10 @@ class _Impl(_AbstractImpl):
 
     def update_one(self, filter: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> None:
         self._collection.update_one(filter, update, upsert=upsert)  # type: ignore[union-attr]
+
+    def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
+        result = self._collection.update_many(filter, update)  # type: ignore[union-attr]
+        return result.modified_count
 
     def delete_many(self, filter: dict[str, Any]) -> int:
         return self._collection.delete_many(filter).deleted_count  # type: ignore[union-attr]

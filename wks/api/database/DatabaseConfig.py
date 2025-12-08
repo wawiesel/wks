@@ -14,7 +14,7 @@ _BACKEND_REGISTRY: dict[str, type[BaseModel]] = {
 }
 
 
-class DbConfig(BaseModel):
+class DatabaseConfig(BaseModel):
     _BACKEND_REGISTRY: dict[str, type[BaseModel]] = _BACKEND_REGISTRY
 
     type: str = Field(..., description="Database backend type")
@@ -55,3 +55,4 @@ class DbConfig(BaseModel):
         if isinstance(self.data, _MongoDbConfigData):
             return self.data.uri
         raise AttributeError(f"Backend type '{self.type}' does not have a uri attribute")
+

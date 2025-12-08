@@ -2,7 +2,7 @@
 
 import pytest
 
-from wks.api.display.cli import CLIDisplay
+from wks.cli.display import CLIDisplay
 
 
 @pytest.mark.unit

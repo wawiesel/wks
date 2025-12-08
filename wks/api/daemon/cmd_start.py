@@ -2,14 +2,14 @@
 
 from collections.abc import Iterator
 
-from ..base import StageResult
+from ..StageResult import StageResult
+from .._normalize_output import normalize_output
 from .DaemonConfig import _BACKEND_REGISTRY
 from ._start_helpers import (
     _get_daemon_impl,
     _start_directly,
     _start_via_service,
     _validate_backend_type,
-    _validate_daemon_config,
 )
 
 
@@ -32,63 +32,57 @@ def cmd_start() -> StageResult:
     the service configuration.
     """
     # Return StageResult immediately with announce, work happens in progress_callback
-    def do_work(update_progress: Callable[[str, float], None], result_obj: StageResult) -> None:
-        """Do the actual work - called by wrapper after announce is displayed.
-        
-        Updates result_obj.result, result_obj.output, and result_obj.success directly.
+    def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
+        """Do the actual work - generator that yields progress and updates result.
+
+        Yields: (progress_percent: float, message: str) tuples
+        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
         """
-        from ..base import StageResult
         from ..config.WKSConfig import WKSConfig
-        
-        update_progress("Loading configuration...", 0.1)
+
+        yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
 
-        # Validate config
-        is_valid, error_output = _validate_daemon_config(config)
-        if not is_valid:
-            result_obj.result = "Error: daemon configuration not found in config.json"
-            result_obj.output = error_output
-            result_obj.success = False
-            return
-
         # Validate backend type
-        update_progress("Validating backend...", 0.2)
+        yield (0.2, "Validating backend...")
         backend_type = config.daemon.type
         is_valid, error_output = _validate_backend_type(backend_type)
         if not is_valid:
+            yield (1.0, "Complete")
             result_obj.result = f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
-            result_obj.output = error_output
+            result_obj.output = normalize_output(error_output or {})
             result_obj.success = False
             return
 
         # Get daemon implementation and start
-        update_progress("Starting daemon...", 0.5)
+        yield (0.5, "Starting daemon...")
         try:
             daemon_impl = _get_daemon_impl(backend_type, config)
             service_status = daemon_impl.get_service_status()
 
             if service_status.get("installed", False):
-                update_progress("Starting via service manager...", 0.7)
+                yield (0.7, "Starting via service manager...")
                 start_result = _start_via_service(daemon_impl, backend_type)
             else:
-                update_progress("Starting directly...", 0.7)
+                yield (0.7, "Starting directly...")
                 start_result = _start_directly(backend_type)
 
-            update_progress("Complete", 1.0)
+            yield (1.0, "Complete")
             result_obj.result = start_result["result_msg"]
-            result_obj.output = start_result["output"]
+            result_obj.output = normalize_output(start_result["output"])
             result_obj.success = start_result["success"]
         except NotImplementedError as e:
+            yield (1.0, "Complete")
             result_obj.result = f"Error: Service start not supported for backend '{backend_type}'"
-            result_obj.output = {"error": str(e)}
+            result_obj.output = normalize_output({"error": str(e)})
             result_obj.success = False
         except Exception as e:
+            yield (1.0, "Complete")
             result_obj.result = f"Error starting daemon: {e}"
-            result_obj.output = {"error": str(e)}
+            result_obj.output = normalize_output({"error": str(e)})
             result_obj.success = False
 
     return StageResult(
         announce="Starting daemon...",
         progress_callback=do_work,
-        progress_total=1,
     )

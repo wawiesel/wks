@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from ..base import StageResult
-from ..config.get_config_path import get_config_path
+from ..StageResult import StageResult
+from ..config.WKSConfig import WKSConfig
 from ...utils.expand_path import expand_path
 
 
@@ -17,7 +17,7 @@ def cmd_uninstall(name: str) -> StageResult:
     Returns:
         StageResult with uninstallation status
     """
-    config_path = get_config_path()
+    config_path = WKSConfig.get_config_path()
     if not config_path.exists():
         return StageResult(
             announce=f"Uninstalling MCP server for '{name}'...",

@@ -1,960 +1,184 @@
-"""
-MCP Server for WKS - Model Context Protocol integration.
+"""MCP Server for WKS - Auto-discovers cmd_* functions and exposes as MCP tools."""
 
-Exposes WKS functionality as MCP tools via stdio transport.
-Uses existing controllers for zero code duplication per SPEC.md.
-
-MCP is the source of truth for all errors, warnings, and messages.
-All MCP tools return structured MCPResult objects.
-"""
-
+import importlib
+import inspect
 import json
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
-from wks.api.base import StageResult, get_typer_command_schema
+from wks.api.StageResult import StageResult
+from wks.api.get_typer_command_schema import get_typer_command_schema
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.config.cmd_show import cmd_show
-from wks.api.database.cmd_show import cmd_show as db_cmd_show
-from wks.api.database.cmd_list import cmd_list as db_cmd_list
-from wks.api.database.cmd_reset import cmd_reset as db_cmd_reset
-from wks.api.mcp.cmd_list import cmd_list as mcp_cmd_list
-from wks.api.mcp.cmd_install import cmd_install as mcp_cmd_install
-from wks.api.mcp.cmd_uninstall import cmd_uninstall as mcp_cmd_uninstall
-from wks.api.monitor.cmd_check import cmd_check
-from wks.api.monitor.cmd_check import cmd_check as monitor_check
-from wks.api.monitor.cmd_filter_add import cmd_filter_add
-from wks.api.monitor.cmd_filter_add import cmd_filter_add as cmd_add
-from wks.api.monitor.cmd_filter_remove import cmd_filter_remove
-from wks.api.monitor.cmd_filter_remove import cmd_filter_remove as cmd_remove
-from wks.api.monitor.cmd_filter_show import cmd_filter_show
-from wks.api.monitor.cmd_priority_add import cmd_priority_add
-from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
-from wks.api.monitor.cmd_priority_show import cmd_priority_show
-from wks.api.monitor.cmd_status import cmd_status as monitor_status
-from wks.api.monitor.cmd_sync import cmd_sync
-# Service/daemon code removed - will be reimplemented
-from wks.api.vault import VaultController
-from wks.api.vault.status_controller import VaultStatusController
-
-from .result import MCPResult
 
 
-def _extract_data_from_stage_result(result: Any) -> dict[str, Any]:
-    """Extract data from StageResult or return as-is."""
-    if isinstance(result, StageResult):
-        return result.output
-    return result if isinstance(result, dict) else {}
+def _discover() -> dict[tuple[str, str], Callable]:
+    """Auto-discover all cmd_* functions from non-underscore directories in wks.api."""
+    commands: dict[tuple[str, str], Callable] = {}
+    api_path = Path(__file__).parent.parent / "api"
+    for domain_dir in api_path.iterdir():
+        if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
+            continue
+        for cmd_file in domain_dir.glob("cmd_*.py"):
+            cmd_name = cmd_file.stem[4:]
+            try:
+                module = importlib.import_module(f"wks.api.{domain_dir.name}.{cmd_file.stem}")
+                func = getattr(module, f"cmd_{cmd_name}", None)
+                if callable(func):
+                    commands[(domain_dir.name, cmd_name)] = func
+            except Exception:
+                continue
+    return commands
+
+
+def _get_app(domain: str) -> Any:
+    """Auto-discover Typer app for a domain by trying common naming patterns."""
+    # Try common app name patterns: {domain}_app, db_app (special case), {domain}app, app
+    patterns = [f"{domain}_app", "db_app" if domain == "database" else None, f"{domain}app", "app"]
+    for pattern in patterns:
+        if pattern is None:
+            continue
+        try:
+            module = importlib.import_module(f"wks.api.{domain}.app")
+            app = getattr(module, pattern, None)
+            if app is not None:
+                return app
+        except Exception:
+            continue
+    return None
 
 
 class MCPServer:
-    """MCP server exposing WKS tools via stdio."""
-
-    @staticmethod
-    def _define_transform_tools() -> dict[str, dict[str, Any]]:
-        """Define transform-related tools.
-
-        Returns:
-            Dictionary of transform tool definitions
-        """
-        return {
-            "wksm_transform": {
-                "description": "Transform a file using a specific engine",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "file_path": {"type": "string", "description": "Path to file to transform"},
-                        "engine": {
-                            "type": "string",
-                            "description": "Transform engine name (e.g., 'docling')",
-                        },
-                        "options": {"type": "object", "description": "Engine-specific options"},
-                    },
-                    "required": ["file_path", "engine"],
-                },
-            },
-            "wksm_cat": {
-                "description": "Retrieve content for a target (checksum or file path)",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string",
-                            "description": "Checksum (64 hex chars) or file path",
-                        }
-                    },
-                    "required": ["target"],
-                },
-            },
-            "wksm_diff": {
-                "description": "Calculate diff between two targets",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "engine": {
-                            "type": "string",
-                            "description": "Diff engine name (e.g., 'bsdiff3', 'myers')",
-                        },
-                        "target_a": {
-                            "type": "string",
-                            "description": "First target (file path or checksum)",
-                        },
-                        "target_b": {
-                            "type": "string",
-                            "description": "Second target (file path or checksum)",
-                        },
-                    },
-                    "required": ["engine", "target_a", "target_b"],
-                },
-            },
-        }
-
-    @staticmethod
-    def _define_daemon_tools() -> dict[str, dict[str, Any]]:
-        """Define daemon-related tools.
-
-        Returns:
-            Dictionary of daemon tool definitions
-        """
-        return {
-            "wksm_daemon": {
-                "description": "Manage daemon (start, stop, restart, status, install, uninstall)",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "action": {
-                            "type": "string",
-                            "enum": ["start", "stop", "restart", "status", "install", "uninstall"],
-                            "description": "Daemon action to perform",
-                        }
-                    },
-                    "required": ["action"],
-                },
-            },
-            # Legacy alias for backwards compatibility
-            "wksm_service": {
-                "description": "Get daemon/service status summary (deprecated, use wksm_daemon)",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-        }
-
-    @staticmethod
-    def _define_vault_tools() -> dict[str, dict[str, Any]]:
-        """Define vault-related tools.
-
-        Returns:
-            Dictionary of vault tool definitions
-        """
-        return {
-            "wksm_vault_validate": {
-                "description": "Validate all vault links",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-            "wksm_vault_fix_symlinks": {
-                "description": "Rebuild _links/<machine>/ from vault DB",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-        }
-
-    @staticmethod
-    def _define_db_tools() -> dict[str, dict[str, Any]]:
-        """Define database query tools.
-
-        Returns:
-            Dictionary of database tool definitions
-        """
-        return {
-            "wksm_database_monitor": {
-                "description": "Query filesystem database",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "object", "description": "MongoDB query object"},
-                        "limit": {"type": "integer", "description": "Max results"},
-                    },
-                    "required": [],
-                },
-            },
-            "wksm_database_vault": {
-                "description": "Query vault database",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "object", "description": "MongoDB query object"},
-                        "limit": {"type": "integer", "description": "Max results"},
-                    },
-                    "required": [],
-                },
-            },
-            "wksm_database_transform": {
-                "description": "Query transform database",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "object", "description": "MongoDB query object"},
-                        "limit": {"type": "integer", "description": "Max results"},
-                    },
-                    "required": [],
-                },
-            },
-        }
-
-    @staticmethod
-    def _define_monitor_basic_tools() -> dict[str, dict[str, Any]]:
-        """Define basic monitor tools (status, check) using Typer introspection.
-
-        Returns:
-            Dictionary of basic monitor tool definitions
-        """
-        from wks.api.monitor import monitor_app
-
-        tools = {}
-        for cmd_name in ["status", "check", "sync"]:
-            schema = get_typer_command_schema(monitor_app, cmd_name)
-            mcp_tool_name = f"wksm_monitor_{cmd_name}"
-            # Get command description from docstring or use default
-            command = None
-            for cmd in monitor_app.registered_commands:
-                if cmd.name == cmd_name:
-                    command = cmd
-                    break
-            description = "Monitor operation"
-            if command and command.callback:
-                doc = command.callback.__doc__ or ""
-                if doc:
-                    description = doc.split("\n")[0].strip()
-            tools[mcp_tool_name] = {
-                "description": description,
-                "inputSchema": schema,
-            }
-        return tools
-
-    @staticmethod
-    def _define_monitor_list_tools() -> dict[str, dict[str, Any]]:
-        """Define monitor filter tools (show/add/remove).
-
-        Returns:
-            Dictionary of monitor list tool definitions
-        """
-        list_name_enum = [
-            "include_paths",
-            "exclude_paths",
-            "include_dirnames",
-            "exclude_dirnames",
-            "include_globs",
-            "exclude_globs",
-        ]
-        return {
-            "wksm_monitor_filter_show": {
-                "description": ("Show contents of a monitor configuration list or list available monitor lists"),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "list_name": {
-                            "type": "string",
-                            "description": "Name of the list to retrieve (optional)",
-                            "enum": list_name_enum,
-                        }
-                    },
-                    "required": [],
-                },
-            },
-            "wksm_monitor_filter_add": {
-                "description": "Add a value to a monitor configuration list",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "list_name": {
-                            "type": "string",
-                            "description": "Name of the list to modify",
-                            "enum": list_name_enum,
-                        },
-                        "value": {
-                            "type": "string",
-                            "description": (
-                                "Value to add (path for include/exclude_paths, "
-                                "dirname for include/exclude_dirnames, "
-                                "pattern for include/exclude_globs)"
-                            ),
-                        },
-                    },
-                    "required": ["list_name", "value"],
-                },
-            },
-            "wksm_monitor_filter_remove": {
-                "description": "Remove a value from a monitor configuration list",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "list_name": {
-                            "type": "string",
-                            "description": "Name of the list to modify",
-                            "enum": list_name_enum,
-                        },
-                        "value": {"type": "string", "description": "Value to remove"},
-                    },
-                    "required": ["list_name", "value"],
-                },
-            },
-        }
-
-    @staticmethod
-    def _define_monitor_managed_tools() -> dict[str, dict[str, Any]]:
-        """Define monitor priority tools."""
-        return {
-            "wksm_monitor_priority_show": {
-                "description": "Get all managed directories with their priorities",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-            "wksm_monitor_priority_add": {
-                "description": "Set or update priority for a managed directory (creates if missing)",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "path": {"type": "string", "description": "Directory path"},
-                        "priority": {"type": "number", "description": "Priority score (float)"},
-                    },
-                    "required": ["path", "priority"],
-                },
-            },
-            "wksm_monitor_priority_remove": {
-                "description": "Remove a managed directory",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "path": {"type": "string", "description": "Directory path to remove"},
-                    },
-                    "required": ["path"],
-                },
-            },
-        }
-
-    @staticmethod
-    def _define_monitor_tools() -> dict[str, dict[str, Any]]:
-        """Define all monitor-related tools.
-
-        Returns:
-            Dictionary of monitor tool definitions
-        """
-        tools = {}
-        tools.update(MCPServer._define_monitor_basic_tools())
-        tools.update(MCPServer._define_monitor_list_tools())
-        tools.update(MCPServer._define_monitor_managed_tools())
-        return tools
-
-    @staticmethod
-    def _define_mcp_tools() -> dict[str, dict[str, Any]]:
-        """Define MCP installation management tools.
-
-        Returns:
-            Dictionary of MCP tool definitions
-        """
-        return {
-            "wksm_mcp_list": {
-                "description": "List MCP installations",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-            "wksm_mcp_install": {
-                "description": "Install WKS MCP server for a named installation",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "Installation name"},
-                        "install_type": {
-                            "type": "string",
-                            "description": "Installation type (default: mcpServersJson)",
-                            "default": "mcpServersJson",
-                        },
-                        "settings_path": {
-                            "type": "string",
-                            "description": "Path to settings file (required for mcpServersJson type)",
-                        },
-                    },
-                    "required": ["name"],
-                },
-            },
-            "wksm_mcp_uninstall": {
-                "description": "Uninstall WKS MCP server for a named installation",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "Installation name"},
-                    },
-                    "required": ["name"],
-                },
-            },
-        }
-
-    @staticmethod
-    def _define_vault_advanced_tools() -> dict[str, dict[str, Any]]:
-        """Define advanced vault tools.
-
-        Returns:
-            Dictionary of advanced vault tool definitions
-        """
-        return {
-            "wksm_vault_status": {
-                "description": "Get vault link status summary including link counts, issues, and errors",
-                "inputSchema": {"type": "object", "properties": {}, "required": []},
-            },
-            "wksm_vault_sync": {
-                "description": "Sync vault links to MongoDB with optional batch size",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "batch_size": {
-                            "type": "integer",
-                            "description": "Number of records to process per batch (default 1000)",
-                        }
-                    },
-                    "required": [],
-                },
-            },
-            "wksm_vault_links": {
-                "description": "Get all links to and from a specific vault file",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "file_path": {
-                            "type": "string",
-                            "description": "Path to the vault file (e.g., ~/_vault/Projects/XYZ.md)",
-                        },
-                        "direction": {
-                            "type": "string",
-                            "description": (
-                                "Link direction filter: 'both' (default), "
-                                "'to' (incoming only), or 'from' (outgoing only)"
-                            ),
-                            "enum": ["both", "to", "from"],
-                        },
-                    },
-                    "required": ["file_path"],
-                },
-            },
-        }
-
-    @staticmethod
-    def _define_tools() -> dict[str, dict[str, Any]]:
-        """Define all MCP tools with their schemas.
-
-        Returns:
-            Dictionary mapping tool names to tool definitions
-        """
-        tools = {}
-        tools.update(
-            {
-                "wksm_config": {
-                    "description": "Get effective configuration",
-                    "inputSchema": {"type": "object", "properties": {}, "required": []},
-                }
-            }
-        )
-        tools.update(MCPServer._define_transform_tools())
-        tools.update(MCPServer._define_daemon_tools())
-        tools.update(MCPServer._define_vault_tools())
-        tools.update(MCPServer._define_db_tools())
-        tools.update(MCPServer._define_monitor_tools())
-        tools.update(MCPServer._define_vault_advanced_tools())
-        tools.update(MCPServer._define_mcp_tools())
-        return tools
-
-    @staticmethod
-    def _define_resources() -> list[dict[str, Any]]:
-        """Define MCP resources.
-
-        Returns:
-            List of resource definitions
-        """
-        return [
-            {
-                "uri": "mcp://wks/tools",
-                "name": "wks-tools",
-                "description": "WKS monitor and vault tooling available via tools/call",
-                "type": "tool-collection",
-            }
-        ]
-
-    def __init__(
-        self,
-        *,
-        input_stream: Any | None = None,
-        output_stream: Any | None = None,
-    ):
-        """Initialize MCP server."""
-        import sys
-
+    def __init__(self, *, input_stream: Any | None = None, output_stream: Any | None = None):
         self._input = input_stream or sys.stdin
         self._output = output_stream or sys.stdout
         self._lsp_mode = False
-        self.tools = MCPServer._define_tools()
-        self.resources = MCPServer._define_resources()
+        self.tools = self._define_tools()
+        self.resources = [{"uri": "mcp://wks/tools", "name": "wks-tools", "description": "WKS tools", "type": "tool-collection"}]
 
-    def _read_content_length_message(self, header_line: str) -> dict[str, Any] | None:
-        """Read message using Content-Length framing (LSP mode).
+    @staticmethod
+    def _define_tools() -> dict[str, dict[str, Any]]:
+        tools = {}
+        for (domain, cmd_name), cmd_func in _discover().items():
+            app = _get_app(domain)
+            if app is None:
+                continue
+            if domain == "config" and cmd_name == "show":
+                schema = get_typer_command_schema(app, None)
+                command = next((cmd for cmd in app.registered_commands if cmd.name is None), None)
+            else:
+                command, schema_app, schema_cmd = None, app, cmd_name
+                for cmd in app.registered_commands:
+                    if cmd.name == cmd_name:
+                        command, schema_app, schema_cmd = cmd, app, cmd_name
+                        break
+                if command is None and hasattr(app, "registered_groups"):
+                    for group in app.registered_groups:
+                        prefix = f"{group.name}_"
+                        if cmd_name.startswith(prefix) and hasattr(group, "typer_instance"):
+                            sub_cmd = cmd_name[len(prefix):]
+                            for cmd in group.typer_instance.registered_commands:
+                                if cmd.name == sub_cmd:
+                                    command, schema_app, schema_cmd = cmd, group.typer_instance, sub_cmd
+                                    break
+                            if command:
+                                break
+                if command is None:
+                    continue
+                schema = get_typer_command_schema(schema_app, schema_cmd)
+            description = (command.callback.__doc__.split("\n")[0].strip() if (command and command.callback and command.callback.__doc__) else f"{domain} {cmd_name} operation")
+            tools[f"wksm_{domain}_{cmd_name}"] = {"description": description, "inputSchema": schema}
+        return tools
 
-        Args:
-            header_line: The Content-Length header line
+    def _build_registry(self) -> dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]]:
+        registry: dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]] = {}
+        for (domain, cmd_name), cmd_func in _discover().items():
+            sig = inspect.signature(cmd_func)
 
-        Returns:
-            Parsed JSON message or None on error
+            def make_handler(func: Callable, sig: inspect.Signature, domain: str) -> Callable:
+                def handler(config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+                    kwargs = {}
+                    for param_name, param in sig.parameters.items():
+                        if param_name == "self":
+                            continue
+                        val = args.get(param_name)
+                        if val is not None:
+                            if param_name == "query" and isinstance(val, dict):
+                                val = json.dumps(val)
+                            kwargs[param_name] = val
+                        elif param.default == inspect.Parameter.empty:
+                            kwargs[param_name] = "" if param_name == "section" and domain == "config" else args.get(param_name, "")
+                    result = func(**kwargs)
+                    if isinstance(result, StageResult):
+                        # Execute progress callback
+                        list(result.progress_callback(result))
+                        return {"success": result.success, "data": result.output}
+                    return {"success": True, "data": result if isinstance(result, dict) else {}}
 
-        Raises:
-            ValueError: If Content-Length header is invalid
-        """
-        self._lsp_mode = True
-        try:
-            length = int(header_line.split(":", 1)[1].strip())
-        except Exception as e:
-            raise ValueError(f"Invalid Content-Length header: {header_line!r}") from e
+                return handler
 
-        # Consume the blank line after headers
-        while True:
-            sep = self._input.readline()
-            if sep == "":
-                break
-            if sep in ("\r\n", "\n", "\r"):
-                break
-            if not sep.strip():
-                break
-
-        payload = self._input.read(length)
-        if payload is None:
-            return None
-        return json.loads(payload)
+            registry[f"wksm_{domain}_{cmd_name}"] = make_handler(cmd_func, sig, domain)
+        return registry
 
     def _read_message(self) -> dict[str, Any] | None:
-        """Read JSON-RPC message supporting newline or Content-Length framing."""
         try:
-            while True:
-                line = self._input.readline()
-                if not line:
-                    return None
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                lowered = stripped.lower()
-                if lowered.startswith("content-length"):
-                    return self._read_content_length_message(stripped)
-                else:
-                    return json.loads(line)
-        except Exception as e:
-            sys.stderr.write(f"Parse error: {e}\n")
+            line = self._input.readline()
+            if not line:
+                return None
+            if line.strip().lower().startswith("content-length"):
+                length = int(line.split(":", 1)[1].strip())
+                while True:
+                    sep = self._input.readline()
+                    if not sep.strip() or sep in ("\r\n", "\n", "\r"):
+                        break
+                self._lsp_mode = True
+                return json.loads(self._input.read(length))
+            return json.loads(line)
+        except Exception:
             return None
 
     def _write_message(self, message: dict[str, Any]) -> None:
-        """Write JSON-RPC message using negotiated framing."""
         payload = json.dumps(message)
         if self._lsp_mode:
             encoded = payload.encode("utf-8")
-            self._output.write(f"Content-Length: {len(encoded)}\r\n\r\n")
-            self._output.write(payload)
+            self._output.write(f"Content-Length: {len(encoded)}\r\n\r\n{payload}")
         else:
             self._output.write(payload)
         self._output.write("\n")
         self._output.flush()
 
-    def _write_response(self, request_id: Any, result: Any) -> None:
-        """Write JSON-RPC response."""
-        self._write_message({"jsonrpc": "2.0", "id": request_id, "result": result})
-
-    def _write_error(self, request_id: Any, code: int, message: str, data: Any = None) -> None:
-        """Write JSON-RPC error response."""
-        error = {"code": code, "message": message}
-        if data is not None:
-            error["data"] = data
-        self._write_message({"jsonrpc": "2.0", "id": request_id, "error": error})
-
-    def _handle_initialize(self, request_id: Any, params: dict[str, Any]) -> None:  # noqa: ARG002
-        """Handle initialize request."""
-        self._write_response(
-            request_id,
-            {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "wks-mcp-server", "version": "1.0.0"},
-            },
-        )
-
-    def _handle_list_tools(self, request_id: Any) -> None:
-        """Handle tools/list request."""
-        tools_list = [
-            {"name": name, "description": info["description"], "inputSchema": info["inputSchema"]}
-            for name, info in self.tools.items()
-        ]
-        self._write_response(request_id, {"tools": tools_list})
-
-    def _handle_list_resources(self, request_id: Any, params: dict[str, Any]) -> None:
-        """Handle resources/list request with a single static page."""
-        if request_id is None:
-            return
-
-        # Basic pagination contract—single page only.
-        result: dict[str, Any] = {"resources": self.resources}
-        if params.get("cursor") is not None:
-            result["nextCursor"] = None
-        self._write_response(request_id, result)
-
-    def _build_tool_registry(self) -> dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]]:
-        """Build registry of tool handlers with parameter validation."""
-
-        def _require_params(
-            *param_names: str,
-        ) -> Callable[
-            [Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]],
-            Callable[[WKSConfig, dict[str, Any]], dict[str, Any]],
-        ]:
-            """Decorator to validate required parameters."""
-
-            def decorator(
-                handler: Callable[[WKSConfig, dict[str, Any]], dict[str, Any]],
-            ) -> Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]:
-                def wrapper(config: WKSConfig, arguments: dict[str, Any]) -> dict[str, Any]:
-                    missing = [p for p in param_names if arguments.get(p) is None]
-                    if missing:
-                        raise ValueError(f"Missing required parameters: {', '.join(missing)}")
-                    return handler(config, arguments)
-
-                return wrapper
-
-            return decorator
-
-        return {
-            "wksm_config": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=_extract_data_from_stage_result(cmd_show(show_all=True))
-            ).to_dict(),
-            "wksm_transform": _require_params("file_path", "engine")(
-                lambda config, args: self._tool_transform(
-                    config, args["file_path"], args["engine"], args.get("options", {})
-                )
-            ),
-            "wksm_cat": _require_params("target")(lambda config, args: self._tool_cat(config, args["target"])),
-            "wksm_diff": _require_params("engine", "target_a", "target_b")(
-                lambda config, args: self._tool_diff(config, args["engine"], args["target_a"], args["target_b"])
-            ),
-            "wksm_daemon": lambda config, args: self._tool_daemon(config, args.get("action", "status")),  # noqa: ARG005
-            "wksm_service": lambda config, args: self._tool_daemon(config, "status"),  # Legacy alias for backwards compatibility
-            "wksm_vault_validate": lambda config, args: self._tool_vault_validate(config),  # noqa: ARG005
-            "wksm_vault_fix_symlinks": lambda config, args: self._tool_vault_fix_symlinks(config),  # noqa: ARG005
-            "wksm_database_monitor": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True,
-                data=_extract_data_from_stage_result(
-                    db_cmd_show(
-                        "monitor",
-                        json.dumps(args.get("query", {})) if args.get("query") else None,
-                        args.get("limit", 50),
-                    )
-                ),
-            ).to_dict(),
-            "wksm_database_vault": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True,
-                data=_extract_data_from_stage_result(
-                    db_cmd_show(
-                        "vault",
-                        json.dumps(args.get("query", {})) if args.get("query") else None,
-                        args.get("limit", 50),
-                    )
-                ),
-            ).to_dict(),
-            "wksm_database_transform": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True,
-                data=_extract_data_from_stage_result(
-                    db_cmd_show(
-                        "transform",
-                        json.dumps(args.get("query", {})) if args.get("query") else None,
-                        args.get("limit", 50),
-                    )
-                ),
-            ).to_dict(),
-            "wksm_monitor_status": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=_extract_data_from_stage_result(monitor_status())
-            ).to_dict(),
-            "wksm_monitor_check": _require_params("path")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True, data=_extract_data_from_stage_result(monitor_check(path=args["path"]))
-                ).to_dict()
-            ),
-            "wksm_monitor_filter_show": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True,
-                data=_extract_data_from_stage_result(cmd_filter_show(list_name=args.get("list_name"))),
-            ).to_dict(),
-            "wksm_monitor_filter_add": _require_params("list_name", "value")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True,
-                    data=_extract_data_from_stage_result(cmd_add(list_name=args["list_name"], value=args["value"])),
-                ).to_dict()
-            ),
-            "wksm_monitor_filter_remove": _require_params("list_name", "value")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True,
-                    data=_extract_data_from_stage_result(cmd_remove(list_name=args["list_name"], value=args["value"])),
-                ).to_dict()
-            ),
-            "wksm_monitor_sync": _require_params("path")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True,
-                    data=_extract_data_from_stage_result(
-                        cmd_sync(path=args["path"], recursive=args.get("recursive", False))
-                    ),
-                ).to_dict()
-            ),
-            "wksm_monitor_priority_show": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=_extract_data_from_stage_result(cmd_priority_show())
-            ).to_dict(),
-            "wksm_monitor_priority_add": _require_params("path", "priority")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True,
-                    data=_extract_data_from_stage_result(
-                        cmd_priority_add(path=args["path"], priority=args["priority"])
-                    ),
-                ).to_dict()
-            ),
-            "wksm_monitor_priority_remove": _require_params("path")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True,
-                    data=_extract_data_from_stage_result(cmd_priority_remove(path=args["path"])),
-                ).to_dict()
-            ),
-            "wksm_vault_status": lambda config, args: self._tool_vault_status(config),  # noqa: ARG005
-            "wksm_vault_sync": lambda config, args: self._tool_vault_sync(config, args.get("batch_size", 1000)),
-            "wksm_vault_links": _require_params("file_path")(
-                lambda config, args: self._tool_vault_links(config, args["file_path"], args.get("direction", "both"))
-            ),
-            "wksm_mcp_list": lambda config, args: MCPResult(  # noqa: ARG005
-                success=True, data=_extract_data_from_stage_result(mcp_cmd_list())
-            ).to_dict(),
-            "wksm_mcp_install": _require_params("name")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True,
-                    data=_extract_data_from_stage_result(
-                        mcp_cmd_install(
-                            args["name"],
-                            args.get("install_type", "mcpServersJson"),
-                            args.get("settings_path"),
-                        )
-                    ),
-                ).to_dict()
-            ),
-            "wksm_mcp_uninstall": _require_params("name")(
-                lambda config, args: MCPResult(  # noqa: ARG005
-                    success=True, data=_extract_data_from_stage_result(mcp_cmd_uninstall(args["name"]))
-                ).to_dict()
-            ),
-        }
-
-    def _handle_call_tool(self, request_id: Any, params: dict[str, Any]) -> None:
-        """Handle tools/call request using registry pattern."""
-        tool_name = params.get("name")
-        arguments = params.get("arguments", {})
-
-        if tool_name not in self.tools:
-            self._write_error(request_id, -32601, f"Tool not found: {tool_name}")
-            return
-
-        try:
-            config = WKSConfig.load()
-            registry = self._build_tool_registry()
-
-            if tool_name not in registry:
-                self._write_error(request_id, -32601, f"Tool not implemented: {tool_name}")
-                return
-
-            handler = registry[tool_name]
-            result = handler(config, arguments)
-
-            self._write_response(request_id, {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]})
-
-        except ValueError as e:
-            self._write_error(request_id, -32602, str(e))
-        except Exception as e:
-            self._write_error(request_id, -32000, f"Tool execution failed: {e}", {"traceback": str(e)})
-
-    def _tool_daemon(self, config: WKSConfig, action: str) -> dict[str, Any]:  # noqa: ARG002
-        """Execute wksm_daemon tool."""
-        from wks.api.daemon import cmd_install, cmd_restart, cmd_start, cmd_status, cmd_stop, cmd_uninstall
-
-        action_map = {
-            "status": cmd_status,
-            "start": cmd_start,
-            "stop": cmd_stop,
-            "restart": cmd_restart,
-            "install": cmd_install,
-            "uninstall": cmd_uninstall,
-        }
-
-        if action not in action_map:
-            return MCPResult.error_result(
-                f"Unknown daemon action: {action}",
-                data={"action": action, "supported_actions": list(action_map.keys())},
-            ).to_dict()
-
-        try:
-            stage_result = action_map[action]()
-            return MCPResult(
-                success=stage_result.success,
-                data=stage_result.output,
-            ).add_success(stage_result.result).to_dict()
-        except Exception as e:
-            return MCPResult.error_result(
-                f"Daemon {action} failed: {e}",
-                data={"action": action},
-            ).to_dict()
-
-    def _tool_monitor_list(self, config: WKSConfig, list_name: str) -> dict[str, Any]:
-        """Execute wks_monitor_list tool."""
-        result = cmd_filter_show(list_name)
-        return result.output
-
-    def _tool_monitor_add(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
-        """Execute wks_monitor_add tool."""
-        result = cmd_filter_add(list_name, value)
-        output = result.output
-        if output.get("success"):
-            config.save()
-            output["note"] = "Restart the daemon for changes to take effect"
-        return output
-
-    def _tool_monitor_remove(self, config: WKSConfig, list_name: str, value: str) -> dict[str, Any]:
-        """Execute wks_monitor_remove tool."""
-        result = cmd_filter_remove(list_name, value)
-        output = result.output
-        if output.get("success"):
-            config.save()
-            output["note"] = "Restart the daemon for changes to take effect"
-        return output
-
-    def _tool_monitor_managed_list(self, config: WKSConfig) -> dict[str, Any]:
-        """Execute wks_monitor_managed_list tool."""
-        result = cmd_priority_show()
-        return result.output
-
-    def _tool_monitor_managed_remove(self, config: WKSConfig, path: str) -> dict[str, Any]:
-        """Legacy helper (unused)."""
-        result = cmd_priority_remove(path)
-        return result.output
-
-    def _tool_monitor_managed_set_priority(self, config: WKSConfig, path: str, priority: float) -> dict[str, Any]:
-        """Legacy helper (unused)."""
-        result = cmd_priority_add(path, priority)
-        return result.output
-
-    def _tool_vault_status(self, config: WKSConfig) -> dict[str, Any]:
-        """Execute wks_vault_status tool."""
-        # VaultStatusController expects dict, convert WKSConfig
-        config_dict = config.to_dict()
-        controller = VaultStatusController(config_dict)
-        summary = controller.summarize()
-        return summary.to_dict()
-
-    def _tool_vault_sync(self, config: WKSConfig, batch_size: int) -> dict[str, Any]:
-        """Execute wks_vault_sync tool."""
-        # VaultController.sync_vault expects dict, convert WKSConfig
-        config_dict = config.to_dict()
-        return VaultController.sync_vault(config_dict, batch_size)
-
-    def _tool_vault_links(self, config: WKSConfig, file_path: str, direction: str = "both") -> dict[str, Any]:
-        """Execute wks_vault_links tool."""
-        from wks.api.database.db_helpers import connect_to_mongo, get_vault_db_config
-
-        from wks.utils.uri_utils import convert_to_uri
-        from wks.utils import expand_path
-
-        # Get vault configuration
-        vault_path_str = config.vault.base_dir
-        if not vault_path_str:
-            return {"error": "vault.base_dir not configured"}
-
-        vault_path = expand_path(vault_path_str)
-
-        # Expand and normalize the file path
-        file_path_expanded = expand_path(file_path)
-
-        # Check if file exists
-        if not file_path_expanded.exists():
-            return {"error": f"File does not exist: {file_path_expanded}"}
-
-        # Check if file is monitored
-        try:
-            result = cmd_check(str(file_path_expanded))
-            output = result.output
-            is_monitored = output.get("is_monitored", False)
-            priority = output.get("priority", 0) if is_monitored else None
-        except Exception:
-            is_monitored = False
-            priority = None
-
-        # Convert to URI using central conversion function
-        target_uri = convert_to_uri(file_path_expanded, vault_path)
-
-        # Also get version without .md extension for fallback matching
-        target_uri_no_ext = target_uri[:-3] if target_uri.endswith(".md") else target_uri
-
-        # Connect to database
-        from pymongo import MongoClient
-
-        uri, db_name, coll_name = get_vault_db_config(config.to_dict())
-        client: MongoClient = connect_to_mongo(uri)
-        coll = client[db_name][coll_name]
-
-        result = {
-            "file": target_uri,
-            "is_monitored": is_monitored,
-            "priority": priority if is_monitored else None,
-        }
-
-        # Query for links FROM this file (URI-only, no legacy path fallbacks)
-        is_external = not target_uri.startswith("vault://")
-        if direction in ("both", "from") and not is_external:
-            from_query = {
-                "doc_type": "link",
-                "$or": [{"from_uri": target_uri}, {"from_uri": target_uri_no_ext}],
-            }
-            links_from = list(coll.find(from_query, {"_id": 0}))
-            result["links_from"] = links_from
-
-        # Query for links TO this file (URI-only, no legacy path fallbacks)
-        if direction in ("both", "to"):
-            to_query = {
-                "doc_type": "link",
-                "$or": [{"to_uri": target_uri}, {"to_uri": target_uri_no_ext}],
-            }
-            links_to = list(coll.find(to_query, {"_id": 0}))
-            result["links_to"] = links_to
-
-        client.close()
-        return result
-
     def _handle_request(self, message: dict[str, Any]) -> None:
-        """Handle a single request message.
-
-        Args:
-            message: Request message dictionary
-        """
-        request_id = message.get("id")
-        method = message.get("method")
-        params = message.get("params", {})
-
-        # Handle different methods
+        request_id, method, params = message.get("id"), message.get("method"), message.get("params", {})
         if method == "initialize":
-            self._handle_initialize(request_id, params)
-        elif method == "initialized" or method == "notifications/initialized":
-            # Notification, no response needed
-            pass
+            self._write_message({"jsonrpc": "2.0", "id": request_id, "result": {"protocolVersion": "2024-11-05", "capabilities": {}, "serverInfo": {"name": "wks-mcp-server", "version": "1.0.0"}}})
         elif method == "tools/list":
-            self._handle_list_tools(request_id)
+            self._write_message({"jsonrpc": "2.0",
+                                 "id": request_id,
+                                 "result": {"tools": [{"name": name,
+                                                       "description": info["description"],
+                                                       "inputSchema": info["inputSchema"]} for name,
+                                                      info in self.tools.items()]}})
         elif method == "resources/list":
-            self._handle_list_resources(request_id, params)
+            self._write_message({"jsonrpc": "2.0", "id": request_id, "result": {"resources": self.resources}})
         elif method == "tools/call":
-            self._handle_call_tool(request_id, params)
-        elif method == "ping":
-            self._write_response(request_id, {})
-        else:
-            # Only send error if this is a request (has ID), not a notification
-            if request_id is not None:
-                self._write_error(request_id, -32601, f"Method not found: {method}")
+            tool_name, arguments = params.get("name"), params.get("arguments", {})
+            if tool_name not in self.tools:
+                self._write_message({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"Tool not found: {tool_name}"}})
+                return
+            try:
+                registry = self._build_registry()
+                if tool_name not in registry:
+                    self._write_message({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"Tool not implemented: {tool_name}"}})
+                    return
+                result = registry[tool_name](WKSConfig.load(), arguments)
+                self._write_message({"jsonrpc": "2.0", "id": request_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}})
+            except Exception as e:
+                self._write_message({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32000, "message": f"Tool execution failed: {e}"}})
+        elif request_id is not None:
+            self._write_message({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"Method not found: {method}"}})
 
     def run(self) -> None:
-        """Run MCP server main loop."""
         while True:
             message = self._read_message()
             if message is None:
@@ -962,249 +186,15 @@ class MCPServer:
             self._handle_request(message)
 
 
-    def _tool_transform(
-        self,
-        config: WKSConfig,  # noqa: ARG002
-        file_path: str,
-        engine: str,
-        options: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Execute wksm_transform tool."""
-        from pathlib import Path
-
-        from wks.api.config.WKSConfig import WKSConfig
-        from wks.api.database.db_helpers import connect_to_mongo
-        from wks.api.transform.controller import TransformController
-        from wks.utils import expand_path
-
-        result = MCPResult(success=False, data={})
-
-        try:
-            # Validate file exists
-            path = expand_path(file_path)
-            if not path.exists():
-                return result.error_result(f"File not found: {path}", data={}).to_dict()
-
-            # Use global WKSConfig (tests patch WKSConfig.load accordingly)
-            wks_cfg = WKSConfig.load()
-            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
-            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
-
-            from pymongo import MongoClient
-
-            from wks.api.database._mongo._DbConfigData import _DbConfigData
-
-            if isinstance(wks_cfg.database.data, _DbConfigData):
-                uri = wks_cfg.database.data.uri
-            else:
-                uri = "mongodb://localhost:27017/"
-            db_name = wks_cfg.database.prefix
-
-            client: MongoClient = connect_to_mongo(uri)
-            db = client[db_name]
-
-            controller = TransformController(db, cache_location, max_size_bytes)
-
-            # Transform
-            result.add_status(f"Transforming {path.name} using {engine}...")
-            cache_key = controller.transform(path, engine, options)
-
-            return result.success_result({"checksum": cache_key}, "Transform completed successfully").to_dict()
-
-        except ValueError as e:
-            return result.error_result(f"Invalid input: {e!s}", data={}).to_dict()
-        except RuntimeError as e:
-            return result.error_result(f"Transform failed: {e!s}", data={}).to_dict()
-        except Exception as e:
-            return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
-
-    def _tool_cat(self, config: WKSConfig, target: str) -> dict[str, Any]:  # noqa: ARG002
-        """Execute wksm_cat tool."""
-        from pathlib import Path
-
-        from wks.api.config.WKSConfig import WKSConfig
-        from wks.api.transform.controller import TransformController
-
-        result = MCPResult(success=False, data={})
-
-        try:
-            # Load config dataclass for proper cache location resolution
-            wks_cfg = WKSConfig.load()
-            cache_location = Path(wks_cfg.transform.cache.location).expanduser()
-            max_size_bytes = wks_cfg.transform.cache.max_size_bytes
-
-            from wks.api.database.Database import Database
-
-            # Get database using Database directly
-            database = Database(wks_cfg.database, "_")
-            database.__enter__()
-            db = database.get_database(wks_cfg.database.prefix)
-
-            controller = TransformController(db, cache_location, max_size_bytes)
-
-            # Get content
-            content = controller.get_content(target)
-
-            return result.success_result({"content": content}, "Content retrieved successfully").to_dict()
-
-        except FileNotFoundError as e:
-            return result.error_result(f"File or cache entry not found: {target}", details=str(e), data={}).to_dict()
-        except Exception as e:
-            return result.error_result(f"Failed to retrieve content: {e!s}", details=str(e), data={}).to_dict()
-
-    def _tool_diff(
-        self,
-        config: WKSConfig | dict[str, Any],
-        engine: str,
-        target_a: str,
-        target_b: str,
-    ) -> dict[str, Any]:
-        """Execute wksm_diff tool."""
-        from pathlib import Path
-
-        from wks.api.database.db_helpers import connect_to_mongo
-        from wks.api.diff.controller import DiffController
-        from wks.api.diff.config import DiffConfig, DiffConfigError
-        from wks.api.transform.controller import TransformController
-
-        result = MCPResult(success=False, data={})
-
-        try:
-            # Setup transform controller for checksum resolution
-            if isinstance(config, WKSConfig):
-                transform_cfg = {
-                    "cache_location": config.transform.cache.location,
-                    "cache_max_size_bytes": config.transform.cache.max_size_bytes,
-                    "database": config.transform.database,
-                }
-                raw_config: dict[str, Any] = config.to_dict()
-            else:
-                transform_cfg = config.get("transform", {})
-                raw_config = config
-
-            if isinstance(transform_cfg, dict):
-                cache_location_str = transform_cfg.get("cache_location", "~/.wks/cache")
-                max_size_bytes_val = transform_cfg.get("cache_max_size_bytes", 1024 * 1024 * 1024)
-                db_name_str = transform_cfg.get("database", "wks.transform")
-            else:
-                cache_location_str = getattr(transform_cfg, "cache_location", "~/.wks/cache")
-                max_size_bytes_val = getattr(transform_cfg, "cache_max_size_bytes", 1024 * 1024 * 1024)
-                db_name_str = getattr(transform_cfg, "database", "wks.transform")
-
-            cache_location = Path(str(cache_location_str)).expanduser()
-            max_size_bytes: int = (
-                int(max_size_bytes_val) if isinstance(max_size_bytes_val, (int, str)) else 1024 * 1024 * 1024
-            )
-
-            from pymongo import MongoClient
-
-            from wks.api.database._mongo._DbConfigData import _DbConfigData
-
-            db_name = str(db_name_str).split(".")[0]
-
-            # Get URI from config if available
-            if isinstance(config, WKSConfig) and isinstance(config.database.data, _DbConfigData):
-                uri = config.database.data.uri
-            else:
-                uri = "mongodb://localhost:27017/"
-
-            client: MongoClient = connect_to_mongo(uri)
-            db = client[db_name]
-
-            transform_controller = TransformController(db, cache_location, max_size_bytes)
-
-            # Load diff configuration and construct controller when available.
-            try:
-                diff_config = DiffConfig.from_config_dict(raw_config)
-            except DiffConfigError:
-                diff_config = None
-
-            diff_controller = DiffController(diff_config, transform_controller)
-
-            # Diff
-            diff_result = diff_controller.diff(target_a, target_b, engine)
-
-            client.close()
-
-            return result.success_result({"diff": diff_result}, f"Diff computed successfully using {engine}").to_dict()
-
-        except ValueError as e:
-            return result.error_result(f"Invalid input: {e!s}", details=str(e), data={}).to_dict()
-        except RuntimeError as e:
-            return result.error_result(f"Diff failed: {e!s}", details=str(e), data={}).to_dict()
-        except Exception as e:
-            return result.error_result(f"Unexpected error: {e!s}", details=str(e), data={}).to_dict()
-
-    def _tool_vault_validate(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
-        """Execute wks_vault_validate tool."""
-        from wks.api.vault import VaultController, load_vault
-
-        # load_vault expects a plain dict
-        config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
-        vault = load_vault(config_dict)
-        controller = VaultController(vault)
-        return controller.validate_vault()
-
-    def _tool_vault_fix_symlinks(self, config: WKSConfig | dict[str, Any]) -> dict[str, Any]:
-        """Execute wks_vault_fix_symlinks tool."""
-        from wks.api.vault import VaultController, load_vault
-
-        # load_vault expects a plain dict
-        config_dict = config.to_dict() if hasattr(config, "to_dict") else dict(config)
-        vault = load_vault(config_dict)
-        controller = VaultController(vault)
-        result = controller.fix_symlinks()
-
-        # Convert dataclass to dict
-        return {
-            "notes_scanned": result.notes_scanned,
-            "links_found": result.links_found,
-            "created": result.created,
-            "failed": result.failed,
-        }
-
-
-
 def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    """
-    Call an MCP tool programmatically (for CLI use).
-
-    This allows CLI to use MCP tools as the source of truth, ensuring
-    zero duplication between CLI and MCP interfaces.
-
-    MCP tools return structured MCPResult dictionaries with:
-    - success: bool
-    - data: dict (actual result data)
-    - messages: list of structured messages (errors, warnings, info, status)
-    - log: optional list of log entries
-
-    Args:
-        tool_name: Name of the tool to call (e.g., "wksm_transform")
-        arguments: Tool arguments as a dictionary
-
-    Returns:
-        MCPResult as a dictionary with success, data, messages, and optionally log
-
-    Raises:
-        KeyError: If tool name is not found
-        ValueError: If required parameters are missing (from tool validation)
-    """
-    config_obj = WKSConfig.load()
     server = MCPServer()
-    registry = server._build_tool_registry()
-
+    registry = server._build_registry()
     if tool_name not in registry:
-        from .result import MCPResult
-
-        error_result = MCPResult.error_result(f"Tool not found: {tool_name}", data={})
-        return error_result.to_dict()
-
-    handler = registry[tool_name]
-    return handler(config_obj, arguments)
+        return {"success": False, "data": {}, "error": f"Tool not found: {tool_name}"}
+    return registry[tool_name](WKSConfig.load(), arguments)
 
 
 def main() -> None:
-    """Main entry point for MCP server."""
     server = MCPServer()
     try:
         server.run()

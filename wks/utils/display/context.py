@@ -4,9 +4,7 @@ import os
 import sys
 from typing import Literal
 
-from .base import Display
-from .cli import CLIDisplay
-from .mcp import MCPDisplay
+from .Display import Display
 
 DisplayMode = Literal["cli", "mcp"]
 
@@ -38,18 +36,13 @@ def get_display(mode: DisplayMode | None = None) -> Display:
               If None, auto-detect based on context
 
     Returns:
-        Display implementation (CLIDisplay or MCPDisplay)
+        Display implementation (CLIDisplay)
     """
-    if mode is None:
-        # Auto-detect
-        mode = "mcp" if is_mcp_context() else "cli"
+    # MCP server calls API functions directly, bypassing display layer
+    # So we always return CLI display
+    from wks.cli.display import CLIDisplay
 
-    if mode == "mcp":
-        return MCPDisplay()
-    elif mode == "cli":
-        return CLIDisplay()
-    else:
-        raise ValueError(f"Invalid display mode: {mode}. Must be 'cli' or 'mcp'")
+    return CLIDisplay()
 
 
 def add_display_argument(parser) -> None:
@@ -66,3 +59,4 @@ def add_display_argument(parser) -> None:
         default=default_mode,
         help=f"Output display format (default: {default_mode}, auto-detected)",
     )
+

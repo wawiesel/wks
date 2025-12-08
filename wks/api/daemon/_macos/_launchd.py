@@ -20,10 +20,14 @@ def _get_plist_path(label: str) -> Path:
 
 def _create_plist_content(config: _DaemonConfigData, python_path: str, module_path: str, project_root: Path) -> str:
     """Create launchd plist XML content."""
-    # Expand paths
-    log_file = Path(config.log_file).expanduser()
-    error_log_file = Path(config.error_log_file).expanduser()
-    working_directory = Path(config.working_directory).expanduser()
+    from ...config.WKSConfig import WKSConfig
+    
+    # Working directory is always WKS_HOME
+    working_directory = WKSConfig.get_home_dir()
+    
+    # Log files are relative to WKS_HOME
+    log_file = working_directory / config.log_file
+    error_log_file = working_directory / config.error_log_file
 
     # Ensure directories exist
     log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -88,8 +92,23 @@ def install_service(config: _DaemonConfigData, python_path: str, module_path: st
     # Write plist file
     plist_path.write_text(plist_content, encoding="utf-8")
 
-    # Load service with launchctl
+    # Check if service is already loaded
     uid = os.getuid()
+    try:
+        result = subprocess.run(
+            ["launchctl", "print", f"gui/{uid}/{config.label}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            raise RuntimeError(f"Service is already installed and loaded. Use 'wksc daemon uninstall' first, or 'wksc daemon reinstall' to reinstall.")
+    except RuntimeError:
+        raise  # Re-raise our error
+    except Exception:
+        pass  # If check fails, proceed with bootstrap
+
+    # Load service with launchctl
     try:
         subprocess.run(
             ["launchctl", "bootstrap", f"gui/{uid}", str(plist_path)],

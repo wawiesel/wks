@@ -26,6 +26,15 @@ class _AbstractImpl(ABC):
         pass
 
     @abstractmethod
+    def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
+        """Update multiple documents matching the filter.
+
+        Returns:
+            Number of documents modified
+        """
+        pass
+
+    @abstractmethod
     def delete_many(self, filter: dict[str, Any]) -> int:
         pass
 
