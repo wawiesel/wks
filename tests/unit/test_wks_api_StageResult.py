@@ -21,4 +21,3 @@ def test_stage_result_initialization():
     assert result.result == ""
     assert result.output == {}
     assert result.success is False
-

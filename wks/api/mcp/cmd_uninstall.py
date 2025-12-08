@@ -86,4 +86,3 @@ def cmd_uninstall(name: str) -> StageResult:
             output={"success": False, "error": str(e)},
             success=False,
         )
-

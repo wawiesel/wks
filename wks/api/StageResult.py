@@ -16,4 +16,3 @@ class StageResult:
     result: str = ""
     output: dict = field(default_factory=dict)
     success: bool = False
-

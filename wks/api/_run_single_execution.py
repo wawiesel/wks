@@ -60,4 +60,3 @@ def _run_single_execution(
 
     # Exit with appropriate code
     sys.exit(0 if result.success else 1)
-

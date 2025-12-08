@@ -55,4 +55,3 @@ class DatabaseConfig(BaseModel):
         if isinstance(self.data, _MongoDbConfigData):
             return self.data.uri
         raise AttributeError(f"Backend type '{self.type}' does not have a uri attribute")
-

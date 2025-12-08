@@ -293,4 +293,3 @@ class CLIDisplay(Display):
             **panel_kwargs,
         )
         self.console.print(panel)
-

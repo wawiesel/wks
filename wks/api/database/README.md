@@ -29,7 +29,7 @@ This directory implements the database API following a strict one-file-per-funct
 
 **Command structure**: Commands are plain Python functions with Typer annotations. They return `StageResult` containing structured data. The `handle_stage_result()` wrapper in `app.py` executes progress callbacks if present.
 
-**Database access**: Use `Database` context manager from `Database.py` for database operations, or `Database.query()` classmethod for simple pass-through queries. 
+**Database access**: Use `Database` context manager from `Database.py` for database operations, or `Database.query()` classmethod for simple pass-through queries.
 
 ### Database Configuration
 

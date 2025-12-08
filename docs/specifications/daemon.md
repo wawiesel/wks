@@ -18,7 +18,7 @@ wksc daemon uninstall        # Remove system service
 **Start vs Restart Behavior**:
 
 **`wksc daemon start`** (idempotent - ensures daemon is running):
-- **If service is installed and loaded**: Uses `launchctl kickstart -k` 
+- **If service is installed and loaded**: Uses `launchctl kickstart -k`
   - Kills and restarts the process if already running
   - Starts the process if not running
   - Does NOT reload the plist file (service stays loaded in launchctl)
@@ -117,4 +117,3 @@ The daemon status file is used by `wksc daemon status` to:
 - Distinguish between current and past issues based on timestamps
 
 The file is written periodically by the daemon and should be kept simple - it's not a metrics log, just a way to surface issues to users. The daemon should clear resolved warnings/errors from the arrays when they are no longer relevant.
-

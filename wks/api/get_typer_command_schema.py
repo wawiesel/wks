@@ -76,4 +76,3 @@ def get_typer_command_schema(app: typer.Typer, command_name: str | None) -> dict
             return schema
 
     raise ValueError(f"Command {command_name} not found in app")
-

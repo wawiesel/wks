@@ -55,4 +55,3 @@ def uninstall_command(
 mcp_app.command(name="list")(handle_stage_result(cmd_list))
 mcp_app.command(name="install")(install_command)
 mcp_app.command(name="uninstall")(uninstall_command)
-

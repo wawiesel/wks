@@ -13,7 +13,7 @@ from ._DbConfigData import _DbConfigData
 class _Impl(_AbstractImpl):
     def __init__(self, db_config: DatabaseConfig, database_name: str, collection_name: str):
         """Initialize MongoDB implementation.
-        
+
         Note: Internally MongoDB uses "collections" but the public API uses "database" terminology.
         The collection_name parameter maps to a MongoDB collection.
         """

@@ -44,7 +44,7 @@ class _AbstractImpl(ABC):
 
     def list_collection_names(self) -> list[str]:
         """List all database names (optional, for app.py callback).
-        
+
         Note: Backend implementations may use different terminology internally.
         For MongoDB, this returns collection names.
         """

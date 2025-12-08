@@ -107,4 +107,3 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
             output={"success": False, "error": str(e)},
             success=False,
         )
-

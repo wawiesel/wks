@@ -11,7 +11,7 @@ _SCHEMA_REGISTRY: dict[tuple[str, str], type[BaseModel]] = {}
 
 def register_output_schema(domain: str, command_name: str, schema_class: type[BaseModel]) -> None:
     """Register an output schema for a command.
-    
+
     Args:
         domain: Domain name (e.g., "daemon", "config", "database")
         command_name: Command name without "cmd_" prefix (e.g., "status", "start")
@@ -25,13 +25,12 @@ def register_output_schema(domain: str, command_name: str, schema_class: type[Ba
 
 def get_output_schema(domain: str, command_name: str) -> type[BaseModel] | None:
     """Get the output schema for a command.
-    
+
     Args:
         domain: Domain name (e.g., "daemon", "config", "database")
         command_name: Command name without "cmd_" prefix (e.g., "status", "start")
-    
+
     Returns:
         Schema class if registered, None otherwise
     """
     return _SCHEMA_REGISTRY.get((domain, command_name))
-

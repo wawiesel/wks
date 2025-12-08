@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 class NewSectionConfig(BaseModel):
     """New section configuration."""
-    
+
     setting1: str = Field(..., description="Required setting")
     setting2: int = Field(default=42, description="Optional setting with default")
 ```
@@ -107,4 +107,3 @@ After these changes:
 - `WKSConfig.save()` will automatically save the vault section
 
 No other changes needed!
-

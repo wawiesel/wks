@@ -15,4 +15,3 @@ def _cleanup_legacy_fields(database: Database) -> None:
     except Exception:
         # Silent on purpose: cleanup should not crash sync
         pass
-

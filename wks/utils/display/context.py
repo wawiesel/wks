@@ -59,4 +59,3 @@ def add_display_argument(parser) -> None:
         default=default_mode,
         help=f"Output display format (default: {default_mode}, auto-detected)",
     )
-

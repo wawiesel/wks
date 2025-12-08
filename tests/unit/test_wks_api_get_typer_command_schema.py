@@ -29,4 +29,3 @@ def test_get_typer_command_schema_raises_on_missing_command():
         assert False, "Should have raised ValueError"
     except ValueError as e:
         assert "nonexistent" in str(e)
-

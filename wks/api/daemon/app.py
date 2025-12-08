@@ -79,4 +79,3 @@ daemon_app.command(name="restart")(restart_command)
 daemon_app.command(name="install")(install_command)
 daemon_app.command(name="uninstall")(uninstall_command)
 daemon_app.command(name="reinstall")(reinstall_command)
-

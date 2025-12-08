@@ -21,10 +21,10 @@ def _get_plist_path(label: str) -> Path:
 def _create_plist_content(config: _DaemonConfigData, python_path: str, module_path: str, project_root: Path) -> str:
     """Create launchd plist XML content."""
     from ...config.WKSConfig import WKSConfig
-    
+
     # Working directory is always WKS_HOME
     working_directory = WKSConfig.get_home_dir()
-    
+
     # Log files are relative to WKS_HOME
     log_file = working_directory / config.log_file
     error_log_file = working_directory / config.error_log_file
@@ -197,4 +197,3 @@ def get_service_status(config: _DaemonConfigData) -> dict[str, Any]:
             pass
 
     return status
-

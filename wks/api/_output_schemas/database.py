@@ -32,4 +32,3 @@ class DatabaseResetOutput(BaseOutputSchema):
 register_output_schema("database", "list", DatabaseListOutput)
 register_output_schema("database", "show", DatabaseShowOutput)
 register_output_schema("database", "reset", DatabaseResetOutput)
-
