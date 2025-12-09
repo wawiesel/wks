@@ -6,7 +6,6 @@ import pytest
 from tests.unit.conftest import DummyConfig
 from tests.unit.conftest import run_cmd
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.config.WKSConfig import WKSConfig
 from wks.api.monitor import cmd_filter_add
 
 pytestmark = pytest.mark.monitor

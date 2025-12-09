@@ -17,7 +17,7 @@ def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch):
 
     result = run_cmd(cmd_filter_show.cmd_filter_show)
     assert result.output["available_lists"]
-    assert result.output["success"] is True
+    assert result.success is True
 
 
 def test_cmd_filter_show_returns_list(monkeypatch):

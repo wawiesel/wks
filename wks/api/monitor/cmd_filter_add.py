@@ -26,14 +26,13 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
         if list_name not in MonitorConfig.get_filter_list_names():
             yield (1.0, "Complete")
             result_obj.output = MonitorFilterAddOutput(
-                errors=[],
+                errors=[f"Unknown list_name: {list_name!r}"],
                 warnings=[],
                 success=False,
                 message=f"Unknown list_name: {list_name!r}",
                 value_stored=None,
-                validation_failed=None,
-                already_exists=None,
-                error=f"Unknown list_name: {list_name!r}",
+                validation_failed=False,
+                already_exists=False,
             ).model_dump(mode="python")
             result_obj.result = result_obj.output["message"]
             result_obj.success = False
@@ -68,14 +67,13 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             if err:
                 yield (1.0, "Complete")
                 result_obj.output = MonitorFilterAddOutput(
-                    errors=[],
+                    errors=[err],
                     warnings=[],
                     success=False,
                     message=err,
                     value_stored=None,
                     validation_failed=True,
-                    already_exists=None,
-                    error=None,
+                    already_exists=False,
                 ).model_dump(mode="python")
                 result_obj.result = err
                 result_obj.success = False
@@ -99,14 +97,13 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             if err:
                 yield (1.0, "Complete")
                 result_obj.output = MonitorFilterAddOutput(
-                    errors=[],
+                    errors=[err],
                     warnings=[],
                     success=False,
                     message=err,
                     value_stored=None,
                     validation_failed=True,
-                    already_exists=None,
-                    error=None,
+                    already_exists=False,
                 ).model_dump(mode="python")
                 result_obj.result = err
                 result_obj.success = False
@@ -136,9 +133,8 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
                 success=False,
                 message=f"Already in {list_name}: {existing}",
                 value_stored=None,
-                validation_failed=None,
+                validation_failed=False,
                 already_exists=True,
-                error=None,
             ).model_dump(mode="python")
             result_obj.result = result_obj.output["message"]
             result_obj.success = False
@@ -156,9 +152,8 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             success=True,
             message=f"Added to {list_name}: {value_to_store}",
             value_stored=value_to_store,
-            validation_failed=None,
-            already_exists=None,
-            error=None,
+            validation_failed=False,
+            already_exists=False,
         ).model_dump(mode="python")
         result_obj.result = result_obj.output["message"]
         result_obj.success = True

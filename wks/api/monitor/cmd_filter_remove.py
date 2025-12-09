@@ -25,13 +25,12 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
         if list_name not in MonitorConfig.get_filter_list_names():
             yield (1.0, "Complete")
             result_obj.output = MonitorFilterRemoveOutput(
-                errors=[],
+                errors=[f"Unknown list_name: {list_name!r}"],
                 warnings=[],
                 success=False,
                 message=f"Unknown list_name: {list_name!r}",
                 value_removed=None,
-                not_found=None,
-                error=f"Unknown list_name: {list_name!r}",
+                not_found=False,
             ).model_dump(mode="python")
             result_obj.result = result_obj.output["message"]
             result_obj.success = False
@@ -61,7 +60,6 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
                 message=f"Value not found in {list_name}: {value}",
                 value_removed=None,
                 not_found=True,
-                error=None,
             ).model_dump(mode="python")
             result_obj.result = result_obj.output["message"]
             result_obj.success = False
@@ -76,8 +74,7 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
             success=True,
             message=f"Removed from {list_name}: {removed_value}",
             value_removed=removed_value,
-            not_found=None,
-            error=None,
+            not_found=False,
         ).model_dump(mode="python")
         result_obj.result = result_obj.output["message"]
         result_obj.success = True

@@ -31,43 +31,39 @@ def cmd_filter_show(list_name: str | None = None) -> StageResult:
                 warnings=[],
                 available_lists=available_lists,
                 list_name=None,
-                items=None,
-                count=None,
-                success=True,
-                error=None,
+                items=[],
+                count=0,
             ).model_dump(mode="python")
             result_obj.result = "Available monitor lists"
             result_obj.success = True
             return
 
         if list_name not in MonitorConfig.get_filter_list_names():
+            available_lists = list(MonitorConfig.get_filter_list_names())
             yield (1.0, "Complete")
             result_obj.output = MonitorFilterShowOutput(
-                errors=[],
+                errors=[f"Unknown list_name: {list_name!r}"],
                 warnings=[],
-                available_lists=None,
+                available_lists=available_lists,
                 list_name=None,
-                items=None,
-                count=None,
-                success=False,
-                error=f"Unknown list_name: {list_name!r}",
+                items=[],
+                count=0,
             ).model_dump(mode="python")
-            result_obj.result = result_obj.output["error"]
+            result_obj.result = f"Unknown list_name: {list_name!r}"
             result_obj.success = False
             raise ValueError(f"Unknown list_name: {list_name!r}")
 
         yield (0.7, f"Retrieving {list_name}...")
         items = list(getattr(monitor_cfg.filter, list_name))
+        available_lists = list(MonitorConfig.get_filter_list_names())
         yield (1.0, "Complete")
         result_obj.output = MonitorFilterShowOutput(
             errors=[],
             warnings=[],
-            available_lists=None,
+            available_lists=available_lists,
             list_name=list_name,
             items=items,
             count=len(items),
-            success=True,
-            error=None,
         ).model_dump(mode="python")
         result_obj.result = f"Showing {list_name} ({len(items)} items)"
         result_obj.success = True
