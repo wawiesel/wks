@@ -33,7 +33,15 @@ def test_get_rules():
                     "include_globs": ["*.py"],
                     "exclude_globs": ["*.tmp"],
                 },
-                "priority": {},
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -60,8 +68,23 @@ def test_get_rules_empty():
     cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {},
-                "priority": {},
+                "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -84,8 +107,21 @@ def test_from_config_dict_with_filter_section():
             "monitor": {
                 "filter": {
                     "include_paths": ["/tmp"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
                 },
-                "priority": {},
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -104,8 +140,23 @@ def test_from_config_dict_without_filter_section():
     cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {},
-                "priority": {},
+                "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,

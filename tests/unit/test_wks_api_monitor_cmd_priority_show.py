@@ -14,8 +14,23 @@ pytestmark = pytest.mark.monitor
 def test_cmd_priority_show_returns_stage_result(patch_wks_config, monkeypatch):
     """Test cmd_priority_show returns correct output."""
     patch_wks_config.monitor = MonitorConfig(
-        filter={},
-        priority={"dirs": {"/tmp/a": 1.0}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {"/tmp/a": 1.0},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )

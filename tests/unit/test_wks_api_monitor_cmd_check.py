@@ -6,6 +6,7 @@ import pytest
 
 from tests.unit.conftest import run_cmd
 from wks.api.monitor.cmd_check import cmd_check
+from wks.api.monitor.MonitorConfig import MonitorConfig
 
 pytestmark = pytest.mark.monitor
 
@@ -16,8 +17,23 @@ def test_cmd_check_reports_monitored(monkeypatch):
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={
             "max_documents": 1000000,
@@ -47,8 +63,23 @@ def test_cmd_check_path_not_exists(monkeypatch):
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={
             "max_documents": 1000000,
@@ -77,8 +108,23 @@ def test_cmd_check_path_not_exists(monkeypatch):
 def test_cmd_check_other_trace_message(patch_wks_config, monkeypatch):
     """Test cmd_check with trace message that doesn't match excluded/included patterns (covers line 50)."""
     patch_wks_config.monitor = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )

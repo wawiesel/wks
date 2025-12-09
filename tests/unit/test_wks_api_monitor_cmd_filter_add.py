@@ -18,8 +18,23 @@ def test_cmd_filter_add_saves_on_success(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_paths": []},
-                "priority": {},
+                "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -45,8 +60,23 @@ def test_cmd_filter_add_unknown_list_name(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {},
-                "priority": {},
+                "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -71,8 +101,22 @@ def test_cmd_filter_add_empty_dirname(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_dirnames": []},
-                "priority": {},
+                "filter": {"include_dirnames": [],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -99,8 +143,22 @@ def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_dirnames": []},
-                "priority": {},
+                "filter": {"include_dirnames": [],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -127,8 +185,22 @@ def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"exclude_dirnames": ["testdir"]},
-                "priority": {},
+                "filter": {"exclude_dirnames": ["testdir"],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -155,8 +227,22 @@ def test_cmd_filter_add_dirname_no_error(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_dirnames": []},
-                "priority": {},
+                "filter": {"include_dirnames": [],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -182,8 +268,22 @@ def test_cmd_filter_add_empty_glob(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_globs": []},
-                "priority": {},
+                "filter": {"include_globs": [],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -210,8 +310,22 @@ def test_cmd_filter_add_glob_validation_success(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_globs": []},
-                "priority": {},
+                "filter": {"include_globs": [],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -245,8 +359,22 @@ def test_cmd_filter_add_validation_error(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_dirnames": []},
-                "priority": {},
+                "filter": {"include_dirnames": [],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -274,8 +402,22 @@ def test_cmd_filter_add_duplicate(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_paths": ["/tmp/x"]},
-                "priority": {},
+                "filter": {"include_paths": ["/tmp/x"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,

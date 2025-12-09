@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
+from .._output_schemas.database import DatabaseResetOutput
 from .Database import Database
 
 
@@ -33,22 +34,22 @@ def cmd_reset(database: str) -> StageResult:
 
             yield (1.0, "Complete")
             result_obj.result = f"Deleted {deleted_count} document(s) from {database}"
-            result_obj.output = {
-                "errors": [],
-                "warnings": [],
-                "database": database,
-                "deleted_count": deleted_count,
-            }
+            result_obj.output = DatabaseResetOutput(
+                errors=[],
+                warnings=[],
+                database=database,
+                deleted_count=deleted_count,
+            ).model_dump(mode="python")
             result_obj.success = True
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Reset failed: {e}"
-            result_obj.output = {
-                "errors": [str(e)],
-                "warnings": [],
-                "database": database,
-                "deleted_count": -1,
-            }
+            result_obj.output = DatabaseResetOutput(
+                errors=[str(e)],
+                warnings=[],
+                database=database,
+                deleted_count=-1,
+            ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(

@@ -16,8 +16,23 @@ def test_cmd_status_mongodb_error(monkeypatch):
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={
             "max_documents": 1000000,
@@ -47,8 +62,23 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
     from pathlib import Path
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {"/invalid/path": 100.0}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {"/invalid/path": 100.0},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={
             "max_documents": 1000000,

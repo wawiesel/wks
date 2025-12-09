@@ -23,8 +23,21 @@ def build_monitor_config(**overrides):
                 "include_globs": overrides.pop("include_globs", []),
                 "exclude_globs": overrides.pop("exclude_globs", []),
             },
-            "priority": overrides.pop("priority", {}),
-            "sync": overrides.pop("sync", {"database": "wks.monitor"}),
+            "priority": overrides.pop("priority", {
+                "dirs": {},
+                "weights": {
+                    "depth_multiplier": 0.9,
+                    "underscore_multiplier": 0.5,
+                    "only_underscore_multiplier": 0.1,
+                    "extension_weights": {},
+                },
+            }),
+            "database": overrides.pop("database", "monitor"),
+            "sync": overrides.pop("sync", {
+                "max_documents": 1000000,
+                "min_priority": 0.0,
+                "prune_interval_secs": 300.0,
+            }),
         }
     }
     return MonitorConfig.from_config_dict(config_dict)
@@ -38,7 +51,8 @@ def test_explain_path_wks_home_excluded(tmp_path, monkeypatch):
     test_file.write_text("test")
 
     monkeypatch.setenv("WKS_HOME", str(wks_home))
-    monkeypatch.setattr("wks.api.monitor.explain_path.get_home_dir", lambda: wks_home)
+    from wks.api.config.WKSConfig import WKSConfig
+    monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: wks_home))
 
     cfg = build_monitor_config()
     allowed, trace = explain_path(cfg, test_file)
@@ -193,7 +207,8 @@ def test_explain_path_valueerror_different_drives(tmp_path, monkeypatch):
     test_file = wks_home / "test.txt"
     test_file.write_text("test")
 
-    monkeypatch.setattr("wks.api.monitor.explain_path.get_home_dir", lambda: wks_home)
+    from wks.api.config.WKSConfig import WKSConfig
+    monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: wks_home))
 
     cfg = build_monitor_config()
 

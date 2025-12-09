@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
+from .._output_schemas.database import DatabaseListOutput
 from .Database import Database
 
 
@@ -29,11 +30,11 @@ def cmd_list() -> StageResult:
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Failed to list databases: {e}"
-            result_obj.output = {
-                "errors": [str(e)],
-                "warnings": [],
-                "databases": [],
-            }
+            result_obj.output = DatabaseListOutput(
+                errors=[str(e)],
+                warnings=[],
+                databases=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
@@ -41,11 +42,11 @@ def cmd_list() -> StageResult:
 
         yield (1.0, "Complete")
         result_obj.result = f"Found {len(database_names)} database(s)"
-        result_obj.output = {
-            "errors": [],
-            "warnings": [],
-            "databases": database_names,
-        }
+        result_obj.output = DatabaseListOutput(
+            errors=[],
+            warnings=[],
+            databases=database_names,
+        ).model_dump(mode="python")
         result_obj.success = True
 
     return StageResult(

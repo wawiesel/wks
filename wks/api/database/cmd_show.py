@@ -4,6 +4,7 @@ import json
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
+from .._output_schemas.database import DatabaseShowOutput
 from .Database import Database
 
 
@@ -29,15 +30,15 @@ def cmd_show(
         except json.JSONDecodeError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Invalid JSON: {e}"
-            result_obj.output = {
-                "errors": [str(e)],
-                "warnings": [],
-                "database": collection,
-                "query": {},
-                "limit": limit,
-                "count": 0,
-                "results": [],
-            }
+            result_obj.output = DatabaseShowOutput(
+                errors=[str(e)],
+                warnings=[],
+                database=collection,
+                query={},
+                limit=limit,
+                count=0,
+                results=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
@@ -46,28 +47,28 @@ def cmd_show(
             query_result = Database.query(config.database, collection, parsed_query, limit)
             yield (1.0, "Complete")
             result_obj.result = f"Found {query_result['count']} document(s) in {collection}"
-            result_obj.output = {
-                "errors": [],
-                "warnings": [],
-                "database": collection,
-                "query": parsed_query or {},
-                "limit": limit,
-                "count": query_result["count"],
-                "results": query_result["results"],
-            }
+            result_obj.output = DatabaseShowOutput(
+                errors=[],
+                warnings=[],
+                database=collection,
+                query=parsed_query or {},
+                limit=limit,
+                count=query_result["count"],
+                results=query_result["results"],
+            ).model_dump(mode="python")
             result_obj.success = True
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Query failed: {e}"
-            result_obj.output = {
-                "errors": [str(e)],
-                "warnings": [],
-                "database": collection,
-                "query": parsed_query or {},
-                "limit": limit,
-                "count": 0,
-                "results": [],
-            }
+            result_obj.output = DatabaseShowOutput(
+                errors=[str(e)],
+                warnings=[],
+                database=collection,
+                query=parsed_query or {},
+                limit=limit,
+                count=0,
+                results=[],
+            ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(

@@ -26,8 +26,22 @@ def test_cmd_filter_show_returns_list(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_paths": ["a", "b"]},
-                "priority": {},
+                "filter": {"include_paths": ["a", "b"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "database": "monitor",
                 "sync": {
@@ -55,8 +69,23 @@ def test_cmd_filter_show_unknown_list_name(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {},
-                "priority": {},
+                "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "database": "monitor",
                 "sync": {

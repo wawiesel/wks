@@ -14,8 +14,23 @@ pytestmark = pytest.mark.monitor
 def test_cmd_priority_add_existing_returns_flag(patch_wks_config):
     """Test cmd_priority_add when path already exists."""
     patch_wks_config.monitor = MonitorConfig(
-        filter={},
-        priority={"dirs": {"existing": 1}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {"existing": 1},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -29,8 +44,23 @@ def test_cmd_priority_add_existing_returns_flag(patch_wks_config):
 def test_cmd_priority_add_stores_and_saves(patch_wks_config):
     """Test cmd_priority_add creates new priority directory and saves."""
     patch_wks_config.monitor = MonitorConfig(
-        filter={},
-        priority={"dirs": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -47,8 +77,23 @@ def test_cmd_priority_add_stores_and_saves(patch_wks_config):
 def test_cmd_priority_add_not_found_creates(patch_wks_config):
     """Test cmd_priority_add creates when path not found."""
     patch_wks_config.monitor = MonitorConfig(
-        filter={},
-        priority={"dirs": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -63,8 +108,23 @@ def test_cmd_priority_add_not_found_creates(patch_wks_config):
 def test_cmd_priority_add_updates(patch_wks_config):
     """Test cmd_priority_add updates existing priority."""
     patch_wks_config.monitor = MonitorConfig(
-        filter={},
-        priority={"dirs": {"/tmp/a": 1}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {"/tmp/a": 1},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )

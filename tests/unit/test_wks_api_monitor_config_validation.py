@@ -15,8 +15,23 @@ def test_monitor_config_validation_error_re_raise():
         MonitorConfig.from_config_dict(
             {
                 "monitor": {
-                    "filter": {},
-                    "priority": {},
+                    "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                    "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                     # Missing sync section
                 }
             }
@@ -31,7 +46,14 @@ def test_monitor_config_invalid_priority_type():
         MonitorConfig.from_config_dict(
             {
                 "monitor": {
-                    "filter": {},
+                    "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
                     "priority": "not a dict",
                     "database": "monitor",
                 "sync": {

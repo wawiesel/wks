@@ -14,8 +14,23 @@ def test_matches_glob_empty_pattern(tmp_path):
     cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_globs": ["", "*.py"]},
-                "priority": {},
+                "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": ["", "*.py"],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -39,8 +54,23 @@ def test_matches_glob_exception_handling(tmp_path, monkeypatch):
     cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_globs": ["*.py"]},
-                "priority": {},
+                "filter": {
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": ["*.py"],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,

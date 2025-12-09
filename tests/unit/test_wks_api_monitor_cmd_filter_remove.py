@@ -18,8 +18,22 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_paths": ["/tmp/x"]},
-                "priority": {},
+                "filter": {"include_paths": ["/tmp/x"],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -45,8 +59,22 @@ def test_cmd_filter_remove_not_found(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_paths": []},
-                "priority": {},
+                "filter": {"include_paths": [],
+                    "exclude_paths": [],
+                    "include_dirnames": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,
@@ -73,8 +101,22 @@ def test_cmd_filter_remove_dirname_list(monkeypatch):
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
-                "filter": {"include_dirnames": ["testdir"]},
-                "priority": {},
+                "filter": {"include_dirnames": ["testdir"],
+                    "include_paths": [],
+                    "exclude_paths": [],
+                    "exclude_dirnames": [],
+                    "include_globs": [],
+                    "exclude_globs": [],
+                },
+                "priority": {
+                    "dirs": {},
+                    "weights": {
+                        "depth_multiplier": 0.9,
+                        "underscore_multiplier": 0.5,
+                        "only_underscore_multiplier": 0.1,
+                        "extension_weights": {},
+                    },
+                },
                 "database": "monitor",
                 "sync": {
                     "max_documents": 1000000,

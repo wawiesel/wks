@@ -1,13 +1,36 @@
 """Unit tests for wks.api.monitor.cmd_sync module."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
-from tests.unit.conftest import run_cmd, patch_wks_config
+from tests.unit.conftest import DummyConfig, run_cmd, patch_wks_config
 from wks.api.monitor import cmd_sync
 
 pytestmark = pytest.mark.monitor
+
+
+class MockDatabaseCollection:
+    """Mock Database collection for testing."""
+
+    def __init__(self):
+        self.find_one_result = None
+        self.update_one_calls = []
+        self._enter_called = False
+
+    def __enter__(self):
+        self._enter_called = True
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def find_one(self, filter, projection=None):
+        return self.find_one_result
+
+    def update_one(self, filter, update, upsert=False):
+        self.update_one_calls.append((filter, update, upsert))
 
 
 def test_cmd_sync_path_not_exists(patch_wks_config):
@@ -23,11 +46,28 @@ def test_cmd_sync_path_not_exists(patch_wks_config):
 
 def test_cmd_sync_invalid_database(monkeypatch, tmp_path):
     """Test cmd_sync with invalid database name (Database raises ValueError)."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -70,11 +110,28 @@ def test_cmd_sync_wraps_output(patch_wks_config, tmp_path, monkeypatch):
 
 def test_cmd_sync_recursive(monkeypatch, tmp_path):
     """Test cmd_sync with recursive=True."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -111,11 +168,28 @@ def test_cmd_sync_recursive(monkeypatch, tmp_path):
 
 def test_cmd_sync_directory_non_recursive(monkeypatch, tmp_path):
     """Test cmd_sync with directory (non-recursive) uses iterdir."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -152,11 +226,28 @@ def test_cmd_sync_directory_non_recursive(monkeypatch, tmp_path):
 
 def test_cmd_sync_file_excluded_by_explain_path(monkeypatch, tmp_path):
     """Test cmd_sync when file is excluded by explain_path."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -186,11 +277,28 @@ def test_cmd_sync_file_excluded_by_explain_path(monkeypatch, tmp_path):
 
 def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
     """Test cmd_sync when file processing raises exception."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -230,11 +338,28 @@ def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
 
 def test_cmd_sync_preserve_timestamp(monkeypatch, tmp_path):
     """Test cmd_sync preserves timestamp when checksum unchanged (hits line 113)."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -284,11 +409,28 @@ def test_cmd_sync_preserve_timestamp(monkeypatch, tmp_path):
 
 def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
     """Test cmd_sync calls _enforce_monitor_db_limit."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 100, "min_priority": 0.0, "prune_interval_secs": 300.0},
     )
@@ -325,11 +467,28 @@ def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
 
 def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
     """Test cmd_sync skips files below min_priority."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
 
     monitor_cfg = MonitorConfig(
-        filter={},
-        priority={"dirs": {}, "weights": {}},
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
         database="monitor",
         sync={"max_documents": 1000000, "min_priority": 0.5, "prune_interval_secs": 300.0},
     )
