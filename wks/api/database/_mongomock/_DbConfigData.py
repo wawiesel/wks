@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class _DbConfigData(BaseModel):
-    uri: str = Field(default="mongomock://localhost:27017/", description="Mock connection URI")
+    uri: str = Field(..., description="Mock connection URI")
 
     @field_validator("uri")
     @classmethod

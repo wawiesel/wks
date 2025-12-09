@@ -28,7 +28,7 @@ def test_cmd_status_mongodb_error(monkeypatch):
 
     mock_config = MagicMock()
     mock_config.monitor = monitor_cfg
-    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
 
     with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
         with patch("wks.api.monitor.cmd_status.Database") as mock_database:
@@ -59,7 +59,7 @@ def test_cmd_status_sets_success_based_on_issues(monkeypatch):
 
     mock_config = MagicMock()
     mock_config.monitor = monitor_cfg
-    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
 
     # Mock explain_path to return False for invalid path
     def mock_explain_path(_cfg, path):

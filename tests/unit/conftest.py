@@ -16,12 +16,27 @@ class DummyConfig:
         from wks.api.database.DatabaseConfig import DatabaseConfig
 
         self.monitor = monitor or MonitorConfig(
-            filter={},
-            priority={"dirs": {}, "weights": {}},
+            filter={
+                "include_paths": [],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+            },
+            priority={
+                "dirs": {},
+                "weights": {
+                    "depth_multiplier": 0.9,
+                    "underscore_multiplier": 0.5,
+                    "only_underscore_multiplier": 0.1,
+                    "extension_weights": {},
+                },
+            },
             database="monitor",
             sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
         )
-        self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={})
+        self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
         self.daemon = daemon
         self.save_calls = 0
         self.errors: list[str] = []
@@ -80,7 +95,7 @@ def minimal_config_dict():
         "database": {
             "type": "mongomock",
             "prefix": "wks",
-            "data": {},
+            "data": {"uri": "mongomock://localhost:27017/"},
         },
         "daemon": {
             "type": "macos",
@@ -163,12 +178,27 @@ def patch_wks_config(monkeypatch):
 
     config = DummyConfig(
         monitor=MonitorConfig(
-            filter={},
-            priority={"dirs": {}, "weights": {}},
+            filter={
+                "include_paths": [],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+            },
+            priority={
+                "dirs": {},
+                "weights": {
+                    "depth_multiplier": 0.9,
+                    "underscore_multiplier": 0.5,
+                    "only_underscore_multiplier": 0.1,
+                    "extension_weights": {},
+                },
+            },
             database="monitor",
             sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
         ),
-        database=DatabaseConfig(type="mongomock", prefix="wks", data={}),
+        database=DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"}),
     )
     monkeypatch.setattr(WKSConfig, "load", lambda: config)
     return config

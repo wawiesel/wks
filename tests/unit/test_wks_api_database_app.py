@@ -16,7 +16,7 @@ class TestDbApp:
     def test_db_app_is_typer(self):
         """Test db_app is a Typer instance."""
         assert isinstance(db_app, typer.Typer)
-        assert db_app.info.name == "db"
+        assert db_app.info.name == "database"
 
     def test_db_callback_without_subcommand(self):
         """Test db_callback shows help when no subcommand."""
