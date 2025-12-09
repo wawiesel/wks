@@ -8,5 +8,5 @@ from ._PriorityWeightsConfig import _PriorityWeightsConfig
 class _PriorityConfig(BaseModel):
     """Priority configuration."""
 
-    dirs: dict[str, float] = Field(default_factory=dict)
-    weights: _PriorityWeightsConfig = Field(default_factory=_PriorityWeightsConfig)
+    dirs: dict[str, float] = Field(...)
+    weights: _PriorityWeightsConfig = Field(...)

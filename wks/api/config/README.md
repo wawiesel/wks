@@ -1,52 +1,59 @@
 # WKS Config Module
 
-This module provides the top-level configuration system for WKS. All configuration sections are defined as Pydantic models and automatically validated.
+## Why This Design Exists
 
-## Architecture
+The config module uses **Pydantic for everything** to eliminate manual validation, provide type safety, and automatically construct nested models. No manual validation code, no special cases, automatic construction from raw dicts. The alternative would require hundreds of lines of error-prone code.
 
-- **`WKSConfig`**: Top-level Pydantic model that contains all configuration sections
-- **Section Models**: Each section (monitor, database, daemon) is a separate Pydantic model
-- **Automatic Validation**: Pydantic validates required fields and constructs nested models automatically
-- **Uniform Handling**: All sections are treated identically - no special cases
+## Core Principles
 
-## Adding a New Configuration Section
+### All Sections and Fields Are Required
 
-To add a new configuration section (e.g., `vault`, `metrics`, `cache`):
+Every section in `WKSConfig` and every field within sections is required (no `| None` or defaults). Forces explicit configuration - missing anything makes the config invalid. Explicit is better than implicit, invalid configs fail fast at load time, all configuration is visible in JSON.
+
+### Uniform Handling
+
+All sections treated identically: `model_dump()` for serialization, `cls(**raw)` construction, automatic appearance in `cmd_show` via `to_dict().keys()`, no if/else logic. Adding a new section requires zero changes to existing code.
+
+### Pydantic Does Everything
+
+No manual validation, custom constructors, or special handling. Pydantic handles validation, type coercion, nested construction, field descriptions. If writing `if field is None:` or `validate_*()`, use Pydantic validators instead.
+
+## When to Add a Configuration Section
+
+Add when: (1) new domain/feature needs persistent configuration, (2) configuration is substantial (multiple related settings), (3) configuration needs validation. Don't add for: single boolean flags (use CLI args), temporary features (use feature flags), frequently-changing settings (config should be stable).
+
+## How to Add a Configuration Section
 
 ### 1. Create the Section Model
 
-Create a new Pydantic model in the appropriate module (or create a new module if needed):
-
 ```python
-# wks/api/newsection/NewSectionConfig.py
+# wks/api/newdomain/NewDomainConfig.py
 from pydantic import BaseModel, Field
 
-class NewSectionConfig(BaseModel):
-    """New section configuration."""
-
-    setting1: str = Field(..., description="Required setting")
-    setting2: int = Field(default=42, description="Optional setting with default")
+class NewDomainConfig(BaseModel):
+    """New domain configuration."""
+    required_setting: str = Field(..., description="Required setting")
+    another_setting: int = Field(..., description="Another required setting")
 ```
+
+**Standards:** One file per class, all fields required (`Field(...)`, no defaults), descriptive docstrings.
 
 ### 2. Add to WKSConfig
 
-Import and add the new section as a required field in `WKSConfig`:
-
 ```python
 # wks/api/config/WKSConfig.py
-from ..newsection.NewSectionConfig import NewSectionConfig
+from ..newdomain.NewDomainConfig import NewDomainConfig
 
 class WKSConfig(BaseModel):
     monitor: MonitorConfig
     database: DatabaseConfig
     daemon: DaemonConfig
-    newsection: NewSectionConfig  # Add here
-    # ...
+    newdomain: NewDomainConfig  # REQUIRED, no | None
 ```
 
-### 3. Add to to_dict()
+**Standards:** All sections required, import from domain module, logical order.
 
-Add the new section to the `to_dict()` method:
+### 3. Add to to_dict()
 
 ```python
 def to_dict(self) -> dict[str, Any]:
@@ -54,56 +61,30 @@ def to_dict(self) -> dict[str, Any]:
         "monitor": self.monitor.model_dump(),
         "database": self.database.model_dump(),
         "daemon": self.daemon.model_dump(),
-        "newsection": self.newsection.model_dump(),  # Add here
+        "newdomain": self.newdomain.model_dump(),  # Add here
     }
 ```
 
-### 4. That's It!
+**Standards:** Use `model_dump()` for all, maintain order, no conditional logic.
 
-- **Automatic Validation**: Pydantic will automatically validate the new section on `WKSConfig.load()`
-- **Automatic Construction**: Nested models are constructed automatically - no special handling needed
-- **Automatic Discovery**: `cmd_show` will automatically include the new section (it uses `config.to_dict().keys()`)
-- **Automatic Serialization**: `save()` will automatically include the new section via `to_dict()`
+### 4. That's It
 
-## Important Principles
+After these three changes: `WKSConfig.load()` validates/constructs automatically, `cmd_show` includes it automatically, `WKSConfig.save()` saves it automatically, CLI help shows it automatically. No other changes needed.
 
-1. **No Special Cases**: All sections are handled uniformly by Pydantic
-2. **Required Fields**: All sections in `WKSConfig` are required (no `| None` or defaults)
-3. **Pydantic Validation**: Let Pydantic handle validation - don't add manual checks
-4. **Uniform Construction**: All sections are constructed the same way: `cls(**raw)` in `load()`
+## Standards
 
-## Example: Adding a "vault" Section
+**File Organization:** One file per class, domain modules own their config (`MonitorConfig` in `wks/api/monitor/`), no shared config files.
 
-```python
-# 1. Create wks/api/vault/VaultConfig.py
-from pydantic import BaseModel, Field
+**Field Requirements:** All sections and fields required (no `| None`, no `Field(default=...)` or `default_factory`), no manual defaults.
 
-class VaultConfig(BaseModel):
-    encryption_key: str = Field(..., description="Encryption key for vault")
-    auto_sync: bool = Field(default=True, description="Auto-sync vault changes")
+**Validation:** Pydantic validators only (`@field_validator` or `@model_validator`), no custom constructors (`cls(**raw)`), fail fast (exceptions at load time).
 
-# 2. Update wks/api/config/WKSConfig.py
-from ..vault.VaultConfig import VaultConfig
+**Serialization:** Always `model_dump()`, uniform format, no conditional logic (all sections always included).
 
-class WKSConfig(BaseModel):
-    monitor: MonitorConfig
-    database: DatabaseConfig
-    daemon: DaemonConfig
-    vault: VaultConfig  # Add here
+**Commands:** `cmd_show` automatic (`to_dict().keys()`), no special cases, all sections handled identically.
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "monitor": self.monitor.model_dump(),
-            "database": self.database.model_dump(),
-            "daemon": self.daemon.model_dump(),
-            "vault": self.vault.model_dump(),  # Add here
-        }
-```
+## Anti-Patterns
 
-After these changes:
-- `WKSConfig.load()` will automatically validate and construct the vault section
-- `wksc config` will automatically show "vault" in the sections list
-- `wksc config vault` will automatically show the vault configuration
-- `WKSConfig.save()` will automatically save the vault section
+**Don't:** Optional sections (`newdomain: NewDomainConfig | None`), manual validation (`if "newdomain" not in raw`), special cases (`if section == "newdomain"`), custom constructors (`NewDomainConfig.from_dict(...)`), manual defaults (`raw.get("newdomain", default)`).
 
-No other changes needed!
+**Do:** Required sections (`newdomain: NewDomainConfig`), Pydantic validation, uniform handling (`model_dump()`), automatic construction (`cls(**raw)`), no defaults (`Field(...)`).

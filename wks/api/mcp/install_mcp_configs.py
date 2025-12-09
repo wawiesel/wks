@@ -1,4 +1,4 @@
-"""Utilities for registering the WKS MCP server with common MCP clients."""
+"""Ensure the WKS MCP server is registered for each requested client."""
 
 from __future__ import annotations
 
@@ -6,24 +6,15 @@ import json
 import shutil
 import sys
 from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path
+
+from .InstallResult import InstallResult
 
 MCP_CONFIG_TARGETS: dict[str, Path] = {
     "cursor": Path.home() / ".cursor" / "mcp.json",
     "claude": Path.home() / "Library" / "Application Support" / "Claude" / "mcp.json",
     "gemini": Path.home() / ".config" / "gemini" / "mcp.json",
 }
-
-
-@dataclass
-class InstallResult:
-    """Status for a single MCP client registration attempt."""
-
-    client: str
-    path: Path
-    status: str
-    message: str = ""
 
 
 def _resolve_command(command_override: str | None) -> tuple[str, list[str]]:
@@ -121,5 +112,3 @@ def install_mcp_configs(
 
     return results
 
-
-__all__ = ["MCP_CONFIG_TARGETS", "InstallResult", "install_mcp_configs"]

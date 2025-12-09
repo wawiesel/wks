@@ -14,8 +14,8 @@ class MonitorConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    filter: _FilterConfig = Field(default_factory=_FilterConfig)
-    priority: _PriorityConfig = Field(default_factory=_PriorityConfig)
+    filter: _FilterConfig = Field(...)
+    priority: _PriorityConfig = Field(...)
     database: str = Field(..., description="Collection name (prefix from db config is automatically prepended)")
     sync: _SyncConfig = Field(...)
 

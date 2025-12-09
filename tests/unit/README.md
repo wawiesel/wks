@@ -40,6 +40,32 @@ Given the extreme file-level granularity in `wks/api/*/` (one function per file)
 
 All test cases for a given function (including edge cases, error paths, and special scenarios like Windows drive handling) belong in the same test file. There's no need for subdirectories or additional file-level organization beyond the `test_wks_api_<package>_<function>.py` pattern.
 
+### Configuration Data
+
+**All configuration data for unit tests must be centralized in `conftest.py`.**
+
+Every unit test needs configuration data (WKS config dicts, mock configs, etc.). To avoid duplication and ensure consistency:
+
+- ✅ **Use fixtures from `conftest.py`**: `minimal_config_dict`, `wks_home`, `mock_config`, etc.
+- ✅ **Extend existing fixtures**: Create new fixtures that build on `minimal_config_dict` for specific test needs
+- ❌ **Don't define config dicts in test files**: Avoid duplicating config structures across test files
+
+**Available fixtures:**
+- `minimal_config_dict`: Minimal valid WKS configuration (all required fields)
+- `wks_home`: Sets up `WKS_HOME` environment variable and writes config file
+- `mock_config`: Mock `WKSConfig` instance for testing
+- `config_with_mcp`: Config dict with MCP section
+- `config_with_monitor_priority`: Config dict with monitor priority directories
+
+**Example:**
+```python
+def test_something(wks_home, minimal_config_dict):
+    # wks_home provides WKS_HOME env and config.json file
+    # minimal_config_dict provides the config structure
+    config = WKSConfig.load()
+    # ... test code
+```
+
 ### Coverage Requirement
 
 Every public function in `wks/api/*/` must have unit tests in this directory. Public functions are those that:

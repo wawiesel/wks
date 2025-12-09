@@ -89,10 +89,6 @@ Implement each module according to its specification with 100% unit test coverag
   - `wks/api/database/README.md` - Database API pattern documentation
   - `tests/unit/test_wks_api_monitor_*.py` - Example unit tests
 
-### Known Issues
-
-- **MCP Module**: `wks/api/mcp/` does not exist and must be created from scratch following the pattern established in other API modules.
-
 ### Implementation Order
 
 Recommended sequence for single agent execution:

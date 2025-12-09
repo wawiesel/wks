@@ -18,9 +18,8 @@ def cmd_show(section: str = "") -> StageResult:
         yield (0.6, "Processing sections...")
         config_dict = config.to_dict()
         available_sections = list(config_dict.keys())
-        all_errors = list(config.errors)
-
-        all_warnings = list(config.warnings)
+        all_errors: list[str] = []
+        all_warnings: list[str] = []
 
         if section == "":
             yield (1.0, "Complete")

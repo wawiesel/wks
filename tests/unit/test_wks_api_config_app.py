@@ -30,7 +30,7 @@ class TestConfigApp:
             with pytest.raises(SystemExit):
                 config_callback(ctx, None)
             mock_handle.assert_called_once()
-            mock_wrapped.assert_called_once_with(None)
+            mock_wrapped.assert_called_once_with("")
 
     def test_config_callback_with_subcommand(self, monkeypatch):
         """Test config_callback does nothing when subcommand is invoked."""

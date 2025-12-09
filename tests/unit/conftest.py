@@ -53,8 +53,23 @@ def minimal_config_dict():
     """
     return {
         "monitor": {
-            "filter": {},
-            "priority": {"dirs": {}, "weights": {}},
+            "filter": {
+                "include_paths": [],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
+            },
+            "priority": {
+                "dirs": {},
+                "weights": {
+                    "depth_multiplier": 0.9,
+                    "underscore_multiplier": 0.5,
+                    "only_underscore_multiplier": 0.1,
+                    "extension_weights": {},
+                },
+            },
             "database": "monitor",
             "sync": {
                 "max_documents": 1000000,
@@ -118,6 +133,23 @@ def wks_home(tmp_path, monkeypatch, minimal_config_dict):
     config_path = tmp_path / "config.json"
     import json
     config_path.write_text(json.dumps(minimal_config_dict))
+
+    return tmp_path
+
+
+@pytest.fixture
+def wks_home_with_priority(tmp_path, monkeypatch, config_with_monitor_priority):
+    """Set up WKS_HOME with config file that includes monitor priority directories.
+
+    Returns:
+        Path to the WKS home directory (tmp_path)
+    """
+    monkeypatch.setenv("WKS_HOME", str(tmp_path))
+
+    # Write config with priority
+    config_path = tmp_path / "config.json"
+    import json
+    config_path.write_text(json.dumps(config_with_monitor_priority))
 
     return tmp_path
 

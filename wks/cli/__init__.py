@@ -76,7 +76,7 @@ def mcp_command(
 ):
     """MCP server infrastructure command."""
     if command == "install":
-        from wks.api.mcp.setup import install_mcp_configs
+        from wks.api.mcp.install_mcp_configs import install_mcp_configs
 
         for r in install_mcp_configs(clients=client, command_override=command_path):
             print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")

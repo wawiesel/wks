@@ -18,8 +18,6 @@ class WKSConfig(BaseModel):
     monitor: MonitorConfig
     database: DatabaseConfig
     daemon: DaemonConfig
-    errors: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
 
     @computed_field
     @property
@@ -82,12 +80,10 @@ class WKSConfig(BaseModel):
             with temp_path.open("w") as fh:
                 json.dump(self.to_dict(), fh, indent=4)
             temp_path.replace(path)
-            # Clear any previous save errors on success
-            self.errors = [e for e in self.errors if not e.startswith("Save failed:")]
         except Exception as e:
             if temp_path.exists():
                 try:
                     temp_path.unlink()
                 except Exception:
                     pass
-            self.errors.append(f"Save failed: {e}")
+            raise RuntimeError(f"Failed to save config: {e}") from e
