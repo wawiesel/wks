@@ -64,7 +64,13 @@ class VaultController:
 
         try:
             config = WKSConfig.load()
-            mongo_uri = config.database.get_uri()
+            # Access URI directly from mongo backend config data
+            # TODO: This is not correct and up to date.
+            from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
+            if isinstance(config.database.data, _MongoDbConfigData):
+                mongo_uri = config.database.data.uri
+            else:
+                raise ValueError(f"Vault requires mongo backend, got {config.database.type}")
             db_name = config.vault.database.split(".")[0]
             coll_name = config.vault.database.split(".")[1]
         except Exception as e:

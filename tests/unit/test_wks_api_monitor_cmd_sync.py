@@ -73,7 +73,7 @@ def test_cmd_sync_invalid_database(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
@@ -137,7 +137,7 @@ def test_cmd_sync_recursive(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     # Create test directory with files
@@ -195,7 +195,7 @@ def test_cmd_sync_directory_non_recursive(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     # Create test directory with files
@@ -253,7 +253,7 @@ def test_cmd_sync_file_excluded_by_explain_path(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
@@ -304,7 +304,7 @@ def test_cmd_sync_file_error_in_loop(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
@@ -365,7 +365,7 @@ def test_cmd_sync_preserve_timestamp(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
@@ -436,7 +436,7 @@ def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"
@@ -494,7 +494,7 @@ def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
     )
 
     cfg = DummyConfig(monitor_cfg)
-    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
     test_file = tmp_path / "test.txt"

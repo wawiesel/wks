@@ -66,7 +66,13 @@ class VaultStatusController:
     def __init__(self, cfg: dict[str, Any] | None = None):  # noqa: ARG002
         try:
             config = WKSConfig.load()
-            self.mongo_uri = config.database.get_uri()
+            # Access URI directly from mongo backend config data
+            # TODO: this is not correct and up to date.
+            from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
+            if isinstance(config.database.data, _MongoDbConfigData):
+                self.mongo_uri = config.database.data.uri
+            else:
+                raise ValueError(f"Vault requires mongo backend, got {config.database.type}")
             self.db_name = config.vault.database.split(".")[0]
             self.coll_name = config.vault.database.split(".")[1]
         except Exception:

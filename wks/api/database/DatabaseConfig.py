@@ -48,18 +48,3 @@ class DatabaseConfig(BaseModel):
         if isinstance(self.data, BaseModel):
             result["data"] = self.data.model_dump(**kwargs)
         return result
-
-    def get_uri(self) -> str:
-        """Get database connection URI from backend-specific config data.
-
-        Returns:
-            Connection URI string
-
-        Raises:
-            AttributeError: If the backend doesn't have a uri attribute
-        """
-        from ._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
-
-        if isinstance(self.data, _MongoDbConfigData):
-            return self.data.uri
-        raise AttributeError(f"Backend type '{self.type}' does not have a uri attribute")

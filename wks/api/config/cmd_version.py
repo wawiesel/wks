@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
+from .._output_schemas.config import ConfigVersionOutput
 from ...utils.get_package_version import get_package_version
 
 
@@ -40,13 +41,13 @@ def cmd_version() -> StageResult:
             full_version = f"{version} ({git_sha})"
 
         result_obj.result = f"WKS version: {full_version}"
-        result_obj.output = {
-            "errors": [],
-            "warnings": [],
-            "version": version,
-            "git_sha": git_sha or "",
-            "full_version": full_version,
-        }
+        result_obj.output = ConfigVersionOutput(
+            errors=[],
+            warnings=[],
+            version=version,
+            git_sha=git_sha or "",
+            full_version=full_version,
+        ).model_dump(mode="python")
         result_obj.success = True
 
     return StageResult(

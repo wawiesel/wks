@@ -36,7 +36,7 @@ class DummyConfig:
             database="monitor",
             sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
         )
-        self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+        self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={})
         self.daemon = daemon
         self.save_calls = 0
         self.errors: list[str] = []
@@ -95,7 +95,7 @@ def minimal_config_dict():
         "database": {
             "type": "mongomock",
             "prefix": "wks",
-            "data": {"uri": "mongomock://localhost:27017/"},
+            "data": {},
         },
         "daemon": {
             "type": "macos",
@@ -198,7 +198,7 @@ def patch_wks_config(monkeypatch):
             database="monitor",
             sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
         ),
-        database=DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"}),
+        database=DatabaseConfig(type="mongomock", prefix="wks", data={}),
     )
     monkeypatch.setattr(WKSConfig, "load", lambda: config)
     return config

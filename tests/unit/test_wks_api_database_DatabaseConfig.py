@@ -20,7 +20,7 @@ class TestDatabaseConfig:
 
     def test_database_config_mongomock(self):
         """Test DatabaseConfig with mongomock backend."""
-        config = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+        config = DatabaseConfig(type="mongomock", prefix="wks", data={})
         assert config.type == "mongomock"
         assert config.prefix == "wks"
 
@@ -49,10 +49,11 @@ class TestDatabaseConfig:
         with pytest.raises(ValueError, match="database.data is required"):
             DatabaseConfig(type="mongo", prefix="wks")
 
-    def test_database_config_mongomock_requires_uri(self):
-        """Test DatabaseConfig requires uri for mongomock (no defaults)."""
-        with pytest.raises(ValidationError):
-            DatabaseConfig(type="mongomock", prefix="wks", data={})
+    def test_database_config_mongomock_no_uri_required(self):
+        """Test DatabaseConfig doesn't require uri for mongomock (in-memory database)."""
+        # mongomock doesn't require any config data (empty dict is fine)
+        config = DatabaseConfig(type="mongomock", prefix="wks", data={})
+        assert config.type == "mongomock"
         # mongo requires uri, so empty dict should fail validation at backend level
         with pytest.raises(Exception):  # Will fail at _MongoDbConfigData validation
             DatabaseConfig(type="mongo", prefix="wks", data={})
@@ -69,7 +70,7 @@ class TestDatabaseConfig:
         mongo_config = DatabaseConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
         assert mongo_config.type == "mongo"
 
-        mongomock_config = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+        mongomock_config = DatabaseConfig(type="mongomock", prefix="wks", data={})
         assert mongomock_config.type == "mongomock"
 
         # Test unknown type fails
@@ -94,18 +95,7 @@ class TestDatabaseConfig:
 
     def test_database_config_model_validator_with_mongomock(self):
         """Test model_validator works with mongomock backend."""
-        config_dict = {"type": "mongomock", "prefix": "wks", "data": {"uri": "mongomock://localhost:27017/"}}
+        config_dict = {"type": "mongomock", "prefix": "wks", "data": {}}
         config = DatabaseConfig(**config_dict)
         # Verify data was transformed to _MongoMockDbConfigData instance
         assert config.type == "mongomock"
-
-    def test_database_config_get_uri_mongo(self):
-        """Test get_uri() returns URI for mongo backend."""
-        config = DatabaseConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
-        assert config.get_uri() == "mongodb://localhost:27017/"
-
-    def test_database_config_get_uri_mongomock_raises(self):
-        """Test get_uri() raises AttributeError for mongomock backend (no uri method)."""
-        config = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
-        with pytest.raises(AttributeError, match="does not have a uri attribute"):
-            config.get_uri()

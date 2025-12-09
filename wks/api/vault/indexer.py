@@ -467,7 +467,12 @@ class VaultLinkIndexer:
         else:
             config = cfg
 
-        mongo_uri = config.database.get_uri()
+        # TODO: this is not correct and up to date.
+        from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
+        if isinstance(config.database.data, _MongoDbConfigData):
+            mongo_uri = config.database.data.uri
+        else:
+            raise ValueError(f"Vault requires mongo backend, got {config.database.type}")
         db_name = config.vault.database.split(".")[0]
         coll_name = config.vault.database.split(".")[1]
 
@@ -476,7 +481,7 @@ class VaultLinkIndexer:
     def _batch_records(self, records: list[VaultEdgeRecord], batch_size: int) -> Iterator[list[VaultEdgeRecord]]:
         """Yield successive batches of records."""
         for i in range(0, len(records), batch_size):
-            yield records[i : i + batch_size]
+            yield records[i: i + batch_size]
 
     def has_references_to(self, file_path: Path) -> bool:
         """Check if any vault notes reference this file.

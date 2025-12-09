@@ -44,7 +44,7 @@ def test_cmd_check_reports_monitored(monkeypatch):
 
     mock_config = MagicMock()
     mock_config.monitor = monitor_cfg
-    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
 
     with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=mock_config):
         with patch("wks.api.monitor.cmd_check.explain_path", return_value=(True, ["Included by rule"])):
@@ -90,7 +90,7 @@ def test_cmd_check_path_not_exists(monkeypatch):
 
     mock_config = MagicMock()
     mock_config.monitor = monitor_cfg
-    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={"uri": "mongomock://localhost:27017/"})
+    mock_config.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
 
     # Mock explain_path to return False
     monkeypatch.setattr("wks.api.monitor.cmd_check.explain_path", lambda _cfg, _path: (False, ["Excluded by rule"]))

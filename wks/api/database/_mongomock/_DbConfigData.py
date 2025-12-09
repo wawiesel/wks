@@ -1,14 +1,12 @@
 """Mock MongoDB-specific configuration data for testing."""
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel
 
 
 class _DbConfigData(BaseModel):
-    uri: str = Field(..., description="Mock connection URI")
+    """MongoMock configuration data.
 
-    @field_validator("uri")
-    @classmethod
-    def validate_uri(cls, v: str) -> str:
-        if not v:
-            raise ValueError("db.uri is required when db.type is 'mongomock'")
-        return v
+    Note: MongoMock doesn't require a URI since it's an in-memory database.
+    The implementation creates a shared client without connection parameters.
+    """
+    pass
