@@ -6,6 +6,10 @@ setup(
     description="Wieselquist Knowledge System - AI-assisted file organization",
     author="William Wieselquist",
     packages=find_packages(),
+    include_package_data=True,
+    package_data={
+        "docs.specifications": ["*.json"],
+    },
     python_requires=">=3.8",
     install_requires=[
         "watchdog",  # File system monitoring

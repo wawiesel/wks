@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..StageResult import StageResult
-from .._output_schemas.monitor import MonitorStatusOutput
+from . import MonitorStatusOutput
 from ..database.Database import Database
 from .explain_path import explain_path
 

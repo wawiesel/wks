@@ -68,7 +68,7 @@ def test_cmd_install_success_new_installation(wks_home, standard_config_dict):
     assert "wks" in settings["mcpServers"]
 
 
-def test_cmd_install_success_existing_installation(wks_home, standard_config_dict):
+def test_cmd_install_success_existing_installation(wks_home, standard_config_dict, tmp_path):
     """Test cmd_install successfully updates existing installation."""
     # Add existing mcp installation to standard config
     standard_config_dict["mcp"] = {

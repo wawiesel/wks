@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
-from .._output_schemas.monitor import MonitorFilterAddOutput
+from . import MonitorFilterAddOutput
 from .MonitorConfig import MonitorConfig
 
 
@@ -47,7 +47,7 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             value_resolved = canonicalize_path(value)
             home_dir = str(Path.home())
             value_to_store = (
-                "~" + value_resolved[len(home_dir) :] if value_resolved.startswith(home_dir) else value_resolved
+                "~" + value_resolved[len(home_dir):] if value_resolved.startswith(home_dir) else value_resolved
             )
         elif list_name in ("include_dirnames", "exclude_dirnames"):
             # Validate directory name

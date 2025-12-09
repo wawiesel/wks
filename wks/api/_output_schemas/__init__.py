@@ -10,9 +10,6 @@ from pydantic import BaseModel
 
 from ._registry import get_output_schema
 
-# Import all schema modules to trigger registration
-from . import config, daemon, database, monitor  # noqa: F401
-
 
 def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:
     """Validate output dict against registered schema.

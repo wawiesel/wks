@@ -3,6 +3,7 @@
 import typer
 
 from wks.cli.handle_stage_result import handle_stage_result
+from wks.api.config.cmd_list import cmd_list
 from wks.api.config.cmd_show import cmd_show
 from wks.api.config.cmd_version import cmd_version
 
@@ -12,34 +13,34 @@ config_app = typer.Typer(
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
     context_settings={"help_option_names": ["-h", "--help"]},
-    invoke_without_command=True,
 )
 
 
 @config_app.callback(invoke_without_command=True)
-def config_callback(
-    ctx: typer.Context,
-    section: str | None = typer.Argument(
-        None,
-        help=(
-            "Configuration section name (e.g., 'monitor', 'database', 'vault'). "
-            "Omit to list all sections."
-        ),
-    ),
-) -> None:
-    """Show configuration sections or a specific section.
-
-    Usage:
-        wksc config              # List all section names
-        wksc config <section>   # Show config for a specific section
-        wksc config version    # Show version information
-    """
+def config_callback(ctx: typer.Context) -> None:
+    """Show help when no subcommand is provided."""
     if ctx.invoked_subcommand is None:
-        # Handle the command directly (section can be None, convert to empty string)
-        wrapped = handle_stage_result(cmd_show)
-        wrapped(section or "")
+        typer.echo(ctx.get_help(), err=False)
+        raise typer.Exit()
 
 
 # Register commands with StageResult handler
-config_app.command(name="version")(handle_stage_result(cmd_version))
+# Direct registration - Typer handles required argument validation via typer.Argument(...)
+config_app.command(name="list")(handle_stage_result(cmd_list))
+
+
+def show_command(
+    section: str = typer.Argument(..., help="Configuration section name"),
+) -> None:
+    """Show configuration for a specific section."""
+    handle_stage_result(cmd_show)(section)
+
+
+def version_command() -> None:
+    """Show WKS version information."""
+    handle_stage_result(cmd_version)()
+
+
+config_app.command(name="show")(show_command)
+config_app.command(name="version")(version_command)
 

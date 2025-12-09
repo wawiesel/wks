@@ -26,41 +26,32 @@ def db_callback(ctx: typer.Context) -> None:
 
 
 # Register commands with StageResult handler
+# Direct registration - Typer handles required argument validation via typer.Argument(...)
+db_app.command(name="list")(handle_stage_result(cmd_list))
+
+
 def show_command(
-    ctx: typer.Context,
-    database: str | None = typer.Argument(
-        None,
+    database: str = typer.Argument(
+        ...,
         help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
     query: str | None = typer.Option(None, "--query", "-q", help="Query filter as JSON string (MongoDB-style)"),
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of documents to return"),
 ) -> None:
     """Show a database."""
-    if database is None:
-        typer.echo("Error: Database name is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_show)
-    wrapped(database, query, limit)
+    handle_stage_result(cmd_show)(database, query, limit)
 
 
 def reset_command(
-    ctx: typer.Context,
-    database: str | None = typer.Argument(
-        None,
+    database: str = typer.Argument(
+        ...,
         help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
 ) -> None:
     """Reset (clear) a database collection by deleting all documents."""
-    if database is None:
-        typer.echo("Error: Database name is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_reset)
-    wrapped(database)
+    handle_stage_result(cmd_reset)(database)
 
 
-db_app.command(name="list")(handle_stage_result(cmd_list))
-db_app.command(name="reset")(reset_command)
 db_app.command(name="show")(show_command)
+db_app.command(name="reset")(reset_command)
 

@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._normalize_output import normalize_output
+from . import DaemonStartOutput
 from .DaemonConfig import _BACKEND_REGISTRY
 from ._start_helpers import (
     _get_daemon_impl,
@@ -68,18 +68,33 @@ def cmd_start() -> StageResult:
                 start_result = _start_directly(backend_type)
 
             yield (1.0, "Complete")
-            result_obj.result = start_result["result_msg"]
-            result_obj.output = normalize_output(start_result["output"])
-            result_obj.success = start_result["success"]
+            result_obj.result = start_result.get("result_msg", "")
+            result_obj.output = DaemonStartOutput(
+                errors=[],
+                warnings=[],
+                message=start_result.get("result_msg", ""),
+                running=start_result.get("success", False),
+            ).model_dump(mode="python")
+            result_obj.success = start_result.get("success", False)
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service start not supported for backend '{backend_type}'"
-            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.output = DaemonStartOutput(
+                errors=[str(e)],
+                warnings=[],
+                message=str(e),
+                running=False,
+            ).model_dump(mode="python")
             result_obj.success = False
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error starting daemon: {e}"
-            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.output = DaemonStartOutput(
+                errors=[str(e)],
+                warnings=[],
+                message=str(e),
+                running=False,
+            ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(

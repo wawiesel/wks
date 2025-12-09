@@ -18,7 +18,6 @@ def test_cmd_reinstall_success(patch_wks_config, monkeypatch):
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
-            "error_log_file": "daemon.error.log",
             "keep_alive": True,
             "run_at_load": False,
         },

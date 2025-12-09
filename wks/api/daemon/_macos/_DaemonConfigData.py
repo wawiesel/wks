@@ -2,15 +2,16 @@
 
 from pathlib import Path
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class _DaemonConfigData(BaseModel):
     """macOS launchd daemon configuration data."""
 
+    model_config = ConfigDict(extra="forbid")
+
     label: str = Field(..., description="Launchd service identifier (reverse DNS format)")
-    log_file: str = Field(..., description="Path to standard output log file (relative to WKS_HOME)")
-    error_log_file: str = Field(..., description="Path to standard error log file (relative to WKS_HOME)")
+    log_file: str = Field(..., description="Path to log file (relative to WKS_HOME)")
     keep_alive: bool = Field(..., description="Whether launchd should auto-restart daemon if it exits")
     run_at_load: bool = Field(..., description="Whether service should start automatically when installed")
 
@@ -25,7 +26,7 @@ class _DaemonConfigData(BaseModel):
             raise ValueError(f"daemon.data.label must be in reverse DNS format (e.g., 'com.example.app'), got: {v!r}")
         return v
 
-    @field_validator("log_file", "error_log_file")
+    @field_validator("log_file")
     @classmethod
     def validate_log_path(cls, v: str) -> str:
         """Validate log file paths are relative (not absolute)."""

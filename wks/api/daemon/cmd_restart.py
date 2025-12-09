@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._normalize_output import normalize_output
+from . import DaemonRestartOutput
 from .cmd_start import cmd_start
 from .cmd_stop import cmd_stop
 
@@ -51,13 +51,23 @@ def cmd_restart() -> StageResult:
         if not start_result.success:
             yield (1.0, "Complete")
             result_obj.result = start_result.result
-            result_obj.output = normalize_output(start_result.output)
+            result_obj.output = DaemonRestartOutput(
+                errors=start_result.output.get("errors", []),
+                warnings=start_result.output.get("warnings", []),
+                message=start_result.result,
+                restarted=False,
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
         yield (1.0, "Complete")
         result_obj.result = "Daemon restarted successfully"
-        result_obj.output = normalize_output({**start_result.output, "restarted": True})
+        result_obj.output = DaemonRestartOutput(
+            errors=[],
+            warnings=[],
+            message="Daemon restarted successfully",
+            restarted=True,
+        ).model_dump(mode="python")
         result_obj.success = True
 
     return StageResult(

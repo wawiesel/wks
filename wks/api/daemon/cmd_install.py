@@ -5,8 +5,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
-from .._normalize_output import normalize_output
 from ..config.WKSConfig import WKSConfig
+from . import DaemonInstallOutput
 from .DaemonConfig import _BACKEND_REGISTRY
 
 
@@ -59,17 +59,32 @@ def cmd_install() -> StageResult:
 
             yield (1.0, "Complete")
             result_obj.result = f"Daemon service installed successfully (label: {result.get('label', 'unknown')})"
-            result_obj.output = normalize_output(output)
+            result_obj.output = DaemonInstallOutput(
+                errors=[],
+                warnings=[],
+                message=result_obj.result,
+                installed=result.get("success", True),
+            ).model_dump(mode="python")
             result_obj.success = result.get("success", True)
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service installation not supported for backend '{backend_type}'"
-            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.output = DaemonInstallOutput(
+                errors=[str(e)],
+                warnings=[],
+                message=str(e),
+                installed=False,
+            ).model_dump(mode="python")
             result_obj.success = False
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error installing service: {e}"
-            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.output = DaemonInstallOutput(
+                errors=[str(e)],
+                warnings=[],
+                message=str(e),
+                installed=False,
+            ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(

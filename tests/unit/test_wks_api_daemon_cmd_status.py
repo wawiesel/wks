@@ -18,7 +18,6 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
-            "error_log_file": "daemon.error.log",
             "keep_alive": True,
             "run_at_load": False,
         },
@@ -52,9 +51,11 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
     result = run_cmd(cmd_status.cmd_status)
     assert result.success is True
     assert result.output["running"] is True
-    assert result.output["type"] == "service"
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["installed"] is True
+    assert result.output["pid"] == 12345
+    assert result.output["log_path"].endswith("daemon.json")
+    assert "errors" in result.output and result.output["errors"] == []
+    assert "warnings" in result.output and result.output["warnings"] == []
 
 
 def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
@@ -64,7 +65,6 @@ def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
-            "error_log_file": "daemon.error.log",
             "keep_alive": True,
             "run_at_load": False,
         },
@@ -94,6 +94,7 @@ def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
     result = run_cmd(cmd_status.cmd_status)
     assert result.success is True
     assert result.output["running"] is False
-    assert "errors" in result.output
-    assert "warnings" in result.output
-
+    assert result.output["installed"] is False
+    assert result.output["log_path"].endswith("daemon.json")
+    assert "errors" in result.output and result.output["errors"] == []
+    assert "warnings" in result.output and result.output["warnings"] == []

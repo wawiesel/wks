@@ -26,33 +26,26 @@ def mcp_callback(ctx: typer.Context) -> None:
 
 
 # Register commands with StageResult handler
+# Direct registration - Typer handles required argument validation via typer.Argument(...)
+mcp_app.command(name="list")(handle_stage_result(cmd_list))
+
+
 def install_command(
-    ctx: typer.Context,
-    name: str | None = typer.Argument(None, help="Installation name"),
+    name: str = typer.Argument(..., help="Installation name"),
+    install_type: str = typer.Option("mcpServersJson", "--type", help="Installation type"),
+    settings_path: str | None = typer.Option(None, "--settings-path", help="Path to settings file"),
 ) -> None:
     """Install WKS MCP server for the named installation."""
-    if name is None:
-        typer.echo("Error: Installation name is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_install)
-    wrapped(name)
+    handle_stage_result(cmd_install)(name, install_type, settings_path)
 
 
 def uninstall_command(
-    ctx: typer.Context,
-    name: str | None = typer.Argument(None, help="Installation name"),
+    name: str = typer.Argument(..., help="Installation name"),
 ) -> None:
     """Uninstall WKS MCP server for the named installation."""
-    if name is None:
-        typer.echo("Error: Installation name is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_uninstall)
-    wrapped(name)
+    handle_stage_result(cmd_uninstall)(name)
 
 
-mcp_app.command(name="list")(handle_stage_result(cmd_list))
 mcp_app.command(name="install")(install_command)
 mcp_app.command(name="uninstall")(uninstall_command)
 

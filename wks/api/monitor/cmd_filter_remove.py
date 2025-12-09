@@ -7,7 +7,7 @@ Matches CLI: wksc monitor filter remove <list-name> <value>, MCP: wksm_monitor_f
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._output_schemas.monitor import MonitorFilterRemoveOutput
+from . import MonitorFilterRemoveOutput
 from .MonitorConfig import MonitorConfig
 
 

@@ -18,7 +18,6 @@ def test_cmd_start_success(patch_wks_config, monkeypatch):
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
-            "error_log_file": "daemon.error.log",
             "keep_alive": True,
             "run_at_load": False,
         },
@@ -53,4 +52,3 @@ def test_cmd_start_success(patch_wks_config, monkeypatch):
     assert result.success is True
     assert "errors" in result.output
     assert "warnings" in result.output
-

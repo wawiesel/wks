@@ -85,15 +85,6 @@ def _discover() -> dict[tuple[str, str], Callable]:
             if app is None:
                 continue
 
-            # Handle callback command first (like config show)
-            callback_info = getattr(app, "registered_callback", None)
-            if callback_info and callback_info.callback:
-                # Config callback is the show command
-                if domain == "config":
-                    # cmd_show is imported in the CLI module
-                    if hasattr(cli_module, "cmd_show"):
-                        commands[(domain, "show")] = getattr(cli_module, "cmd_show")
-
             # Extract commands from app
             for cmd in app.registered_commands:
                 if cmd.name is None:

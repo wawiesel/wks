@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
-from .._output_schemas.monitor import MonitorCheckOutput
+from . import MonitorCheckOutput
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
 

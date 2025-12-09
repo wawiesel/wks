@@ -18,7 +18,6 @@ def test_cmd_stop_not_installed(patch_wks_config, monkeypatch):
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
-            "error_log_file": "daemon.error.log",
             "keep_alive": True,
             "run_at_load": False,
         },
@@ -46,4 +45,3 @@ def test_cmd_stop_not_installed(patch_wks_config, monkeypatch):
     assert "service not installed" in result.result
     assert "errors" in result.output
     assert "warnings" in result.output
-

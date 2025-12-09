@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, ConfigDict, computed_field
 
 from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
@@ -14,6 +14,8 @@ from ..daemon.DaemonConfig import DaemonConfig
 
 class WKSConfig(BaseModel):
     """Top-level configuration for WKS layers."""
+
+    model_config = ConfigDict(extra="forbid")
 
     monitor: MonitorConfig
     database: DatabaseConfig

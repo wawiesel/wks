@@ -3,37 +3,26 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._output_schemas.config import ConfigShowOutput
-from .WKSConfig import WKSConfig
+from ._load_config import load_config_with_output
+from . import ConfigShowOutput, WKSConfig
 
 
-def cmd_show(section: str = "") -> StageResult:
-    """Show configuration section or list all sections.
-
-    Args:
-        section: Section name. Empty string lists all section names, otherwise returns specific section.
-    """
+def cmd_show(section: str) -> StageResult:
+    """Show a specific configuration section."""
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.3, "Loading configuration...")
-        config = WKSConfig.load()
+        config, error_output = load_config_with_output(section, ConfigShowOutput)
+        if error_output is not None:
+            yield (1.0, "Complete")
+            result_obj.result = "Configuration validation failed"
+            result_obj.output = error_output
+            result_obj.success = False
+            return
         yield (0.6, "Processing sections...")
         config_dict = config.to_dict()
         available_sections = list(config_dict.keys())
         all_errors: list[str] = []
         all_warnings: list[str] = []
-
-        if section == "":
-            yield (1.0, "Complete")
-            result_obj.result = f"Found {len(available_sections)} section(s)"
-            result_obj.output = ConfigShowOutput(
-                errors=all_errors,
-                warnings=all_warnings,
-                section="",
-                content={"sections": available_sections},
-                config_path=str(config.path),
-            ).model_dump(mode="python")
-            result_obj.success = len(all_errors) == 0
-            return
 
         if section not in available_sections:
             all_errors.append(f"Unknown section: {section}")
@@ -58,7 +47,7 @@ def cmd_show(section: str = "") -> StageResult:
             content=config_dict.get(section, {}),
             config_path=str(config.path),
         ).model_dump(mode="python")
-        result_obj.success = len(all_errors) == 0
+        result_obj.success = True
 
-    announce = "Listing configuration sections..." if section == "" else f"Showing configuration for section '{section}'..."
+    announce = f"Showing configuration for section '{section}'..."
     return StageResult(announce=announce, progress_callback=do_work)

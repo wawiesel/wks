@@ -7,6 +7,7 @@ from pathlib import Path
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ...utils.expand_path import expand_path
+from . import McpUninstallOutput
 
 
 def cmd_uninstall(name: str) -> StageResult:
@@ -25,12 +26,13 @@ def cmd_uninstall(name: str) -> StageResult:
         if not config_path.exists():
             yield (1.0, "Complete")
             result_obj.result = "Configuration file not found"
-            result_obj.output = {
-                "success": False,
-                "error": "config file not found",
-                "errors": ["Configuration file not found"],
-                "warnings": [],
-            }
+            result_obj.output = McpUninstallOutput(
+                success=False,
+                name=name,
+                active=False,
+                errors=["Configuration file not found"],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
@@ -46,12 +48,13 @@ def cmd_uninstall(name: str) -> StageResult:
             if name not in installs:
                 yield (1.0, "Complete")
                 result_obj.result = f"Installation '{name}' not found"
-                result_obj.output = {
-                    "success": False,
-                    "error": f"Installation '{name}' not found",
-                    "errors": [f"Installation '{name}' not found"],
-                    "warnings": [],
-                }
+                result_obj.output = McpUninstallOutput(
+                    success=False,
+                    name=name,
+                    active=False,
+                    errors=[f"Installation '{name}' not found"],
+                    warnings=[],
+                ).model_dump(mode="python")
                 result_obj.success = False
                 return
 
@@ -91,23 +94,24 @@ def cmd_uninstall(name: str) -> StageResult:
 
             yield (1.0, "Complete")
             result_obj.result = f"MCP server uninstalled successfully for '{name}'"
-            result_obj.output = {
-                "success": True,
-                "name": name,
-                "active": False,
-                "errors": [],
-                "warnings": [],
-            }
+            result_obj.output = McpUninstallOutput(
+                success=True,
+                name=name,
+                active=False,
+                errors=[],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = True
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Uninstallation failed: {e}"
-            result_obj.output = {
-                "success": False,
-                "error": str(e),
-                "errors": [str(e)],
-                "warnings": [],
-            }
+            result_obj.output = McpUninstallOutput(
+                success=False,
+                name=name,
+                active=False,
+                errors=[str(e)],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(

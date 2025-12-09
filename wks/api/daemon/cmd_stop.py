@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._normalize_output import normalize_output
 from ..config.WKSConfig import WKSConfig
+from . import DaemonStopOutput
 from .DaemonConfig import _BACKEND_REGISTRY
 
 
@@ -45,16 +45,18 @@ def cmd_stop() -> StageResult:
             if not service_status.get("installed", False):
                 yield (1.0, "Complete")
                 result_obj.result = "Error: Daemon service not installed."
-                result_obj.output = normalize_output({"error": "service not installed"})
+                result_obj.output = DaemonStopOutput(
+                    errors=["service not installed"],
+                    warnings=[],
+                    message="service not installed",
+                    stopped=False,
+                ).model_dump(mode="python")
                 result_obj.success = False
                 return
 
             # Stop via service manager
             yield (0.7, "Stopping service...")
             result = daemon_impl.stop_service()
-            # Remove 'success' from output - it's handled by StageResult.success
-            output = {k: v for k, v in result.items() if k != "success"}
-
             yield (1.0, "Complete")
             if result.get("success", False):
                 if "note" in result:
@@ -63,17 +65,32 @@ def cmd_stop() -> StageResult:
                     result_obj.result = f"Daemon stopped successfully (label: {result.get('label', 'unknown')})"
             else:
                 result_obj.result = f"Error stopping daemon: {result.get('error', 'unknown error')}"
-            result_obj.output = normalize_output(output)
+            result_obj.output = DaemonStopOutput(
+                errors=[result.get("error", "")] if not result.get("success", False) else [],
+                warnings=[],
+                message=result_obj.result,
+                stopped=result.get("success", False),
+            ).model_dump(mode="python")
             result_obj.success = result.get("success", False)
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service stop not supported for backend '{backend_type}'"
-            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.output = DaemonStopOutput(
+                errors=[str(e)],
+                warnings=[],
+                message=str(e),
+                stopped=False,
+            ).model_dump(mode="python")
             result_obj.success = False
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error stopping daemon: {e}"
-            result_obj.output = normalize_output({"error": str(e)})
+            result_obj.output = DaemonStopOutput(
+                errors=[str(e)],
+                warnings=[],
+                message=str(e),
+                stopped=False,
+            ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(

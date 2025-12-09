@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/monitor_output.schema.json",
+  "title": "WKS Monitor Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "MonitorCheckOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string" },
+            "is_monitored": { "type": "boolean" },
+            "reason": { "type": "string" },
+            "priority": { "type": ["number", "null"] },
+            "decisions": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": { "type": "string" } }
+            },
+            "success": { "type": "boolean" }
+          },
+          "required": ["path", "is_monitored", "reason", "priority", "decisions", "success"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorSyncOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "files_synced": { "type": "integer" },
+            "files_skipped": { "type": "integer" },
+            "success": { "type": "boolean" }
+          },
+          "required": ["message", "files_synced", "files_skipped", "success"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorStatusOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "tracked_files": { "type": "integer" },
+            "issues": { "type": "array", "items": { "type": "string" } },
+            "priority_directories": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": true }
+            },
+            "time_based_counts": {
+              "type": "object",
+              "additionalProperties": { "type": "integer" }
+            },
+            "success": { "type": "boolean" }
+          },
+          "required": ["tracked_files", "issues", "priority_directories", "time_based_counts", "success"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorFilterAddOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "value_stored": { "type": ["string", "null"] },
+            "already_exists": { "type": "boolean", "default": false },
+            "validation_failed": { "type": "boolean", "default": false },
+            "success": { "type": "boolean" }
+          },
+          "required": ["message", "value_stored", "already_exists", "validation_failed", "success"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorFilterRemoveOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "value_removed": { "type": ["string", "null"] },
+            "not_found": { "type": "boolean", "default": false },
+            "success": { "type": "boolean" }
+          },
+          "required": ["message", "value_removed", "not_found", "success"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorFilterShowOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "list_name": { "type": ["string", "null"] },
+            "available_lists": { "type": "array", "items": { "type": "string" } },
+            "items": { "type": "array", "items": { "type": "string" } },
+            "count": { "type": "integer" }
+          },
+          "required": ["list_name", "available_lists", "items", "count"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorPriorityAddOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "path_stored": { "type": "string" },
+            "new_priority": { "type": "number" },
+            "old_priority": { "type": ["number", "null"] },
+            "created": { "type": "boolean" },
+            "already_exists": { "type": "boolean" },
+            "success": { "type": "boolean" }
+          },
+          "required": ["message", "path_stored", "new_priority", "old_priority", "created", "already_exists", "success"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorPriorityRemoveOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "path_removed": { "type": ["string", "null"] },
+            "priority": { "type": ["number", "null"] },
+            "not_found": { "type": "boolean", "default": false },
+            "success": { "type": "boolean" }
+          },
+          "required": ["message", "path_removed", "priority", "not_found", "success"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "MonitorPriorityShowOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "priority_directories": {
+              "type": "object",
+              "additionalProperties": { "type": "number" }
+            },
+            "count": { "type": "integer" },
+            "validation": { "type": "object", "additionalProperties": true }
+          },
+          "required": ["priority_directories", "count", "validation"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/MonitorCheckOutput" },
+    { "$ref": "#/definitions/MonitorSyncOutput" },
+    { "$ref": "#/definitions/MonitorStatusOutput" },
+    { "$ref": "#/definitions/MonitorFilterAddOutput" },
+    { "$ref": "#/definitions/MonitorFilterRemoveOutput" },
+    { "$ref": "#/definitions/MonitorFilterShowOutput" },
+    { "$ref": "#/definitions/MonitorPriorityAddOutput" },
+    { "$ref": "#/definitions/MonitorPriorityRemoveOutput" },
+    { "$ref": "#/definitions/MonitorPriorityShowOutput" }
+  ]
+}
+

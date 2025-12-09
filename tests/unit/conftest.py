@@ -102,7 +102,6 @@ def minimal_config_dict():
             "data": {
                 "label": "com.test.wks",
                 "log_file": "daemon.log",
-                "error_log_file": "daemon.error.log",
                 "keep_alive": True,
                 "run_at_load": False,
             },

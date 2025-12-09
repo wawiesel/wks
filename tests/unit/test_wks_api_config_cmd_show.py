@@ -11,9 +11,9 @@ pytestmark = pytest.mark.config
 class TestCmdShow:
     def test_cmd_show_no_section(self, wks_home_with_priority):
         result = run_cmd(cmd_show, "")
-        assert result.success
-        assert "sections" in result.output["content"]
-        assert len(result.output["content"]["sections"]) > 0
+        assert not result.success
+        assert result.output["errors"]
+        assert "Unknown section" in result.output["errors"][0]
 
     def test_cmd_show_with_valid_section(self, wks_home_with_priority):
         result = run_cmd(cmd_show, "monitor")

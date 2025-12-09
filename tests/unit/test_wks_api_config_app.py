@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import typer
 
-from wks.cli.config import config_app, config_callback
+from wks.cli.config import config_app, list_command, show_command, version_command
 
 pytestmark = pytest.mark.config
 
@@ -18,24 +18,35 @@ class TestConfigApp:
         assert isinstance(config_app, typer.Typer)
         assert config_app.info.name == "config"
 
-    def test_config_callback_without_subcommand(self, monkeypatch):
-        """Test config_callback handles no subcommand."""
-        ctx = MagicMock()
-        ctx.invoked_subcommand = None
-
+    def test_list_command_invokes_handler(self):
+        """list_command should wrap cmd_list and execute."""
         with patch("wks.cli.config.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
             with pytest.raises(SystemExit):
-                config_callback(ctx, None)
+                list_command()
             mock_handle.assert_called_once()
-            mock_wrapped.assert_called_once_with("")
+            mock_wrapped.assert_called_once_with()
 
-    def test_config_callback_with_subcommand(self, monkeypatch):
-        """Test config_callback does nothing when subcommand is invoked."""
-        ctx = MagicMock()
-        ctx.invoked_subcommand = "show"
+    def test_show_command_invokes_handler(self):
+        """show_command should wrap cmd_show and require section."""
+        with patch("wks.cli.config.handle_stage_result") as mock_handle:
+            mock_wrapped = MagicMock()
+            mock_wrapped.side_effect = SystemExit(0)
+            mock_handle.return_value = mock_wrapped
+            with pytest.raises(SystemExit):
+                show_command("monitor")
+            mock_handle.assert_called_once()
+            mock_wrapped.assert_called_once_with("monitor")
 
-        # Should not raise or do anything when subcommand exists
-        config_callback(ctx, None)
+    def test_version_command_invokes_handler(self):
+        """version_command should wrap cmd_version and execute."""
+        with patch("wks.cli.config.handle_stage_result") as mock_handle:
+            mock_wrapped = MagicMock()
+            mock_wrapped.side_effect = SystemExit(0)
+            mock_handle.return_value = mock_wrapped
+            with pytest.raises(SystemExit):
+                version_command()
+            mock_handle.assert_called_once()
+            mock_wrapped.assert_called_once_with()

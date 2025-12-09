@@ -4,7 +4,7 @@ import json
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._output_schemas.database import DatabaseShowOutput
+from . import DatabaseShowOutput
 from .Database import Database
 
 

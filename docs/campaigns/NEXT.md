@@ -1,4 +1,177 @@
+## Getting Started (For Next Developer)
+
+### Quick Orientation
+
+**Reading Order:**
+1. Start here (`NEXT.md`) to understand current state and priorities
+2. Read `docs/specifications/wks.md` for system overview and architecture
+3. Review domain specifications in `docs/specifications/*.md` for each feature area
+4. Examine example implementations in `wks/api/*/cmd_*.py` files
+5. Study test patterns in `tests/unit/test_wks_api_*.py` files
+
+**Key Concepts:**
+- **Schema-driven pattern**: JSON schemas in `docs/specifications/*_output.schema.json` are the single source of truth
+- **API-first purity**: Business logic lives in `wks/api/`, CLI (`wks/cli/`) and MCP (`wks/mcp/`) are thin wrappers
+- **StageResult pattern**: All commands return `StageResult` with 4 stages: announce → progress → result → output
+- **No code defaults**: All configuration values must come from config files; missing values fail validation
+
+### Specification Files
+
+All domain specifications are in `docs/specifications/`:
+- **[wks.md](specifications/wks.md)** - System overview, architecture, and global requirements
+- **[config.md](specifications/config.md)** - Configuration structure and validation
+- **[monitor.md](specifications/monitor.md)** - Filesystem tracking and priority scoring
+- **[vault.md](specifications/vault.md)** - Knowledge graph and link management
+- **[transform.md](specifications/transform.md)** - Document conversion (PDF/Office to Markdown)
+- **[diff.md](specifications/diff.md)** - Content comparison engines
+- **[database.md](specifications/database.md)** - Database abstraction and collection operations
+- **[daemon.md](specifications/daemon.md)** - Background service management
+- **[mcp.md](specifications/mcp.md)** - MCP installation management
+- **[index.md](specifications/index.md)** - Searchable indices (not yet implemented)
+- **[search.md](specifications/search.md)** - Query execution (not yet implemented)
+- **[patterns.md](specifications/patterns.md)** - Agentic workflows (not yet implemented)
+
+### Schema-Driven Pattern
+
+**How It Works:**
+1. JSON schemas in `docs/specifications/*_output.schema.json` define output structures
+2. `wks/api/schema_loader.py` dynamically creates Pydantic models from schemas
+3. Domains auto-register schemas on import via `register_from_schema()`
+4. Commands instantiate schema classes and call `.model_dump(mode="python")` to convert to dicts
+5. All outputs are validated against schemas before returning
+
+**Key Files:**
+- `wks/api/schema_loader.py` - Loads JSON schemas and builds Pydantic models
+- `wks/api/_output_schemas/_registry.py` - Schema registration and lookup
+- `wks/api/_output_schemas/_base.py` - Base schema with `errors` and `warnings` fields
+
+**Current Schema Files:**
+- `docs/specifications/config_output.schema.json`
+- `docs/specifications/database_output.schema.json`
+- `docs/specifications/monitor_output.schema.json`
+- `docs/specifications/daemon_output.schema.json`
+
+### Example Implementations
+
+**Reference Files to Review:**
+- `wks/api/config/cmd_list.py` - Simple command using output schema
+- `wks/api/config/cmd_show.py` - Command with section validation
+- `wks/api/database/cmd_show.py` - Command with query parameters
+- `wks/api/daemon/cmd_status.py` - Complex command with platform-specific logic
+- `wks/api/StageResult.py` - Core dataclass for 4-stage pattern
+
+**Pattern to Follow:**
+```python
+from ..StageResult import StageResult
+from . import DomainOutput  # Auto-imported schema class
+
+def cmd_example() -> StageResult:
+    def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
+        # ... work ...
+        result_obj.output = DomainOutput(
+            errors=[],
+            warnings=[],
+            # ... domain-specific fields ...
+        ).model_dump(mode="python")
+        result_obj.success = True
+    
+    return StageResult(announce="...", progress_callback=do_work)
+```
+
+### Test Patterns
+
+**Test File Naming:** `test_wks_api_<domain>_<command>.py`
+
+**Example Test Files:**
+- `tests/unit/test_wks_api_config_cmd_show.py` - Basic command test
+- `tests/unit/test_wks_api_daemon_cmd_status.py` - Complex command with mocking
+- `tests/unit/test_wks_api_StageResult.py` - Core dataclass tests
+
+**Test Pattern:**
+```python
+from tests.unit.conftest import run_cmd
+from wks.api.domain.cmd_example import cmd_example
+
+def test_cmd_example_success(wks_home_with_config):
+    result = run_cmd(cmd_example)
+    assert result.success
+    assert result.output["errors"] == []
+```
+
+### Key Architecture Files
+
+**Core Infrastructure:**
+- `wks/api/StageResult.py` - 4-stage command pattern
+- `wks/api/schema_loader.py` - Dynamic schema loading
+- `wks/api/_output_schemas/` - Schema registry and validation
+- `wks/cli/` - CLI layer (thin wrappers around API)
+- `wks/mcp/` - MCP server and tools
+
+**Domain Modules:**
+- `wks/api/config/` - Configuration management
+- `wks/api/database/` - Database operations
+- `wks/api/monitor/` - Filesystem monitoring
+- `wks/api/daemon/` - Background service management
+- `wks/api/vault/` - Knowledge graph operations
+- `wks/api/transform/` - Document conversion
+- `wks/api/diff/` - Content comparison
+
+**Configuration:**
+- `wks/api/config/WKSConfig.py` - Main config model (Pydantic)
+- `wks/api/*/Config.py` - Domain-specific config models
+- All configs use Pydantic with `extra="forbid"` - unknown fields rejected
+
+### Current State
+
+**What's Done:**
+- ✅ All API domains (config, database, monitor, daemon) migrated to schema-driven output
+- ✅ Dynamic Pydantic model creation from JSON schemas
+- ✅ Auto-registration of output schemas from specification files
+- ✅ Centralized validation with `extra="forbid"` - all unknown fields rejected
+- ✅ CLI layer moved to `wks/cli/` (API-first purity)
+- ✅ All unit tests updated and passing
+- ✅ MCP discovers commands via CLI Typer apps for schema synchronization
+
+**What Remains:**
+- [ ] Review MCP domain - determine if installation commands need output schemas
+- [ ] Update integration tests to use `wks.cli.*` paths (moved from `wks.api.*.app`)
+- [ ] Run full test suite and verify 100% coverage for config, database, monitor, daemon
+- [ ] Update API READMEs to document schema-driven approach
+- [ ] Complete MCP consistency for all commands through "diff" layer (see Priority 1)
+- [ ] Implement index and search layers (Priority 3)
+- [ ] Implement patterns capability (Priority 4)
+
+---
+
 ## Progress Notes
+
+### Session: 2025-12-04
+
+**What was accomplished:**
+- ✅ Migrated all API domains (config, database, monitor, daemon) to normative JSON schema-driven output schemas
+- ✅ Created `wks/api/schema_loader.py` for dynamic Pydantic model creation from packaged JSON schemas
+- ✅ All domains auto-register output schemas from `docs/specifications/*_output.schema.json` files
+- ✅ Removed legacy `wks/api/_output_schemas/` domain modules
+- ✅ Centralized config validation with `extra="forbid"` - all unknown fields rejected
+- ✅ All validation errors flow through standard output schemas (no scattered try/catch)
+- ✅ CLI layer moved to `wks/cli/` (API-first purity)
+- ✅ MCP discovers commands via CLI Typer apps for schema synchronization
+- ✅ Simplified daemon config to single `log_file` (removed `error_log_file`)
+- ✅ Fixed `wksc config` to show help by default
+- ✅ All unit tests updated and passing
+
+**What was useful:**
+- Normative JSON schemas as single source of truth for both specs and implementations
+- Dynamic Pydantic model creation eliminates manual schema duplication
+- Centralized validation prevents scattered error handling
+- Schema-driven approach ensures CLI/MCP output consistency
+
+**Remaining:**
+- MCP domain output schemas (if needed)
+- Integration test updates for new CLI paths
+- Final coverage verification
+
+---
 
 ### Session: 2025-12-02
 
@@ -42,7 +215,19 @@
 
 ## Priority 1
 
-Make MCP consistent with CLI for all commands through "diff" in @SPEC.md.
+### Complete 2025-12-04 Campaign
+
+**Campaign Status**: Nearly complete - finish remaining items:
+- [ ] Review MCP domain - determine if installation commands need output schemas
+- [ ] Update integration tests to use `wks.cli.*` paths (moved from `wks.api.*.app`)
+- [ ] Run full test suite and verify 100% coverage for config, database, monitor, daemon
+- [ ] Update API READMEs to document schema-driven approach
+
+**Key Achievement**: All domains now use normative JSON schemas as single source of truth, with dynamic Pydantic model creation eliminating manual duplication.
+
+---
+
+### Make MCP consistent with CLI for all commands through "diff" in @SPEC.md.
 
 - wksm_config ✓ (tests at 100%)
 - wksm_monitor (config tests at 100%, controller needs review)

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/config_output.schema.json",
+  "title": "WKS Config Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "ConfigListOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "section": { "type": "string", "const": "" },
+            "content": {
+              "type": "object",
+              "properties": {
+                "sections": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "required": ["sections"],
+              "additionalProperties": false
+            },
+            "config_path": { "type": "string" }
+          },
+          "required": ["section", "content", "config_path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ConfigShowOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "section": { "type": "string", "minLength": 1 },
+            "content": { "type": "object", "additionalProperties": true },
+            "config_path": { "type": "string" }
+          },
+          "required": ["section", "content", "config_path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ConfigVersionOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "version": { "type": "string" }
+          },
+          "required": ["version"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/ConfigListOutput" },
+    { "$ref": "#/definitions/ConfigShowOutput" },
+    { "$ref": "#/definitions/ConfigVersionOutput" }
+  ]
+}
+

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..StageResult import StageResult
-from .._output_schemas.monitor import MonitorPriorityShowOutput
+from . import MonitorPriorityShowOutput
 from .explain_path import explain_path
 
 

@@ -25,13 +25,11 @@ def _create_plist_content(config: _DaemonConfigData, python_path: str, module_pa
     # Working directory is always WKS_HOME
     working_directory = WKSConfig.get_home_dir()
 
-    # Log files are relative to WKS_HOME
+    # Single log file relative to WKS_HOME (used for both stdout/stderr)
     log_file = working_directory / config.log_file
-    error_log_file = working_directory / config.error_log_file
 
     # Ensure directories exist
     log_file.parent.mkdir(parents=True, exist_ok=True)
-    error_log_file.parent.mkdir(parents=True, exist_ok=True)
     working_directory.mkdir(parents=True, exist_ok=True)
 
     plist = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -62,7 +60,7 @@ def _create_plist_content(config: _DaemonConfigData, python_path: str, module_pa
   <key>StandardOutPath</key>
   <string>{log_file}</string>
   <key>StandardErrorPath</key>
-  <string>{error_log_file}</string>
+  <string>{log_file}</string>
 </dict>
 </plist>"""
     return plist

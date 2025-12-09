@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._output_schemas.database import DatabaseResetOutput
+from . import DatabaseResetOutput
 from .Database import Database
 
 

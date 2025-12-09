@@ -156,6 +156,15 @@ Detailed specifications for each component:
 *   **[Daemon](daemon.md)**: Background service for filesystem monitoring and knowledge graph maintenance.
 *   **[MCP Installation Management](mcp.md)**: Commands for managing WKS MCP server installations across various MCP client applications.
 
+## Formal Requirements (Global)
+- WKS.1 — CLI MUST support `--display yaml|json`; MCP returns JSON.
+- WKS.2 — CLI and MCP commands MUST follow the 4-stage pattern (announce → progress → result → output).
+- WKS.3 — CLI/MCP parity: every CLI command/tool has an MCP counterpart with identical data structures and semantics.
+- WKS.4 — API-first purity: business logic resides only in API; CLI/MCP are thin wrappers for presentation.
+- WKS.5 — No code defaults for configuration: all required values must come from config; missing values MUST fail validation.
+- WKS.6 — Output schemas are normative and MUST be validated before returning any response.
+- WKS.7 — Unknown sections/fields or schema violations MUST return schema-conformant errors; no partial success.
+
 ## What is a Specification?
 
 A specification describes **WHAT** the system does, not **HOW** it is implemented. It defines:

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from . import McpListOutput
 
 
 def cmd_list() -> StageResult:
@@ -22,12 +23,12 @@ def cmd_list() -> StageResult:
         if not config_path.exists():
             yield (1.0, "Complete")
             result_obj.result = "Configuration file not found"
-            result_obj.output = {
-                "installations": [],
-                "count": 0,
-                "errors": ["Configuration file not found"],
-                "warnings": [],
-            }
+            result_obj.output = McpListOutput(
+                installations=[],
+                count=0,
+                errors=["Configuration file not found"],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
@@ -38,12 +39,12 @@ def cmd_list() -> StageResult:
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error reading config: {e}"
-            result_obj.output = {
-                "installations": [],
-                "count": 0,
-                "errors": [str(e)],
-                "warnings": [],
-            }
+            result_obj.output = McpListOutput(
+                installations=[],
+                count=0,
+                errors=[str(e)],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
@@ -64,12 +65,12 @@ def cmd_list() -> StageResult:
 
         yield (1.0, "Complete")
         result_obj.result = f"Found {len(installations)} installation(s)"
-        result_obj.output = {
-            "installations": installations,
-            "count": len(installations),
-            "errors": [],
-            "warnings": [],
-        }
+        result_obj.output = McpListOutput(
+            installations=installations,
+            count=len(installations),
+            errors=[],
+            warnings=[],
+        ).model_dump(mode="python")
         result_obj.success = True
 
     return StageResult(

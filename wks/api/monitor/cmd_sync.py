@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..StageResult import StageResult
-from .._output_schemas.monitor import MonitorSyncOutput
+from . import MonitorSyncOutput
 from ..database.Database import Database
 from ._cleanup_legacy_fields import _cleanup_legacy_fields
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit

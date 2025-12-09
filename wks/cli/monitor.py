@@ -50,110 +50,61 @@ priority_app = typer.Typer(
 
 
 # Register commands with StageResult handler
-def check_command(
-    ctx: typer.Context,
-    path: str | None = typer.Argument(None, help="File or directory path to check"),
-) -> None:
+# Direct registration - Typer handles required argument validation via typer.Argument(...)
+monitor_app.command(name="status")(handle_stage_result(cmd_status))
+
+
+def check_command(path: str = typer.Argument(..., help="File or directory path to check")) -> None:
     """Check if a path would be monitored and calculate its priority."""
-    if path is None:
-        typer.echo("Error: Path is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_check)
-    wrapped(path)
+    handle_stage_result(cmd_check)(path)
 
 
 def sync_command(
-    ctx: typer.Context,
-    path: str | None = typer.Argument(None, help="File or directory path to sync"),
+    path: str = typer.Argument(..., help="File or directory path to sync"),
     recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
 ) -> None:
     """Force update of file or directory into monitor database."""
-    if path is None:
-        typer.echo("Error: Path is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_sync)
-    wrapped(path, recursive)
+    handle_stage_result(cmd_sync)(path, recursive)
 
 
 def filter_show_command(
-    ctx: typer.Context,
     list_name: str | None = typer.Argument(None, help="Name of list to show (leave empty to list available)"),
 ) -> None:
     """Get contents of a monitor configuration list or list available names."""
-    wrapped = handle_stage_result(cmd_filter_show)
-    wrapped(list_name)
+    handle_stage_result(cmd_filter_show)(list_name)
 
 
 def filter_add_command(
-    ctx: typer.Context,
-    list_name: str | None = typer.Argument(None, help="Name of list to modify"),
-    value: str | None = typer.Argument(None, help="Value to add"),
+    list_name: str = typer.Argument(..., help="Name of list to modify"),
+    value: str = typer.Argument(..., help="Value to add"),
 ) -> None:
     """Add a value to a monitor configuration list."""
-    if list_name is None:
-        typer.echo("Error: List name is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    if value is None:
-        typer.echo("Error: Value is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_filter_add)
-    wrapped(list_name, value)
+    handle_stage_result(cmd_filter_add)(list_name, value)
 
 
 def filter_remove_command(
-    ctx: typer.Context,
-    list_name: str | None = typer.Argument(None, help="Name of list to modify"),
-    value: str | None = typer.Argument(None, help="Value to remove"),
+    list_name: str = typer.Argument(..., help="Name of list to modify"),
+    value: str = typer.Argument(..., help="Value to remove"),
 ) -> None:
     """Remove a value from a monitor configuration list."""
-    if list_name is None:
-        typer.echo("Error: List name is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    if value is None:
-        typer.echo("Error: Value is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_filter_remove)
-    wrapped(list_name, value)
+    handle_stage_result(cmd_filter_remove)(list_name, value)
 
 
 def priority_add_command(
-    ctx: typer.Context,
-    path: str | None = typer.Argument(None, help="Path to set priority for"),
-    priority: float | None = typer.Argument(None, help="New priority of the path"),
+    path: str = typer.Argument(..., help="Path to set priority for"),
+    priority: float = typer.Argument(..., help="New priority of the path"),
 ) -> None:
     """Set or update priority for a priority directory."""
-    if path is None:
-        typer.echo("Error: Path is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    if priority is None:
-        typer.echo("Error: Priority is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_priority_add)
-    wrapped(path, priority)
+    handle_stage_result(cmd_priority_add)(path, priority)
 
 
 def priority_remove_command(
-    ctx: typer.Context,
-    path: str | None = typer.Argument(None, help="Path to unmanage"),
+    path: str = typer.Argument(..., help="Path to unmanage"),
 ) -> None:
     """Remove a priority directory."""
-    if path is None:
-        typer.echo("Error: Path is required", err=True)
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit(1)
-    wrapped = handle_stage_result(cmd_priority_remove)
-    wrapped(path)
+    handle_stage_result(cmd_priority_remove)(path)
 
 
-monitor_app.command(name="status")(handle_stage_result(cmd_status))
 monitor_app.command(name="check")(check_command)
 monitor_app.command(name="sync")(sync_command)
 

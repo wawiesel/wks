@@ -8,6 +8,7 @@ from pathlib import Path
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ...utils.expand_path import expand_path
+from . import McpInstallOutput
 
 
 def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: str | None = None) -> StageResult:
@@ -26,12 +27,14 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
         if install_type == "mcpServersJson" and not settings_path:
             yield (1.0, "Complete")
             result_obj.result = "Error: settings_path is required for mcpServersJson type"
-            result_obj.output = {
-                "success": False,
-                "error": "settings_path required",
-                "errors": ["settings_path is required for mcpServersJson type"],
-                "warnings": [],
-            }
+            result_obj.output = McpInstallOutput(
+                success=False,
+                name=name,
+                type=install_type,
+                active=False,
+                errors=["settings_path is required for mcpServersJson type"],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
@@ -40,12 +43,14 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
         if not config_path.exists():
             yield (1.0, "Complete")
             result_obj.result = "Configuration file not found"
-            result_obj.output = {
-                "success": False,
-                "error": "config file not found",
-                "errors": ["Configuration file not found"],
-                "warnings": [],
-            }
+            result_obj.output = McpInstallOutput(
+                success=False,
+                name=name,
+                type=install_type,
+                active=False,
+                errors=["Configuration file not found"],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
@@ -110,24 +115,26 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
 
             yield (1.0, "Complete")
             result_obj.result = f"MCP server installed successfully for '{name}'"
-            result_obj.output = {
-                "success": True,
-                "name": name,
-                "type": install_type,
-                "active": True,
-                "errors": [],
-                "warnings": [],
-            }
+            result_obj.output = McpInstallOutput(
+                success=True,
+                name=name,
+                type=install_type,
+                active=True,
+                errors=[],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = True
         except Exception as e:
             yield (1.0, "Complete")
             result_obj.result = f"Installation failed: {e}"
-            result_obj.output = {
-                "success": False,
-                "error": str(e),
-                "errors": [str(e)],
-                "warnings": [],
-            }
+            result_obj.output = McpInstallOutput(
+                success=False,
+                name=name,
+                type=install_type,
+                active=False,
+                errors=[str(e)],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(

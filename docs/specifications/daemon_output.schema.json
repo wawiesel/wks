@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/daemon_output.schema.json",
+  "title": "WKS Daemon Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "DaemonStatusOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "running": { "type": "boolean" },
+            "pid": { "type": ["integer", "null"] },
+            "installed": { "type": "boolean" },
+            "warnings_log": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": true }
+            },
+            "errors_log": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": true }
+            },
+            "log_path": { "type": "string" }
+          },
+          "required": ["running", "pid", "installed", "warnings_log", "errors_log", "log_path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonStartOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "running": { "type": "boolean" }
+          },
+          "required": ["message", "running"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonStopOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "stopped": { "type": "boolean" }
+          },
+          "required": ["message", "stopped"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonRestartOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "restarted": { "type": "boolean" }
+          },
+          "required": ["message", "restarted"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonInstallOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "installed": { "type": "boolean" }
+          },
+          "required": ["message", "installed"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonUninstallOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "uninstalled": { "type": "boolean" }
+          },
+          "required": ["message", "uninstalled"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/DaemonStatusOutput" },
+    { "$ref": "#/definitions/DaemonStartOutput" },
+    { "$ref": "#/definitions/DaemonStopOutput" },
+    { "$ref": "#/definitions/DaemonRestartOutput" },
+    { "$ref": "#/definitions/DaemonInstallOutput" },
+    { "$ref": "#/definitions/DaemonUninstallOutput" }
+  ]
+}
+

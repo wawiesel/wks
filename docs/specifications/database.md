@@ -1,88 +1,52 @@
 # Database Specification
 
-All layers store data in a configurable database backend. This specification describes the database abstraction and supported backends.
+## Purpose
+Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 
-**CLI Interface**:
-```bash
-# List databases
-wksc database list                           # List available databases
+## Configuration File Structure
+- Location: `{WKS_HOME}/config.json` (override with `export WKS_HOME=/custom/path`, default `~/.wks`)
+- Composition: Uses the `database` block as defined in `docs/specifications/wks.md`; no defaults in code; missing fields fail validation.
 
-# Show databases
-wksc database show <database>                # Show database contents
-wksc database show <database> --query '{"key": "value"}'  # Show with filter
-wksc database show <database> --limit 100    # Limit number of results
+## Normative Schema
+- Canonical output schema: `docs/specifications/database_output.schema.json`.
+- Implementations MUST validate outputs against this schema; unknown fields are rejected.
 
-# Reset databases (destructive)
-wksc database reset <database>                # Clear all documents from database
-```
+## CLI
 
-**Database Names**: Database names are specified without the prefix. The prefix from `database.prefix` configuration is automatically prepended. For example, with `prefix: "wks"`, specifying `monitor` accesses the `wks.monitor` database. Users must never specify the prefix in database names - only provide the database name itself.
+- Entry: `wksc database`
+- Output formats: `--display yaml` (default) or `--display json`
 
-## Overview
+### list
+- Command: `wksc database list`
+- Behavior: Lists available databases (names without prefix).
+- Output schema: `DatabaseListOutput` from `database_output.schema.json`.
 
-The WKS database layer provides a clean abstraction over database operations, allowing different database backends to be used without changing application code. The public API is database-agnostic and does not expose any database-specific concepts.
+### show
+- Command: `wksc database show <database> [--query JSON] [--limit N]`
+- Behavior: Shows documents from the specified collection with optional filter/limit.
+- Output schema: `DatabaseShowOutput` from `database_output.schema.json`.
 
-## Public Interface
+### reset
+- Command: `wksc database reset <database>`
+- Behavior: Deletes all documents from the specified collection.
+- Output schema: `DatabaseResetOutput` from `database_output.schema.json`.
 
-The database layer provides:
+## MCP
+- Commands mirror CLI:
+  - `wksm_database_list`
+  - `wksm_database_show <database> [query] [limit]`
+  - `wksm_database_reset <database>`
+- Output format: JSON.
+- CLI and MCP MUST return the same data and structure for equivalent calls.
 
-- **Database Operations**: Context manager for database operations (find, update, delete, count)
-- **Query Operations**: Simple pass-through query function for read operations
+## Error Semantics
+- Missing/unknown collection or invalid query MUST produce schema-conformant errors; no partial success.
+- All outputs MUST validate against their schemas before returning to CLI or MCP.
 
-These interfaces are backend-agnostic and work with any database backend implementation.
-
-## Configuration
-
-Database configuration is specified in the WKS config file under the `database` section:
-
-```json
-{
-  "database": {
-    "type": "mongo",
-    "prefix": "wks",
-    "data": {
-      "uri": "mongodb://localhost:27017/"
-    }
-  }
-}
-```
-
-**Required Fields**:
-- `type`: String identifying the database backend type (e.g., `"mongo"`, `"mongomock"`)
-- `prefix`: String specifying the database name prefix for collections
-- `data`: Object containing backend-specific configuration
-
-**Configuration Requirements**:
-- All configuration values must be present in the config file - no defaults are permitted in code
-- If a required field is missing, validation must fail immediately with a clear error message
-- Each backend type defines its own `data` structure
-- The `prefix` value is automatically prepended to collection names
-
-**Database Naming**: Database names specified in other config sections (e.g., `monitor.database: "monitor"`) are automatically prefixed with the `database.prefix` value. For example, with `prefix: "wks"`, a database named `"monitor"` is accessed as `"wks.monitor"` in the backend. Application code should specify just the database name without the prefix.
-
-## Backend Support
-
-The system supports multiple database backends. The backend implementation is determined at configuration load time based on the `database.type` value. Each backend:
-
-- Defines its own configuration structure in the `data` field
-- Implements the same public interface as other backends
-- Can be used by changing only the `database.type` configuration value
-
-**Example Backends**:
-- `"mongo"`: MongoDB implementation (example: requires `data.uri` field)
-- `"mongomock"`: In-memory mock implementation for testing (example: may have different `data` requirements)
-
-The specification does not require any specific backend - any backend that implements the required interface can be used.
-
-## Principles
-
-1. **Abstraction**: The public API must be database-agnostic. Application code must not reference database-specific concepts, types, or imports.
-
-2. **Interface Consistency**: All backend implementations must provide the same interface, allowing code to switch between backends by changing only the `database.type` configuration value.
-
-3. **Type-Based Selection**: The database implementation is determined at configuration load time based on `database.type`. The system must validate that the specified type is supported and that the provided `data` structure matches the requirements for that type.
-
-4. **No Defaults in Code**: All configuration fields must be required. No defaults are permitted in code - all values must come from the config file. Missing values cause validation to fail immediately.
-
-5. **Isolation**: All database-specific code must be isolated from the public API. The public API must never expose database-specific concepts, allowing implementations to be swapped without affecting application code.
+## Formal Requirements
+- DB.1 — Config values are required; no defaults in code; missing fields fail validation.
+- DB.2 — `wksc database list` lists all databases (names without prefix).
+- DB.3 — `wksc database show <database>` requires a database name; optional query/limit parameters; returns matching documents.
+- DB.4 — `wksc database reset <database>` clears the specified database.
+- DB.5 — Unknown/invalid database or schema violation returns schema-conformant errors; no partial success.
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..config.WKSConfig import WKSConfig
+from . import DaemonStatusOutput
 from .DaemonConfig import _BACKEND_REGISTRY
 
 
@@ -32,12 +32,14 @@ def cmd_status() -> StageResult:
         config = WKSConfig.load()
 
         backend_type = config.daemon.type
+        daemon_file = WKSConfig.get_home_dir() / "daemon.json"
         status_data: dict[str, Any] = {
             "running": False,
-            "type": None,
-            "warnings": [],
-            "errors": [],
-            "data": {},
+            "installed": False,
+            "warnings_log": [],
+            "errors_log": [],
+            "log_path": str(daemon_file),
+            "pid": None,
         }
 
         # Check service installation status via backend implementation
@@ -67,8 +69,7 @@ def cmd_status() -> StageResult:
                         running_as_service = True
                         status_data["running"] = True
                         status_data["pid"] = service_pid
-                        status_data["type"] = "service"
-                        status_data["data"] = service_data
+                        status_data["installed"] = True
             except (NotImplementedError, Exception):
                 # Backend doesn't support service status or error occurred
                 pass
@@ -76,21 +77,29 @@ def cmd_status() -> StageResult:
         # If running as service, check for warnings/errors from daemon.json
         if running_as_service:
             yield (0.7, "Reading daemon status file...")
-            daemon_file = WKSConfig.get_home_dir() / "daemon.json"
             if daemon_file.exists():
                 try:
                     import json
 
                     daemon_data = json.loads(daemon_file.read_text())
-                    status_data["warnings"] = daemon_data.get("warnings", [])
-                    status_data["errors"] = daemon_data.get("errors", [])
+                    status_data["warnings_log"] = daemon_data.get("warnings", [])
+                    status_data["errors_log"] = daemon_data.get("errors", [])
                 except Exception:
                     pass
 
             yield (1.0, "Complete")
             result_obj.result = f"Daemon status retrieved (running as service, PID: {service_pid})"
-            result_obj.output = status_data
-            result_obj.success = True
+            result_obj.output = DaemonStatusOutput(
+                errors=[],
+                warnings=[],
+                running=status_data["running"],
+                pid=status_data["pid"],
+                installed=True,
+                warnings_log=status_data["warnings_log"],
+                errors_log=status_data["errors_log"],
+                log_path=status_data["log_path"],
+            ).model_dump(mode="python")
+            result_obj.success = len(status_data["errors_log"]) == 0
             return
 
         # Not running as service - check for direct-run indicators
@@ -115,14 +124,13 @@ def cmd_status() -> StageResult:
                 pass
 
         # Check daemon status file (written by daemon when running directly)
-        daemon_file = WKSConfig.get_home_dir() / "daemon.json"
         if daemon_file.exists():
             try:
                 import json
 
                 daemon_data = json.loads(daemon_file.read_text())
-                status_data["warnings"] = daemon_data.get("warnings", [])
-                status_data["errors"] = daemon_data.get("errors", [])
+                status_data["warnings_log"] = daemon_data.get("warnings", [])
+                status_data["errors_log"] = daemon_data.get("errors", [])
 
                 if "pid" in daemon_data:
                     daemon_pid = daemon_data["pid"]
@@ -135,15 +143,10 @@ def cmd_status() -> StageResult:
         if terminal_pid:
             status_data["running"] = True
             status_data["pid"] = terminal_pid
-            status_data["type"] = "terminal"
-            status_data["data"] = terminal_data
-
             result_msg = f"Daemon status retrieved (running directly, PID: {terminal_pid})"
         elif service_data.get("installed") is not None:
-            # Service-capable backend: show service status even if not installed
-            status_data["type"] = "service"
-            status_data["data"] = service_data
-            if service_data.get("installed", False):
+            status_data["installed"] = service_data.get("installed", False)
+            if status_data["installed"]:
                 result_msg = "Daemon status retrieved (service installed but not running)"
             else:
                 result_msg = "Daemon status retrieved (service not installed)"
@@ -152,8 +155,17 @@ def cmd_status() -> StageResult:
 
         yield (1.0, "Complete")
         result_obj.result = result_msg
-        result_obj.output = status_data
-        result_obj.success = True
+        result_obj.output = DaemonStatusOutput(
+            errors=[],
+            warnings=[],
+            running=status_data["running"],
+            pid=status_data["pid"],
+            installed=status_data["installed"],
+            warnings_log=status_data["warnings_log"],
+            errors_log=status_data["errors_log"],
+            log_path=status_data["log_path"],
+        ).model_dump(mode="python")
+        result_obj.success = len(status_data["errors_log"]) == 0
 
     return StageResult(
         announce="Checking daemon status...",

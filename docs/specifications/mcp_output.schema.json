@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/mcp_output.schema.json",
+  "title": "WKS MCP Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "McpListOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "installations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string" },
+                  "active": { "type": "boolean" },
+                  "path": { "type": "string" }
+                },
+                "required": ["name", "type", "active", "path"],
+                "additionalProperties": false
+              }
+            },
+            "count": { "type": "integer" }
+          },
+          "required": ["installations", "count"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "McpInstallOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "name": { "type": "string" },
+            "type": { "type": "string" },
+            "active": { "type": "boolean" }
+          },
+          "required": ["success", "name", "type", "active"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "McpUninstallOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "name": { "type": "string" },
+            "active": { "type": "boolean" }
+          },
+          "required": ["success", "name", "active"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/McpListOutput" },
+    { "$ref": "#/definitions/McpInstallOutput" },
+    { "$ref": "#/definitions/McpUninstallOutput" }
+  ]
+}
+

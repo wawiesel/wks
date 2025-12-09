@@ -119,10 +119,10 @@ class _Impl(_AbstractImpl):
                         "pid": status["pid"],
                     }
                 else:
-                    error_log_path = Path(self.config.data.error_log_file).expanduser()
+                    log_path = Path(self.config.data.log_file).expanduser()
                     return {
                         "success": False,
-                        "error": f"Service failed to start after bootstrap (no PID found). Check error logs at: {error_log_path}",
+                        "error": f"Service failed to start after bootstrap (no PID found). Check logs at: {log_path}",
                     }
             except subprocess.CalledProcessError as e:
                 return {
@@ -152,11 +152,11 @@ class _Impl(_AbstractImpl):
                     "pid": status["pid"],
                 }
             else:
-                # Service didn't start - check error logs
-                error_log_path = Path(self.config.data.error_log_file).expanduser()
+                # Service didn't start - check logs
+                log_path = Path(self.config.data.log_file).expanduser()
                 return {
                     "success": False,
-                    "error": f"Service failed to start (no PID found). Check error logs at: {error_log_path}",
+                    "error": f"Service failed to start (no PID found). Check logs at: {log_path}",
                 }
         except subprocess.CalledProcessError as e:
             return {
