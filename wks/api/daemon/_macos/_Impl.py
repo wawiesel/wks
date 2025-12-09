@@ -1,6 +1,5 @@
 """macOS daemon implementation."""
 
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -197,18 +196,3 @@ class _Impl(_AbstractImpl):
                 "success": False,
                 "error": f"Failed to stop service: {error_msg}" if error_msg else "Failed to stop service.",
             }
-
-
-# Entry point for running as module (e.g., python -m wks.api.daemon._macos._Impl)
-if __name__ == "__main__":
-    try:
-        config = WKSConfig.load()
-        daemon_impl = _Impl(config.daemon)
-        daemon_impl.run()
-    except KeyboardInterrupt:
-        if 'daemon_impl' in locals():
-            daemon_impl.stop()
-        sys.exit(0)
-    except Exception as e:
-        print(f"Error: Daemon failed: {e}", file=sys.stderr)
-        sys.exit(1)

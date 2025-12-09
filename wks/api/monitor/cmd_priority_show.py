@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorPriorityShowOutput
 from .explain_path import explain_path
 
 
@@ -34,13 +35,14 @@ def cmd_priority_show() -> StageResult:
             yield (0.4 + (i / max(len(monitor_cfg.priority.dirs), 1)) * 0.5, f"Validating: {path}...")
 
         yield (1.0, "Complete")
-        result = {
-            "priority_directories": monitor_cfg.priority.dirs,
-            "count": len(monitor_cfg.priority.dirs),
-            "validation": validation,
-        }
+        result_obj.output = MonitorPriorityShowOutput(
+            errors=[],
+            warnings=[],
+            priority_directories=monitor_cfg.priority.dirs,
+            count=len(monitor_cfg.priority.dirs),
+            validation=validation,
+        ).model_dump(mode="python")
         result_obj.result = "Priority directories retrieved"
-        result_obj.output = result
         result_obj.success = True
 
     return StageResult(

@@ -1,4 +1,4 @@
-"""Unit tests for wks.api.monitor.app module."""
+"""Integration tests for wks.cli.monitor module."""
 
 from unittest.mock import MagicMock, patch
 
@@ -6,7 +6,7 @@ import pytest
 import typer
 
 from wks.api.StageResult import StageResult
-from wks.api.monitor.app import (
+from wks.cli.monitor import (
     check_command,
     filter_add_command,
     filter_remove_command,
@@ -18,7 +18,7 @@ from wks.api.monitor.app import (
     sync_command,
 )
 
-pytestmark = pytest.mark.monitor
+pytestmark = pytest.mark.integration
 
 
 class TestMonitorApp:
@@ -35,8 +35,8 @@ class TestMonitorApp:
         ctx.invoked_subcommand = None
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit) as mock_exit:
                 with pytest.raises(SystemExit):
                     monitor_callback(ctx)
                 mock_echo.assert_called_once_with("help text", err=True)
@@ -58,7 +58,7 @@ class TestCheckCommand:
         """Test check_command calls wrapped function when path provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.monitor.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.monitor.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -74,8 +74,8 @@ class TestCheckCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     check_command(ctx, None)
 
@@ -91,7 +91,7 @@ class TestSyncCommand:
         """Test sync_command calls wrapped function when path provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.monitor.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.monitor.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -107,8 +107,8 @@ class TestSyncCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     sync_command(ctx, None, False)
 
@@ -124,7 +124,7 @@ class TestFilterShowCommand:
         """Test filter_show_command calls wrapped function."""
         ctx = MagicMock()
 
-        with patch("wks.api.monitor.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.monitor.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -143,7 +143,7 @@ class TestFilterAddCommand:
         """Test filter_add_command calls wrapped function when args provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.monitor.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.monitor.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -159,8 +159,8 @@ class TestFilterAddCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     filter_add_command(ctx, None, "/test")
 
@@ -173,8 +173,8 @@ class TestFilterAddCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     filter_add_command(ctx, "include_paths", None)
 
@@ -190,7 +190,7 @@ class TestFilterRemoveCommand:
         """Test filter_remove_command calls wrapped function when args provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.monitor.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.monitor.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -206,8 +206,8 @@ class TestFilterRemoveCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     filter_remove_command(ctx, None, "/test")
 
@@ -220,8 +220,8 @@ class TestFilterRemoveCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     filter_remove_command(ctx, "include_paths", None)
 
@@ -237,7 +237,7 @@ class TestPriorityAddCommand:
         """Test priority_add_command calls wrapped function when args provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.monitor.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.monitor.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -253,8 +253,8 @@ class TestPriorityAddCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     priority_add_command(ctx, None, 5.0)
 
@@ -267,8 +267,8 @@ class TestPriorityAddCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     priority_add_command(ctx, "/test", None)
 
@@ -284,7 +284,7 @@ class TestPriorityRemoveCommand:
         """Test priority_remove_command calls wrapped function when path provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.monitor.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.monitor.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -300,8 +300,8 @@ class TestPriorityRemoveCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.monitor.app.typer.echo") as mock_echo:
-            with patch("wks.api.monitor.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.monitor.typer.echo") as mock_echo:
+            with patch("wks.cli.monitor.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     priority_remove_command(ctx, None)
 
@@ -327,7 +327,7 @@ def test_monitor_app_wrapper_non_cli():
         progress_callback=progress_cb,
     )
 
-    from wks.api.handle_stage_result import handle_stage_result
+    from wks.cli.handle_stage_result import handle_stage_result
 
     wrapped = handle_stage_result(lambda: stage)
     # handle_stage_result calls sys.exit() for CLI, so we need to catch SystemExit

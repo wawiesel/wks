@@ -1,8 +1,8 @@
-"""Unit tests for wks.api.get_typer_command_schema module."""
+"""Integration tests for wks.cli.get_typer_command_schema module."""
 
 import typer
 
-from wks.api.get_typer_command_schema import get_typer_command_schema
+from wks.cli.get_typer_command_schema import get_typer_command_schema
 
 
 def test_get_typer_command_schema_returns_schema():

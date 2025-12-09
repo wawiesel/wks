@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorStatusOutput
 from ..database.Database import Database
 from .explain_path import explain_path
 
@@ -69,36 +70,36 @@ def cmd_status() -> StageResult:
         # Validate priority directories
         yield (0.7, "Validating priority directories...")
         issues: list[str] = []
-        priority_directories: dict[str, dict[str, Any]] = {}
+        priority_directories: list[dict[str, Any]] = []
 
         for i, (path, priority) in enumerate(monitor_cfg.priority.dirs.items()):
             managed_resolved = Path(path).expanduser().resolve()
             allowed, trace = explain_path(monitor_cfg, managed_resolved)
             err = None if allowed else (trace[-1] if trace else "Excluded by monitor rules")
-            priority_directories[path] = {
+            priority_directories.append({
+                "path": path,
                 "priority": priority,
                 "valid": allowed,
                 "error": err,
-            }
+            })
             if err:
                 issues.append(f"Priority directory invalid: {path} ({err})")
             yield (0.7 + (i / max(len(monitor_cfg.priority.dirs), 1)) * 0.2, f"Validating: {path}...")
 
         # Only include status-specific data (not config that can be retrieved elsewhere)
         yield (1.0, "Complete")
-        result = {
-            "tracked_files": total_files,
-            "issues": issues,
-            "priority_directories": priority_directories,  # Includes validation status (status-specific)
-            "time_based_counts": time_based_counts,
-            "errors": [],
-            "warnings": [],
-            "success": len(issues) == 0,
-        }
+        result_obj.output = MonitorStatusOutput(
+            errors=[],
+            warnings=[],
+            tracked_files=total_files,
+            issues=issues,
+            priority_directories=priority_directories,  # Includes validation status (status-specific)
+            time_based_counts=time_based_counts,
+            success=len(issues) == 0,
+        ).model_dump(mode="python")
 
         result_msg = f"Monitor status retrieved ({len(issues)} issue(s) found)" if issues else "Monitor status retrieved"
         result_obj.result = result_msg
-        result_obj.output = result
         result_obj.success = len(issues) == 0
 
     return StageResult(

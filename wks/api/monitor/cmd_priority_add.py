@@ -7,6 +7,7 @@ Matches CLI: wksc monitor priority add <path> <priority>, MCP: wksm_monitor_prio
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorPriorityAddOutput
 
 
 def cmd_priority_add(path: str, priority: float) -> StageResult:
@@ -36,34 +37,38 @@ def cmd_priority_add(path: str, priority: float) -> StageResult:
         yield (0.6, "Updating priority...")
         if existing_key is None:
             config.monitor.priority.dirs[path_resolved] = priority
-            result = {
-                "success": True,
-                "message": f"Set priority for {path_resolved}: {priority} (created)",
-                "path_stored": path_resolved,
-                "new_priority": priority,
-                "created": True,
-                "already_exists": False,
-            }
+            result_obj.output = MonitorPriorityAddOutput(
+                errors=[],
+                warnings=[],
+                success=True,
+                message=f"Set priority for {path_resolved}: {priority} (created)",
+                path_stored=path_resolved,
+                new_priority=priority,
+                created=True,
+                already_exists=False,
+                old_priority=None,
+            ).model_dump(mode="python")
         else:
             # Update existing priority
             old_priority = config.monitor.priority.dirs[existing_key]
             config.monitor.priority.dirs[existing_key] = priority
-            result = {
-                "success": True,
-                "message": f"Updated priority for {existing_key}: {old_priority} → {priority}",
-                "old_priority": old_priority,
-                "new_priority": priority,
-                "path_stored": existing_key,
-                "created": False,
-                "already_exists": True,
-            }
+            result_obj.output = MonitorPriorityAddOutput(
+                errors=[],
+                warnings=[],
+                success=True,
+                message=f"Updated priority for {existing_key}: {old_priority} → {priority}",
+                path_stored=existing_key,
+                new_priority=priority,
+                created=False,
+                already_exists=True,
+                old_priority=old_priority,
+            ).model_dump(mode="python")
 
         yield (0.8, "Saving configuration...")
         config.save()
 
         yield (1.0, "Complete")
-        result_obj.result = str(result.get("message", ""))
-        result_obj.output = result
+        result_obj.result = result_obj.output["message"]
         result_obj.success = True
 
     return StageResult(

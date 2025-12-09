@@ -83,6 +83,8 @@ After these three changes: `WKSConfig.load()` validates/constructs automatically
 
 **Commands:** `cmd_show` automatic (`to_dict().keys()`), no special cases, all sections handled identically.
 
+**Output schemas:** All commands use registered output schemas from `wks/api/_output_schemas/config.py`. Import the schema class, instantiate it with output data, and call `.model_dump(mode="python")` to convert to dict. This ensures type safety and consistent structure.
+
 ## Anti-Patterns
 
 **Don't:** Optional sections (`newdomain: NewDomainConfig | None`), manual validation (`if "newdomain" not in raw`), special cases (`if section == "newdomain"`), custom constructors (`NewDomainConfig.from_dict(...)`), manual defaults (`raw.get("newdomain", default)`).

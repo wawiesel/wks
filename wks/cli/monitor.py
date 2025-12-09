@@ -2,16 +2,16 @@
 
 import typer
 
-from ..handle_stage_result import handle_stage_result
-from .cmd_check import cmd_check
-from .cmd_filter_add import cmd_filter_add
-from .cmd_filter_remove import cmd_filter_remove
-from .cmd_filter_show import cmd_filter_show
-from .cmd_priority_add import cmd_priority_add
-from .cmd_priority_remove import cmd_priority_remove
-from .cmd_priority_show import cmd_priority_show
-from .cmd_status import cmd_status
-from .cmd_sync import cmd_sync
+from wks.cli.handle_stage_result import handle_stage_result
+from wks.api.monitor.cmd_check import cmd_check
+from wks.api.monitor.cmd_filter_add import cmd_filter_add
+from wks.api.monitor.cmd_filter_remove import cmd_filter_remove
+from wks.api.monitor.cmd_filter_show import cmd_filter_show
+from wks.api.monitor.cmd_priority_add import cmd_priority_add
+from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
+from wks.api.monitor.cmd_priority_show import cmd_priority_show
+from wks.api.monitor.cmd_status import cmd_status
+from wks.api.monitor.cmd_sync import cmd_sync
 
 monitor_app = typer.Typer(
     name="monitor",

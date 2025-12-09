@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorCheckOutput
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
 
@@ -52,36 +53,35 @@ def cmd_check(path: str) -> StageResult:
 
         yield (0.9, "Calculating priority...")
         if not allowed:
-            output = {
-                "path": str(test_path),
-                "is_monitored": False,
-                "reason": trace[-1] if trace else "Excluded by monitor rules",
-                "priority": None,
-                "decisions": decisions,
-                "errors": [],
-                "warnings": [],
-                "success": False,
-            }
             res_msg = "Path is not monitored"
+            result_obj.output = MonitorCheckOutput(
+                errors=[],
+                warnings=[],
+                path=str(test_path),
+                is_monitored=False,
+                reason=trace[-1] if trace else "Excluded by monitor rules",
+                priority=None,
+                decisions=decisions,
+                success=False,
+            ).model_dump(mode="python")
         else:
             priority = calculate_priority(test_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump())
             decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
-            output = {
-                "path": str(test_path),
-                "is_monitored": True,
-                "reason": "Would be monitored",
-                "priority": priority,
-                "decisions": decisions,
-                "errors": [],
-                "warnings": [],
-                "success": True,
-            }
             res_msg = f"Path is monitored with priority {priority}"
+            result_obj.output = MonitorCheckOutput(
+                errors=[],
+                warnings=[],
+                path=str(test_path),
+                is_monitored=True,
+                reason="Would be monitored",
+                priority=priority,
+                decisions=decisions,
+                success=True,
+            ).model_dump(mode="python")
 
         yield (1.0, "Complete")
         result_obj.result = res_msg
-        result_obj.output = output
-        result_obj.success = output["success"]
+        result_obj.success = result_obj.output["success"]
 
     return StageResult(
         announce=f"Checking if path would be monitored: {path}",

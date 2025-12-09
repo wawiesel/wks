@@ -1,11 +1,11 @@
-"""DB Typer app that registers all database commands."""
+"""Database Typer app that registers all database commands."""
 
 import typer
 
-from ..handle_stage_result import handle_stage_result
-from .cmd_list import cmd_list
-from .cmd_reset import cmd_reset
-from .cmd_show import cmd_show
+from wks.cli.handle_stage_result import handle_stage_result
+from wks.api.database.cmd_list import cmd_list
+from wks.api.database.cmd_reset import cmd_reset
+from wks.api.database.cmd_show import cmd_show
 
 db_app = typer.Typer(
     name="database",
@@ -63,3 +63,4 @@ def reset_command(
 db_app.command(name="list")(handle_stage_result(cmd_list))
 db_app.command(name="reset")(reset_command)
 db_app.command(name="show")(show_command)
+

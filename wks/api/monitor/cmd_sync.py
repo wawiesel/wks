@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorSyncOutput
 from ..database.Database import Database
 from ._cleanup_legacy_fields import _cleanup_legacy_fields
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
@@ -42,17 +43,16 @@ def cmd_sync(
         path_obj = Path(path).expanduser().resolve()
         if not path_obj.exists():
             yield (1.0, "Complete")
-            sync_result = {
-                "success": False,
-                "message": f"Path does not exist: {path_obj}",
-                "files_synced": 0,
-                "files_skipped": 0,
-                "errors": [f"Path does not exist: {path_obj}"],
-                "warnings": [],
-            }
-            result_obj.result = sync_result.get("message", "Monitor sync completed")
-            result_obj.output = sync_result
-            result_obj.success = sync_result.get("success", True)
+            result_obj.output = MonitorSyncOutput(
+                errors=[f"Path does not exist: {path_obj}"],
+                warnings=[],
+                success=False,
+                message=f"Path does not exist: {path_obj}",
+                files_synced=0,
+                files_skipped=0,
+            ).model_dump(mode="python")
+            result_obj.result = result_obj.output["message"]
+            result_obj.success = False
             return
 
         yield (0.3, "Collecting files to process...")
@@ -130,17 +130,16 @@ def cmd_sync(
         )
 
         yield (1.0, "Complete")
-        sync_result = {
-            "success": success,
-            "message": result_msg,
-            "files_synced": files_synced,
-            "files_skipped": files_skipped,
-            "errors": errors,
-            "warnings": warnings,
-        }
-        result_obj.result = sync_result.get("message", "Monitor sync completed")
-        result_obj.output = sync_result
-        result_obj.success = sync_result.get("success", True)
+        result_obj.output = MonitorSyncOutput(
+            errors=errors,
+            warnings=warnings,
+            success=success,
+            message=result_msg,
+            files_synced=files_synced,
+            files_skipped=files_skipped,
+        ).model_dump(mode="python")
+        result_obj.result = result_obj.output["message"]
+        result_obj.success = success
 
     return StageResult(
         announce=f"Syncing {path}...",

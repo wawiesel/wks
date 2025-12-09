@@ -1,4 +1,4 @@
-"""Unit tests for wks.api.config.app module."""
+"""Integration tests for wks.cli.config module."""
 
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +7,7 @@ import typer
 
 from wks.cli.config import config_app, config_callback
 
-pytestmark = pytest.mark.config
+pytestmark = pytest.mark.integration
 
 
 class TestConfigApp:

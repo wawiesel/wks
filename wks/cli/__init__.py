@@ -11,11 +11,11 @@ from pathlib import Path
 import click
 import typer
 
-from wks.api.config.app import config_app
-from wks.api.daemon.app import daemon_app
-from wks.api.database.app import db_app
-from wks.api.mcp.app import mcp_app
-from wks.api.monitor.app import monitor_app
+from wks.cli.config import config_app
+from wks.cli.daemon import daemon_app
+from wks.cli.database import db_app
+from wks.cli.mcp import mcp_app
+from wks.cli.monitor import monitor_app
 
 # TODO: Create wks/api/diff/app.py
 # from wks.api.diff.app import diff_app
@@ -97,7 +97,7 @@ def mcp_command(
 def _handle_version_flag() -> int:
     """Handle --version flag by calling the API command."""
     from wks.api.config.cmd_version import cmd_version
-    from wks.api._run_single_execution import _run_single_execution
+    from wks.cli._run_single_execution import _run_single_execution
     from wks.utils.display.context import get_display
 
     display = get_display("cli")

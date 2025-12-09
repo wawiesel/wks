@@ -9,26 +9,118 @@ from pathlib import Path
 from typing import Any
 
 from wks.api.StageResult import StageResult
-from wks.api.get_typer_command_schema import get_typer_command_schema
+from wks.cli.get_typer_command_schema import get_typer_command_schema
 from wks.api.config.WKSConfig import WKSConfig
 
 
-def _discover() -> dict[tuple[str, str], Callable]:
-    """Auto-discover all cmd_* functions from non-underscore directories in wks.api."""
-    commands: dict[tuple[str, str], Callable] = {}
-    api_path = Path(__file__).parent.parent / "api"
-    for domain_dir in api_path.iterdir():
-        if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
-            continue
-        for cmd_file in domain_dir.glob("cmd_*.py"):
-            cmd_name = cmd_file.stem[4:]
-            try:
-                module = importlib.import_module(f"wks.api.{domain_dir.name}.{cmd_file.stem}")
-                func = getattr(module, f"cmd_{cmd_name}", None)
+def _extract_api_function_from_command(cmd_callback: Callable, cli_module: Any) -> Callable | None:
+    """Extract underlying API function from a Typer command callback.
+
+    Handles two patterns:
+    1. Direct: command = handle_stage_result(cmd_*) -> has __wrapped__
+    2. Wrapper: command = wrapper_function that calls handle_stage_result(cmd_*)
+
+    Args:
+        cmd_callback: The Typer command callback function
+        cli_module: The CLI module (to access imported API functions)
+
+    Returns:
+        The underlying API function, or None if not found
+    """
+    # Pattern 1: Direct command with __wrapped__
+    if hasattr(cmd_callback, '__wrapped__'):
+        return cmd_callback.__wrapped__
+
+    # Pattern 2: Wrapper command - extract from module globals
+    # CLI modules import API functions like: from wks.api.monitor.cmd_check import cmd_check
+    # The wrapper calls handle_stage_result(cmd_check), so cmd_check is in module globals
+    if hasattr(cli_module, '__dict__'):
+        # Try to find cmd_* function in module that matches command name
+        # We need to infer the command name from the callback name
+        callback_name = cmd_callback.__name__
+        # Wrapper commands are like: check_command -> cmd_check
+        if callback_name.endswith('_command'):
+            cmd_name = callback_name[:-8]  # Remove '_command' suffix
+            func_name = f"cmd_{cmd_name}"
+            if hasattr(cli_module, func_name):
+                func = getattr(cli_module, func_name)
                 if callable(func):
-                    commands[(domain_dir.name, cmd_name)] = func
-            except Exception:
+                    return func
+
+    return None
+
+
+def _discover() -> dict[tuple[str, str], Callable]:
+    """Auto-discover all cmd_* functions by scanning CLI Typer apps.
+
+    This makes CLI the single source of truth - MCP discovers commands
+    through CLI infrastructure rather than scanning API directories directly.
+    """
+    commands: dict[tuple[str, str], Callable] = {}
+    cli_path = Path(__file__).parent.parent / "cli"
+
+    # Scan CLI modules for Typer apps
+    for cli_file in cli_path.glob("*.py"):
+        if cli_file.name.startswith("_") or cli_file.name == "__init__.py":
+            continue
+
+        domain = cli_file.stem
+        if domain == "display":  # Skip display.py
+            continue
+
+        try:
+            # Import CLI module
+            cli_module = importlib.import_module(f"wks.cli.{domain}")
+
+            # Get Typer app (try common patterns)
+            app = None
+            patterns = [f"{domain}_app", "db_app" if domain == "database" else None, f"{domain}app", "app"]
+            for pattern in patterns:
+                if pattern is None:
+                    continue
+                app = getattr(cli_module, pattern, None)
+                if app is not None:
+                    break
+
+            if app is None:
                 continue
+
+            # Handle callback command first (like config show)
+            callback_info = getattr(app, "registered_callback", None)
+            if callback_info and callback_info.callback:
+                # Config callback is the show command
+                if domain == "config":
+                    # cmd_show is imported in the CLI module
+                    if hasattr(cli_module, "cmd_show"):
+                        commands[(domain, "show")] = getattr(cli_module, "cmd_show")
+
+            # Extract commands from app
+            for cmd in app.registered_commands:
+                if cmd.name is None:
+                    continue
+
+                # Extract underlying API function
+                api_func = _extract_api_function_from_command(cmd.callback, cli_module)
+                if api_func:
+                    commands[(domain, cmd.name)] = api_func
+
+            # Handle sub-apps (filter_app, priority_app, etc.)
+            if hasattr(app, "registered_groups"):
+                for group in app.registered_groups:
+                    if not hasattr(group, "typer_instance"):
+                        continue
+                    sub_app = group.typer_instance
+                    prefix = f"{group.name}_"
+
+                    for cmd in sub_app.registered_commands:
+                        api_func = _extract_api_function_from_command(cmd.callback, cli_module)
+                        if api_func:
+                            full_cmd_name = f"{prefix}{cmd.name}"
+                            commands[(domain, full_cmd_name)] = api_func
+
+        except Exception:
+            continue
+
     return commands
 
 
@@ -40,7 +132,7 @@ def _get_app(domain: str) -> Any:
         if pattern is None:
             continue
         try:
-            module = importlib.import_module(f"wks.api.{domain}.app")
+            module = importlib.import_module(f"wks.cli.{domain}")
             app = getattr(module, pattern, None)
             if app is not None:
                 return app

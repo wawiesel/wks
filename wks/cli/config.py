@@ -2,9 +2,9 @@
 
 import typer
 
-from ..handle_stage_result import handle_stage_result
-from .cmd_show import cmd_show
-from .cmd_version import cmd_version
+from wks.cli.handle_stage_result import handle_stage_result
+from wks.api.config.cmd_show import cmd_show
+from wks.api.config.cmd_version import cmd_version
 
 config_app = typer.Typer(
     name="config",
@@ -40,8 +40,6 @@ def config_callback(
         wrapped(section or "")
 
 
-@config_app.command(name="version")
-def version_command() -> None:
-    """Show WKS version information."""
-    wrapped = handle_stage_result(cmd_version)
-    wrapped()
+# Register commands with StageResult handler
+config_app.command(name="version")(handle_stage_result(cmd_version))
+

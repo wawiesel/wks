@@ -12,7 +12,7 @@ This directory implements the database API following a strict one-file-per-funct
 
 **StageResult pattern**: All commands return `StageResult` with four stages: announce → progress → result → output. This provides consistent structure for CLI and MCP layers while separating work execution from display.
 
-**Pydantic for input, dicts for output**: Pydantic models validate configuration input. Command outputs are plain `dict[str, Any]` for flexibility. No Pydantic models for command results.
+**Pydantic for input, schemas for output**: Pydantic models validate configuration input. Command outputs use registered output schemas (from `wks/api/_output_schemas/`) to ensure consistent structure. Commands instantiate schema classes and call `.model_dump(mode="python")` to convert to dicts.
 
 **Inline when used once**: Helper functions are kept separate only if used multiple times or substantial enough to warrant separation. Functions used once are inlined into their callers to reduce unnecessary abstraction.
 
@@ -31,9 +31,13 @@ This directory implements the database API following a strict one-file-per-funct
 
 **Database access**: Use `Database` context manager from `Database.py` for database operations, or `Database.query()` classmethod for simple pass-through queries.
 
+**Output schemas**: All commands use registered output schemas from `wks/api/_output_schemas/database.py`. Import the schema class, instantiate it with output data, and call `.model_dump(mode="python")` to convert to dict. This ensures type safety and consistent structure.
+
 ### Database Configuration
 
-**DatabaseConfig**: The `DatabaseConfig` class in `DatabaseConfig.py` provides unified database configuration with backend-specific data. The configuration structure is:
+**DatabaseConfig**: The `DatabaseConfig` class in `DatabaseConfig.py` provides unified database configuration with backend-specific data. It's a container that holds backend-specific configuration - backends handle their own connection details.
+
+**Configuration structure**:
 
 ```json
 {
@@ -47,17 +51,41 @@ This directory implements the database API following a strict one-file-per-funct
 }
 ```
 
-The `prefix` field is required and specifies the database name prefix. For example, with `prefix: "wks"`, a database named `"monitor"` in config is accessed as `"wks.monitor"` in the backend. Users should specify just the database name (e.g., `"monitor"`) when using `Database` - the prefix is handled automatically.
+For `mongomock` (in-memory database), `data` can be empty:
+
+```json
+{
+  "database": {
+    "type": "mongomock",
+    "prefix": "wks",
+    "data": {}
+  }
+}
+```
+
+**Backend-specific requirements**: Each backend's `_DbConfigData` class defines what it needs:
+- `mongo`: Requires `uri` field (MongoDB connection string)
+- `mongomock`: Requires nothing (in-memory, no connection needed)
+
+**Backend abstraction**: `DatabaseConfig` doesn't expose backend-specific details. Backend implementations access their config data directly (e.g., `db_config.data.uri` for mongo). This keeps the abstraction clean - `DatabaseConfig` is just a container, backends handle their own connection logic.
 
 **Backend registry**: The `_BACKEND_REGISTRY` in `DatabaseConfig` is the **ONLY** place where backend types are enumerated. To add a new backend:
 
 1. Add an entry to `_BACKEND_REGISTRY` mapping the type name to its config data class
-2. Create the backend implementation in `_<backend_type>/` following the existing pattern
+2. Create the backend implementation in `_<backend_type>/` following the existing pattern:
+   - `_DbConfigData.py`: Pydantic model defining backend-specific config fields (only require what's needed)
+   - `_Impl.py`: Implementation of `_AbstractImpl` that handles connections using its config data
 3. The rest of the code will automatically work with the new backend via dynamic imports
 
 **Initialization**: `DatabaseConfig` uses Pydantic's `model_validator(mode="before")` to:
-- Validate the `type` is supported
+- Validate the `type` is supported (checks `_BACKEND_REGISTRY`)
 - Automatically instantiate the correct backend config class from the `data` dict
-- Let the backend config class validate itself
+- Let the backend config class validate itself (e.g., mongo validates URI format)
 
 This means you can simply call `DatabaseConfig(**db_config_dict)` and all validation happens automatically.
+
+**Connection handling**: Backend implementations (`_Impl` classes) handle their own connections:
+- They receive `DatabaseConfig` in their `__init__`
+- They access backend-specific config via `db_config.data` (e.g., `db_config.data.uri` for mongo)
+- They manage connection lifecycle in `__enter__` and `__exit__`
+- No need for `get_uri()` or other convenience methods on `DatabaseConfig` - backends are self-contained

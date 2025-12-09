@@ -49,5 +49,6 @@ The `_Impl` class in `_Impl.py` implements the abstract interface defined in `_A
 - Maps public API methods to MongoDB collection operations
 - Handles connection lifecycle via context manager
 
-**Note**: This implementation is internal. Application code should use the public `Database` API from `wks.api.database.Database`.
+**Connection handling**: The implementation accesses its config data directly via `db_config.data.uri`. No need for convenience methods on `DatabaseConfig` - backends are self-contained and handle their own connection details.
 
+**Note**: This implementation is internal. Application code should use the public `Database` API from `wks.api.database.Database`. If you need the MongoDB URI, access it from the backend's config data: `db_config.data.uri` (with proper type checking).

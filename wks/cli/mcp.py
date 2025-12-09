@@ -2,10 +2,10 @@
 
 import typer
 
-from ..handle_stage_result import handle_stage_result
-from .cmd_install import cmd_install
-from .cmd_list import cmd_list
-from .cmd_uninstall import cmd_uninstall
+from wks.cli.handle_stage_result import handle_stage_result
+from wks.api.mcp.cmd_install import cmd_install
+from wks.api.mcp.cmd_list import cmd_list
+from wks.api.mcp.cmd_uninstall import cmd_uninstall
 
 mcp_app = typer.Typer(
     name="mcp",
@@ -55,3 +55,4 @@ def uninstall_command(
 mcp_app.command(name="list")(handle_stage_result(cmd_list))
 mcp_app.command(name="install")(install_command)
 mcp_app.command(name="uninstall")(uninstall_command)
+

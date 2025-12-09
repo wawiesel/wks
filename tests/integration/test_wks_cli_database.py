@@ -1,13 +1,13 @@
-"""Unit tests for wks.api.database.app module."""
+"""Integration tests for wks.cli.database module."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 import typer
 
-from wks.api.database.app import db_app, db_callback, reset_command, show_command
+from wks.cli.database import db_app, db_callback, reset_command, show_command
 
-pytestmark = pytest.mark.db
+pytestmark = pytest.mark.integration
 
 
 class TestDbApp:
@@ -24,8 +24,8 @@ class TestDbApp:
         ctx.invoked_subcommand = None
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.database.app.typer.echo") as mock_echo:
-            with patch("wks.api.database.app.typer.Exit", side_effect=SystemExit) as mock_exit:
+        with patch("wks.cli.database.typer.echo") as mock_echo:
+            with patch("wks.cli.database.typer.Exit", side_effect=SystemExit) as mock_exit:
                 with pytest.raises(SystemExit):
                     db_callback(ctx)
                 mock_echo.assert_called_once_with("help text", err=True)
@@ -47,7 +47,7 @@ class TestShowCommand:
         """Test show_command calls wrapped function when collection provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.database.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.database.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -63,8 +63,8 @@ class TestShowCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.database.app.typer.echo") as mock_echo:
-            with patch("wks.api.database.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.database.typer.echo") as mock_echo:
+            with patch("wks.cli.database.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     show_command(ctx, None, None, 50)
 
@@ -80,7 +80,7 @@ class TestResetCommand:
         """Test reset_command calls wrapped function when collection provided."""
         ctx = MagicMock()
 
-        with patch("wks.api.database.app.handle_stage_result") as mock_handle:
+        with patch("wks.cli.database.handle_stage_result") as mock_handle:
             mock_wrapped = MagicMock()
             mock_wrapped.side_effect = SystemExit(0)
             mock_handle.return_value = mock_wrapped
@@ -96,8 +96,8 @@ class TestResetCommand:
         ctx = MagicMock()
         ctx.get_help.return_value = "help text"
 
-        with patch("wks.api.database.app.typer.echo") as mock_echo:
-            with patch("wks.api.database.app.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
+        with patch("wks.cli.database.typer.echo") as mock_echo:
+            with patch("wks.cli.database.typer.Exit", side_effect=SystemExit(1)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     reset_command(ctx, None)
 

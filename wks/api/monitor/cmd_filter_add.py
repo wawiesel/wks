@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorFilterAddOutput
 from .MonitorConfig import MonitorConfig
 
 
@@ -24,8 +25,17 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
 
         if list_name not in MonitorConfig.get_filter_list_names():
             yield (1.0, "Complete")
-            result_obj.result = f"Unknown list_name: {list_name!r}"
-            result_obj.output = {"success": False, "error": f"Unknown list_name: {list_name!r}"}
+            result_obj.output = MonitorFilterAddOutput(
+                errors=[],
+                warnings=[],
+                success=False,
+                message=f"Unknown list_name: {list_name!r}",
+                value_stored=None,
+                validation_failed=None,
+                already_exists=None,
+                error=f"Unknown list_name: {list_name!r}",
+            ).model_dump(mode="python")
+            result_obj.result = result_obj.output["message"]
             result_obj.success = False
             raise ValueError(f"Unknown list_name: {list_name!r}")
 
@@ -57,9 +67,17 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
 
             if err:
                 yield (1.0, "Complete")
-                result = {"success": False, "message": err, "validation_failed": True}
+                result_obj.output = MonitorFilterAddOutput(
+                    errors=[],
+                    warnings=[],
+                    success=False,
+                    message=err,
+                    value_stored=None,
+                    validation_failed=True,
+                    already_exists=None,
+                    error=None,
+                ).model_dump(mode="python")
                 result_obj.result = err
-                result_obj.output = result
                 result_obj.success = False
                 return
             value_resolved = entry
@@ -80,9 +98,17 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
 
             if err:
                 yield (1.0, "Complete")
-                result = {"success": False, "message": err, "validation_failed": True}
+                result_obj.output = MonitorFilterAddOutput(
+                    errors=[],
+                    warnings=[],
+                    success=False,
+                    message=err,
+                    value_stored=None,
+                    validation_failed=True,
+                    already_exists=None,
+                    error=None,
+                ).model_dump(mode="python")
                 result_obj.result = err
-                result_obj.output = result
                 result_obj.success = False
                 return
             value_resolved = entry
@@ -104,9 +130,17 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
 
         if existing:
             yield (1.0, "Complete")
-            result = {"success": False, "message": f"Already in {list_name}: {existing}", "already_exists": True}
-            result_obj.result = str(result.get("message", ""))
-            result_obj.output = result
+            result_obj.output = MonitorFilterAddOutput(
+                errors=[],
+                warnings=[],
+                success=False,
+                message=f"Already in {list_name}: {existing}",
+                value_stored=None,
+                validation_failed=None,
+                already_exists=True,
+                error=None,
+            ).model_dump(mode="python")
+            result_obj.result = result_obj.output["message"]
             result_obj.success = False
             return
 
@@ -116,9 +150,17 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
         config.save()
 
         yield (1.0, "Complete")
-        result = {"success": True, "message": f"Added to {list_name}: {value_to_store}", "value_stored": value_to_store}
-        result_obj.result = str(result.get("message", ""))
-        result_obj.output = result
+        result_obj.output = MonitorFilterAddOutput(
+            errors=[],
+            warnings=[],
+            success=True,
+            message=f"Added to {list_name}: {value_to_store}",
+            value_stored=value_to_store,
+            validation_failed=None,
+            already_exists=None,
+            error=None,
+        ).model_dump(mode="python")
+        result_obj.result = result_obj.output["message"]
         result_obj.success = True
 
     return StageResult(

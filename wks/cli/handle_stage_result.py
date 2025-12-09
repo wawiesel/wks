@@ -54,3 +54,4 @@ def handle_stage_result(func: F) -> F:
         _run_single_execution(func, args, kwargs, display, display_format)
 
     return wrapper  # type: ignore[return-value]
+

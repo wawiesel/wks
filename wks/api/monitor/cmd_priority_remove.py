@@ -7,6 +7,7 @@ Matches CLI: wksc monitor priority remove <path>, MCP: wksm_monitor_priority_rem
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorPriorityRemoveOutput
 
 
 def cmd_priority_remove(path: str) -> StageResult:
@@ -28,13 +29,16 @@ def cmd_priority_remove(path: str) -> StageResult:
 
         if not config.monitor.priority.dirs:
             yield (1.0, "Complete")
-            result = {
-                "success": False,
-                "message": "No priority directories configured",
-                "not_found": True,
-            }
-            result_obj.result = str(result.get("message", ""))
-            result_obj.output = result
+            result_obj.output = MonitorPriorityRemoveOutput(
+                errors=[],
+                warnings=[],
+                success=False,
+                message="No priority directories configured",
+                path_removed=None,
+                priority=None,
+                not_found=True,
+            ).model_dump(mode="python")
+            result_obj.result = result_obj.output["message"]
             result_obj.success = False
             return
 
@@ -47,13 +51,16 @@ def cmd_priority_remove(path: str) -> StageResult:
         yield (0.6, "Checking if priority directory exists...")
         if existing_key is None:
             yield (1.0, "Complete")
-            result = {
-                "success": False,
-                "message": f"Not a priority directory: {path_resolved}",
-                "not_found": True,
-            }
-            result_obj.result = str(result.get("message", ""))
-            result_obj.output = result
+            result_obj.output = MonitorPriorityRemoveOutput(
+                errors=[],
+                warnings=[],
+                success=False,
+                message=f"Not a priority directory: {path_resolved}",
+                path_removed=None,
+                priority=None,
+                not_found=True,
+            ).model_dump(mode="python")
+            result_obj.result = result_obj.output["message"]
             result_obj.success = False
             return
 
@@ -68,14 +75,16 @@ def cmd_priority_remove(path: str) -> StageResult:
         config.save()
 
         yield (1.0, "Complete")
-        result = {
-            "success": True,
-            "message": f"Removed priority directory: {existing_key}",
-            "path_removed": existing_key,
-            "priority": priority,
-        }
-        result_obj.result = str(result.get("message", ""))
-        result_obj.output = result
+        result_obj.output = MonitorPriorityRemoveOutput(
+            errors=[],
+            warnings=[],
+            success=True,
+            message=f"Removed priority directory: {existing_key}",
+            path_removed=existing_key,
+            priority=priority,
+            not_found=None,
+        ).model_dump(mode="python")
+        result_obj.result = result_obj.output["message"]
         result_obj.success = True
 
     return StageResult(

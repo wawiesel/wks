@@ -7,6 +7,7 @@ Matches CLI: wksc monitor filter remove <list-name> <value>, MCP: wksm_monitor_f
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
+from .._output_schemas.monitor import MonitorFilterRemoveOutput
 from .MonitorConfig import MonitorConfig
 
 
@@ -23,8 +24,16 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
 
         if list_name not in MonitorConfig.get_filter_list_names():
             yield (1.0, "Complete")
-            result_obj.result = f"Unknown list_name: {list_name!r}"
-            result_obj.output = {"success": False, "error": f"Unknown list_name: {list_name!r}"}
+            result_obj.output = MonitorFilterRemoveOutput(
+                errors=[],
+                warnings=[],
+                success=False,
+                message=f"Unknown list_name: {list_name!r}",
+                value_removed=None,
+                not_found=None,
+                error=f"Unknown list_name: {list_name!r}",
+            ).model_dump(mode="python")
+            result_obj.result = result_obj.output["message"]
             result_obj.success = False
             raise ValueError(f"Unknown list_name: {list_name!r}")
 
@@ -45,22 +54,32 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
 
         if removed_value is None:
             yield (1.0, "Complete")
-            result = {
-                "success": False,
-                "message": f"Value not found in {list_name}: {value}",
-                "not_found": True,
-            }
-            result_obj.result = str(result.get("message", ""))
-            result_obj.output = result
+            result_obj.output = MonitorFilterRemoveOutput(
+                errors=[],
+                warnings=[],
+                success=False,
+                message=f"Value not found in {list_name}: {value}",
+                value_removed=None,
+                not_found=True,
+                error=None,
+            ).model_dump(mode="python")
+            result_obj.result = result_obj.output["message"]
             result_obj.success = False
             return
 
         yield (0.8, "Saving configuration...")
         config.save()
         yield (1.0, "Complete")
-        result = {"success": True, "message": f"Removed from {list_name}: {removed_value}", "value_removed": removed_value}
-        result_obj.result = str(result.get("message", ""))
-        result_obj.output = result
+        result_obj.output = MonitorFilterRemoveOutput(
+            errors=[],
+            warnings=[],
+            success=True,
+            message=f"Removed from {list_name}: {removed_value}",
+            value_removed=removed_value,
+            not_found=None,
+            error=None,
+        ).model_dump(mode="python")
+        result_obj.result = result_obj.output["message"]
         result_obj.success = True
 
     return StageResult(

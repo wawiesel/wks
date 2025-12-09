@@ -12,7 +12,7 @@ This directory implements the monitor API following a strict one-file-per-functi
 
 **StageResult pattern**: All commands return `StageResult` with four stages: announce → progress → result → output. This provides consistent structure for CLI and MCP layers while separating work execution from display.
 
-**Pydantic for input, dicts for output**: Pydantic models validate configuration input. Command outputs are plain `dict[str, Any]` for flexibility. No Pydantic models for command results.
+**Pydantic for input, schemas for output**: Pydantic models validate configuration input. Command outputs use registered output schemas (from `wks/api/_output_schemas/`) when available to ensure consistent structure. Commands instantiate schema classes and call `.model_dump(mode="python")` to convert to dicts.
 
 **Inline when used once**: Helper functions are kept separate only if used multiple times or substantial enough to warrant separation. Functions used once are inlined into their callers to reduce unnecessary abstraction.
 
