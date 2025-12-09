@@ -8,6 +8,7 @@ from typing import Any
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from . import DaemonStatusOutput
+from .Daemon import Daemon
 from .DaemonConfig import _BACKEND_REGISTRY
 
 
@@ -50,10 +51,8 @@ def cmd_status() -> StageResult:
 
         if backend_type in _BACKEND_REGISTRY:
             try:
-                module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
-                impl_class = module._Impl
-                daemon_impl = impl_class(config.daemon)
-                service_status = daemon_impl.get_service_status()
+                with Daemon(config.daemon) as daemon:
+                    service_status = daemon.get_service_status()
                 service_installed = service_status.get("installed", False)
 
                 # Always set installed status (True or False) for service-capable backends

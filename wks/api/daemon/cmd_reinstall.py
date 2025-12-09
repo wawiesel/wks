@@ -3,9 +3,10 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .._normalize_output import normalize_output
 from ..config.WKSConfig import WKSConfig
-from .DaemonConfig import _BACKEND_REGISTRY
+from . import DaemonInstallOutput
+from .Daemon import Daemon
+from ._validate_backend_type import _validate_backend_type
 from .cmd_install import cmd_install
 from .cmd_uninstall import cmd_uninstall
 
@@ -24,23 +25,15 @@ def cmd_reinstall() -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend type...")
         backend_type = config.daemon.type
-        if backend_type not in _BACKEND_REGISTRY:
+        if not _validate_backend_type(result_obj, backend_type, DaemonInstallOutput, "installed"):
             yield (1.0, "Complete")
-            result_obj.result = f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
-            result_obj.output = normalize_output({
-                "error": f"Unsupported backend type: {backend_type!r}",
-                "supported": list(_BACKEND_REGISTRY.keys()),
-            })
-            result_obj.success = False
             return
 
         # Check if service is installed
         yield (0.3, "Checking if service is installed...")
         try:
-            module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
-            impl_class = module._Impl
-            daemon_impl = impl_class(config.daemon)
-            service_status = daemon_impl.get_service_status()
+            with Daemon(config.daemon) as daemon:
+                service_status = daemon.get_service_status()
             is_installed = service_status.get("installed", False)
         except Exception:
             is_installed = False

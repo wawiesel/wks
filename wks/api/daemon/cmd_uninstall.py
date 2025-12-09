@@ -5,7 +5,8 @@ from collections.abc import Iterator
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from . import DaemonUninstallOutput
-from .DaemonConfig import _BACKEND_REGISTRY
+from .Daemon import Daemon
+from ._validate_backend_type import _validate_backend_type
 
 
 def cmd_uninstall() -> StageResult:
@@ -22,26 +23,17 @@ def cmd_uninstall() -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend type...")
         backend_type = config.daemon.type
-        if backend_type not in _BACKEND_REGISTRY:
+        if not _validate_backend_type(result_obj, backend_type, DaemonUninstallOutput, "uninstalled"):
             yield (1.0, "Complete")
-            result_obj.result = f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
-            result_obj.output = normalize_output({
-                "error": f"Unsupported backend type: {backend_type!r}",
-                "supported": list(_BACKEND_REGISTRY.keys()),
-            })
-            result_obj.success = False
             return
 
         # Import and instantiate backend implementation
         yield (0.4, "Initializing backend implementation...")
         try:
-            module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
-            impl_class = module._Impl
-            daemon_impl = impl_class(config.daemon)
-
             # Uninstall via backend implementation
             yield (0.6, "Uninstalling service...")
-            result = daemon_impl.uninstall_service()
+            with Daemon(config.daemon) as daemon:
+                result = daemon.uninstall_service()
             # Remove 'success' from output - it's handled by StageResult.success
             output = {k: v for k, v in result.items() if k != "success"}
 

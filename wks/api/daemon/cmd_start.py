@@ -4,13 +4,12 @@ from collections.abc import Iterator
 
 from ..StageResult import StageResult
 from . import DaemonStartOutput
-from .DaemonConfig import _BACKEND_REGISTRY
+from .Daemon import Daemon
 from ._start_helpers import (
-    _get_daemon_impl,
     _start_directly,
     _start_via_service,
-    _validate_backend_type,
 )
+from ._validate_backend_type import _validate_backend_type
 
 
 def cmd_start() -> StageResult:
@@ -46,23 +45,19 @@ def cmd_start() -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend...")
         backend_type = config.daemon.type
-        is_valid, error_output = _validate_backend_type(backend_type)
-        if not is_valid:
+        if not _validate_backend_type(result_obj, backend_type, DaemonStartOutput, "running"):
             yield (1.0, "Complete")
-            result_obj.result = f"Error: Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
-            result_obj.output = normalize_output(error_output or {})
-            result_obj.success = False
             return
 
         # Get daemon implementation and start
         yield (0.5, "Starting daemon...")
         try:
-            daemon_impl = _get_daemon_impl(backend_type, config)
-            service_status = daemon_impl.get_service_status()
+            with Daemon(config.daemon) as daemon:
+                service_status = daemon.get_service_status()
 
             if service_status.get("installed", False):
                 yield (0.7, "Starting via service manager...")
-                start_result = _start_via_service(daemon_impl, backend_type)
+                start_result = _start_via_service(daemon, backend_type)
             else:
                 yield (0.7, "Starting directly...")
                 start_result = _start_directly(backend_type)

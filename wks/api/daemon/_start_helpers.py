@@ -1,46 +1,25 @@
 """Helper functions for daemon start command."""
 
+from typing import TYPE_CHECKING, Any
+
 import subprocess
 import sys
-from typing import Any
 
-from ..config.WKSConfig import WKSConfig
-from .DaemonConfig import _BACKEND_REGISTRY
-
-
-def _validate_backend_type(backend_type: str) -> tuple[bool, dict[str, Any] | None]:
-    """Validate backend type is supported.
-
-    Returns:
-        (is_valid, error_output)
-    """
-    if backend_type not in _BACKEND_REGISTRY:
-        return False, {
-            "errors": [f"Unsupported backend type: {backend_type!r}"],
-            "warnings": [],
-            "supported": list(_BACKEND_REGISTRY.keys()),
-        }
-    return True, None
+if TYPE_CHECKING:
+    from .Daemon import Daemon
 
 
-def _get_daemon_impl(backend_type: str, config: WKSConfig):
-    """Get daemon implementation instance.
-
-    Returns:
-        Daemon implementation instance
-    """
-    module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
-    impl_class = module._Impl
-    return impl_class(config.daemon)
-
-
-def _start_via_service(daemon_impl, backend_type: str) -> dict[str, Any]:
+def _start_via_service(daemon: "Daemon", backend_type: str) -> dict[str, Any]:
     """Start daemon via service manager.
+
+    Args:
+        daemon: Daemon instance
+        backend_type: Backend type (for logging/debugging)
 
     Returns:
         Result dict with success, label, action, etc.
     """
-    result = daemon_impl.start_service()
+    result = daemon.start_service()
     output = {k: v for k, v in result.items() if k != "success"}
     output["method"] = "service"
     return {
