@@ -5,11 +5,6 @@ from collections.abc import Iterator
 from ..StageResult import StageResult
 from . import DaemonStartOutput
 from .Daemon import Daemon
-from ._start_helpers import (
-    _start_directly,
-    _start_via_service,
-)
-from ._validate_backend_type import _validate_backend_type
 
 
 def cmd_start() -> StageResult:
@@ -45,7 +40,7 @@ def cmd_start() -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend...")
         backend_type = config.daemon.type
-        if not _validate_backend_type(result_obj, backend_type, DaemonStartOutput, "running"):
+        if not Daemon._validate_backend_type(result_obj, backend_type, DaemonStartOutput, "running"):
             yield (1.0, "Complete")
             return
 
@@ -54,23 +49,20 @@ def cmd_start() -> StageResult:
         try:
             with Daemon(config.daemon) as daemon:
                 service_status = daemon.get_service_status()
+                if "installed" not in service_status:
+                    raise KeyError("get_service_status() result missing required 'installed' field")
 
-            if service_status.get("installed", False):
-                yield (0.7, "Starting via service manager...")
-                start_result = _start_via_service(daemon, backend_type)
-            else:
-                yield (0.7, "Starting directly...")
-                start_result = _start_directly(backend_type)
+                if service_status["installed"]:
+                    yield (0.7, "Starting via service manager...")
+                    start_result = daemon._start_via_service()
+                else:
+                    yield (0.7, "Starting directly...")
+                    start_result = Daemon._start_directly(backend_type)
 
             yield (1.0, "Complete")
-            result_obj.result = start_result.get("result_msg", "")
-            result_obj.output = DaemonStartOutput(
-                errors=[],
-                warnings=[],
-                message=start_result.get("result_msg", ""),
-                running=start_result.get("success", False),
-            ).model_dump(mode="python")
-            result_obj.success = start_result.get("success", False)
+            result_obj.result = start_result.message
+            result_obj.output = start_result.model_dump(mode="python")
+            result_obj.success = start_result.running
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service start not supported for backend '{backend_type}'"

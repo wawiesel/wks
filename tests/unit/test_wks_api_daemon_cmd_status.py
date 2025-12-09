@@ -14,7 +14,7 @@ pytestmark = pytest.mark.daemon
 def test_cmd_status_success(patch_wks_config, monkeypatch):
     """Test cmd_status with successful status check."""
     patch_wks_config.daemon = DaemonConfig(
-        type="macos",
+        type="darwin",
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
@@ -40,7 +40,7 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
     original_import = __import__
 
     def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if "macos._Impl" in name:
+        if "darwin._Impl" in name:
             return mock_module
         return original_import(name, globals, locals, fromlist, level)
 
@@ -61,7 +61,7 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
 def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
     """Test cmd_status when service is not installed."""
     patch_wks_config.daemon = DaemonConfig(
-        type="macos",
+        type="darwin",
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
@@ -85,7 +85,7 @@ def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
     original_import = __import__
 
     def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if "macos._Impl" in name:
+        if "darwin._Impl" in name:
             return mock_module
         return original_import(name, globals, locals, fromlist, level)
 

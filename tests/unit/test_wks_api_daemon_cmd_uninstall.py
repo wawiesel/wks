@@ -14,7 +14,7 @@ pytestmark = pytest.mark.daemon
 def test_cmd_uninstall_success(patch_wks_config, monkeypatch):
     """Test cmd_uninstall with successful uninstallation."""
     patch_wks_config.daemon = DaemonConfig(
-        type="macos",
+        type="darwin",
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
@@ -37,7 +37,7 @@ def test_cmd_uninstall_success(patch_wks_config, monkeypatch):
     original_import = __import__
 
     def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if "macos._Impl" in name:
+        if "darwin._Impl" in name:
             return mock_module
         return original_import(name, globals, locals, fromlist, level)
 

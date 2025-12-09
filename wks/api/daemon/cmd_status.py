@@ -53,14 +53,16 @@ def cmd_status() -> StageResult:
             try:
                 with Daemon(config.daemon) as daemon:
                     service_status = daemon.get_service_status()
-                service_installed = service_status.get("installed", False)
+                if "installed" not in service_status:
+                    raise KeyError("get_service_status() result missing required 'installed' field")
+                service_installed = service_status["installed"]
 
                 # Always set installed status (True or False) for service-capable backends
                 service_data["installed"] = service_installed
                 if "plist_path" in service_status:
-                    service_data["plist_path"] = service_status.get("plist_path")
+                    service_data["plist_path"] = service_status["plist_path"]
                 if "label" in service_status:
-                    service_data["label"] = service_status.get("label")
+                    service_data["label"] = service_status["label"]
 
                 if service_installed and "pid" in service_status:
                     service_pid = service_status["pid"]

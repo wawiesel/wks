@@ -8,7 +8,6 @@ from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from . import DaemonInstallOutput
 from .Daemon import Daemon
-from ._validate_backend_type import _validate_backend_type
 
 
 def cmd_install() -> StageResult:
@@ -29,7 +28,7 @@ def cmd_install() -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend type...")
         backend_type = config.daemon.type
-        if not _validate_backend_type(result_obj, backend_type, DaemonInstallOutput, "installed"):
+        if not Daemon._validate_backend_type(result_obj, backend_type, DaemonInstallOutput, "installed"):
             yield (1.0, "Complete")
             return
 

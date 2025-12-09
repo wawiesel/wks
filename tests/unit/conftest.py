@@ -98,7 +98,7 @@ def minimal_config_dict():
             "data": {},
         },
         "daemon": {
-            "type": "macos",
+            "type": "darwin",
             "data": {
                 "label": "com.test.wks",
                 "log_file": "daemon.log",

@@ -1,12 +1,53 @@
 # Daemon Specification
 
 ## Purpose
-Manage filesystem-monitoring daemon: install/uninstall, start/stop/restart, status. Consistent CLI/MCP outputs.
+Manage filesystem-monitoring daemon: install/uninstall, start/stop, status. Consistent CLI/MCP outputs.
+
+## Daemon Runtime Behavior
+
+When running, the daemon monitors the filesystem and automatically synchronizes changes to the monitor database. The daemon:
+
+- **Monitors filesystem events**: Watches for file modifications, creations, deletions, and moves
+- **Calls monitor sync**: For each filesystem event, invokes the equivalent of `wksc monitor sync <path>` to update the monitor database
+- **Handles file operations**:
+  - **Modified**: Calls monitor sync for the modified file
+  - **Created**: Calls monitor sync for the newly created file
+  - **Deleted**: Calls monitor sync for the deleted file path (must support non-existent paths)
+  - **Moved**: Treated as two operations: delete at old location, then create at new location
+- **Runs continuously**: The daemon runs indefinitely until stopped, processing filesystem events as they occur
+
+**Note**: The monitor sync API (`wks.api.monitor.cmd_sync`) must support paths that do not currently exist to handle file deletion events. When syncing a non-existent path, the monitor database should remove or mark the corresponding entry as deleted.
 
 ## Configuration File Structure
 - Location: `{WKS_HOME}/config.json` (override via `WKS_HOME`)
-- Composition: Uses `daemon` block as defined in `docs/specifications/wks.md`; all fields required; no defaults in code.
+- Composition: Uses `type/data` pattern similar to database configuration. All fields required; no defaults in code.
 - Logging: single `log_file` path (relative to `WKS_HOME`) captures stdout/stderr; entries MUST annotate severity (info/warn/error) within that file.
+
+The daemon configuration uses a platform-specific structure:
+
+```json
+{
+  "daemon": {
+    "type": "darwin",
+    "data": {
+      "label": "com.example.wks.daemon",
+      "log_file": "logs/daemon.log",
+      "keep_alive": true,
+      "run_at_load": false
+    }
+  }
+}
+```
+
+**Configuration Fields**:
+- `type`: Platform/service manager type (e.g., `"darwin"` for macOS launchd). Must match a supported backend.
+- `data`: Platform-specific configuration object. Structure depends on `type`.
+
+**Platform-Specific Data (darwin/macOS)**:
+- `label`: Launchd service identifier in reverse DNS format (e.g., `"com.example.wks.daemon"`). Required.
+- `log_file`: Path to log file relative to `WKS_HOME`. Required. Must be relative (not absolute).
+- `keep_alive`: Boolean indicating whether launchd should auto-restart the daemon if it exits. Required.
+- `run_at_load`: Boolean indicating whether the service should start automatically when installed. Required.
 
 ## Normative Schema
 - Canonical output schema: `docs/specifications/daemon_output.schema.json`.
@@ -24,18 +65,15 @@ Manage filesystem-monitoring daemon: install/uninstall, start/stop/restart, stat
 
 ### start
 - Command: `wksc daemon start`
-- Behavior: Ensure daemon is running (idempotent).
+- Behavior: Ensure daemon is running (idempotent). The command supports two execution modes:
+  - **Service mode** (when service is installed): Starts the daemon via the system service manager (e.g., launchctl on macOS). If the service is already running, it restarts it.
+  - **Direct background process mode** (when service is not installed): Starts the daemon directly as a detached background process using subprocess, independent of the calling terminal session. The process runs in a new session and continues after the CLI command exits.
 - Output schema: `DaemonStartOutput`.
 
 ### stop
 - Command: `wksc daemon stop`
 - Behavior: Stop daemon.
 - Output schema: `DaemonStopOutput`.
-
-### restart
-- Command: `wksc daemon restart`
-- Behavior: Full stop + start cycle.
-- Output schema: `DaemonRestartOutput`.
 
 ### install
 - Command: `wksc daemon install`
@@ -52,7 +90,6 @@ Manage filesystem-monitoring daemon: install/uninstall, start/stop/restart, stat
   - `wksm_daemon_status`
   - `wksm_daemon_start`
   - `wksm_daemon_stop`
-  - `wksm_daemon_restart`
   - `wksm_daemon_install`
   - `wksm_daemon_uninstall`
 - Output format: JSON.
@@ -64,6 +101,9 @@ Manage filesystem-monitoring daemon: install/uninstall, start/stop/restart, stat
 
 ## Formal Requirements
 - DAEMON.1 — All daemon config fields required; no defaults in code.
-- DAEMON.2 — Commands must emit schema-validated outputs (status/start/stop/restart/install/uninstall).
+- DAEMON.2 — Commands must emit schema-validated outputs (status/start/stop/install/uninstall).
 - DAEMON.3 — CLI/MCP parity: same data and structure for equivalent commands.
 - DAEMON.4 — Errors are schema-conformant; no partial success.
+- DAEMON.5 — `wksc daemon start` MUST support two execution modes: service mode (when installed) and direct background process mode (when not installed). The direct mode MUST run the daemon as a detached background process that continues after the CLI command exits.
+- DAEMON.6 — When running, the daemon MUST monitor filesystem events and call the monitor sync API (`wks.api.monitor.cmd_sync`) for each event: file modifications, creations, deletions, and moves. File moves MUST be treated as delete at old location followed by create at new location.
+- DAEMON.7 — The monitor sync API MUST support paths that do not currently exist to handle file deletion events. When syncing a non-existent path, the monitor database entry for that path MUST be removed or marked as deleted.

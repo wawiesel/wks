@@ -56,7 +56,7 @@ class _Impl(_AbstractImpl):
 
         return {
             "success": True,
-            "type": "macos",
+            "type": "darwin",
             "label": self.config.data.label,
             "plist_path": plist_path,
         }
@@ -66,7 +66,7 @@ class _Impl(_AbstractImpl):
         _uninstall_service(self.config.data)
         return {
             "success": True,
-            "type": "macos",
+            "type": "darwin",
             "label": self.config.data.label,
         }
 
@@ -113,7 +113,7 @@ class _Impl(_AbstractImpl):
                 if "pid" in status:
                     return {
                         "success": True,
-                        "type": "macos",
+                        "type": "darwin",
                         "label": self.config.data.label,
                         "action": "bootstrapped",
                         "pid": status["pid"],
@@ -146,7 +146,7 @@ class _Impl(_AbstractImpl):
             if "pid" in status:
                 return {
                     "success": True,
-                    "type": "macos",
+                    "type": "darwin",
                     "label": self.config.data.label,
                     "action": "kickstarted",
                     "pid": status["pid"],
@@ -179,7 +179,7 @@ class _Impl(_AbstractImpl):
             )
             return {
                 "success": True,
-                "type": "macos",
+                "type": "darwin",
                 "label": self.config.data.label,
             }
         except subprocess.CalledProcessError as e:
@@ -188,7 +188,7 @@ class _Impl(_AbstractImpl):
             if "No such process" in error_msg or e.returncode == 3:
                 return {
                     "success": True,
-                    "type": "macos",
+                    "type": "darwin",
                     "label": self.config.data.label,
                     "note": "Service was not running (already stopped).",
                 }

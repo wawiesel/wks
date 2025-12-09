@@ -19,7 +19,7 @@ class _DaemonConfigData(BaseModel):
     @classmethod
     def validate_label(cls, v: str) -> str:
         if not v:
-            raise ValueError("daemon.data.label is required when daemon.type is 'macos'")
+            raise ValueError("daemon.data.label is required when daemon.type is 'darwin'")
         # Basic reverse DNS format validation
         parts = v.split(".")
         if len(parts) < 2:

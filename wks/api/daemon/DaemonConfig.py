@@ -4,11 +4,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from ._macos._DaemonConfigData import _DaemonConfigData as _MacOSDaemonConfigData
+from ._darwin._DaemonConfigData import _DaemonConfigData as _DarwinDaemonConfigData
 
 # Registry: add new backends here (ONLY place backend types are enumerated)
 _BACKEND_REGISTRY: dict[str, type[BaseModel]] = {
-    "macos": _MacOSDaemonConfigData,
+    "darwin": _DarwinDaemonConfigData,
 }
 
 
@@ -19,6 +19,11 @@ class DaemonConfig(BaseModel):
 
     type: str = Field(..., description="Platform/service manager type")
     data: BaseModel = Field(..., description="Platform-specific configuration data")
+    sync_interval_secs: float = Field(
+        ...,
+        gt=0,
+        description="How long (in seconds) the daemon accumulates filesystem events before syncing them to the monitor database",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -32,7 +37,7 @@ class DaemonConfig(BaseModel):
         backend_registry = _BACKEND_REGISTRY
         config_data_class = backend_registry.get(daemon_type)
         if not config_data_class:
-            raise ValueError(f"Unknown daemon type: {daemon_type!r} (supported: {list(platform_registry.keys())})")
+            raise ValueError(f"Unknown daemon type: {daemon_type!r} (supported: {list(backend_registry.keys())})")
         data_dict = values.get("data")
         if data_dict is None:
             raise ValueError("daemon.data is required")

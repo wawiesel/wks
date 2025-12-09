@@ -7,7 +7,6 @@ _models = register_from_schema("daemon")
 DaemonStatusOutput = _models.get("DaemonStatusOutput")
 DaemonStartOutput = _models.get("DaemonStartOutput")
 DaemonStopOutput = _models.get("DaemonStopOutput")
-DaemonRestartOutput = _models.get("DaemonRestartOutput")
 DaemonInstallOutput = _models.get("DaemonInstallOutput")
 DaemonUninstallOutput = _models.get("DaemonUninstallOutput")
 
@@ -16,7 +15,6 @@ __all__ = [
     "DaemonStatusOutput",
     "DaemonStartOutput",
     "DaemonStopOutput",
-    "DaemonRestartOutput",
     "DaemonInstallOutput",
     "DaemonUninstallOutput",
 ]

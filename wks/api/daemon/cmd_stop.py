@@ -6,7 +6,6 @@ from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from . import DaemonStopOutput
 from .Daemon import Daemon
-from ._validate_backend_type import _validate_backend_type
 
 
 def cmd_stop() -> StageResult:
@@ -23,7 +22,7 @@ def cmd_stop() -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend type...")
         backend_type = config.daemon.type
-        if not _validate_backend_type(result_obj, backend_type, DaemonStopOutput, "stopped"):
+        if not Daemon._validate_backend_type(result_obj, backend_type, DaemonStopOutput, "stopped"):
             yield (1.0, "Complete")
             return
 
@@ -34,7 +33,9 @@ def cmd_stop() -> StageResult:
                 # Check if service is installed
                 yield (0.5, "Checking service status...")
                 service_status = daemon.get_service_status()
-                if not service_status.get("installed", False):
+                if "installed" not in service_status:
+                    raise KeyError("get_service_status() result missing required 'installed' field")
+                if not service_status["installed"]:
                     yield (1.0, "Complete")
                     result_obj.result = "Error: Daemon service not installed."
                     result_obj.output = DaemonStopOutput(

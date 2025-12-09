@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ...daemon._macos._DaemonConfigData import _DaemonConfigData
+from ...daemon._darwin._DaemonConfigData import _DaemonConfigData
 
 
 def _get_launch_agents_dir() -> Path:

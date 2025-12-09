@@ -65,20 +65,6 @@
         }
       ]
     },
-    "DaemonRestartOutput": {
-      "allOf": [
-        { "$ref": "#/definitions/Base" },
-        {
-          "type": "object",
-          "properties": {
-            "message": { "type": "string" },
-            "restarted": { "type": "boolean" }
-          },
-          "required": ["message", "restarted"],
-          "additionalProperties": false
-        }
-      ]
-    },
     "DaemonInstallOutput": {
       "allOf": [
         { "$ref": "#/definitions/Base" },
@@ -112,7 +98,6 @@
     { "$ref": "#/definitions/DaemonStatusOutput" },
     { "$ref": "#/definitions/DaemonStartOutput" },
     { "$ref": "#/definitions/DaemonStopOutput" },
-    { "$ref": "#/definitions/DaemonRestartOutput" },
     { "$ref": "#/definitions/DaemonInstallOutput" },
     { "$ref": "#/definitions/DaemonUninstallOutput" }
   ]

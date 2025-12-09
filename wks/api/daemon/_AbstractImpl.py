@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from .FilesystemEvents import FilesystemEvents
+
 
 class _AbstractImpl(ABC):
     """Abstract base class for platform-specific daemon implementations."""
@@ -19,6 +21,28 @@ class _AbstractImpl(ABC):
         - Write status to daemon.json
         
         This method should run indefinitely until interrupted.
+        """
+        pass
+
+    @abstractmethod
+    def get_filesystem_events(self) -> FilesystemEvents:
+        """Get accumulated filesystem events since last call.
+        
+        This method should:
+        - Return all filesystem events (modified, created, deleted, moved) accumulated since the last call
+        - Clear the internal accumulator after returning (so subsequent calls return only new events)
+        - Return an empty FilesystemEvents object if no events have occurred
+        - Return ALL events without filtering (filtering happens in monitor sync)
+        
+        The daemon's main loop should call this method periodically (based on sync_interval_secs)
+        and then call monitor sync (`wks.api.monitor.cmd_sync`) for each path in the returned events.
+        Monitor sync will apply filtering using `explain_path()` and priority checks, maintaining
+        a single source of truth for filter logic.
+        
+        Returns:
+            FilesystemEvents object containing lists of paths for each event type.
+            Paths are NOT filtered here - filtering is handled by monitor sync.
+            After returning, the accumulated events are cleared.
         """
         pass
 
