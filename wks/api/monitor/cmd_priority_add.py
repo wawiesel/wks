@@ -20,10 +20,36 @@ def cmd_priority_add(path: str, priority: float) -> StageResult:
     Returns:
         StageResult with all 4 stages of data
     """
+
+    def _build_result(
+        result_obj: StageResult,
+        success: bool,
+        message: str,
+        path_stored: str,
+        new_priority: float,
+        created: bool = False,
+        already_exists: bool = False,
+        old_priority: float | None = None,
+    ) -> None:
+        """Helper to build and assign the output result."""
+        result_obj.output = MonitorPriorityAddOutput(
+            errors=[],
+            warnings=[],
+            success=success,
+            message=message,
+            path_stored=path_stored,
+            new_priority=new_priority,
+            created=created,
+            already_exists=already_exists,
+            old_priority=old_priority,
+        ).model_dump(mode="python")
+        result_obj.result = message
+        result_obj.success = success
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from ..config.WKSConfig import WKSConfig
         from ...utils import canonicalize_path, find_matching_path_key
+        from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
@@ -37,39 +63,32 @@ def cmd_priority_add(path: str, priority: float) -> StageResult:
         yield (0.6, "Updating priority...")
         if existing_key is None:
             config.monitor.priority.dirs[path_resolved] = priority
-            result_obj.output = MonitorPriorityAddOutput(
-                errors=[],
-                warnings=[],
+            _build_result(
+                result_obj,
                 success=True,
                 message=f"Set priority for {path_resolved}: {priority} (created)",
                 path_stored=path_resolved,
                 new_priority=priority,
                 created=True,
-                already_exists=False,
-                old_priority=None,
-            ).model_dump(mode="python")
+            )
         else:
             # Update existing priority
             old_priority = config.monitor.priority.dirs[existing_key]
             config.monitor.priority.dirs[existing_key] = priority
-            result_obj.output = MonitorPriorityAddOutput(
-                errors=[],
-                warnings=[],
+            _build_result(
+                result_obj,
                 success=True,
                 message=f"Updated priority for {existing_key}: {old_priority} → {priority}",
                 path_stored=existing_key,
                 new_priority=priority,
-                created=False,
                 already_exists=True,
                 old_priority=old_priority,
-            ).model_dump(mode="python")
+            )
 
         yield (0.8, "Saving configuration...")
         config.save()
 
         yield (1.0, "Complete")
-        result_obj.result = result_obj.output["message"]
-        result_obj.success = True
 
     return StageResult(
         announce=f"Setting priority for priority directory: {path} to {priority}",

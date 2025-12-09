@@ -63,21 +63,29 @@ The daemon configuration uses a platform-specific structure:
 - Behavior: Show daemon process/service status and any recorded warnings/errors.
 - Output schema: `DaemonStatusOutput`.
 
+### run
+- Command: `wksc daemon run [--restrict <dir>]`
+- Behavior: Run the daemon in the foreground, monitoring the filesystem and syncing changes to the monitor database. The daemon runs until interrupted (Ctrl+C).
+- Parameters:
+  - `--restrict <dir>`: (Optional) Restrict monitoring to the specified directory and its subdirectories. Useful for testing. If not specified, monitors all paths configured in `monitor.filter.include_paths`.
+- Single instance: Only one daemon can run per configuration at a time. If a daemon is already running (detected via lock file or service status), the command fails with an error.
+- Output schema: None (runs interactively, not a StageResult command).
+
 ### start
 - Command: `wksc daemon start`
-- Behavior: Ensure daemon is running (idempotent). The command supports two execution modes:
-  - **Service mode** (when service is installed): Starts the daemon via the system service manager (e.g., launchctl on macOS). If the service is already running, it restarts it.
-  - **Direct background process mode** (when service is not installed): Starts the daemon directly as a detached background process using subprocess, independent of the calling terminal session. The process runs in a new session and continues after the CLI command exits.
+- Behavior: Start daemon via system service manager (if service is installed). If the service is already running, it restarts it. If service is not installed, the command fails with an error (use `wksc daemon run` to run without a service).
 - Output schema: `DaemonStartOutput`.
 
 ### stop
 - Command: `wksc daemon stop`
-- Behavior: Stop daemon.
+- Behavior: Stop daemon (if running as a service).
 - Output schema: `DaemonStopOutput`.
 
 ### install
-- Command: `wksc daemon install`
-- Behavior: Install as system service.
+- Command: `wksc daemon install [--restrict <dir>]`
+- Behavior: Install as system service. The service will run the daemon when started.
+- Parameters:
+  - `--restrict <dir>`: (Optional) Restrict monitoring to the specified directory and its subdirectories. This restriction is stored in the service configuration and applies when the service runs.
 - Output schema: `DaemonInstallOutput`.
 
 ### uninstall
@@ -104,6 +112,7 @@ The daemon configuration uses a platform-specific structure:
 - DAEMON.2 — Commands must emit schema-validated outputs (status/start/stop/install/uninstall).
 - DAEMON.3 — CLI/MCP parity: same data and structure for equivalent commands.
 - DAEMON.4 — Errors are schema-conformant; no partial success.
-- DAEMON.5 — `wksc daemon start` MUST support two execution modes: service mode (when installed) and direct background process mode (when not installed). The direct mode MUST run the daemon as a detached background process that continues after the CLI command exits.
+- DAEMON.5 — `wksc daemon run` MUST run the daemon in the foreground, monitoring filesystem events and calling the monitor sync API (`wks.api.monitor.cmd_sync`) for each event. Only one daemon instance can run per configuration at a time.
 - DAEMON.6 — When running, the daemon MUST monitor filesystem events and call the monitor sync API (`wks.api.monitor.cmd_sync`) for each event: file modifications, creations, deletions, and moves. File moves MUST be treated as delete at old location followed by create at new location.
 - DAEMON.7 — The monitor sync API MUST support paths that do not currently exist to handle file deletion events. When syncing a non-existent path, the monitor database entry for that path MUST be removed or marked as deleted.
+- DAEMON.8 — The `--restrict <dir>` parameter MUST limit filesystem monitoring to the specified directory and its subdirectories, overriding the configured `monitor.filter.include_paths` when present.

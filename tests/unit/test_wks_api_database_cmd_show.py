@@ -29,7 +29,7 @@ class TestCmdShow:
             assert result.output["count"] == 0
             mock_query.assert_called_once_with(patch_wks_config.database, "monitor", None, 50)
 
-    def test_cmd_show_invalid_json(self):
+    def test_cmd_show_invalid_json(self, patch_wks_config):
         result = run_cmd(cmd_show, collection="monitor", query_filter='{"invalid": json}', limit=50)
         assert not result.success
         assert "Invalid JSON" in result.result

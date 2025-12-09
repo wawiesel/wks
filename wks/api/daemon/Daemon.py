@@ -159,19 +159,20 @@ class Daemon:
             raise RuntimeError("Daemon not initialized. Use as context manager first.")
         return self._impl.get_service_status()
 
-    def install_service(self, python_path: str, project_root: Path) -> dict[str, Any]:
+    def install_service(self, python_path: str, project_root: Path, restrict_dir: Path | None = None) -> dict[str, Any]:
         """Install daemon as system service.
 
         Args:
             python_path: Path to Python interpreter
             project_root: Project root directory for PYTHONPATH
+            restrict_dir: Optional directory to restrict monitoring to
 
         Returns:
             Dictionary with installation result (success, label, plist_path, etc.)
         """
         if not self._impl:
             raise RuntimeError("Daemon not initialized. Use as context manager first.")
-        return self._impl.install_service(python_path, project_root)
+        return self._impl.install_service(python_path, project_root, restrict_dir=restrict_dir)
 
     def uninstall_service(self) -> dict[str, Any]:
         """Uninstall daemon system service.

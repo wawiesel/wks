@@ -17,6 +17,29 @@ from .explain_path import explain_path
 
 def cmd_status() -> StageResult:
     """Get filesystem monitoring status (not configuration - use 'wksc config monitor' for config)."""
+
+    def _build_result(
+        result_obj: StageResult,
+        success: bool,
+        message: str,
+        tracked_files: int,
+        issues: list[str],
+        priority_directories: list[dict[str, Any]],
+        time_based_counts: dict[str, int],
+    ) -> None:
+        """Helper to build and assign the output result."""
+        result_obj.output = MonitorStatusOutput(
+            errors=[],
+            warnings=[],
+            tracked_files=tracked_files,
+            issues=issues,
+            priority_directories=priority_directories,
+            time_based_counts=time_based_counts,
+            success=success,
+        ).model_dump(mode="python")
+        result_obj.result = message
+        result_obj.success = success
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
@@ -57,11 +80,16 @@ def cmd_status() -> StageResult:
                     # Query for files with timestamp >= cutoff (modified within the range)
                     count = database.count_documents({"timestamp": {"$gte": cutoff_iso}})
                     time_based_counts[label] = count
-                    yield (0.4 + (i / len(time_ranges)) * 0.2, f"Processing time range: {label}...")
+                    yield (
+                        0.4 + (i / len(time_ranges)) * 0.2,
+                        f"Processing time range: {label}...",
+                    )
 
                 # Count files older than 1 year
                 one_year_ago = (now - timedelta(days=365)).isoformat()
-                time_based_counts[">1 year"] = database.count_documents({"timestamp": {"$lt": one_year_ago}})
+                time_based_counts[">1 year"] = database.count_documents(
+                    {"timestamp": {"$lt": one_year_ago}}
+                )
 
         except Exception:
             total_files = 0
@@ -76,31 +104,35 @@ def cmd_status() -> StageResult:
             managed_resolved = Path(path).expanduser().resolve()
             allowed, trace = explain_path(monitor_cfg, managed_resolved)
             err = None if allowed else (trace[-1] if trace else "Excluded by monitor rules")
-            priority_directories.append({
-                "path": path,
-                "priority": priority,
-                "valid": allowed,
-                "error": err,
-            })
+            priority_directories.append(
+                {
+                    "path": path,
+                    "priority": priority,
+                    "valid": allowed,
+                    "error": err,
+                }
+            )
             if err:
                 issues.append(f"Priority directory invalid: {path} ({err})")
-            yield (0.7 + (i / max(len(monitor_cfg.priority.dirs), 1)) * 0.2, f"Validating: {path}...")
+            yield (
+                0.7 + (i / max(len(monitor_cfg.priority.dirs), 1)) * 0.2,
+                f"Validating: {path}...",
+            )
 
         # Only include status-specific data (not config that can be retrieved elsewhere)
         yield (1.0, "Complete")
-        result_obj.output = MonitorStatusOutput(
-            errors=[],
-            warnings=[],
+        
+        message = f"Monitor status retrieved ({len(issues)} issue(s) found)" if issues else "Monitor status retrieved"
+        
+        _build_result(
+            result_obj,
+            success=len(issues) == 0,
+            message=message,
             tracked_files=total_files,
             issues=issues,
-            priority_directories=priority_directories,  # Includes validation status (status-specific)
+            priority_directories=priority_directories,
             time_based_counts=time_based_counts,
-            success=len(issues) == 0,
-        ).model_dump(mode="python")
-
-        result_msg = f"Monitor status retrieved ({len(issues)} issue(s) found)" if issues else "Monitor status retrieved"
-        result_obj.result = result_msg
-        result_obj.success = len(issues) == 0
+        )
 
     return StageResult(
         announce="Checking monitor status...",

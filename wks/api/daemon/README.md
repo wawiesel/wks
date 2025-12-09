@@ -14,15 +14,16 @@ This directory implements the daemon API for background filesystem monitoring. T
 
 ### Main Loop Pattern
 
-Platform implementations in `run()` do the following:
-1. Initialize filesystem watcher (platform-specific)
-2. Loop while `_running` is True:
+Platform implementations in `run(restrict_dir)` do the following:
+1. Determine paths to watch: `restrict_dir` parameter, `WKS_DAEMON_RESTRICT_DIR` environment variable (from service), or configured `monitor.filter.include_paths`
+2. Initialize filesystem watcher (platform-specific, e.g., `watchdog` on macOS)
+3. Loop while `_running` is True:
    - Sleep for `sync_interval_secs`
    - Call `get_filesystem_events()` to get accumulated events
-   - Collapse temporary operations (move chains, create+delete, etc.)
+   - Collapse temporary operations (move chains, create+delete, etc.) - TODO
    - Send each event path to `wks.api.monitor.cmd_sync()`
    - For moves: sync old_path (delete) then new_path (create)
-3. Clean up watcher on exit
+4. Clean up watcher on exit (KeyboardInterrupt or `stop()`)
 
 See `_darwin/_Impl.py` for reference implementation.
 
@@ -60,9 +61,9 @@ Platform implementations provide service management methods (optional, raise `No
 - `get_service_status()`: Get status (installed, running, PID)
 - `start_service()` / `stop_service()`: Start/stop via service manager
 
-**Execution modes**: `wksc daemon start` chooses:
-- **Service mode**: If installed, runs via service manager (launchctl on macOS)
-- **Direct mode**: If not installed, runs as detached background process
+**Execution modes**:
+- **Run mode**: `wksc daemon run` runs the daemon in the foreground, monitoring filesystem changes. Supports `--restrict <dir>` to limit monitoring to a specific directory (useful for testing). Only one daemon instance can run per configuration at a time.
+- **Service mode**: `wksc daemon install` installs the daemon as a system service. `wksc daemon start` starts the service via the service manager (launchctl on macOS). The service can also be configured with `--restrict <dir>` during installation.
 
 ### FilesystemEvents
 
@@ -70,3 +71,23 @@ Platform implementations provide service management methods (optional, raise `No
 - `modified`, `created`, `deleted`: Lists of file paths (strings)
 - `moved`: List of `(old_path, new_path)` tuples
 - Helper methods: `is_empty()`, `total_count()`
+
+### Adding a New Platform Backend
+
+To add support for a new platform:
+
+1. **Add to backend registry**: In `DaemonConfig.py`, add entry to `_BACKEND_REGISTRY` mapping platform name to its config data class.
+
+2. **Create platform directory**: Create `_<platform>/` subdirectory.
+
+3. **Implement `_Data.py`**: Create Pydantic model defining platform-specific config fields. Only require fields that are actually needed. See `_darwin/_Data.py` for reference.
+
+4. **Implement `_Impl.py`**: Create class inheriting from `_AbstractImpl`:
+   - Implement `run()`: Main loop with filesystem watching
+   - Implement `get_filesystem_events()`: Return accumulated events, clear accumulator
+   - Implement `stop()`: Gracefully stop daemon
+   - Implement service management methods if platform supports it
+
+5. **Reference implementation**: See `_darwin/_Impl.py` and `_darwin/README.md` for macOS implementation details.
+
+The rest of the codebase will automatically work with the new platform via dynamic imports in `Daemon.__enter__()`.

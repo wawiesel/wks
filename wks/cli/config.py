@@ -25,8 +25,12 @@ def config_callback(ctx: typer.Context) -> None:
 
 
 # Register commands with StageResult handler
-# Direct registration - Typer handles required argument validation via typer.Argument(...)
-config_app.command(name="list")(handle_stage_result(cmd_list))
+def list_command() -> None:
+    """List configuration."""
+    handle_stage_result(cmd_list)()
+
+
+config_app.command(name="list")(list_command)
 
 
 def show_command(

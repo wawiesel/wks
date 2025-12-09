@@ -99,6 +99,7 @@ def minimal_config_dict():
         },
         "daemon": {
             "type": "darwin",
+            "sync_interval_secs": 60.0,
             "data": {
                 "label": "com.test.wks",
                 "log_file": "daemon.log",
@@ -168,36 +169,57 @@ def wks_home_with_priority(tmp_path, monkeypatch, config_with_monitor_priority):
     return tmp_path
 
 
-@pytest.fixture
-def patch_wks_config(monkeypatch):
-    """Patch WKSConfig.load to return a DummyConfig instance."""
+def create_patched_config(monkeypatch, monitor_config_data=None):
+    """Patch WKSConfig.load to return a DummyConfig instance.
+
+    Args:
+        monkeypatch: pytest monkeypatch fixture
+        monitor_config_data: Optional dictionary to update monitor config with.
+    """
     from wks.api.config.WKSConfig import WKSConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
+    base_monitor_config = {
+        "filter": {
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        "priority": {
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
+        "database": "monitor",
+        "sync": {"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
+    }
+
+    if monitor_config_data:
+        # Update nested filter dict if present, otherwise set directly
+        if "filter" in monitor_config_data and "filter" in base_monitor_config:
+            base_monitor_config["filter"].update(monitor_config_data["filter"])
+            # Remove filter from data to avoid overwriting the updated dict
+            monitor_config_data = monitor_config_data.copy()
+            del monitor_config_data["filter"]
+        base_monitor_config.update(monitor_config_data)
+
     config = DummyConfig(
-        monitor=MonitorConfig(
-            filter={
-                "include_paths": [],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-            },
-            priority={
-                "dirs": {},
-                "weights": {
-                    "depth_multiplier": 0.9,
-                    "underscore_multiplier": 0.5,
-                    "only_underscore_multiplier": 0.1,
-                    "extension_weights": {},
-                },
-            },
-            database="monitor",
-            sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
-        ),
+        monitor=MonitorConfig.from_config_dict({"monitor": base_monitor_config}),
         database=DatabaseConfig(type="mongomock", prefix="wks", data={}),
     )
     monkeypatch.setattr(WKSConfig, "load", lambda: config)
     return config
+
+
+@pytest.fixture
+def patch_wks_config(monkeypatch):
+    """Fixture that patches WKSConfig with default settings."""
+    return create_patched_config(monkeypatch)

@@ -1,6 +1,6 @@
 """Daemon status command - shows daemon status and metrics."""
 
-import os
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -10,15 +10,29 @@ from ..config.WKSConfig import WKSConfig
 from . import DaemonStatusOutput
 from .Daemon import Daemon
 from .DaemonConfig import _BACKEND_REGISTRY
+from ._pid_running import _pid_running
 
 
-def _pid_running(pid: int) -> bool:
-    """Check if a process ID is running."""
-    try:
-        os.kill(pid, 0)
-        return True
-    except Exception:
-        return False
+def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
+    """Read daemon.json file and extract warnings/errors/pid.
+
+    Args:
+        daemon_file: Path to daemon.json file
+
+    Returns:
+        Dictionary with warnings, errors, and pid (if available)
+    """
+    result: dict[str, Any] = {"warnings": [], "errors": []}
+    if daemon_file.exists():
+        try:
+            daemon_data = json.loads(daemon_file.read_text())
+            result["warnings"] = daemon_data.get("warnings", [])
+            result["errors"] = daemon_data.get("errors", [])
+            if "pid" in daemon_data:
+                result["pid"] = daemon_data["pid"]
+        except Exception:
+            pass
+    return result
 
 
 def cmd_status() -> StageResult:
@@ -78,15 +92,9 @@ def cmd_status() -> StageResult:
         # If running as service, check for warnings/errors from daemon.json
         if running_as_service:
             yield (0.7, "Reading daemon status file...")
-            if daemon_file.exists():
-                try:
-                    import json
-
-                    daemon_data = json.loads(daemon_file.read_text())
-                    status_data["warnings_log"] = daemon_data.get("warnings", [])
-                    status_data["errors_log"] = daemon_data.get("errors", [])
-                except Exception:
-                    pass
+            daemon_file_data = _read_daemon_file(daemon_file)
+            status_data["warnings_log"] = daemon_file_data["warnings"]
+            status_data["errors_log"] = daemon_file_data["errors"]
 
             yield (1.0, "Complete")
             result_obj.result = f"Daemon status retrieved (running as service, PID: {service_pid})"
@@ -125,20 +133,13 @@ def cmd_status() -> StageResult:
                 pass
 
         # Check daemon status file (written by daemon when running directly)
-        if daemon_file.exists():
-            try:
-                import json
-
-                daemon_data = json.loads(daemon_file.read_text())
-                status_data["warnings_log"] = daemon_data.get("warnings", [])
-                status_data["errors_log"] = daemon_data.get("errors", [])
-
-                if "pid" in daemon_data:
-                    daemon_pid = daemon_data["pid"]
-                    if _pid_running(daemon_pid):
-                        terminal_pid = daemon_pid
-            except Exception:
-                pass
+        daemon_file_data = _read_daemon_file(daemon_file)
+        status_data["warnings_log"] = daemon_file_data["warnings"]
+        status_data["errors_log"] = daemon_file_data["errors"]
+        if "pid" in daemon_file_data:
+            daemon_pid = daemon_file_data["pid"]
+            if _pid_running(daemon_pid):
+                terminal_pid = daemon_pid
 
         # If we found a running process via direct mode
         if terminal_pid:

@@ -8,7 +8,7 @@ from .Daemon import Daemon
 
 
 def cmd_start() -> StageResult:
-    """Start daemon process (idempotent - ensures daemon is running).
+    """Start daemon via system service manager.
 
     Behavior:
     - **If service is installed and loaded**: Uses `launchctl kickstart -k`
@@ -16,13 +16,12 @@ def cmd_start() -> StageResult:
       - Note: The `-k` flag means this will restart if already running
     - **If service is installed but not loaded**: Bootstraps the service
       (loads plist into launchctl and starts it)
-    - **If service is not installed**: Starts daemon directly as background process
-      (creates lock file, runs in background)
+    - **If service is not installed**: Fails with an error (use `wksc daemon run` to run without a service)
 
     This command is idempotent - safe to run multiple times. If the daemon is already
-    running, it will restart it (for service mode) or fail gracefully (for direct mode).
+    running, it will restart it.
 
-    Use this when you want to "ensure the daemon is running" without fully reloading
+    Use this when you want to "ensure the daemon service is running" without fully reloading
     the service configuration.
     """
     # Return StageResult immediately with announce, work happens in progress_callback
@@ -52,12 +51,21 @@ def cmd_start() -> StageResult:
                 if "installed" not in service_status:
                     raise KeyError("get_service_status() result missing required 'installed' field")
 
-                if service_status["installed"]:
-                    yield (0.7, "Starting via service manager...")
-                    start_result = daemon._start_via_service()
-                else:
-                    yield (0.7, "Starting directly...")
-                    start_result = Daemon._start_directly(backend_type)
+                if not service_status["installed"]:
+                    yield (1.0, "Complete")
+                    error_msg = "Service is not installed. Use 'wksc daemon install' to install the service, or 'wksc daemon run' to run without a service."
+                    result_obj.result = f"Error: {error_msg}"
+                    result_obj.output = DaemonStartOutput(
+                        errors=[error_msg],
+                        warnings=[],
+                        message=error_msg,
+                        running=False,
+                    ).model_dump(mode="python")
+                    result_obj.success = False
+                    return
+
+                yield (0.7, "Starting via service manager...")
+                start_result = daemon._start_via_service()
 
             yield (1.0, "Complete")
             result_obj.result = start_result.message

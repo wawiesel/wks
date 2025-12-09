@@ -11,10 +11,10 @@ class FilesystemEvents:
     All fields are required - pass empty lists when there are no events.
     """
 
-    modified: list[str] = field(description="Paths of modified files")
-    created: list[str] = field(description="Paths of created files")
-    deleted: list[str] = field(description="Paths of deleted files")
-    moved: list[tuple[str, str]] = field(description="Tuples of (old_path, new_path) for moved files")
+    modified: list[str] = field(metadata={"description": "Paths of modified files"})
+    created: list[str] = field(metadata={"description": "Paths of created files"})
+    deleted: list[str] = field(metadata={"description": "Paths of deleted files"})
+    moved: list[tuple[str, str]] = field(metadata={"description": "Tuples of (old_path, new_path) for moved files"})
 
     def is_empty(self) -> bool:
         """Check if there are any events."""

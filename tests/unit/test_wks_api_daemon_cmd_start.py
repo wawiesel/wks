@@ -17,6 +17,7 @@ def test_cmd_start_success(patch_wks_config, monkeypatch):
     """Test cmd_start with successful start."""
     patch_wks_config.daemon = DaemonConfig(
         type="darwin",
+        sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
@@ -24,7 +25,6 @@ def test_cmd_start_success(patch_wks_config, monkeypatch):
             "run_at_load": False,
         },
     )
-
     # Mock backend implementation
     mock_impl = MagicMock()
     mock_impl.get_service_status.return_value = {"installed": True, "running": False}

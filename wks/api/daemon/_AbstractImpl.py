@@ -11,14 +11,18 @@ class _AbstractImpl(ABC):
     """Abstract base class for platform-specific daemon implementations."""
 
     @abstractmethod
-    def run(self) -> None:
+    def run(self, restrict_dir: Path | None = None) -> None:
         """Run the daemon main loop.
+        
+        Args:
+            restrict_dir: Optional directory to restrict monitoring to. If None, uses configured paths
+                from monitor.filter.include_paths. If specified, only monitors this directory and its
+                subdirectories.
         
         This method should:
         - Monitor filesystem and update monitor database
-        - Maintain vault links and sync with Obsidian
-        - Provide MCP broker for AI agent access
-        - Write status to daemon.json
+        - Call monitor sync API for each filesystem event (modified, created, deleted, moved)
+        - Run indefinitely until interrupted (KeyboardInterrupt or stop() called)
         
         This method should run indefinitely until interrupted.
         """
@@ -51,12 +55,13 @@ class _AbstractImpl(ABC):
         """Stop the daemon gracefully."""
         pass
 
-    def install_service(self, python_path: str, project_root: Path) -> dict[str, Any]:
+    def install_service(self, python_path: str, project_root: Path, restrict_dir: Path | None = None) -> dict[str, Any]:
         """Install daemon as system service.
         
         Args:
             python_path: Path to Python interpreter
             project_root: Project root directory for PYTHONPATH
+            restrict_dir: Optional directory to restrict monitoring to (stored in service config)
             
         Returns:
             Dictionary with installation result (success, label, plist_path, etc.)

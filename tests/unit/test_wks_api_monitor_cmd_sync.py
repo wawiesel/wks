@@ -465,12 +465,17 @@ def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
     # The function should have been called, but we can't easily verify without more complex mocking
 
 
-def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
-    """Test cmd_sync skips files below min_priority."""
+def test_cmd_sync_enforces_db_limits_via_private_module(monkeypatch, tmp_path):
+    """Test that cmd_sync correctly triggers _enforce_monitor_db_limit logic.
+    
+    This tests the private module _enforce_monitor_db_limit through the public API.
+    """
     from wks.api.config.WKSConfig import WKSConfig
     from wks.api.database.DatabaseConfig import DatabaseConfig
     from wks.api.monitor.MonitorConfig import MonitorConfig
+    from wks.api.database.Database import Database
 
+    # Config with strict limits
     monitor_cfg = MonitorConfig(
         filter={
             "include_paths": [],
@@ -490,32 +495,48 @@ def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
             },
         },
         database="monitor",
-        sync={"max_documents": 1000000, "min_priority": 0.5, "prune_interval_secs": 300.0},
+        sync={"max_documents": 5, "min_priority": 1.0, "prune_interval_secs": 300.0},
     )
 
     cfg = DummyConfig(monitor_cfg)
     cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
     monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
 
+    # Create dummy file to sync
     test_file = tmp_path / "test.txt"
-    test_file.write_text("test")
+    test_file.write_text("content")
 
-    # Mock Database
-    mock_collection = MockDatabaseCollection()
-
-    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    # Mock Database interaction
+    mock_db_instance = MagicMock()
+    # Mock count_documents to return 10 (exceeding limit of 5)
+    mock_db_instance.count_documents.return_value = 10
+    # Mock find/sort/limit for pruning lowest priority
+    mock_cursor = MagicMock()
+    mock_cursor.sort.return_value = mock_cursor
+    mock_cursor.limit.return_value = [{"_id": "doc1"}, {"_id": "doc2"}, {"_id": "doc3"}, {"_id": "doc4"}, {"_id": "doc5"}]
+    mock_db_instance.find.return_value = mock_cursor
+    
+    # Mock context manager
+    mock_db_cls = MagicMock(return_value=mock_db_instance)
+    mock_db_instance.__enter__.return_value = mock_db_instance
+    mock_db_instance.__exit__.return_value = None
+    
+    monkeypatch.setattr(cmd_sync, "Database", mock_db_cls)
+    
+    # Mock other helpers to ensure sync proceeds to the finally block
     monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
-    # Mock calculate_priority to return 0.3 (below min_priority of 0.5) - should be skipped
-    monkeypatch.setattr(
-        "wks.api.monitor.cmd_sync.calculate_priority",
-        lambda _path, _dirs, _weights: 0.3,
-    )
+    monkeypatch.setattr("wks.api.monitor.cmd_sync.calculate_priority", lambda _path, _dirs, _weights: 2.0)
     monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc123")
-    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
 
-    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
-    # File should be skipped because priority (0.3) < min_priority (0.5)
-    assert result.output["files_synced"] == 0
-    assert result.output["files_skipped"] == 1
-    assert result.success is True
-    assert "warnings" in result.output
+    run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
+
+    # Verify enforcement logic was executed
+    # 1. Check for min_priority enforcement (delete_many called with priority < 1.0)
+    mock_db_instance.delete_many.assert_any_call({"priority": {"$lt": 1.0}})
+    
+    # 2. Check for max_documents enforcement
+    # Should query for lowest priority docs
+    mock_db_instance.find.assert_called_with({}, {"_id": 1, "priority": 1})
+    mock_cursor.limit.assert_called_with(5) # 10 - 5 = 5 extra docs
+    # Should delete the found IDs
+    mock_db_instance.delete_many.assert_any_call({"_id": {"$in": ["doc1", "doc2", "doc3", "doc4", "doc5"]}})

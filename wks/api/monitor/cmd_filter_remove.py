@@ -13,27 +13,44 @@ from .MonitorConfig import MonitorConfig
 
 def cmd_filter_remove(list_name: str, value: str) -> StageResult:
     """Remove a value from a monitor configuration list."""
+
+    def _build_result(
+        result_obj: StageResult,
+        success: bool,
+        message: str,
+        value_removed: str | None = None,
+        not_found: bool | None = False,
+        errors: list[str] | None = None,
+    ) -> None:
+        """Helper to build and assign the output result."""
+        result_obj.output = MonitorFilterRemoveOutput(
+            errors=errors or ([message] if not success and message else []),
+            warnings=[],
+            success=success,
+            message=message,
+            value_removed=value_removed,
+            not_found=not_found,
+        ).model_dump(mode="python")
+        result_obj.result = message
+        result_obj.success = success
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from ..config.WKSConfig import WKSConfig
         from ...utils import canonicalize_path
+        from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
         monitor_cfg = config.monitor
 
         if list_name not in MonitorConfig.get_filter_list_names():
-            yield (1.0, "Complete")
-            result_obj.output = MonitorFilterRemoveOutput(
-                errors=[f"Unknown list_name: {list_name!r}"],
-                warnings=[],
+            _build_result(
+                result_obj,
                 success=False,
                 message=f"Unknown list_name: {list_name!r}",
-                value_removed=None,
-                not_found=False,
-            ).model_dump(mode="python")
-            result_obj.result = result_obj.output["message"]
-            result_obj.success = False
+                errors=[f"Unknown list_name: {list_name!r}"],
+            )
+            yield (1.0, "Complete")
             raise ValueError(f"Unknown list_name: {list_name!r}")
 
         yield (0.4, "Resolving value...")
@@ -52,32 +69,25 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
                 break
 
         if removed_value is None:
-            yield (1.0, "Complete")
-            result_obj.output = MonitorFilterRemoveOutput(
-                errors=[],
-                warnings=[],
+            _build_result(
+                result_obj,
                 success=False,
                 message=f"Value not found in {list_name}: {value}",
-                value_removed=None,
                 not_found=True,
-            ).model_dump(mode="python")
-            result_obj.result = result_obj.output["message"]
-            result_obj.success = False
+            )
+            yield (1.0, "Complete")
             return
 
         yield (0.8, "Saving configuration...")
         config.save()
-        yield (1.0, "Complete")
-        result_obj.output = MonitorFilterRemoveOutput(
-            errors=[],
-            warnings=[],
+        
+        _build_result(
+            result_obj,
             success=True,
             message=f"Removed from {list_name}: {removed_value}",
             value_removed=removed_value,
-            not_found=False,
-        ).model_dump(mode="python")
-        result_obj.result = result_obj.output["message"]
-        result_obj.success = True
+        )
+        yield (1.0, "Complete")
 
     return StageResult(
         announce=f"Removing from {list_name}: {value}",

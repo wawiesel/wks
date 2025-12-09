@@ -15,6 +15,7 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
     """Test cmd_status with successful status check."""
     patch_wks_config.daemon = DaemonConfig(
         type="darwin",
+        sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
@@ -22,7 +23,6 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
             "run_at_load": False,
         },
     )
-
     # Mock daemon implementation
     mock_impl = MagicMock()
     mock_impl.get_service_status.return_value = {
@@ -62,6 +62,7 @@ def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
     """Test cmd_status when service is not installed."""
     patch_wks_config.daemon = DaemonConfig(
         type="darwin",
+        sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
             "log_file": "daemon.log",
@@ -69,7 +70,6 @@ def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
             "run_at_load": False,
         },
     )
-
     # Mock daemon implementation
     mock_impl = MagicMock()
     mock_impl.get_service_status.return_value = {

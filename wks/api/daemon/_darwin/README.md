@@ -12,234 +12,66 @@ This directory contains the macOS-specific implementation of the daemon API usin
 
 ### Filesystem Watching
 
-Use `watchdog` library's `Observer` and `FileSystemEventHandler` for filesystem monitoring:
+The implementation uses `watchdog` library's `Observer` and `FileSystemEventHandler` for filesystem monitoring. See `_Impl.py` for the actual implementation.
 
-```python
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
+**Watch Scope**: The daemon watches paths determined by:
+1. `restrict_dir` parameter (if provided to `run()`)
+2. `WKS_DAEMON_RESTRICT_DIR` environment variable (if set by service installation)
+3. Configured `monitor.filter.include_paths` (fallback)
 
-class _DaemonEventHandler(FileSystemEventHandler):
-    """Handle filesystem events and accumulate them."""
-    
-    def __init__(self, event_accumulator):
-        self.accumulator = event_accumulator
-    
-    def on_modified(self, event):
-        if not event.is_directory:
-            self.accumulator.add_modified(event.src_path)
-    
-    def on_created(self, event):
-        if not event.is_directory:
-            self.accumulator.add_created(event.src_path)
-    
-    def on_deleted(self, event):
-        if not event.is_directory:
-            self.accumulator.add_deleted(event.src_path)
-    
-    def on_moved(self, event):
-        if not event.is_directory:
-            self.accumulator.add_moved(event.src_path, event.dest_path)
-```
+**Event Handling**: The `_DaemonEventHandler` class (nested in `_Impl`) accumulates events in sets/dictionaries:
+- `_modified`: Set of modified file paths
+- `_created`: Set of created file paths
+- `_deleted`: Set of deleted file paths
+- `_moved`: Dictionary mapping old_path -> new_path
 
-**Watch Scope**: Watch all paths that might be relevant. FSEvents is efficient and can handle large directory trees. Don't pre-filter based on monitor config - that happens in monitor sync.
-
-**Event Deduplication**: FSEvents may emit duplicate events. Track events with timestamps and deduplicate within the sync interval.
+Events are accumulated and returned via `get_and_clear_events()` which clears the accumulator after returning.
 
 ### Event Accumulation
 
-Maintain internal data structures to accumulate events:
+The `_DaemonEventHandler` class (nested in `_Impl`) accumulates events in internal sets/dictionaries:
+- `_modified`: Set of modified file paths
+- `_created`: Set of created file paths
+- `_deleted`: Set of deleted file paths
+- `_moved`: Dictionary mapping old_path -> new_path
 
-```python
-class _EventAccumulator:
-    """Accumulate filesystem events with deduplication."""
-    
-    def __init__(self):
-        self._modified: set[str] = set()
-        self._created: set[str] = set()
-        self._deleted: set[str] = set()
-        self._moved: dict[str, str] = {}  # old_path -> new_path
-        self._event_times: dict[str, float] = {}  # path -> timestamp
-    
-    def add_modified(self, path: str):
-        # Deduplicate: if path was created/deleted recently, handle accordingly
-        if path in self._deleted:
-            # File was deleted then recreated - treat as create
-            self._deleted.remove(path)
-            self._created.add(path)
-        elif path not in self._created:
-            self._modified.add(path)
-    
-    def add_created(self, path: str):
-        # If path was deleted, this is a recreate - keep as create
-        if path in self._deleted:
-            self._deleted.remove(path)
-        self._created.add(path)
-    
-    def add_deleted(self, path: str):
-        # If path was created recently, remove it (temporary file)
-        if path in self._created:
-            self._created.remove(path)
-            return  # Temporary file, ignore
-        # If path was moved, track the deletion at old location
-        if path in self._moved.values():
-            # This is the new location being deleted - treat as delete at old location
-            old_path = next(k for k, v in self._moved.items() if v == path)
-            del self._moved[old_path]
-            self._deleted.add(old_path)
-        else:
-            self._deleted.add(path)
-    
-    def add_moved(self, old_path: str, new_path: str):
-        # Handle move chains and temporary moves
-        if old_path in self._moved:
-            # Chain move: A->B->C becomes A->C
-            actual_old = next(k for k, v in self._moved.items() if v == old_path)
-            del self._moved[actual_old]
-            self._moved[actual_old] = new_path
-        else:
-            self._moved[old_path] = new_path
-    
-    def get_and_clear(self) -> FilesystemEvents:
-        """Get accumulated events and clear accumulator."""
-        events = FilesystemEvents(
-            modified=list(self._modified),
-            created=list(self._created),
-            deleted=list(self._deleted),
-            moved=[(old, new) for old, new in self._moved.items()],
-        )
-        self._modified.clear()
-        self._created.clear()
-        self._deleted.clear()
-        self._moved.clear()
-        self._event_times.clear()
-        return events
-```
+Events are accumulated and returned via `get_and_clear_events()` which clears the accumulator after returning.
 
-### Event Collapsing
-
-Collapse temporary operations before returning events:
-
-**Temporary moves**: If a file is moved and then moved back (or deleted) within the sync interval, collapse:
-- Move A→B followed by move B→A → collapse to nothing (or modify if content changed)
-- Move A→B followed by delete B → collapse to delete A
-
-**Rapid create/delete**: If a file is created and deleted within the sync interval, remove both (temporary file).
-
-**Rapid modify sequences**: Multiple modifications to the same file within the sync interval collapse to a single modify event.
-
-**Implementation**: Add a `_collapse_events()` method that processes the accumulated events before returning:
-
-```python
-def _collapse_events(self, events: FilesystemEvents) -> FilesystemEvents:
-    """Collapse temporary operations into real operations."""
-    # Track move chains
-    move_map: dict[str, str] = {}  # old -> new
-    for old, new in events.moved:
-        if new in move_map.values():
-            # Chain detected: A->B->C becomes A->C
-            actual_old = next(k for k, v in move_map.items() if v == old)
-            del move_map[actual_old]
-            move_map[actual_old] = new
-        else:
-            move_map[old] = new
-    
-    # Check for move-back patterns (A->B->A)
-    final_moves = []
-    for old, new in move_map.items():
-        if new in move_map and move_map[new] == old:
-            # Moved back - remove both
-            continue
-        final_moves.append((old, new))
-    
-    # Check for create+delete (temporary files)
-    created_set = set(events.created)
-    deleted_set = set(events.deleted)
-    temp_files = created_set & deleted_set
-    final_created = [p for p in events.created if p not in temp_files]
-    final_deleted = [p for p in events.deleted if p not in temp_files]
-    
-    return FilesystemEvents(
-        modified=events.modified,
-        created=final_created,
-        deleted=final_deleted,
-        moved=final_moves,
-    )
-```
+**Event Collapsing**: TODO - The implementation currently does not collapse temporary operations (move chains, create+delete pairs, etc.). This should be added in the future to reduce unnecessary monitor sync calls.
 
 ### Main Loop Implementation
 
-The `run()` method should:
-
-1. **Initialize filesystem watcher**: Set up `Observer` with event handler
-2. **Start watching**: Begin watching filesystem (watch all relevant paths)
-3. **Main loop**: Periodically get accumulated events and sync them
-4. **Graceful shutdown**: Stop observer and clean up on `stop()`
-
-```python
-def run(self) -> None:
-    """Run the daemon main loop."""
-    from watchdog.observers import Observer
-    from ...monitor.cmd_sync import cmd_sync
-    
-    self._running = True
-    accumulator = _EventAccumulator()
-    handler = _DaemonEventHandler(accumulator)
-    observer = Observer()
-    
-    # Watch all paths (FSEvents is efficient)
-    # TODO: Determine watch paths from monitor config if needed
-    watch_paths = ["/"]  # Watch everything, filter in sync
-    
-    for path in watch_paths:
-        observer.schedule(handler, path, recursive=True)
-    
-    observer.start()
-    
-    try:
-        while self._running:
-            time.sleep(self.config.sync_interval_secs)
-            
-            # Get accumulated events
-            events = accumulator.get_and_clear()
-            
-            # Collapse temporary operations
-            events = self._collapse_events(events)
-            
-            if events.is_empty():
-                continue
-            
-            # Send events to monitor sync
-            for path in events.modified:
-                cmd_sync(path)
-            for path in events.created:
-                cmd_sync(path)
-            for path in events.deleted:
-                cmd_sync(path)  # Monitor sync handles non-existent paths
-            for old_path, new_path in events.moved:
-                cmd_sync(old_path)  # Delete at old location
-                cmd_sync(new_path)  # Create at new location
-    finally:
-        observer.stop()
-        observer.join()
-```
+The `run(restrict_dir)` method:
+1. Determines paths to watch (restrict_dir parameter, WKS_DAEMON_RESTRICT_DIR env var, or configured paths)
+2. Initializes `watchdog.Observer` with `_DaemonEventHandler`
+3. Schedules observer to watch determined paths recursively
+4. Enters main loop:
+   - Sleeps for `sync_interval_secs`
+   - Gets accumulated events via `get_and_clear_events()`
+   - Calls `wks.api.monitor.cmd_sync()` for each event path
+   - For moves: syncs old_path (delete) then new_path (create)
+5. Handles KeyboardInterrupt gracefully and stops observer
 
 ### Service Management
 
-**launchd Integration**: The `_launchd.py` module provides helper functions for launchd service management:
-
-- `install_service()`: Creates plist file and bootstraps service
+**launchd Integration**: Service management methods are implemented directly in `_Impl` class:
+- `install_service()`: Creates plist file and bootstraps service. Accepts `restrict_dir` parameter which is stored as `WKS_DAEMON_RESTRICT_DIR` environment variable in the plist.
 - `uninstall_service()`: Unloads service and removes plist
-- `get_service_status()`: Checks if service is installed and running
-- `_create_plist_content()`: Generates launchd plist XML
+- `get_service_status()`: Checks if service is installed and running (including PID)
+- `start_service()`: Starts service via launchctl (bootstrap if not loaded, kickstart if loaded)
+- `stop_service()`: Stops service via launchctl bootout
+- `_create_plist_content()`: Static method that generates launchd plist XML
 
 **Plist Structure**: The plist file defines:
-- `Label`: Service identifier (reverse DNS format)
+- `Label`: Service identifier (reverse DNS format, from config)
 - `ProgramArguments`: Python module to run (`wks.api.daemon._darwin._Impl`)
 - `WorkingDirectory`: WKS_HOME
-- `EnvironmentVariables`: PYTHONPATH for project root
+- `EnvironmentVariables`: 
+  - `PYTHONPATH`: Project root directory
+  - `WKS_DAEMON_RESTRICT_DIR`: (Optional) Directory to restrict monitoring to
 - `RunAtLoad`: Whether to start on load (from config)
 - `KeepAlive`: Whether to restart on exit (from config)
-- `StandardOutPath` / `StandardErrorPath`: Log file path
+- `StandardOutPath` / `StandardErrorPath`: Log file path (relative to WKS_HOME)
 
 **Service Commands**:
 - `launchctl bootstrap`: Load and start service
@@ -255,7 +87,7 @@ def run(self) -> None:
 
 ## Configuration
 
-Darwin configuration uses the `_DaemonConfigData` class:
+Darwin configuration uses the `_Data` class:
 
 ```json
 {
@@ -282,19 +114,20 @@ Darwin configuration uses the `_DaemonConfigData` class:
 
 The `_Impl` class in `_Impl.py` implements the abstract interface defined in `_AbstractImpl.py`. It:
 - Uses `watchdog.Observer` for filesystem monitoring
-- Accumulates events in internal data structures
-- Collapses temporary operations before syncing
-- Manages launchd service lifecycle via `_launchd` helpers
+- Accumulates events in `_DaemonEventHandler` (nested class)
+- Calls `wks.api.monitor.cmd_sync()` for each filesystem event
+- Manages launchd service lifecycle directly (no separate `_launchd` module)
 
-**Event Handling**: The implementation should handle FSEvents efficiently:
-- FSEvents may emit events for directories - filter to files only
-- FSEvents may emit duplicate events - deduplicate within sync interval
-- FSEvents may emit move events as separate delete/create - normalize to move events
+**Event Handling**: The implementation handles FSEvents:
+- Filters to files only (ignores directory events)
+- Accumulates events in sets/dictionaries for deduplication
+- Returns accumulated events via `get_filesystem_events()` which clears the accumulator
 
-**Service Management**: The implementation delegates to `_launchd` helpers for service operations. The helpers handle:
-- Plist file creation and management
-- launchctl command execution
+**Service Management**: The implementation handles launchd operations directly:
+- Plist file creation and management (via `_create_plist_content()` static method)
+- launchctl command execution (bootstrap, bootout, kickstart, print)
 - Error handling and status checking
+- Supports `--restrict` directory via `WKS_DAEMON_RESTRICT_DIR` environment variable
 
 **Note**: This implementation is internal. Application code should use the public `Daemon` API from `wks.api.daemon.Daemon`. If you need platform-specific details, access them from the backend's config data: `daemon_config.data.label` (with proper type checking).
 

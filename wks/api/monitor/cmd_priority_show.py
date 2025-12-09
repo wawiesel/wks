@@ -1,6 +1,6 @@
 """Monitor priority-show API function.
 
-This function lists all managed directories.
+This function lists all priority directories.
 Matches CLI: wksc monitor priority show, MCP: wksm_monitor_priority_show
 """
 
@@ -15,6 +15,25 @@ from .explain_path import explain_path
 
 def cmd_priority_show() -> StageResult:
     """List all priority directories with their priorities."""
+
+    def _build_result(
+        result_obj: StageResult,
+        success: bool,
+        message: str,
+        priority_directories: dict[str, float],
+        validation: dict[str, dict[str, Any]],
+    ) -> None:
+        """Helper to build and assign the output result."""
+        result_obj.output = MonitorPriorityShowOutput(
+            errors=[],
+            warnings=[],
+            priority_directories=priority_directories,
+            count=len(priority_directories),
+            validation=validation,
+        ).model_dump(mode="python")
+        result_obj.result = message
+        result_obj.success = success
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
@@ -32,18 +51,19 @@ def cmd_priority_show() -> StageResult:
                 "valid": allowed,
                 "error": None if allowed else (trace[-1] if trace else "Excluded by rules"),
             }
-            yield (0.4 + (i / max(len(monitor_cfg.priority.dirs), 1)) * 0.5, f"Validating: {path}...")
+            yield (
+                0.4 + (i / max(len(monitor_cfg.priority.dirs), 1)) * 0.5,
+                f"Validating: {path}...",
+            )
 
-        yield (1.0, "Complete")
-        result_obj.output = MonitorPriorityShowOutput(
-            errors=[],
-            warnings=[],
+        _build_result(
+            result_obj,
+            success=True,
+            message="Priority directories retrieved",
             priority_directories=monitor_cfg.priority.dirs,
-            count=len(monitor_cfg.priority.dirs),
             validation=validation,
-        ).model_dump(mode="python")
-        result_obj.result = "Priority directories retrieved"
-        result_obj.success = True
+        )
+        yield (1.0, "Complete")
 
     return StageResult(
         announce="Listing priority directories...",

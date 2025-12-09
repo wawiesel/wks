@@ -19,27 +19,44 @@ def cmd_priority_remove(path: str) -> StageResult:
     Returns:
         StageResult with all 4 stages of data
     """
+
+    def _build_result(
+        result_obj: StageResult,
+        success: bool,
+        message: str,
+        path_removed: str | None = None,
+        priority: float | None = None,
+        not_found: bool | None = None,
+    ) -> None:
+        """Helper to build and assign the output result."""
+        result_obj.output = MonitorPriorityRemoveOutput(
+            errors=[],
+            warnings=[],
+            success=success,
+            message=message,
+            path_removed=path_removed,
+            priority=priority,
+            not_found=not_found,
+        ).model_dump(mode="python")
+        result_obj.result = message
+        result_obj.success = success
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from ..config.WKSConfig import WKSConfig
         from ...utils import canonicalize_path, find_matching_path_key
+        from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
 
         if not config.monitor.priority.dirs:
-            yield (1.0, "Complete")
-            result_obj.output = MonitorPriorityRemoveOutput(
-                errors=[],
-                warnings=[],
+            _build_result(
+                result_obj,
                 success=False,
                 message="No priority directories configured",
-                path_removed=None,
-                priority=None,
                 not_found=True,
-            ).model_dump(mode="python")
-            result_obj.result = result_obj.output["message"]
-            result_obj.success = False
+            )
+            yield (1.0, "Complete")
             return
 
         # Resolve path
@@ -50,18 +67,13 @@ def cmd_priority_remove(path: str) -> StageResult:
         # Check if exists
         yield (0.6, "Checking if priority directory exists...")
         if existing_key is None:
-            yield (1.0, "Complete")
-            result_obj.output = MonitorPriorityRemoveOutput(
-                errors=[],
-                warnings=[],
+            _build_result(
+                result_obj,
                 success=False,
                 message=f"Not a priority directory: {path_resolved}",
-                path_removed=None,
-                priority=None,
                 not_found=True,
-            ).model_dump(mode="python")
-            result_obj.result = result_obj.output["message"]
-            result_obj.success = False
+            )
+            yield (1.0, "Complete")
             return
 
         # Get priority before removing
@@ -74,18 +86,14 @@ def cmd_priority_remove(path: str) -> StageResult:
         yield (0.9, "Saving configuration...")
         config.save()
 
-        yield (1.0, "Complete")
-        result_obj.output = MonitorPriorityRemoveOutput(
-            errors=[],
-            warnings=[],
+        _build_result(
+            result_obj,
             success=True,
             message=f"Removed priority directory: {existing_key}",
             path_removed=existing_key,
             priority=priority,
-            not_found=None,
-        ).model_dump(mode="python")
-        result_obj.result = result_obj.output["message"]
-        result_obj.success = True
+        )
+        yield (1.0, "Complete")
 
     return StageResult(
         announce=f"Removing priority directory: {path}",

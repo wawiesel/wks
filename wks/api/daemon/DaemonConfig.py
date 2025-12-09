@@ -4,11 +4,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from ._darwin._DaemonConfigData import _DaemonConfigData as _DarwinDaemonConfigData
+from ._darwin._Data import _Data as _DarwinData
 
 # Registry: add new backends here (ONLY place backend types are enumerated)
 _BACKEND_REGISTRY: dict[str, type[BaseModel]] = {
-    "darwin": _DarwinDaemonConfigData,
+    "darwin": _DarwinData,
 }
 
 
@@ -52,4 +52,3 @@ class DaemonConfig(BaseModel):
         if isinstance(self.data, BaseModel):
             result["data"] = self.data.model_dump(**kwargs)
         return result
-

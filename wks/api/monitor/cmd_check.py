@@ -6,6 +6,7 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from ..StageResult import StageResult
 from . import MonitorCheckOutput
@@ -15,6 +16,31 @@ from .explain_path import explain_path
 
 def cmd_check(path: str) -> StageResult:
     """Check if a path would be monitored and calculate its priority."""
+
+    def _build_result(
+        result_obj: StageResult,
+        success: bool,
+        message: str,
+        path_in: str,
+        is_monitored: bool,
+        reason: str,
+        decisions: list[dict[str, str]],
+        priority: float | None = None,
+    ) -> None:
+        """Helper to build and assign the output result."""
+        result_obj.output = MonitorCheckOutput(
+            errors=[],
+            warnings=[],
+            path=path_in,
+            is_monitored=is_monitored,
+            reason=reason,
+            priority=priority,
+            decisions=decisions,
+            success=success,
+        ).model_dump(mode="python")
+        result_obj.result = message
+        result_obj.success = success
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
@@ -53,35 +79,33 @@ def cmd_check(path: str) -> StageResult:
 
         yield (0.9, "Calculating priority...")
         if not allowed:
-            res_msg = "Path is not monitored"
-            result_obj.output = MonitorCheckOutput(
-                errors=[],
-                warnings=[],
-                path=str(test_path),
+            _build_result(
+                result_obj,
+                success=False,
+                message="Path is not monitored",
+                path_in=str(test_path),
                 is_monitored=False,
                 reason=trace[-1] if trace else "Excluded by monitor rules",
-                priority=None,
                 decisions=decisions,
-                success=False,
-            ).model_dump(mode="python")
+                priority=None,
+            )
         else:
-            priority = calculate_priority(test_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump())
+            priority = calculate_priority(
+                test_path, monitor_cfg.priority.dirs, monitor_cfg.priority.weights.model_dump()
+            )
             decisions.append({"symbol": "✓", "message": f"Priority calculated: {priority}"})
-            res_msg = f"Path is monitored with priority {priority}"
-            result_obj.output = MonitorCheckOutput(
-                errors=[],
-                warnings=[],
-                path=str(test_path),
+            _build_result(
+                result_obj,
+                success=True,
+                message=f"Path is monitored with priority {priority}",
+                path_in=str(test_path),
                 is_monitored=True,
                 reason="Would be monitored",
-                priority=priority,
                 decisions=decisions,
-                success=True,
-            ).model_dump(mode="python")
+                priority=priority,
+            )
 
         yield (1.0, "Complete")
-        result_obj.result = res_msg
-        result_obj.success = result_obj.output["success"]
 
     return StageResult(
         announce=f"Checking if path would be monitored: {path}",

@@ -10,7 +10,7 @@ from . import DaemonInstallOutput
 from .Daemon import Daemon
 
 
-def cmd_install() -> StageResult:
+def cmd_install(restrict_dir: Path | None = None) -> StageResult:
     """Install daemon as system service.
 
     Reads daemon configuration from config.json and installs appropriate service mechanism
@@ -44,7 +44,7 @@ def cmd_install() -> StageResult:
             # Install via backend implementation
             yield (0.6, "Installing service...")
             with Daemon(config.daemon) as daemon:
-                result = daemon.install_service(python_path, project_root)
+                result = daemon.install_service(python_path, project_root, restrict_dir=restrict_dir)
             # Remove 'success' from output - it's handled by StageResult.success
             output = {k: v for k, v in result.items() if k != "success"}
 

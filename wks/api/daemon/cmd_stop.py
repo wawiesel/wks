@@ -50,21 +50,21 @@ def cmd_stop() -> StageResult:
                 # Stop via service manager
                 yield (0.7, "Stopping service...")
                 result = daemon.stop_service()
-            yield (1.0, "Complete")
-            if result.get("success", False):
-                if "note" in result:
-                    result_obj.result = f"Daemon is already stopped (label: {result.get('label', 'unknown')})"
+                yield (1.0, "Complete")
+                if result.get("success", False):
+                    if "note" in result:
+                        result_obj.result = f"Daemon is already stopped (label: {result.get('label', 'unknown')})"
+                    else:
+                        result_obj.result = f"Daemon stopped successfully (label: {result.get('label', 'unknown')})"
                 else:
-                    result_obj.result = f"Daemon stopped successfully (label: {result.get('label', 'unknown')})"
-            else:
-                result_obj.result = f"Error stopping daemon: {result.get('error', 'unknown error')}"
-            result_obj.output = DaemonStopOutput(
-                errors=[result.get("error", "")] if not result.get("success", False) else [],
-                warnings=[],
-                message=result_obj.result,
-                stopped=result.get("success", False),
-            ).model_dump(mode="python")
-            result_obj.success = result.get("success", False)
+                    result_obj.result = f"Error stopping daemon: {result.get('error', 'unknown error')}"
+                result_obj.output = DaemonStopOutput(
+                    errors=[result.get("error", "")] if not result.get("success", False) else [],
+                    warnings=[],
+                    message=result_obj.result,
+                    stopped=result.get("success", False),
+                ).model_dump(mode="python")
+                result_obj.success = result.get("success", False)
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service stop not supported for backend '{backend_type}'"
