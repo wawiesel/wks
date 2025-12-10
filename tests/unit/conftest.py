@@ -23,7 +23,6 @@ def _service_config_dict_for_current_platform() -> dict:
             "sync_interval_secs": 60.0,
             "data": {
                 "label": "com.test.wks",
-                "log_file": "daemon.log",
                 "keep_alive": True,
                 "run_at_load": False,
             },
@@ -61,7 +60,7 @@ class DummyConfig:
         )
         self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={})
         self.service = service or ServiceConfig(**_service_config_dict_for_current_platform())
-        self.daemon = daemon or DaemonConfig(sync_interval_secs=0.1, log_file="daemon.log", restrict_dir="")
+        self.daemon = daemon or DaemonConfig(sync_interval_secs=0.1)
         self.save_calls = 0
         self.errors: list[str] = []
         self.warnings: list[str] = []
@@ -121,9 +120,7 @@ def minimal_config_dict() -> dict:
         },
         "service": _service_config_dict_for_current_platform(),
         "daemon": {
-            "sync_interval_secs": 0.1,
-            "log_file": "daemon.log",
-            "restrict_dir": "",
+            "sync_interval_secs": 0.1
         },
     }
 

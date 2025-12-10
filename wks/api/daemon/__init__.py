@@ -13,4 +13,7 @@ __all__ = [
     "DaemonStatusOutput",
     "DaemonStartOutput",
     "DaemonStopOutput",
+    "cmd_start",
+    "cmd_stop",
+    "cmd_status",
 ]

@@ -1,20 +1,17 @@
-"""Daemon Typer app that registers all daemon commands."""
+"""Daemon Typer app that registers daemon commands."""
 
 from pathlib import Path
 
 import typer
 
-from wks.api.daemon.cmd_install import cmd_install
-from wks.api.daemon.cmd_run import cmd_run
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
 from wks.api.daemon.cmd_stop import cmd_stop
-from wks.api.daemon.cmd_uninstall import cmd_uninstall
 from wks.cli.handle_stage_result import handle_stage_result
 
 daemon_app = typer.Typer(
     name="daemon",
-    help="Daemon service management",
+    help="Daemon runtime management",
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -35,43 +32,19 @@ def status_command() -> None:
     handle_stage_result(cmd_status)()
 
 
-def start_command() -> None:
-    """Start daemon service."""
-    handle_stage_result(cmd_start)()
+def start_command(
+    restrict: Path | None = typer.Option(None, "--restrict", help="Restrict monitoring to this directory"),
+) -> None:
+    """Start daemon runtime."""
+    handle_stage_result(cmd_start)(restrict_dir=restrict)
 
 
 def stop_command() -> None:
-    """Stop daemon service."""
+    """Stop daemon runtime."""
     handle_stage_result(cmd_stop)()
-
-
-def uninstall_command() -> None:
-    """Uninstall daemon service."""
-    handle_stage_result(cmd_uninstall)()
-
-
-def install_command(
-    restrict: Path | None = typer.Option(None, "--restrict", help="Restrict monitoring to this directory (stored in service config)"),
-) -> None:
-    """Install daemon as system service."""
-    handle_stage_result(cmd_install)(restrict_dir=restrict)
-
-
-def run_command(
-    restrict: Path | None = typer.Option(None, "--restrict", help="Restrict monitoring to this directory (useful for testing)"),
-) -> None:
-    """Run the daemon in the foreground, monitoring filesystem changes.
-    
-    The daemon runs until interrupted (Ctrl+C). Only one daemon instance can run
-    per configuration at a time.
-    """
-    cmd_run(restrict_dir=restrict)
 
 
 daemon_app.command(name="status")(status_command)
 daemon_app.command(name="start")(start_command)
 daemon_app.command(name="stop")(stop_command)
-daemon_app.command(name="install")(install_command)
-daemon_app.command(name="uninstall")(uninstall_command)
-daemon_app.command(name="run")(run_command)
 

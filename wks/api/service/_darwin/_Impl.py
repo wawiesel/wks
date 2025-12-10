@@ -43,8 +43,8 @@ class _Impl(_AbstractImpl):
         # Working directory is always WKS_HOME
         working_directory = WKSConfig.get_home_dir()
 
-        # Single log file relative to WKS_HOME (used for both stdout/stderr)
-        log_file = working_directory / config.log_file
+        # Single standardized log file under WKS_HOME
+        log_file = working_directory / "logs" / "service.log"
 
         # Ensure directories exist
         log_file.parent.mkdir(parents=True, exist_ok=True)

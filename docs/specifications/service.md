@@ -13,7 +13,7 @@ Platform-dependent installer/manager for the daemon. Provides install/uninstall/
 - Location: `{WKS_HOME}/config.json` (override via `WKS_HOME`)
 - Section: `service`
 - Uses `type/data` pattern; all fields required; no defaults in code.
-- Logging: single `log_file` path (relative to `WKS_HOME`) for service-managed stdout/stderr; entries MUST annotate severity.
+- Logging: single standardized log path `{WKS_HOME}/logs/service.log` (not configurable); entries MUST annotate severity (INFO/WARN/ERROR/DEBUG).
 
 Example (darwin):
 ```json
@@ -22,7 +22,6 @@ Example (darwin):
     "type": "darwin",
     "data": {
       "label": "com.example.wks.service",
-      "log_file": "logs/service.log",
       "keep_alive": true,
       "run_at_load": false,
       "restrict_dir": null
@@ -37,7 +36,6 @@ Example (darwin):
 
 **Platform-Specific Data (darwin/macOS)**:
 - `label`: Launchd service identifier in reverse DNS format. Required.
-- `log_file`: Path to log file relative to `WKS_HOME`. Must be relative. Required.
 - `keep_alive`: Whether launchd should auto-restart the service if it exits. Required.
 - `run_at_load`: Whether the service should start automatically when installed. Required.
 - `restrict_dir`: Optional directory to restrict daemon monitoring to; stored as an environment variable for the daemon at launch.
@@ -96,4 +94,5 @@ Example (darwin):
 - SERVICE.4 — Errors are schema-conformant; no partial success.
 - SERVICE.5 — `wksc service start` MUST start the installed daemon via the platform service manager; if not installed, it MUST fail.
 - SERVICE.6 — `wksc service install` MUST persist restrict dir (if provided) so the daemon launches with that scope.
+- SERVICE.7 — Log path is standardized to `{WKS_HOME}/logs/service.log`; status commands must include this path and surface extracted warnings/errors from the log.
 

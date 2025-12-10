@@ -15,18 +15,21 @@ Runtime worker that watches the filesystem and syncs changes to the monitor data
 - Section: `daemon`.
 - All fields are required; no defaults:
   - `sync_interval_secs` (number > 0): how long to accumulate events before syncing.
-  - `log_file` (string, relative): path (relative to `WKS_HOME`) for daemon stdout/stderr; entries must include severity.
-  - `restrict_dir` (string): directory root to watch; use empty string to fall back to monitor filter include paths (no implicit default).
 Example:
 ```json
 {
   "daemon": {
-    "sync_interval_secs": 5.0,
-    "log_file": "logs/daemon.log",
-    "restrict_dir": ""
+    "sync_interval_secs": 5.0
   }
 }
 ```
+
+## Status File
+- Path: `{WKS_HOME}/daemon.json`
+- Written continuously by the daemon loop (and at start/stop).
+- Required fields: `running`, `pid`, `restrict_dir`, `log_path`, `errors`, `warnings`.
+- CLI `daemon status` reads this file and returns schema-conformant output. Missing/invalid file is an error (no silent defaults).
+ - All runtime information output to `{WKS_HOME}/logs/daemon.log`. Errors and warnings must be extracted from that log and surfaced in the status output as lists in the `errors` and `warnings` fields.
 
 ## CLI
 - Entry: `wksc daemon`

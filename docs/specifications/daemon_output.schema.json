@@ -21,11 +21,10 @@
           "properties": {
             "running": { "type": "boolean" },
             "pid": { "type": ["integer", "null"] },
-            "warnings_log": { "type": "array", "items": { "type": "string" } },
-            "errors_log": { "type": "array", "items": { "type": "string" } },
+            "restrict_dir": { "type": "string" },
             "log_path": { "type": "string" }
           },
-          "required": ["running", "pid", "warnings_log", "errors_log", "log_path"],
+          "required": ["running", "pid", "restrict_dir", "log_path"],
           "additionalProperties": false
         }
       ]
