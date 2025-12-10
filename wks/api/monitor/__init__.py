@@ -1,6 +1,8 @@
 """Monitor API module."""
 
 from .MonitorConfig import MonitorConfig
+from ._validate_value import _validate_value as validate_value
+from ._matches_glob import _matches_glob as matches_glob
 from ..schema_loader import register_from_schema
 
 _models = register_from_schema("monitor")
@@ -25,4 +27,6 @@ __all__ = [
     "MonitorPriorityAddOutput",
     "MonitorPriorityRemoveOutput",
     "MonitorPriorityShowOutput",
+    "validate_value",
+    "matches_glob",
 ]

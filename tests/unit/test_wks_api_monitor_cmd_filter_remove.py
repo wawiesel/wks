@@ -35,3 +35,14 @@ def test_cmd_filter_remove_dirname_list(monkeypatch):
     result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is True
     assert cfg.save_calls == 1
+
+
+def test_cmd_filter_remove_unknown_list(monkeypatch):
+    """Unknown list names should produce a validation error and halt."""
+    create_patched_config(monkeypatch)
+
+    result = cmd_filter_remove.cmd_filter_remove(list_name="not_a_list", value="x")
+    with pytest.raises(ValueError):
+        list(result.progress_callback(result))
+    assert result.success is False
+    assert "Unknown list_name" in result.output["errors"][0]

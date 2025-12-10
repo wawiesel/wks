@@ -9,14 +9,14 @@ from .DatabaseConfig import DatabaseConfig
 class Database:
     """Public API for database operations."""
 
-    def __init__(self, db_config: DatabaseConfig, database_name: str):
-        self.db_config = db_config
-        self.db_name = db_config.prefix
+    def __init__(self, database_config: DatabaseConfig, database_name: str):
+        self.database_config = database_config
+        self.prefix = database_config.prefix
         self.database_name = database_name
         self._impl: _AbstractImpl | None = None
 
     def __enter__(self):
-        backend_type = self.db_config.type
+        backend_type = self.database_config.type
 
         # Validate backend type using DatabaseConfig registry (single source of truth)
         from .DatabaseConfig import _BACKEND_REGISTRY
@@ -28,7 +28,10 @@ class Database:
         # Import database implementation class directly from backend _Impl module
         module = __import__(f"wks.api.database._{backend_type}._Impl", fromlist=[""])
         impl_class = module._Impl
-        self._impl = impl_class(self.db_config, self.db_name, self.database_name)
+        # _Impl expects: (database_config, database_name, collection_name)
+        # database_name = MongoDB database name (prefix)
+        # collection_name = MongoDB collection name (our database_name)
+        self._impl = impl_class(self.database_config, self.prefix, self.database_name)
         self._impl.__enter__()
         return self
 
@@ -61,35 +64,35 @@ class Database:
         return self._impl.find(filter, projection)  # type: ignore[union-attr]
 
     @classmethod
-    def list_databases(cls, db_config: DatabaseConfig) -> list[str]:
+    def list_databases(cls, database_config: DatabaseConfig) -> list[str]:
         """List all databases (collections) in the prefix database.
 
         Args:
-            db_config: Database configuration
+            database_config: Database configuration
 
         Returns:
             List of database names. All collections in the `<prefix>` database.
 
         Example:
             ```python
-            databases = Database.list_databases(db_config)
+            databases = Database.list_databases(database_config)
             # Returns: ["monitor", "vault"] for collections in the "wks" database
             ```
         """
-        with cls(db_config, "_") as database:
+        with cls(database_config, "_") as database:
             client = database.get_client()
             # Get the database object using the prefix
-            db = client[db_config.prefix]
+            database_obj = client[database_config.prefix]
             # List all collections in the database
             # Collections are named after the database name (e.g., "monitor", "vault")
             # The prefix is the MongoDB database name, not part of the collection name
-            all_collections = db.list_collection_names()
+            all_collections = database_obj.list_collection_names()
             return sorted(all_collections)
 
     @classmethod
     def query(
         cls,
-        db_config: DatabaseConfig,
+        database_config: DatabaseConfig,
         database_name: str,
         query_filter: dict[str, Any] | None = None,
         limit: int = 50,
@@ -98,7 +101,7 @@ class Database:
         """Query database with simple pass-through interface.
 
         Args:
-            db_config: Database configuration
+            database_config: Database configuration
             database_name: Database name (e.g., "monitor"). Prefix from config is automatically prepended.
                 Database names must NOT include the prefix - only specify the database name itself.
             query_filter: Query filter dict. Examples:
@@ -117,11 +120,11 @@ class Database:
 
         Example:
             ```python
-            result = Database.query(db_config, "monitor", {"status": "active"}, limit=10)
+            result = Database.query(database_config, "monitor", {"status": "active"}, limit=10)
             # Returns: {"results": [...], "count": 5}
             ```
         """
-        with cls(db_config, database_name) as database:
+        with cls(database_config, database_name) as database:
             results = list(database.find(query_filter, projection or {"_id": 0}).limit(limit))  # type: ignore[attr-defined]
             return {"results": results, "count": len(results)}
 
@@ -135,5 +138,5 @@ class Database:
         """Get the underlying database object (for code that needs direct access)."""
         if not self._impl:
             raise RuntimeError("Collection not initialized. Use as context manager first.")
-        db_name = database_name or self.db_name
-        return self._impl._client[db_name]  # type: ignore[attr-defined]
+        database_prefix = database_name or self.prefix
+        return self._impl._client[database_prefix]  # type: ignore[attr-defined]

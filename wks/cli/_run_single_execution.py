@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from wks.api.StageResult import StageResult
-from wks.api._output_schemas import validate_output
+from wks.api.validate_output import validate_output
 
 F = TypeVar("F", bound=Callable)
 

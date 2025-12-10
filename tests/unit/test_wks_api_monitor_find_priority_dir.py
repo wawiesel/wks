@@ -86,6 +86,9 @@ def test_find_priority_dir_deepest_match_nested(tmp_path):
 
 def test_find_priority_dir_tilde_expansion(tmp_path, monkeypatch):
     """Test that tilde paths are expanded correctly."""
+    import os
+
+    monkeypatch.setenv("HOME", str(tmp_path))
     home = Path.home()
     priority_dirs = {"~/test": 100.0}
 

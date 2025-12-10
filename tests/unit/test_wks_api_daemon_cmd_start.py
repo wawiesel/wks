@@ -1,4 +1,9 @@
-"""Unit tests for wks.api.daemon.cmd_start module."""
+"""Unit tests for wks.api.daemon.cmd_start module.
+
+We prefer not to use mocks in almost every case, but there is not a good way
+to test starting a service except with mocks.
+
+"""
 
 from unittest.mock import MagicMock
 
@@ -42,8 +47,7 @@ def test_cmd_start_success(patch_wks_config, monkeypatch):
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr("builtins.__import__", mock_import)
-    monkeypatch.setattr(Daemon, "_validate_backend_type", lambda ro, bt, oc, sf: True)
-    monkeypatch.setattr(Daemon, "_start_via_service", lambda self: DaemonStartOutput(
+    monkeypatch.setattr(Daemon, "start_via_service", lambda self: DaemonStartOutput(
         errors=[],
         warnings=[],
         message="Daemon started successfully",

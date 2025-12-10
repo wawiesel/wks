@@ -25,9 +25,12 @@ def db_callback(ctx: typer.Context) -> None:
         raise typer.Exit()
 
 
-# Register commands with StageResult handler
-# Direct registration - Typer handles required argument validation via typer.Argument(...)
-db_app.command(name="list")(handle_stage_result(cmd_list))
+def list_command() -> None:
+    """List all available databases."""
+    handle_stage_result(cmd_list)()
+
+
+db_app.command(name="list")(list_command)
 
 
 def show_command(

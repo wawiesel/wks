@@ -50,7 +50,8 @@ Implement each module according to its specification with 100% unit test coverag
 
 2. **Test Organization**:
    - Unit tests in `tests/unit/test_wks_api_<domain>_*.py`
-   - Integration tests in `tests/integration/test_<domain>*.py` (where appropriate)
+   - Integration tests in `tests/integration/` focus on the MCP layer only and should drive 100% coverage of `wks/mcp/*` (no CLI testing here)
+   - CLI smoke tests in `tests/smoke/` verify the installed `wksc` entrypoint and core commands
    - All tests must be passing
 
 3. **Test Quality**:

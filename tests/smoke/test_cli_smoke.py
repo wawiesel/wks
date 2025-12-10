@@ -69,40 +69,43 @@ def smoke_env(tmp_path_factory):
     (home_dir / ".wks").mkdir()
     config = {
         "monitor": {
-            "include_paths": ["~"],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-            "managed_directories": {"~": 100},
-            "priority": {"depth_multiplier": 0.9},
-            "database": "wks.monitor",
-            "max_documents": 10000,
-            "prune_interval_secs": 3600,
-        },
-        "vault": {
-            "base_dir": str(home_dir / "Vault"),
-            "database": "wks.vault",
-            "wks_dir": "WKS",
-            "update_frequency_seconds": 3600,
-        },
-        "db": {"uri": "mongodb://localhost:27017"},
-        "transform": {
-            "cache": {
-                "location": str(home_dir / ".wks" / "cache"),
-                "max_size_bytes": 1073741824,
+            "filter": {
+                "include_paths": ["~"],
+                "exclude_paths": [],
+                "include_dirnames": [],
+                "exclude_dirnames": [],
+                "include_globs": [],
+                "exclude_globs": [],
             },
-            "database": "wks.transform",
-            "engines": {},
-        },
-        "diff": {
-            "engines": {
-                "myers": {"enabled": True, "is_default": True},
+            "priority": {
+                "dirs": {"~": 100.0},
+                "weights": {
+                    "depth_multiplier": 0.9,
+                    "underscore_multiplier": 0.5,
+                    "only_underscore_multiplier": 0.1,
+                    "extension_weights": {},
+                },
             },
-            "_router": {
-                "rules": [],
-                "fallback": "myers",
+            "database": "monitor",
+            "sync": {
+                "max_documents": 10000,
+                "min_priority": 0.0,
+                "prune_interval_secs": 3600.0,
+            },
+        },
+        "database": {
+            "type": "mongo",
+            "prefix": "wks",
+            "data": {"uri": "mongodb://localhost:27017"},
+        },
+        "daemon": {
+            "type": "darwin",
+            "sync_interval_secs": 60.0,
+            "data": {
+                "label": "com.wks.daemon",
+                "log_file": "daemon.log",
+                "keep_alive": True,
+                "run_at_load": False,
             },
         },
     }
@@ -127,10 +130,17 @@ def run_wks(args, env_dict, check=True):
 
 
 def test_cli_config_show(smoke_env):
-    """Test 'wksc config' - outputs JSON with config keys."""
-    result = run_wks(["config"], smoke_env)
-    # Output contains JSON with vault key
-    assert "vault" in result.stdout
+    """Test 'wksc config show' - outputs JSON with config keys."""
+    result = run_wks(["config", "show", "monitor"], smoke_env)
+    # Output contains JSON with monitor key (or content of monitor section)
+    assert "priority" in result.stdout
+
+
+def test_cli_config_list(smoke_env):
+    """Test 'wksc config list' lists available sections."""
+    result = run_wks(["config", "list"], smoke_env)
+    assert "monitor" in result.stdout
+    assert "database" in result.stdout
 
 
 @pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
@@ -140,53 +150,7 @@ def test_cli_monitor_status(smoke_env):
     assert "tracked_files" in result.stdout
 
 
-@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
-def test_cli_vault_status(smoke_env):
-    """Test 'wksc vault-status' - outputs JSON with total_links."""
-    result = run_wks(["vault-status"], smoke_env)
-    assert "total_links" in result.stdout
-
-
-@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
-def test_cli_transform(smoke_env):
-    """Test 'wksc transform' - outputs checksum."""
-    test_file = smoke_env["home"] / "test.txt"
-    test_file.write_text("Hello World")
-
-    result = run_wks(["transform", "test", str(test_file)], smoke_env)
-
-    # Output should contain cache key (64 char hex string)
-    cache_key = result.stdout.strip()
-    assert len(cache_key) == 64
-    assert cache_key.isalnum()
-
-
-@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
-def test_cli_cat(smoke_env):
-    """Test 'wksc cat' - outputs transformed content."""
-    test_file = smoke_env["home"] / "test.txt"
-    test_file.write_text("Hello World")
-
-    # Transform first
-    transform_result = run_wks(["transform", "test", str(test_file)], smoke_env)
-    cache_key = transform_result.stdout.strip()
-
-    # Cat with cache key
-    cat_result = run_wks(["cat", cache_key], smoke_env)
-    assert "Transformed: Hello World" in cat_result.stdout
-
-
-@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
-def test_cli_diff(smoke_env):
-    """Test 'wksc diff' - outputs diff."""
-    file1 = smoke_env["home"] / "file1.txt"
-    file1.write_text("Hello")
-    file2 = smoke_env["home"] / "file2.txt"
-    file2.write_text("World")
-
-    result = run_wks(["diff", "myers", str(file1), str(file2)], smoke_env)
-    # myers diff might look different, but usually has some output.
-    # Let's just check success for now or basic content.
-    # Myers output is JSON list of operations usually? Or text?
-    # If it returns raw diff object:
-    assert result.stdout.strip() != ""
+def test_cli_mcp_list(smoke_env):
+    """Test 'wksc mcp list' shows MCP installation info."""
+    result = run_wks(["mcp", "list"], smoke_env)
+    assert "installations" in result.stdout

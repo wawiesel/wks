@@ -144,7 +144,7 @@ def cmd_sync(
                             0.4 + (i / max(len(files_to_process), 1)) * 0.5,
                             f"Synced: {file_path.name}...",
                         )
-                    except Exception as exc:  # pragma: no cover - defensive
+                    except Exception as exc:
                         errors.append(f"{file_path}: {exc}")
                         files_skipped += 1
                         yield (

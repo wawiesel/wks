@@ -99,3 +99,11 @@ class TestDatabaseConfig:
         config = DatabaseConfig(**config_dict)
         # Verify data was transformed to _MongoMockDbConfigData instance
         assert config.type == "mongomock"
+
+    def test_database_config_requires_dict(self):
+        with pytest.raises(ValueError, match="database config must be a dict"):
+            DatabaseConfig.model_validate("not a dict")
+
+    def test_mongo_data_requires_uri(self):
+        with pytest.raises(Exception, match="database.uri is required"):
+            DatabaseConfig(type="mongo", prefix="wks", data={"uri": ""})

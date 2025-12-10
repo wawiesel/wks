@@ -10,8 +10,8 @@ class _Data(BaseModel):
     @classmethod
     def validate_uri(cls, v: str) -> str:
         if not v:
-            raise ValueError("db.uri is required when db.type is 'mongo'")
+            raise ValueError("database.uri is required when database.type is 'mongo'")
         if not (v.startswith("mongodb://") or v.startswith("mongodb+srv://") or v.startswith("mongodb")):
-            raise ValueError(f"db.uri must start with 'mongodb://' (found: {v!r})")
+            raise ValueError(f"database.uri must start with 'mongodb://' (found: {v!r})")
         return v
 

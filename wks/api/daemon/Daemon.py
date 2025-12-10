@@ -41,7 +41,7 @@ class Daemon:
         return system
 
     @staticmethod
-    def _validate_backend_type(
+    def validate_backend_type(
         result_obj: StageResult,
         backend_type: str,
         output_class: type["BaseModel"],
@@ -71,7 +71,7 @@ class Daemon:
             return False
         return True
 
-    def _start_via_service(self) -> DaemonStartOutput:
+    def start_via_service(self) -> DaemonStartOutput:
         """Start daemon via service manager.
 
         Returns:
@@ -101,12 +101,19 @@ class Daemon:
         )
 
     @staticmethod
-    def _start_directly(backend_type: str) -> DaemonStartOutput:
+    def start_directly(backend_type: str) -> DaemonStartOutput:
         """Start daemon directly as background process.
 
         Returns:
             DaemonStartOutput schema object
         """
+        if backend_type not in _BACKEND_REGISTRY:
+            return DaemonStartOutput(
+                errors=[f"Unsupported daemon backend type: {backend_type!r}"],
+                warnings=[],
+                message=f"Error starting daemon: unsupported backend {backend_type!r}",
+                running=False,
+            )
         python_path = sys.executable
         daemon_module = f"wks.api.daemon._{backend_type}._Impl"
 
@@ -193,6 +200,12 @@ class Daemon:
         if not self._impl:
             raise RuntimeError("Daemon not initialized. Use as context manager first.")
         return self._impl.start_service()
+
+    def run(self, restrict_dir: Path | None = None) -> None:
+        """Run the daemon loop directly (non-service mode)."""
+        if not self._impl:
+            raise RuntimeError("Daemon not initialized. Use as context manager first.")
+        return self._impl.run(restrict_dir=restrict_dir)
 
     def stop_service(self) -> dict[str, Any]:
         """Stop daemon via system service manager.

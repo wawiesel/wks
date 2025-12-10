@@ -1,4 +1,9 @@
-"""Unit tests for wks.api.daemon.cmd_install module."""
+"""Unit tests for wks.api.daemon.cmd_install module.
+
+We prefer not to use mocks in almost every case, but there is not a good way
+to test installing a service except with mocks.
+
+"""
 
 from unittest.mock import MagicMock
 
@@ -48,4 +53,3 @@ def test_cmd_install_success(patch_wks_config, monkeypatch):
     assert result.success is True
     assert "errors" in result.output
     assert "warnings" in result.output
-

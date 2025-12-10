@@ -39,7 +39,7 @@ def cmd_start() -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend...")
         backend_type = config.daemon.type
-        if not Daemon._validate_backend_type(result_obj, backend_type, DaemonStartOutput, "running"):
+        if not Daemon.validate_backend_type(result_obj, backend_type, DaemonStartOutput, "running"):
             yield (1.0, "Complete")
             return
 
@@ -65,7 +65,7 @@ def cmd_start() -> StageResult:
                     return
 
                 yield (0.7, "Starting via service manager...")
-                start_result = daemon._start_via_service()
+                start_result = daemon.start_via_service()
 
             yield (1.0, "Complete")
             result_obj.result = start_result.message

@@ -66,7 +66,7 @@ def _register_server(target: Path, command: str, args: list[str]) -> InstallResu
     current = servers.get("wks")
 
     if current == desired and existed:
-        return InstallResult("unknown", target, "unchanged", "already configured")
+        return InstallResult("unknown", target, "unchanged", "")
 
     servers["wks"] = desired
     _write_config(target, data)
@@ -111,4 +111,3 @@ def install_mcp_configs(
         results.append(result)
 
     return results
-

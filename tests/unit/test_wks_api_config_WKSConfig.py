@@ -1,4 +1,11 @@
-"""Unit tests for wks.api.config.WKSConfig module."""
+"""Unit tests for wks.api.config.WKSConfig module.
+
+Requirements Satisfied:
+
+- CONFIG.1
+- CONFIG.2
+- CONFIG.6
+"""
 
 import json
 from unittest.mock import patch
@@ -54,7 +61,7 @@ class TestWKSConfigLoad:
         monkeypatch.setenv("WKS_HOME", str(tmp_path))
         config_path = tmp_path / "config.json"
         config_path.write_text("{}")
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValueError):
             WKSConfig.load()
 
 

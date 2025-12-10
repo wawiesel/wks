@@ -22,7 +22,18 @@ def cmd_list() -> StageResult:
         from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
-        config = WKSConfig.load()
+        try:
+            config = WKSConfig.load()
+        except Exception as e:
+            yield (1.0, "Complete")
+            result_obj.result = str(e)
+            result_obj.output = DatabaseListOutput(
+                errors=[str(e)],
+                warnings=[],
+                databases=[],
+            ).model_dump(mode="python")
+            result_obj.success = False
+            return
 
         yield (0.5, "Querying database...")
         try:

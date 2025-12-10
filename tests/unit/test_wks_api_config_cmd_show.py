@@ -1,4 +1,10 @@
-"""Unit tests for config cmd_show."""
+"""Unit tests for config cmd_show.
+
+Requirements Satisfied:
+
+- CONFIG.4
+- CONFIG.6
+"""
 
 import pytest
 
@@ -24,4 +30,13 @@ class TestCmdShow:
     def test_cmd_show_with_invalid_section(self, wks_home_with_priority):
         result = run_cmd(cmd_show, "invalid_section")
         assert not result.success
+        assert result.output["errors"]
+
+    def test_cmd_show_invalid_config_file(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("WKS_HOME", str(tmp_path))
+        (tmp_path / "config.json").write_text("{invalid json")
+
+        result = run_cmd(cmd_show, "monitor")
+        assert result.success is False
+        assert result.output["section"] == "monitor"
         assert result.output["errors"]

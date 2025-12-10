@@ -25,7 +25,7 @@ with Database(db_config, "monitor") as database:
 
 ## Configuration
 
-MongoDB configuration uses the `_DbConfigData` class:
+MongoDB configuration uses the `_Data` class (imported as `_DatabaseConfigData` in implementations):
 
 ```json
 {

@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict, computed_field
+from pydantic import BaseModel, Field, ConfigDict, computed_field, ValidationError
 
 from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
@@ -46,6 +46,9 @@ class WKSConfig(BaseModel):
 
         All sections (monitor, database, daemon) are required.
         Pydantic validates that all required fields are present.
+
+        Raises:
+            ValueError: If config file not found, invalid JSON, or validation error
         """
         path = cls.get_config_path()
 
@@ -58,8 +61,16 @@ class WKSConfig(BaseModel):
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in config file {path}: {e}") from e
 
-        # Pydantic validates required fields and constructs nested models automatically
-        return cls(**raw)
+        try:
+            # Pydantic validates required fields and constructs nested models automatically
+            return cls(**raw)
+        except ValidationError as e:
+            errors = e.errors() or [{"msg": str(e), "loc": []}]
+            first = errors[0]
+            error_msg = first.get("msg", str(e))
+            field = ".".join(str(x) for x in first.get("loc", []))
+            detail = f"{field}: {error_msg}" if field else error_msg
+            raise ValueError(f"Configuration validation error: {detail}") from e
 
     def to_dict(self) -> dict[str, Any]:
         """Convert WKSConfig instance to a dictionary for serialization."""

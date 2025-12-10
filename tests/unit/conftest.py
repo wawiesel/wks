@@ -1,11 +1,32 @@
 """Shared test fixtures for unit tests."""
 
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+import platform
 
 import pytest
 
 from wks.api.database.DatabaseConfig import DatabaseConfig
+from wks.api.daemon.DaemonConfig import DaemonConfig
+
+
+def _daemon_config_dict_for_current_platform() -> dict:
+    """Build a daemon config dict for the current platform.
+
+    We do NOT fallback to a test backend. Unsupported platforms should fail tests,
+    forcing explicit handling and avoiding hidden defaults.
+    """
+    backend_type = platform.system().lower()
+    if backend_type == "darwin":
+        return {
+            "type": "darwin",
+            "sync_interval_secs": 60.0,
+            "data": {
+                "label": "com.test.wks",
+                "log_file": "daemon.log",
+                "keep_alive": True,
+                "run_at_load": False,
+            },
+        }
+    raise RuntimeError(f"Unsupported platform for daemon tests: {backend_type!r}")
 
 
 class DummyConfig:
@@ -37,7 +58,7 @@ class DummyConfig:
             sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
         )
         self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={})
-        self.daemon = daemon
+        self.daemon = daemon or DaemonConfig(**_daemon_config_dict_for_current_platform())
         self.save_calls = 0
         self.errors: list[str] = []
         self.warnings: list[str] = []
@@ -97,16 +118,7 @@ def minimal_config_dict():
             "prefix": "wks",
             "data": {},
         },
-        "daemon": {
-            "type": "darwin",
-            "sync_interval_secs": 60.0,
-            "data": {
-                "label": "com.test.wks",
-                "log_file": "daemon.log",
-                "keep_alive": True,
-                "run_at_load": False,
-            },
-        },
+        "daemon": _daemon_config_dict_for_current_platform(),
     }
 
 

@@ -10,29 +10,8 @@ from ..config.WKSConfig import WKSConfig
 from . import DaemonStatusOutput
 from .Daemon import Daemon
 from .DaemonConfig import _BACKEND_REGISTRY
-from ._pid_running import _pid_running
-
-
-def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
-    """Read daemon.json file and extract warnings/errors/pid.
-
-    Args:
-        daemon_file: Path to daemon.json file
-
-    Returns:
-        Dictionary with warnings, errors, and pid (if available)
-    """
-    result: dict[str, Any] = {"warnings": [], "errors": []}
-    if daemon_file.exists():
-        try:
-            daemon_data = json.loads(daemon_file.read_text())
-            result["warnings"] = daemon_data.get("warnings", [])
-            result["errors"] = daemon_data.get("errors", [])
-            if "pid" in daemon_data:
-                result["pid"] = daemon_data["pid"]
-        except Exception:
-            pass
-    return result
+from . import pid_running
+from .read_daemon_file import read_daemon_file
 
 
 def cmd_status() -> StageResult:
@@ -80,7 +59,7 @@ def cmd_status() -> StageResult:
 
                 if service_installed and "pid" in service_status:
                     service_pid = service_status["pid"]
-                    if _pid_running(service_pid):
+                    if pid_running(service_pid):
                         running_as_service = True
                         status_data["running"] = True
                         status_data["pid"] = service_pid
@@ -92,7 +71,7 @@ def cmd_status() -> StageResult:
         # If running as service, check for warnings/errors from daemon.json
         if running_as_service:
             yield (0.7, "Reading daemon status file...")
-            daemon_file_data = _read_daemon_file(daemon_file)
+            daemon_file_data = read_daemon_file(daemon_file)
             status_data["warnings_log"] = daemon_file_data["warnings"]
             status_data["errors_log"] = daemon_file_data["errors"]
 
@@ -124,7 +103,7 @@ def cmd_status() -> StageResult:
                 if lock_content:
                     try:
                         lock_pid = int(lock_content.splitlines()[0])
-                        if _pid_running(lock_pid):
+                        if pid_running(lock_pid):
                             terminal_pid = lock_pid
                             terminal_data["lock_file"] = str(lock_file)
                     except (ValueError, IndexError):
@@ -133,12 +112,12 @@ def cmd_status() -> StageResult:
                 pass
 
         # Check daemon status file (written by daemon when running directly)
-        daemon_file_data = _read_daemon_file(daemon_file)
+        daemon_file_data = read_daemon_file(daemon_file)
         status_data["warnings_log"] = daemon_file_data["warnings"]
         status_data["errors_log"] = daemon_file_data["errors"]
         if "pid" in daemon_file_data:
             daemon_pid = daemon_file_data["pid"]
-            if _pid_running(daemon_pid):
+            if pid_running(daemon_pid):
                 terminal_pid = daemon_pid
 
         # If we found a running process via direct mode

@@ -4,14 +4,10 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from wks.api.config import (
-    DisplayConfig,
-    MetricsConfig,
-    WKSConfig,
-)
+from wks.api.config import WKSConfig
 from wks.api.monitor.MonitorConfig import MonitorConfig
-from wks.api.transform.config import TransformConfig
-from wks.api.vault.config import VaultConfig
+from wks.api.database.DatabaseConfig import DatabaseConfig
+from wks.api.daemon.DaemonConfig import DaemonConfig
 
 
 class FakeCollection:
@@ -153,33 +149,22 @@ def daemon_config(tmp_path):
             }
         }
     )
-    vault_cfg = VaultConfig(
-        base_dir=str(tmp_path),
-        wks_dir="WKS",
-        update_frequency_seconds=10,
-        database="wks.vault",
-        vault_type="obsidian",
+    database_cfg = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    daemon_cfg = DaemonConfig(
+        type="darwin",
+        sync_interval_secs=60.0,
+        data={
+            "label": "com.wks.daemon.test",
+            "log_file": "daemon.log",
+            "keep_alive": True,
+            "run_at_load": False,
+        },
     )
-    from wks.api.database._mongo.MongoDbConfig import MongoDbConfig
-
-    mongo_cfg = MongoDbConfig(uri="mongodb://localhost:27017/")
-    display_cfg = DisplayConfig()
-    from wks.api.transform.config import CacheConfig
-
-    transform_cfg = TransformConfig(
-        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
-        engines={},
-        database="wks.transform",
-    )
-    metrics_cfg = MetricsConfig()
 
     return WKSConfig(
         monitor=monitor_cfg,
-        vault=vault_cfg,
-        db=mongo_cfg,
-        display=display_cfg,
-        transform=transform_cfg,
-        metrics=metrics_cfg,
+        database=database_cfg,
+        daemon=daemon_cfg,
     )
 
 

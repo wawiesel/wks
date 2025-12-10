@@ -7,7 +7,7 @@ from pymongo.collection import Collection
 
 from .._AbstractImpl import _AbstractImpl
 from ..DatabaseConfig import DatabaseConfig
-from ._DbConfigData import _DbConfigData
+from ._Data import _Data as _DatabaseConfigData
 
 # Shared mongomock client for all instances (singleton pattern)
 _shared_mongomock_client: mongomock.MongoClient | None = None
@@ -22,8 +22,8 @@ def _get_mongomock_client() -> mongomock.MongoClient:
 
 
 class _Impl(_AbstractImpl):
-    def __init__(self, db_config: DatabaseConfig, database_name: str, collection_name: str):
-        if not isinstance(db_config.data, _DbConfigData):
+    def __init__(self, database_config: DatabaseConfig, database_name: str, collection_name: str):
+        if not isinstance(database_config.data, _DatabaseConfigData):
             raise ValueError("MongoMock config data is required")
         self.database_name = database_name
         self.collection_name = collection_name

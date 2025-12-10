@@ -4,13 +4,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from ._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
-from ._mongomock._DbConfigData import _DbConfigData as _MongoMockDbConfigData
+from ._mongo._Data import _Data as _MongoData
+from ._mongomock._Data import _Data as _MongomockData
 
 # Registry: add new backends here (ONLY place backend types are enumerated)
 _BACKEND_REGISTRY: dict[str, type[BaseModel]] = {
-    "mongo": _MongoDbConfigData,
-    "mongomock": _MongoMockDbConfigData,
+    "mongo": _MongoData,
+    "mongomock": _MongomockData,
 }
 
 
@@ -26,14 +26,14 @@ class DatabaseConfig(BaseModel):
     def validate_and_populate_data(cls, values: Any) -> dict[str, Any]:
         if not isinstance(values, dict):
             raise ValueError(f"database config must be a dict, got {type(values).__name__}")
-        db_type = values.get("type")
-        if not db_type:
+        database_type = values.get("type")
+        if not database_type:
             raise ValueError("database.type is required")
         # Access module-level registry (single source of truth)
         backend_registry = _BACKEND_REGISTRY
-        config_data_class = backend_registry.get(db_type)
+        config_data_class = backend_registry.get(database_type)
         if not config_data_class:
-            raise ValueError(f"Unknown backend type: {db_type!r} (supported: {list(backend_registry.keys())})")
+            raise ValueError(f"Unknown backend type: {database_type!r} (supported: {list(backend_registry.keys())})")
         data_dict = values.get("data")
         if data_dict is None:
             raise ValueError("database.data is required")

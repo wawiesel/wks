@@ -28,3 +28,11 @@ class TestCmdList:
             result = run_cmd(cmd_list)
             assert not result.success
             assert "Connection failed" in result.output["errors"][0]
+
+    def test_cmd_list_load_config_error(self, monkeypatch):
+        from wks.api.config.WKSConfig import WKSConfig
+
+        monkeypatch.setattr(WKSConfig, "load", lambda: (_ for _ in ()).throw(RuntimeError("bad config")))
+        result = run_cmd(cmd_list)
+        assert result.success is False
+        assert "bad config" in result.output["errors"][0]

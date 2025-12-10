@@ -465,6 +465,62 @@ def test_cmd_sync_enforce_db_limit(monkeypatch, tmp_path):
     # The function should have been called, but we can't easily verify without more complex mocking
 
 
+def test_cmd_sync_below_min_priority(monkeypatch, tmp_path):
+    """Test cmd_sync skips files below min_priority."""
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.database.DatabaseConfig import DatabaseConfig
+    from wks.api.monitor.MonitorConfig import MonitorConfig
+
+    monitor_cfg = MonitorConfig(
+        filter={
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        priority={
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
+        database="monitor",
+        sync={"max_documents": 1000000, "min_priority": 0.5, "prune_interval_secs": 300.0},
+    )
+
+    cfg = DummyConfig(monitor_cfg)
+    cfg.database = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test")
+
+    # Mock Database
+    mock_collection = MockDatabaseCollection()
+
+    monkeypatch.setattr(cmd_sync, "Database", lambda *args, **kwargs: mock_collection)
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
+    # Mock calculate_priority to return 0.3 (below min_priority of 0.5) - should be skipped
+    monkeypatch.setattr(
+        "wks.api.monitor.cmd_sync.calculate_priority",
+        lambda _path, _dirs, _weights: 0.3,
+    )
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc123")
+    monkeypatch.setattr(cmd_sync, "_enforce_monitor_db_limit", lambda *args, **kwargs: None)
+
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
+    # File should be skipped because priority (0.3) < min_priority (0.5)
+    assert result.output["files_synced"] == 0
+    assert result.output["files_skipped"] == 1
+    assert result.success is True
+    assert "warnings" in result.output
+
+
 def test_cmd_sync_enforces_db_limits_via_private_module(monkeypatch, tmp_path):
     """Test that cmd_sync correctly triggers _enforce_monitor_db_limit logic.
     
@@ -540,3 +596,151 @@ def test_cmd_sync_enforces_db_limits_via_private_module(monkeypatch, tmp_path):
     mock_cursor.limit.assert_called_with(5) # 10 - 5 = 5 extra docs
     # Should delete the found IDs
     mock_db_instance.delete_many.assert_any_call({"_id": {"$in": ["doc1", "doc2", "doc3", "doc4", "doc5"]}})
+
+
+def test_cmd_sync_no_limit(monkeypatch, tmp_path):
+    """Test cmd_sync with max_documents=0 (disabled limit)."""
+    from wks.api.monitor.MonitorConfig import MonitorConfig
+    from wks.api.database.Database import Database
+
+    # Config with limit disabled
+    monitor_cfg_data = {
+        "sync": {"max_documents": 0, "min_priority": 0.0, "prune_interval_secs": 300.0}
+    }
+    cfg = DummyConfig(MonitorConfig.from_config_dict({"monitor": {
+        "filter": {
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        "priority": {
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
+        "database": "monitor",
+        "sync": {"max_documents": 0, "min_priority": 0.0, "prune_interval_secs": 300.0}
+    }}))
+    from wks.api.config.WKSConfig import WKSConfig
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("content")
+
+    mock_db = MagicMock()
+    mock_db.__enter__.return_value = mock_db
+    mock_db.__exit__.return_value = None
+    mock_db.count_documents.return_value = 100 # High count
+    monkeypatch.setattr(cmd_sync, "Database", MagicMock(return_value=mock_db))
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc")
+    monkeypatch.setattr("wks.api.monitor.cmd_sync.calculate_priority", lambda *args: 1.0)
+
+    run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
+
+    # Should NOT call delete_many for max_docs
+    # It might call it for min_priority=0 (if > 0.0), but here min_priority=0.0
+    mock_db.delete_many.assert_not_called()
+
+
+def test_cmd_sync_under_limit(monkeypatch, tmp_path):
+    """Test cmd_sync when count <= max_documents (no enforcement needed)."""
+    from wks.api.monitor.MonitorConfig import MonitorConfig
+    
+    cfg = DummyConfig(MonitorConfig.from_config_dict({"monitor": {
+        "filter": {
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        "priority": {
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
+        "database": "monitor",
+        "sync": {"max_documents": 100, "min_priority": 0.0, "prune_interval_secs": 300.0}
+    }}))
+    from wks.api.config.WKSConfig import WKSConfig
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("content")
+
+    mock_db = MagicMock()
+    mock_db.__enter__.return_value = mock_db
+    mock_db.__exit__.return_value = None
+    mock_db.count_documents.return_value = 50 # Under limit of 100
+    monkeypatch.setattr(cmd_sync, "Database", MagicMock(return_value=mock_db))
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc")
+    monkeypatch.setattr("wks.api.monitor.cmd_sync.calculate_priority", lambda *args: 1.0)
+
+    run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
+
+    # Should NOT call delete_many
+    mock_db.delete_many.assert_not_called()
+
+
+def test_cmd_sync_update_error(monkeypatch, tmp_path):
+    """Test cmd_sync handling exception during database update."""
+    from wks.api.monitor.MonitorConfig import MonitorConfig
+    
+    cfg = DummyConfig(MonitorConfig.from_config_dict({"monitor": {
+        "filter": {
+            "include_paths": [],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [],
+            "include_globs": [],
+            "exclude_globs": [],
+        },
+        "priority": {
+            "dirs": {},
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {},
+            },
+        },
+        "database": "monitor",
+        "sync": {"max_documents": 100, "min_priority": 0.0, "prune_interval_secs": 300.0}
+    }}))
+    from wks.api.config.WKSConfig import WKSConfig
+    monkeypatch.setattr(WKSConfig, "load", lambda: cfg)
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("content")
+
+    mock_db = MagicMock()
+    mock_db.__enter__.return_value = mock_db
+    mock_db.__exit__.return_value = None
+    # Simulate DB error
+    mock_db.update_one.side_effect = Exception("DB Connection Error")
+    
+    monkeypatch.setattr(cmd_sync, "Database", MagicMock(return_value=mock_db))
+    monkeypatch.setattr(cmd_sync, "explain_path", lambda _cfg, _path: (True, []))
+    monkeypatch.setattr("wks.utils.file_checksum", lambda _path: "abc")
+    monkeypatch.setattr("wks.api.monitor.cmd_sync.calculate_priority", lambda *args: 1.0)
+
+    result = run_cmd(cmd_sync.cmd_sync, path=str(test_file), recursive=False)
+    
+    assert result.success is False
+    assert result.output["files_synced"] == 0
+    assert result.output["files_skipped"] == 1
+    assert "DB Connection Error" in str(result.output["errors"])

@@ -1,4 +1,9 @@
-"""Unit tests for wks.api.config.cmd_version module."""
+"""Unit tests for wks.api.config.cmd_version module.
+
+Requirements Satisfied:
+
+- CONFIG.5
+"""
 
 from unittest.mock import patch
 

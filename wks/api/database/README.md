@@ -6,7 +6,7 @@ This directory implements the database API following a strict one-file-per-funct
 
 **One file = one thing**: Every exported function or class lives in its own file, and the filename exactly matches the exported symbol name. This eliminates ambiguity and enforces single responsibility.
 
-**Database abstraction**: All database-specific code is isolated in `_<backend>/` subdirectories. The public API in this directory uses database-agnostic interfaces that could be swapped out for other database implementations. Each backend directory contains `_Impl.py` (implementation) and `_DbConfigData.py` (configuration data).
+**Database abstraction**: All database-specific code is isolated in `_<backend>/` subdirectories. The public API in this directory uses database-agnostic interfaces that could be swapped out for other database implementations. Each backend directory contains `_Impl.py` (implementation) and `_Data.py` (configuration data).
 
 **Pure API layer**: This directory contains zero CLI or MCP-specific code (no printing, no protocol handling). Functions only build and return structured data. Display/rendering happens in the `wks/api/display/` layer.
 
@@ -63,7 +63,7 @@ For `mongomock` (in-memory database), `data` can be empty:
 }
 ```
 
-**Backend-specific requirements**: Each backend's `_DbConfigData` class defines what it needs:
+**Backend-specific requirements**: Each backend's `_Data` class defines what it needs:
 - `mongo`: Requires `uri` field (MongoDB connection string)
 - `mongomock`: Requires nothing (in-memory, no connection needed)
 
@@ -73,7 +73,7 @@ For `mongomock` (in-memory database), `data` can be empty:
 
 1. Add an entry to `_BACKEND_REGISTRY` mapping the type name to its config data class
 2. Create the backend implementation in `_<backend_type>/` following the existing pattern:
-   - `_DbConfigData.py`: Pydantic model defining backend-specific config fields (only require what's needed)
+   - `_Data.py`: Pydantic model defining backend-specific config fields (only require what's needed)
    - `_Impl.py`: Implementation of `_AbstractImpl` that handles connections using its config data
 3. The rest of the code will automatically work with the new backend via dynamic imports
 

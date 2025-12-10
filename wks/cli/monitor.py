@@ -50,8 +50,12 @@ priority_app = typer.Typer(
 
 
 # Register commands with StageResult handler
-# Direct registration - Typer handles required argument validation via typer.Argument(...)
-monitor_app.command(name="status")(handle_stage_result(cmd_status))
+def status_command() -> None:
+    """Get filesystem monitoring status."""
+    handle_stage_result(cmd_status)()
+
+
+monitor_app.command(name="status")(status_command)
 
 
 def check_command(path: str = typer.Argument(..., help="File or directory path to check")) -> None:
@@ -114,7 +118,12 @@ filter_app.command(name="add")(filter_add_command)
 filter_app.command(name="remove")(filter_remove_command)
 
 # Priority subcommands
-priority_app.command(name="show")(handle_stage_result(cmd_priority_show))
+def priority_show_command() -> None:
+    """List all priority directories."""
+    handle_stage_result(cmd_priority_show)()
+
+
+priority_app.command(name="show")(priority_show_command)
 priority_app.command(name="add")(priority_add_command)
 priority_app.command(name="remove")(priority_remove_command)
 

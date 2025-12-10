@@ -1,4 +1,9 @@
-"""Unit tests for wks.api.daemon.cmd_stop module."""
+"""Unit tests for wks.api.daemon.cmd_stop module.
+
+We prefer not to use mocks in almost every case, but there is not a good way
+to test stopping a service except with mocks.
+
+"""
 
 from unittest.mock import MagicMock
 

@@ -19,8 +19,6 @@ def _enforce_monitor_db_limit(database: Database, max_docs: int, min_priority: f
             return
 
         extras = count - max_docs
-        if extras <= 0:
-            return
 
         lowest_priority_docs = database.find({}, {"_id": 1, "priority": 1}).sort("priority", 1).limit(extras)
         ids_to_delete = [doc["_id"] for doc in lowest_priority_docs]

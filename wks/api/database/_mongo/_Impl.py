@@ -7,19 +7,19 @@ from pymongo.collection import Collection
 
 from .._AbstractImpl import _AbstractImpl
 from ..DatabaseConfig import DatabaseConfig
-from ._DbConfigData import _DbConfigData
+from ._Data import _Data as _DatabaseConfigData
 
 
 class _Impl(_AbstractImpl):
-    def __init__(self, db_config: DatabaseConfig, database_name: str, collection_name: str):
+    def __init__(self, database_config: DatabaseConfig, database_name: str, collection_name: str):
         """Initialize MongoDB implementation.
 
         Note: Internally MongoDB uses "collections" but the public API uses "database" terminology.
         The collection_name parameter maps to a MongoDB collection.
         """
-        if not isinstance(db_config.data, _DbConfigData):
+        if not isinstance(database_config.data, _DatabaseConfigData):
             raise ValueError("MongoDB config data is required")
-        self.uri = db_config.data.uri
+        self.uri = database_config.data.uri
         self.database_name = database_name
         self.collection_name = collection_name  # MongoDB collection name
         self._client: MongoClient | None = None

@@ -28,7 +28,7 @@ def cmd_install(restrict_dir: Path | None = None) -> StageResult:
         # Validate backend type
         yield (0.2, "Validating backend type...")
         backend_type = config.daemon.type
-        if not Daemon._validate_backend_type(result_obj, backend_type, DaemonInstallOutput, "installed"):
+        if not Daemon.validate_backend_type(result_obj, backend_type, DaemonInstallOutput, "installed"):
             yield (1.0, "Complete")
             return
 

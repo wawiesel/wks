@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from pydantic import BaseModel
 
-from ._registry import get_output_schema
+from .schema_registry import get_output_schema
 
 
 def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:

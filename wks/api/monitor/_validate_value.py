@@ -43,7 +43,7 @@ def _validate_value(
         try:
             fnmatch.fnmatch("test", value)
             return value, None
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:
             return None, f"Invalid glob syntax: {exc}"
 
     return value, None

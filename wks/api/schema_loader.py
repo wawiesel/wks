@@ -6,8 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, create_model
 
-from ._output_schemas._base import BaseOutputSchema
-from ._output_schemas._registry import register_output_schema
+from .BaseOutputSchema import BaseOutputSchema
+from .schema_registry import register_output_schema
 
 
 def load_schema(domain: str) -> dict[str, Any]:

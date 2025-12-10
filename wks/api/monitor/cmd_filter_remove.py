@@ -69,12 +69,16 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
                 break
 
         if removed_value is None:
-            _build_result(
-                result_obj,
+            result_obj.output = MonitorFilterRemoveOutput(
+                errors=[],
+                warnings=[],
                 success=False,
                 message=f"Value not found in {list_name}: {value}",
+                value_removed=None,
                 not_found=True,
-            )
+            ).model_dump(mode="python")
+            result_obj.result = f"Value not found in {list_name}: {value}"
+            result_obj.success = False
             yield (1.0, "Complete")
             return
 
