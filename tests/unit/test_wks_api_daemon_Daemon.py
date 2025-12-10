@@ -53,7 +53,7 @@ def test_daemon_reports_fs_events(monkeypatch, tmp_path):
 
     events = d.get_filesystem_events()
     d.stop()
-
+    print(events)
     # Validate event contents
     assert events is not None
     assert str(f1) in events.created

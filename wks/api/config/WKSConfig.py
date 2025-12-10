@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, ConfigDict, computed_field, ValidationErr
 from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
+from ..daemon.DaemonConfig import DaemonConfig
 
 
 class WKSConfig(BaseModel):
@@ -20,6 +21,7 @@ class WKSConfig(BaseModel):
     monitor: MonitorConfig
     database: DatabaseConfig
     service: ServiceConfig
+    daemon: DaemonConfig
 
     @computed_field
     @property
@@ -44,7 +46,7 @@ class WKSConfig(BaseModel):
     def load(cls) -> "WKSConfig":
         """Load and validate config from file.
 
-        All sections (monitor, database, service) are required.
+        All sections (monitor, database, service, daemon) are required.
         Pydantic validates that all required fields are present.
 
         Raises:
@@ -78,6 +80,7 @@ class WKSConfig(BaseModel):
             "monitor": self.monitor.model_dump(),
             "database": self.database.model_dump(),
             "service": self.service.model_dump(),
+            "daemon": self.daemon.model_dump(),
         }
 
     def save(self) -> None:

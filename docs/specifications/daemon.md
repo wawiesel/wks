@@ -13,17 +13,17 @@ Runtime worker that watches the filesystem and syncs changes to the monitor data
 ## Configuration
 - Location: `{WKS_HOME}/config.json`.
 - Section: `daemon`.
-- Required fields (no defaults in code):
+- All fields are required; no defaults:
   - `sync_interval_secs` (number > 0): how long to accumulate events before syncing.
   - `log_file` (string, relative): path (relative to `WKS_HOME`) for daemon stdout/stderr; entries must include severity.
-  - `restrict_dir` directory root to watch; if empty string watch all
+  - `restrict_dir` (string): directory root to watch; use empty string to fall back to monitor filter include paths (no implicit default).
 Example:
 ```json
 {
   "daemon": {
     "sync_interval_secs": 5.0,
     "log_file": "logs/daemon.log",
-    "restrict_dir": null
+    "restrict_dir": ""
   }
 }
 ```

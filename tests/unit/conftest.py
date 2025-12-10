@@ -6,6 +6,7 @@ import pytest
 
 from wks.api.database.DatabaseConfig import DatabaseConfig
 from wks.api.service.ServiceConfig import ServiceConfig
+from wks.api.daemon.DaemonConfig import DaemonConfig
 from wks.api.config.WKSConfig import WKSConfig
 
 
@@ -33,7 +34,7 @@ def _service_config_dict_for_current_platform() -> dict:
 class DummyConfig:
     """Mock WKSConfig for testing."""
 
-    def __init__(self, monitor=None, database=None, service=None):
+    def __init__(self, monitor=None, database=None, service=None, daemon=None):
         from wks.api.monitor.MonitorConfig import MonitorConfig
         from wks.api.database.DatabaseConfig import DatabaseConfig
 
@@ -60,6 +61,7 @@ class DummyConfig:
         )
         self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={})
         self.service = service or ServiceConfig(**_service_config_dict_for_current_platform())
+        self.daemon = daemon or DaemonConfig(sync_interval_secs=0.1, log_file="daemon.log", restrict_dir="")
         self.save_calls = 0
         self.errors: list[str] = []
         self.warnings: list[str] = []
@@ -118,6 +120,11 @@ def minimal_config_dict() -> dict:
             "data": {},
         },
         "service": _service_config_dict_for_current_platform(),
+        "daemon": {
+            "sync_interval_secs": 0.1,
+            "log_file": "daemon.log",
+            "restrict_dir": "",
+        },
     }
 
 
