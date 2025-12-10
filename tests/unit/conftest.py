@@ -6,6 +6,7 @@ import pytest
 
 from wks.api.database.DatabaseConfig import DatabaseConfig
 from wks.api.daemon.DaemonConfig import DaemonConfig
+from wks.api.config.WKSConfig import WKSConfig
 
 
 def _daemon_config_dict_for_current_platform() -> dict:
@@ -80,12 +81,10 @@ def run_cmd(cmd_func, *args, **kwargs):
     return result
 
 
-@pytest.fixture
-def minimal_config_dict():
-    """Minimal valid WKS configuration dict for testing.
+def minimal_config_dict() -> dict:
+    """Minimal valid WKS configuration dict for testing (callable helper).
 
-    This is the simplest valid config - all required fields with minimal values.
-    Use this as a base and modify for specific test cases.
+    Uses the current platform to populate the daemon backend; fails if unsupported.
     """
     return {
         "monitor": {
@@ -120,6 +119,23 @@ def minimal_config_dict():
         },
         "daemon": _daemon_config_dict_for_current_platform(),
     }
+
+
+@pytest.fixture(name="minimal_config_dict")
+def minimal_config_dict_fixture():
+    """Pytest fixture wrapper returning the minimal config dict."""
+    return minimal_config_dict().copy()
+
+
+def minimal_wks_config() -> WKSConfig:
+    """Helper to build a WKSConfig from the minimal config dict."""
+    return WKSConfig(**minimal_config_dict())
+
+
+@pytest.fixture(name="minimal_wks_config")
+def minimal_wks_config_fixture():
+    """Pytest fixture returning a WKSConfig built from the minimal config dict."""
+    return minimal_wks_config()
 
 
 @pytest.fixture
