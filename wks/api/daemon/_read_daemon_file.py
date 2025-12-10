@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-def read_daemon_file(daemon_file: Path) -> dict[str, Any]:
+def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
     """Read daemon.json file and extract warnings/errors/pid."""
     result: dict[str, Any] = {"warnings": [], "errors": []}
     if daemon_file.exists():

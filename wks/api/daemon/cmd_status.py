@@ -11,7 +11,7 @@ from . import DaemonStatusOutput
 from .Daemon import Daemon
 from .DaemonConfig import _BACKEND_REGISTRY
 from . import pid_running
-from .read_daemon_file import read_daemon_file
+from ._read_daemon_file import _read_daemon_file
 
 
 def cmd_status() -> StageResult:
@@ -71,7 +71,7 @@ def cmd_status() -> StageResult:
         # If running as service, check for warnings/errors from daemon.json
         if running_as_service:
             yield (0.7, "Reading daemon status file...")
-            daemon_file_data = read_daemon_file(daemon_file)
+            daemon_file_data = _read_daemon_file(daemon_file)
             status_data["warnings_log"] = daemon_file_data["warnings"]
             status_data["errors_log"] = daemon_file_data["errors"]
 
@@ -112,7 +112,7 @@ def cmd_status() -> StageResult:
                 pass
 
         # Check daemon status file (written by daemon when running directly)
-        daemon_file_data = read_daemon_file(daemon_file)
+        daemon_file_data = _read_daemon_file(daemon_file)
         status_data["warnings_log"] = daemon_file_data["warnings"]
         status_data["errors_log"] = daemon_file_data["errors"]
         if "pid" in daemon_file_data:
