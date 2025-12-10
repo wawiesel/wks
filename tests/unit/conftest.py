@@ -5,12 +5,12 @@ import platform
 import pytest
 
 from wks.api.database.DatabaseConfig import DatabaseConfig
-from wks.api.daemon.DaemonConfig import DaemonConfig
+from wks.api.service.ServiceConfig import ServiceConfig
 from wks.api.config.WKSConfig import WKSConfig
 
 
-def _daemon_config_dict_for_current_platform() -> dict:
-    """Build a daemon config dict for the current platform.
+def _service_config_dict_for_current_platform() -> dict:
+    """Build a service config dict for the current platform.
 
     We do NOT fallback to a test backend. Unsupported platforms should fail tests,
     forcing explicit handling and avoiding hidden defaults.
@@ -27,13 +27,13 @@ def _daemon_config_dict_for_current_platform() -> dict:
                 "run_at_load": False,
             },
         }
-    raise RuntimeError(f"Unsupported platform for daemon tests: {backend_type!r}")
+    raise RuntimeError(f"Unsupported platform for service tests: {backend_type!r}")
 
 
 class DummyConfig:
     """Mock WKSConfig for testing."""
 
-    def __init__(self, monitor=None, database=None, daemon=None):
+    def __init__(self, monitor=None, database=None, service=None):
         from wks.api.monitor.MonitorConfig import MonitorConfig
         from wks.api.database.DatabaseConfig import DatabaseConfig
 
@@ -59,7 +59,7 @@ class DummyConfig:
             sync={"max_documents": 1000000, "min_priority": 0.0, "prune_interval_secs": 300.0},
         )
         self.database = database or DatabaseConfig(type="mongomock", prefix="wks", data={})
-        self.daemon = daemon or DaemonConfig(**_daemon_config_dict_for_current_platform())
+        self.service = service or ServiceConfig(**_service_config_dict_for_current_platform())
         self.save_calls = 0
         self.errors: list[str] = []
         self.warnings: list[str] = []
@@ -84,7 +84,7 @@ def run_cmd(cmd_func, *args, **kwargs):
 def minimal_config_dict() -> dict:
     """Minimal valid WKS configuration dict for testing (callable helper).
 
-    Uses the current platform to populate the daemon backend; fails if unsupported.
+    Uses the current platform to populate the service backend; fails if unsupported.
     """
     return {
         "monitor": {
@@ -117,7 +117,7 @@ def minimal_config_dict() -> dict:
             "prefix": "wks",
             "data": {},
         },
-        "daemon": _daemon_config_dict_for_current_platform(),
+        "service": _service_config_dict_for_current_platform(),
     }
 
 

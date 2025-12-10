@@ -1,4 +1,4 @@
-"""macOS daemon implementation."""
+"""macOS service implementation."""
 
 import os
 import subprocess
@@ -10,14 +10,14 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from .._AbstractImpl import _AbstractImpl
-from ..DaemonConfig import DaemonConfig
+from ..ServiceConfig import ServiceConfig
 from ..FilesystemEvents import FilesystemEvents
 from ...config.WKSConfig import WKSConfig
 from ._Data import _Data
 
 
 class _Impl(_AbstractImpl):
-    """macOS-specific daemon implementation."""
+    """macOS-specific service implementation."""
 
     @staticmethod
     def _get_launch_agents_dir() -> Path:
@@ -56,7 +56,7 @@ class _Impl(_AbstractImpl):
         if restrict_dir is not None:
             restrict_path = str(restrict_dir.expanduser().resolve())
             env_vars += f"""
-    <key>WKS_DAEMON_RESTRICT_DIR</key>
+    <key>WKS_SERVICE_RESTRICT_DIR</key>
     <string>{restrict_path}</string>"""
 
         plist = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -91,24 +91,24 @@ class _Impl(_AbstractImpl):
 </plist>"""
         return plist
 
-    def __init__(self, daemon_config: DaemonConfig | None = None):
-        """Initialize macOS daemon implementation.
+    def __init__(self, service_config: ServiceConfig | None = None):
+        """Initialize macOS service implementation.
 
         Args:
-            daemon_config: Daemon configuration. If None, loads from WKSConfig.
+            service_config: Service configuration. If None, loads from WKSConfig.
         """
-        if daemon_config is None:
+        if service_config is None:
             config = WKSConfig.load()
-            daemon_config = config.daemon
+            service_config = config.service
 
-        if not isinstance(daemon_config.data, _Data):
-            raise ValueError("macOS daemon config data is required")
-        self.config = daemon_config
+        if not isinstance(service_config.data, _Data):
+            raise ValueError("macOS service config data is required")
+        self.config = service_config
         self._running = False
         self._observer: Observer | None = None
-        self._event_handler: "_Impl._DaemonEventHandler" | None = None
+        self._event_handler: "_Impl._ServiceEventHandler" | None = None
 
-    class _DaemonEventHandler(FileSystemEventHandler):
+    class _ServiceEventHandler(FileSystemEventHandler):
         """Handles filesystem events and accumulates them."""
 
         def __init__(self):
@@ -149,11 +149,11 @@ class _Impl(_AbstractImpl):
             return FilesystemEvents(modified=modified, created=created, deleted=deleted, moved=moved)
 
     def run(self, restrict_dir: Path | None = None) -> None:
-        """Run the daemon main loop.
+        """Run the service main loop.
 
         Args:
             restrict_dir: Optional directory to restrict monitoring to. If None, checks environment variable
-                WKS_DAEMON_RESTRICT_DIR (set by service), then falls back to configured paths.
+                WKS_SERVICE_RESTRICT_DIR (set by service), then falls back to configured paths.
         """
         import os
         from ...monitor.cmd_sync import cmd_sync
@@ -166,13 +166,13 @@ class _Impl(_AbstractImpl):
         # Priority: 1) restrict_dir parameter, 2) environment variable (from service), 3) configured paths
         if restrict_dir is not None:
             watch_paths = [str(restrict_dir.expanduser().resolve())]
-        elif "WKS_DAEMON_RESTRICT_DIR" in os.environ:
-            watch_paths = [os.environ["WKS_DAEMON_RESTRICT_DIR"]]
+        elif "WKS_SERVICE_RESTRICT_DIR" in os.environ:
+            watch_paths = [os.environ["WKS_SERVICE_RESTRICT_DIR"]]
         else:
             watch_paths = [str(Path(p).expanduser().resolve()) for p in monitor_cfg.filter.include_paths]
 
         # Initialize filesystem watcher
-        self._event_handler = self._DaemonEventHandler()
+        self._event_handler = self._ServiceEventHandler()
         self._observer = Observer()
 
         for path_str in watch_paths:

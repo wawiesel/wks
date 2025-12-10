@@ -1,4 +1,4 @@
-"""Daemon public API."""
+"""Service public API."""
 
 import platform
 import subprocess
@@ -7,19 +7,25 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..StageResult import StageResult
-from . import DaemonStartOutput
-from .DaemonConfig import DaemonConfig, _BACKEND_REGISTRY
+from . import (
+    ServiceInstallOutput,
+    ServiceStartOutput,
+    ServiceStatusOutput,
+    ServiceStopOutput,
+    ServiceUninstallOutput,
+)
+from .ServiceConfig import ServiceConfig, _BACKEND_REGISTRY
 from ._AbstractImpl import _AbstractImpl
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
 
-class Daemon:
-    """Public API for daemon operations."""
+class Service:
+    """Public API for service operations."""
 
-    def __init__(self, daemon_config: DaemonConfig):
-        self.daemon_config = daemon_config
+    def __init__(self, service_config: ServiceConfig):
+        self.service_config = service_config
         self._impl: _AbstractImpl | None = None
 
     @staticmethod
@@ -59,7 +65,7 @@ class Daemon:
             True if valid, False if invalid (and result_obj is already set)
         """
         if backend_type not in _BACKEND_REGISTRY:
-            error_msg = f"Unsupported daemon backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
+            error_msg = f"Unsupported service backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
             result_obj.result = f"Error: {error_msg}"
             result_obj.output = output_class(
                 errors=[error_msg],
@@ -71,11 +77,11 @@ class Daemon:
             return False
         return True
 
-    def start_via_service(self) -> DaemonStartOutput:
-        """Start daemon via service manager.
+    def start_via_service(self) -> ServiceStartOutput:
+        """Start service via service manager.
 
         Returns:
-            DaemonStartOutput schema object
+            ServiceStartOutput schema object
         """
         result = self.start_service()
         if "success" not in result:
@@ -85,15 +91,15 @@ class Daemon:
         if success:
             if "label" not in result:
                 raise KeyError("start_service() result missing required 'label' field when success=True")
-            message = f"Daemon started successfully (label: {result['label']})"
+            message = f"Service started successfully (label: {result['label']})"
             errors = []
         else:
             if "error" not in result:
                 raise KeyError("start_service() result missing required 'error' field when success=False")
-            message = f"Error starting daemon: {result['error']}"
+            message = f"Error starting service: {result['error']}"
             errors = [result["error"]]
 
-        return DaemonStartOutput(
+        return ServiceStartOutput(
             errors=errors,
             warnings=[],
             message=message,
@@ -101,45 +107,45 @@ class Daemon:
         )
 
     @staticmethod
-    def start_directly(backend_type: str) -> DaemonStartOutput:
-        """Start daemon directly as background process.
+    def start_directly(backend_type: str) -> ServiceStartOutput:
+        """Start service directly as background process.
 
         Returns:
-            DaemonStartOutput schema object
+            ServiceStartOutput schema object
         """
         if backend_type not in _BACKEND_REGISTRY:
-            return DaemonStartOutput(
-                errors=[f"Unsupported daemon backend type: {backend_type!r}"],
+            return ServiceStartOutput(
+                errors=[f"Unsupported service backend type: {backend_type!r}"],
                 warnings=[],
-                message=f"Error starting daemon: unsupported backend {backend_type!r}",
+                message=f"Error starting service: unsupported backend {backend_type!r}",
                 running=False,
             )
         python_path = sys.executable
-        daemon_module = f"wks.api.daemon._{backend_type}._Impl"
+        service_module = f"wks.api.service._{backend_type}._Impl"
 
         try:
             process = subprocess.Popen(
-                [python_path, "-m", daemon_module],
+                [python_path, "-m", service_module],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
-            return DaemonStartOutput(
+            return ServiceStartOutput(
                 errors=[],
                 warnings=[],
-                message=f"Daemon started successfully (PID: {process.pid})",
+                message=f"Service started successfully (PID: {process.pid})",
                 running=True,
             )
         except Exception as e:
-            return DaemonStartOutput(
+            return ServiceStartOutput(
                 errors=[str(e)],
                 warnings=[],
-                message=f"Error starting daemon: {e}",
+                message=f"Error starting service: {e}",
                 running=False,
             )
 
     def __enter__(self):
-        backend_type = self.daemon_config.type
+        backend_type = self.service_config.type
 
         # Validate backend type using DaemonConfig registry (single source of truth)
         backend_registry = _BACKEND_REGISTRY
@@ -147,9 +153,9 @@ class Daemon:
             raise ValueError(f"Unsupported backend type: {backend_type!r} (supported: {list(backend_registry.keys())})")
 
         # Import daemon implementation class directly from backend _Impl module
-        module = __import__(f"wks.api.daemon._{backend_type}._Impl", fromlist=[""])
+        module = __import__(f"wks.api.service._{backend_type}._Impl", fromlist=[""])
         impl_class = module._Impl
-        self._impl = impl_class(self.daemon_config)
+        self._impl = impl_class(self.service_config)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -163,11 +169,11 @@ class Daemon:
             Dictionary with service status information (installed, pid, etc.)
         """
         if not self._impl:
-            raise RuntimeError("Daemon not initialized. Use as context manager first.")
+            raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.get_service_status()
 
     def install_service(self, python_path: str, project_root: Path, restrict_dir: Path | None = None) -> dict[str, Any]:
-        """Install daemon as system service.
+        """Install service as system service.
 
         Args:
             python_path: Path to Python interpreter
@@ -178,41 +184,41 @@ class Daemon:
             Dictionary with installation result (success, label, plist_path, etc.)
         """
         if not self._impl:
-            raise RuntimeError("Daemon not initialized. Use as context manager first.")
+            raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.install_service(python_path, project_root, restrict_dir=restrict_dir)
 
     def uninstall_service(self) -> dict[str, Any]:
-        """Uninstall daemon system service.
+        """Uninstall system service.
 
         Returns:
             Dictionary with uninstallation result
         """
         if not self._impl:
-            raise RuntimeError("Daemon not initialized. Use as context manager first.")
+            raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.uninstall_service()
 
     def start_service(self) -> dict[str, Any]:
-        """Start daemon via system service manager.
+        """Start service via system service manager.
 
         Returns:
             Dictionary with start result
         """
         if not self._impl:
-            raise RuntimeError("Daemon not initialized. Use as context manager first.")
+            raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.start_service()
 
     def run(self, restrict_dir: Path | None = None) -> None:
-        """Run the daemon loop directly (non-service mode)."""
+        """Run the service loop directly (non-service mode)."""
         if not self._impl:
-            raise RuntimeError("Daemon not initialized. Use as context manager first.")
+            raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.run(restrict_dir=restrict_dir)
 
     def stop_service(self) -> dict[str, Any]:
-        """Stop daemon via system service manager.
+        """Stop service via system service manager.
 
         Returns:
             Dictionary with stop result
         """
         if not self._impl:
-            raise RuntimeError("Daemon not initialized. Use as context manager first.")
+            raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.stop_service()

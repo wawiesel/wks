@@ -1,6 +1,6 @@
 # Darwin (macOS) Backend Implementation
 
-This directory contains the macOS-specific implementation of the daemon API using FSEvents for filesystem monitoring and launchd for service management.
+This directory contains the macOS-specific implementation of the service API using FSEvents for filesystem monitoring and launchd for service management.
 
 ## macOS-Specific Details
 
@@ -14,12 +14,12 @@ This directory contains the macOS-specific implementation of the daemon API usin
 
 The implementation uses `watchdog` library's `Observer` and `FileSystemEventHandler` for filesystem monitoring. See `_Impl.py` for the actual implementation.
 
-**Watch Scope**: The daemon watches paths determined by:
+**Watch Scope**: The service watches paths determined by:
 1. `restrict_dir` parameter (if provided to `run()`)
-2. `WKS_DAEMON_RESTRICT_DIR` environment variable (if set by service installation)
+2. `WKS_SERVICE_RESTRICT_DIR` environment variable (if set by service installation)
 3. Configured `monitor.filter.include_paths` (fallback)
 
-**Event Handling**: The `_DaemonEventHandler` class (nested in `_Impl`) accumulates events in sets/dictionaries:
+**Event Handling**: The `_ServiceEventHandler` class (nested in `_Impl`) accumulates events in sets/dictionaries:
 - `_modified`: Set of modified file paths
 - `_created`: Set of created file paths
 - `_deleted`: Set of deleted file paths
@@ -29,7 +29,7 @@ Events are accumulated and returned via `get_and_clear_events()` which clears th
 
 ### Event Accumulation
 
-The `_DaemonEventHandler` class (nested in `_Impl`) accumulates events in internal sets/dictionaries:
+The `_ServiceEventHandler` class (nested in `_Impl`) accumulates events in internal sets/dictionaries:
 - `_modified`: Set of modified file paths
 - `_created`: Set of created file paths
 - `_deleted`: Set of deleted file paths
@@ -42,8 +42,8 @@ Events are accumulated and returned via `get_and_clear_events()` which clears th
 ### Main Loop Implementation
 
 The `run(restrict_dir)` method:
-1. Determines paths to watch (restrict_dir parameter, WKS_DAEMON_RESTRICT_DIR env var, or configured paths)
-2. Initializes `watchdog.Observer` with `_DaemonEventHandler`
+1. Determines paths to watch (restrict_dir parameter, WKS_SERVICE_RESTRICT_DIR env var, or configured paths)
+2. Initializes `watchdog.Observer` with `_ServiceEventHandler`
 3. Schedules observer to watch determined paths recursively
 4. Enters main loop:
    - Sleeps for `sync_interval_secs`
@@ -55,7 +55,7 @@ The `run(restrict_dir)` method:
 ### Service Management
 
 **launchd Integration**: Service management methods are implemented directly in `_Impl` class:
-- `install_service()`: Creates plist file and bootstraps service. Accepts `restrict_dir` parameter which is stored as `WKS_DAEMON_RESTRICT_DIR` environment variable in the plist.
+- `install_service()`: Creates plist file and bootstraps service. Accepts `restrict_dir` parameter which is stored as `WKS_SERVICE_RESTRICT_DIR` environment variable in the plist.
 - `uninstall_service()`: Unloads service and removes plist
 - `get_service_status()`: Checks if service is installed and running (including PID)
 - `start_service()`: Starts service via launchctl (bootstrap if not loaded, kickstart if loaded)
@@ -64,11 +64,11 @@ The `run(restrict_dir)` method:
 
 **Plist Structure**: The plist file defines:
 - `Label`: Service identifier (reverse DNS format, from config)
-- `ProgramArguments`: Python module to run (`wks.api.daemon._darwin._Impl`)
+- `ProgramArguments`: Python module to run (`wks.api.service._darwin._Impl`)
 - `WorkingDirectory`: WKS_HOME
 - `EnvironmentVariables`: 
   - `PYTHONPATH`: Project root directory
-  - `WKS_DAEMON_RESTRICT_DIR`: (Optional) Directory to restrict monitoring to
+  - `WKS_SERVICE_RESTRICT_DIR`: (Optional) Directory to restrict monitoring to
 - `RunAtLoad`: Whether to start on load (from config)
 - `KeepAlive`: Whether to restart on exit (from config)
 - `StandardOutPath` / `StandardErrorPath`: Log file path (relative to WKS_HOME)
@@ -91,12 +91,12 @@ Darwin configuration uses the `_Data` class:
 
 ```json
 {
-  "daemon": {
+  "service": {
     "type": "darwin",
     "sync_interval_secs": 5.0,
     "data": {
-      "label": "com.example.wks.daemon",
-      "log_file": "logs/daemon.log",
+      "label": "com.example.wks.service",
+      "log_file": "logs/service.log",
       "keep_alive": true,
       "run_at_load": false
     }
@@ -105,16 +105,16 @@ Darwin configuration uses the `_Data` class:
 ```
 
 **Fields**:
-- `label` (string, required): Launchd service identifier in reverse DNS format (e.g., "com.example.wks.daemon"). Must have at least 2 parts separated by dots.
+- `label` (string, required): Launchd service identifier in reverse DNS format (e.g., "com.example.wks.service"). Must have at least 2 parts separated by dots.
 - `log_file` (string, required): Path to log file relative to WKS_HOME. Must be relative (not absolute).
-- `keep_alive` (boolean, required): Whether launchd should auto-restart the daemon if it exits.
+- `keep_alive` (boolean, required): Whether launchd should auto-restart the service if it exits.
 - `run_at_load` (boolean, required): Whether the service should start automatically when installed.
 
 ## Implementation Details
 
 The `_Impl` class in `_Impl.py` implements the abstract interface defined in `_AbstractImpl.py`. It:
 - Uses `watchdog.Observer` for filesystem monitoring
-- Accumulates events in `_DaemonEventHandler` (nested class)
+- Accumulates events in `_ServiceEventHandler` (nested class)
 - Calls `wks.api.monitor.cmd_sync()` for each filesystem event
 - Manages launchd service lifecycle directly (no separate `_launchd` module)
 
@@ -127,7 +127,7 @@ The `_Impl` class in `_Impl.py` implements the abstract interface defined in `_A
 - Plist file creation and management (via `_create_plist_content()` static method)
 - launchctl command execution (bootstrap, bootout, kickstart, print)
 - Error handling and status checking
-- Supports `--restrict` directory via `WKS_DAEMON_RESTRICT_DIR` environment variable
+- Supports `--restrict` directory via `WKS_SERVICE_RESTRICT_DIR` environment variable
 
-**Note**: This implementation is internal. Application code should use the public `Daemon` API from `wks.api.daemon.Daemon`. If you need platform-specific details, access them from the backend's config data: `daemon_config.data.label` (with proper type checking).
+**Note**: This implementation is internal. Application code should use the public `Service` API from `wks.api.service.Service`. If you need platform-specific details, access them from the backend's config data: `service_config.data.label` (with proper type checking).
 

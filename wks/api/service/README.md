@@ -15,7 +15,7 @@ This directory implements the daemon API for background filesystem monitoring. T
 ### Main Loop Pattern
 
 Platform implementations in `run(restrict_dir)` do the following:
-1. Determine paths to watch: `restrict_dir` parameter, `WKS_DAEMON_RESTRICT_DIR` environment variable (from service), or configured `monitor.filter.include_paths`
+1. Determine paths to watch: `restrict_dir` parameter, `WKS_SERVICE_RESTRICT_DIR` environment variable (from service), or configured `monitor.filter.include_paths`
 2. Initialize filesystem watcher (platform-specific, e.g., `watchdog` on macOS)
 3. Loop while `_running` is True:
    - Sleep for `sync_interval_secs`

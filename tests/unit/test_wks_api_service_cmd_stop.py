@@ -1,7 +1,7 @@
-"""Unit tests for wks.api.daemon.cmd_install module.
+"""Unit tests for wks.api.service.cmd_stop module.
 
 We prefer not to use mocks in almost every case, but there is not a good way
-to test installing a service except with mocks.
+to test stopping a service except with mocks.
 
 """
 
@@ -10,15 +10,15 @@ from unittest.mock import MagicMock
 import pytest
 
 from tests.unit.conftest import run_cmd
-from wks.api.daemon import cmd_install
-from wks.api.daemon.DaemonConfig import DaemonConfig
+from wks.api.service import cmd_stop
+from wks.api.service.ServiceConfig import ServiceConfig
 
 pytestmark = pytest.mark.daemon
 
 
-def test_cmd_install_success(patch_wks_config, monkeypatch):
-    """Test cmd_install with successful installation."""
-    patch_wks_config.daemon = DaemonConfig(
+def test_cmd_stop_not_installed(patch_wks_config, monkeypatch):
+    """Test cmd_stop when service is not installed."""
+    patch_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={
@@ -30,11 +30,7 @@ def test_cmd_install_success(patch_wks_config, monkeypatch):
     )
     # Mock backend implementation
     mock_impl = MagicMock()
-    mock_impl.install_service.return_value = {
-        "success": True,
-        "label": "com.test.wks",
-        "plist_path": "/path/to/plist",
-    }
+    mock_impl.get_service_status.return_value = {"installed": False}
 
     mock_impl_class = MagicMock(return_value=mock_impl)
     mock_module = MagicMock()
@@ -49,7 +45,8 @@ def test_cmd_install_success(patch_wks_config, monkeypatch):
 
     monkeypatch.setattr("builtins.__import__", mock_import)
 
-    result = run_cmd(cmd_install.cmd_install)
-    assert result.success is True
+    result = run_cmd(cmd_stop.cmd_stop)
+    assert result.success is False
+    assert "service not installed" in result.result
     assert "errors" in result.output
     assert "warnings" in result.output

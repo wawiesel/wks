@@ -1,4 +1,4 @@
-"""Unit tests for wks.api.daemon.cmd_status module.
+"""Unit tests for wks.api.service.cmd_status module.
 
 Note: we do not use mocks for this test.
 """
@@ -8,15 +8,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from tests.unit.conftest import run_cmd
-from wks.api.daemon import cmd_status
-from wks.api.daemon.DaemonConfig import DaemonConfig
+from wks.api.service import cmd_status
+from wks.api.service.ServiceConfig import ServiceConfig
 
 pytestmark = pytest.mark.daemon
 
 
 def test_cmd_status_success(patch_wks_config, monkeypatch):
     """Test cmd_status with successful status check."""
-    patch_wks_config.daemon = DaemonConfig(
+    patch_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={
@@ -63,7 +63,7 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
 
 def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
     """Test cmd_status when service is not installed."""
-    patch_wks_config.daemon = DaemonConfig(
+    patch_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={

@@ -1,15 +1,21 @@
-"""Daemon uninstall command - removes daemon system service."""
+"""Service install command - installs service as system service."""
 
+import sys
 from collections.abc import Iterator
+from pathlib import Path
 
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from . import DaemonUninstallOutput
-from .Daemon import Daemon
+from . import ServiceInstallOutput
+from .Service import Service
 
 
-def cmd_uninstall() -> StageResult:
-    """Uninstall daemon system service."""
+def cmd_install(restrict_dir: Path | None = None) -> StageResult:
+    """Install service as system service.
+
+    Reads service configuration from config.json and installs appropriate service mechanism
+    using the backend implementation.
+    """
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 
@@ -21,52 +27,58 @@ def cmd_uninstall() -> StageResult:
 
         # Validate backend type
         yield (0.2, "Validating backend type...")
-        backend_type = config.daemon.type
-        if not Daemon.validate_backend_type(result_obj, backend_type, DaemonUninstallOutput, "uninstalled"):
+        backend_type = config.service.type
+        if not Service.validate_backend_type(result_obj, backend_type, ServiceInstallOutput, "installed"):
             yield (1.0, "Complete")
             return
 
         # Import and instantiate backend implementation
         yield (0.4, "Initializing backend implementation...")
         try:
-            # Uninstall via backend implementation
-            yield (0.6, "Uninstalling service...")
-            with Daemon(config.daemon) as daemon:
-                result = daemon.uninstall_service()
+            # Get Python path and project root
+            python_path = sys.executable
+            import wks
+
+            project_root = Path(wks.__file__).parent.parent
+
+            # Install via backend implementation
+            yield (0.6, "Installing service...")
+            with Service(config.service) as service:
+                result = service.install_service(python_path, project_root, restrict_dir=restrict_dir)
             # Remove 'success' from output - it's handled by StageResult.success
             output = {k: v for k, v in result.items() if k != "success"}
 
             yield (1.0, "Complete")
-            result_obj.result = f"Daemon service uninstalled successfully (label: {result.get('label', 'unknown')})"
-            result_obj.output = DaemonUninstallOutput(
+            result_obj.result = f"Service installed successfully (label: {result.get('label', 'unknown')})"
+            result_obj.output = ServiceInstallOutput(
                 errors=[],
                 warnings=[],
                 message=result_obj.result,
-                uninstalled=result.get("success", True),
+                installed=result.get("success", True),
             ).model_dump(mode="python")
             result_obj.success = result.get("success", True)
         except NotImplementedError as e:
             yield (1.0, "Complete")
-            result_obj.result = f"Error: Service uninstallation not supported for backend '{backend_type}'"
-            result_obj.output = DaemonUninstallOutput(
+            result_obj.result = f"Error: Service installation not supported for backend '{backend_type}'"
+            result_obj.output = ServiceInstallOutput(
                 errors=[str(e)],
                 warnings=[],
                 message=str(e),
-                uninstalled=False,
+                installed=False,
             ).model_dump(mode="python")
             result_obj.success = False
         except Exception as e:
             yield (1.0, "Complete")
-            result_obj.result = f"Error uninstalling service: {e}"
-            result_obj.output = DaemonUninstallOutput(
+            result_obj.result = f"Error installing service: {e}"
+            result_obj.output = ServiceInstallOutput(
                 errors=[str(e)],
                 warnings=[],
                 message=str(e),
-                uninstalled=False,
+                installed=False,
             ).model_dump(mode="python")
             result_obj.success = False
 
     return StageResult(
-        announce="Uninstalling daemon service...",
+        announce="Installing daemon service...",
         progress_callback=do_work,
     )

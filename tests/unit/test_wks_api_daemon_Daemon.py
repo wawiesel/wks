@@ -1,25 +1,20 @@
-"""Daemon filesystem event integration test (real backend, restricted dir)."""
+"""Daemon filesystem event integration test (TDD scaffold)."""
 
 import platform
 import time
 from pathlib import Path
 
 import pytest
-from watchdog.observers import Observer
 
-from wks.api.daemon.Daemon import Daemon
 from tests.unit.conftest import minimal_wks_config
 
 
 @pytest.mark.daemon
 def test_daemon_reports_fs_events(monkeypatch, tmp_path):
-    if platform.system().lower() != "darwin":
-        pytest.skip("Daemon filesystem test runs on darwin backend")
-
     cfg = minimal_wks_config()
     cfg.daemon.sync_interval_secs = 0.05
 
-    # Set WKS_HOME
+    # Set WKS_HOME and persist config (daemon will load WKSConfig from disk)
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -29,48 +24,41 @@ def test_daemon_reports_fs_events(monkeypatch, tmp_path):
     rdir = tmp_path / "xtest"
     rdir.mkdir(parents=True, exist_ok=True)
 
-    # Use public Daemon; access impl internals only through the instance
-    with Daemon(cfg.daemon) as d:
-        impl = d._impl  # type: ignore[attr-defined]
+    # TDD target API for Daemon (to be implemented):
+    # - Daemon() loads WKSConfig from WKS_HOME internally (no config passed to ctor)
+    # - start(restrict_dir: Path | None) starts background watcher (single instance)
+    # - status() returns object with running/pid/log_path
+    # - get_filesystem_events() returns and clears accumulated events
+    # - stop() stops the watcher
+    from wks.api.daemon import Daemon  # noqa: WPS433 (import for TDD target)
 
-        # Manually wire observer/handler (mirrors run setup) without importing _Impl
-        handler_cls = type(impl)._DaemonEventHandler  # type: ignore[attr-defined]
-        handler = handler_cls()
-        observer = Observer()
-        observer.schedule(handler, str(rdir), recursive=True)
-        observer.start()
+    d = Daemon()
+    start_status = d.start(restrict_dir=rdir)
+    assert start_status.running is True
 
-        try:
-            # Trigger filesystem events
-            f1 = rdir / "touch.txt"
-            f1.write_text("hello")
-            time.sleep(0.1)
-            f1.write_text("world")  # modify
-            time.sleep(0.1)
-            f2 = rdir / "move_me.txt"
-            f2.write_text("move")
-            time.sleep(0.1)
-            f2_renamed = rdir / "moved.txt"
-            f2.rename(f2_renamed)  # move
-            time.sleep(0.1)
-            f1.unlink()  # delete
-            time.sleep(0.2)
+    # Trigger filesystem events
+    f1 = rdir / "touch.txt"
+    f1.write_text("hello")
+    time.sleep(0.1)
+    f1.write_text("world")  # modify
+    time.sleep(0.1)
+    f2 = rdir / "move_me.txt"
+    f2.write_text("move")
+    time.sleep(0.1)
+    f2_renamed = rdir / "moved.txt"
+    f2.rename(f2_renamed)  # move
+    time.sleep(0.1)
+    f1.unlink()  # delete
+    time.sleep(0.2)
 
-            events = handler.get_and_clear_events()
-        finally:
-            observer.stop()
-            observer.join()
+    events = d.get_filesystem_events()
+    d.stop()
 
     # Validate event contents
     assert events is not None
-    # Creation of f1
     assert str(f1) in events.created
-    # Modification may or may not be captured distinctly; allow empty modified
-    # Deletion of f1
     assert str(f1) in events.deleted
-    # Move of f2 -> f2_renamed
     assert (str(f2), str(f2_renamed)) in [(old, new) for old, new in events.moved]
-    # All paths within restricted dir
     all_paths = (
         events.modified
         + events.created

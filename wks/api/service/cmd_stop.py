@@ -1,15 +1,15 @@
-"""Daemon stop command - stops the daemon process."""
+"""Service stop command - stops the service process."""
 
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from . import DaemonStopOutput
-from .Daemon import Daemon
+from . import ServiceStopOutput
+from .Service import Service
 
 
 def cmd_stop() -> StageResult:
-    """Stop daemon process."""
+    """Stop service process."""
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 
@@ -21,27 +21,27 @@ def cmd_stop() -> StageResult:
 
         # Validate backend type
         yield (0.2, "Validating backend type...")
-        backend_type = config.daemon.type
-        if not Daemon.validate_backend_type(result_obj, backend_type, DaemonStopOutput, "stopped"):
+        backend_type = config.service.type
+        if not Service.validate_backend_type(result_obj, backend_type, ServiceStopOutput, "stopped"):
             yield (1.0, "Complete")
             return
 
         # Import and instantiate backend implementation
         yield (0.4, "Initializing backend implementation...")
         try:
-            with Daemon(config.daemon) as daemon:
+            with Service(config.service) as service:
                 # Check if service is installed
                 yield (0.5, "Checking service status...")
-                service_status = daemon.get_service_status()
+                service_status = service.get_service_status()
                 if "installed" not in service_status:
                     raise KeyError("get_service_status() result missing required 'installed' field")
                 if not service_status["installed"]:
                     yield (1.0, "Complete")
-                    result_obj.result = "Error: Daemon service not installed."
-                    result_obj.output = DaemonStopOutput(
+                    result_obj.result = "Error: Service not installed."
+                    result_obj.output = ServiceStopOutput(
                         errors=["service not installed"],
                         warnings=[],
-                        message="service not installed",
+                        message="Service not installed",
                         stopped=False,
                     ).model_dump(mode="python")
                     result_obj.success = False
@@ -49,16 +49,16 @@ def cmd_stop() -> StageResult:
 
                 # Stop via service manager
                 yield (0.7, "Stopping service...")
-                result = daemon.stop_service()
+                result = service.stop_service()
                 yield (1.0, "Complete")
                 if result.get("success", False):
                     if "note" in result:
-                        result_obj.result = f"Daemon is already stopped (label: {result.get('label', 'unknown')})"
+                        result_obj.result = f"Service is already stopped (label: {result.get('label', 'unknown')})"
                     else:
-                        result_obj.result = f"Daemon stopped successfully (label: {result.get('label', 'unknown')})"
+                        result_obj.result = f"Service stopped successfully (label: {result.get('label', 'unknown')})"
                 else:
-                    result_obj.result = f"Error stopping daemon: {result.get('error', 'unknown error')}"
-                result_obj.output = DaemonStopOutput(
+                    result_obj.result = f"Error stopping service: {result.get('error', 'unknown error')}"
+                result_obj.output = ServiceStopOutput(
                     errors=[result.get("error", "")] if not result.get("success", False) else [],
                     warnings=[],
                     message=result_obj.result,
@@ -68,7 +68,7 @@ def cmd_stop() -> StageResult:
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service stop not supported for backend '{backend_type}'"
-            result_obj.output = DaemonStopOutput(
+            result_obj.output = ServiceStopOutput(
                 errors=[str(e)],
                 warnings=[],
                 message=str(e),
@@ -77,8 +77,8 @@ def cmd_stop() -> StageResult:
             result_obj.success = False
         except Exception as e:
             yield (1.0, "Complete")
-            result_obj.result = f"Error stopping daemon: {e}"
-            result_obj.output = DaemonStopOutput(
+            result_obj.result = f"Error stopping service: {e}"
+            result_obj.output = ServiceStopOutput(
                 errors=[str(e)],
                 warnings=[],
                 message=str(e),
@@ -87,6 +87,6 @@ def cmd_stop() -> StageResult:
             result_obj.success = False
 
     return StageResult(
-        announce="Stopping daemon...",
+        announce="Stopping service...",
         progress_callback=do_work,
     )
