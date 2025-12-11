@@ -22,11 +22,9 @@
             "running": { "type": "boolean" },
             "installed": { "type": "boolean" },
             "pid": { "type": ["integer", "null"] },
-            "warnings_log": { "type": "array", "items": { "type": "string" } },
-            "errors_log": { "type": "array", "items": { "type": "string" } },
             "log_path": { "type": "string" }
           },
-          "required": ["running", "installed", "pid", "warnings_log", "errors_log", "log_path"],
+          "required": ["running", "installed", "pid", "log_path"],
           "additionalProperties": false
         }
       ]

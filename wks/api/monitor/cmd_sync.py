@@ -63,12 +63,24 @@ def cmd_sync(
         yield (0.2, "Resolving path...")
         path_obj = Path(path).expanduser().resolve()
         if not path_obj.exists():
+            yield (0.3, "Path missing; removing from monitor DB...")
+            removed_count = 0
+            with Database(config.database, monitor_cfg.database) as database:
+                try:
+                    removed_count = database.delete_many({"path": path_obj.as_uri()})
+                finally:
+                    pass
+            warn_msg = f"Removed missing path from monitor DB: {path_obj}"
+            if removed_count == 0:
+                warn_msg = f"Path missing; no existing record to remove: {path_obj}"
+            warnings = [warn_msg]
             yield (1.0, "Complete")
             _build_result(
                 result_obj,
-                success=False,
-                message=f"Path does not exist: {path_obj}",
-                errors=[f"Path does not exist: {path_obj}"],
+                success=True,
+                message=warn_msg,
+                errors=[],
+                warnings=warnings,
                 files_synced=0,
                 files_skipped=0,
             )
@@ -165,7 +177,7 @@ def cmd_sync(
         )
 
         yield (1.0, "Complete")
-        
+
         _build_result(
             result_obj,
             success=success,

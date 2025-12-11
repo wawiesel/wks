@@ -17,6 +17,7 @@ class TestDatabaseConfig:
         assert config.type == "mongo"
         assert config.prefix == "wks"
         assert config.data.uri == "mongodb://localhost:27017/"
+        assert config.data.local is False
 
     def test_database_config_mongomock(self):
         """Test DatabaseConfig with mongomock backend."""
@@ -64,6 +65,15 @@ class TestDatabaseConfig:
         with pytest.raises(Exception, match="must start with 'mongodb://'"):
             DatabaseConfig(type="mongo", prefix="wks", data={"uri": "invalid-uri"})
 
+    def test_database_config_mongo_local_requires_port(self):
+        """Local mongo requires explicit host:port in uri."""
+        cfg = DatabaseConfig(
+            type="mongo",
+            prefix="wks",
+            data={"uri": "mongodb://127.0.0.1:27017/", "local": True},
+        )
+        assert cfg.data.local is True
+
     def test_database_config_backend_registry(self):
         """Test that _BACKEND_REGISTRY contains expected backends."""
         # The registry is used internally by DatabaseConfig, test it works by creating configs
@@ -105,5 +115,5 @@ class TestDatabaseConfig:
             DatabaseConfig.model_validate("not a dict")
 
     def test_mongo_data_requires_uri(self):
-        with pytest.raises(Exception, match="database.uri is required"):
+        with pytest.raises(Exception, match="must start with 'mongodb://'"):
             DatabaseConfig(type="mongo", prefix="wks", data={"uri": ""})

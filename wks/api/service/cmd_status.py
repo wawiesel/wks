@@ -1,4 +1,4 @@
-"""Daemon status command - shows daemon status and metrics."""
+"""Service status command - shows service-managed daemon status and metrics."""
 
 import json
 from collections.abc import Iterator
@@ -7,7 +7,7 @@ from typing import Any
 
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from . import DaemonStatusOutput
+from . import ServiceStatusOutput
 from .Daemon import Daemon
 from .DaemonConfig import _BACKEND_REGISTRY
 from . import pid_running
@@ -30,8 +30,8 @@ def cmd_status() -> StageResult:
         status_data: dict[str, Any] = {
             "running": False,
             "installed": False,
-            "warnings_log": [],
-            "errors_log": [],
+            "warnings": [],
+            "errors": [],
             "log_path": str(daemon_file),
             "pid": None,
         }
@@ -72,22 +72,20 @@ def cmd_status() -> StageResult:
         if running_as_service:
             yield (0.7, "Reading daemon status file...")
             daemon_file_data = _read_daemon_file(daemon_file)
-            status_data["warnings_log"] = daemon_file_data["warnings"]
-            status_data["errors_log"] = daemon_file_data["errors"]
+            status_data["warnings"] = daemon_file_data["warnings"]
+            status_data["errors"] = daemon_file_data["errors"]
 
             yield (1.0, "Complete")
             result_obj.result = f"Daemon status retrieved (running as service, PID: {service_pid})"
-            result_obj.output = DaemonStatusOutput(
-                errors=[],
-                warnings=[],
+            result_obj.output = ServiceStatusOutput(
+                errors=status_data["errors"],
+                warnings=status_data["warnings"],
                 running=status_data["running"],
                 pid=status_data["pid"],
                 installed=True,
-                warnings_log=status_data["warnings_log"],
-                errors_log=status_data["errors_log"],
                 log_path=status_data["log_path"],
             ).model_dump(mode="python")
-            result_obj.success = len(status_data["errors_log"]) == 0
+            result_obj.success = len(status_data["errors"]) == 0
             return
 
         # Not running as service - check for direct-run indicators
@@ -113,8 +111,8 @@ def cmd_status() -> StageResult:
 
         # Check daemon status file (written by daemon when running directly)
         daemon_file_data = _read_daemon_file(daemon_file)
-        status_data["warnings_log"] = daemon_file_data["warnings"]
-        status_data["errors_log"] = daemon_file_data["errors"]
+        status_data["warnings"] = daemon_file_data["warnings"]
+        status_data["errors"] = daemon_file_data["errors"]
         if "pid" in daemon_file_data:
             daemon_pid = daemon_file_data["pid"]
             if pid_running(daemon_pid):
@@ -136,17 +134,15 @@ def cmd_status() -> StageResult:
 
         yield (1.0, "Complete")
         result_obj.result = result_msg
-        result_obj.output = DaemonStatusOutput(
-            errors=[],
-            warnings=[],
+        result_obj.output = ServiceStatusOutput(
+            errors=status_data["errors"],
+            warnings=status_data["warnings"],
             running=status_data["running"],
             pid=status_data["pid"],
             installed=status_data["installed"],
-            warnings_log=status_data["warnings_log"],
-            errors_log=status_data["errors_log"],
             log_path=status_data["log_path"],
         ).model_dump(mode="python")
-        result_obj.success = len(status_data["errors_log"]) == 0
+        result_obj.success = len(status_data["errors"]) == 0
 
     return StageResult(
         announce="Checking daemon status...",

@@ -3,9 +3,18 @@
 ## Purpose
 Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 
-## Configuration File Structure
-- Location: `{WKS_HOME}/config.json` (override with `export WKS_HOME=/custom/path`, default `~/.wks`)
-- Composition: Uses the `database` block as defined in `docs/specifications/wks.md`; no defaults in code; missing fields fail validation.
+## Configuration
+- Location: `{WKS_HOME}/config.json` (override with `WKS_HOME`)
+- Block: `database` (required; missing fields fail validation; no defaults)
+- Fields:
+  - `type`: `"mongo"` or `"mongomock"`
+  - `prefix`: string (collection prefix)
+  - `data`: backend-specific object
+    - For `type: "mongo"`:
+      - `uri`: required MongoDB URI (must be reachable)
+      - `local`: boolean flag; if true, the URI must point to the local host/port for a locally started mongod. No additional defaults implied.
+    - For `type: "mongomock"`:
+      - `data`: `{}` (ignored)
 
 ## Normative Schema
 - Canonical output schema: `docs/specifications/database_output.schema.json`.

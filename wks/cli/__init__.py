@@ -121,9 +121,11 @@ def _run_single_command(argv: list[str]) -> int:
         return 0
     except typer.Exit as e:
         return e.exit_code
-    except click.exceptions.UsageError:
+    except click.exceptions.UsageError as e:
+        typer.echo(f"Usage error: {e}", err=True)
         return 1
-    except Exception:
+    except Exception as e:
+        typer.echo(f"Unhandled error: {e}", err=True)
         return 1
 
 

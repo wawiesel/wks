@@ -28,7 +28,7 @@ Filesystem monitoring: check/sync/status, manage filters and priorities, with co
 
 ### sync
 - Command: `wksc monitor sync <path> [--recursive]`
-- Behavior: Sync file/dir into monitor DB; report counts.
+- Behavior: Sync file/dir into monitor DB; report counts. If the path does not exist on disk but exists in the monitor database, the record MUST be deleted (removal is treated as a successful sync of zero files with a warning noting the removal).
 - Output schema: `MonitorSyncOutput`.
 
 ### filter show

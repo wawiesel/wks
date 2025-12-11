@@ -7,7 +7,6 @@ from typing import Any
 
 from watchdog.observers import Observer
 
-from ..config.WKSConfig import WKSConfig
 from .DaemonConfig import DaemonConfig
 from .FilesystemEvents import FilesystemEvents
 from ._EventHandler import _EventHandler
@@ -33,11 +32,15 @@ class Daemon:
         self._lock_path: Path | None = None
 
     def _load_config(self) -> DaemonConfig:
+        from ..config.WKSConfig import WKSConfig
+
         config = WKSConfig.load()
         return config.daemon
 
     def _resolve_watch_paths(self, restrict_dir: Path | None) -> list[Path]:
         # Priority: explicit restrict_dir -> monitor include_paths
+        from ..config.WKSConfig import WKSConfig
+
         paths: list[Path] = []
         if restrict_dir is not None:
             paths.append(restrict_dir.expanduser().resolve())
@@ -76,6 +79,8 @@ class Daemon:
                 )
 
         self._config = self._load_config()
+        from ..config.WKSConfig import WKSConfig
+
         home = WKSConfig.get_home_dir()
         self._log_path = home / "logs" / "daemon.log"
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -100,6 +105,7 @@ class Daemon:
 
         def _loop() -> None:
             while not self._stop_event.is_set():
+                self._process_events()
                 time.sleep(self._config.sync_interval_secs)
                 # Periodically write status
                 self._write_status(running=True, restrict_dir=restrict_dir)
@@ -183,6 +189,8 @@ class Daemon:
 
     def _write_status(self, *, running: bool, restrict_dir: Path | None) -> None:
         """Write daemon status to daemon.json."""
+        from ..config.WKSConfig import WKSConfig
+
         home = WKSConfig.get_home_dir()
         restrict_value = str(restrict_dir) if restrict_dir else self._current_restrict
         self._current_restrict = restrict_value
@@ -207,3 +215,46 @@ class Daemon:
                 fh.write(f"{message}\n")
         except Exception:
             pass
+
+    def _process_events(self) -> None:
+        """Drain filesystem events and sync via monitor."""
+        if not self._handler:
+            return
+        events = self._handler.get_and_clear_events()
+        to_delete: set[Path] = set()
+        to_sync: set[Path] = set()
+
+        # Created/modified -> sync
+        for p in events.modified + events.created:
+            to_sync.add(Path(p))
+
+        # Moved -> delete source, sync destination
+        for src, dest in events.moved:
+            to_delete.add(Path(src))
+            to_sync.add(Path(dest))
+
+        # Deleted -> delete
+        for p in events.deleted:
+            to_delete.add(Path(p))
+
+        for path in to_delete:
+            self._sync_path(path)
+        for path in to_sync:
+            self._sync_path(path)
+
+    def _sync_path(self, path: Path) -> None:
+        """Invoke monitor sync for a single path."""
+        try:
+            from ..monitor.cmd_sync import cmd_sync
+
+            result = cmd_sync(str(path))
+            list(result.progress_callback(result))
+            out = result.output or {}
+            errs = out.get("errors", [])
+            warns = out.get("warnings", [])
+            for msg in warns:
+                self._append_log(f"WARN: {msg}")
+            for msg in errs:
+                self._append_log(f"ERROR: {msg}")
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self._append_log(f"ERROR: sync failed for {path}: {exc}")
