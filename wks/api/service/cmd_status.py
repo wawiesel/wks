@@ -64,9 +64,10 @@ def cmd_status() -> StageResult:
                         status_data["running"] = True
                         status_data["pid"] = service_pid
                         status_data["installed"] = True
-            except (NotImplementedError, Exception):
-                # Backend doesn't support service status or error occurred
-                pass
+            except NotImplementedError as exc:
+                status_data["warnings"].append(str(exc))
+            except Exception as exc:
+                status_data["errors"].append(f"service status error: {exc}")
 
         # If running as service, check for warnings/errors from daemon.json
         if running_as_service:
@@ -104,19 +105,22 @@ def cmd_status() -> StageResult:
                         if pid_running(lock_pid):
                             terminal_pid = lock_pid
                             terminal_data["lock_file"] = str(lock_file)
-                    except (ValueError, IndexError):
-                        pass
-            except Exception:
-                pass
+                    except (ValueError, IndexError) as exc:
+                        status_data["warnings"].append(f"Invalid lock file content: {exc}")
+            except Exception as exc:
+                status_data["warnings"].append(f"Unable to read lock file: {exc}")
 
         # Check daemon status file (written by daemon when running directly)
-        daemon_file_data = _read_daemon_file(daemon_file)
-        status_data["warnings"] = daemon_file_data["warnings"]
-        status_data["errors"] = daemon_file_data["errors"]
-        if "pid" in daemon_file_data:
-            daemon_pid = daemon_file_data["pid"]
-            if pid_running(daemon_pid):
-                terminal_pid = daemon_pid
+        try:
+            daemon_file_data = _read_daemon_file(daemon_file)
+            status_data["warnings"] = daemon_file_data["warnings"]
+            status_data["errors"] = daemon_file_data["errors"]
+            if "pid" in daemon_file_data:
+                daemon_pid = daemon_file_data["pid"]
+                if pid_running(daemon_pid):
+                    terminal_pid = daemon_pid
+        except Exception as exc:
+            status_data["errors"].append(f"daemon status read error: {exc}")
 
         # If we found a running process via direct mode
         if terminal_pid:

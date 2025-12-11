@@ -266,20 +266,34 @@ class CLIDisplay(Display):
 
             yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
             if sys.stdout.isatty():
-                # Interactive terminal: syntax highlighted
-                syntax = Syntax(yaml_str, "yaml", theme="monokai", line_numbers=False)
-                self.console.print(syntax)
+                # Print with syntax highlighting using pygments directly
+                # This avoids Rich's width management while keeping colors
+                try:
+                    from pygments import highlight
+                    from pygments.lexers import YamlLexer
+                    from pygments.formatters import Terminal256Formatter
+                    highlighted = highlight(yaml_str, YamlLexer(), Terminal256Formatter(style="monokai"))
+                    print(highlighted, end="")
+                except ImportError:
+                    print(yaml_str, end="")
             else:
                 # Piped/redirected: plain text
                 print(yaml_str, end="")
         else:
             json_str = json.dumps(data, indent=indent, ensure_ascii=False)
             if sys.stdout.isatty():
-                # Interactive terminal: syntax highlighted
-                syntax = Syntax(json_str, "json", theme="monokai", line_numbers=False)
-                self.console.print(syntax)
+                # Print with syntax highlighting using pygments directly
+                # This avoids Rich's width management while keeping colors
+                try:
+                    from pygments import highlight
+                    from pygments.lexers import JsonLexer
+                    from pygments.formatters import Terminal256Formatter
+                    highlighted = highlight(json_str, JsonLexer(), Terminal256Formatter(style="monokai"))
+                    print(highlighted, end="")
+                except ImportError:
+                    print(json_str, file=sys.stdout)
             else:
-                # Piped/redirected: plain text only (Rich Syntax can add unwanted formatting)
+                # Piped/redirected: plain text
                 print(json_str, file=sys.stdout)
 
     def panel(self, content: Any, title: str = "", **kwargs) -> None:

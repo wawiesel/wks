@@ -18,7 +18,7 @@ def cmd_status() -> StageResult:
             raw = read_status_file(home)
             # Validate presence of required fields before schema dump
             running = raw["running"]
-            pid = raw["pid"]
+            pid = raw["pid"] if running else None
             restrict_dir = raw["restrict_dir"]
             log_path = raw["log_path"]
 

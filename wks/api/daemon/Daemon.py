@@ -1,7 +1,12 @@
 """Daemon public API (TDD-focused, watchdog-based)."""
 
-import threading
+import json
+import os
+import signal
+import subprocess
+import sys
 import time
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +19,147 @@ from ._write_status_file import write_status_file
 from ._extract_log_messages import extract_log_messages
 
 
+def _append_log_file(log_file: Path, message: str) -> None:
+    """Append a line to a log file (process-safe)."""
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        with log_file.open("a", encoding="utf-8") as fh:
+            fh.write(f"{message}\n")
+    except Exception:
+        pass
+
+
+def _sync_path_static(path: Path, log_file: Path, log_fn) -> None:
+    """Invoke monitor sync for a single path (child process safe)."""
+    try:
+        from ..monitor.cmd_sync import cmd_sync
+
+        result = cmd_sync(str(path))
+        list(result.progress_callback(result))
+        out = result.output or {}
+        errs = out.get("errors", [])
+        warns = out.get("warnings", [])
+        for msg in warns:
+            log_fn(f"WARN: {msg}")
+        for msg in errs:
+            log_fn(f"ERROR: {msg}")
+    except Exception as exc:  # pragma: no cover - defensive logging
+        log_fn(f"ERROR: sync failed for {path}: {exc}")
+
+
+def _child_main(
+    home_dir: str,
+    log_path: str,
+    paths: list[str],
+    restrict_val: str,
+    sync_interval: float,
+    status_path: str,
+    lock_path: str,
+) -> None:
+    # Detach child stdio to avoid blocking or noisy output
+    try:
+        devnull = open(os.devnull, "w")
+        sys.stdout = devnull  # type: ignore
+        sys.stderr = devnull  # type: ignore
+    except Exception:
+        pass
+
+    log_file = Path(log_path)
+    status_file = Path(status_path)
+    lock_file = Path(lock_path)
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    def append_log(message: str) -> None:
+        _append_log_file(log_file, message)
+
+    stop_flag = False
+
+    def handle_sigterm(signum, frame):
+        nonlocal stop_flag
+        stop_flag = True
+        append_log("INFO: Received SIGTERM")
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
+    observer = Observer()
+    handler = _EventHandler()
+    for p in paths:
+        path_obj = Path(p)
+        if path_obj.exists():
+            observer.schedule(handler, str(path_obj), recursive=True)
+            append_log(f"INFO: Watching {path_obj}")
+        else:
+            append_log(f"WARN: Watch path missing {path_obj}")
+
+    observer.start()
+    append_log("INFO: Daemon child started")
+
+    def write_status(running: bool) -> None:
+        warnings_log, errors_log = extract_log_messages(log_file) if log_file else ([], [])
+        status = {
+            "errors": errors_log,
+            "warnings": warnings_log,
+            "running": running,
+            "pid": os.getpid(),
+            "restrict_dir": restrict_val,
+            "log_path": str(log_file),
+        }
+        write_status_file(status, wks_home=Path(home_dir))
+
+    def process_events() -> None:
+        events = handler.get_and_clear_events()
+        ignore_paths = {log_file.resolve(), status_file.resolve(), lock_file.resolve()}
+
+        filtered_modified = [Path(p).resolve() for p in events.modified if Path(p).resolve() not in ignore_paths]
+        filtered_created = [Path(p).resolve() for p in events.created if Path(p).resolve() not in ignore_paths]
+        filtered_deleted = [Path(p).resolve() for p in events.deleted if Path(p).resolve() not in ignore_paths]
+        filtered_moved = [
+            (Path(src).resolve(), Path(dest).resolve())
+            for src, dest in events.moved
+            if Path(src).resolve() not in ignore_paths or Path(dest).resolve() not in ignore_paths
+        ]
+
+        if not (filtered_modified or filtered_created or filtered_deleted or filtered_moved):
+            return
+
+        append_log(
+            f"INFO: events modified={len(filtered_modified)} "
+            f"created={len(filtered_created)} deleted={len(filtered_deleted)} moved={len(filtered_moved)}"
+        )
+        to_delete: set[Path] = set()
+        to_sync: set[Path] = set()
+        for p_path in filtered_modified + filtered_created:
+            to_sync.add(p_path)
+        for src_path, dest_path in filtered_moved:
+            if src_path not in ignore_paths:
+                to_delete.add(src_path)
+            if dest_path not in ignore_paths:
+                to_sync.add(dest_path)
+        for p_path in filtered_deleted:
+            to_delete.add(p_path)
+        for path in to_delete:
+            _sync_path_static(path, log_file, append_log)
+        for path in to_sync:
+            _sync_path_static(path, log_file, append_log)
+
+    write_status(running=True)
+    iteration = 0
+    try:
+        while not stop_flag:
+            iteration += 1
+            process_events()
+            write_status(running=True)
+            time.sleep(sync_interval)
+    finally:
+        try:
+            observer.stop()
+            observer.join()
+        except Exception:
+            pass
+        write_status(running=False)
+        append_log("INFO: Daemon child exiting")
+
+
 class Daemon:
     """Minimal daemon runtime API for TDD."""
 
@@ -23,13 +169,32 @@ class Daemon:
     def __init__(self) -> None:
         self._observer: Observer | None = None
         self._handler: _EventHandler | None = None
-        self._thread: threading.Thread | None = None
+        self._process: subprocess.Popen[bytes] | None = None
         self._running = False
-        self._stop_event = threading.Event()
         self._config: DaemonConfig | None = None
         self._log_path: Path | None = None
         self._current_restrict: str = ""
         self._lock_path: Path | None = None
+        self._pid: int | None = None
+
+    # #region agent log
+    def _dbg(self, hypothesis_id: str, location: str, message: str, data: dict[str, Any] | None = None) -> None:
+        """Append a debug line to the shared debug log (NDJSON)."""
+        try:
+            payload = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": hypothesis_id,
+                "location": location,
+                "message": message,
+                "data": data or {},
+                "timestamp": int(time.time() * 1000),
+            }
+            with self._debug_log_path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload) + "\n")
+        except Exception:
+            pass
+    # #endregion
 
     def _load_config(self) -> DaemonConfig:
         from ..config.WKSConfig import WKSConfig
@@ -56,6 +221,14 @@ class Daemon:
                 seen.add(p)
         return unique
 
+    def _pid_running(self, pid: int) -> bool:
+        """Check if a process with the given PID is running."""
+        try:
+            os.kill(pid, 0)  # Signal 0 checks existence without killing
+            return True
+        except OSError:
+            return False
+
     def start(self, restrict_dir: Path | None = None) -> Any:
         """Start the daemon watcher in a background thread."""
         with self._global_lock:
@@ -72,7 +245,7 @@ class Daemon:
                     (),
                     {
                         "running": True,
-                        "pid": None,
+                        "pid": running._pid,
                         "log_path": str(running._log_path) if running._log_path else None,
                         "restrict_dir": running._current_restrict,
                     },
@@ -85,33 +258,62 @@ class Daemon:
         self._log_path = home / "logs" / "daemon.log"
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock_path = home / "daemon.lock"
-        self._lock_path.write_text("running", encoding="utf-8")
+        existing_pid = None
+        if self._lock_path.exists():
+            try:
+                existing_pid = int(self._lock_path.read_text().strip())
+                if existing_pid > 0 and self._pid_running(existing_pid):
+                    self._dbg("H1", "Daemon.start:already", "existing daemon running", {"pid": existing_pid})
+                    return type(
+                        "DaemonStatus",
+                        (),
+                        {
+                            "running": True,
+                            "pid": existing_pid,
+                            "log_path": str(self._log_path),
+                            "restrict_dir": self._current_restrict,
+                        },
+                    )
+            except Exception:
+                existing_pid = None
 
         watch_paths = self._resolve_watch_paths(restrict_dir)
-        self._handler = _EventHandler()
-        self._observer = Observer()
-        for path in watch_paths:
-            if path.exists():
-                self._observer.schedule(self._handler, str(path), recursive=True)
+        restrict_value = str(restrict_dir) if restrict_dir else ""
 
-        self._observer.start()
+        self._current_restrict = restrict_value
+        status_path = home / "daemon.json"
+
+        # Use subprocess.Popen for true process independence
+        paths_json = json.dumps([str(p) for p in watch_paths])
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "wks.api.daemon._child_runner",
+                str(home),
+                str(self._log_path),
+                paths_json,
+                restrict_value,
+                str(self._config.sync_interval_secs),
+                str(status_path),
+                str(self._lock_path),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,  # Detach from parent process group
+        )
+        self._pid = proc.pid
+        self._lock_path.write_text(str(self._pid), encoding="utf-8")
+
         self._running = True
-        self._stop_event.clear()
-        self._current_restrict = str(restrict_dir) if restrict_dir else ""
-        with self._global_lock:
-            Daemon._global_instance = self
-
-        self._append_log("INFO: Daemon started")
-
-        def _loop() -> None:
-            while not self._stop_event.is_set():
-                self._process_events()
-                time.sleep(self._config.sync_interval_secs)
-                # Periodically write status
-                self._write_status(running=True, restrict_dir=restrict_dir)
-
-        self._thread = threading.Thread(target=_loop, daemon=True)
-        self._thread.start()
+        self._append_log("INFO: Daemon started (parent)")
+        self._dbg(
+            "H1",
+            "Daemon.start:process",
+            "process spawned",
+            {"pid": self._pid, "alive": proc.poll() is None},
+        )
 
         self._write_status(running=True, restrict_dir=restrict_dir)
 
@@ -120,7 +322,7 @@ class Daemon:
             (),
             {
                 "running": True,
-                "pid": None,
+                "pid": self._pid,
                 "log_path": str(self._log_path) if self._log_path else None,
                 "restrict_dir": self._current_restrict,
             },
@@ -128,24 +330,30 @@ class Daemon:
 
     def stop(self) -> Any:
         """Stop the daemon watcher."""
-        target = self
-        with self._global_lock:
-            if Daemon._global_instance and Daemon._global_instance._running:
-                target = Daemon._global_instance
-        target._stop_event.set()
-        if target._observer:
-            target._observer.stop()
-            target._observer.join()
-        if target._thread:
-            target._thread.join(timeout=2)
-        target._running = False
-        target._write_status(running=False, restrict_dir=None)
-        with self._global_lock:
-            if Daemon._global_instance is target:
-                Daemon._global_instance = None
-        if target._lock_path and target._lock_path.exists():
+        from ..config.WKSConfig import WKSConfig
+
+        home = WKSConfig.get_home_dir()
+        lock_path = home / "daemon.lock"
+        self._lock_path = lock_path
+        self._log_path = home / "logs" / "daemon.log"
+
+        pid_to_stop = None
+        if lock_path.exists():
             try:
-                target._lock_path.unlink()
+                pid_to_stop = int(lock_path.read_text().strip())
+            except Exception:
+                pid_to_stop = None
+        if pid_to_stop:
+            try:
+                os.kill(pid_to_stop, signal.SIGTERM)
+                self._dbg("H3", "Daemon.stop", "sent SIGTERM", {"pid": pid_to_stop})
+            except Exception as exc:
+                self._dbg("H3", "Daemon.stop", "kill failed", {"pid": pid_to_stop, "error": str(exc)})
+        self._running = False
+        self._write_status(running=False, restrict_dir=None)
+        if lock_path.exists():
+            try:
+                lock_path.unlink()
             except Exception:
                 pass
         return type(
@@ -153,9 +361,9 @@ class Daemon:
             (),
             {
                 "running": False,
-                "pid": None,
-                "log_path": str(target._log_path) if target._log_path else None,
-                "restrict_dir": target._current_restrict,
+                "pid": pid_to_stop,
+                "log_path": str(self._log_path) if self._log_path else None,
+                "restrict_dir": self._current_restrict,
             },
         )
 
@@ -170,7 +378,7 @@ class Daemon:
             (),
             {
                 "running": target._running,
-                "pid": None,
+                "pid": target._pid,
                 "log_path": str(target._log_path) if target._log_path else None,
                 "restrict_dir": target._current_restrict,
             },
@@ -199,7 +407,7 @@ class Daemon:
             "errors": errors_log,
             "warnings": warnings_log,
             "running": running,
-            "pid": None,
+            "pid": self._pid,
             "restrict_dir": restrict_value,
             "log_path": str(self._log_path) if self._log_path else "",
         }
@@ -216,31 +424,92 @@ class Daemon:
         except Exception:
             pass
 
+    def _append_log_file(self, log_file: Path, message: str) -> None:
+        """Append to a specific log file (child-safe)."""
+        try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            with log_file.open("a", encoding="utf-8") as fh:
+                fh.write(f"{message}\n")
+        except Exception:
+            pass
+
+    @staticmethod
+    def _sync_path_static(path: Path, log_file: Path, dbg_fn) -> None:
+        """Invoke monitor sync for a single path from child process."""
+        try:
+            from ..monitor.cmd_sync import cmd_sync
+
+            result = cmd_sync(str(path))
+            list(result.progress_callback(result))
+            out = result.output or {}
+            errs = out.get("errors", [])
+            warns = out.get("warnings", [])
+            for msg in warns:
+                Daemon._append_log_static(log_file, f"WARN: {msg}")
+            for msg in errs:
+                Daemon._append_log_static(log_file, f"ERROR: {msg}")
+        except Exception as exc:  # pragma: no cover - defensive logging
+            Daemon._append_log_static(log_file, f"ERROR: sync failed for {path}: {exc}")
+            dbg_fn("H4", "Daemon.child:sync_error", "sync failed", {"path": str(path), "error": str(exc)})
+
+    @staticmethod
+    def _append_log_static(log_file: Path, message: str) -> None:
+        """Static helper to append to log file."""
+        try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            with log_file.open("a", encoding="utf-8") as fh:
+                fh.write(f"{message}\n")
+        except Exception:
+            pass
+
     def _process_events(self) -> None:
         """Drain filesystem events and sync via monitor."""
-        if not self._handler:
-            return
-        events = self._handler.get_and_clear_events()
-        to_delete: set[Path] = set()
-        to_sync: set[Path] = set()
+        try:
+            if not self._handler:
+                self._dbg("H4", "Daemon._process_events", "handler missing")
+                return
+            events = self._handler.get_and_clear_events()
+            self._dbg(
+                "H4",
+                "Daemon._process_events:counts",
+                "event counts",
+                {
+                    "modified": len(events.modified),
+                    "created": len(events.created),
+                    "deleted": len(events.deleted),
+                    "moved": len(events.moved),
+                },
+            )
+            if events.modified or events.created or events.deleted or events.moved:
+                self._append_log(
+                    f"INFO: events modified={len(events.modified)} "
+                    f"created={len(events.created)} deleted={len(events.deleted)} moved={len(events.moved)}"
+                )
+            to_delete: set[Path] = set()
+            to_sync: set[Path] = set()
 
-        # Created/modified -> sync
-        for p in events.modified + events.created:
-            to_sync.add(Path(p))
+            # Created/modified -> sync
+            for p in events.modified + events.created:
+                to_sync.add(Path(p))
 
-        # Moved -> delete source, sync destination
-        for src, dest in events.moved:
-            to_delete.add(Path(src))
-            to_sync.add(Path(dest))
+            # Moved -> delete source, sync destination
+            for src, dest in events.moved:
+                to_delete.add(Path(src))
+                to_sync.add(Path(dest))
 
-        # Deleted -> delete
-        for p in events.deleted:
-            to_delete.add(Path(p))
+            # Deleted -> delete
+            for p in events.deleted:
+                to_delete.add(Path(p))
 
-        for path in to_delete:
-            self._sync_path(path)
-        for path in to_sync:
-            self._sync_path(path)
+            for path in to_delete:
+                self._dbg("H4", "Daemon._process_events:delete", "sync delete", {"path": str(path)})
+                self._sync_path(path)
+            for path in to_sync:
+                self._dbg("H4", "Daemon._process_events:sync", "sync path", {"path": str(path)})
+                self._sync_path(path)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self._append_log(f"ERROR: process_events failed: {exc}")
+            self._dbg("H4", "Daemon._process_events:error", "process_events failed", {"error": str(exc)})
 
     def _sync_path(self, path: Path) -> None:
         """Invoke monitor sync for a single path."""
