@@ -19,7 +19,7 @@ from tests.conftest import (
     minimal_wks_config,
     run_cmd,
     wks_home,
-    config_with_priority_dirs as config_with_monitor_priority,
+    config_with_priority_dirs,
 )
 
 

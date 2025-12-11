@@ -67,33 +67,6 @@ def main_callback(
         raise typer.Exit()
 
 
-@app.command(name="mcp", help="MCP server operations")
-def mcp_command(
-    command: str = typer.Argument("run", help="MCP command ('run' or 'install')", metavar="COMMAND"),
-    direct: bool = typer.Option(False, "--direct", help="Run MCP directly (no socket)"),
-    command_path: str | None = None,
-    client: list[str] | None = None,
-):
-    """MCP server infrastructure command."""
-    if command == "install":
-        from wks.api.mcp.install_mcp_configs import install_mcp_configs
-
-        for r in install_mcp_configs(clients=client, command_override=command_path):
-            print(f"[{r.client}] {r.status.upper()}: {r.message or ''}")
-        sys.exit(0)
-
-    if command == "run":
-        if not direct and proxy_stdio_to_socket(mcp_socket_path()):
-            sys.exit(0)
-        from wks.mcp.server import main as mcp_main
-
-        mcp_main()
-        sys.exit(0)
-
-    print(f"Unknown MCP command: {command}", file=sys.stderr)
-    sys.exit(2)
-
-
 def _handle_version_flag() -> int:
     """Handle --version flag by calling the API command."""
     from wks.api.config.cmd_version import cmd_version

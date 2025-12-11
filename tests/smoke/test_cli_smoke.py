@@ -13,17 +13,30 @@ from pathlib import Path
 import pytest
 
 
-def _mongo_available():
-    """Check if MongoDB is available."""
+def _mongod_available() -> bool:
+    """Return True only if the `mongod` binary is available."""
+    if not shutil.which("mongod"):
+        return False
     try:
-        from pymongo import MongoClient
-
-        client: MongoClient = MongoClient("mongodb://localhost:27017", serverSelectionTimeoutMS=2000)
-        client.server_info()
-        client.close()
-        return True
+        result = subprocess.run(
+            ["mongod", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        return result.returncode == 0
     except Exception:
         return False
+
+
+def _require_mongod() -> None:
+    """Fail loudly if MongoDB requirements are not met."""
+    if not _mongod_available():
+        pytest.fail(
+            "Smoke tests require `mongod` in PATH. "
+            "Install MongoDB so `mongod --version` works."
+        )
 
 
 def _find_wksc_command():
@@ -54,6 +67,7 @@ def _get_wks_cmd():
 @pytest.fixture(scope="module")
 def smoke_env(tmp_path_factory):
     """Create a temporary environment for smoke tests."""
+    _require_mongod()
     env_dir = tmp_path_factory.mktemp("smoke_env")
     home_dir = env_dir / "home"
     home_dir.mkdir()
@@ -65,51 +79,28 @@ def smoke_env(tmp_path_factory):
     # Create a dummy vault
     vault_dir = home_dir / "Vault"
     vault_dir.mkdir()
-    # Create config in current WKSConfig / DiffConfig format
     (home_dir / ".wks").mkdir()
-    config = {
-        "monitor": {
-            "filter": {
-                "include_paths": ["~"],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-            },
-            "priority": {
-                "dirs": {"~": 100.0},
-                "weights": {
-                    "depth_multiplier": 0.9,
-                    "underscore_multiplier": 0.5,
-                    "only_underscore_multiplier": 0.1,
-                    "extension_weights": {},
-                },
-            },
-            "database": "monitor",
-            "sync": {
-                "max_documents": 10000,
-                "min_priority": 0.0,
-                "prune_interval_secs": 3600.0,
-            },
-        },
-        "database": {
-            "type": "mongo",
-            "prefix": "wks",
-            "data": {"uri": "mongodb://localhost:27017"},
-        },
-        "daemon": {
-            "type": "darwin",
-            "sync_interval_secs": 60.0,
-            "data": {
-                "label": "com.wks.daemon",
-                "log_file": "daemon.log",
-                "keep_alive": True,
-                "run_at_load": False,
-            },
+    # Build a valid config using shared helpers, then override DB to use local Mongo.
+    from tests.conftest import minimal_config_dict
+    import random
+
+    config = minimal_config_dict()
+
+    mongo_port = random.randint(27100, 27999)
+    mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+    config["database"] = {
+        "type": "mongo",
+        "prefix": "wks_smoke",
+        "data": {
+            "uri": mongo_uri,
+            "local": True,
+            "db_path": str((home_dir / ".wks" / "mongo-data").resolve()),
+            "port": mongo_port,
+            "bind_ip": "127.0.0.1",
         },
     }
-    (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
+
+    (home_dir / ".wks" / "config.json").write_text(json.dumps(config), encoding="utf-8")
 
     # Don't add PYTHONPATH - we're testing the installed package, not the source
     # The installed wksc should work without PYTHONPATH manipulation
@@ -143,7 +134,6 @@ def test_cli_config_list(smoke_env):
     assert "database" in result.stdout
 
 
-@pytest.mark.skipif(not _mongo_available(), reason="MongoDB not available")
 def test_cli_monitor_status(smoke_env):
     """Test 'wksc monitor status' - outputs JSON with tracked_files."""
     result = run_wks(["monitor", "status"], smoke_env)

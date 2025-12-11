@@ -1,6 +1,5 @@
-"""Service install command - installs service as system service."""
+"""Service install command - installs daemon as system service."""
 
-import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -35,16 +34,10 @@ def cmd_install(restrict_dir: Path | None = None) -> StageResult:
         # Import and instantiate backend implementation
         yield (0.4, "Initializing backend implementation...")
         try:
-            # Get Python path and project root
-            python_path = sys.executable
-            import wks
-
-            project_root = Path(wks.__file__).parent.parent
-
             # Install via backend implementation
             yield (0.6, "Installing service...")
             with Service(config.service) as service:
-                result = service.install_service(python_path, project_root, restrict_dir=restrict_dir)
+                result = service.install_service(restrict_dir=restrict_dir)
             # Remove 'success' from output - it's handled by StageResult.success
             output = {k: v for k, v in result.items() if k != "success"}
 

@@ -34,6 +34,8 @@ def cmd_status() -> StageResult:
             result_obj.success = True
             yield (1.0, "Complete")
         except Exception as exc:
+            home = WKSConfig.get_home_dir()
+            log_path = str(home / "logs" / "daemon.log")
             result_obj.result = f"Error checking daemon status: {exc}"
             result_obj.output = DaemonStatusOutput(
                 errors=[str(exc)],
@@ -41,7 +43,7 @@ def cmd_status() -> StageResult:
                 running=False,
                 pid=None,
                 restrict_dir="",
-                log_path="",
+                log_path=log_path,
             ).model_dump(mode="python")
             result_obj.success = False
             yield (1.0, "Complete")

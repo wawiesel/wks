@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+import wks.mcp.discover_commands as discover_commands_module
 from wks.mcp.discover_commands import discover_commands
 from wks.mcp.extract_api_function_from_command import extract_api_function_from_command
 from wks.mcp.get_app import get_app
@@ -44,14 +45,14 @@ def test_get_app_returns_none_for_unknown_domain():
 
 def test_discover_scans_cli_modules(monkeypatch):
     """discover_commands should gather commands and tolerate broken modules."""
-    original_import = discover_commands.importlib.import_module
+    original_import = discover_commands_module.importlib.import_module
 
     def flaky_import(name):
         if name.endswith("get_typer_command_schema"):
             raise RuntimeError("boom")
         return original_import(name)
 
-    monkeypatch.setattr(discover_commands.importlib, "import_module", flaky_import)
+    monkeypatch.setattr(discover_commands_module.importlib, "import_module", flaky_import)
 
     commands = discover_commands()
     assert ("monitor", "status") in commands

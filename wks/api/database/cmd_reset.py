@@ -48,7 +48,7 @@ def cmd_reset(database: str) -> StageResult:
                 errors=[str(e)],
                 warnings=[],
                 database=database,
-                deleted_count=-1,
+                deleted_count=0,
             ).model_dump(mode="python")
             result_obj.success = False
 

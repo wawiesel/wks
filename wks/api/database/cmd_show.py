@@ -9,8 +9,8 @@ from .Database import Database
 
 
 def cmd_show(
-    collection: str,
-    query_filter: str | None = None,
+    database: str,
+    query: str | None = None,
     limit: int = 50,
 ) -> StageResult:
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
@@ -26,14 +26,14 @@ def cmd_show(
 
         yield (0.4, "Parsing query...")
         try:
-            parsed_query = json.loads(query_filter) if query_filter else None
+            parsed_query = json.loads(query) if query else None
         except json.JSONDecodeError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Invalid JSON: {e}"
             result_obj.output = DatabaseShowOutput(
                 errors=[str(e)],
                 warnings=[],
-                database=collection,
+                database=database,
                 query={},
                 limit=limit,
                 count=0,
@@ -44,13 +44,13 @@ def cmd_show(
 
         yield (0.7, "Querying database...")
         try:
-            query_result = Database.query(config.database, collection, parsed_query, limit)
+            query_result = Database.query(config.database, database, parsed_query, limit)
             yield (1.0, "Complete")
-            result_obj.result = f"Found {query_result['count']} document(s) in {collection}"
+            result_obj.result = f"Found {query_result['count']} document(s) in {database}"
             result_obj.output = DatabaseShowOutput(
                 errors=[],
                 warnings=[],
-                database=collection,
+                database=database,
                 query=parsed_query or {},
                 limit=limit,
                 count=query_result["count"],
@@ -63,7 +63,7 @@ def cmd_show(
             result_obj.output = DatabaseShowOutput(
                 errors=[str(e)],
                 warnings=[],
-                database=collection,
+                database=database,
                 query=parsed_query or {},
                 limit=limit,
                 count=0,
@@ -72,6 +72,6 @@ def cmd_show(
             result_obj.success = False
 
     return StageResult(
-        announce=f"Querying {collection} database...",
+        announce=f"Querying {database} database...",
         progress_callback=do_work,
     )

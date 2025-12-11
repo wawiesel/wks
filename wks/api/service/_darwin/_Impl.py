@@ -1,17 +1,13 @@
-"""macOS service implementation."""
+"""macOS service implementation - installs daemon as launchd service."""
 
 import os
+import shutil
 import subprocess
-import time
 from pathlib import Path
 from typing import Any
 
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
-
 from .._AbstractImpl import _AbstractImpl
 from ..ServiceConfig import ServiceConfig
-from ..FilesystemEvents import FilesystemEvents
 from ...config.WKSConfig import WKSConfig
 from ._Data import _Data
 
@@ -30,15 +26,13 @@ class _Impl(_AbstractImpl):
         return _Impl._get_launch_agents_dir() / f"{label}.plist"
 
     @staticmethod
-    def _create_plist_content(config: _Data, python_path: str, module_path: str, project_root: Path, restrict_dir: Path | None = None) -> str:
-        """Create launchd plist XML content.
+    def _create_plist_content(config: _Data, wksc_path: str, restrict_dir: Path | None = None) -> str:
+        """Create launchd plist XML content that runs 'wksc daemon start'.
 
         Args:
-            config: Daemon configuration data
-            python_path: Path to Python interpreter
-            module_path: Python module path to run
-            project_root: Project root directory for PYTHONPATH
-            restrict_dir: Optional directory to restrict monitoring to (stored as environment variable)
+            config: Service configuration data
+            wksc_path: Path to wksc CLI command
+            restrict_dir: Optional directory to restrict monitoring to
         """
         # Working directory is always WKS_HOME
         working_directory = WKSConfig.get_home_dir()
@@ -50,13 +44,14 @@ class _Impl(_AbstractImpl):
         log_file.parent.mkdir(parents=True, exist_ok=True)
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        # Build environment variables
-        env_vars = f"""    <key>PYTHONPATH</key>
-    <string>{str(project_root)}</string>"""
+        # Build program arguments - run 'wksc daemon start [--restrict-dir PATH]'
+        program_args = f"""    <string>{wksc_path}</string>
+    <string>daemon</string>
+    <string>start</string>"""
         if restrict_dir is not None:
             restrict_path = str(restrict_dir.expanduser().resolve())
-            env_vars += f"""
-    <key>WKS_SERVICE_RESTRICT_DIR</key>
+            program_args += f"""
+    <string>--restrict-dir</string>
     <string>{restrict_path}</string>"""
 
         plist = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -69,16 +64,10 @@ class _Impl(_AbstractImpl):
   <string>Aqua</string>
   <key>ProgramArguments</key>
   <array>
-    <string>{python_path}</string>
-    <string>-m</string>
-    <string>{module_path}</string>
+{program_args}
   </array>
   <key>WorkingDirectory</key>
   <string>{working_directory}</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-{env_vars}
-  </dict>
   <key>RunAtLoad</key>
   <{'true' if config.run_at_load else 'false'}/>
   <key>KeepAlive</key>
@@ -104,145 +93,30 @@ class _Impl(_AbstractImpl):
         if not isinstance(service_config.data, _Data):
             raise ValueError("macOS service config data is required")
         self.config = service_config
-        self._running = False
-        self._observer: Observer | None = None
-        self._event_handler: "_Impl._ServiceEventHandler" | None = None
 
-    class _ServiceEventHandler(FileSystemEventHandler):
-        """Handles filesystem events and accumulates them."""
-
-        def __init__(self):
-            super().__init__()
-            self._modified: set[str] = set()
-            self._created: set[str] = set()
-            self._deleted: set[str] = set()
-            self._moved: dict[str, str] = {}  # old_path -> new_path
-
-        def on_modified(self, event: FileSystemEvent) -> None:
-            if not event.is_directory:
-                self._modified.add(event.src_path)
-
-        def on_created(self, event: FileSystemEvent) -> None:
-            if not event.is_directory:
-                self._created.add(event.src_path)
-
-        def on_deleted(self, event: FileSystemEvent) -> None:
-            if not event.is_directory:
-                self._deleted.add(event.src_path)
-
-        def on_moved(self, event: FileSystemEvent) -> None:
-            if not event.is_directory:
-                self._moved[event.src_path] = event.dest_path
-
-        def get_and_clear_events(self) -> FilesystemEvents:
-            """Return accumulated events and clear the accumulator."""
-            modified = list(self._modified)
-            created = list(self._created)
-            deleted = list(self._deleted)
-            moved = list(self._moved.items())
-
-            self._modified.clear()
-            self._created.clear()
-            self._deleted.clear()
-            self._moved.clear()
-
-            return FilesystemEvents(modified=modified, created=created, deleted=deleted, moved=moved)
-
-    def run(self, restrict_dir: Path | None = None) -> None:
-        """Run the service main loop.
-
-        Args:
-            restrict_dir: Optional directory to restrict monitoring to. If None, checks environment variable
-                WKS_SERVICE_RESTRICT_DIR (set by service), then falls back to configured paths.
-        """
-        import os
-        from ...monitor.cmd_sync import cmd_sync
-
-        self._running = True
-        config = WKSConfig.load()
-        monitor_cfg = config.monitor
-
-        # Determine paths to watch
-        # Priority: 1) restrict_dir parameter, 2) environment variable (from service), 3) configured paths
-        if restrict_dir is not None:
-            watch_paths = [str(restrict_dir.expanduser().resolve())]
-        elif "WKS_SERVICE_RESTRICT_DIR" in os.environ:
-            watch_paths = [os.environ["WKS_SERVICE_RESTRICT_DIR"]]
-        else:
-            watch_paths = [str(Path(p).expanduser().resolve()) for p in monitor_cfg.filter.include_paths]
-
-        # Initialize filesystem watcher
-        self._event_handler = self._ServiceEventHandler()
-        self._observer = Observer()
-
-        for path_str in watch_paths:
-            path = Path(path_str)
-            if path.exists():
-                self._observer.schedule(self._event_handler, str(path), recursive=True)
-
-        self._observer.start()
-
-        try:
-            while self._running:
-                # Wait for sync interval
-                time.sleep(self.config.sync_interval_secs)
-
-                # Get accumulated events
-                events = self._event_handler.get_and_clear_events()
-
-                if events.is_empty():
-                    continue
-
-                # TODO: Implement event collapsing here (e.g., self._collapse_events(events))
-
-                # Send events to monitor sync
-                for path in events.modified + events.created + events.deleted:
-                    cmd_sync(path)
-                for old_path, new_path in events.moved:
-                    cmd_sync(old_path)  # Treat as delete at old location
-                    cmd_sync(new_path)  # Treat as create at new location
-
-        except KeyboardInterrupt:
-            pass
-        finally:
-            if self._observer:
-                self._observer.stop()
-                self._observer.join()
-            self._running = False
-
-    def get_filesystem_events(self) -> FilesystemEvents:
-        """Get accumulated filesystem events since last call.
-
-        Returns:
-            FilesystemEvents object containing lists of paths for each event type.
-        """
-        if self._event_handler is None:
-            return FilesystemEvents(modified=[], created=[], deleted=[], moved=[])
-        return self._event_handler.get_and_clear_events()
-
-    def stop(self) -> None:
-        """Stop the daemon gracefully."""
-        self._running = False
-        if self._observer:
-            self._observer.stop()
-
-    def install_service(self, python_path: str, project_root: Path, restrict_dir: Path | None = None) -> dict[str, Any]:
+    def install_service(self, restrict_dir: Path | None = None) -> dict[str, Any]:
         """Install daemon as macOS launchd service.
 
+        The plist runs 'wksc daemon start' which handles the actual filesystem monitoring.
+
         Args:
-            python_path: Path to Python interpreter
-            project_root: Project root directory for PYTHONPATH
-            restrict_dir: Optional directory to restrict monitoring to (stored as environment variable)
+            restrict_dir: Optional directory to restrict monitoring to
         """
-        module_path = f"wks.api.daemon._{self.config.type}._Impl"
+        import shutil
+
+        # Find wksc command
+        wksc_path = shutil.which("wksc")
+        if not wksc_path:
+            raise RuntimeError("wksc command not found in PATH. Ensure WKS is installed.")
+
         plist_path = self._get_plist_path(self.config.data.label)
         plist_dir = plist_path.parent
 
         # Ensure LaunchAgents directory exists
         plist_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create plist content
-        plist_content = self._create_plist_content(self.config.data, python_path, module_path, project_root, restrict_dir=restrict_dir)
+        # Create plist content that runs 'wksc daemon start'
+        plist_content = self._create_plist_content(self.config.data, wksc_path, restrict_dir=restrict_dir)
 
         # Write plist file
         plist_path.write_text(plist_content, encoding="utf-8")
@@ -257,7 +131,7 @@ class _Impl(_AbstractImpl):
                 check=False,
             )
             if result.returncode == 0:
-                raise RuntimeError(f"Service is already installed and loaded. Use 'wksc daemon uninstall' first, or 'wksc daemon reinstall' to reinstall.")
+                raise RuntimeError("Service is already installed and loaded. Use 'wksc service uninstall' first.")
         except RuntimeError:
             raise  # Re-raise our error
         except Exception:
@@ -377,7 +251,7 @@ class _Impl(_AbstractImpl):
                         "pid": status["pid"],
                     }
                 else:
-                    log_path = Path(self.config.data.log_file).expanduser()
+                    log_path = WKSConfig.get_home_dir() / "logs" / "service.log"
                     return {
                         "success": False,
                         "error": f"Service failed to start after bootstrap (no PID found). Check logs at: {log_path}",
@@ -411,7 +285,7 @@ class _Impl(_AbstractImpl):
                 }
             else:
                 # Service didn't start - check logs
-                log_path = Path(self.config.data.log_file).expanduser()
+                log_path = WKSConfig.get_home_dir() / "logs" / "service.log"
                 return {
                     "success": False,
                     "error": f"Service failed to start (no PID found). Check logs at: {log_path}",

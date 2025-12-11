@@ -21,7 +21,6 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
         sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
-            "log_file": "daemon.log",
             "keep_alive": True,
             "run_at_load": False,
         },
@@ -48,8 +47,8 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr("builtins.__import__", mock_import)
-    # Mock pid_running to return True
-    monkeypatch.setattr(cmd_status, "pid_running", lambda pid: True)
+    # Mock _pid_running to return True
+    monkeypatch.setattr(cmd_status, "_pid_running", lambda pid: True)
 
     result = run_cmd(cmd_status.cmd_status)
     assert result.success is True
@@ -68,7 +67,6 @@ def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
         sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
-            "log_file": "daemon.log",
             "keep_alive": True,
             "run_at_load": False,
         },

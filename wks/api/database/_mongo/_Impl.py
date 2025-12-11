@@ -112,7 +112,7 @@ class _Impl(_AbstractImpl):
 
     @staticmethod
     def _default_db_path() -> Path:
-        from ..config.WKSConfig import WKSConfig
+        from ...config.WKSConfig import WKSConfig
 
         return WKSConfig.get_home_dir() / "mongo-data"
 

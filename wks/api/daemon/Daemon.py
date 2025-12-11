@@ -211,23 +211,9 @@ class Daemon:
         """Start the daemon watcher in a background thread."""
         with self._global_lock:
             if Daemon._global_instance and Daemon._global_instance._running:
-                # Already running: operate on the running instance, log warning, return current state
                 running = Daemon._global_instance
-                running._append_log("WARN: Daemon already running")
-                running._write_status(
-                    running=True,
-                    restrict_dir=Path(running._current_restrict) if running._current_restrict else None,
-                )
-                return type(
-                    "DaemonStatus",
-                    (),
-                    {
-                        "running": True,
-                        "pid": running._pid,
-                        "log_path": str(running._log_path) if running._log_path else None,
-                        "restrict_dir": running._current_restrict,
-                    },
-                )
+                running._append_log("ERROR: Daemon already running")
+                raise RuntimeError("Daemon already running")
 
         self._config = self._load_config()
         from ..config.WKSConfig import WKSConfig
@@ -241,16 +227,8 @@ class Daemon:
             try:
                 existing_pid = int(self._lock_path.read_text().strip())
                 if existing_pid > 0 and self._pid_running(existing_pid):
-                    return type(
-                        "DaemonStatus",
-                        (),
-                        {
-                            "running": True,
-                            "pid": existing_pid,
-                            "log_path": str(self._log_path),
-                            "restrict_dir": self._current_restrict,
-                        },
-                    )
+                    self._append_log("ERROR: Daemon already running")
+                    raise RuntimeError("Daemon already running")
             except Exception:
                 existing_pid = None
 
@@ -377,13 +355,14 @@ class Daemon:
         restrict_value = str(restrict_dir) if restrict_dir else self._current_restrict
         self._current_restrict = restrict_value
         warnings_log, errors_log = extract_log_messages(self._log_path) if self._log_path else ([], [])
+        log_path = str(self._log_path) if self._log_path else str(home / "logs" / "daemon.log")
         status = {
             "errors": errors_log,
             "warnings": warnings_log,
             "running": running,
             "pid": self._pid,
             "restrict_dir": restrict_value,
-            "log_path": str(self._log_path) if self._log_path else "",
+            "log_path": log_path,
         }
         write_status_file(status, wks_home=home)
 

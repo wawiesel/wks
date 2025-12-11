@@ -6,6 +6,8 @@ from wks.cli.handle_stage_result import handle_stage_result
 from wks.api.mcp.cmd_install import cmd_install
 from wks.api.mcp.cmd_list import cmd_list
 from wks.api.mcp.cmd_uninstall import cmd_uninstall
+from wks.mcp.client import proxy_stdio_to_socket
+from wks.mcp.paths import mcp_socket_path
 
 mcp_app = typer.Typer(
     name="mcp",
@@ -51,4 +53,18 @@ def uninstall_command(
 
 mcp_app.command(name="install")(install_command)
 mcp_app.command(name="uninstall")(uninstall_command)
+
+
+def run_command(
+    direct: bool = typer.Option(False, "--direct", help="Run MCP directly over stdio (no socket proxy)"),
+) -> None:
+    """Run the MCP server."""
+    if not direct and proxy_stdio_to_socket(mcp_socket_path()):
+        raise typer.Exit(0)
+    from wks.mcp.main import main as mcp_main
+
+    mcp_main()
+
+
+mcp_app.command(name="run")(run_command)
 

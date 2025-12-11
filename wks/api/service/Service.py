@@ -1,8 +1,6 @@
-"""Service public API."""
+"""Service public API - installs and manages daemon as system service."""
 
 import platform
-import subprocess
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -10,9 +8,7 @@ from ..StageResult import StageResult
 from . import (
     ServiceInstallOutput,
     ServiceStartOutput,
-    ServiceStatusOutput,
     ServiceStopOutput,
-    ServiceUninstallOutput,
 )
 from .ServiceConfig import ServiceConfig, _BACKEND_REGISTRY
 from ._AbstractImpl import _AbstractImpl
@@ -106,44 +102,6 @@ class Service:
             running=success,
         )
 
-    @staticmethod
-    def start_directly(backend_type: str) -> ServiceStartOutput:
-        """Start service directly as background process.
-
-        Returns:
-            ServiceStartOutput schema object
-        """
-        if backend_type not in _BACKEND_REGISTRY:
-            return ServiceStartOutput(
-                errors=[f"Unsupported service backend type: {backend_type!r}"],
-                warnings=[],
-                message=f"Error starting service: unsupported backend {backend_type!r}",
-                running=False,
-            )
-        python_path = sys.executable
-        service_module = f"wks.api.service._{backend_type}._Impl"
-
-        try:
-            process = subprocess.Popen(
-                [python_path, "-m", service_module],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-            return ServiceStartOutput(
-                errors=[],
-                warnings=[],
-                message=f"Service started successfully (PID: {process.pid})",
-                running=True,
-            )
-        except Exception as e:
-            return ServiceStartOutput(
-                errors=[str(e)],
-                warnings=[],
-                message=f"Error starting service: {e}",
-                running=False,
-            )
-
     def __enter__(self):
         backend_type = self.service_config.type
 
@@ -172,12 +130,12 @@ class Service:
             raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.get_service_status()
 
-    def install_service(self, python_path: str, project_root: Path, restrict_dir: Path | None = None) -> dict[str, Any]:
-        """Install service as system service.
+    def install_service(self, restrict_dir: Path | None = None) -> dict[str, Any]:
+        """Install daemon as system service.
+
+        The plist runs 'wksc daemon start' to handle filesystem monitoring.
 
         Args:
-            python_path: Path to Python interpreter
-            project_root: Project root directory for PYTHONPATH
             restrict_dir: Optional directory to restrict monitoring to
 
         Returns:
@@ -185,7 +143,7 @@ class Service:
         """
         if not self._impl:
             raise RuntimeError("Service not initialized. Use as context manager first.")
-        return self._impl.install_service(python_path, project_root, restrict_dir=restrict_dir)
+        return self._impl.install_service(restrict_dir=restrict_dir)
 
     def uninstall_service(self) -> dict[str, Any]:
         """Uninstall system service.
@@ -206,12 +164,6 @@ class Service:
         if not self._impl:
             raise RuntimeError("Service not initialized. Use as context manager first.")
         return self._impl.start_service()
-
-    def run(self, restrict_dir: Path | None = None) -> None:
-        """Run the service loop directly (non-service mode)."""
-        if not self._impl:
-            raise RuntimeError("Service not initialized. Use as context manager first.")
-        return self._impl.run(restrict_dir=restrict_dir)
 
     def stop_service(self) -> dict[str, Any]:
         """Stop service via system service manager.

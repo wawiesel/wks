@@ -83,7 +83,7 @@ class MCPServer:
                                 val = json.dumps(val)
                             kwargs[param_name] = val
                         elif param.default == inspect.Parameter.empty:
-                            kwargs[param_name] = "" if param_name == "section" and domain == "config" else args.get(param_name, "")
+                            raise ValueError(f"Missing required argument: {param_name}")
                     result = func(**kwargs)
                     if isinstance(result, StageResult):
                         list(result.progress_callback(result))
@@ -98,18 +98,22 @@ class MCPServer:
     def read_message(self) -> dict[str, Any] | None:
         """Read and decode a single JSON-RPC message from the input stream."""
         try:
-            line = self._input.readline()
-            if not line:
-                return None
-            if line.strip().lower().startswith("content-length"):
-                length = int(line.split(":", 1)[1].strip())
-                while True:
-                    sep = self._input.readline()
-                    if not sep.strip() or sep in ("\r\n", "\n", "\r"):
-                        break
-                self._lsp_mode = True
-                return json.loads(self._input.read(length))
-            return json.loads(line)
+            while True:
+                line = self._input.readline()
+                if not line:
+                    return None
+                # Skip blank lines (common after framed LSP payloads).
+                if not line.strip():
+                    continue
+                if line.strip().lower().startswith("content-length"):
+                    length = int(line.split(":", 1)[1].strip())
+                    while True:
+                        sep = self._input.readline()
+                        if not sep.strip() or sep in ("\r\n", "\n", "\r"):
+                            break
+                    self._lsp_mode = True
+                    return json.loads(self._input.read(length))
+                return json.loads(line)
         except Exception:
             return None
 

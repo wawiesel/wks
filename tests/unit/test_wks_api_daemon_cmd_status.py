@@ -47,12 +47,24 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
 
     log_path = wks_home / "logs" / "daemon.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text("WARN: something happened\nERROR: badness\n", encoding="utf-8")
+    # Append messages; the daemon subprocess extracts WARN/ERROR lines into daemon.json.
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write("WARN: something happened\n")
+        f.write("ERROR: badness\n")
 
-    time.sleep(0.1)
-    status_result = run_cmd(cmd_status.cmd_status)
-    assert status_result.success is True
-    assert "WARN: something happened" in status_result.output["warnings"]
-    assert "ERROR: badness" in status_result.output["errors"]
+    # Poll until daemon.json reflects the extracted messages (it is rewritten each loop).
+    deadline = time.time() + 5.0
+    while True:
+        status_result = run_cmd(cmd_status.cmd_status)
+        assert status_result.success is True
+        warnings = status_result.output.get("warnings", [])
+        errors = status_result.output.get("errors", [])
+        if "WARN: something happened" in warnings and "ERROR: badness" in errors:
+            break
+        if time.time() > deadline:
+            raise AssertionError(
+                f"daemon.json did not reflect log messages in time. warnings={warnings!r} errors={errors!r}"
+            )
+        time.sleep(0.1)
 
     run_cmd(cmd_stop.cmd_stop)

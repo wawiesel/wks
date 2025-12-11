@@ -30,12 +30,31 @@ def cmd_start(restrict_dir: Path | None = None) -> StageResult:
             result_obj.success = bool(getattr(status, "running", False))
             yield (1.0, "Complete")
         except Exception as exc:
+            # If daemon is already running, fail (per spec) but report current running state.
+            running_now = False
+            try:
+                from ..config.WKSConfig import WKSConfig
+                import os
+
+                home = WKSConfig.get_home_dir()
+                lock_path = home / "daemon.lock"
+                if lock_path.exists():
+                    pid = int(lock_path.read_text().strip() or "0")
+                    if pid > 0:
+                        try:
+                            os.kill(pid, 0)
+                            running_now = True
+                        except OSError:
+                            running_now = False
+            except Exception:
+                running_now = False
+
             result_obj.result = f"Error starting daemon: {exc}"
             result_obj.output = DaemonStartOutput(
                 errors=[str(exc)],
                 warnings=[],
                 message=str(exc),
-                running=False,
+                running=running_now,
             ).model_dump(mode="python")
             result_obj.success = False
             yield (1.0, "Complete")

@@ -23,7 +23,7 @@ def test_cmd_uninstall_success(patch_wks_config, monkeypatch):
         sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
-            "log_file": "daemon.log",
+            
             "keep_alive": True,
             "run_at_load": False,
         },
