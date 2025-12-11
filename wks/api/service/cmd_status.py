@@ -8,10 +8,9 @@ from typing import Any
 from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from . import ServiceStatusOutput
-from .Daemon import Daemon
-from .DaemonConfig import _BACKEND_REGISTRY
-from . import pid_running
-from ._read_daemon_file import _read_daemon_file
+from .Service import Service
+from ._pid_running import _pid_running as pid_running
+from ._read_service_file import _read_daemon_file
 
 
 def cmd_status() -> StageResult:
@@ -24,8 +23,6 @@ def cmd_status() -> StageResult:
         """
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
-
-        backend_type = config.daemon.type
         daemon_file = WKSConfig.get_home_dir() / "daemon.json"
         status_data: dict[str, Any] = {
             "running": False,
@@ -42,32 +39,34 @@ def cmd_status() -> StageResult:
         service_pid: int | None = None
         service_data: dict[str, Any] = {}
 
-        if backend_type in _BACKEND_REGISTRY:
-            try:
-                with Daemon(config.daemon) as daemon:
-                    service_status = daemon.get_service_status()
-                if "installed" not in service_status:
-                    raise KeyError("get_service_status() result missing required 'installed' field")
-                service_installed = service_status["installed"]
+        try:
+            with Service(config.service) as service:
+                service_status = service.get_service_status()
+            if "installed" not in service_status:
+                raise KeyError("get_service_status() result missing required 'installed' field")
+            service_installed = service_status["installed"]
 
-                # Always set installed status (True or False) for service-capable backends
-                service_data["installed"] = service_installed
-                if "plist_path" in service_status:
-                    service_data["plist_path"] = service_status["plist_path"]
-                if "label" in service_status:
-                    service_data["label"] = service_status["label"]
+            # Always set installed status (True or False) for service-capable backends
+            service_data["installed"] = service_installed
+            if "plist_path" in service_status:
+                service_data["plist_path"] = service_status["plist_path"]
+            if "label" in service_status:
+                service_data["label"] = service_status["label"]
 
-                if service_installed and "pid" in service_status:
-                    service_pid = service_status["pid"]
-                    if pid_running(service_pid):
-                        running_as_service = True
-                        status_data["running"] = True
-                        status_data["pid"] = service_pid
-                        status_data["installed"] = True
-            except NotImplementedError as exc:
-                status_data["warnings"].append(str(exc))
-            except Exception as exc:
-                status_data["errors"].append(f"service status error: {exc}")
+            if service_installed and "pid" in service_status:
+                service_pid = service_status["pid"]
+                if pid_running(service_pid):
+                    running_as_service = True
+                    status_data["running"] = True
+                    status_data["pid"] = service_pid
+                    status_data["installed"] = True
+        except ValueError as exc:
+            # Unsupported backend type - not an error, just no service support
+            status_data["warnings"].append(f"Service backend not supported: {exc}")
+        except NotImplementedError as exc:
+            status_data["warnings"].append(str(exc))
+        except Exception as exc:
+            status_data["errors"].append(f"service status error: {exc}")
 
         # If running as service, check for warnings/errors from daemon.json
         if running_as_service:

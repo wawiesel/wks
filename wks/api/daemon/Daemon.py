@@ -167,34 +167,12 @@ class Daemon:
     _global_lock = threading.Lock()
 
     def __init__(self) -> None:
-        self._observer: Observer | None = None
-        self._handler: _EventHandler | None = None
-        self._process: subprocess.Popen[bytes] | None = None
         self._running = False
         self._config: DaemonConfig | None = None
         self._log_path: Path | None = None
         self._current_restrict: str = ""
         self._lock_path: Path | None = None
         self._pid: int | None = None
-
-    # #region agent log
-    def _dbg(self, hypothesis_id: str, location: str, message: str, data: dict[str, Any] | None = None) -> None:
-        """Append a debug line to the shared debug log (NDJSON)."""
-        try:
-            payload = {
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": hypothesis_id,
-                "location": location,
-                "message": message,
-                "data": data or {},
-                "timestamp": int(time.time() * 1000),
-            }
-            with self._debug_log_path.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(payload) + "\n")
-        except Exception:
-            pass
-    # #endregion
 
     def _load_config(self) -> DaemonConfig:
         from ..config.WKSConfig import WKSConfig
@@ -263,7 +241,6 @@ class Daemon:
             try:
                 existing_pid = int(self._lock_path.read_text().strip())
                 if existing_pid > 0 and self._pid_running(existing_pid):
-                    self._dbg("H1", "Daemon.start:already", "existing daemon running", {"pid": existing_pid})
                     return type(
                         "DaemonStatus",
                         (),
@@ -308,12 +285,6 @@ class Daemon:
 
         self._running = True
         self._append_log("INFO: Daemon started (parent)")
-        self._dbg(
-            "H1",
-            "Daemon.start:process",
-            "process spawned",
-            {"pid": self._pid, "alive": proc.poll() is None},
-        )
 
         self._write_status(running=True, restrict_dir=restrict_dir)
 
@@ -346,9 +317,8 @@ class Daemon:
         if pid_to_stop:
             try:
                 os.kill(pid_to_stop, signal.SIGTERM)
-                self._dbg("H3", "Daemon.stop", "sent SIGTERM", {"pid": pid_to_stop})
-            except Exception as exc:
-                self._dbg("H3", "Daemon.stop", "kill failed", {"pid": pid_to_stop, "error": str(exc)})
+            except Exception:
+                pass  # Process may have already exited
         self._running = False
         self._write_status(running=False, restrict_dir=None)
         if lock_path.exists():
@@ -385,15 +355,19 @@ class Daemon:
         )
 
     def get_filesystem_events(self) -> FilesystemEvents:
-        """Return and clear accumulated events."""
-        if not self._handler:
-            return FilesystemEvents(modified=[], created=[], deleted=[], moved=[])
-        return self._handler.get_and_clear_events()
+        """Return and clear accumulated events.
+
+        Note: Since the daemon runs in a subprocess, events are synced
+        directly to the monitor database. This method returns empty.
+        """
+        return FilesystemEvents(modified=[], created=[], deleted=[], moved=[])
 
     def clear_events(self) -> None:
-        """Explicitly clear accumulated events."""
-        if self._handler:
-            self._handler.get_and_clear_events()
+        """Explicitly clear accumulated events.
+
+        Note: Since the daemon runs in a subprocess, this is a no-op.
+        """
+        pass
 
     def _write_status(self, *, running: bool, restrict_dir: Path | None) -> None:
         """Write daemon status to daemon.json."""
@@ -423,107 +397,3 @@ class Daemon:
                 fh.write(f"{message}\n")
         except Exception:
             pass
-
-    def _append_log_file(self, log_file: Path, message: str) -> None:
-        """Append to a specific log file (child-safe)."""
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            with log_file.open("a", encoding="utf-8") as fh:
-                fh.write(f"{message}\n")
-        except Exception:
-            pass
-
-    @staticmethod
-    def _sync_path_static(path: Path, log_file: Path, dbg_fn) -> None:
-        """Invoke monitor sync for a single path from child process."""
-        try:
-            from ..monitor.cmd_sync import cmd_sync
-
-            result = cmd_sync(str(path))
-            list(result.progress_callback(result))
-            out = result.output or {}
-            errs = out.get("errors", [])
-            warns = out.get("warnings", [])
-            for msg in warns:
-                Daemon._append_log_static(log_file, f"WARN: {msg}")
-            for msg in errs:
-                Daemon._append_log_static(log_file, f"ERROR: {msg}")
-        except Exception as exc:  # pragma: no cover - defensive logging
-            Daemon._append_log_static(log_file, f"ERROR: sync failed for {path}: {exc}")
-            dbg_fn("H4", "Daemon.child:sync_error", "sync failed", {"path": str(path), "error": str(exc)})
-
-    @staticmethod
-    def _append_log_static(log_file: Path, message: str) -> None:
-        """Static helper to append to log file."""
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            with log_file.open("a", encoding="utf-8") as fh:
-                fh.write(f"{message}\n")
-        except Exception:
-            pass
-
-    def _process_events(self) -> None:
-        """Drain filesystem events and sync via monitor."""
-        try:
-            if not self._handler:
-                self._dbg("H4", "Daemon._process_events", "handler missing")
-                return
-            events = self._handler.get_and_clear_events()
-            self._dbg(
-                "H4",
-                "Daemon._process_events:counts",
-                "event counts",
-                {
-                    "modified": len(events.modified),
-                    "created": len(events.created),
-                    "deleted": len(events.deleted),
-                    "moved": len(events.moved),
-                },
-            )
-            if events.modified or events.created or events.deleted or events.moved:
-                self._append_log(
-                    f"INFO: events modified={len(events.modified)} "
-                    f"created={len(events.created)} deleted={len(events.deleted)} moved={len(events.moved)}"
-                )
-            to_delete: set[Path] = set()
-            to_sync: set[Path] = set()
-
-            # Created/modified -> sync
-            for p in events.modified + events.created:
-                to_sync.add(Path(p))
-
-            # Moved -> delete source, sync destination
-            for src, dest in events.moved:
-                to_delete.add(Path(src))
-                to_sync.add(Path(dest))
-
-            # Deleted -> delete
-            for p in events.deleted:
-                to_delete.add(Path(p))
-
-            for path in to_delete:
-                self._dbg("H4", "Daemon._process_events:delete", "sync delete", {"path": str(path)})
-                self._sync_path(path)
-            for path in to_sync:
-                self._dbg("H4", "Daemon._process_events:sync", "sync path", {"path": str(path)})
-                self._sync_path(path)
-        except Exception as exc:  # pragma: no cover - defensive logging
-            self._append_log(f"ERROR: process_events failed: {exc}")
-            self._dbg("H4", "Daemon._process_events:error", "process_events failed", {"error": str(exc)})
-
-    def _sync_path(self, path: Path) -> None:
-        """Invoke monitor sync for a single path."""
-        try:
-            from ..monitor.cmd_sync import cmd_sync
-
-            result = cmd_sync(str(path))
-            list(result.progress_callback(result))
-            out = result.output or {}
-            errs = out.get("errors", [])
-            warns = out.get("warnings", [])
-            for msg in warns:
-                self._append_log(f"WARN: {msg}")
-            for msg in errs:
-                self._append_log(f"ERROR: {msg}")
-        except Exception as exc:  # pragma: no cover - defensive logging
-            self._append_log(f"ERROR: sync failed for {path}: {exc}")

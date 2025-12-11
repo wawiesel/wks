@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from ..config.WKSConfig import WKSConfig
-from .Daemon import Daemon
+from .Service import Service
 from ._pid_running import _pid_running
 
 
@@ -19,7 +19,7 @@ def cmd_run(restrict_dir: Path | None = None) -> None:
     """
     # Load configuration
     config = WKSConfig.load()
-    config_label = config.daemon.data.label  # Get label from config (per-config identifier)
+    config_label = config.service.data.label  # Get label from config (per-config identifier)
 
     # Check if daemon is already running for this configuration
     home_dir = WKSConfig.get_home_dir()
@@ -52,14 +52,14 @@ def cmd_run(restrict_dir: Path | None = None) -> None:
 
     # Check service status (if service is installed for this config)
     try:
-        with Daemon(config.daemon) as daemon:
-            service_status = daemon.get_service_status()
+        with Service(config.service) as service:
+            service_status = service.get_service_status()
             # Verify service label matches config label
             if service_status.get("installed") and service_status.get("label") == config_label:
                 if "pid" in service_status:
                     pid = service_status["pid"]
                     if _pid_running(pid):
-                        raise RuntimeError(f"Daemon service is already running for this configuration (PID: {pid}, label: {config_label})")
+                        raise RuntimeError(f"Service is already running for this configuration (PID: {pid}, label: {config_label})")
     except (NotImplementedError, Exception):
         # Service status not supported or error, continue
         pass
@@ -74,9 +74,9 @@ def cmd_run(restrict_dir: Path | None = None) -> None:
         raise RuntimeError(f"Failed to create lock file: {e}") from e
 
     try:
-        # Run daemon
-        with Daemon(config.daemon) as daemon:
-            daemon.run(restrict_dir=restrict_dir)
+        # Run service
+        with Service(config.service) as service:
+            service.run(restrict_dir=restrict_dir)
     except KeyboardInterrupt:
         # Graceful shutdown on Ctrl+C
         pass
@@ -84,4 +84,3 @@ def cmd_run(restrict_dir: Path | None = None) -> None:
         # Remove lock file
         if lock_file.exists():
             lock_file.unlink()
-
