@@ -86,7 +86,6 @@ repomix-output.xml
 demo_mcp.py
 test_mcp_connection.py
 .claude/
-.cursor/
 
 # MCP test scripts (temporary)
 demo_*.py
