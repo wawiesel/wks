@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/service_output.schema.json",
+  "title": "WKS Service Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "ServiceStatusOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "running": { "type": "boolean" },
+            "installed": { "type": "boolean" },
+            "pid": { "type": ["integer", "null"] },
+            "log_path": { "type": "string" }
+          },
+          "required": ["running", "installed", "pid", "log_path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ServiceStartOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "running": { "type": "boolean" },
+            "message": { "type": "string" }
+          },
+          "required": ["running", "message"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ServiceStopOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "stopped": { "type": "boolean" },
+            "message": { "type": "string" }
+          },
+          "required": ["stopped", "message"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ServiceInstallOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "installed": { "type": "boolean" },
+            "message": { "type": "string" }
+          },
+          "required": ["installed", "message"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ServiceUninstallOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "uninstalled": { "type": "boolean" },
+            "message": { "type": "string" }
+          },
+          "required": ["uninstalled", "message"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/ServiceStatusOutput" },
+    { "$ref": "#/definitions/ServiceStartOutput" },
+    { "$ref": "#/definitions/ServiceStopOutput" },
+    { "$ref": "#/definitions/ServiceInstallOutput" },
+    { "$ref": "#/definitions/ServiceUninstallOutput" }
+  ]
+}

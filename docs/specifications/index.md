@@ -1,5 +1,7 @@
 # Index Layer Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
 **Purpose**: Maintain searchable indices of file content and structure
 
 Indices are populated based on rules that chain a transform to an embedding scheme to a database. Two main types of embeddings shall be supported:
@@ -35,4 +37,4 @@ We will also support the BM25 index for simple text search.
 - `wksc index rule add <index_name> <pattern> <engine>` — Add indexing rule
 - `wksc index rule remove <index_name> <pattern>` — Remove indexing rule
 - `wksc index rule list <index_name>` — List indexing rules
-- `wksc db index <index_name>` — Query index database
+- `wksc database index <index_name>` — Query index database

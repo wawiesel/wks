@@ -1,24 +1,75 @@
 """MCP Smoke Tests.
 
 These tests run the MCP server in a subprocess and communicate via stdio.
-They ensure the MCP server works end-to-end.
+They ensure the installed MCP server works end-to-end through the JSON-RPC protocol.
+These verify that the installed package's MCP capabilities work correctly.
 """
 
 import json
 import os
+import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-# Path to the wks executable or module
-WKS_CMD = [sys.executable, "-m", "wks.cli", "mcp", "run", "--direct"]
+
+def _find_wksc_command():
+    """Find the installed wksc command.
+
+    Prefers venv/bin/wksc if available, otherwise searches PATH.
+    """
+    # Check for venv in project root
+    project_root = Path(__file__).parents[2]
+    venv_wksc = project_root / ".venv" / "bin" / "wksc"
+    if venv_wksc.exists():
+        return str(venv_wksc)
+
+    # Fall back to system PATH
+    wksc_path = shutil.which("wksc")
+    if wksc_path:
+        return wksc_path
+
+    # If not found, raise error with helpful message
+    raise RuntimeError("wksc command not found. Please install the package: pip install -e .")
+
+
+def _get_wks_mcp_cmd():
+    """Get the wksc mcp command path (lazy evaluation)."""
+    return [_find_wksc_command(), "mcp", "run", "--direct"]
+
+
+def _mongod_available() -> bool:
+    """Return True only if the `mongod` binary is available."""
+    if not shutil.which("mongod"):
+        return False
+    try:
+        result = subprocess.run(
+            ["mongod", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _require_mongod() -> None:
+    """Fail loudly if MongoDB requirements are not met."""
+    if not _mongod_available():
+        pytest.fail(
+            "MCP smoke tests require `mongod` in PATH. "
+            "Install MongoDB so `mongod --version` works."
+        )
 
 
 @pytest.fixture(scope="module")
 def mcp_process(tmp_path_factory):
     """Start MCP server process."""
+    _require_mongod()
+
     env_dir = tmp_path_factory.mktemp("mcp_env")
     home_dir = env_dir / "home"
     home_dir.mkdir()
@@ -27,56 +78,38 @@ def mcp_process(tmp_path_factory):
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
 
-    # Add project root to PYTHONPATH
-    project_root = str(Path(__file__).parents[2])
-    env["PYTHONPATH"] = project_root
+    # Don't add PYTHONPATH - we're testing the installed package, not the source
+    # The installed wksc should work without PYTHONPATH manipulation
 
-    # Create config in current WKSConfig / DiffConfig format
     (home_dir / ".wks").mkdir()
-    config = {
-        "monitor": {
-            "include_paths": ["~"],
-            "exclude_paths": [],
-            "include_dirnames": [],
-            "exclude_dirnames": [],
-            "include_globs": [],
-            "exclude_globs": [],
-            "managed_directories": {"~": 100},
-            "priority": {"depth_multiplier": 0.9},
-            "database": "wks.monitor",
-            "max_documents": 10000,
-            "prune_interval_secs": 3600,
-        },
-        "vault": {
-            "base_dir": str(home_dir / "Vault"),
-            "database": "wks.vault",
-            "wks_dir": "WKS",
-            "update_frequency_seconds": 3600,
-        },
-        "db": {"type": "mongodb", "uri": "mongodb://localhost:27017"},
-        "transform": {
-            "cache": {
-                "location": ".wks/cache",
-                "max_size_bytes": 1073741824,
-            },
-            "database": "wks.transform",
-            "engines": {},
-        },
-        "diff": {
-            "engines": {
-                "myers": {"enabled": True, "is_default": True},
-            },
-            "_router": {
-                "rules": [],
-                "fallback": "myers",
-            },
+    # Build a valid config using shared helpers, then override DB to use local Mongo.
+    from tests.conftest import minimal_config_dict
+    import random
+
+    config = minimal_config_dict()
+
+    mongo_port = random.randint(27100, 27999)
+    mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+    config["database"] = {
+        "type": "mongo",
+        "prefix": "wks_mcp_smoke",
+        "data": {
+            "uri": mongo_uri,
+            "local": True,
+            "db_path": str((home_dir / ".wks" / "mongo-data").resolve()),
+            "port": mongo_port,
+            "bind_ip": "127.0.0.1",
         },
     }
-    (home_dir / ".wks" / "config.json").write_text(json.dumps(config))
+    # Ensure monitor has at least one include path so monitor_check can succeed for an in-scope path.
+    config["monitor"]["filter"]["include_paths"] = [str(home_dir)]
 
-    # Start process
+    (home_dir / ".wks" / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    # Start process using installed wksc command
+    cmd = _get_wks_mcp_cmd()
     process = subprocess.Popen(
-        WKS_CMD,
+        cmd,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -102,7 +135,16 @@ def send_request(process, method, params=None, req_id=1):
     # Read response
     line = process.stdout.readline()
     if not line:
-        return None
+        # Fail loudly with stderr context (common when MCP process exits on startup).
+        try:
+            rc = process.poll()
+        except Exception:
+            rc = None
+        try:
+            err = process.stderr.read() if process.stderr else ""
+        except Exception:
+            err = ""
+        raise AssertionError(f"No response from MCP process (returncode={rc}). STDERR:\n{err}")
 
     return json.loads(line)
 
@@ -125,7 +167,8 @@ def test_mcp_call_monitor_status(mcp_process):
     response = send_request(mcp_process, "tools/call", {"name": "wksm_monitor_status", "arguments": {}}, req_id=3)
 
     content = json.loads(response["result"]["content"][0]["text"])
-    assert "tracked_files" in content
+    assert "data" in content
+    assert "tracked_files" in content["data"]
 
 
 def test_mcp_call_monitor_check(mcp_process):
@@ -133,9 +176,10 @@ def test_mcp_call_monitor_check(mcp_process):
     response = send_request(
         mcp_process,
         "tools/call",
-        {"name": "wksm_monitor_check", "arguments": {"path": "/tmp"}},
+        {"name": "wksm_monitor_check", "arguments": {"path": str(Path.home())}},
         req_id=4,
     )
 
     content = json.loads(response["result"]["content"][0]["text"])
-    assert "is_monitored" in content
+    assert "data" in content
+    assert "is_monitored" in content["data"]

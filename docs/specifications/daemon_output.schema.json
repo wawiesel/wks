@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/daemon_output.schema.json",
+  "title": "WKS Daemon Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "DaemonStatusOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "running": { "type": "boolean" },
+            "pid": { "type": ["integer", "null"] },
+            "restrict_dir": { "type": "string" },
+            "log_path": { "type": "string" }
+          },
+          "required": ["running", "pid", "restrict_dir", "log_path"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonStartOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "running": { "type": "boolean" }
+          },
+          "required": ["message", "running"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonStopOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "message": { "type": "string" },
+            "stopped": { "type": "boolean" }
+          },
+          "required": ["message", "stopped"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/DaemonStatusOutput" },
+    { "$ref": "#/definitions/DaemonStartOutput" },
+    { "$ref": "#/definitions/DaemonStopOutput" }
+  ]
+}
+

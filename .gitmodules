@@ -1,0 +1,24 @@
+[submodule ".cursor/rules/DRY"]
+	path = .cursor/rules/DRY
+	url = https://github.com/CursorCult/DRY.git
+[submodule ".cursor/rules/NoDeadCode"]
+	path = .cursor/rules/NoDeadCode
+	url = https://github.com/CursorCult/NoDeadCode.git
+[submodule ".cursor/rules/NoHedging"]
+	path = .cursor/rules/NoHedging
+	url = https://github.com/CursorCult/NoHedging.git
+[submodule ".cursor/rules/Pinocchio"]
+	path = .cursor/rules/Pinocchio
+	url = https://github.com/CursorCult/Pinocchio.git
+[submodule ".cursor/rules/PUTTPUTT"]
+	path = .cursor/rules/PUTTPUTT
+	url = https://github.com/CursorCult/PUTTPUTT.git
+[submodule ".cursor/rules/TruthOrSilence"]
+	path = .cursor/rules/TruthOrSilence
+	url = https://github.com/CursorCult/TruthOrSilence.git
+[submodule ".cursor/rules/UMP"]
+	path = .cursor/rules/UMP
+	url = https://github.com/CursorCult/UMP.git
+[submodule ".cursor/rules/UNO"]
+	path = .cursor/rules/UNO
+	url = https://github.com/CursorCult/UNO.git

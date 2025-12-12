@@ -1,5 +1,8 @@
 # Diff Layer Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
+
 **Purpose**: Calculate differences between files
 
 The diff layer supports an arbitrary number of engines but for prototype purposes,

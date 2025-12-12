@@ -4,16 +4,10 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
-from wks.config import (
-    DisplayConfig,
-    MetricsConfig,
-    MongoSettings,
-    MonitorConfig,
-    TransformConfig,
-    VaultConfig,
-    WKSConfig,
-)
+from wks.api.config import WKSConfig
+from wks.api.monitor.MonitorConfig import MonitorConfig
+from wks.api.database.DatabaseConfig import DatabaseConfig
+from wks.api.service.ServiceConfig import ServiceConfig
 
 
 class FakeCollection:
@@ -135,8 +129,8 @@ def temp_watch_directory(tmp_path):
 
 
 @pytest.fixture
-def daemon_config(tmp_path):
-    """Create a valid daemon configuration."""
+def service_config(tmp_path):
+    """Create a valid service configuration."""
     monitor_cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
@@ -155,70 +149,20 @@ def daemon_config(tmp_path):
             }
         }
     )
-    vault_cfg = VaultConfig(
-        base_dir=str(tmp_path),
-        wks_dir="WKS",
-        update_frequency_seconds=10,
-        database="wks.vault",
-        vault_type="obsidian",
+    database_cfg = DatabaseConfig(type="mongomock", prefix="wks", data={})
+    service_cfg = ServiceConfig(
+        type="darwin",
+        sync_interval_secs=60.0,
+        data={
+            "label": "com.wks.service.test",
+            "log_file": "service.log",
+            "keep_alive": True,
+            "run_at_load": False,
+        },
     )
-    mongo_cfg = MongoSettings(uri="mongodb://localhost:27017/")
-    display_cfg = DisplayConfig()
-    from wks.transform.config import CacheConfig
-
-    transform_cfg = TransformConfig(
-        cache=CacheConfig(location=Path(".wks/cache"), max_size_bytes=1024 * 1024 * 100),
-        engines={},
-        database="wks.transform",
-    )
-    metrics_cfg = MetricsConfig()
 
     return WKSConfig(
         monitor=monitor_cfg,
-        vault=vault_cfg,
-        mongo=mongo_cfg,
-        display=display_cfg,
-        transform=transform_cfg,
-        metrics=metrics_cfg,
+        database=database_cfg,
+        service=service_cfg,
     )
-
-
-@pytest.fixture
-def mock_daemon_dependencies(monkeypatch):
-    """Mock all daemon dependencies."""
-    from wks import daemon as daemon_mod
-
-    # Mock vault and indexer
-    monkeypatch.setattr(daemon_mod, "ObsidianVault", FakeVault)
-    monkeypatch.setattr(daemon_mod, "VaultLinkIndexer", FakeIndexer)
-
-    # Mock MongoGuard
-    class MockMongoGuard:
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def start(self, *args, **kwargs):
-            pass
-
-        def stop(self):
-            pass
-
-    monkeypatch.setattr(daemon_mod, "MongoGuard", MockMongoGuard)
-
-    # Mock ensure_mongo_running if it exists
-    if hasattr(daemon_mod, "ensure_mongo_running"):
-        monkeypatch.setattr(daemon_mod, "ensure_mongo_running", lambda *_a, **_k: None)
-
-    # Mock MCPBroker
-    mock_broker = MagicMock()
-    mock_broker.start = MagicMock()
-    mock_broker.stop = MagicMock()
-    monkeypatch.setattr(daemon_mod, "MCPBroker", lambda *_a, **_k: mock_broker)
-
-    # Mock start_monitoring
-    mock_observer = FakeObserver()
-    monkeypatch.setattr(daemon_mod, "start_monitoring", lambda *_a, **_k: mock_observer)
-
-    # Mock db_activity functions
-    monkeypatch.setattr(daemon_mod, "load_db_activity_summary", lambda: None)
-    monkeypatch.setattr(daemon_mod, "load_db_activity_history", lambda *_a: [])

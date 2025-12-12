@@ -1,56 +1,89 @@
-# Monitor Layer Specification
+# Monitor Specification
 
-**Purpose**: Track filesystem state and calculate priorities
+## Purpose
+Filesystem monitoring: check/sync/status, manage filters and priorities, with consistent CLI/MCP contracts.
 
-**Database**: `wks.monitor` (Strict `<collection>.<database>` format required)
+## Configuration File Structure
+- Location: `{WKS_HOME}/config.json` (override via `WKS_HOME`)
+- Composition: Uses `monitor` block as defined in `docs/specifications/wks.md`; all fields required, no defaults in code.
 
-**Schema**:
-- `path` — absolute URI (e.g., `file:///Users/ww5/Documents/report.pdf`)
-- `timestamp` — ISO 8601 UTC string for last modification
-- `checksum` — SHA256 hash of file contents
-- `bytes` — file size in bytes
-- `priority` — calculated integer score (1-∞) based on path structure
+## Normative Schema
+- Canonical output schema: `docs/specifications/monitor_output.schema.json`.
+- Implementations MUST validate outputs against this schema; unknown fields are rejected.
 
-## Priority Calculation
-1. Match file to deepest `managed_directories` entry (e.g., `~/Documents` → 100)
-2. For each path component after base: multiply by `depth_multiplier` (0.9)
-3. For each leading `_` in component name: divide by `underscore_divisor` (2)
-4. If component is single `_`: divide by `single_underscore_divisor` (64)
-5. Multiply by extension weight from `extension_weights`
-6. Round to integer (minimum 1)
+## CLI
 
-## Monitor include/exclude logic
-- `include_paths` and `exclude_paths` store canonical directories (fully-resolved on load). A path must appear in exactly one list; identical entries across both lists are a validation error. When evaluating a file/directory, resolve it and walk its ancestors until one appears in either list. The nearest match wins. If the closest ancestor is in `exclude_paths` (or no ancestor is found at all), the path is excluded immediately and no further checks run.
-- Once a path survives the root check, the daemon applies directory/glob rules in two phases:
-  - **Exclusion phase**: evaluate `exclude_dirnames` (the immediate parent directory) and `exclude_globs` (full path/basename). If either matches, the path becomes “tentatively excluded”.
-  - **Inclusion overrides**: evaluate `include_dirnames` and `include_globs`. If a path was tentatively excluded but matches an include rule, the exclusion is reversed and the path is monitored. If neither include rule fires, the exclusion stands. Dirname/glob lists must not share entries; duplicates are validation errors, and entries that duplicate the opposite glob list are flagged as redundant.
+- Entry: `wksc monitor`
+- Output formats: `--display yaml` (default) or `--display json`
 
-## MCP Interface (Primary)
+### status
+- Command: `wksc monitor status`
+- Behavior: Reports monitoring status, issues, priority directories, counts.
+- Output schema: `MonitorStatusOutput` (see normative schema).
 
-Complete control over monitoring configuration and status.
+### check
+- Command: `wksc monitor check <path>`
+- Behavior: Determine if a path would be monitored; include priority and decision trace.
+- Output schema: `MonitorCheckOutput`.
 
-- `wksm_monitor_status` — Get monitoring status and configuration
-- `wksm_monitor_validate` — Validate configuration for conflicts
-- `wksm_monitor_check(path)` — Check if path would be monitored
-- `wksm_monitor_list(list_name)` — Get contents of configuration list
-- `wksm_monitor_add(list_name, value)` — Add value to list
-- `wksm_monitor_remove(list_name, value)` — Remove value from list
-- `wksm_monitor_managed_list` — List managed directories
-- `wksm_monitor_managed_add(path, priority)` — Add managed directory
-- `wksm_monitor_managed_remove(path)` — Remove managed directory
-- `wksm_monitor_managed_set_priority(path, priority)` — Update directory priority
-- `wksm_db_monitor()` — Query filesystem database
+### sync
+- Command: `wksc monitor sync <path> [--recursive]`
+- Behavior: Sync file/dir into monitor DB; report counts. If the path does not exist on disk but exists in the monitor database, the record MUST be deleted (removal is treated as a successful sync of zero files with a warning noting the removal).
+- Output schema: `MonitorSyncOutput`.
 
-## CLI Interface (Secondary)
+### filter show
+- Command: `wksc monitor filter show [<list_name>]`
+- Behavior: Show available lists or contents of a list.
+- Output schema: `MonitorFilterShowOutput`.
 
-Human-friendly wrappers for the MCP tools.
+### filter add
+- Command: `wksc monitor filter add <list_name> <value>`
+- Behavior: Add a value to a filter list.
+- Output schema: `MonitorFilterAddOutput`.
 
-- `wksc monitor status` — show monitoring statistics (supports `--live`)
-- `wksc monitor include_paths {add,remove} <path>` — manage explicit inclusions
-- `wksc monitor exclude_paths {add,remove} <path>` — manage explicit exclusions
-- `wksc monitor include_dirnames {add,remove} <name>` — manage directory name inclusions
-- `wksc monitor exclude_dirnames {add,remove} <name>` — manage directory name exclusions
-- `wksc monitor include_globs {add,remove} <pattern>` — manage glob pattern inclusions
-- `wksc monitor exclude_globs {add,remove} <pattern>` — manage glob pattern exclusions
-- `wksc monitor managed {add,remove,set-priority}` — manage directory priorities
-- `wksc db monitor` — query filesystem database
+### filter remove
+- Command: `wksc monitor filter remove <list_name> <value>`
+- Behavior: Remove a value from a filter list.
+- Output schema: `MonitorFilterRemoveOutput`.
+
+### priority show
+- Command: `wksc monitor priority show`
+- Behavior: Show priority directories and validation.
+- Output schema: `MonitorPriorityShowOutput`.
+
+### priority add
+- Command: `wksc monitor priority add <path> <priority>`
+- Behavior: Add/update priority for a directory.
+- Output schema: `MonitorPriorityAddOutput`.
+
+### priority remove
+- Command: `wksc monitor priority remove <path>`
+- Behavior: Remove a priority directory.
+- Output schema: `MonitorPriorityRemoveOutput`.
+
+## MCP
+- Commands mirror CLI:
+  - `wksm_monitor_status`
+  - `wksm_monitor_check <path>`
+  - `wksm_monitor_sync <path> [recursive]`
+  - `wksm_monitor_filter_show [list_name]`
+  - `wksm_monitor_filter_add <list_name> <value>`
+  - `wksm_monitor_filter_remove <list_name> <value>`
+  - `wksm_monitor_priority_show`
+  - `wksm_monitor_priority_add <path> <priority>`
+  - `wksm_monitor_priority_remove <path>`
+- Output format: JSON.
+- CLI and MCP MUST return the same data and structure for equivalent calls.
+
+## Error Semantics
+- Unknown/invalid path/list/priority entry or schema violation returns a schema-conformant error; no partial success.
+- All outputs MUST validate against their schemas before returning to CLI or MCP.
+
+## Formal Requirements
+- MON.1 — All monitor config fields are required; no defaults in code.
+- MON.2 — `wksc monitor status` reports status/validation using `MonitorStatusOutput`.
+- MON.3 — `wksc monitor check <path>` requires path and returns `MonitorCheckOutput`.
+- MON.4 — `wksc monitor sync <path>` requires path; `--recursive` optional; returns `MonitorSyncOutput`.
+- MON.5 — Filter commands must use their respective outputs: show/add/remove.
+- MON.6 — Priority commands must use their respective outputs: show/add/remove.
+- MON.7 — Schema validation required; unknown/invalid inputs yield schema-conformant errors, no partial success.

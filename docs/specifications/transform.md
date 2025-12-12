@@ -1,5 +1,7 @@
 # Transform Layer Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
 Converts binary documents (PDF, DOCX, PPTX) to text/markdown for searching, indexing, and comparison.
 
 **Why Transform Exists**:
@@ -37,4 +39,4 @@ Collection: `wks.transform`
 
 - `wksc transform` — Transform a file (e.g., `wksc transform docling file.pdf`)
 - `wksc cat` — Retrieve content (e.g., `wksc cat <checksum>` or `wksc cat <file>`)
-- `wksc db transform` — Query transform database
+- `wksc database transform` — Query transform database

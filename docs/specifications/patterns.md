@@ -1,9 +1,11 @@
 # Patterns Layer Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
 **Vision**: Simple script-based organizational patterns with MCP server for AI access. Scripts are the source of truth for both code and documentation.
 
 **Architecture**:
-- **Location**: `~/.wks/patterns/` (configurable)
+- **Location**: `{WKS_HOME}/patterns/` (where `WKS_HOME` defaults to `~/.wks` if not set via environment variable)
 - **Format**: Executable scripts (bash, python, etc.)
 - **Documentation**: Extracted from script header comments
 

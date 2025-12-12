@@ -1,5 +1,7 @@
 # Vault Layer Specification
 
+**Note**: This specification needs to be updated to align with the principles established in the monitor and database specifications. It should follow the config-first approach (configuration discussed early, database schema discussed later), remove implementation details, and focus on WHAT (interface, behavior, requirements) rather than HOW (implementation details).
+
 **Goal**: Manage a knowledge vault that links transient priorities to monitored file system resources.
 
 **Database**: `wks.vault`
@@ -64,9 +66,9 @@ Each link becomes exactly one document. `_id` is `sha256(note_path + line_number
 
 ## CLI Interface (Secondary)
 
-- `wksc vault status` — summarize the most recent automated scan (supports `--live`)
+- `wksc vault status` — summarize the most recent automated scan
 - `wksc vault sync` — force immediate vault sync (normally automatic)
 - `wksc vault validate` — validate all vault links (check for broken links)
 - `wksc vault fix-symlinks` — rebuild _links/<machine>/ from vault DB
 - `wksc vault links <path>` — show all links to and from a specific file
-- `wksc db vault` — query the underlying collection
+- `wksc database vault` — query the underlying collection
