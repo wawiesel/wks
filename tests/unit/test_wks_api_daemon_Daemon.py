@@ -69,8 +69,8 @@ def test_daemon_prevents_double_start(monkeypatch, tmp_path):
     d = Daemon()
     status1 = d.start()
     assert status1.running is True
-    status2 = d.start()
-    assert status2.running is True  # second start returns existing running
+    with pytest.raises(RuntimeError):
+        d.start()
     d.stop()
 
 

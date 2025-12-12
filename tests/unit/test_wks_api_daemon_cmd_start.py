@@ -51,14 +51,33 @@ def test_cmd_start_twice_emits_warning(monkeypatch, tmp_path):
     assert first.success is True
     assert first.output["running"] is True
 
-    # Second start should succeed but log a warning
+    # Give daemon subprocess a moment to start and be observable via PID.
+    import os
+    import time
+
+    lock_path = wks_home / "daemon.lock"
+    deadline = time.time() + 2.0
+    while True:
+        if lock_path.exists():
+            try:
+                pid = int(lock_path.read_text().strip() or "0")
+                if pid > 0:
+                    os.kill(pid, 0)
+                    break
+            except Exception:
+                pass
+        if time.time() > deadline:
+            raise AssertionError("Daemon subprocess did not appear to be running in time")
+        time.sleep(0.05)
+
+    # Second start must fail (per spec) but daemon remains running
     second = run_cmd(cmd_start.cmd_start, restrict_dir=restrict)
-    assert second.success is True
+    assert second.success is False
     assert second.output["running"] is True
 
     log_path = wks_home / "logs" / "daemon.log"
     log_text = log_path.read_text()
-    assert "WARN: Daemon already running" in log_text
+    assert "ERROR: Daemon already running" in log_text
     assert (wks_home / "daemon.lock").exists()
 
     stop_result = run_cmd(cmd_stop.cmd_stop)

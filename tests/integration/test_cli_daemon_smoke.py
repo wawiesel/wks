@@ -89,18 +89,26 @@ def test_cli_daemon_smoke(wks_env: dict):
 @pytest.mark.integration
 @pytest.mark.daemon
 def test_cli_daemon_double_start(wks_env: dict):
-    """Verify starting daemon twice doesn't error."""
+    """Verify starting daemon twice fails (single instance)."""
     env = wks_env["env"]
 
     # Start daemon first time
     result = run_wksc("daemon", "start", env=env)
     assert result.returncode == 0, f"first start failed: {result.stderr}"
 
-    time.sleep(0.2)
+    # Ensure daemon is actually running before second start (avoid flake if it dies immediately)
+    deadline = time.time() + 3.0
+    while True:
+        status = run_wksc("daemon", "status", env=env)
+        if status.returncode == 0 and ("running: true" in status.stdout or '"running": true' in status.stdout):
+            break
+        if time.time() > deadline:
+            pytest.fail(f"daemon did not report running in time: {status.stderr}")
+        time.sleep(0.2)
 
-    # Start daemon second time (should succeed, possibly with warning)
+    # Start daemon second time (must fail; daemon already running)
     result = run_wksc("daemon", "start", env=env)
-    assert result.returncode == 0, f"second start should not error: {result.stderr}"
+    assert result.returncode != 0, "second start must fail when daemon already running"
 
     # Stop daemon
     result = run_wksc("daemon", "stop", env=env)

@@ -229,7 +229,10 @@ class Daemon:
                 if existing_pid > 0 and self._pid_running(existing_pid):
                     self._append_log("ERROR: Daemon already running")
                     raise RuntimeError("Daemon already running")
-            except Exception:
+            except Exception as exc:
+                # Do not swallow the explicit "already running" failure.
+                if isinstance(exc, RuntimeError):
+                    raise
                 existing_pid = None
 
         watch_paths = self._resolve_watch_paths(restrict_dir)
