@@ -27,6 +27,49 @@ class MCPServer:
         ]
 
     @staticmethod
+    @staticmethod
+    def _find_command_in_app(app: Any, cmd_name: str) -> tuple[Any, Any, str] | None:
+        """Find command in app's registered commands."""
+        for cmd in app.registered_commands:
+            if cmd.name == cmd_name:
+                return cmd, app, cmd_name
+        return None
+
+    @staticmethod
+    def _find_command_in_groups(app: Any, cmd_name: str) -> tuple[Any, Any, str] | None:
+        """Find command in app's registered groups."""
+        if not hasattr(app, "registered_groups"):
+            return None
+        for group in app.registered_groups:
+            prefix = f"{group.name}_"
+            if cmd_name.startswith(prefix) and hasattr(group, "typer_instance"):
+                sub_cmd = cmd_name[len(prefix) :]
+                for cmd in group.typer_instance.registered_commands:
+                    if cmd.name == sub_cmd:
+                        return cmd, group.typer_instance, sub_cmd
+        return None
+
+    @staticmethod
+    def _get_command_and_schema(domain: str, cmd_name: str, app: Any) -> tuple[Any, dict[str, Any]] | None:
+        """Get command and schema for a domain/command pair."""
+        if domain == "config" and cmd_name == "show":
+            schema = get_typer_command_schema(app, None)
+            command = next((cmd for cmd in app.registered_commands if cmd.name is None), None)
+            if command is None:
+                return None
+            return command, schema
+
+        command_info = MCPServer._find_command_in_app(app, cmd_name)
+        if command_info is None:
+            command_info = MCPServer._find_command_in_groups(app, cmd_name)
+        if command_info is None:
+            return None
+
+        command, schema_app, schema_cmd = command_info
+        schema = get_typer_command_schema(schema_app, schema_cmd)
+        return command, schema
+
+    @staticmethod
     def define_tools() -> dict[str, dict[str, Any]]:
         """Build tool metadata from discovered CLI commands."""
         tools = {}
@@ -34,29 +77,12 @@ class MCPServer:
             app = get_app(domain)
             if app is None:
                 continue
-            if domain == "config" and cmd_name == "show":
-                schema = get_typer_command_schema(app, None)
-                command = next((cmd for cmd in app.registered_commands if cmd.name is None), None)
-            else:
-                command, schema_app, schema_cmd = None, app, cmd_name
-                for cmd in app.registered_commands:
-                    if cmd.name == cmd_name:
-                        command, schema_app, schema_cmd = cmd, app, cmd_name
-                        break
-                if command is None and hasattr(app, "registered_groups"):
-                    for group in app.registered_groups:
-                        prefix = f"{group.name}_"
-                        if cmd_name.startswith(prefix) and hasattr(group, "typer_instance"):
-                            sub_cmd = cmd_name[len(prefix) :]
-                            for cmd in group.typer_instance.registered_commands:
-                                if cmd.name == sub_cmd:
-                                    command, schema_app, schema_cmd = cmd, group.typer_instance, sub_cmd
-                                    break
-                            if command:
-                                break
-                if command is None:
-                    continue
-                schema = get_typer_command_schema(schema_app, schema_cmd)
+
+            result = MCPServer._get_command_and_schema(domain, cmd_name, app)
+            if result is None:
+                continue
+
+            command, schema = result
             description = (
                 command.callback.__doc__.split("\n")[0].strip()
                 if (command and command.callback and command.callback.__doc__)
