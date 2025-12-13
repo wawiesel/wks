@@ -28,20 +28,38 @@ def main():
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
 
-        # Check for violations in output since lizard return code might be 0
-        violations = [line for line in result.stdout.splitlines() if "!!!!" in line]
+        # Check for actual violations - look for "No thresholds exceeded" message
+        # If that message is present, there are no violations
+        has_no_violations = "No thresholds exceeded" in result.stdout
 
-        if violations:
-            console.print("[bold red]Complexity Violations Found:[/bold red]")
-            for v in violations:
-                console.print(v)
-            # Also print the summary table which is usually at the end
-            console.print(
-                result.stdout.split("================================================")[1]
-                if "=" in result.stdout
-                else ""
-            )
-            sys.exit(1)
+        # Check for violations in output since lizard return code might be 0
+        # The "!!!! Warnings" header is always present, so we need to check for actual violations
+        if not has_no_violations:
+            # Look for violation lines (they have numbers in specific columns after the header)
+            violation_lines = []
+            in_violations_section = False
+            for line in result.stdout.splitlines():
+                if "!!!! Warnings" in line:
+                    in_violations_section = True
+                    continue
+                if in_violations_section and "====" in line:
+                    break  # End of violations section
+                if in_violations_section and line.strip() and not line.startswith(" "):
+                    # Check if line looks like a violation (has numbers in columns)
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        try:
+                            # Try to parse numbers - if successful, it's a violation line
+                            int(parts[0])  # NLOC
+                            int(parts[1])  # CCN
+                            violation_lines.append(line)
+                        except ValueError:
+                            pass
+
+            if violation_lines:
+                console.print("[bold red]Complexity Violations Found:[/bold red]")
+                console.print(result.stdout)
+                sys.exit(1)
         elif result.returncode != 0:
             console.print("[bold red]FAILED: Lizard execution error[/bold red]")
             console.print(result.stderr)
