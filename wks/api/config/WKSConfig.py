@@ -98,7 +98,9 @@ class WKSConfig(BaseModel):
                 json.dump(self.to_dict(), fh, indent=4)
             temp_path.replace(path)
         except Exception as e:
-            if temp_path.exists():
-                with suppress(Exception):
+            # Try to clean up temp file if it exists
+            # Use suppress for both exists() and unlink() in case of permission errors
+            with suppress(Exception):
+                if temp_path.exists():
                     temp_path.unlink()
             raise RuntimeError(f"Failed to save config: {e}") from e
