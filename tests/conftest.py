@@ -44,6 +44,15 @@ def service_config_dict_for_platform() -> dict:
                 "run_at_load": False,
             },
         }
+    if backend_type == "linux":
+        return {
+            "type": "linux",
+            "sync_interval_secs": 60.0,
+            "data": {
+                "unit_name": "wks-test.service",
+                "enabled": False,
+            },
+        }
     raise RuntimeError(f"Unsupported platform for service tests: {backend_type!r}")
 
 

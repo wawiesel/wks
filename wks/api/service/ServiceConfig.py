@@ -5,10 +5,12 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from ._darwin._Data import _Data as _DarwinData
+from ._linux._Data import _Data as _LinuxData
 
 # Registry: add new backends here (ONLY place backend types are enumerated)
 _BACKEND_REGISTRY: dict[str, type[BaseModel]] = {
     "darwin": _DarwinData,
+    "linux": _LinuxData,
 }
 
 
