@@ -34,10 +34,10 @@ def test_cmd_install_config_not_found(tmp_path, monkeypatch):
     assert "warnings" in result.output
 
 
-def test_cmd_install_success_new_installation(wks_home, standard_config_dict):
+def test_cmd_install_success_new_installation(wks_home, minimal_config_dict):
     """Test cmd_install successfully creates new installation."""
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
 
     settings_path = wks_home / "settings.json"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,10 +69,10 @@ def test_cmd_install_success_new_installation(wks_home, standard_config_dict):
     assert "wks" in settings["mcpServers"]
 
 
-def test_cmd_install_success_existing_installation(wks_home, standard_config_dict, tmp_path):
+def test_cmd_install_success_existing_installation(wks_home, minimal_config_dict, tmp_path):
     """Test cmd_install successfully updates existing installation."""
     # Add existing mcp installation to standard config
-    standard_config_dict["mcp"] = {
+    minimal_config_dict["mcp"] = {
         "installs": {
             "test": {
                 "type": "mcpServersJson",
@@ -83,7 +83,7 @@ def test_cmd_install_success_existing_installation(wks_home, standard_config_dic
     }
 
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
 
     settings_path = tmp_path / "settings.json"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -101,10 +101,10 @@ def test_cmd_install_success_existing_installation(wks_home, standard_config_dic
     assert updated_config["mcp"]["installs"]["test"]["active"] is True
 
 
-def test_cmd_install_exception_handling(wks_home, standard_config_dict, monkeypatch):
+def test_cmd_install_exception_handling(wks_home, minimal_config_dict, monkeypatch):
     """Test cmd_install handles exceptions during installation."""
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
     # Make json.dump raise an exception when saving config
     original_dump = json.dump
 

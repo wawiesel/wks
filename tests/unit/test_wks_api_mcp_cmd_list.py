@@ -10,11 +10,11 @@ from wks.api.mcp.cmd_list import cmd_list
 pytestmark = pytest.mark.mcp
 
 
-def test_cmd_list_no_mcp_config(wks_home, standard_config_dict):
+def test_cmd_list_no_mcp_config(wks_home, minimal_config_dict):
     """Test cmd_list when no MCP config exists."""
     # Use standard config (no mcp section)
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
 
     result = run_cmd(cmd_list)
 
@@ -25,10 +25,10 @@ def test_cmd_list_no_mcp_config(wks_home, standard_config_dict):
     assert "warnings" in result.output
 
 
-def test_cmd_list_with_installations(wks_home, standard_config_dict):
+def test_cmd_list_with_installations(wks_home, minimal_config_dict):
     """Test cmd_list with MCP installations."""
     # Add mcp section to standard config
-    standard_config_dict["mcp"] = {
+    minimal_config_dict["mcp"] = {
         "installs": {
             "gemini": {
                 "type": "mcpServersJson",
@@ -39,7 +39,7 @@ def test_cmd_list_with_installations(wks_home, standard_config_dict):
     }
 
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
 
     result = run_cmd(cmd_list)
 

@@ -17,9 +17,9 @@ from wks.api.service.ServiceConfig import ServiceConfig
 pytestmark = pytest.mark.daemon
 
 
-def test_cmd_start_success(patch_wks_config, monkeypatch):
+def test_cmd_start_success(tracked_wks_config, monkeypatch):
     """Test cmd_start with successful start."""
-    patch_wks_config.service = ServiceConfig(
+    tracked_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={

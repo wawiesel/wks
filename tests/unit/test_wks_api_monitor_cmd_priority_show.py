@@ -9,9 +9,9 @@ from wks.api.monitor.MonitorConfig import MonitorConfig
 pytestmark = pytest.mark.monitor
 
 
-def test_cmd_priority_show_returns_stage_result(patch_wks_config, monkeypatch):
+def test_cmd_priority_show_returns_stage_result(tracked_wks_config, monkeypatch):
     """Test cmd_priority_show returns correct output."""
-    patch_wks_config.monitor = MonitorConfig(
+    tracked_wks_config.monitor = MonitorConfig(
         filter={
             "include_paths": [],
             "exclude_paths": [],

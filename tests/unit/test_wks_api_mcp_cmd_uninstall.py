@@ -23,13 +23,13 @@ def test_cmd_uninstall_config_not_found(tmp_path, monkeypatch):
     assert "warnings" in result.output
 
 
-def test_cmd_uninstall_not_found(wks_home, standard_config_dict):
+def test_cmd_uninstall_not_found(wks_home, minimal_config_dict):
     """Test cmd_uninstall when installation doesn't exist."""
     # Add empty mcp section to standard config
-    standard_config_dict["mcp"] = {"installs": {}}
+    minimal_config_dict["mcp"] = {"installs": {}}
 
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
 
     result = run_cmd(cmd_uninstall.cmd_uninstall, name="nonexistent")
 
@@ -40,7 +40,7 @@ def test_cmd_uninstall_not_found(wks_home, standard_config_dict):
     assert "warnings" in result.output
 
 
-def test_cmd_uninstall_success(wks_home, standard_config_dict):
+def test_cmd_uninstall_success(wks_home, minimal_config_dict):
     """Test cmd_uninstall successfully uninstalls."""
     settings_path = wks_home / "settings.json"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,7 +55,7 @@ def test_cmd_uninstall_success(wks_home, standard_config_dict):
     settings_path.write_text(json.dumps(settings))
 
     # Add mcp installation to standard config
-    standard_config_dict["mcp"] = {
+    minimal_config_dict["mcp"] = {
         "installs": {
             "test": {
                 "type": "mcpServersJson",
@@ -66,7 +66,7 @@ def test_cmd_uninstall_success(wks_home, standard_config_dict):
     }
 
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
 
     result = run_cmd(cmd_uninstall.cmd_uninstall, name="test")
 
@@ -90,12 +90,12 @@ def test_cmd_uninstall_success(wks_home, standard_config_dict):
     assert "other" in updated_settings["mcpServers"]
 
 
-def test_cmd_uninstall_settings_file_not_exists(wks_home, standard_config_dict):
+def test_cmd_uninstall_settings_file_not_exists(wks_home, minimal_config_dict):
     """Test cmd_uninstall when settings file doesn't exist."""
     settings_path = wks_home / "nonexistent.json"
 
     # Add mcp installation pointing to non-existent settings file
-    standard_config_dict["mcp"] = {
+    minimal_config_dict["mcp"] = {
         "installs": {
             "test": {
                 "type": "mcpServersJson",
@@ -106,7 +106,7 @@ def test_cmd_uninstall_settings_file_not_exists(wks_home, standard_config_dict):
     }
 
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
 
     result = run_cmd(cmd_uninstall.cmd_uninstall, name="test")
 
@@ -117,10 +117,10 @@ def test_cmd_uninstall_settings_file_not_exists(wks_home, standard_config_dict):
     assert "warnings" in result.output
 
 
-def test_cmd_uninstall_exception_handling(wks_home, standard_config_dict, monkeypatch):
+def test_cmd_uninstall_exception_handling(wks_home, minimal_config_dict, monkeypatch):
     """Test cmd_uninstall handles exceptions during uninstallation."""
     # Add mcp installation to standard config
-    standard_config_dict["mcp"] = {
+    minimal_config_dict["mcp"] = {
         "installs": {
             "test": {
                 "type": "mcpServersJson",
@@ -131,7 +131,7 @@ def test_cmd_uninstall_exception_handling(wks_home, standard_config_dict, monkey
     }
 
     config_path = wks_home / "config.json"
-    config_path.write_text(json.dumps(standard_config_dict))
+    config_path.write_text(json.dumps(minimal_config_dict))
     # Make json.dump raise an exception when saving config
     original_dump = json.dump
 

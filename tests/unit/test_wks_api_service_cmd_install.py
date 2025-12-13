@@ -16,9 +16,9 @@ from wks.api.service.ServiceConfig import ServiceConfig
 pytestmark = pytest.mark.daemon
 
 
-def test_cmd_install_success(patch_wks_config, monkeypatch):
+def test_cmd_install_success(tracked_wks_config, monkeypatch):
     """Test cmd_install with successful installation."""
-    patch_wks_config.service = ServiceConfig(
+    tracked_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={

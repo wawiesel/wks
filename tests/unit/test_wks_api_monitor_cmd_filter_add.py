@@ -2,14 +2,14 @@
 
 import pytest
 
-from tests.unit.conftest import create_patched_config, run_cmd
+from tests.unit.conftest import create_tracked_wks_config, run_cmd
 from wks.api.monitor import cmd_filter_add
 
 pytestmark = pytest.mark.monitor
 
 
 def test_cmd_filter_add_saves_on_success(monkeypatch):
-    cfg = create_patched_config(monkeypatch)
+    cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is True
@@ -18,7 +18,7 @@ def test_cmd_filter_add_saves_on_success(monkeypatch):
 
 def test_cmd_filter_add_unknown_list_name(monkeypatch):
     """Test cmd_filter_add with unknown list_name."""
-    create_patched_config(monkeypatch)
+    create_tracked_wks_config(monkeypatch)
 
     with pytest.raises(ValueError):
         run_cmd(cmd_filter_add.cmd_filter_add, list_name="unknown_list", value="test")
@@ -26,7 +26,7 @@ def test_cmd_filter_add_unknown_list_name(monkeypatch):
 
 def test_cmd_filter_add_empty_dirname(monkeypatch):
     """Test cmd_filter_add with empty dirname."""
-    cfg = create_patched_config(monkeypatch)
+    cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="   ")
     assert result.output["success"] is False
@@ -36,7 +36,7 @@ def test_cmd_filter_add_empty_dirname(monkeypatch):
 
 def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
     """Test cmd_filter_add with wildcard in dirname."""
-    cfg = create_patched_config(monkeypatch)
+    cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="test*")
     assert result.output["success"] is False
@@ -46,7 +46,7 @@ def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
 
 def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
     """Test cmd_filter_add when dirname already in opposite list."""
-    cfg = create_patched_config(monkeypatch, {"filter": {"exclude_dirnames": ["testdir"]}})
+    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"exclude_dirnames": ["testdir"]}})
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is False
@@ -56,7 +56,7 @@ def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
 
 def test_cmd_filter_add_dirname_no_error(monkeypatch):
     """Test cmd_filter_add with valid dirname."""
-    cfg = create_patched_config(monkeypatch)
+    cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is True
@@ -65,7 +65,7 @@ def test_cmd_filter_add_dirname_no_error(monkeypatch):
 
 def test_cmd_filter_add_empty_glob(monkeypatch):
     """Test cmd_filter_add with empty glob."""
-    cfg = create_patched_config(monkeypatch)
+    cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="   ")
     assert result.output["success"] is False
@@ -75,7 +75,7 @@ def test_cmd_filter_add_empty_glob(monkeypatch):
 
 def test_cmd_filter_add_glob_validation_success(monkeypatch):
     """Test cmd_filter_add with valid glob."""
-    cfg = create_patched_config(monkeypatch)
+    cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.py")
     assert result.output["success"] is True
@@ -90,7 +90,7 @@ def test_cmd_filter_add_else_branch(monkeypatch):
 
 def test_cmd_filter_add_validation_error(monkeypatch):
     """Test cmd_filter_add with validation error."""
-    cfg = create_patched_config(monkeypatch)
+    cfg = create_tracked_wks_config(monkeypatch)
 
     # Try to add invalid dirname (with path separator)
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="invalid/path")
@@ -101,7 +101,7 @@ def test_cmd_filter_add_validation_error(monkeypatch):
 
 def test_cmd_filter_add_duplicate(monkeypatch):
     """Test cmd_filter_add with duplicate value."""
-    cfg = create_patched_config(monkeypatch, {"filter": {"include_paths": ["/tmp/x"]}})
+    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_paths": ["/tmp/x"]}})
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is False

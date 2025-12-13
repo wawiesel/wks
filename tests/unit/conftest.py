@@ -16,19 +16,12 @@ from wks.api.config.WKSConfig import WKSConfig
 
 __all__ = [
     "TrackedConfig",
-    "create_patched_config",
+    "create_tracked_wks_config",
     "minimal_config_dict",
     "minimal_wks_config",
-    "patch_wks_config",
     "run_cmd",
-    "standard_config_dict",
+    "tracked_wks_config",
 ]
-
-
-@pytest.fixture
-def standard_config_dict(minimal_config_dict: dict) -> dict:
-    """Backward compatibility alias for minimal_config_dict."""
-    return minimal_config_dict
 
 
 class TrackedConfig:
@@ -57,7 +50,7 @@ class TrackedConfig:
         self.save_calls += 1
 
 
-def create_patched_config(monkeypatch, monitor_config_data: dict | None = None) -> TrackedConfig:
+def create_tracked_wks_config(monkeypatch, monitor_config_data: dict | None = None) -> TrackedConfig:
     """Patch WKSConfig.load to return a TrackedConfig instance.
 
     Args:
@@ -85,6 +78,6 @@ def create_patched_config(monkeypatch, monitor_config_data: dict | None = None) 
 
 
 @pytest.fixture
-def patch_wks_config(monkeypatch) -> TrackedConfig:
-    """Fixture that patches WKSConfig with default settings."""
-    return create_patched_config(monkeypatch)
+def tracked_wks_config(monkeypatch) -> TrackedConfig:
+    """Fixture that patches WKSConfig with default settings and returns TrackedConfig."""
+    return create_tracked_wks_config(monkeypatch)

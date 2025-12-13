@@ -11,9 +11,9 @@ from wks.api.monitor.MonitorConfig import MonitorConfig
 pytestmark = pytest.mark.monitor
 
 
-def test_cmd_priority_add_existing_returns_flag(patch_wks_config):
+def test_cmd_priority_add_existing_returns_flag(tracked_wks_config):
     """Test cmd_priority_add when path already exists."""
-    patch_wks_config.monitor = MonitorConfig(
+    tracked_wks_config.monitor = MonitorConfig(
         filter={
             "include_paths": [],
             "exclude_paths": [],
@@ -38,12 +38,12 @@ def test_cmd_priority_add_existing_returns_flag(patch_wks_config):
     result = run_cmd(cmd_priority_add.cmd_priority_add, path="existing", priority=5)
     assert result.output["already_exists"] is True
     assert result.output["success"] is True
-    assert patch_wks_config.save_calls == 1
+    assert tracked_wks_config.save_calls == 1
 
 
-def test_cmd_priority_add_stores_and_saves(patch_wks_config):
+def test_cmd_priority_add_stores_and_saves(tracked_wks_config):
     """Test cmd_priority_add creates new priority directory and saves."""
-    patch_wks_config.monitor = MonitorConfig(
+    tracked_wks_config.monitor = MonitorConfig(
         filter={
             "include_paths": [],
             "exclude_paths": [],
@@ -68,15 +68,15 @@ def test_cmd_priority_add_stores_and_saves(patch_wks_config):
     result = run_cmd(cmd_priority_add.cmd_priority_add, path="/tmp/new", priority=2)
     assert result.output["success"] is True
     assert result.output["created"] is True
-    assert patch_wks_config.save_calls == 1
+    assert tracked_wks_config.save_calls == 1
     resolved = str(Path("/tmp/new").resolve())
-    assert resolved in patch_wks_config.monitor.priority.dirs
-    assert patch_wks_config.monitor.priority.dirs[resolved] == 2
+    assert resolved in tracked_wks_config.monitor.priority.dirs
+    assert tracked_wks_config.monitor.priority.dirs[resolved] == 2
 
 
-def test_cmd_priority_add_not_found_creates(patch_wks_config):
+def test_cmd_priority_add_not_found_creates(tracked_wks_config):
     """Test cmd_priority_add creates when path not found."""
-    patch_wks_config.monitor = MonitorConfig(
+    tracked_wks_config.monitor = MonitorConfig(
         filter={
             "include_paths": [],
             "exclude_paths": [],
@@ -102,12 +102,12 @@ def test_cmd_priority_add_not_found_creates(patch_wks_config):
     assert result.output["success"] is True
     assert result.output["created"] is True
     resolved = str(Path("/tmp/a").resolve())
-    assert patch_wks_config.monitor.priority.dirs[resolved] == 5
+    assert tracked_wks_config.monitor.priority.dirs[resolved] == 5
 
 
-def test_cmd_priority_add_updates(patch_wks_config):
+def test_cmd_priority_add_updates(tracked_wks_config):
     """Test cmd_priority_add updates existing priority."""
-    patch_wks_config.monitor = MonitorConfig(
+    tracked_wks_config.monitor = MonitorConfig(
         filter={
             "include_paths": [],
             "exclude_paths": [],
@@ -134,4 +134,4 @@ def test_cmd_priority_add_updates(patch_wks_config):
     assert result.output["already_exists"] is True
     assert result.output["old_priority"] == 1
     assert result.output["new_priority"] == 7
-    assert patch_wks_config.monitor.priority.dirs["/tmp/a"] == 7
+    assert tracked_wks_config.monitor.priority.dirs["/tmp/a"] == 7

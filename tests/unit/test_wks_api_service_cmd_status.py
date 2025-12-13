@@ -14,9 +14,9 @@ from wks.api.service.ServiceConfig import ServiceConfig
 pytestmark = pytest.mark.daemon
 
 
-def test_cmd_status_success(patch_wks_config, monkeypatch):
+def test_cmd_status_success(tracked_wks_config, monkeypatch):
     """Test cmd_status with successful status check."""
-    patch_wks_config.service = ServiceConfig(
+    tracked_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={
@@ -60,9 +60,9 @@ def test_cmd_status_success(patch_wks_config, monkeypatch):
     assert "warnings" in result.output and result.output["warnings"] == []
 
 
-def test_cmd_status_not_installed(patch_wks_config, monkeypatch):
+def test_cmd_status_not_installed(tracked_wks_config, monkeypatch):
     """Test cmd_status when service is not installed."""
-    patch_wks_config.service = ServiceConfig(
+    tracked_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={

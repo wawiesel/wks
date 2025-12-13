@@ -16,9 +16,9 @@ from wks.api.service.ServiceConfig import ServiceConfig
 pytestmark = pytest.mark.daemon
 
 
-def test_cmd_uninstall_success(patch_wks_config, monkeypatch):
+def test_cmd_uninstall_success(tracked_wks_config, monkeypatch):
     """Test cmd_uninstall with successful uninstallation."""
-    patch_wks_config.service = ServiceConfig(
+    tracked_wks_config.service = ServiceConfig(
         type="darwin",
         sync_interval_secs=60.0,
         data={
