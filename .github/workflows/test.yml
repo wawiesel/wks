@@ -68,7 +68,8 @@ jobs:
       - name: Run tests
         run: |
           # Run tests in parallel (auto-detects CPU count)
-          python -m pytest tests/ -v --tb=short -n auto
+          # Exclude linux_service tests - they require Docker with systemd and run in test-linux-service.yml
+          python -m pytest tests/ -v --tb=short -n auto -m "not linux_service"
         continue-on-error: false
 
       - name: Check imports

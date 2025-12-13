@@ -16,8 +16,22 @@ from wks.api.service.Service import Service
 
 
 def _check_systemd_available() -> bool:
-    """Check if systemd is available (running in Docker with systemd)."""
+    """Check if systemd is available (running in Docker with systemd).
+
+    This check is more strict - we need both systemctl command and a working user session.
+    """
     try:
+        # First check if systemctl exists
+        result = subprocess.run(
+            ["systemctl", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode != 0:
+            return False
+
+        # Check if user systemd session is available
         result = subprocess.run(
             ["systemctl", "--user", "is-system-running"],
             capture_output=True,
@@ -25,6 +39,9 @@ def _check_systemd_available() -> bool:
             timeout=5,
         )
         # systemd is available if command succeeds (even if system is not fully running)
+        # Also check stderr for common errors
+        if result.stderr and ("Failed to connect" in result.stderr or "No such file" in result.stderr):
+            return False
         return result.returncode == 0 or "running" in result.stdout.lower()
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
