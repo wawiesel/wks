@@ -1,0 +1,38 @@
+# Dockerfile for testing Linux systemd service installation.
+# This image provides a minimal Ubuntu environment with systemd enabled,
+# allowing us to test actual systemd user service installation.
+
+FROM ubuntu:22.04
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install systemd and required dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        systemd \
+        systemd-sysv \
+        python3 \
+        python3-pip \
+        python3-venv \
+        git \
+        sudo \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for testing (systemd user services require a user)
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    mkdir -p /home/testuser/.config/systemd/user && \
+    chown -R testuser:testuser /home/testuser
+
+# Set up working directory
+WORKDIR /workspace
+
+# Set environment variables
+ENV WKS_HOME=/home/testuser/.wks
+ENV PATH=/home/testuser/.local/bin:$PATH
+
+# Note: We don't install the package here - it will be installed in the workflow
+# to ensure we're testing the latest code
