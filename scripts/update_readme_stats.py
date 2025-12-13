@@ -173,11 +173,16 @@ def _get_user_docs_stats() -> SectionStats:
 
 def _get_dev_docs_stats() -> SectionStats:
     """Get statistics for developer documentation."""
-    stats = sum(_get_file_stats(REPO_ROOT / f) for f in ["CONTRIBUTING.md", "AGENTS.md"] if (REPO_ROOT / f).exists())
+    stats = SectionStats(0, 0, 0, 0)
+    for f in ["CONTRIBUTING.md", "AGENTS.md"]:
+        if (REPO_ROOT / f).exists():
+            stats += _get_file_stats(REPO_ROOT / f)
     stats += _get_text_file_stats(REPO_ROOT / ".cursor" / "rules", [".md", ".txt"])
     stats += _get_text_file_stats(REPO_ROOT / "docs" / "other", [".md"])
     stats += _get_text_file_stats(REPO_ROOT / "docs" / "campaigns", [".md"])
-    stats += sum(_get_file_stats(f) for f in (REPO_ROOT / "wks").rglob("README.md") if (REPO_ROOT / "wks").exists())
+    if (REPO_ROOT / "wks").exists():
+        for f in (REPO_ROOT / "wks").rglob("README.md"):
+            stats += _get_file_stats(f)
     return stats
 
 
@@ -193,8 +198,11 @@ def _get_infrastructure_cicd_stats() -> SectionStats:
 
 def _get_infrastructure_build_config_stats() -> SectionStats:
     """Get statistics for build/config files."""
-    config_files = ["pyproject.toml", "setup.py", "setup.cfg", "pytest.ini", ".pre-commit-config.yaml"]
-    return sum(_get_file_stats(REPO_ROOT / f) for f in config_files if (REPO_ROOT / f).exists())
+    stats = SectionStats(0, 0, 0, 0)
+    for f in ["pyproject.toml", "setup.py", "setup.cfg", "pytest.ini", ".pre-commit-config.yaml"]:
+        if (REPO_ROOT / f).exists():
+            stats += _get_file_stats(REPO_ROOT / f)
+    return stats
 
 
 def _get_infrastructure_scripts_stats() -> SectionStats:
