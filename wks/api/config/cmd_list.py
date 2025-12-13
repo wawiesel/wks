@@ -19,7 +19,7 @@ def cmd_list() -> StageResult:
             result_obj.output = error_output
             result_obj.success = False
             return
-
+        assert config is not None  # If error_output is None, config must be set
         yield (0.6, "Collecting sections...")
         config_dict = config.to_dict()
         sections = list(config_dict.keys())

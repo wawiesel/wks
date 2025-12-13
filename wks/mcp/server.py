@@ -47,7 +47,7 @@ class MCPServer:
                     for group in app.registered_groups:
                         prefix = f"{group.name}_"
                         if cmd_name.startswith(prefix) and hasattr(group, "typer_instance"):
-                            sub_cmd = cmd_name[len(prefix):]
+                            sub_cmd = cmd_name[len(prefix) :]
                             for cmd in group.typer_instance.registered_commands:
                                 if cmd.name == sub_cmd:
                                     command, schema_app, schema_cmd = cmd, group.typer_instance, sub_cmd

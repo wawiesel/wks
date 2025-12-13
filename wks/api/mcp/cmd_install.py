@@ -81,6 +81,7 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
             yield (0.5, "Performing installation...")
             # Perform actual installation based on type
             if install_type == "mcpServersJson":
+                assert settings_path is not None  # Checked at line 27
                 settings_file = Path(expand_path(settings_path))
                 settings_file.parent.mkdir(parents=True, exist_ok=True)
 

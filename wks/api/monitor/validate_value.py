@@ -14,7 +14,7 @@ def validate_value(list_name: str, value: str, monitor_cfg: MonitorConfig) -> tu
         value_resolved = canonicalize_path(value)
         home_dir = str(Path.home())
         if value_resolved.startswith(home_dir):
-            return "~" + value_resolved[len(home_dir):], None
+            return "~" + value_resolved[len(home_dir) :], None
         return value_resolved, None
 
     if list_name in ("include_dirnames", "exclude_dirnames"):

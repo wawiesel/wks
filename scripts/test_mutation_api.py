@@ -170,9 +170,7 @@ def main() -> None:
             sys.stdout.write(results_output)
         else:
             # Default mutmut behavior hides killed; keep output manageable unless explicitly requested.
-            filtered = "\n".join(
-                line for line in results_output.splitlines() if not line.strip().endswith(": killed")
-            )
+            filtered = "\n".join(line for line in results_output.splitlines() if not line.strip().endswith(": killed"))
             if filtered.strip():
                 sys.stdout.write(filtered + "\n")
 

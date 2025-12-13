@@ -19,6 +19,7 @@ def cmd_show(section: str) -> StageResult:
             result_obj.output = error_output
             result_obj.success = False
             return
+        assert config is not None  # If error_output is None, config must be set
         yield (0.6, "Processing sections...")
         config_dict = config.to_dict()
         available_sections = list(config_dict.keys())
