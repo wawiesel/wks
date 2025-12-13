@@ -1,5 +1,6 @@
 # WKS
 
+![Coverage](https://img.shields.io/badge/coverage-49.8%25-red)
 ![Mutation Score](https://img.shields.io/badge/mutation-91.6%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-225-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -20,7 +21,7 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |      99 |  8,784 |      306,521 |   49,916 |      31.5% |
+| **api**   |      99 |  8,784 |      306,521 |   49,916 |      31.4% |
 | **cli**   |      11 |    990 |       34,215 |    6,100 |       3.8% |
 | **mcp**   |       9 |    457 |       16,368 |    3,188 |       2.0% |
 | **utils** |      10 |    472 |       13,981 |    1,417 |       0.9% |
@@ -33,16 +34,16 @@
 | **Unit Tests**        |      43 | 3,528 |      120,897 |   21,268 |      13.4% |
 | **Integration Tests** |      10 | 1,074 |       34,707 |    6,933 |       4.4% |
 | **Smoke Tests**       |       3 |   332 |       10,175 |    1,737 |       1.1% |
-| **Total**             |      56 | 4,934 |      165,779 |   29,938 |      18.9% |
+| **Total**             |      56 | 4,934 |      165,779 |   29,938 |      18.8% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
-| **User Documentation**      |       8 |   374 |       13,246 |    3,311 |       2.1% |
+| **User Documentation**      |       8 |   375 |       13,332 |    3,332 |       2.1% |
 | **Developer Documentation** |      47 | 3,434 |      146,728 |   36,675 |      23.1% |
 | **Specifications**          |      19 | 1,479 |       65,344 |   16,336 |      10.3% |
-| **Total**                   |      74 | 5,287 |      225,318 |   56,322 |      35.5% |
+| **Total**                   |      74 | 5,288 |      225,404 |   56,343 |      35.5% |
 
 ### Infrastructure Summary
 
@@ -50,8 +51,8 @@
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   209 |        5,436 |    1,359 |       0.9% |
 | **Build/Config** |       5 |   200 |        5,522 |    1,378 |       0.9% |
-| **Scripts**      |      12 | 1,275 |       43,960 |    9,097 |       5.7% |
-| **Total**        |      21 | 1,684 |       54,918 |   11,834 |       7.5% |
+| **Scripts**      |      12 | 1,341 |       44,859 |    9,221 |       5.8% |
+| **Total**        |      21 | 1,750 |       55,817 |   11,958 |       7.5% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 91.6% means 91.6% of mutations are killed by our tests, indicating strong test coverage and quality.
 

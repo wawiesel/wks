@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Update code statistics in README.md from current codebase metrics."""
 
+import contextlib
 import re
 import subprocess
 import sys
@@ -10,7 +11,7 @@ from io import StringIO
 from pathlib import Path
 
 try:
-    from tabulate import tabulate
+    from tabulate import tabulate  # type: ignore[import-untyped]
 except ImportError:
     print("Error: tabulate is required. Install with: pip install tabulate", file=sys.stderr)
     sys.exit(1)
@@ -22,6 +23,7 @@ README_PATH = REPO_ROOT / "README.md"
 @dataclass
 class SectionStats:
     """Statistics for a code section."""
+
     files: int
     loc: int
     chars: int
@@ -53,15 +55,19 @@ def _get_mutation_stats() -> tuple[float, int, int]:
     if rc != 0:
         return 0.0, 0, 0
 
-    killed = sum(1 for line in output.splitlines() if ":" in line and line.rsplit(":", 1)[1].strip().lower() == "killed")
-    survived = sum(1 for line in output.splitlines() if ":" in line and line.rsplit(":", 1)[1].strip().lower() == "survived")
+    killed = sum(
+        1 for line in output.splitlines() if ":" in line and line.rsplit(":", 1)[1].strip().lower() == "killed"
+    )
+    survived = sum(
+        1 for line in output.splitlines() if ":" in line and line.rsplit(":", 1)[1].strip().lower() == "survived"
+    )
     total = killed + survived
     return (round(killed / total * 100, 1) if total > 0 else 0.0, killed, survived)
 
 
 def _get_test_count() -> int:
     """Get total number of tests."""
-    rc, output = _run_cmd([sys.executable, "-m", "pytest", "-q", "tests/"])
+    _rc, output = _run_cmd([sys.executable, "-m", "pytest", "-q", "tests/"])
     for line in reversed(output.splitlines()):
         match = re.search(r"(\d+)\s+passed", line, re.IGNORECASE)
         if match:
@@ -75,6 +81,7 @@ def _get_code_coverage() -> tuple[float, str]:
     if coverage_xml.exists():
         try:
             import xml.etree.ElementTree as ET
+
             line_rate = float(ET.parse(coverage_xml).getroot().get("line-rate", 0))
             coverage_pct = round(line_rate * 100, 1)
             return coverage_pct, "✅ Pass" if coverage_pct >= 100.0 else "⚠️ Below Target"
@@ -103,17 +110,32 @@ def _get_python_file_stats(directory: Path) -> SectionStats:
 
     # Count LOC using wc
     result = subprocess.run(
-        ["find", str(directory), "-name", "*.py", "-type", "f", "!", "-path", "*/__pycache__/*", "-exec", "wc", "-l", "{}", "+"],
-        capture_output=True, text=True, check=False
+        [
+            "find",
+            str(directory),
+            "-name",
+            "*.py",
+            "-type",
+            "f",
+            "!",
+            "-path",
+            "*/__pycache__/*",
+            "-exec",
+            "wc",
+            "-l",
+            "{}",
+            "+",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     loc = 0
     if result.returncode == 0 and result.stdout.strip():
         parts = result.stdout.strip().split()
         if parts:
-            try:
+            with contextlib.suppress(ValueError, IndexError):
                 loc = int(parts[-2])  # Second to last is total LOC
-            except (ValueError, IndexError):
-                pass
 
     # Count chars and tokens
     chars = 0
@@ -134,7 +156,7 @@ def _get_text_file_stats(directory: Path, extensions: list[str]) -> SectionStats
     if not directory.exists():
         return SectionStats(0, 0, 0, 0)
 
-    files = []
+    files: list[Path] = []
     for ext in extensions:
         files.extend(directory.glob(f"**/*{ext}"))
     files = [f for f in files if "__pycache__" not in str(f) and "/.git/" not in str(f)]
@@ -188,8 +210,8 @@ def _get_dev_docs_stats() -> SectionStats:
     stats += _get_text_file_stats(REPO_ROOT / "docs" / "other", [".md"])
     stats += _get_text_file_stats(REPO_ROOT / "docs" / "campaigns", [".md"])
     if (REPO_ROOT / "wks").exists():
-        for f in (REPO_ROOT / "wks").rglob("README.md"):
-            stats += _get_file_stats(f)
+        for readme_file in (REPO_ROOT / "wks").rglob("README.md"):
+            stats += _get_file_stats(readme_file)
     return stats
 
 
@@ -222,7 +244,12 @@ def _get_infrastructure_scripts_stats() -> SectionStats:
     for py_file in scripts_dir.glob("*.py"):
         try:
             content = py_file.read_text(encoding="utf-8")
-            stats += SectionStats(1, len(content.splitlines()), len(content), len(list(tokenize.generate_tokens(StringIO(content).readline))))
+            stats += SectionStats(
+                1,
+                len(content.splitlines()),
+                len(content),
+                len(list(tokenize.generate_tokens(StringIO(content).readline))),
+            )
         except Exception:
             continue
 
@@ -232,7 +259,7 @@ def _get_infrastructure_scripts_stats() -> SectionStats:
     return stats
 
 
-def _fix_separator_alignment(table: str, num_numeric_cols: int) -> str:
+def _fix_separator_alignment(table: str, _num_numeric_cols: int) -> str:
     """Fix separator row alignment markers to match header widths."""
     lines = table.split("\n")
     if len(lines) < 2:
@@ -254,15 +281,17 @@ def _fix_separator_alignment(table: str, num_numeric_cols: int) -> str:
             # Numeric columns: right-aligned (colon on right)
             sep_parts.append("-" * (width - 1) + ":")
         sep_parts.append("|")  # Pipe after each column
-    
+
     lines[1] = "".join(sep_parts)
     return "\n".join(lines)
 
 
-def _generate_badges(mutation_score: float, test_count: int) -> str:
+def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int) -> str:
     """Generate badge markdown."""
-    color = "brightgreen" if mutation_score >= 90.0 else "yellow" if mutation_score >= 80.0 else "red"
-    return f"""![Mutation Score](https://img.shields.io/badge/mutation-{mutation_score}%25-{color})
+    mutation_color = "brightgreen" if mutation_score >= 90.0 else "yellow" if mutation_score >= 80.0 else "red"
+    coverage_color = "brightgreen" if coverage_pct >= 100.0 else "yellow" if coverage_pct >= 80.0 else "red"
+    return f"""![Coverage](https://img.shields.io/badge/coverage-{coverage_pct}%25-{coverage_color})
+![Mutation Score](https://img.shields.io/badge/mutation-{mutation_score}%25-{mutation_color})
 ![Tests](https://img.shields.io/badge/tests-{test_count}-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)"""
@@ -282,12 +311,26 @@ def _format_row(label: str, stats: SectionStats, pct: str) -> list[str]:
 
 
 def _generate_table(
-    coverage_pct: float, coverage_status: str, mutation_score: float, killed: int, survived: int,
-    test_count: int, test_files: int,
-    api_stats: SectionStats, cli_stats: SectionStats, mcp_stats: SectionStats, utils_stats: SectionStats,
-    unit_test_stats: SectionStats, integration_test_stats: SectionStats, smoke_test_stats: SectionStats,
-    cicd_stats: SectionStats, build_config_stats: SectionStats, scripts_stats: SectionStats,
-    specs_stats: SectionStats, user_docs_stats: SectionStats, dev_docs_stats: SectionStats,
+    coverage_pct: float,
+    coverage_status: str,
+    mutation_score: float,
+    _killed: int,
+    _survived: int,
+    test_count: int,
+    test_files: int,
+    api_stats: SectionStats,
+    cli_stats: SectionStats,
+    mcp_stats: SectionStats,
+    utils_stats: SectionStats,
+    unit_test_stats: SectionStats,
+    integration_test_stats: SectionStats,
+    smoke_test_stats: SectionStats,
+    cicd_stats: SectionStats,
+    build_config_stats: SectionStats,
+    scripts_stats: SectionStats,
+    specs_stats: SectionStats,
+    user_docs_stats: SectionStats,
+    dev_docs_stats: SectionStats,
 ) -> str:
     """Generate statistics table markdown."""
     mutation_status = "✅ Pass" if mutation_score >= 90.0 else "⚠️ Below Target"
@@ -309,7 +352,7 @@ def _generate_table(
             ["**Code Coverage**", f"{coverage_pct}%", "100%", coverage_status],
             ["**Mutation Kill %**", f"{mutation_score}%", "≥90%", mutation_status],
         ],
-        2
+        2,
     )
 
     # Source size table
@@ -322,7 +365,7 @@ def _generate_table(
             _format_row("utils", utils_stats, pct(utils_stats.tokens)),
             _format_row("Total", code_total, pct(code_total.tokens)),
         ],
-        5
+        5,
     )
 
     # Testing table
@@ -334,7 +377,7 @@ def _generate_table(
             _format_row("Smoke Tests", smoke_test_stats, pct(smoke_test_stats.tokens)),
             _format_row("Total", test_total, pct(test_total.tokens)),
         ],
-        5
+        5,
     )
 
     # Infrastructure table
@@ -346,7 +389,7 @@ def _generate_table(
             _format_row("Scripts", scripts_stats, pct(scripts_stats.tokens)),
             _format_row("Total", infra_total, pct(infra_total.tokens)),
         ],
-        5
+        5,
     )
 
     # Documentation table
@@ -358,7 +401,13 @@ def _generate_table(
             _format_row("Specifications", specs_stats, pct(specs_stats.tokens)),
             _format_row("Total", docs_total, pct(docs_total.tokens)),
         ],
-        5
+        5,
+    )
+
+    mutation_desc = (
+        f"Tests the quality of our test suite by introducing small changes (mutations) to the code "
+        f"and verifying that existing tests catch them. A score of {mutation_score}% means "
+        f"{mutation_score}% of mutations are killed by our tests, indicating strong test coverage and quality."
     )
 
     return f"""{metrics_table}
@@ -379,7 +428,7 @@ def _generate_table(
 
 {infra_table}
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of {mutation_score}% means {mutation_score}% of mutations are killed by our tests, indicating strong test coverage and quality.
+**Mutation Testing**: {mutation_desc}
 
 **Test Statistics**: {test_count:,} tests across {test_files:,} test files."""
 
@@ -413,13 +462,28 @@ def _update_readme() -> None:
     }
 
     # Generate content
-    badges = _generate_badges(mutation_score, test_count)
+    badges = _generate_badges(coverage_pct, mutation_score, test_count)
     table = _generate_table(
-        coverage_pct, coverage_status, mutation_score, killed, survived, test_count, test_files,
-        stats["api"], stats["cli"], stats["mcp"], stats["utils"],
-        stats["unit"], stats["integration"], stats["smoke"],
-        stats["cicd"], stats["build_config"], stats["scripts"],
-        stats["specs"], stats["user_docs"], stats["dev_docs"],
+        coverage_pct,
+        coverage_status,
+        mutation_score,
+        killed,
+        survived,
+        test_count,
+        test_files,
+        stats["api"],
+        stats["cli"],
+        stats["mcp"],
+        stats["utils"],
+        stats["unit"],
+        stats["integration"],
+        stats["smoke"],
+        stats["cicd"],
+        stats["build_config"],
+        stats["scripts"],
+        stats["specs"],
+        stats["user_docs"],
+        stats["dev_docs"],
     )
 
     # Update README
@@ -437,12 +501,14 @@ def _update_readme() -> None:
         if next_section == -1:
             next_section = content.find("\nAI-assisted", table_start)
         if next_section != -1:
-            content = content[:table_start + len(table_header)] + table + "\n\n" + content[next_section:]
+            content = content[: table_start + len(table_header)] + table + "\n\n" + content[next_section:]
         else:
-            content = content[:table_start + len(table_header)] + table
+            content = content[: table_start + len(table_header)] + table
     else:
         # Fallback regex
-        content = re.sub(r"(## Code Quality Metrics\n\n)(.*?)(\n\n## |\nAI-assisted)", rf"\1{table}\n\n\3", content, flags=re.DOTALL)
+        content = re.sub(
+            r"(## Code Quality Metrics\n\n)(.*?)(\n\n## |\nAI-assisted)", rf"\1{table}\n\n\3", content, flags=re.DOTALL
+        )
 
     README_PATH.write_text(content)
     print(f"✅ Updated {README_PATH} with current statistics")

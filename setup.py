@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="wks",
-    version="0.4.0",
+    version="0.5.0",
     description="Wieselquist Knowledge System - AI-assisted file organization",
     author="William Wieselquist",
     packages=find_packages(),
