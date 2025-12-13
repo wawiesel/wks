@@ -5,7 +5,9 @@ import time
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
-from wks.api.daemon import cmd_start, cmd_status, cmd_stop
+from wks.api.daemon.cmd_start import cmd_start
+from wks.api.daemon.cmd_status import cmd_status
+from wks.api.daemon.cmd_stop import cmd_stop
 
 
 @pytest.mark.daemon
@@ -18,18 +20,18 @@ def test_cmd_status_reads_written_status(monkeypatch, tmp_path):
     cfg.save()
 
     # Start to create daemon.json
-    start_result = run_cmd(cmd_start.cmd_start)
+    start_result = run_cmd(cmd_start)
     assert start_result.success is True
 
     # Status should read daemon.json
-    status_result = run_cmd(cmd_status.cmd_status)
+    status_result = run_cmd(cmd_status)
     assert status_result.success is True
     assert status_result.output["running"] is True
     assert status_result.output["restrict_dir"] == ""
     assert status_result.output["log_path"].endswith("daemon.log")
 
     # Stop to clean up
-    stop_result = run_cmd(cmd_stop.cmd_stop)
+    stop_result = run_cmd(cmd_stop)
     assert stop_result.success is True
 
 
@@ -42,7 +44,7 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg.save()
 
-    run_cmd(cmd_start.cmd_start)
+    run_cmd(cmd_start)
 
     log_path = wks_home / "logs" / "daemon.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,7 +56,7 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
     # Poll until daemon.json reflects the extracted messages (it is rewritten each loop).
     deadline = time.time() + 5.0
     while True:
-        status_result = run_cmd(cmd_status.cmd_status)
+        status_result = run_cmd(cmd_status)
         assert status_result.success is True
         warnings = status_result.output.get("warnings", [])
         errors = status_result.output.get("errors", [])
@@ -66,4 +68,4 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
             )
         time.sleep(0.1)
 
-    run_cmd(cmd_stop.cmd_stop)
+    run_cmd(cmd_stop)

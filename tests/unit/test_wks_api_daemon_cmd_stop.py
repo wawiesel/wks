@@ -3,7 +3,8 @@
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
-from wks.api.daemon import cmd_start, cmd_stop
+from wks.api.daemon.cmd_start import cmd_start
+from wks.api.daemon.cmd_stop import cmd_stop
 from wks.api.daemon._read_status_file import read_status_file
 
 
@@ -16,11 +17,11 @@ def test_cmd_stop_clears_lock_and_updates_status(monkeypatch, tmp_path):
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg.save()
 
-    run_cmd(cmd_start.cmd_start)
+    run_cmd(cmd_start)
     assert (wks_home / "daemon.lock").exists()
     assert (wks_home / "daemon.json").exists()
 
-    result = run_cmd(cmd_stop.cmd_stop)
+    result = run_cmd(cmd_stop)
     assert result.success is True
     assert result.output["stopped"] is True
     assert not (wks_home / "daemon.lock").exists()
@@ -38,9 +39,9 @@ def test_cmd_stop_idempotent(monkeypatch, tmp_path):
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg.save()
 
-    run_cmd(cmd_start.cmd_start)
-    first = run_cmd(cmd_stop.cmd_stop)
+    run_cmd(cmd_start)
+    first = run_cmd(cmd_stop)
     assert first.success is True
-    second = run_cmd(cmd_stop.cmd_stop)
+    second = run_cmd(cmd_stop)
     assert second.success is True
     assert second.output["stopped"] is True

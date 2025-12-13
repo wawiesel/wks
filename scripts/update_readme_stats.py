@@ -106,7 +106,14 @@ def _get_python_file_stats(directory: Path) -> SectionStats:
         ["find", str(directory), "-name", "*.py", "-type", "f", "!", "-path", "*/__pycache__/*", "-exec", "wc", "-l", "{}", "+"],
         capture_output=True, text=True, check=False
     )
-    loc = int(result.stdout.strip().split()[-2]) if result.returncode == 0 and result.stdout.strip() else 0
+    loc = 0
+    if result.returncode == 0 and result.stdout.strip():
+        parts = result.stdout.strip().split()
+        if parts:
+            try:
+                loc = int(parts[-2])  # Second to last is total LOC
+            except (ValueError, IndexError):
+                pass
 
     # Count chars and tokens
     chars = 0
@@ -225,30 +232,30 @@ def _get_infrastructure_scripts_stats() -> SectionStats:
     return stats
 
 
-def _right_align_numeric_columns(table: str, num_numeric_cols: int) -> str:
-    """Right-align numeric columns in a markdown table."""
+def _fix_separator_alignment(table: str, num_numeric_cols: int) -> str:
+    """Fix separator row alignment markers to match header widths."""
     lines = table.split("\n")
     if len(lines) < 2:
         return table
 
-    # Update separator row: add : to numeric column separators
-    sep_parts = lines[1].split("|")
-    for i in range(2, min(len(sep_parts) - 1, num_numeric_cols + 2)):
-        part = sep_parts[i].strip()
-        if part.startswith("-") and not part.endswith(":"):
-            sep_parts[i] = part + ":"
-    lines[1] = "|".join(sep_parts)
+    # Get header cell widths (including padding)
+    header_parts = lines[0].split("|")[1:-1]
+    if not header_parts:
+        return table
 
-    # Right-align data in numeric columns
-    for line_idx in range(2, len(lines)):
-        parts = lines[line_idx].split("|")
-        for i in range(2, min(len(parts) - 1, num_numeric_cols + 2)):
-            if i < len(parts):
-                content = parts[i].strip()
-                col_width = len(sep_parts[i].strip().rstrip(":")) if i < len(sep_parts) else len(content)
-                parts[i] = content.rjust(col_width)
-        lines[line_idx] = "|".join(parts)
-
+    # Build separator row: first column left-aligned, rest right-aligned
+    sep_parts = ["|"]  # Start with pipe
+    for i, header_cell in enumerate(header_parts):
+        width = len(header_cell)
+        if i == 0:
+            # First column: left-aligned (no colon)
+            sep_parts.append("-" * width)
+        else:
+            # Numeric columns: right-aligned (colon on right)
+            sep_parts.append("-" * (width - 1) + ":")
+        sep_parts.append("|")  # Pipe after each column
+    
+    lines[1] = "".join(sep_parts)
     return "\n".join(lines)
 
 
@@ -262,9 +269,11 @@ def _generate_badges(mutation_score: float, test_count: int) -> str:
 
 
 def _create_table(headers: list[str], rows: list[list[str]], num_numeric_cols: int) -> str:
-    """Create a right-aligned markdown table."""
-    table = tabulate(rows, headers=headers, tablefmt="github", stralign="left", numalign="right")
-    return _right_align_numeric_columns(table, num_numeric_cols)
+    """Create a markdown table with proper alignment."""
+    # Build colalign: first column left, rest right
+    colalign = ["left"] + ["right"] * num_numeric_cols
+    table = tabulate(rows, headers=headers, tablefmt="github", colalign=colalign)
+    return _fix_separator_alignment(table, num_numeric_cols)
 
 
 def _format_row(label: str, stats: SectionStats, pct: str) -> list[str]:
@@ -415,19 +424,24 @@ def _update_readme() -> None:
 
     # Update README
     content = README_PATH.read_text()
+
+    # Replace badges section
     content = re.sub(r"(# WKS.*?\n\n)(.*?)(\n## Status)", rf"\1{badges}\n\3", content, flags=re.DOTALL)
-    
+
     # Replace table section
-    table_start = content.find("## Code Quality Metrics\n\n")
+    table_header = "## Code Quality Metrics\n\n"
+    table_start = content.find(table_header)
     if table_start != -1:
-        next_section = content.find("\n## ", table_start + 20)
+        # Find next section or end marker
+        next_section = content.find("\n## ", table_start + len(table_header))
         if next_section == -1:
             next_section = content.find("\nAI-assisted", table_start)
         if next_section != -1:
-            content = content[:table_start + 20] + table + "\n\n" + content[next_section:]
+            content = content[:table_start + len(table_header)] + table + "\n\n" + content[next_section:]
         else:
-            content = content[:table_start + 20] + table
+            content = content[:table_start + len(table_header)] + table
     else:
+        # Fallback regex
         content = re.sub(r"(## Code Quality Metrics\n\n)(.*?)(\n\n## |\nAI-assisted)", rf"\1{table}\n\n\3", content, flags=re.DOTALL)
 
     README_PATH.write_text(content)

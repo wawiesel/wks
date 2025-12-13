@@ -1,6 +1,4 @@
-⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
-# WKS (!!!ALPHA STATUS!!!)
-⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+# WKS
 
 ![Mutation Score](https://img.shields.io/badge/mutation-91.6%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-225-passing-brightgreen)
@@ -13,47 +11,47 @@
 
 ## Code Quality Metrics
 
-| Metric              | Value   | Target   | Status          |
-|---------------------|---------:|----------:|-----------------|
-| **Code Coverage**   |    49.8%|      100%| ⚠️ Below Target |
-| **Mutation Kill %** |    91.6%|      ≥90%| ✅ Pass          |
+| Metric              |   Value |   Target | Status          |
+|---------------------|--------:|---------:|----------------:|
+| **Code Coverage**   |   49.8% |     100% | ⚠️ Below Target |
+| **Mutation Kill %** |   91.6% |     ≥90% | ✅ Pass          |
 
 ### Source Size Statistics
 
-| Section   | Files   | LOC        | Characters   | Tokens     | % Tokens   |
-|-----------|---------:|------------:|--------------:|------------:|------------:|
-| **api**   |       99|       8,786|       306,523|      49,918|       30.9%|
-| **cli**   |       11|         990|        34,215|       6,100|        3.8%|
-| **mcp**   |        9|         457|        16,368|       3,188|        2.0%|
-| **utils** |       10|         472|        13,981|       1,417|        0.9%|
-| **Total** |  **129**|  **10,705**|   **371,087**|  **60,623**|   **37.5%**|
+| Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
+|-----------|--------:|-------:|-------------:|---------:|-----------:|
+| **api**   |      99 |  8,784 |      306,521 |   49,916 |      31.5% |
+| **cli**   |      11 |    990 |       34,215 |    6,100 |       3.8% |
+| **mcp**   |       9 |    457 |       16,368 |    3,188 |       2.0% |
+| **utils** |      10 |    472 |       13,981 |    1,417 |       0.9% |
+| **Total** |     129 | 10,703 |      371,085 |   60,621 |      38.2% |
 
 ### Testing Statistics
 
-| Type                  | Files   | LOC       | Characters   | Tokens     | % Tokens   |
-|-----------------------|---------:|-----------:|--------------:|------------:|------------:|
-| **Unit Tests**        |       43|      3,531|       120,887|      21,265|       13.2%|
-| **Integration Tests** |       10|      1,074|        34,707|       6,933|        4.3%|
-| **Smoke Tests**       |        3|        332|        10,175|       1,737|        1.1%|
-| **Total**             |   **56**|  **4,937**|   **165,769**|  **29,935**|   **18.5%**|
+| Type                  |   Files |   LOC |   Characters |   Tokens |   % Tokens |
+|-----------------------|--------:|------:|-------------:|---------:|-----------:|
+| **Unit Tests**        |      43 | 3,528 |      120,897 |   21,268 |      13.4% |
+| **Integration Tests** |      10 | 1,074 |       34,707 |    6,933 |       4.4% |
+| **Smoke Tests**       |       3 |   332 |       10,175 |    1,737 |       1.1% |
+| **Total**             |      56 | 4,934 |      165,779 |   29,938 |      18.9% |
 
 ### Documentation Size Summary
 
-| Category                    | Files   | LOC       | Characters   | Tokens     | % Tokens   |
-|-----------------------------|---------:|-----------:|--------------:|------------:|------------:|
-| **User Documentation**      |        8|        397|        14,246|       3,561|        2.2%|
-| **Developer Documentation** |       47|      3,434|       146,728|      36,675|       22.7%|
-| **Specifications**          |       19|      1,479|        65,344|      16,336|       10.1%|
-| **Total**                   |   **74**|  **5,310**|   **226,318**|  **56,572**|   **35.0%**|
+| Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
+|-----------------------------|--------:|------:|-------------:|---------:|-----------:|
+| **User Documentation**      |       8 |   374 |       13,246 |    3,311 |       2.1% |
+| **Developer Documentation** |      47 | 3,434 |      146,728 |   36,675 |      23.1% |
+| **Specifications**          |      19 | 1,479 |       65,344 |   16,336 |      10.3% |
+| **Total**                   |      74 | 5,287 |      225,318 |   56,322 |      35.5% |
 
 ### Infrastructure Summary
 
-| Type             | Files   | LOC       | Characters   | Tokens     | % Tokens   |
-|------------------|---------:|-----------:|--------------:|------------:|------------:|
-| **CI/CD**        |        4|        210|         5,437|       1,359|        0.8%|
-| **Build/Config** |        5|        202|         5,524|       1,378|        0.9%|
-| **Scripts**      |       12|      1,594|        58,904|      11,637|        7.2%|
-| **Total**        |   **21**|  **2,006**|    **69,865**|  **14,374**|    **8.9%**|
+| Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
+|------------------|--------:|------:|-------------:|---------:|-----------:|
+| **CI/CD**        |       4 |   209 |        5,436 |    1,359 |       0.9% |
+| **Build/Config** |       5 |   200 |        5,522 |    1,378 |       0.9% |
+| **Scripts**      |      12 | 1,275 |       43,960 |    9,097 |       5.7% |
+| **Total**        |      21 | 1,684 |       54,918 |   11,834 |       7.5% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 91.6% means 91.6% of mutations are killed by our tests, indicating strong test coverage and quality.
 
@@ -142,28 +140,7 @@ See [docs/specifications/wks.md](docs/specifications/wks.md) for the complete sy
 ## Documentation
 
 -   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Your primary guide for contributing to WKS, covering setup, coding standards, Git commit guidelines, quality checks, and testing procedures.
--   **[docs/specifications/index.md](docs/specifications/index.md)**: The complete system specification and architectural overview.
+-   **[docs/specifications/wks.md](docs/specifications/wks.md)**: The complete system specification and architectural overview.
 -   **[docs/campaigns/NEXT.md](docs/campaigns/NEXT.md)**: Current development priorities and high-level roadmap.
--   **[FOR_BOTS.md](FOR_BOTS.md)**: Specific directives and guidelines for AI agents working on this project.
+-   **[AGENTS.md](AGENTS.md)**: Specific directives and guidelines for AI agents working on this project.
 -   **[LICENSE.txt](LICENSE.txt)**: Project license details.
-test Thu Dec 11 00:23:00 EST 2025
-test Thu Dec 11 00:24:35 EST 2025
-test Thu Dec 11 00:25:37 EST 2025
-test Thu Dec 11 00:28:42 EST 2025
-test Thu Dec 11 00:37:01 EST 2025
-test Thu Dec 11 00:39:28 EST 2025
-test Thu Dec 11 00:39:33 EST 2025
-test Thu Dec 11 00:41:41 EST 2025
-test Thu Dec 11 00:59:27 EST 2025
-test Thu Dec 11 01:00:41 EST 2025
-test Thu Dec 11 01:01:34 EST 2025
-test Thu Dec 11 01:14:25 EST 2025
-test Thu Dec 11 01:14:55 EST 2025
-test Thu Dec 11 01:15:15 EST 2025
-test Thu Dec 11 01:31:17 EST 2025
-test Thu Dec 11 01:31:42 EST 2025
-test Thu Dec 11 01:32:04 EST 2025
-test Thu Dec 11 01:32:35 EST 2025
-test Thu Dec 11 01:35:12 EST 2025
-test Thu Dec 11 01:35:42 EST 2025
-test Thu Dec 11 01:35:56 EST 2025

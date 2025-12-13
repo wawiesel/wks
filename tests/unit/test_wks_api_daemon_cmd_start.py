@@ -3,7 +3,8 @@
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
-from wks.api.daemon import cmd_start, cmd_stop
+from wks.api.daemon.cmd_start import cmd_start
+from wks.api.daemon.cmd_stop import cmd_stop
 
 
 @pytest.mark.daemon
@@ -18,7 +19,7 @@ def test_cmd_start_creates_artifacts(monkeypatch, tmp_path):
     restrict = tmp_path / "watch"
     restrict.mkdir(parents=True, exist_ok=True)
 
-    start_result = run_cmd(cmd_start.cmd_start, restrict_dir=restrict)
+    start_result = run_cmd(cmd_start, restrict_dir=restrict)
     assert start_result.success is True
     assert start_result.output["running"] is True
 
@@ -27,7 +28,7 @@ def test_cmd_start_creates_artifacts(monkeypatch, tmp_path):
     assert (wks_home / "logs" / "daemon.log").exists()
     assert (wks_home / "daemon.lock").exists()
 
-    stop_result = run_cmd(cmd_stop.cmd_stop)
+    stop_result = run_cmd(cmd_stop)
     assert stop_result.success is True
     assert stop_result.output["stopped"] is True
     assert not (wks_home / "daemon.lock").exists()
@@ -45,7 +46,7 @@ def test_cmd_start_twice_emits_warning(monkeypatch, tmp_path):
     restrict = tmp_path / "watch"
     restrict.mkdir(parents=True, exist_ok=True)
 
-    first = run_cmd(cmd_start.cmd_start, restrict_dir=restrict)
+    first = run_cmd(cmd_start, restrict_dir=restrict)
     assert first.success is True
     assert first.output["running"] is True
 
@@ -69,7 +70,7 @@ def test_cmd_start_twice_emits_warning(monkeypatch, tmp_path):
         time.sleep(0.05)
 
     # Second start must fail (per spec) but daemon remains running
-    second = run_cmd(cmd_start.cmd_start, restrict_dir=restrict)
+    second = run_cmd(cmd_start, restrict_dir=restrict)
     assert second.success is False
     assert second.output["running"] is True
 
@@ -78,7 +79,7 @@ def test_cmd_start_twice_emits_warning(monkeypatch, tmp_path):
     assert "ERROR: Daemon already running" in log_text
     assert (wks_home / "daemon.lock").exists()
 
-    stop_result = run_cmd(cmd_stop.cmd_stop)
+    stop_result = run_cmd(cmd_stop)
     assert stop_result.success is True
     assert stop_result.output["stopped"] is True
     assert not (wks_home / "daemon.lock").exists()
