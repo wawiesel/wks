@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from .Daemon import Daemon
 from . import DaemonStopOutput
+from .Daemon import Daemon
 
 
 def cmd_stop() -> StageResult:

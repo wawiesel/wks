@@ -2,16 +2,14 @@
 
 import platform
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-from ..StageResult import StageResult
-from . import (
-    ServiceStartOutput,
-)
-from ._AbstractImpl import _AbstractImpl
-from .ServiceConfig import _BACKEND_REGISTRY, ServiceConfig
+from typing import Any
 
 from pydantic import BaseModel
+
+from ..StageResult import StageResult
+from . import ServiceStartOutput
+from ._AbstractImpl import _AbstractImpl
+from .ServiceConfig import _BACKEND_REGISTRY, ServiceConfig
 
 
 class Service:

@@ -4,8 +4,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from ..StageResult import StageResult
-from .Daemon import Daemon
 from . import DaemonStartOutput
+from .Daemon import Daemon
 
 
 def cmd_start(restrict_dir: Path | None = None) -> StageResult:

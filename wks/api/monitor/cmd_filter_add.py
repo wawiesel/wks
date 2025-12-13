@@ -10,8 +10,8 @@ from ...utils import canonicalize_path
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import MonitorFilterAddOutput
-from .validate_value import validate_value
 from .MonitorConfig import MonitorConfig
+from .validate_value import validate_value
 
 
 def cmd_filter_add(list_name: str, value: str) -> StageResult:
@@ -67,6 +67,10 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             )
             yield (1.0, "Complete")
             return
+
+        # At this point, value_to_store is guaranteed to be str (not None) because error is None
+        if value_to_store is None:
+            raise RuntimeError("value_to_store should not be None when error is None")
 
         # Check duplicates
         yield (0.6, "Checking for duplicates...")
