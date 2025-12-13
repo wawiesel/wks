@@ -31,7 +31,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: .venv/bin/pytest
+        entry: bash -c '.venv/bin/pytest tests/ -m "not linux_service"'
         language: script
         pass_filenames: false
         always_run: true
