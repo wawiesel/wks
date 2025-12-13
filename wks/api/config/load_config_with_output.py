@@ -18,5 +18,3 @@ def load_config_with_output(section: str, output_cls: type[BaseModel]) -> tuple[
             config_path=str(WKSConfig.get_config_path()),
         ).model_dump(mode="python")
         return None, output
-
-

@@ -37,5 +37,3 @@ def test_domain_init_all_exports_only_outputs() -> None:
 
         for name in expected:
             assert hasattr(mod, name)
-
-

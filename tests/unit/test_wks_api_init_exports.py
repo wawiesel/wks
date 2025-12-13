@@ -86,4 +86,3 @@ def test_domain_init_only_exports_matching_output_classes(domain_name: str) -> N
             f"wks/api/{domain_name}/__init__.py is missing expected exports: {missing}. "
             f"Found exports: {sorted(actual_exports)}."
         )
-

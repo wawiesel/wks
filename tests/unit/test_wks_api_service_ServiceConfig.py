@@ -19,5 +19,3 @@ def test_service_config_model_dump_serializes_data() -> None:
     assert dumped["sync_interval_secs"] == 60.0
     assert isinstance(dumped["data"], dict)
     assert dumped["data"]["label"] == "com.test.wks"
-
-

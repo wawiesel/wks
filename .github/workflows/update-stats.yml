@@ -83,4 +83,3 @@ jobs:
         run: |
           echo "::error::README.md statistics are out of date. Please run 'python scripts/update_readme_stats.py' and commit the changes."
           exit 1
-

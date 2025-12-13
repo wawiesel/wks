@@ -39,5 +39,3 @@ def test_schema_registry_rejects_double_registration() -> None:
     local_registry.register_output_schema("unit_test", "dummy", DummyOutput)
     with pytest.raises(ValueError):
         local_registry.register_output_schema("unit_test", "dummy", DummyOutput)
-
-
