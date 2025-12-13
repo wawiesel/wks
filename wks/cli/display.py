@@ -14,7 +14,6 @@ try:
         TextColumn,
         TimeRemainingColumn,
     )
-    from rich.syntax import Syntax
     from rich.table import Table
     from rich.tree import Tree
 
@@ -116,7 +115,7 @@ class CLIDisplay(Display):
         title = kwargs.get("title", "")
         column_justify = kwargs.get("column_justify", {})  # dict[str, str] mapping header to justify
         show_header = kwargs.get("show_header", True)
-        width = kwargs.get("width", None)  # None = use full terminal width
+        width = kwargs.get("width")  # None = use full terminal width
 
         # Infer headers from first row if not provided
         if headers is None:
@@ -262,7 +261,7 @@ class CLIDisplay(Display):
             try:
                 import yaml
             except ImportError:
-                raise ImportError("PyYAML required for YAML output. Install with: pip install pyyaml")
+                raise ImportError("PyYAML required for YAML output. Install with: pip install pyyaml") from None
 
             yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
             if sys.stdout.isatty():
@@ -270,8 +269,9 @@ class CLIDisplay(Display):
                 # This avoids Rich's width management while keeping colors
                 try:
                     from pygments import highlight
-                    from pygments.lexers import YamlLexer
                     from pygments.formatters import Terminal256Formatter
+                    from pygments.lexers import YamlLexer
+
                     highlighted = highlight(yaml_str, YamlLexer(), Terminal256Formatter(style="monokai"))
                     print(highlighted, end="")
                 except ImportError:
@@ -286,8 +286,9 @@ class CLIDisplay(Display):
                 # This avoids Rich's width management while keeping colors
                 try:
                     from pygments import highlight
-                    from pygments.lexers import JsonLexer
                     from pygments.formatters import Terminal256Formatter
+                    from pygments.lexers import JsonLexer
+
                     highlighted = highlight(json_str, JsonLexer(), Terminal256Formatter(style="monokai"))
                     print(highlighted, end="")
                 except ImportError:

@@ -3,12 +3,13 @@
 import os
 import shutil
 import subprocess
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
+from ...config.WKSConfig import WKSConfig
 from .._AbstractImpl import _AbstractImpl
 from ..ServiceConfig import ServiceConfig
-from ...config.WKSConfig import WKSConfig
 from ._Data import _Data
 
 
@@ -69,9 +70,9 @@ class _Impl(_AbstractImpl):
   <key>WorkingDirectory</key>
   <string>{working_directory}</string>
   <key>RunAtLoad</key>
-  <{'true' if config.run_at_load else 'false'}/>
+  <{"true" if config.run_at_load else "false"}/>
   <key>KeepAlive</key>
-  <{'true' if config.keep_alive else 'false'}/>
+  <{"true" if config.keep_alive else "false"}/>
   <key>StandardOutPath</key>
   <string>{log_file}</string>
   <key>StandardErrorPath</key>
@@ -93,6 +94,7 @@ class _Impl(_AbstractImpl):
         if not isinstance(service_config.data, _Data):
             raise ValueError("macOS service config data is required")
         self.config = service_config
+        self._data: _Data = service_config.data
 
     def install_service(self, restrict_dir: Path | None = None) -> dict[str, Any]:
         """Install daemon as macOS launchd service.
@@ -102,21 +104,20 @@ class _Impl(_AbstractImpl):
         Args:
             restrict_dir: Optional directory to restrict monitoring to
         """
-        import shutil
 
         # Find wksc command
         wksc_path = shutil.which("wksc")
         if not wksc_path:
             raise RuntimeError("wksc command not found in PATH. Ensure WKS is installed.")
 
-        plist_path = self._get_plist_path(self.config.data.label)
+        plist_path = self._get_plist_path(self._data.label)
         plist_dir = plist_path.parent
 
         # Ensure LaunchAgents directory exists
         plist_dir.mkdir(parents=True, exist_ok=True)
 
         # Create plist content that runs 'wksc daemon start'
-        plist_content = self._create_plist_content(self.config.data, wksc_path, restrict_dir=restrict_dir)
+        plist_content = self._create_plist_content(self._data, wksc_path, restrict_dir=restrict_dir)
 
         # Write plist file
         plist_path.write_text(plist_content, encoding="utf-8")
@@ -125,7 +126,7 @@ class _Impl(_AbstractImpl):
         uid = os.getuid()
         try:
             result = subprocess.run(
-                ["launchctl", "print", f"gui/{uid}/{self.config.data.label}"],
+                ["launchctl", "print", f"gui/{uid}/{self._data.label}"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -151,25 +152,23 @@ class _Impl(_AbstractImpl):
         return {
             "success": True,
             "type": "darwin",
-            "label": self.config.data.label,
+            "label": self._data.label,
             "plist_path": str(plist_path),
         }
 
     def uninstall_service(self) -> dict[str, Any]:
         """Uninstall daemon macOS launchd service."""
-        plist_path = self._get_plist_path(self.config.data.label)
+        plist_path = self._get_plist_path(self._data.label)
         uid = os.getuid()
 
         # Unload service
-        try:
+        with suppress(Exception):
             subprocess.run(
                 ["launchctl", "bootout", f"gui/{uid}", str(plist_path)],
                 check=False,  # Don't fail if already unloaded
                 capture_output=True,
                 text=True,
             )
-        except Exception:
-            pass  # Ignore errors during unload
 
         # Remove plist file
         if plist_path.exists():
@@ -178,12 +177,12 @@ class _Impl(_AbstractImpl):
         return {
             "success": True,
             "type": "darwin",
-            "label": self.config.data.label,
+            "label": self._data.label,
         }
 
     def get_service_status(self) -> dict[str, Any]:
         """Get daemon macOS launchd service status."""
-        plist_path = self._get_plist_path(self.config.data.label)
+        plist_path = self._get_plist_path(self._data.label)
         uid = os.getuid()
 
         status: dict[str, Any] = {
@@ -194,7 +193,7 @@ class _Impl(_AbstractImpl):
         if status["installed"]:
             try:
                 result = subprocess.run(
-                    ["launchctl", "print", f"gui/{uid}/{self.config.data.label}"],
+                    ["launchctl", "print", f"gui/{uid}/{self._data.label}"],
                     capture_output=True,
                     text=True,
                     check=False,
@@ -203,10 +202,8 @@ class _Impl(_AbstractImpl):
                     # Parse output for PID
                     for line in result.stdout.splitlines():
                         if line.strip().startswith("pid ="):
-                            try:
+                            with suppress(ValueError, IndexError):
                                 status["pid"] = int(line.split("=", 1)[1].strip())
-                            except (ValueError, IndexError):
-                                pass
             except Exception:
                 pass
 
@@ -215,12 +212,12 @@ class _Impl(_AbstractImpl):
     def start_service(self) -> dict[str, Any]:
         """Start daemon via macOS launchctl."""
         uid = os.getuid()
-        plist_path = self._get_plist_path(self.config.data.label)
+        plist_path = self._get_plist_path(self._data.label)
 
         # First check if service is loaded
         try:
             result = subprocess.run(
-                ["launchctl", "print", f"gui/{uid}/{self.config.data.label}"],
+                ["launchctl", "print", f"gui/{uid}/{self._data.label}"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -240,13 +237,14 @@ class _Impl(_AbstractImpl):
                 )
                 # Bootstrap also starts the service, verify it's running
                 import time
+
                 time.sleep(0.5)  # Give service a moment to start
                 status = self.get_service_status()
                 if "pid" in status:
                     return {
                         "success": True,
                         "type": "darwin",
-                        "label": self.config.data.label,
+                        "label": self._data.label,
                         "action": "bootstrapped",
                         "pid": status["pid"],
                     }
@@ -266,20 +264,21 @@ class _Impl(_AbstractImpl):
         # Note: -k flag kills and restarts if already running, starts if not running
         try:
             subprocess.run(
-                ["launchctl", "kickstart", "-k", f"gui/{uid}/{self.config.data.label}"],
+                ["launchctl", "kickstart", "-k", f"gui/{uid}/{self._data.label}"],
                 check=True,
                 capture_output=True,
                 text=True,
             )
             # Verify service actually started by checking for PID
             import time
+
             time.sleep(0.5)  # Give service a moment to start
             status = self.get_service_status()
             if "pid" in status:
                 return {
                     "success": True,
                     "type": "darwin",
-                    "label": self.config.data.label,
+                    "label": self._data.label,
                     "action": "kickstarted",
                     "pid": status["pid"],
                 }
@@ -300,8 +299,8 @@ class _Impl(_AbstractImpl):
         """Stop daemon via macOS launchctl."""
         uid = os.getuid()
         try:
-            result = subprocess.run(
-                ["launchctl", "bootout", f"gui/{uid}/{self.config.data.label}"],
+            subprocess.run(
+                ["launchctl", "bootout", f"gui/{uid}/{self._data.label}"],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -309,7 +308,7 @@ class _Impl(_AbstractImpl):
             return {
                 "success": True,
                 "type": "darwin",
-                "label": self.config.data.label,
+                "label": self._data.label,
             }
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.strip() if e.stderr else ""
@@ -318,7 +317,7 @@ class _Impl(_AbstractImpl):
                 return {
                     "success": True,
                     "type": "darwin",
-                    "label": self.config.data.label,
+                    "label": self._data.label,
                     "note": "Service was not running (already stopped).",
                 }
             return {

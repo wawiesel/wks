@@ -2,8 +2,7 @@
 
 import pytest
 
-from tests.unit.conftest import create_patched_config
-from tests.unit.conftest import run_cmd
+from tests.unit.conftest import create_patched_config, run_cmd
 from wks.api.monitor import cmd_filter_remove
 
 pytestmark = pytest.mark.monitor
@@ -20,7 +19,7 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch):
 def test_cmd_filter_remove_not_found(monkeypatch):
     """Test cmd_filter_remove when value is not in the list."""
     cfg = create_patched_config(monkeypatch)
-    
+
     result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_dirnames", value="nonexistent")
     assert result.success is False
     assert result.output["not_found"] is True

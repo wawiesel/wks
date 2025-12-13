@@ -33,7 +33,9 @@ def status_command() -> None:
 
 
 def start_command(
-    restrict: Path | None = typer.Option(None, "--restrict", help="Restrict monitoring to this directory"),
+    restrict: Path | None = typer.Option(  # noqa: B008
+        None, "--restrict", help="Restrict monitoring to this directory"
+    ),
 ) -> None:
     """Start daemon runtime."""
     handle_stage_result(cmd_start)(restrict_dir=restrict)
@@ -47,4 +49,3 @@ def stop_command() -> None:
 daemon_app.command(name="status")(status_command)
 daemon_app.command(name="start")(start_command)
 daemon_app.command(name="stop")(stop_command)
-

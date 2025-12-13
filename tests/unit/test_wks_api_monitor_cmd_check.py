@@ -1,7 +1,6 @@
 """Unit tests for monitor cmd_check (no mocks, real mongomock via config)."""
 
 import json
-from pathlib import Path
 
 import pytest
 

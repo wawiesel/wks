@@ -28,7 +28,7 @@ def is_mcp_context() -> bool:
     return not sys.stdout.isatty() and os.getenv("TERM") is None
 
 
-def get_display(mode: DisplayMode | None = None) -> Display:
+def get_display(_mode: DisplayMode | None = None) -> Display:
     """Get appropriate display implementation.
 
     Args:

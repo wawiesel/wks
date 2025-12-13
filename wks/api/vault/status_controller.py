@@ -65,10 +65,11 @@ class VaultStatusController:
 
     def __init__(self, cfg: dict[str, Any] | None = None):  # noqa: ARG002
         try:
-            config = WKSConfig.load()
+            config: Any = WKSConfig.load()
             # Access URI directly from mongo backend config data
             # TODO: this is not correct and up to date.
             from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
+
             if isinstance(config.database.data, _MongoDbConfigData):
                 self.mongo_uri = config.database.data.uri
             else:

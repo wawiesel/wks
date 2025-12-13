@@ -24,6 +24,7 @@ def cmd_start() -> StageResult:
     Use this when you want to "ensure the daemon service is running" without fully reloading
     the service configuration.
     """
+
     # Return StageResult immediately with announce, work happens in progress_callback
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
@@ -53,7 +54,10 @@ def cmd_start() -> StageResult:
 
                 if not service_status["installed"]:
                     yield (1.0, "Complete")
-                    error_msg = "Service is not installed. Use 'wksc service install' to install the service, or 'wksc daemon run' to run without a service."
+                    error_msg = (
+                        "Service is not installed. Use 'wksc service install' to install the service, "
+                        "or 'wksc daemon run' to run without a service."
+                    )
                     result_obj.result = f"Error: {error_msg}"
                     result_obj.output = ServiceStartOutput(
                         errors=[error_msg],

@@ -1,12 +1,12 @@
 """Shared fixtures for integration tests."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
-from wks.api.config import WKSConfig
-from wks.api.monitor.MonitorConfig import MonitorConfig
+
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.DatabaseConfig import DatabaseConfig
+from wks.api.monitor.MonitorConfig import MonitorConfig
 from wks.api.service.ServiceConfig import ServiceConfig
 
 
@@ -17,7 +17,7 @@ class FakeCollection:
         self.docs = {}
         self.deleted = []
 
-    def count_documents(self, filt, limit=None):  # noqa: ARG002
+    def count_documents(self, filt, limit=None):
         path = filt.get("path") if isinstance(filt, dict) else None
         if path:
             if isinstance(path, dict) and "$in" in path:
@@ -37,7 +37,7 @@ class FakeCollection:
             return {key: doc.get(key) for key in projection if key in doc}
         return doc
 
-    def update_one(self, filt, update, upsert=False):  # noqa: ARG002
+    def update_one(self, filt, update, upsert=False):
         path = filt.get("path") if isinstance(filt, dict) else None
         if not isinstance(path, str):
             return
@@ -50,7 +50,7 @@ class FakeCollection:
             self.docs.pop(path, None)
             self.deleted.append(path)
 
-    def find(self, filt, projection=None):  # noqa: ARG002
+    def find(self, filt, projection=None):
         return iter([])
 
     def delete_many(self, filt):
@@ -60,7 +60,7 @@ class FakeCollection:
 class FakeVault:
     """Fake vault for testing."""
 
-    def __init__(self, *args, **kwargs):  # noqa: ARG002
+    def __init__(self, *args, **kwargs):
         self.vault_path = kwargs.get("vault_path", Path("/tmp/test_vault"))
         self.links_dir = kwargs.get("links_dir")
 
@@ -90,16 +90,16 @@ class FakeIndexer:
         pass
 
     @classmethod
-    def from_config(cls, vault, cfg):  # noqa: ARG003
+    def from_config(cls, vault, cfg):
         return cls()
 
     def sync(self, incremental=False):
         pass
 
-    def update_links_on_file_move(self, old_uri, new_uri):  # noqa: ARG002
+    def update_links_on_file_move(self, old_uri, new_uri):
         return 0
 
-    def has_references_to(self, path):  # noqa: ARG002
+    def has_references_to(self, path):
         return False
 
 

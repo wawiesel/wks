@@ -10,8 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from tests.unit.conftest import run_cmd
-from wks.api.service import cmd_start
-from wks.api.service import ServiceStartOutput
+from wks.api.service import ServiceStartOutput, cmd_start
 from wks.api.service.Service import Service
 from wks.api.service.ServiceConfig import ServiceConfig
 
@@ -25,7 +24,6 @@ def test_cmd_start_success(patch_wks_config, monkeypatch):
         sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
-            
             "keep_alive": True,
             "run_at_load": False,
         },
@@ -47,12 +45,16 @@ def test_cmd_start_success(patch_wks_config, monkeypatch):
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr("builtins.__import__", mock_import)
-    monkeypatch.setattr(Service, "start_via_service", lambda self: ServiceStartOutput(
-        errors=[],
-        warnings=[],
-        message="Service started successfully",
-        running=True,
-    ))
+    monkeypatch.setattr(
+        Service,
+        "start_via_service",
+        lambda self: ServiceStartOutput(
+            errors=[],
+            warnings=[],
+            message="Service started successfully",
+            running=True,
+        ),
+    )
 
     result = run_cmd(cmd_start.cmd_start)
     assert result.success is True

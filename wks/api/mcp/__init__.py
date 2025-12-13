@@ -1,15 +1,16 @@
 """MCP installation management API."""
 
-from ..schema_loader import register_from_schema
+from pydantic import BaseModel
 
-_models = register_from_schema("mcp")
-McpListOutput = _models.get("McpListOutput")
-McpInstallOutput = _models.get("McpInstallOutput")
-McpUninstallOutput = _models.get("McpUninstallOutput")
+from ..schema_loader import SchemaLoader
+
+_models = SchemaLoader.register_from_schema("mcp")
+McpListOutput: type[BaseModel] = _models["McpListOutput"]
+McpInstallOutput: type[BaseModel] = _models["McpInstallOutput"]
+McpUninstallOutput: type[BaseModel] = _models["McpUninstallOutput"]
 
 __all__ = [
-    "McpListOutput",
     "McpInstallOutput",
+    "McpListOutput",
     "McpUninstallOutput",
 ]
-

@@ -247,7 +247,8 @@ def test_calculate_priority_complex_case(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * 0.9 (level1) * 0.9 (depth for _private) * 0.5 (underscore) * 0.9 (depth for filename) * 0.5^2 (two underscores) * 2.0 (extension)
+    # Base (100.0) * 0.9 (level1) * 0.9 (depth for _private) * 0.5 (underscore)
+    # * 0.9 (depth for filename) * 0.5^2 (two underscores) * 2.0 (extension)
     expected = 100.0 * 0.9 * 0.9 * 0.5 * 0.9 * 0.5 * 0.5 * 2.0
     assert priority == pytest.approx(expected)
 

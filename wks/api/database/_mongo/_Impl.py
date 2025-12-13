@@ -27,7 +27,7 @@ class _Impl(_AbstractImpl):
         self.uri = database_config.data.uri
         self.database_name = database_name
         self.collection_name = collection_name  # MongoDB collection name
-        self._client: MongoClient | None = None
+        self._client: MongoClient[Any] | None = None
         self._collection: Collection | None = None
         self._mongod_proc: subprocess.Popen | None = None
         self._started_local: bool = False
@@ -72,7 +72,9 @@ class _Impl(_AbstractImpl):
         return self._collection.find(filter or {}, projection)  # type: ignore[union-attr]
 
     def list_collection_names(self) -> list[str]:
-        return self._client[self.database_name].list_collection_names()  # type: ignore[union-attr]
+        if self._client is None:
+            raise RuntimeError("Mongo client not initialized")
+        return self._client[self.database_name].list_collection_names()
 
     # Internal helpers
     def _ensure_local_mongod(self, uri: str) -> None:
@@ -103,7 +105,7 @@ class _Impl(_AbstractImpl):
 
     def _can_connect(self, uri: str) -> bool:
         try:
-            client = MongoClient(uri, serverSelectionTimeoutMS=500)
+            client: MongoClient[Any] = MongoClient(uri, serverSelectionTimeoutMS=500)
             client.server_info()
             client.close()
             return True

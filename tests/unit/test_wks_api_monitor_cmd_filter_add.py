@@ -2,8 +2,7 @@
 
 import pytest
 
-from tests.unit.conftest import create_patched_config
-from tests.unit.conftest import run_cmd
+from tests.unit.conftest import create_patched_config, run_cmd
 from wks.api.monitor import cmd_filter_add
 
 pytestmark = pytest.mark.monitor

@@ -6,13 +6,10 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-import pytest
-
-from wks.api.StageResult import StageResult
 import wks.mcp.server as server_mod
+from wks.api.StageResult import StageResult
 from wks.mcp.call_tool import call_tool
 from wks.mcp.discover_commands import discover_commands
-from wks.mcp.get_app import get_app
 from wks.mcp.main import main as mcp_main
 
 
@@ -56,7 +53,9 @@ def test_tools_and_resources_listing():
 def test_tools_call_happy_path(monkeypatch):
     server, output = _server_with_streams()
     server.tools = {"wksm_dummy_run": {"description": "x", "inputSchema": {}}}
-    monkeypatch.setattr(server, "build_registry", lambda: {"wksm_dummy_run": lambda cfg, args: {"success": True, "data": args}})
+    monkeypatch.setattr(
+        server, "build_registry", lambda: {"wksm_dummy_run": lambda cfg, args: {"success": True, "data": args}}
+    )
     monkeypatch.setattr(server_mod.WKSConfig, "load", classmethod(lambda cls: object()))
 
     server.handle_request(
@@ -71,7 +70,9 @@ def test_tools_call_missing_tool(monkeypatch):
     server, output = _server_with_streams()
     server.tools = {}
 
-    server.handle_request({"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "missing", "arguments": {}}})
+    server.handle_request(
+        {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "missing", "arguments": {}}}
+    )
     response = json.loads(output.getvalue())
     assert response["error"]["code"] == -32601
 
@@ -81,7 +82,9 @@ def test_tools_call_not_implemented(monkeypatch):
     server.tools = {"wksm_dummy": {"description": "x", "inputSchema": {}}}
     monkeypatch.setattr(server, "build_registry", lambda: {})
 
-    server.handle_request({"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "wksm_dummy", "arguments": {}}})
+    server.handle_request(
+        {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "wksm_dummy", "arguments": {}}}
+    )
     response = json.loads(output.getvalue())
     assert "Tool not implemented" in response["error"]["message"]
 
@@ -96,7 +99,9 @@ def test_tools_call_exception(monkeypatch):
     monkeypatch.setattr(server, "build_registry", lambda: {"wksm_boom": boom})
     monkeypatch.setattr(server_mod.WKSConfig, "load", classmethod(lambda cls: object()))
 
-    server.handle_request({"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "wksm_boom", "arguments": {}}})
+    server.handle_request(
+        {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "wksm_boom", "arguments": {}}}
+    )
     response = json.loads(output.getvalue())
     assert "fail" in response["error"]["message"]
 
@@ -110,6 +115,7 @@ def test_handle_unknown_method():
 
 def testbuild_registry_handles_stage_and_plain_results(monkeypatch):
     captured: dict[str, Any] = {}
+
     class Dummy:
         def method(self, value: str):
             return {"echo": value}
@@ -129,11 +135,11 @@ def testbuild_registry_handles_stage_and_plain_results(monkeypatch):
         server_mod,
         "discover_commands",
         lambda: {
-        ("config", "show"): stage_func,
-        ("monitor", "check"): query_func,
-        ("database", "reset"): text_func,
-        ("dummy", "call"): Dummy().method,
-    },
+            ("config", "show"): stage_func,
+            ("monitor", "check"): query_func,
+            ("database", "reset"): text_func,
+            ("dummy", "call"): Dummy().method,
+        },
     )
     server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
     registry = server.build_registry()
@@ -198,8 +204,10 @@ def testdiscover_commands_and_define_tools_cover_branches(monkeypatch):
     assert discovered  # should find at least one command from real CLI
 
     class DummyApp:
-        registered_commands: list[Any] = []
-        registered_groups: list[Any] = []
+        from typing import ClassVar
+
+        registered_commands: ClassVar[list[Any]] = []
+        registered_groups: ClassVar[list[Any]] = []
 
     # Force define_tools to hit the "command is None" continue branch
     monkeypatch.setattr(server_mod, "discover_commands", lambda: {("dummy", "missing"): lambda: None})

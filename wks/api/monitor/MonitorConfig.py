@@ -37,7 +37,7 @@ class MonitorConfig(BaseModel):
     @classmethod
     def get_filter_list_names(cls) -> tuple[str, ...]:
         """Return tuple of filter list field names (single source of truth)."""
-        return tuple(name for name in _FilterConfig.model_fields.keys() if name.startswith(("include", "exclude")))
+        return tuple(name for name in _FilterConfig.model_fields if name.startswith(("include", "exclude")))
 
     def get_rules(self) -> dict[str, list[str]]:
         """Return a dictionary of rule lists."""

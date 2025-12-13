@@ -12,8 +12,6 @@ from unittest.mock import patch
 
 import pytest
 
-from pydantic import ValidationError
-
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.DatabaseConfig import DatabaseConfig
 from wks.api.monitor.MonitorConfig import MonitorConfig
@@ -78,6 +76,7 @@ class TestWKSConfigPathMethods:
         """Test get_home_dir() defaults to ~/.wks when WKS_HOME not set."""
         monkeypatch.delenv("WKS_HOME", raising=False)
         from pathlib import Path
+
         home_dir = WKSConfig.get_home_dir()
         assert home_dir == Path.home() / ".wks"
 
@@ -104,6 +103,7 @@ class TestWKSConfigToDict:
         assert isinstance(result, dict)
         assert "monitor" in result
         assert "database" in result
+        assert "service" in result
         assert "daemon" in result
 
     def test_to_dict_includes_monitor(self, wks_home_with_priority):
@@ -126,8 +126,11 @@ class TestWKSConfigSave:
         config.save()
 
         assert config_path.exists()
-        loaded = json.loads(config_path.read_text())
+        raw_text = config_path.read_text()
+        loaded = json.loads(raw_text)
         assert "monitor" in loaded
+        # Ensure we keep stable pretty-printing (indent=4) for user-facing config files.
+        assert '\n    "monitor"' in raw_text
 
     def test_save_uses_default_path(self, wks_home_with_priority):
         """Test save() uses get_config_path() to save config file."""
@@ -136,8 +139,10 @@ class TestWKSConfigSave:
         config.save()
 
         assert config_path.exists()
-        loaded = json.loads(config_path.read_text())
+        raw_text = config_path.read_text()
+        loaded = json.loads(raw_text)
         assert "monitor" in loaded
+        assert '\n    "monitor"' in raw_text
 
     def test_save_atomic_write(self, wks_home_with_priority):
         """Test save() uses atomic write (temp file then rename)."""
@@ -159,11 +164,12 @@ class TestWKSConfigSave:
         # Make the directory read-only to cause an error
         config_path.parent.chmod(0o444)
         try:
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError) as exc_info:
                 config.save()
         finally:
             config_path.parent.chmod(0o755)
 
+        assert "Failed to save config" in str(exc_info.value)
         # Temp file should be cleaned up
         assert not temp_path.exists()
 
@@ -179,8 +185,9 @@ class TestWKSConfigSave:
             temp_path.write_text("temp")
             assert temp_path.exists()
 
-            with pytest.raises(RuntimeError):
+            with pytest.raises(RuntimeError) as exc_info:
                 config.save()
 
+        assert "Failed to save config" in str(exc_info.value)
         # Temp file should be cleaned up
         assert not temp_path.exists()

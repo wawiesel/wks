@@ -8,6 +8,6 @@ from .server import MCPServer
 __all__ = [
     "MCPServer",
     "call_tool",
-    "server_main",
     "mcp_socket_path",
+    "server_main",
 ]

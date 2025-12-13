@@ -2,14 +2,15 @@
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import ServiceStopOutput
 from .Service import Service
 
 
 def cmd_stop() -> StageResult:
     """Stop service process."""
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 

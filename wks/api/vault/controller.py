@@ -63,10 +63,11 @@ class VaultController:
         from ..config.WKSConfig import WKSConfig
 
         try:
-            config = WKSConfig.load()
+            config: Any = WKSConfig.load()
             # Access URI directly from mongo backend config data
             # TODO: This is not correct and up to date.
             from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
+
             if isinstance(config.database.data, _MongoDbConfigData):
                 mongo_uri = config.database.data.uri
             else:
@@ -219,11 +220,11 @@ class VaultController:
     @staticmethod
     def sync_vault(cfg: dict | None = None, batch_size: int = 1000, incremental: bool = False) -> dict:  # noqa: ARG004
         """Sync vault links to MongoDB (wrapper for CLI/MCP)."""
-        from ..config.WKSConfig import WKSConfig
         from ...utils import expand_path
+        from ..config.WKSConfig import WKSConfig
         from .indexer import VaultLinkIndexer
 
-        config = WKSConfig.load()
+        config: Any = WKSConfig.load()
         base_dir = config.vault.base_dir
         wks_dir = config.vault.wks_dir
         if not base_dir:

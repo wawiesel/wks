@@ -7,7 +7,7 @@ from typing import Any
 
 class _AbstractImpl(ABC):
     """Abstract base class for platform-specific service implementations.
-    
+
     Services install and manage the daemon as a system service (launchd on macOS).
     The daemon itself handles filesystem monitoring via `wksc daemon start`.
     """

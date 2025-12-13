@@ -22,7 +22,9 @@ class ServiceConfig(BaseModel):
     sync_interval_secs: float = Field(
         ...,
         gt=0,
-        description="How long (in seconds) the daemon accumulates filesystem events before syncing them to the monitor database",
+        description=(
+            "How long (in seconds) the daemon accumulates filesystem events before syncing them to the monitor database"
+        ),
     )
 
     @model_validator(mode="before")

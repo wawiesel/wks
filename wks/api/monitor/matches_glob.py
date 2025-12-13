@@ -4,7 +4,7 @@ import fnmatch
 from pathlib import Path
 
 
-def _matches_glob(patterns: list[str], path_obj: Path) -> bool:
+def matches_glob(patterns: list[str], path_obj: Path) -> bool:
     if not patterns:
         return False
     path_str = path_obj.as_posix()

@@ -4,6 +4,8 @@ alwaysApply: true
 
 # Directives for AI
 
+Follow all `.cursor/rules/*`.
+
 If you are an AI agent doing coding, here is some help for you. For **all contributors (human and AI)**, please refer to the primary `CONTRIBUTING.md` for a comprehensive guide on development setup, coding standards, commit messages, and quality processes. This document provides supplementary directives specifically for AI agents.
 
 *   Use the virtual environment. If it doesn't exist create one in `.venv`. You can install whatever you want there.

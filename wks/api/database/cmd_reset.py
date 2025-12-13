@@ -16,6 +16,7 @@ def cmd_reset(database: str) -> StageResult:
     Returns:
         StageResult with reset operation status
     """
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 

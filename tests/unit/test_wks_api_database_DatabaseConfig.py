@@ -37,7 +37,7 @@ class TestDatabaseConfig:
 
     def test_database_config_missing_type(self):
         """Test DatabaseConfig raises error when type is missing."""
-        with pytest.raises(ValueError, match="database.type is required"):
+        with pytest.raises(ValueError, match=r"database\.type is required"):
             DatabaseConfig(prefix="wks", data={"uri": "mongodb://localhost:27017/"})
 
     def test_database_config_unknown_type(self):
@@ -47,7 +47,7 @@ class TestDatabaseConfig:
 
     def test_database_config_missing_data(self):
         """Test DatabaseConfig raises error when data is missing."""
-        with pytest.raises(ValueError, match="database.data is required"):
+        with pytest.raises(ValueError, match=r"database\.data is required"):
             DatabaseConfig(type="mongo", prefix="wks")
 
     def test_database_config_mongomock_no_uri_required(self):
@@ -56,7 +56,7 @@ class TestDatabaseConfig:
         config = DatabaseConfig(type="mongomock", prefix="wks", data={})
         assert config.type == "mongomock"
         # mongo requires uri, so empty dict should fail validation at backend level
-        with pytest.raises(Exception):  # Will fail at _MongoDbConfigData validation
+        with pytest.raises(ValidationError):
             DatabaseConfig(type="mongo", prefix="wks", data={})
 
     def test_database_config_invalid_mongo_uri(self):
@@ -117,3 +117,11 @@ class TestDatabaseConfig:
     def test_mongo_data_requires_uri(self):
         with pytest.raises(Exception, match="must start with 'mongodb://'"):
             DatabaseConfig(type="mongo", prefix="wks", data={"uri": ""})
+
+    def test_database_config_model_dump_serializes_data(self):
+        cfg = DatabaseConfig(type="mongo", prefix="wks", data={"uri": "mongodb://localhost:27017/"})
+        dumped = cfg.model_dump(mode="python")
+        assert dumped["type"] == "mongo"
+        assert dumped["prefix"] == "wks"
+        assert isinstance(dumped["data"], dict)
+        assert dumped["data"]["uri"] == "mongodb://localhost:27017/"

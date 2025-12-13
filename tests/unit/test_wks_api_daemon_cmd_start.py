@@ -1,10 +1,8 @@
 """Integration-ish tests for wks.api.daemon.cmd_start without mocks."""
 
-from pathlib import Path
-
 import pytest
 
-from tests.unit.conftest import run_cmd, minimal_wks_config
+from tests.unit.conftest import minimal_wks_config, run_cmd
 from wks.api.daemon import cmd_start, cmd_stop
 
 

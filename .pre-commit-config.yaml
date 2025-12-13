@@ -36,3 +36,12 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+
+      - id: update-readme-stats
+        name: Update README Statistics
+        entry: scripts/update_readme_stats.py
+        language: script
+        files: ^README\.md$
+        pass_filenames: false
+        always_run: false
+        stages: [pre-commit]

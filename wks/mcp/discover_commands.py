@@ -1,9 +1,8 @@
 """Discover Typer command callbacks and their underlying API functions."""
 
 import importlib
-from pathlib import Path
 from collections.abc import Callable
-from typing import Any
+from pathlib import Path
 
 from .extract_api_function_from_command import extract_api_function_from_command
 

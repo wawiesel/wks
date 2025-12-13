@@ -1,32 +1,28 @@
 """Monitor API module."""
 
-from .MonitorConfig import MonitorConfig
-from ._validate_value import _validate_value as validate_value
-from ._matches_glob import _matches_glob as matches_glob
-from ..schema_loader import register_from_schema
+from pydantic import BaseModel
 
-_models = register_from_schema("monitor")
-MonitorCheckOutput = _models.get("MonitorCheckOutput")
-MonitorSyncOutput = _models.get("MonitorSyncOutput")
-MonitorStatusOutput = _models.get("MonitorStatusOutput")
-MonitorFilterAddOutput = _models.get("MonitorFilterAddOutput")
-MonitorFilterRemoveOutput = _models.get("MonitorFilterRemoveOutput")
-MonitorFilterShowOutput = _models.get("MonitorFilterShowOutput")
-MonitorPriorityAddOutput = _models.get("MonitorPriorityAddOutput")
-MonitorPriorityRemoveOutput = _models.get("MonitorPriorityRemoveOutput")
-MonitorPriorityShowOutput = _models.get("MonitorPriorityShowOutput")
+from ..schema_loader import SchemaLoader
+
+_models = SchemaLoader.register_from_schema("monitor")
+MonitorCheckOutput: type[BaseModel] = _models["MonitorCheckOutput"]
+MonitorSyncOutput: type[BaseModel] = _models["MonitorSyncOutput"]
+MonitorStatusOutput: type[BaseModel] = _models["MonitorStatusOutput"]
+MonitorFilterAddOutput: type[BaseModel] = _models["MonitorFilterAddOutput"]
+MonitorFilterRemoveOutput: type[BaseModel] = _models["MonitorFilterRemoveOutput"]
+MonitorFilterShowOutput: type[BaseModel] = _models["MonitorFilterShowOutput"]
+MonitorPriorityAddOutput: type[BaseModel] = _models["MonitorPriorityAddOutput"]
+MonitorPriorityRemoveOutput: type[BaseModel] = _models["MonitorPriorityRemoveOutput"]
+MonitorPriorityShowOutput: type[BaseModel] = _models["MonitorPriorityShowOutput"]
 
 __all__ = [
-    "MonitorConfig",
     "MonitorCheckOutput",
-    "MonitorSyncOutput",
-    "MonitorStatusOutput",
     "MonitorFilterAddOutput",
     "MonitorFilterRemoveOutput",
     "MonitorFilterShowOutput",
     "MonitorPriorityAddOutput",
     "MonitorPriorityRemoveOutput",
     "MonitorPriorityShowOutput",
-    "validate_value",
-    "matches_glob",
+    "MonitorStatusOutput",
+    "MonitorSyncOutput",
 ]

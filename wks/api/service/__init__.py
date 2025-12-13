@@ -1,20 +1,20 @@
 """Service module - service management and installation."""
 
-from .ServiceConfig import ServiceConfig
-from ..schema_loader import register_from_schema
+from pydantic import BaseModel
 
-_models = register_from_schema("service")
-ServiceStatusOutput = _models.get("ServiceStatusOutput")
-ServiceStartOutput = _models.get("ServiceStartOutput")
-ServiceStopOutput = _models.get("ServiceStopOutput")
-ServiceInstallOutput = _models.get("ServiceInstallOutput")
-ServiceUninstallOutput = _models.get("ServiceUninstallOutput")
+from ..schema_loader import SchemaLoader
+
+_models = SchemaLoader.register_from_schema("service")
+ServiceStatusOutput: type[BaseModel] = _models["ServiceStatusOutput"]
+ServiceStartOutput: type[BaseModel] = _models["ServiceStartOutput"]
+ServiceStopOutput: type[BaseModel] = _models["ServiceStopOutput"]
+ServiceInstallOutput: type[BaseModel] = _models["ServiceInstallOutput"]
+ServiceUninstallOutput: type[BaseModel] = _models["ServiceUninstallOutput"]
 
 __all__ = [
-    "ServiceConfig",
-    "ServiceStatusOutput",
-    "ServiceStartOutput",
-    "ServiceStopOutput",
     "ServiceInstallOutput",
+    "ServiceStartOutput",
+    "ServiceStatusOutput",
+    "ServiceStopOutput",
     "ServiceUninstallOutput",
 ]

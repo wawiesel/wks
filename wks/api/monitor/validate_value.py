@@ -7,21 +7,14 @@ from ...utils import canonicalize_path
 from .MonitorConfig import MonitorConfig
 
 
-def _validate_value(
-    list_name: str, value: str, monitor_cfg: MonitorConfig
-) -> tuple[str | None, str | None]:
-    """Validate and normalize a value for a filter list.
-
-    Returns:
-        tuple[normalized_value, error_message]
-    """
+def validate_value(list_name: str, value: str, monitor_cfg: MonitorConfig) -> tuple[str | None, str | None]:
+    """Validate and normalize a value for a filter list."""
     value = value.strip()
     if list_name in ("include_paths", "exclude_paths"):
         value_resolved = canonicalize_path(value)
         home_dir = str(Path.home())
-        # Store as relative to home (~/...) if applicable
         if value_resolved.startswith(home_dir):
-            return "~" + value_resolved[len(home_dir) :], None
+            return "~" + value_resolved[len(home_dir):], None
         return value_resolved, None
 
     if list_name in ("include_dirnames", "exclude_dirnames"):

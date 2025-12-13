@@ -2,15 +2,16 @@
 
 import json
 import os
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict, computed_field, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, computed_field
 
+from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
-from ..daemon.DaemonConfig import DaemonConfig
 
 
 class WKSConfig(BaseModel):
@@ -24,7 +25,6 @@ class WKSConfig(BaseModel):
     daemon: DaemonConfig
 
     @computed_field
-    @property
     def path(self) -> Path:
         """Path to config file."""
         return self.get_config_path()
@@ -67,7 +67,7 @@ class WKSConfig(BaseModel):
             # Pydantic validates required fields and constructs nested models automatically
             return cls(**raw)
         except ValidationError as e:
-            errors = e.errors() or [{"msg": str(e), "loc": []}]
+            errors = e.errors() or [{"msg": str(e), "loc": [], "type": "value_error", "input": None}]
             first = errors[0]
             error_msg = first.get("msg", str(e))
             field = ".".join(str(x) for x in first.get("loc", []))
@@ -98,8 +98,6 @@ class WKSConfig(BaseModel):
             temp_path.replace(path)
         except Exception as e:
             if temp_path.exists():
-                try:
+                with suppress(Exception):
                     temp_path.unlink()
-                except Exception:
-                    pass
             raise RuntimeError(f"Failed to save config: {e}") from e

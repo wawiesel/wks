@@ -6,15 +6,12 @@ from typing import TYPE_CHECKING, Any
 
 from ..StageResult import StageResult
 from . import (
-    ServiceInstallOutput,
     ServiceStartOutput,
-    ServiceStopOutput,
 )
-from .ServiceConfig import ServiceConfig, _BACKEND_REGISTRY
 from ._AbstractImpl import _AbstractImpl
+from .ServiceConfig import _BACKEND_REGISTRY, ServiceConfig
 
-if TYPE_CHECKING:
-    from pydantic import BaseModel
+from pydantic import BaseModel
 
 
 class Service:
@@ -61,7 +58,9 @@ class Service:
             True if valid, False if invalid (and result_obj is already set)
         """
         if backend_type not in _BACKEND_REGISTRY:
-            error_msg = f"Unsupported service backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
+            error_msg = (
+                f"Unsupported service backend type: {backend_type!r} (supported: {list(_BACKEND_REGISTRY.keys())})"
+            )
             result_obj.result = f"Error: {error_msg}"
             result_obj.output = output_class(
                 errors=[error_msg],
@@ -73,7 +72,7 @@ class Service:
             return False
         return True
 
-    def start_via_service(self) -> ServiceStartOutput:
+    def start_via_service(self) -> BaseModel:
         """Start service via service manager.
 
         Returns:

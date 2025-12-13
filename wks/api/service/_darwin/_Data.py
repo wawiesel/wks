@@ -1,8 +1,6 @@
 """macOS (launchd) specific daemon configuration data."""
 
-from pathlib import Path
-
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Data(BaseModel):
@@ -24,4 +22,3 @@ class _Data(BaseModel):
         if len(parts) < 2:
             raise ValueError(f"daemon.data.label must be in reverse DNS format (e.g., 'com.example.app'), got: {v!r}")
         return v
-

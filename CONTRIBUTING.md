@@ -1,5 +1,7 @@
 # Contributing to WKS
 
+Follow `.cursor/rules/*`.
+
 ## Development Setup
 
 1. **Virtual Environment**: Always use a virtual environment.
@@ -91,6 +93,66 @@ We have three levels of tests, each runnable independently via scripts:
     ./scripts/test_integration.py
     ```
 These scripts are also integrated into the `pre-push` hook (for the full `pytest` suite) and are run as part of the CI pipeline.
+
+## Mutation Testing (API)
+
+We use `mutmut` for mutation testing of the Python API layer (`wks/api`).
+
+```bash
+./scripts/test_mutation_api.py
+```
+
+Notes:
+- This is intentionally **not** part of the default pre-push hook (it can be slow).
+- Configuration lives in `setup.cfg` under `[mutmut]` (notably `paths_to_mutate` and `tests_dir`).
+- The script prints a summary by default. Use `--verbose` to print the full mutant listing.
+- You can enforce a target mutation score via `setup.cfg` `[wks.mutation] min_kill_rate = 0.90` (or override with `--min-kill-rate 0.90`).
+
+## README Statistics
+
+The code quality metrics in `README.md` (mutation score, test counts, etc.) are automatically kept in sync with the codebase.
+
+**Automatic Updates**:
+- **Local**: The statistics are updated automatically via a `pre-commit` hook when `README.md` is modified.
+- **CI**: On pushes to `main`/`master`, GitHub Actions automatically runs mutation tests and updates the README statistics, then commits the changes back.
+- **PRs**: Pull requests will fail CI if the README statistics are out of date, ensuring stats stay current.
+
+**Manual Update**:
+If you need to manually update the statistics (e.g., after running mutation tests):
+```bash
+./scripts/update_readme_stats.py
+```
+
+The script collects:
+- Mutation score (from `mutmut results`)
+- Test count (from `pytest`)
+- Test file count
+- Code statistics broken down by section (`wks/api`, `wks/cli`, `wks/mcp`, `wks/utils`):
+  - File count
+  - Lines of code (LOC)
+  - Characters
+  - Python tokens (using `tokenize` module)
+
+**CI Workflow**:
+The `.github/workflows/update-stats.yml` workflow:
+1. Runs tests and mutation tests
+2. Updates README statistics
+3. On `main`/`master` pushes: Auto-commits updated stats (with `[skip ci]` to avoid loops)
+4. On PRs: Fails if stats are outdated, requiring the PR author to update them
+
+**Visualization**:
+Generate a visual representation of codebase statistics:
+```bash
+pip install matplotlib  # Required for visualization
+./scripts/generate_codebase_visualization.py
+```
+
+This creates `docs/codebase_stats.png` with a multi-panel visualization showing:
+- Distribution by category (pie chart)
+- All sections comparison (bar chart)
+- Totals by category (stacked bars)
+
+The visualization automatically reads statistics from the README.md tables.
 
 ## Coding Standards
 

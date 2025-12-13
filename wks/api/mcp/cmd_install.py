@@ -1,13 +1,12 @@
 """Install MCP server command."""
 
 import json
-import sys
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..StageResult import StageResult
-from ..config.WKSConfig import WKSConfig
 from ...utils.expand_path import expand_path
+from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import McpInstallOutput
 
 
@@ -22,6 +21,7 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
     Returns:
         StageResult with installation status
     """
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
         if install_type == "mcpServersJson" and not settings_path:

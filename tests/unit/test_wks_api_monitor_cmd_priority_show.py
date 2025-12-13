@@ -1,7 +1,5 @@
 """Unit tests for wks.api.monitor.cmd_priority_show module."""
 
-from pathlib import Path
-
 import pytest
 
 from tests.unit.conftest import run_cmd

@@ -6,7 +6,6 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 from ..StageResult import StageResult
 from . import MonitorCheckOutput

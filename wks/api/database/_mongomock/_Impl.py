@@ -62,4 +62,6 @@ class _Impl(_AbstractImpl):
         return self._collection.find(filter or {}, projection)  # type: ignore[union-attr]
 
     def list_collection_names(self) -> list[str]:
-        return self._client[self.database_name].list_collection_names()  # type: ignore[union-attr]
+        if self._client is None:
+            raise RuntimeError("MongoMock client not initialized")
+        return self._client[self.database_name].list_collection_names()

@@ -3,7 +3,7 @@
 Note: we do not use mocks for this test.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

@@ -1,10 +1,11 @@
 """Start daemon (background watcher)."""
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from ..StageResult import StageResult
-from . import DaemonStartOutput, Daemon
+from .Daemon import Daemon
+from . import DaemonStartOutput
 
 
 def cmd_start(restrict_dir: Path | None = None) -> StageResult:
@@ -33,8 +34,9 @@ def cmd_start(restrict_dir: Path | None = None) -> StageResult:
             # If daemon is already running, fail (per spec) but report current running state.
             running_now = False
             try:
-                from ..config.WKSConfig import WKSConfig
                 import os
+
+                from ..config.WKSConfig import WKSConfig
 
                 home = WKSConfig.get_home_dir()
                 lock_path = home / "daemon.lock"
@@ -63,4 +65,3 @@ def cmd_start(restrict_dir: Path | None = None) -> StageResult:
         announce="Starting daemon...",
         progress_callback=do_work,
     )
-

@@ -23,7 +23,6 @@ def test_cmd_stop_not_installed(patch_wks_config, monkeypatch):
         sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
-            
             "keep_alive": True,
             "run_at_load": False,
         },

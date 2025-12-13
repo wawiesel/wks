@@ -32,4 +32,3 @@ def canonicalize_path(path_str: str) -> str:
         return str(path_obj.resolve(strict=False))
     except Exception:
         return str(path_obj)
-

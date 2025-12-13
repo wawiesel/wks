@@ -2,7 +2,7 @@
 
 import pytest
 
-from wks.api.monitor import validate_value
+from wks.api.monitor.validate_value import validate_value
 
 pytestmark = pytest.mark.monitor
 
@@ -36,6 +36,15 @@ def test_validate_value_path_resolution(tmp_path, monkeypatch):
     assert val == str(outside.resolve())
     assert err is None
 
+    # exclude_paths should behave the same as include_paths for normalization
+    val, err = validate_value("exclude_paths", str(home_path), None)
+    assert val == "~/docs"
+    assert err is None
+
+    val, err = validate_value("exclude_paths", str(outside), None)
+    assert val == str(outside.resolve())
+    assert err is None
+
 
 def test_validate_value_dirnames():
     """Test dirname validation logic."""
@@ -63,6 +72,13 @@ def test_validate_value_dirnames():
     val, err = validate_value("include_dirnames", "baz", cfg)
     assert val == "baz"
     assert err is None
+
+    # exclude_dirnames should validate the same shape as include_dirnames
+    val, err = validate_value("exclude_dirnames", "  ", cfg)
+    assert err == "Directory name cannot be empty"
+
+    val, err = validate_value("exclude_dirnames", "foo*", cfg)
+    assert err == "Directory names cannot contain wildcard characters"
 
 
 def test_validate_value_globs(monkeypatch):

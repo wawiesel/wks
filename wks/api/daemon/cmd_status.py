@@ -1,9 +1,9 @@
 """Daemon status command (reads daemon.json)."""
 
-from typing import Iterator
+from collections.abc import Iterator
 
-from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import DaemonStatusOutput
 from ._read_status_file import read_status_file
 
@@ -52,4 +52,3 @@ def cmd_status() -> StageResult:
         announce="Checking daemon status...",
         progress_callback=do_work,
     )
-

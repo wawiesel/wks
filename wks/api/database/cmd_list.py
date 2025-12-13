@@ -13,6 +13,7 @@ def cmd_list() -> StageResult:
     Returns:
         StageResult with list of databases (displayed as table)
     """
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 

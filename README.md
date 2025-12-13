@@ -2,11 +2,63 @@
 # WKS (!!!ALPHA STATUS!!!)
 ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
 
+![Mutation Score](https://img.shields.io/badge/mutation-91.6%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-225-passing-brightgreen)
+![Python](https://img.shields.io/badge/python-3.10+-blue)
+![Status](https://img.shields.io/badge/status-alpha-orange)
+
 ## Status
 - Alpha: monitor, vault, transform, diff layers are under active development; CLI and MCP may change without notice.
 - Upcoming priorities and ideas: [docs/campaigns/NEXT.md](docs/campaigns/NEXT.md).
 
-AI-assisted file organization and knowledge management system.
+## Code Quality Metrics
+
+| Metric              | Value   | Target   | Status          |
+|---------------------|---------:|----------:|-----------------|
+| **Code Coverage**   |    49.8%|      100%| ⚠️ Below Target |
+| **Mutation Kill %** |    91.6%|      ≥90%| ✅ Pass          |
+
+### Source Size Statistics
+
+| Section   | Files   | LOC        | Characters   | Tokens     | % Tokens   |
+|-----------|---------:|------------:|--------------:|------------:|------------:|
+| **api**   |       99|       8,786|       306,523|      49,918|       30.9%|
+| **cli**   |       11|         990|        34,215|       6,100|        3.8%|
+| **mcp**   |        9|         457|        16,368|       3,188|        2.0%|
+| **utils** |       10|         472|        13,981|       1,417|        0.9%|
+| **Total** |  **129**|  **10,705**|   **371,087**|  **60,623**|   **37.5%**|
+
+### Testing Statistics
+
+| Type                  | Files   | LOC       | Characters   | Tokens     | % Tokens   |
+|-----------------------|---------:|-----------:|--------------:|------------:|------------:|
+| **Unit Tests**        |       43|      3,531|       120,887|      21,265|       13.2%|
+| **Integration Tests** |       10|      1,074|        34,707|       6,933|        4.3%|
+| **Smoke Tests**       |        3|        332|        10,175|       1,737|        1.1%|
+| **Total**             |   **56**|  **4,937**|   **165,769**|  **29,935**|   **18.5%**|
+
+### Documentation Size Summary
+
+| Category                    | Files   | LOC       | Characters   | Tokens     | % Tokens   |
+|-----------------------------|---------:|-----------:|--------------:|------------:|------------:|
+| **User Documentation**      |        8|        397|        14,246|       3,561|        2.2%|
+| **Developer Documentation** |       47|      3,434|       146,728|      36,675|       22.7%|
+| **Specifications**          |       19|      1,479|        65,344|      16,336|       10.1%|
+| **Total**                   |   **74**|  **5,310**|   **226,318**|  **56,572**|   **35.0%**|
+
+### Infrastructure Summary
+
+| Type             | Files   | LOC       | Characters   | Tokens     | % Tokens   |
+|------------------|---------:|-----------:|--------------:|------------:|------------:|
+| **CI/CD**        |        4|        210|         5,437|       1,359|        0.8%|
+| **Build/Config** |        5|        202|         5,524|       1,378|        0.9%|
+| **Scripts**      |       12|      1,594|        58,904|      11,637|        7.2%|
+| **Total**        |   **21**|  **2,006**|    **69,865**|  **14,374**|    **8.9%**|
+
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 91.6% means 91.6% of mutations are killed by our tests, indicating strong test coverage and quality.
+
+**Test Statistics**: 225 tests across 51 test files.
+
 
 ## Overview
 

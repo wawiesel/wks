@@ -5,8 +5,6 @@ Requirements Satisfied:
 - CONFIG.5
 """
 
-from unittest.mock import patch
-
 import pytest
 
 from tests.unit.conftest import run_cmd

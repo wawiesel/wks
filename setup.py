@@ -20,6 +20,7 @@ setup(
         "bsdiff4",  # Binary diff size for change snapshots
         "mongomock",  # In-memory MongoDB for tests
         "jinja2",  # Template rendering for CLI outputs
+        "mutmut>=3.4.0",  # Mutation testing
         "pytest>=7.0",  # Testing framework
         "pytest-timeout>=2.1",  # Test timeouts
         "pytest-xdist>=3.0",  # Parallel test execution

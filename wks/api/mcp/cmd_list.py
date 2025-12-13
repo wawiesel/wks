@@ -2,10 +2,9 @@
 
 import json
 from collections.abc import Iterator
-from pathlib import Path
 
-from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import McpListOutput
 
 
@@ -15,6 +14,7 @@ def cmd_list() -> StageResult:
     Returns:
         StageResult with list of installations and their status
     """
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
         yield (0.2, "Loading configuration...")

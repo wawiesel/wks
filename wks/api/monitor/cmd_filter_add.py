@@ -5,13 +5,12 @@ Matches CLI: wksc monitor filter add <list-name> <value>, MCP: wksm_monitor_filt
 """
 
 from collections.abc import Iterator
-from typing import Any
 
 from ...utils import canonicalize_path
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import MonitorFilterAddOutput
-from ._validate_value import _validate_value
+from .validate_value import validate_value
 from .MonitorConfig import MonitorConfig
 
 
@@ -57,7 +56,7 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             raise ValueError(f"Unknown list_name: {list_name!r}")
 
         yield (0.4, "Validating value...")
-        value_to_store, error = _validate_value(list_name, value, monitor_cfg)
+        value_to_store, error = validate_value(list_name, value, monitor_cfg)
 
         if error:
             _build_result(
@@ -75,7 +74,7 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
         items = getattr(monitor_cfg.filter, list_name)
 
         # For paths, we compare canonicalized versions. For others, direct string comparison.
-        # value_to_store is already normalized/canonicalized by _validate_value for paths.
+        # value_to_store is already normalized/canonicalized by validate_value for paths.
         cmp_value = canonicalize_path(value_to_store) if resolve_path else value_to_store
 
         existing = None

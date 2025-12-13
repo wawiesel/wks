@@ -13,4 +13,3 @@ def file_checksum(path: Path) -> str:
                 break
             hasher.update(chunk)
     return hasher.hexdigest()
-

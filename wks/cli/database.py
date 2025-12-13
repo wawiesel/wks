@@ -2,10 +2,10 @@
 
 import typer
 
-from wks.cli.handle_stage_result import handle_stage_result
 from wks.api.database.cmd_list import cmd_list
 from wks.api.database.cmd_reset import cmd_reset
 from wks.api.database.cmd_show import cmd_show
+from wks.cli.handle_stage_result import handle_stage_result
 
 db_app = typer.Typer(
     name="database",
@@ -57,4 +57,3 @@ def reset_command(
 
 db_app.command(name="show")(show_command)
 db_app.command(name="reset")(reset_command)
-

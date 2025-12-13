@@ -2,14 +2,15 @@
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import ServiceUninstallOutput
 from .Service import Service
 
 
 def cmd_uninstall() -> StageResult:
     """Uninstall system service."""
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 
@@ -33,8 +34,6 @@ def cmd_uninstall() -> StageResult:
             yield (0.6, "Uninstalling service...")
             with Service(config.service) as service:
                 result = service.uninstall_service()
-            # Remove 'success' from output - it's handled by StageResult.success
-            output = {k: v for k, v in result.items() if k != "success"}
 
             yield (1.0, "Complete")
             result_obj.result = f"Service uninstalled successfully (label: {result.get('label', 'unknown')})"

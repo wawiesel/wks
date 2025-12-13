@@ -18,4 +18,3 @@ def get_package_version() -> str:
         except Exception:
             _VERSION_CACHE = "unknown"
     return _VERSION_CACHE
-

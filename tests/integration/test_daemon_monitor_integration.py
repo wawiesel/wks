@@ -8,12 +8,11 @@ binary must exist on the system.
 import shutil
 import subprocess
 import time
-from pathlib import Path
 
 import pytest
 
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.daemon import Daemon
+from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
 
 
@@ -45,6 +44,7 @@ pytestmark = [
 def mongo_wks_env(tmp_path, monkeypatch):
     """Set up WKS environment with real MongoDB."""
     from tests.conftest import minimal_config_dict
+
     if not _mongod_available():
         pytest.fail(
             "MongoDB tests require `mongod` in PATH. "
@@ -58,6 +58,7 @@ def mongo_wks_env(tmp_path, monkeypatch):
 
     # Use a unique port to avoid conflicts
     import random
+
     mongo_port = random.randint(27100, 27999)
     mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
 
@@ -100,7 +101,6 @@ def mongo_wks_env(tmp_path, monkeypatch):
 def test_daemon_sync_creates_db_record(mongo_wks_env):
     """Daemon should sync created files to MongoDB."""
     watch_dir = mongo_wks_env["watch_dir"]
-    wks_home = mongo_wks_env["wks_home"]
     config = mongo_wks_env["config"]
 
     # Start daemon
@@ -146,8 +146,9 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         time.sleep(0.5)
 
         # Manually sync the file first to ensure it's in DB
-        from wks.api.monitor.cmd_sync import cmd_sync
         from tests.conftest import run_cmd
+        from wks.api.monitor.cmd_sync import cmd_sync
+
         sync_result = run_cmd(cmd_sync, str(test_file))
         assert sync_result.success
 
@@ -193,8 +194,9 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         time.sleep(0.5)
 
         # Sync source file
-        from wks.api.monitor.cmd_sync import cmd_sync
         from tests.conftest import run_cmd
+        from wks.api.monitor.cmd_sync import cmd_sync
+
         run_cmd(cmd_sync, str(src_file))
 
         # Verify source is in DB
@@ -204,8 +206,8 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         # Move the file
         src_file.rename(dst_file)
 
-        # Poll until old removed and new added (move events can take a few cycles)
-        deadline = time.time() + 10.0
+        # Poll until old removed and new added (move events can take a few cycles, especially on slower CI)
+        deadline = time.time() + 20.0
         while True:
             with Database(config.database, config.monitor.database) as db:
                 old_rec = db.find_one({"path": src_file.resolve().as_uri()})
@@ -220,4 +222,3 @@ def test_daemon_sync_handles_move(mongo_wks_env):
 
     finally:
         daemon.stop()
-

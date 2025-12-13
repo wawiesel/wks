@@ -37,7 +37,7 @@ def get_typer_command_schema(app: typer.Typer, command_name: str | None) -> dict
             import inspect
 
             sig = inspect.signature(callback_info.callback)
-            schema: dict[str, Any] = {
+            callback_schema: dict[str, Any] = {
                 "type": "object",
                 "properties": {},
                 "required": [],
@@ -50,15 +50,14 @@ def get_typer_command_schema(app: typer.Typer, command_name: str | None) -> dict
                 if param.annotation != inspect.Parameter.empty:
                     # Handle union types (e.g., str | None)
                     ann = param.annotation
-                    if hasattr(ann, "__origin__") and ann.__origin__ is type(None) or (hasattr(ann, "__args__") and type(None) in ann.__args__):
-                        # Extract the non-None type
-                        if hasattr(ann, "__args__"):
-                            ann = [a for a in ann.__args__ if a is not type(None)][0]
-                    if ann == int or (hasattr(ann, "__origin__") and ann.__origin__ is int):
+                    if hasattr(ann, "__args__") and type(None) in ann.__args__:
+                        ann = next(a for a in ann.__args__ if a is not type(None))
+
+                    if ann is int or (hasattr(ann, "__origin__") and ann.__origin__ is int):
                         param_type = "integer"
-                    elif ann == bool or (hasattr(ann, "__origin__") and ann.__origin__ is bool):
+                    elif ann is bool or (hasattr(ann, "__origin__") and ann.__origin__ is bool):
                         param_type = "boolean"
-                    elif ann == float or (hasattr(ann, "__origin__") and ann.__origin__ is float):
+                    elif ann is float or (hasattr(ann, "__origin__") and ann.__origin__ is float):
                         param_type = "number"
                 # Extract help text from Typer Argument/Option default
                 description = ""
@@ -66,14 +65,13 @@ def get_typer_command_schema(app: typer.Typer, command_name: str | None) -> dict
                     description = param.default.help
                 elif hasattr(param.default, "default") and hasattr(param.default.default, "help"):
                     description = param.default.default.help
-                schema["properties"][param_name] = {
+                callback_schema["properties"][param_name] = {
                     "type": param_type,
                     "description": description,
                 }
                 # If parameter has a default value (not just a Typer Argument/Option), it's not required
                 if param.default == inspect.Parameter.empty:
-                    schema["required"].append(param_name)
-            return schema
+                    callback_schema["required"].append(param_name)
+            return callback_schema
 
     raise ValueError(f"Command {command_name} not found in app")
-

@@ -1,9 +1,10 @@
 """Stop daemon (background watcher)."""
 
-from typing import Iterator
+from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from . import DaemonStopOutput, Daemon
+from .Daemon import Daemon
+from . import DaemonStopOutput
 
 
 def cmd_stop() -> StageResult:
@@ -38,4 +39,3 @@ def cmd_stop() -> StageResult:
         announce="Stopping daemon...",
         progress_callback=do_work,
     )
-

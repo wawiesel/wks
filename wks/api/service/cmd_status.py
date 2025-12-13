@@ -1,20 +1,19 @@
 """Service status command - shows service-managed daemon status and metrics."""
 
-import json
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
-from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import ServiceStatusOutput
-from .Service import Service
 from ._pid_running import _pid_running
 from ._read_daemon_file import _read_daemon_file
+from .Service import Service
 
 
 def cmd_status() -> StageResult:
     """Get daemon status and metrics."""
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 

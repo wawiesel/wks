@@ -1,11 +1,10 @@
 """Unit tests for wks.api.mcp.cmd_uninstall module."""
 
 import json
-from pathlib import Path
 
 import pytest
 
-from tests.unit.conftest import run_cmd, standard_config_dict, wks_home
+from tests.unit.conftest import run_cmd
 from wks.api.mcp import cmd_uninstall
 
 pytestmark = pytest.mark.mcp
@@ -139,7 +138,7 @@ def test_cmd_uninstall_exception_handling(wks_home, standard_config_dict, monkey
     def mock_dump(*args, **kwargs):
         # Only fail on the config save
         if "mcp" in str(args[0]) or "installs" in str(args[0]):
-            raise IOError("Permission denied")
+            raise OSError("Permission denied")
         return original_dump(*args, **kwargs)
 
     monkeypatch.setattr("json.dump", mock_dump)

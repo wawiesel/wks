@@ -1,13 +1,11 @@
 """Daemon filesystem event integration test (TDD scaffold)."""
 
-import platform
 import time
-from pathlib import Path
 
 import pytest
 
-from wks.api.daemon._read_status_file import read_status_file
 from tests.unit.conftest import minimal_wks_config
+from wks.api.daemon._read_status_file import read_status_file
 
 
 @pytest.mark.daemon
@@ -18,7 +16,8 @@ def test_daemon_starts_and_stops_cleanly(monkeypatch, tmp_path):
     not returned via get_filesystem_events(). See test_wks_api_daemon_monitor_sync.py
     for integration tests of event syncing.
     """
-    from wks.api.daemon import Daemon
+    from wks.api.daemon.Daemon import Daemon
+
     Daemon._global_instance = None
 
     cfg = minimal_wks_config()
@@ -56,7 +55,8 @@ def test_daemon_starts_and_stops_cleanly(monkeypatch, tmp_path):
 
 @pytest.mark.daemon
 def test_daemon_prevents_double_start(monkeypatch, tmp_path):
-    from wks.api.daemon import Daemon
+    from wks.api.daemon.Daemon import Daemon
+
     Daemon._global_instance = None
 
     cfg = minimal_wks_config()
@@ -76,7 +76,8 @@ def test_daemon_prevents_double_start(monkeypatch, tmp_path):
 
 @pytest.mark.daemon
 def test_daemon_status_includes_restrict_and_log(monkeypatch, tmp_path):
-    from wks.api.daemon import Daemon
+    from wks.api.daemon.Daemon import Daemon
+
     Daemon._global_instance = None
 
     cfg = minimal_wks_config()
@@ -99,7 +100,8 @@ def test_daemon_status_includes_restrict_and_log(monkeypatch, tmp_path):
 
 @pytest.mark.daemon
 def test_daemon_writes_status_file(monkeypatch, tmp_path):
-    from wks.api.daemon import Daemon
+    from wks.api.daemon.Daemon import Daemon
+
     Daemon._global_instance = None
 
     cfg = minimal_wks_config()

@@ -84,7 +84,7 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
 
         yield (0.8, "Saving configuration...")
         config.save()
-        
+
         _build_result(
             result_obj,
             success=True,

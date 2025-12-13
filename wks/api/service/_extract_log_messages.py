@@ -1,10 +1,9 @@
 """Extract warnings and errors from service log (UNO: single function)."""
 
 from pathlib import Path
-from typing import Tuple
 
 
-def extract_log_messages(log_path: Path) -> Tuple[list[str], list[str]]:
+def extract_log_messages(log_path: Path) -> tuple[list[str], list[str]]:
     """Return (warnings, errors) parsed from log file."""
     warnings: list[str] = []
     errors: list[str] = []
@@ -20,4 +19,3 @@ def extract_log_messages(log_path: Path) -> Tuple[list[str], list[str]]:
     except Exception:
         pass
     return warnings, errors
-

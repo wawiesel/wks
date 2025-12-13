@@ -10,7 +10,7 @@ import pytest
 from wks.api.config.WKSConfig import WKSConfig
 
 
-def pytest_collection_modifyitems(config, items):  # noqa: ARG001
+def pytest_collection_modifyitems(config, items):
     """Automatically apply markers based on test file location."""
     for item in items:
         path_str = str(item.fspath)

@@ -8,9 +8,9 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+from ..database.Database import Database
 from ..StageResult import StageResult
 from . import MonitorSyncOutput
-from ..database.Database import Database
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
@@ -73,14 +73,14 @@ def cmd_sync(
             warn_msg = f"Removed missing path from monitor DB: {path_obj}"
             if removed_count == 0:
                 warn_msg = f"Path missing; no existing record to remove: {path_obj}"
-            warnings = [warn_msg]
+            warning_list = [warn_msg]
             yield (1.0, "Complete")
             _build_result(
                 result_obj,
                 success=True,
                 message=warn_msg,
                 errors=[],
-                warnings=warnings,
+                warnings=warning_list,
                 files_synced=0,
                 files_skipped=0,
             )
@@ -134,9 +134,7 @@ def cmd_sync(
 
                         path_uri = file_path.as_uri()
                         # Check if file content changed (checksum comparison)
-                        existing_doc = database.find_one(
-                            {"path": path_uri}, {"checksum": 1, "timestamp": 1}
-                        )
+                        existing_doc = database.find_one({"path": path_uri}, {"checksum": 1, "timestamp": 1})
                         timestamp = now.isoformat()
                         # If file unchanged (same checksum), preserve existing timestamp
                         if existing_doc and existing_doc.get("checksum") == checksum:
@@ -165,9 +163,7 @@ def cmd_sync(
                         )
             finally:
                 yield (0.9, "Enforcing database limits...")
-                _enforce_monitor_db_limit(
-                    database, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority
-                )
+                _enforce_monitor_db_limit(database, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority)
 
         success = len(errors) == 0
         result_msg = (

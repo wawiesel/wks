@@ -1,7 +1,7 @@
 """MongoDB-specific configuration data."""
 
-from pymongo.uri_parser import parse_uri
 from pydantic import BaseModel, Field, model_validator
+from pymongo.uri_parser import parse_uri
 
 
 class _Data(BaseModel):
@@ -31,9 +31,7 @@ class _Data(BaseModel):
     @model_validator(mode="after")
     def validate_fields(self) -> "_Data":
         if not (
-            self.uri.startswith("mongodb://")
-            or self.uri.startswith("mongodb+srv://")
-            or self.uri.startswith("mongodb")
+            self.uri.startswith("mongodb://") or self.uri.startswith("mongodb+srv://") or self.uri.startswith("mongodb")
         ):
             raise ValueError(f"database.uri must start with 'mongodb://' (found: {self.uri!r})")
         if self.local:
@@ -41,4 +39,3 @@ class _Data(BaseModel):
             if not parsed.get("nodelist"):
                 raise ValueError("database.uri must include host when local=true")
         return self
-

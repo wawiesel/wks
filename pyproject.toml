@@ -26,6 +26,7 @@ dependencies = [
     "bsdiff4",
     "mongomock",
     "jinja2",
+    "mutmut>=3.4.0",
     "pyyaml",
     "pytest>=7.0",
     "pytest-timeout>=2.1",
@@ -39,6 +40,7 @@ dependencies = [
     "types-setuptools",
     "typer",
     "pydantic",
+    "tabulate",
 ]
 
 [tool.ruff]
@@ -47,6 +49,15 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "W", "N", "UP", "C4", "SIM", "ARG", "PTH", "RUF"]
+ignore = [
+    "N999", # file/module names in this repo are not uniformly snake_case
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ARG",  # pytest fixtures and test doubles commonly need unused params
+    "N999", # tests in this repo use mixed-case module naming
+]
 
 [tool.mypy]
 python_version = "3.10"

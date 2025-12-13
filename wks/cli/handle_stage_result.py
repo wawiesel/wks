@@ -4,8 +4,6 @@ import functools
 from collections.abc import Callable
 from typing import TypeVar
 
-import typer
-
 from ._run_single_execution import _run_single_execution
 
 F = TypeVar("F", bound=Callable)
@@ -29,8 +27,9 @@ def handle_stage_result(func: F) -> F:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        from wks.utils.display.context import get_display
         import click
+
+        from wks.utils.display.context import get_display
 
         display = get_display("cli")
 
@@ -54,4 +53,3 @@ def handle_stage_result(func: F) -> F:
         _run_single_execution(func, args, kwargs, display, display_format)
 
     return wrapper  # type: ignore[return-value]
-

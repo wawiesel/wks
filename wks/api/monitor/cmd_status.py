@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from ..database.Database import Database
 from ..StageResult import StageResult
 from . import MonitorStatusOutput
-from ..database.Database import Database
 from .explain_path import explain_path
 
 
@@ -87,9 +87,7 @@ def cmd_status() -> StageResult:
 
                 # Count files older than 1 year
                 one_year_ago = (now - timedelta(days=365)).isoformat()
-                time_based_counts[">1 year"] = database.count_documents(
-                    {"timestamp": {"$lt": one_year_ago}}
-                )
+                time_based_counts[">1 year"] = database.count_documents({"timestamp": {"$lt": one_year_ago}})
 
         except Exception:
             total_files = 0
@@ -121,9 +119,9 @@ def cmd_status() -> StageResult:
 
         # Only include status-specific data (not config that can be retrieved elsewhere)
         yield (1.0, "Complete")
-        
+
         message = f"Monitor status retrieved ({len(issues)} issue(s) found)" if issues else "Monitor status retrieved"
-        
+
         _build_result(
             result_obj,
             success=len(issues) == 0,

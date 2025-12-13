@@ -4,9 +4,7 @@ All commands are handled by domain-specific Typer apps in wks/api/{domain}/app.p
 Each domain app implements the unified 4-stage pattern for both CLI and MCP.
 """
 
-import subprocess
 import sys
-from pathlib import Path
 
 import click
 import typer
@@ -21,10 +19,6 @@ from wks.cli.monitor import monitor_app
 # from wks.api.diff.app import diff_app
 # from wks.api.transform.app import transform_app
 # from wks.api.vault.app import vault_app
-from wks.utils.display.context import get_display
-from wks.mcp.client import proxy_stdio_to_socket
-from wks.mcp.paths import mcp_socket_path
-from wks.utils import get_package_version
 
 app = typer.Typer(
     pretty_exceptions_show_locals=False,
@@ -70,10 +64,7 @@ def main_callback(
 def _handle_version_flag() -> int:
     """Handle --version flag by calling the API command."""
     from wks.api.config.cmd_version import cmd_version
-    from wks.cli._run_single_execution import _run_single_execution
-    from wks.utils.display.context import get_display
 
-    display = get_display("cli")
     result = cmd_version()
     # Execute progress callback
     list(result.progress_callback(result))

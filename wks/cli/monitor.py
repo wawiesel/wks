@@ -1,10 +1,7 @@
 """Monitor Typer app that registers all monitor commands."""
 
-from typing import Optional
-
 import typer
 
-from wks.cli.handle_stage_result import handle_stage_result
 from wks.api.monitor.cmd_check import cmd_check
 from wks.api.monitor.cmd_filter_add import cmd_filter_add
 from wks.api.monitor.cmd_filter_remove import cmd_filter_remove
@@ -14,6 +11,7 @@ from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
 from wks.api.monitor.cmd_priority_show import cmd_priority_show
 from wks.api.monitor.cmd_status import cmd_status
 from wks.api.monitor.cmd_sync import cmd_sync
+from wks.cli.handle_stage_result import handle_stage_result
 
 monitor_app = typer.Typer(
     name="monitor",
@@ -42,6 +40,7 @@ filter_app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     invoke_without_command=True,
 )
+
 
 @filter_app.callback(invoke_without_command=True)
 def filter_callback(ctx: typer.Context) -> None:
@@ -75,12 +74,12 @@ def check_command(path: str = typer.Argument(..., help="File or directory path t
 
 
 def sync_command(
-    path: Optional[str] = typer.Argument(None, help="File or directory path to sync"),
+    path: str | None = typer.Argument(None, help="File or directory path to sync"),
     recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
 ) -> None:
     """Force update of file or directory into monitor database."""
     if path is None:
-        typer.echo(typer.get_current_context().get_help(), err=True)
+        typer.echo(typer.get_current_context().get_help(), err=True)  # type: ignore[attr-defined]
         raise typer.Exit(code=1)
     handle_stage_result(cmd_sync)(path, recursive)
 
@@ -130,6 +129,7 @@ monitor_app.command(name="sync")(sync_command)
 filter_app.command(name="show")(filter_show_command)
 filter_app.command(name="add")(filter_add_command)
 filter_app.command(name="remove")(filter_remove_command)
+
 
 # Priority subcommands
 def priority_show_command() -> None:

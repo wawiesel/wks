@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ..config.WKSConfig import WKSConfig
 from ._evaluate_roots import _evaluate_roots
-from ._matches_glob import _matches_glob
+from .matches_glob import matches_glob
 from .MonitorConfig import MonitorConfig
 
 
@@ -48,7 +48,7 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
         trace.append(f"Parent dir '{parent}' excluded")
         excluded = True
 
-    if _matches_glob(exclude_globs, resolved):
+    if matches_glob(exclude_globs, resolved):
         trace.append("Excluded by glob pattern")
         excluded = True
 
@@ -57,7 +57,7 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
         if parent in include_dirnames:
             trace.append(f"Parent dir '{parent}' override")
             return True, trace
-        if _matches_glob(include_globs, resolved):
+        if matches_glob(include_globs, resolved):
             trace.append("Included by glob override")
             return True, trace
         return False, trace

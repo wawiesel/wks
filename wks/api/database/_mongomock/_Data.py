@@ -9,5 +9,5 @@ class _Data(BaseModel):
     Note: MongoMock doesn't require a URI since it's an in-memory database.
     The implementation creates a shared client without connection parameters.
     """
-    pass
 
+    pass

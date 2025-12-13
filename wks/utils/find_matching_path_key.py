@@ -34,4 +34,3 @@ def find_matching_path_key(path_map: dict, candidate: str) -> str | None:
         if canonicalize_path(key) == candidate_norm:
             return key
     return None
-

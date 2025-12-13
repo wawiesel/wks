@@ -12,4 +12,3 @@ class InstallResult:
     path: Path
     status: str
     message: str = ""
-

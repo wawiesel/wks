@@ -2,9 +2,6 @@
 
 import types
 from functools import wraps
-from unittest.mock import patch
-
-import pytest
 
 import wks.mcp.discover_commands as discover_commands_module
 from wks.mcp.discover_commands import discover_commands
@@ -14,6 +11,7 @@ from wks.mcp.get_app import get_app
 
 def test_extract_api_function_patterns():
     """extract_api_function_from_command handles wrapped and wrapper callbacks."""
+
     def api_func():
         return "ok"
 

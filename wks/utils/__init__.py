@@ -17,4 +17,3 @@ __all__ = [
     "find_matching_path_key",
     "get_package_version",
 ]
-

@@ -4,11 +4,10 @@ Each command must have a Pydantic model that defines its output structure.
 All fields must always be present (even if empty/null) to ensure consistency.
 """
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from pydantic import BaseModel
-
-from .schema_registry import get_output_schema
+from .schema_registry import schema_registry
 
 
 def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:
@@ -38,7 +37,7 @@ def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:
 
     command_name = func_name[4:]  # Remove "cmd_" prefix
 
-    schema_class = get_output_schema(domain, command_name)
+    schema_class = schema_registry.get_output_schema(domain, command_name)
     if schema_class is None:
         # No schema registered, skip validation (but warn in development?)
         return output
@@ -47,7 +46,7 @@ def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:
     try:
         validated = schema_class(**output)
         # Use model_dump with mode='python' to get native Python types
-        return validated.model_dump(mode='python')
+        return validated.model_dump(mode="python")
     except Exception as e:
         raise ValueError(
             f"Output validation failed for {domain}.{command_name}: {e}\n"

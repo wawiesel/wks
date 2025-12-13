@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 
 from ..StageResult import StageResult
-from ._load_config import load_config_with_output
-from . import ConfigListOutput, WKSConfig
+from . import ConfigListOutput
+from .load_config_with_output import load_config_with_output
 
 
 def cmd_list() -> StageResult:
@@ -39,4 +39,3 @@ def cmd_list() -> StageResult:
         announce="Listing configuration sections...",
         progress_callback=do_work,
     )
-

@@ -1,19 +1,16 @@
 """Daemon module - filesystem watcher runtime."""
 
-from .Daemon import Daemon
-from ..schema_loader import register_from_schema
+from pydantic import BaseModel
 
-_models = register_from_schema("daemon")
-DaemonStatusOutput = _models.get("DaemonStatusOutput")
-DaemonStartOutput = _models.get("DaemonStartOutput")
-DaemonStopOutput = _models.get("DaemonStopOutput")
+from ..schema_loader import SchemaLoader
+
+_models = SchemaLoader.register_from_schema("daemon")
+DaemonStatusOutput: type[BaseModel] = _models["DaemonStatusOutput"]
+DaemonStartOutput: type[BaseModel] = _models["DaemonStartOutput"]
+DaemonStopOutput: type[BaseModel] = _models["DaemonStopOutput"]
 
 __all__ = [
-    "Daemon",
-    "DaemonStatusOutput",
     "DaemonStartOutput",
+    "DaemonStatusOutput",
     "DaemonStopOutput",
-    "cmd_start",
-    "cmd_stop",
-    "cmd_status",
 ]

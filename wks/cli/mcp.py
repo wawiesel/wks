@@ -2,10 +2,10 @@
 
 import typer
 
-from wks.cli.handle_stage_result import handle_stage_result
 from wks.api.mcp.cmd_install import cmd_install
 from wks.api.mcp.cmd_list import cmd_list
 from wks.api.mcp.cmd_uninstall import cmd_uninstall
+from wks.cli.handle_stage_result import handle_stage_result
 from wks.mcp.client import proxy_stdio_to_socket
 from wks.mcp.paths import mcp_socket_path
 
@@ -67,4 +67,3 @@ def run_command(
 
 
 mcp_app.command(name="run")(run_command)
-

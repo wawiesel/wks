@@ -1,6 +1,7 @@
 """Filesystem event handler for daemon (UNO: single class)."""
 
 import threading
+
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 
 from .FilesystemEvents import FilesystemEvents
@@ -20,22 +21,22 @@ class _EventHandler(FileSystemEventHandler):
     def on_modified(self, event: FileSystemEvent) -> None:  # pragma: no cover
         if not event.is_directory:
             with self._lock:
-                self._modified.add(event.src_path)
+                self._modified.add(str(event.src_path))
 
     def on_created(self, event: FileSystemEvent) -> None:  # pragma: no cover
         if not event.is_directory:
             with self._lock:
-                self._created.add(event.src_path)
+                self._created.add(str(event.src_path))
 
     def on_deleted(self, event: FileSystemEvent) -> None:  # pragma: no cover
         if not event.is_directory:
             with self._lock:
-                self._deleted.add(event.src_path)
+                self._deleted.add(str(event.src_path))
 
     def on_moved(self, event: FileSystemEvent) -> None:  # pragma: no cover
         if not event.is_directory:
             with self._lock:
-                self._moved[event.src_path] = event.dest_path
+                self._moved[str(event.src_path)] = str(event.dest_path)
 
     def get_and_clear_events(self) -> FilesystemEvents:
         with self._lock:
@@ -48,4 +49,3 @@ class _EventHandler(FileSystemEventHandler):
             self._deleted.clear()
             self._moved.clear()
         return FilesystemEvents(modified=modified, created=created, deleted=deleted, moved=moved)
-

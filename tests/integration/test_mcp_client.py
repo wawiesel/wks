@@ -4,8 +4,6 @@ import socket
 import threading
 from pathlib import Path
 
-import pytest
-
 from wks.mcp.client import proxy_stdio_to_socket
 
 
@@ -52,6 +50,7 @@ def test_proxy_stdio_to_socket_round_trip(monkeypatch):
 
 def test_proxy_stdio_to_socket_handles_connection_error(monkeypatch):
     """proxy_stdio_to_socket returns False when socket connect fails."""
+
     class FailingSocket:
         def connect(self, _path):
             raise OSError("boom")
@@ -66,8 +65,9 @@ def test_proxy_stdio_to_socket_handles_connection_error(monkeypatch):
 
 def test_proxy_stdio_to_socket_joins_threads(monkeypatch):
     """Ensure join loop executes even when work is minimal."""
+
     class DummyThread:
-        def __init__(self, target=None, name=None, daemon=None):  # noqa: ANN001
+        def __init__(self, target=None, name=None, daemon=None):
             self._alive = True
 
         def start(self):

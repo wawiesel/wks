@@ -5,18 +5,19 @@ import os
 import signal
 import subprocess
 import sys
-import time
 import threading
+import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 from watchdog.observers import Observer
 
+from ._EventHandler import _EventHandler
+from ._extract_log_messages import extract_log_messages
+from ._write_status_file import write_status_file
 from .DaemonConfig import DaemonConfig
 from .FilesystemEvents import FilesystemEvents
-from ._EventHandler import _EventHandler
-from ._write_status_file import write_status_file
-from ._extract_log_messages import extract_log_messages
 
 
 def _append_log_file(log_file: Path, message: str) -> None:
@@ -29,7 +30,7 @@ def _append_log_file(log_file: Path, message: str) -> None:
         pass
 
 
-def _sync_path_static(path: Path, log_file: Path, log_fn) -> None:
+def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
     """Invoke monitor sync for a single path (child process safe)."""
     try:
         from ..monitor.cmd_sync import cmd_sync
@@ -58,7 +59,7 @@ def _child_main(
 ) -> None:
     # Detach child stdio to avoid blocking or noisy output
     try:
-        devnull = open(os.devnull, "w")
+        devnull = Path(os.devnull).open("w")  # noqa: SIM115
         sys.stdout = devnull  # type: ignore
         sys.stderr = devnull  # type: ignore
     except Exception:
@@ -74,7 +75,7 @@ def _child_main(
 
     stop_flag = False
 
-    def handle_sigterm(signum, frame):
+    def handle_sigterm(_signum, _frame):
         nonlocal stop_flag
         stop_flag = True
         append_log("INFO: Received SIGTERM")
@@ -291,22 +292,16 @@ class Daemon:
 
         pid_to_stop = None
         if lock_path.exists():
-            try:
+            with suppress(Exception):
                 pid_to_stop = int(lock_path.read_text().strip())
-            except Exception:
-                pid_to_stop = None
         if pid_to_stop:
-            try:
+            with suppress(Exception):
                 os.kill(pid_to_stop, signal.SIGTERM)
-            except Exception:
-                pass  # Process may have already exited
         self._running = False
         self._write_status(running=False, restrict_dir=None)
         if lock_path.exists():
-            try:
+            with suppress(Exception):
                 lock_path.unlink()
-            except Exception:
-                pass
         return type(
             "DaemonStatus",
             (),

@@ -6,8 +6,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from wks.api.StageResult import StageResult
 from wks.api.config.WKSConfig import WKSConfig
+from wks.api.StageResult import StageResult
 from wks.cli.get_typer_command_schema import get_typer_command_schema
 
 from .discover_commands import discover_commands
@@ -30,7 +30,7 @@ class MCPServer:
     def define_tools() -> dict[str, dict[str, Any]]:
         """Build tool metadata from discovered CLI commands."""
         tools = {}
-        for (domain, cmd_name), cmd_func in discover_commands().items():
+        for (domain, cmd_name), _cmd_func in discover_commands().items():
             app = get_app(domain)
             if app is None:
                 continue
@@ -71,8 +71,8 @@ class MCPServer:
         for (domain, cmd_name), cmd_func in discover_commands().items():
             sig = inspect.signature(cmd_func)
 
-            def make_handler(func: Callable, sig: inspect.Signature, domain: str) -> Callable:
-                def handler(config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+            def make_handler(func: Callable, sig: inspect.Signature, _domain: str) -> Callable:
+                def handler(_config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:
                     kwargs = {}
                     for param_name, param in sig.parameters.items():
                         if param_name == "self":
@@ -162,27 +162,47 @@ class MCPServer:
             tool_name, arguments = params.get("name"), params.get("arguments", {})
             if tool_name not in self.tools:
                 self.write_message(
-                    {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"Tool not found: {tool_name}"}}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {"code": -32601, "message": f"Tool not found: {tool_name}"},
+                    }
                 )
                 return
             try:
                 registry = self.build_registry()
                 if tool_name not in registry:
                     self.write_message(
-                        {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"Tool not implemented: {tool_name}"}}
+                        {
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "error": {"code": -32601, "message": f"Tool not implemented: {tool_name}"},
+                        }
                     )
                     return
                 result = registry[tool_name](WKSConfig.load(), arguments)
                 self.write_message(
-                    {"jsonrpc": "2.0", "id": request_id, "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]},
+                    }
                 )
             except Exception as e:
                 self.write_message(
-                    {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32000, "message": f"Tool execution failed: {e}"}}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {"code": -32000, "message": f"Tool execution failed: {e}"},
+                    }
                 )
         elif request_id is not None:
             self.write_message(
-                {"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32601, "message": f"Method not found: {method}"},
+                }
             )
 
     def run(self) -> None:

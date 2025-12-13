@@ -28,13 +28,7 @@ class ObsidianVault:
         self.base_dir = str(base_dir).strip().strip("/")
         self.machine = (machine_name or platform.node().split(".")[0]).strip()
         self._recompute_paths()
-        try:
-            from ..config.WKSConfig import WKSConfig
-
-            cfg = WKSConfig.load()
-            self.timestamp_format = cfg.display.timestamp_format
-        except Exception:
-            self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
+        self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
 
     # ------------------------------------------------------------------ helpers
 

@@ -6,7 +6,6 @@ Matches CLI: wksc monitor filter show [<list-name>], MCP: wksm_monitor_filter_sh
 """
 
 from collections.abc import Iterator
-from typing import Any
 
 from ..StageResult import StageResult
 from . import MonitorFilterShowOutput
@@ -74,7 +73,7 @@ def cmd_filter_show(list_name: str | None = None) -> StageResult:
         yield (0.7, f"Retrieving {list_name}...")
         items = list(getattr(monitor_cfg.filter, list_name))
         available_lists = list(MonitorConfig.get_filter_list_names())
-        
+
         _build_result(
             result_obj,
             success=True,

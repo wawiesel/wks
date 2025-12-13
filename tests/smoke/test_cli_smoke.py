@@ -33,10 +33,7 @@ def _mongod_available() -> bool:
 def _require_mongod() -> None:
     """Fail loudly if MongoDB requirements are not met."""
     if not _mongod_available():
-        pytest.fail(
-            "Smoke tests require `mongod` in PATH. "
-            "Install MongoDB so `mongod --version` works."
-        )
+        pytest.fail("Smoke tests require `mongod` in PATH. Install MongoDB so `mongod --version` works.")
 
 
 def _find_wksc_command():
@@ -81,8 +78,9 @@ def smoke_env(tmp_path_factory):
     vault_dir.mkdir()
     (home_dir / ".wks").mkdir()
     # Build a valid config using shared helpers, then override DB to use local Mongo.
-    from tests.conftest import minimal_config_dict
     import random
+
+    from tests.conftest import minimal_config_dict
 
     config = minimal_config_dict()
 

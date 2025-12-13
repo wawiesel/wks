@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import ServiceInstallOutput
 from .Service import Service
 
@@ -15,6 +15,7 @@ def cmd_install(restrict_dir: Path | None = None) -> StageResult:
     Reads service configuration from config.json and installs appropriate service mechanism
     using the backend implementation.
     """
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result.
 
@@ -38,8 +39,6 @@ def cmd_install(restrict_dir: Path | None = None) -> StageResult:
             yield (0.6, "Installing service...")
             with Service(config.service) as service:
                 result = service.install_service(restrict_dir=restrict_dir)
-            # Remove 'success' from output - it's handled by StageResult.success
-            output = {k: v for k, v in result.items() if k != "success"}
 
             yield (1.0, "Complete")
             result_obj.result = f"Service installed successfully (label: {result.get('label', 'unknown')})"

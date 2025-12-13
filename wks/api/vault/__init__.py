@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ...utils import expand_path
+
 # from ..config import load_config
 from ...utils.constants import WKS_HOME_DISPLAY
-from ...utils import expand_path
 from .controller import VaultController
 from .obsidian import ObsidianVault
 

@@ -4,9 +4,9 @@ import json
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..StageResult import StageResult
-from ..config.WKSConfig import WKSConfig
 from ...utils.expand_path import expand_path
+from ..config.WKSConfig import WKSConfig
+from ..StageResult import StageResult
 from . import McpUninstallOutput
 
 
@@ -19,6 +19,7 @@ def cmd_uninstall(name: str) -> StageResult:
     Returns:
         StageResult with uninstallation status
     """
+
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
         yield (0.1, "Checking configuration...")

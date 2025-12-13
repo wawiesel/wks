@@ -469,12 +469,14 @@ class VaultLinkIndexer:
 
         # TODO: this is not correct and up to date.
         from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
-        if isinstance(config.database.data, _MongoDbConfigData):
-            mongo_uri = config.database.data.uri
+
+        config_any: Any = config
+        if isinstance(config_any.database.data, _MongoDbConfigData):
+            mongo_uri = config_any.database.data.uri
         else:
-            raise ValueError(f"Vault requires mongo backend, got {config.database.type}")
-        db_name = config.vault.database.split(".")[0]
-        coll_name = config.vault.database.split(".")[1]
+            raise ValueError(f"Vault requires mongo backend, got {config_any.database.type}")
+        db_name = config_any.vault.database.split(".")[0]
+        coll_name = config_any.vault.database.split(".")[1]
 
         return cls(vault=vault, mongo_uri=mongo_uri, db_name=db_name, coll_name=coll_name)
 

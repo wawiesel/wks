@@ -1,11 +1,10 @@
 """Unit tests for wks.api.mcp.cmd_install module."""
 
 import json
-from pathlib import Path
 
 import pytest
 
-from tests.unit.conftest import run_cmd, standard_config_dict, wks_home
+from tests.unit.conftest import run_cmd
 from wks.api.mcp import cmd_install
 
 pytestmark = pytest.mark.mcp
@@ -43,7 +42,9 @@ def test_cmd_install_success_new_installation(wks_home, standard_config_dict):
     settings_path = wks_home / "settings.json"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
 
-    result = run_cmd(cmd_install.cmd_install, name="test", install_type="mcpServersJson", settings_path=str(settings_path))
+    result = run_cmd(
+        cmd_install.cmd_install, name="test", install_type="mcpServersJson", settings_path=str(settings_path)
+    )
 
     assert result.success is True
     assert "installed successfully" in result.result
@@ -87,7 +88,9 @@ def test_cmd_install_success_existing_installation(wks_home, standard_config_dic
     settings_path = tmp_path / "settings.json"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
 
-    result = run_cmd(cmd_install.cmd_install, name="test", install_type="mcpServersJson", settings_path=str(settings_path))
+    result = run_cmd(
+        cmd_install.cmd_install, name="test", install_type="mcpServersJson", settings_path=str(settings_path)
+    )
 
     assert result.success is True
     assert "errors" in result.output
@@ -108,7 +111,7 @@ def test_cmd_install_exception_handling(wks_home, standard_config_dict, monkeypa
     def mock_dump(*args, **kwargs):
         # Only fail on the config save (second dump call)
         if "mcp" in str(args[0]) or "installs" in str(args[0]):
-            raise IOError("Permission denied")
+            raise OSError("Permission denied")
         return original_dump(*args, **kwargs)
 
     monkeypatch.setattr("json.dump", mock_dump)
