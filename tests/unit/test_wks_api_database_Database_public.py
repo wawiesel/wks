@@ -2,8 +2,10 @@
 
 import builtins
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
+from pydantic import BaseModel
 
 from wks.api.database.Database import Database
 from wks.api.database.DatabaseConfig import DatabaseConfig
@@ -11,7 +13,8 @@ from wks.api.database.DatabaseConfig import DatabaseConfig
 
 def _db_config() -> DatabaseConfig:
     # Use a unique prefix to avoid cross-test contamination via mongomock's in-memory client.
-    return DatabaseConfig(type="mongomock", prefix="wks_test_database_public", data={})
+    # DatabaseConfig's validate_and_populate_data validator converts dict to BaseModel
+    return DatabaseConfig(type="mongomock", prefix="wks_test_database_public", data=cast(BaseModel, {}))
 
 
 def test_database_context_and_operations():
@@ -125,9 +128,8 @@ def test_database_exit_passes_exception_info_to_impl(monkeypatch) -> None:
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
-    with pytest.raises(ValueError):
-        with Database(cfg, "monitor"):
-            raise ValueError("boom")
+    with pytest.raises(ValueError), Database(cfg, "monitor"):
+        raise ValueError("boom")
 
     assert seen["exc_type"] is ValueError
     assert isinstance(seen["exc_val"], ValueError)

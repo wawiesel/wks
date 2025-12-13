@@ -30,6 +30,7 @@ def test_schema_registry_can_query_for_registered_command() -> None:
 
 def test_schema_registry_rejects_double_registration() -> None:
     from pydantic import BaseModel
+
     from wks.api.schema_registry import SchemaRegistry
 
     class DummyOutput(BaseModel):

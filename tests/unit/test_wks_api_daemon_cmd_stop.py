@@ -3,9 +3,9 @@
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
+from wks.api.daemon._read_status_file import read_status_file
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_stop import cmd_stop
-from wks.api.daemon._read_status_file import read_status_file
 
 
 @pytest.mark.daemon

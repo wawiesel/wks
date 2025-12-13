@@ -33,7 +33,7 @@ def test_domain_init_all_exports_only_outputs() -> None:
 
         mod = importlib.import_module(f"wks.api.{domain}")
         assert hasattr(mod, "__all__")
-        assert sorted(list(mod.__all__)) == expected
+        assert sorted(mod.__all__) == expected
 
         for name in expected:
             assert hasattr(mod, name)
