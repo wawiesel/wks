@@ -84,15 +84,16 @@ def check_file(file_path: Path, filter_fn: Callable[[Path], str] | None = None) 
 
     if total_definitions == 0:
         return True, ""  # Empty files or files with only private definitions are OK
-    elif total_definitions == 1:
+    if total_definitions == 1:
         return True, ""
-    else:
-        definitions = []
-        if class_count > 0:
-            definitions.append(f"{class_count} class(es)")
-        if function_count > 0:
-            definitions.append(f"{function_count} function(s)")
-        return False, f"Contains {total_definitions} public definitions: {', '.join(definitions)}"
+
+    # Build violation message
+    definitions = []
+    if class_count > 0:
+        definitions.append(f"{class_count} class(es)")
+    if function_count > 0:
+        definitions.append(f"{function_count} function(s)")
+    return False, f"Contains {total_definitions} public definitions: {', '.join(definitions)}"
 
 
 def load_filter_script(filter_path: Path) -> Callable[[Path], str]:
@@ -141,6 +142,47 @@ def load_filter_script(filter_path: Path) -> Callable[[Path], str]:
     return stdin_filter
 
 
+def _validate_and_load_filter(filter_path: Path | None) -> Callable[[Path], str] | None:
+    """Validate filter path and load filter function."""
+    if not filter_path:
+        return None
+
+    if ".cursor" in filter_path.parts:
+        console.print("[bold red]Error: Filter script must be outside .cursor directory[/bold red]")
+        sys.exit(1)
+
+    try:
+        return load_filter_script(filter_path)
+    except Exception as e:
+        console.print(f"[bold red]Error loading filter script: {e}[/bold red]")
+        sys.exit(1)
+
+
+def _find_python_files(target_dir: Path) -> list[Path]:
+    """Find all Python files in target directory."""
+    if not target_dir.exists():
+        console.print(f"[bold red]Error: Directory not found: {target_dir}[/bold red]")
+        sys.exit(1)
+
+    python_files = list(target_dir.rglob("*.py"))
+    return [f for f in python_files if "__pycache__" not in str(f)]
+
+
+def _report_violations(violations: list[tuple[Path, str]], target_dir: Path, checked_count: int) -> None:
+    """Report UNO rule violations."""
+    if violations:
+        console.print(f"\n[bold red]UNO Rule Violations ({len(violations)} files):[/bold red]\n")
+        for file_path, error_msg in violations:
+            rel_path = file_path.relative_to(target_dir)
+            console.print(f"  [red]{rel_path}[/red]")
+            console.print(f"    {error_msg}\n")
+        console.print(f"[bold red]FAILED: {len(violations)} file(s) violate UNO rule[/bold red]")
+        sys.exit(1)
+    else:
+        console.print(f"[bold green]PASSED: All {checked_count} file(s) comply with UNO rule[/bold green]")
+        sys.exit(0)
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -173,26 +215,12 @@ Filter script interface:
 
     args = parser.parse_args()
 
-    # Validate filter path (must exist outside .cursor)
-    filter_fn = None
-    if args.filter:
-        if ".cursor" in args.filter.parts:
-            console.print("[bold red]Error: Filter script must be outside .cursor directory[/bold red]")
-            sys.exit(1)
-        try:
-            filter_fn = load_filter_script(args.filter)
-        except Exception as e:
-            console.print(f"[bold red]Error loading filter script: {e}[/bold red]")
-            sys.exit(1)
+    # Validate and load filter
+    filter_fn = _validate_and_load_filter(args.filter)
 
     # Find all Python files
     target_dir = args.dir.resolve()
-    if not target_dir.exists():
-        console.print(f"[bold red]Error: Directory not found: {target_dir}[/bold red]")
-        sys.exit(1)
-
-    python_files = list(target_dir.rglob("*.py"))
-    python_files = [f for f in python_files if "__pycache__" not in str(f)]
+    python_files = _find_python_files(target_dir)
 
     if not python_files:
         console.print(f"[yellow]No Python files found in {target_dir}[/yellow]")
@@ -210,17 +238,7 @@ Filter script interface:
             checked_count += 1
 
     # Report results
-    if violations:
-        console.print(f"\n[bold red]UNO Rule Violations ({len(violations)} files):[/bold red]\n")
-        for file_path, error_msg in violations:
-            rel_path = file_path.relative_to(target_dir)
-            console.print(f"  [red]{rel_path}[/red]")
-            console.print(f"    {error_msg}\n")
-        console.print(f"[bold red]FAILED: {len(violations)} file(s) violate UNO rule[/bold red]")
-        sys.exit(1)
-    else:
-        console.print(f"[bold green]PASSED: All {checked_count} file(s) comply with UNO rule[/bold green]")
-        sys.exit(0)
+    _report_violations(violations, target_dir, checked_count)
 
 
 if __name__ == "__main__":
