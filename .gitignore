@@ -94,3 +94,6 @@ test_mcp_connection.py
 
 # MCP test scripts (temporary)
 demo_*.py
+
+# Generated visualizations
+docs/codebase_stats.png

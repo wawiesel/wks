@@ -142,17 +142,21 @@ The `.github/workflows/update-stats.yml` workflow:
 
 **Visualization**:
 Generate a visual representation of codebase statistics:
+### Generating Codebase Visualization
+
+To generate a visual representation of codebase statistics:
+
 ```bash
 pip install matplotlib  # Required for visualization
 ./scripts/generate_codebase_visualization.py
 ```
 
 This creates `docs/codebase_stats.png` with a multi-panel visualization showing:
-- Distribution by category (pie chart)
-- All sections comparison (bar chart)
-- Totals by category (stacked bars)
+- **Distribution by category** (pie chart): Shows the proportion of code, infrastructure, docs, and tests
+- **All sections comparison** (horizontal bar chart): Breakdown of all sections with percentages
+- **Totals by category** (stacked bar chart): Totals grouped by category
 
-The visualization automatically reads statistics from the README.md tables.
+The visualization automatically reads statistics from the README.md tables. The generated PNG file is excluded from git (via `.gitignore`) to avoid committing large binary files.
 
 ## Coding Standards
 
