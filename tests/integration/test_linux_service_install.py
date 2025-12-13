@@ -55,6 +55,8 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
     This test REQUIRES systemd and must run in a Docker container with systemd enabled.
     It will FAIL if systemd is not available (no skipping, no mocks - NoHedging principle).
     """
+    # No skipping - test must run in Docker workflow with systemd
+    # If systemd is not available, the test will fail (as it should)
     if not _check_systemd_available():
         pytest.fail("systemd not available - this test requires Docker with systemd (test-linux-service.yml workflow)")
 
