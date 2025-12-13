@@ -27,11 +27,13 @@ jobs:
       - name: Run Linux service integration test
         run: |
           # Run container with systemd support
+          # Use --init to run systemd as PID 1 (required for systemd to work)
           # --privileged is required for systemd to work properly
           # --tmpfs /run and --tmpfs /tmp are needed for systemd
           # --volume /sys/fs/cgroup is required for systemd
           docker run \
             --rm \
+            --init \
             --privileged \
             --tmpfs /run \
             --tmpfs /tmp \
@@ -41,9 +43,8 @@ jobs:
             -e WKS_HOME=/home/testuser/.wks \
             wks-test-linux-service:latest \
             /bin/bash -c "
-              # Start systemd (required for user services)
-              /lib/systemd/systemd --system --unit=basic.target &
-              sleep 2
+              # Wait for systemd to be ready (it's PID 1 with --init)
+              sleep 3
 
               # Enable lingering for testuser (required for user services)
               sudo -u testuser loginctl enable-linger testuser || true

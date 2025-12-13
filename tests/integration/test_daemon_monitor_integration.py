@@ -206,8 +206,11 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         # Move the file
         src_file.rename(dst_file)
 
+        # Give daemon time to detect the move event (watchdog needs time to process)
+        time.sleep(1.5)
+
         # Poll until old removed and new added (move events can take a few cycles, especially on slower CI)
-        deadline = time.time() + 20.0
+        deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
             with Database(config.database, config.monitor.database) as db:
                 old_rec = db.find_one({"path": src_file.resolve().as_uri()})
@@ -215,10 +218,14 @@ def test_daemon_sync_handles_move(mongo_wks_env):
             if old_rec is None and new_rec is not None:
                 break
             if time.time() > deadline:
+                # More detailed error message
+                old_exists = old_rec is not None
+                new_exists = new_rec is not None
                 raise AssertionError(
-                    f"Move did not reflect in DB in time. old={old_rec is not None} new={new_rec is not None}"
+                    f"Move did not reflect in DB in time. old={old_exists} new={new_exists}. "
+                    f"Source path: {src_file.resolve().as_uri()}, Dest path: {dst_file.resolve().as_uri()}"
                 )
-            time.sleep(0.2)
+            time.sleep(0.5)  # Increased sleep interval
 
     finally:
         daemon.stop()

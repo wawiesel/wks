@@ -40,5 +40,9 @@ WORKDIR /workspace
 ENV WKS_HOME=/home/testuser/.wks
 ENV PATH=/home/testuser/.local/bin:$PATH
 
+# Configure systemd to run as PID 1
+# This is required when using --init flag in docker run
+RUN systemctl set-default multi-user.target || true
+
 # Note: We don't install the package here - it will be installed in the workflow
 # to ensure we're testing the latest code
