@@ -50,11 +50,14 @@ def test_save_cleans_up_temp_on_error(tmp_path, monkeypatch, minimal_config_dict
 
     # Make the directory read-only to cause an error during save
     config_path.parent.mkdir(parents=True, exist_ok=True)
+    original_mode = config_path.parent.stat().st_mode
     config_path.parent.chmod(0o444)
     try:
         with pytest.raises(RuntimeError):
             cfg.save()
     finally:
-        config_path.parent.chmod(0o755)
+        # Restore permissions before checking temp file existence
+        # This prevents permission errors when pytest-xdist tries to clean up
+        config_path.parent.chmod(original_mode)
 
     assert not temp_path.exists()

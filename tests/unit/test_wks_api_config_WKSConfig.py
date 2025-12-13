@@ -162,12 +162,15 @@ class TestWKSConfigSave:
         temp_path = config_path.with_suffix(config_path.suffix + ".tmp")
 
         # Make the directory read-only to cause an error
+        original_mode = config_path.parent.stat().st_mode
         config_path.parent.chmod(0o444)
         try:
             with pytest.raises(RuntimeError) as exc_info:
                 config.save()
         finally:
-            config_path.parent.chmod(0o755)
+            # Restore permissions before checking temp file existence
+            # This prevents permission errors when pytest-xdist tries to clean up
+            config_path.parent.chmod(original_mode)
 
         assert "Failed to save config" in str(exc_info.value)
         # Temp file should be cleaned up

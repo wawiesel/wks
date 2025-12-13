@@ -106,6 +106,10 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 3. Start service
         start_result = service.start_service()
+        if not start_result.get("success"):
+            # Print error for debugging
+            error_msg = start_result.get("error", "Unknown error")
+            pytest.fail(f"Service start failed: {error_msg}")
         assert start_result["success"] is True
 
         # 4. Check status (should be running)
