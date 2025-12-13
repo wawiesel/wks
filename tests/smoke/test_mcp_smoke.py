@@ -57,9 +57,9 @@ def _mongod_available() -> bool:
 
 
 def _require_mongod() -> None:
-    """Skip test if MongoDB requirements are not met."""
+    """Fail loudly if MongoDB requirements are not met."""
     if not _mongod_available():
-        pytest.skip("MCP smoke tests require `mongod` in PATH. Install MongoDB so `mongod --version` works.")
+        pytest.fail("MCP smoke tests require `mongod` in PATH. Install MongoDB so `mongod --version` works.")
 
 
 @pytest.fixture(scope="module")

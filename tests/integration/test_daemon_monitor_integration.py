@@ -46,7 +46,7 @@ def mongo_wks_env(tmp_path, monkeypatch):
     from tests.conftest import minimal_config_dict
 
     if not _mongod_available():
-        pytest.skip(
+        pytest.fail(
             "MongoDB tests require `mongod` in PATH. "
             "Install MongoDB so `mongod --version` works, or run without -m mongo."
         )
