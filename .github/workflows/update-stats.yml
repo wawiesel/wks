@@ -1,12 +1,12 @@
 name: Update README Statistics
 
 on:
-  # Run on pushes to main/master (to keep stats current)
+  # Run on pushes to main (to keep stats current)
   push:
-    branches: [main, master]
+    branches: [main]
   # Run on PRs to check if stats are up-to-date
   pull_request:
-    branches: [main, master]
+    branches: [main]
   # Allow manual triggering
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Need write permissions for auto-commit (only on push to main/master)
+          # Need write permissions for auto-commit (only on push to main)
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
@@ -69,7 +69,7 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit updated statistics (main/master only)
+      - name: Commit updated statistics (main only)
         if: github.event_name == 'push' && steps.check-readme.outputs.changed == 'true'
         run: |
           git config --local user.email "action@github.com"
