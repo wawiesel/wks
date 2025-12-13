@@ -268,7 +268,7 @@ def _create_treemap(sections: dict[str, SectionData], metric: str = "chars") -> 
     title = f"Codebase Statistics - {metric_labels.get(metric, metric.title())}"
     fig.suptitle(title, fontsize=22, fontweight="bold", color="white", y=0.98)
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(OUTPUT_PATH, dpi=300, facecolor="#1e1e1e", bbox_inches="tight")
     print(f"✅ Generated visualization: {OUTPUT_PATH}")

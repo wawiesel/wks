@@ -36,7 +36,7 @@ jobs:
             --tmpfs /run \
             --tmpfs /tmp \
             --volume /sys/fs/cgroup:/sys/fs/cgroup:ro \
-            --volume "${{ github.workspace }}:/workspace" \
+            --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \
             -e WKS_HOME=/home/testuser/.wks \
             wks-test-linux-service:latest \
@@ -53,6 +53,9 @@ jobs:
                 export WKS_HOME=/home/testuser/.wks
                 export PATH=/home/testuser/.local/bin:\$PATH
                 cd /workspace
+
+                # Make workspace writable for testuser
+                sudo chown -R testuser:testuser /workspace
 
                 # Install package
                 pip3 install --user -e .

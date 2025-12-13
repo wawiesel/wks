@@ -31,9 +31,9 @@ def _mongod_available() -> bool:
 
 
 def _require_mongod() -> None:
-    """Fail loudly if MongoDB requirements are not met."""
+    """Skip test if MongoDB requirements are not met."""
     if not _mongod_available():
-        pytest.fail("Smoke tests require `mongod` in PATH. Install MongoDB so `mongod --version` works.")
+        pytest.skip("Smoke tests require `mongod` in PATH. Install MongoDB so `mongod --version` works.")
 
 
 def _find_wksc_command():
