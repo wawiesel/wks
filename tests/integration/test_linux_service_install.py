@@ -50,9 +50,13 @@ def _check_systemd_available() -> bool:
 @pytest.mark.integration
 @pytest.mark.linux_service
 def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
-    """Test full lifecycle: install, start, status, stop, uninstall."""
+    """Test full lifecycle: install, start, status, stop, uninstall.
+
+    This test REQUIRES systemd and must run in a Docker container with systemd enabled.
+    It will FAIL if systemd is not available (no skipping, no mocks - NoHedging principle).
+    """
     if not _check_systemd_available():
-        pytest.skip("systemd not available (not running in Docker with systemd)")
+        pytest.fail("systemd not available - this test requires Docker with systemd (test-linux-service.yml workflow)")
 
     # Set up WKS_HOME
     wks_home = tmp_path / ".wks"
