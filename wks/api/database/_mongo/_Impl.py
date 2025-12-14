@@ -96,12 +96,17 @@ class _Impl(_AbstractImpl):
             self._started_local = True
         except FileNotFoundError as exc:
             raise RuntimeError("mongod binary not found; install MongoDB or specify database.uri") from exc
-        # Wait briefly for mongod to come up
-        for _ in range(10):
+        # Wait for mongod to come up (increased timeout for CI - mongod can take 5-10 seconds to start)
+        max_attempts = 50  # 50 * 0.2s = 10 seconds total
+        for _attempt in range(max_attempts):
             if self._can_connect(uri):
                 return
-            time.sleep(0.1)
-        raise RuntimeError("Failed to start local mongod (timeout)")
+            time.sleep(0.2)  # Increased sleep interval for better responsiveness
+
+        # Check if process is still running (might have crashed)
+        if self._mongod_proc and self._mongod_proc.poll() is not None:
+            raise RuntimeError(f"mongod process exited with code {self._mongod_proc.returncode}")
+        raise RuntimeError(f"Failed to start local mongod (timeout after {max_attempts * 0.2}s)")
 
     def _can_connect(self, uri: str) -> bool:
         try:
