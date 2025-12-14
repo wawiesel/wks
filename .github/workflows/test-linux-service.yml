@@ -82,8 +82,17 @@ jobs:
             export PATH=/home/testuser/.local/bin:$PATH
             USER_ID=$(id -u)
             export XDG_RUNTIME_DIR=/run/user/$USER_ID
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus
             sudo mkdir -p "$XDG_RUNTIME_DIR"
             sudo chown testuser:testuser "$XDG_RUNTIME_DIR"
+            sudo chmod 700 "$XDG_RUNTIME_DIR"
+
+            # Debug: Check systemd status
+            echo "=== Debug: systemd check ==="
+            systemctl --version || echo "systemctl not found"
+            cat /proc/1/comm || echo "cant read /proc/1/comm"
+            systemctl --user list-units --no-pager 2>&1 || echo "user list-units failed"
+
             cd /workspace
             sudo chown -R testuser:testuser /workspace || true
             echo "Upgrading pip..."
