@@ -44,15 +44,24 @@ jobs:
             wks-test-linux-service:latest \
             /bin/bash -c "
               # Wait for systemd to be ready (it's PID 1 with --init)
-              sleep 3
+              sleep 5
+
+              # Verify systemd is running
+              systemctl status || true
 
               # Enable lingering for testuser (required for user services)
+              # This allows user services to run without an active login session
               sudo -u testuser loginctl enable-linger testuser || true
+
+              # Start user systemd session for testuser
+              # This is required for systemctl --user to work
+              sudo -u testuser systemctl --user daemon-reload || true
 
               # Switch to testuser and set up environment
               sudo -u testuser bash -c '
                 export WKS_HOME=/home/testuser/.wks
                 export PATH=/home/testuser/.local/bin:\$PATH
+                export XDG_RUNTIME_DIR=/run/user/\$(id -u)
                 cd /workspace
 
                 # Make workspace writable for testuser
@@ -60,6 +69,9 @@ jobs:
 
                 # Install package
                 pip3 install --user -e .
+
+                # Verify systemd user session is working
+                systemctl --user list-units --no-pager || true
 
                 # Run the integration test
                 python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service

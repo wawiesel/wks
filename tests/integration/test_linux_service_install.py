@@ -18,7 +18,7 @@ from wks.api.service.Service import Service
 def _check_systemd_available() -> bool:
     """Check if systemd is available (running in Docker with systemd).
 
-    This check is more strict - we need both systemctl command and a working user session.
+    This check verifies that systemd is running and user services are available.
     """
     try:
         # First check if systemctl exists
@@ -31,18 +31,34 @@ def _check_systemd_available() -> bool:
         if result.returncode != 0:
             return False
 
+        # Check if systemd is running (PID 1 check)
+        try:
+            init_process = Path("/proc/1/comm").read_text().strip()
+            if init_process != "systemd":
+                return False
+        except Exception:
+            return False
+
         # Check if user systemd session is available
+        # Use list-units as it's more reliable than is-system-running for user services
         result = subprocess.run(
-            ["systemctl", "--user", "is-system-running"],
+            ["systemctl", "--user", "list-units", "--no-pager"],
             capture_output=True,
             text=True,
             timeout=5,
         )
-        # systemd is available if command succeeds (even if system is not fully running)
-        # Also check stderr for common errors
-        if result.stderr and ("Failed to connect" in result.stderr or "No such file" in result.stderr):
-            return False
-        return result.returncode == 0 or "running" in result.stdout.lower()
+        # If we can list units, systemd user session is working
+        # Check for common errors in stderr
+        if result.stderr:
+            error_lower = result.stderr.lower()
+            if (
+                "failed to connect" in error_lower
+                or "no such file" in error_lower
+                or "connection refused" in error_lower
+            ):
+                return False
+        # Return true if command succeeded (even if no units listed)
+        return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
 
