@@ -44,9 +44,9 @@ ENV PATH=/home/testuser/.local/bin:$PATH
 RUN systemctl set-default multi-user.target || true
 
 # Set systemd as the entrypoint so it runs as PID 1
-# Use --system to run systemd in system mode
-ENTRYPOINT ["/lib/systemd/systemd"]
-CMD ["--system"]
+# Use /sbin/init as a wrapper that systemd expects
+# This is the standard way to run systemd in containers
+ENTRYPOINT ["/sbin/init"]
 
 # Note: We don't install the package here - it will be installed in the workflow
 # to ensure we're testing the latest code
