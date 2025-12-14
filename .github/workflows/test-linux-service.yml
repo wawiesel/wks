@@ -47,9 +47,15 @@ jobs:
           # Check if container is still running
           if ! docker ps | grep -q $CONTAINER_ID; then
             echo "Container stopped unexpectedly. Logs:"
-            docker logs $CONTAINER_ID
+            docker logs $CONTAINER_ID 2>&1 || true
+            echo "Container status:"
+            docker ps -a | grep $CONTAINER_ID || true
             exit 1
           fi
+
+          # Verify systemd is actually running
+          echo "Checking systemd status..."
+          docker exec $CONTAINER_ID systemctl is-system-running || echo "systemd check failed"
 
           # Enable lingering for testuser (required for user services)
           docker exec $CONTAINER_ID sudo -u testuser loginctl enable-linger testuser || true
