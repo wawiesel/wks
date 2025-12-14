@@ -45,13 +45,15 @@ jobs:
           sleep 10
 
           # Check if container is running
-          if ! docker ps | grep -q $CONTAINER_ID; then
+          CONTAINER_STATUS=$(docker inspect -f '{{.State.Running}}' $CONTAINER_ID 2>/dev/null || echo "false")
+          if [ "$CONTAINER_STATUS" != "true" ]; then
             echo "Container stopped unexpectedly. Logs:"
             docker logs $CONTAINER_ID 2>&1 || true
             echo "Inspect:"
             docker inspect $CONTAINER_ID | head -50 || true
             exit 1
           fi
+          echo "Container is running"
 
           # Verify systemd is running
           echo "Checking systemd status..."
