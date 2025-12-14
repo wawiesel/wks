@@ -66,10 +66,10 @@ def mongo_wks_env(tmp_path, monkeypatch):
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
     worker_num = 0
     if worker_id.startswith("gw"):
-        try:
+        import contextlib
+
+        with contextlib.suppress(ValueError):
             worker_num = int(worker_id[2:])
-        except ValueError:
-            pass
 
     # Use tmp_path to generate a unique but deterministic port per test
     # tmp_path is unique per test, so this ensures no collisions

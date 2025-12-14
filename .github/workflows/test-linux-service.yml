@@ -33,9 +33,10 @@ jobs:
           # --volume /sys/fs/cgroup is required for systemd
           CONTAINER_ID=$(docker run -d \
             --privileged \
+            --cgroupns=host \
             --tmpfs /run \
             --tmpfs /tmp \
-            --volume /sys/fs/cgroup:/sys/fs/cgroup:ro \
+            --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
             --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \
             -e WKS_HOME=/home/testuser/.wks \
