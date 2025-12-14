@@ -32,7 +32,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            bash -c "pip3 install -e . --no-deps --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
+            bash -c "pip3 install -e . --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
 
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:
@@ -104,8 +104,8 @@ jobs:
               /lib/systemd/systemd --system &
               sleep 2
 
-              # Install package as testuser (--no-deps since deps are in image)
-              sudo -u testuser bash -c 'cd /workspace && pip3 install --user --no-deps -e . --break-system-packages'
+              # Install package as testuser (should be null-op if deps are in image)
+              sudo -u testuser bash -c 'cd /workspace && pip3 install --user -e . --break-system-packages'
 
               # Run full test suite with coverage
               sudo -u testuser bash -c 'cd /workspace && python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short'

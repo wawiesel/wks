@@ -22,7 +22,7 @@ During the Docker image build:
 
 During CI test runs:
 ```bash
-pip install -e . --no-deps --break-system-packages
+pip install -e . --break-system-packages
 ```
 
 This installs ONLY the `wks` package itself (editable) without downloading any dependencies, since they're already in the image.
@@ -115,7 +115,7 @@ docker run --rm \
   -v $(pwd):/workspace \
   -w /workspace \
   ci-runner:v1 \
-  bash -c "pip3 install -e . --no-deps --break-system-packages 2>&1 | tee /tmp/install.log && cat /tmp/install.log"
+  bash -c "pip3 install -e . --break-system-packages 2>&1 | tee /tmp/install.log && cat /tmp/install.log"
 ```
 
 **Expected output**:
@@ -141,7 +141,7 @@ docker run --rm \
   -v $(pwd):/workspace \
   -w /workspace \
   ci-runner:v1 \
-  bash -c "pip3 install -e . --no-deps --break-system-packages && python3 -m pytest tests/smoke/ -v"
+  bash -c "pip3 install -e . --break-system-packages && python3 -m pytest tests/smoke/ -v"
 ```
 
 ### Run Full Test Suite
@@ -159,7 +159,7 @@ docker run --rm \
   bash -c "
     /lib/systemd/systemd --system &
     sleep 2
-    sudo -u testuser bash -c 'cd /workspace && pip3 install --user --no-deps -e . --break-system-packages'
+    sudo -u testuser bash -c 'cd /workspace && pip3 install --user -e . --break-system-packages'
     sudo -u testuser bash -c 'cd /workspace && python3 -m pytest tests/ -v --tb=short'
   "
 ```
@@ -176,7 +176,7 @@ docker run --rm \
 
 **Problem**: Heavy dependencies (especially ML libraries) take up significant space.
 
-**Solution**: This is expected during image build. GitHub Actions has enough space for building the image, but not for running `pip install .` twice (which is why we use `--no-deps` at runtime).
+**Solution**: This is expected during image build. GitHub Actions has enough space for building the image, but not for running `pip install .` twice. If you see this error during runtime, it means the image is stale and trying to download dependencies again—you need to bump the version.
 
 ### Tests Fail After Version Bump
 
