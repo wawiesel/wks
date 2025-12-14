@@ -7,7 +7,7 @@ FROM ubuntu:24.04
 ARG DEBIAN_FRONTEND=noninteractive
 ENV container=docker
 
-# Install systemd and required dependencies
+# Install systemd, MongoDB, and required dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     systemd \
@@ -20,15 +20,24 @@ RUN apt-get update \
     python3 \
     python3-pip \
     python3-venv \
-    python3-venv \
     git \
     sudo \
     iproute2 \
     build-essential \
     python3-dev \
     ca-certificates \
+    wget \
+    gnupg \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install MongoDB server
+RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg \
+    && echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-7.0.list \
+    && apt-get update \
+    && apt-get install -y mongodb-org-server \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for testing - created EARLY so we can install deps for it
 RUN useradd -m -s /bin/bash testuser && \
@@ -63,7 +72,10 @@ RUN python3 -m pip install --upgrade pip --break-system-packages && \
     lizard \
     types-requests \
     types-PyYAML \
-    types-setuptools
+    types-setuptools \
+    coverage \
+    pytest-cov \
+    tabulate
 
 # Switch back to root for systemd setup
 USER root

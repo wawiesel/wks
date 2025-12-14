@@ -1,4 +1,4 @@
-name: Publish Test Docker Image
+name: Publish CI Docker Image
 
 on:
   workflow_dispatch:
@@ -6,8 +6,9 @@ on:
     branches:
       - main
     paths:
-      - 'Dockerfile.test-linux-service'
-      - '.github/workflows/publish-test-image.yml'
+      - 'Dockerfile.ci-runner'
+      - 'pyproject.toml'
+      - '.github/workflows/publish-ci-image.yml'
 
 env:
   REGISTRY: ghcr.io
@@ -34,7 +35,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/test-linux-service
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/ci-runner
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-
@@ -46,7 +47,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile.test-linux-service
+          file: Dockerfile.ci-runner
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

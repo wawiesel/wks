@@ -34,8 +34,8 @@ jobs:
 
       - name: Pull test image
         run: |
-          docker pull ghcr.io/${{ env.REPO }}/test-linux-service:latest
-          docker tag ghcr.io/${{ env.REPO }}/test-linux-service:latest wks-test-linux-service:latest
+          docker pull ghcr.io/${{ env.REPO }}/ci-runner:latest
+          docker tag ghcr.io/${{ env.REPO }}/ci-runner:latest wks-ci-runner:latest
 
       - name: Run Linux service integration test
         run: |
@@ -49,7 +49,7 @@ jobs:
             --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \
             -e WKS_HOME=/home/testuser/.wks \
-            wks-test-linux-service:latest)
+            wks-ci-runner:latest)
 
           echo "Container ID: $CONTAINER_ID"
 
