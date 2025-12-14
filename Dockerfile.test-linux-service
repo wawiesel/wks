@@ -44,7 +44,9 @@ ENV PATH=/home/testuser/.local/bin:$PATH
 RUN systemctl set-default multi-user.target || true
 
 # Set systemd as the entrypoint so it runs as PID 1
+# Use --system --unit=multi-user.target to keep it running
 ENTRYPOINT ["/lib/systemd/systemd"]
+CMD ["--system", "--unit=multi-user.target"]
 
 # Note: We don't install the package here - it will be installed in the workflow
 # to ensure we're testing the latest code

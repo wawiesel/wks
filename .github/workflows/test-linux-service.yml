@@ -41,11 +41,21 @@ jobs:
             -e WKS_HOME=/home/testuser/.wks \
             wks-test-linux-service:latest)
 
-          # Wait for systemd to be ready
+          # Wait for systemd to be ready and verify container is running
           sleep 10
+
+          # Check if container is still running
+          if ! docker ps | grep -q $CONTAINER_ID; then
+            echo "Container stopped unexpectedly. Logs:"
+            docker logs $CONTAINER_ID
+            exit 1
+          fi
 
           # Enable lingering for testuser (required for user services)
           docker exec $CONTAINER_ID sudo -u testuser loginctl enable-linger testuser || true
+
+          # Wait a bit more for user session to be ready
+          sleep 5
 
           # Run the test inside the container
           docker exec $CONTAINER_ID sudo -u testuser bash -c '
