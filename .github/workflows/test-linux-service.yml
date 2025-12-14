@@ -72,13 +72,15 @@ jobs:
           echo "Enabling linger..."
           docker exec $CONTAINER_ID loginctl enable-linger testuser || true
 
-          # Start userD-bus for the user (needed for systemctl --user)
-          echo "Starting user systemd instance..."
-          docker exec $CONTAINER_ID sudo -u testuser bash -c '
-            export XDG_RUNTIME_DIR=/run/user/$(id -u)
-            /usr/lib/systemd/systemd --user &
-            sleep 2
-          ' || true
+          # Wait a bit for systemd-logind to process the linger
+          sleep 3
+
+          # Check if user service is now running
+          echo "Checking if user@testuser.service is active..."
+          docker exec $CONTAINER_ID systemctl status user@$(docker exec $CONTAINER_ID id -u testuser).service || true
+
+          # If not active, start it explicitly
+          docker exec $CONTAINER_ID systemctl start user@$(docker exec $CONTAINER_ID id -u testuser).service || true
 
           # Wait for user systemd session to be ready
           echo "Waiting for user systemd session..."
@@ -89,6 +91,9 @@ jobs:
             fi
             if [ $i -eq 30 ]; then
               echo "Warning: User systemd session may not be ready"
+              # Show debug info
+              docker exec $CONTAINER_ID ls -la /run/user/ || true
+              docker exec $CONTAINER_ID cat /run/user/$(docker exec $CONTAINER_ID id -u testuser)/bus 2>&1 || true
             fi
             sleep 1
           done
