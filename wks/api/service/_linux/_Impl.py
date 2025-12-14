@@ -55,9 +55,10 @@ Description=WKS Daemon Service
 After=network.target
 
 [Service]
-Type=simple
+Type=forking
 Environment=WKS_HOME={working_directory}
 ExecStart={exec_start}
+PIDFile={working_directory}/daemon.lock
 WorkingDirectory={working_directory}
 StandardOutput=append:{log_file}
 StandardError=append:{log_file}
