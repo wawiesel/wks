@@ -90,22 +90,46 @@ class _Impl(_AbstractImpl):
             f"--bind_ip={host}",
             f"--port={port}",
             "--quiet",
+            "--nojournal",  # Disable journaling for faster startup in tests
         ]
         try:
-            self._mongod_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            self._started_local = True
+            # Capture stderr to diagnose startup issues
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log") as stderr_file:
+                stderr_path = Path(stderr_file.name)
+                self._mongod_proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=stderr_file,
+                )
+                self._started_local = True
         except FileNotFoundError as exc:
             raise RuntimeError("mongod binary not found; install MongoDB or specify database.uri") from exc
         # Wait for mongod to come up (increased timeout for CI - mongod can take 5-10 seconds to start)
         max_attempts = 50  # 50 * 0.2s = 10 seconds total
         for _attempt in range(max_attempts):
+            # Check if process crashed early
+            if self._mongod_proc.poll() is not None:
+                error_output = stderr_path.read_text() if stderr_path.exists() else ""
+                stderr_path.unlink(missing_ok=True)
+                raise RuntimeError(
+                    f"mongod process exited with code {self._mongod_proc.returncode}. "
+                    f"Error output: {error_output[:500]}"
+                )
             if self._can_connect(uri):
+                stderr_path.unlink(missing_ok=True)
                 return
             time.sleep(0.2)  # Increased sleep interval for better responsiveness
 
         # Check if process is still running (might have crashed)
         if self._mongod_proc and self._mongod_proc.poll() is not None:
-            raise RuntimeError(f"mongod process exited with code {self._mongod_proc.returncode}")
+            error_output = stderr_path.read_text() if stderr_path.exists() else ""
+            stderr_path.unlink(missing_ok=True)
+            raise RuntimeError(
+                f"mongod process exited with code {self._mongod_proc.returncode}. Error output: {error_output[:500]}"
+            )
+        stderr_path.unlink(missing_ok=True)
         raise RuntimeError(f"Failed to start local mongod (timeout after {max_attempts * 0.2}s)")
 
     def _can_connect(self, uri: str) -> bool:

@@ -27,13 +27,11 @@ jobs:
       - name: Run Linux service integration test
         run: |
           # Run container with systemd support
-          # Use --init to run systemd as PID 1 (required for systemd to work)
+          # Systemd runs as PID 1 via ENTRYPOINT in Dockerfile
           # --privileged is required for systemd to work properly
           # --tmpfs /run and --tmpfs /tmp are needed for systemd
           # --volume /sys/fs/cgroup is required for systemd
-          docker run \
-            --rm \
-            --init \
+          CONTAINER_ID=$(docker run -d \
             --privileged \
             --tmpfs /run \
             --tmpfs /tmp \
@@ -41,39 +39,26 @@ jobs:
             --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \
             -e WKS_HOME=/home/testuser/.wks \
-            wks-test-linux-service:latest \
-            /bin/bash -c "
-              # Wait for systemd to be ready (it's PID 1 with --init)
-              sleep 5
+            wks-test-linux-service:latest)
 
-              # Verify systemd is running
-              systemctl status || true
+          # Wait for systemd to be ready
+          sleep 10
 
-              # Enable lingering for testuser (required for user services)
-              # This allows user services to run without an active login session
-              sudo -u testuser loginctl enable-linger testuser || true
+          # Enable lingering for testuser (required for user services)
+          docker exec $CONTAINER_ID sudo -u testuser loginctl enable-linger testuser || true
 
-              # Start user systemd session for testuser
-              # This is required for systemctl --user to work
-              sudo -u testuser systemctl --user daemon-reload || true
+          # Run the test inside the container
+          docker exec $CONTAINER_ID sudo -u testuser bash -c '
+            export WKS_HOME=/home/testuser/.wks
+            export PATH=/home/testuser/.local/bin:$PATH
+            export XDG_RUNTIME_DIR=/run/user/$(id -u)
+            cd /workspace
+            sudo chown -R testuser:testuser /workspace
+            pip3 install --user -e .
+            python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
+          ' || EXIT_CODE=$?
 
-              # Switch to testuser and set up environment
-              sudo -u testuser bash -c '
-                export WKS_HOME=/home/testuser/.wks
-                export PATH=/home/testuser/.local/bin:\$PATH
-                export XDG_RUNTIME_DIR=/run/user/\$(id -u)
-                cd /workspace
-
-                # Make workspace writable for testuser
-                sudo chown -R testuser:testuser /workspace
-
-                # Install package
-                pip3 install --user -e .
-
-                # Verify systemd user session is working
-                systemctl --user list-units --no-pager || true
-
-                # Run the integration test
-                python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
-              '
-            "
+          # Cleanup
+          docker stop $CONTAINER_ID || true
+          docker rm $CONTAINER_ID || true
+          exit ${EXIT_CODE:-0}
