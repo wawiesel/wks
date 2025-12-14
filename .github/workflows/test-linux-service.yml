@@ -27,11 +27,11 @@ jobs:
       - name: Run Linux service integration test
         run: |
           # Run container with systemd support
-          # Based on geerlingguy's proven approach:
-          # https://github.com/geerlingguy/docker-ubuntu2404-ansible
+          # Key: --tmpfs /run and /run/lock are required for systemd user sessions
           CONTAINER_ID=$(docker run -d \
             --privileged \
             --cgroupns=host \
+            --tmpfs /run --tmpfs /run/lock \
             --volume=/sys/fs/cgroup:/sys/fs/cgroup:rw \
             --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \
@@ -59,76 +59,55 @@ jobs:
           echo "Checking systemd status..."
           docker exec $CONTAINER_ID systemctl is-system-running --wait || docker exec $CONTAINER_ID systemctl status || true
 
-          # Set up XDG_RUNTIME_DIR for testuser
-          echo "Setting up user runtime directory..."
-          docker exec $CONTAINER_ID bash -c '
-            USER_ID=$(id -u testuser)
-            mkdir -p /run/user/$USER_ID
-            chown testuser:testuser /run/user/$USER_ID
-            chmod 700 /run/user/$USER_ID
-          '
+          # Get the testuser UID
+          TEST_USER_UID=$(docker exec $CONTAINER_ID id -u testuser)
+          echo "Test user UID: $TEST_USER_UID"
 
-          # Enable lingering for testuser (required for user services)
+          # Enable lingering for testuser (starts systemd --user at boot)
           echo "Enabling linger..."
           docker exec $CONTAINER_ID loginctl enable-linger testuser || true
-
-          # Wait a bit for systemd-logind to process the linger
-          sleep 3
-
-          # Check if user service is now running
-          echo "Checking if user@testuser.service is active..."
-          docker exec $CONTAINER_ID systemctl status user@$(docker exec $CONTAINER_ID id -u testuser).service || true
-
-          # If not active, start it explicitly
-          docker exec $CONTAINER_ID systemctl start user@$(docker exec $CONTAINER_ID id -u testuser).service || true
 
           # Wait for user systemd session to be ready
           echo "Waiting for user systemd session..."
           for i in {1..30}; do
-            if docker exec $CONTAINER_ID sudo -u testuser bash -c 'export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user list-units --no-pager' >/dev/null 2>&1; then
+            if docker exec $CONTAINER_ID sudo -u testuser bash -c "export XDG_RUNTIME_DIR=/run/user/$TEST_USER_UID && systemctl --user list-units --no-pager" >/dev/null 2>&1; then
               echo "User systemd session is ready"
               break
             fi
             if [ $i -eq 30 ]; then
-              echo "Warning: User systemd session may not be ready"
-              # Show debug info
+              echo "Warning: User systemd session may not be ready after 30 seconds"
               docker exec $CONTAINER_ID ls -la /run/user/ || true
-              docker exec $CONTAINER_ID cat /run/user/$(docker exec $CONTAINER_ID id -u testuser)/bus 2>&1 || true
+              docker exec $CONTAINER_ID systemctl status user@$TEST_USER_UID.service || true
             fi
             sleep 1
           done
 
-          # Run the test inside the container using dbus-run-session
-          # This provides a D-Bus session for systemctl --user without needing cgroup delegation
-          docker exec $CONTAINER_ID sudo -u testuser bash -c '
+          # Run the test inside the container
+          # Key: Set XDG_RUNTIME_DIR and DBUS_SESSION_BUS_ADDRESS explicitly
+          # Do NOT use dbus-run-session - we want to use the existing systemd user bus
+          docker exec $CONTAINER_ID sudo -u testuser bash -c "
             set -e
             export WKS_HOME=/home/testuser/.wks
-            export PATH=/home/testuser/.local/bin:$PATH
-            export XDG_RUNTIME_DIR=/run/user/$(id -u)
+            export PATH=/home/testuser/.local/bin:\$PATH
 
-            # Debug: Check systemd status
-            echo "=== Debug: systemd check ==="
-            systemctl --version || echo "systemctl not found"
-            cat /proc/1/comm || echo "cant read /proc/1/comm"
+            # Point to the existing systemd user socket
+            export XDG_RUNTIME_DIR=/run/user/$TEST_USER_UID
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$TEST_USER_UID/bus
 
-            # Check user bus socket
-            echo "Checking for user bus..."
-            ls -la /run/user/$(id -u)/ 2>&1 || echo "No user runtime dir"
-
-            # Try running systemctl --user with dbus-run-session
-            echo "Testing systemctl --user with dbus-run-session..."
-            dbus-run-session -- systemctl --user list-units --no-pager 2>&1 || echo "dbus-run-session approach also failed"
+            # Debug: Verify connection
+            echo '=== Debug: systemd user check ==='
+            systemctl --user is-active dbus.service || echo 'dbus.service not active'
+            systemctl --user list-units --no-pager | head -10 || echo 'list-units failed'
 
             cd /workspace
             sudo chown -R testuser:testuser /workspace || true
-            echo "Upgrading pip..."
+            echo 'Upgrading pip...'
             python3 -m pip install --user --upgrade pip --break-system-packages
-            echo "Installing package..."
+            echo 'Installing package...'
             pip3 install --user -e . --break-system-packages
-            echo "Running tests..."
-            # Run with dbus-run-session wrapper for the whole test
-            dbus-run-session -- python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
-          ' 2>&1
+            echo 'Running tests...'
+            python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
+          " 2>&1
           EXIT_CODE=$?
 
           if [ $EXIT_CODE -ne 0 ]; then

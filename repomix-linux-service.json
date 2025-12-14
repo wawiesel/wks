@@ -1,0 +1,20 @@
+{
+    "output": {
+        "filePath": "repomix-linux-service.txt",
+        "style": "markdown"
+    },
+    "include": [
+        "wks/api/service/_linux/_Impl.py",
+        "wks/api/service/_linux/_Data.py",
+        "wks/api/service/_linux/README.md",
+        "wks/api/service/Service.py",
+        "wks/api/service/ServiceConfig.py",
+        "wks/api/service/_AbstractImpl.py",
+        "tests/integration/test_linux_service_install.py",
+        "Dockerfile.test-linux-service",
+        ".github/workflows/test-linux-service.yml"
+    ],
+    "ignore": {
+        "useGitignore": true
+    }
+}
