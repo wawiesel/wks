@@ -26,18 +26,10 @@ jobs:
 
       - name: Run Linux service integration test
         run: |
-          # Run container with systemd support
-          # Systemd runs as PID 1 via ENTRYPOINT in Dockerfile
-          # --privileged is required for systemd to work properly
-          # --tmpfs /run and --tmpfs /tmp are needed for systemd
-          # --volume /sys/fs/cgroup is required for systemd
+          # Run container with systemd support using jrei/systemd-ubuntu base image
+          # The base image is pre-configured for running systemd in containers
           CONTAINER_ID=$(docker run -d \
             --privileged \
-            --cgroupns=host \
-            --tmpfs /run \
-            --tmpfs /run/lock \
-            --tmpfs /tmp \
-            --stop-signal=SIGRTMIN+3 \
             --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
             --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \
@@ -45,7 +37,8 @@ jobs:
             wks-test-linux-service:latest)
 
           # Wait for systemd to be ready and verify container is running
-          sleep 10
+          echo "Waiting for systemd to initialize..."
+          sleep 15
 
           # Check if container is still running
           if ! docker ps | grep -q $CONTAINER_ID; then
