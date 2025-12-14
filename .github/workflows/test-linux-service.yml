@@ -59,13 +59,31 @@ jobs:
           echo "Checking systemd status..."
           docker exec $CONTAINER_ID systemctl is-system-running --wait || docker exec $CONTAINER_ID systemctl status || true
 
+          # Set up XDG_RUNTIME_DIR for testuser
+          echo "Setting up user runtime directory..."
+          docker exec $CONTAINER_ID bash -c '
+            USER_ID=$(id -u testuser)
+            mkdir -p /run/user/$USER_ID
+            chown testuser:testuser /run/user/$USER_ID
+            chmod 700 /run/user/$USER_ID
+          '
+
           # Enable lingering for testuser (required for user services)
+          echo "Enabling linger..."
           docker exec $CONTAINER_ID loginctl enable-linger testuser || true
+
+          # Start userD-bus for the user (needed for systemctl --user)
+          echo "Starting user systemd instance..."
+          docker exec $CONTAINER_ID sudo -u testuser bash -c '
+            export XDG_RUNTIME_DIR=/run/user/$(id -u)
+            /usr/lib/systemd/systemd --user &
+            sleep 2
+          ' || true
 
           # Wait for user systemd session to be ready
           echo "Waiting for user systemd session..."
           for i in {1..30}; do
-            if docker exec $CONTAINER_ID sudo -u testuser systemctl --user list-units --no-pager >/dev/null 2>&1; then
+            if docker exec $CONTAINER_ID sudo -u testuser bash -c 'export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user list-units --no-pager' >/dev/null 2>&1; then
               echo "User systemd session is ready"
               break
             fi
