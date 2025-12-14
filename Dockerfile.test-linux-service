@@ -45,4 +45,4 @@ VOLUME ["/sys/fs/cgroup"]
 STOPSIGNAL SIGRTMIN+3
 
 # Use systemd as init with debug logging to see startup errors
-CMD ["/lib/systemd/systemd", "--system", "--log-level=debug", "--log-target=console"]
+CMD ["/usr/bin/systemd", "--system", "--log-level=debug", "--log-target=console"]
