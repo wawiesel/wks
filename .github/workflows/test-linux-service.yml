@@ -98,23 +98,26 @@ jobs:
             sleep 1
           done
 
-          # Run the test inside the container
+          # Run the test inside the container using dbus-run-session
+          # This provides a D-Bus session for systemctl --user without needing cgroup delegation
           docker exec $CONTAINER_ID sudo -u testuser bash -c '
             set -e
             export WKS_HOME=/home/testuser/.wks
             export PATH=/home/testuser/.local/bin:$PATH
-            USER_ID=$(id -u)
-            export XDG_RUNTIME_DIR=/run/user/$USER_ID
-            export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$USER_ID/bus
-            sudo mkdir -p "$XDG_RUNTIME_DIR"
-            sudo chown testuser:testuser "$XDG_RUNTIME_DIR"
-            sudo chmod 700 "$XDG_RUNTIME_DIR"
+            export XDG_RUNTIME_DIR=/run/user/$(id -u)
 
             # Debug: Check systemd status
             echo "=== Debug: systemd check ==="
             systemctl --version || echo "systemctl not found"
             cat /proc/1/comm || echo "cant read /proc/1/comm"
-            systemctl --user list-units --no-pager 2>&1 || echo "user list-units failed"
+
+            # Check user bus socket
+            echo "Checking for user bus..."
+            ls -la /run/user/$(id -u)/ 2>&1 || echo "No user runtime dir"
+
+            # Try running systemctl --user with dbus-run-session
+            echo "Testing systemctl --user with dbus-run-session..."
+            dbus-run-session -- systemctl --user list-units --no-pager 2>&1 || echo "dbus-run-session approach also failed"
 
             cd /workspace
             sudo chown -R testuser:testuser /workspace || true
@@ -123,7 +126,8 @@ jobs:
             echo "Installing package..."
             pip3 install --user -e . --break-system-packages
             echo "Running tests..."
-            python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
+            # Run with dbus-run-session wrapper for the whole test
+            dbus-run-session -- python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
           ' 2>&1
           EXIT_CODE=$?
 
