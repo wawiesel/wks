@@ -60,21 +60,47 @@ jobs:
           # Enable lingering for testuser (required for user services)
           docker exec $CONTAINER_ID sudo -u testuser loginctl enable-linger testuser || true
 
-          # Wait a bit more for user session to be ready
-          sleep 5
+          # Wait for user systemd session to be ready
+          echo "Waiting for user systemd session..."
+          for i in {1..30}; do
+            if docker exec $CONTAINER_ID sudo -u testuser systemctl --user list-units --no-pager >/dev/null 2>&1; then
+              echo "User systemd session is ready"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Warning: User systemd session may not be ready"
+            fi
+            sleep 1
+          done
 
           # Run the test inside the container
           docker exec $CONTAINER_ID sudo -u testuser bash -c '
+            set -e
             export WKS_HOME=/home/testuser/.wks
             export PATH=/home/testuser/.local/bin:$PATH
-            export XDG_RUNTIME_DIR=/run/user/$(id -u)
+            USER_ID=$(id -u)
+            export XDG_RUNTIME_DIR=/run/user/$USER_ID
+            mkdir -p "$XDG_RUNTIME_DIR" || true
             cd /workspace
-            sudo chown -R testuser:testuser /workspace
+            sudo chown -R testuser:testuser /workspace || true
+            echo "Upgrading pip..."
+            python3 -m pip install --user --upgrade pip
+            echo "Installing package..."
             pip3 install --user -e .
+            echo "Running tests..."
             python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
-          ' || EXIT_CODE=$?
+          ' 2>&1
+          EXIT_CODE=$?
+
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Test failed with exit code $EXIT_CODE"
+            echo "Container logs:"
+            docker logs $CONTAINER_ID 2>&1 | tail -100 || true
+            echo "Checking container status..."
+            docker ps -a | grep $CONTAINER_ID || true
+          fi
 
           # Cleanup
           docker stop $CONTAINER_ID || true
           docker rm $CONTAINER_ID || true
-          exit ${EXIT_CODE:-0}
+          exit $EXIT_CODE

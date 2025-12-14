@@ -25,6 +25,7 @@ class _Impl(_AbstractImpl):
             raise ValueError("MongoDB config data is required")
         self.local = database_config.data.local
         self.uri = database_config.data.uri
+        self.db_path = database_config.data.db_path
         self.database_name = database_name
         self.collection_name = collection_name  # MongoDB collection name
         self._client: MongoClient[Any] | None = None
@@ -82,7 +83,10 @@ class _Impl(_AbstractImpl):
         if self._can_connect(uri):
             return
         host, port = self._parse_host_port(uri)
-        db_path = self._default_db_path()
+        # db_path is required when local=true (validated in _Data)
+        if not self.db_path:
+            raise RuntimeError("database.data.db_path is required when database.data.local=true")
+        db_path = Path(self.db_path)
         db_path.mkdir(parents=True, exist_ok=True)
         cmd = [
             "mongod",
@@ -112,6 +116,19 @@ class _Impl(_AbstractImpl):
             if self._mongod_proc.poll() is not None:
                 error_output = stderr_path.read_text() if stderr_path.exists() else ""
                 stderr_path.unlink(missing_ok=True)
+                # Exit code 48 means "Address already in use" - port conflict
+                if self._mongod_proc.returncode == 48:
+                    raise RuntimeError(
+                        f"mongod port {port} is already in use (likely from parallel test execution). "
+                        f"Try using a different port or ensure previous mongod processes are cleaned up."
+                    )
+                # Exit code 100 means data directory issue (lock, corruption, or incompatible version)
+                if self._mongod_proc.returncode == 100:
+                    raise RuntimeError(
+                        f"mongod data directory issue at {db_path} (exit code 100). "
+                        f"This usually means the directory is locked by another mongod process or corrupted. "
+                        f"Error output: {error_output[:500]}"
+                    )
                 raise RuntimeError(
                     f"mongod process exited with code {self._mongod_proc.returncode}. "
                     f"Error output: {error_output[:500]}"
@@ -125,6 +142,19 @@ class _Impl(_AbstractImpl):
         if self._mongod_proc and self._mongod_proc.poll() is not None:
             error_output = stderr_path.read_text() if stderr_path.exists() else ""
             stderr_path.unlink(missing_ok=True)
+            # Exit code 48 means "Address already in use" - port conflict
+            if self._mongod_proc.returncode == 48:
+                raise RuntimeError(
+                    f"mongod port {port} is already in use (likely from parallel test execution). "
+                    f"Try using a different port or ensure previous mongod processes are cleaned up."
+                )
+            # Exit code 100 means data directory issue (lock, corruption, or incompatible version)
+            if self._mongod_proc.returncode == 100:
+                raise RuntimeError(
+                    f"mongod data directory issue at {db_path} (exit code 100). "
+                    f"This usually means the directory is locked by another mongod process or corrupted. "
+                    f"Error output: {error_output[:500]}"
+                )
             raise RuntimeError(
                 f"mongod process exited with code {self._mongod_proc.returncode}. Error output: {error_output[:500]}"
             )
@@ -139,12 +169,6 @@ class _Impl(_AbstractImpl):
             return True
         except Exception:
             return False
-
-    @staticmethod
-    def _default_db_path() -> Path:
-        from ...config.WKSConfig import WKSConfig
-
-        return WKSConfig.get_home_dir() / "mongo-data"
 
     @staticmethod
     def _parse_host_port(uri: str) -> tuple[str, int]:

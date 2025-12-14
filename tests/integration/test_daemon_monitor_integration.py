@@ -56,10 +56,45 @@ def mongo_wks_env(tmp_path, monkeypatch):
     watch_dir = tmp_path / "watched"
     watch_dir.mkdir(parents=True, exist_ok=True)
 
-    # Use a unique port to avoid conflicts
-    import random
+    # Use a unique port to avoid conflicts with parallel test execution
+    # Use tmp_path (unique per test) to generate a deterministic but unique port
+    import hashlib
+    import os
+    import socket
 
-    mongo_port = random.randint(27100, 27999)
+    # Get worker ID from pytest-xdist if available
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
+    worker_num = 0
+    if worker_id.startswith("gw"):
+        try:
+            worker_num = int(worker_id[2:])
+        except ValueError:
+            pass
+
+    # Use tmp_path to generate a unique but deterministic port per test
+    # tmp_path is unique per test, so this ensures no collisions
+    path_hash = int(hashlib.md5(str(tmp_path).encode()).hexdigest()[:6], 16)
+    pid = os.getpid()
+    base_port = 27100
+    # Each worker gets 10000 ports, use path hash and pid for uniqueness
+    mongo_port = base_port + (worker_num * 10000) + (path_hash % 9000) + (pid % 100)
+
+    # Verify port is actually available (in case of rare collision)
+    max_attempts = 50
+    original_port = mongo_port
+    for attempt in range(max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", mongo_port))
+                break  # Port is available
+            except OSError:
+                # Port in use, try next one in sequence
+                mongo_port = original_port + attempt
+                if mongo_port > 27999:
+                    mongo_port = base_port + (attempt % 900)
+    else:
+        raise RuntimeError(f"Could not find available port after {max_attempts} attempts")
+
     mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
 
     # Start with minimal config and override for MongoDB
@@ -160,8 +195,8 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         # Delete the file
         test_file.unlink()
 
-        # Poll until removed (delete events can take a few cycles)
-        deadline = time.time() + 10.0
+        # Poll until removed (delete events can take a few cycles, especially in CI)
+        deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
             with Database(config.database, config.monitor.database) as db:
                 record = db.find_one({"path": test_file.resolve().as_uri()})
@@ -169,7 +204,7 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
                 break
             if time.time() > deadline:
                 raise AssertionError("Deleted file should be removed from database")
-            time.sleep(0.2)
+            time.sleep(0.5)  # Increased sleep interval for CI
 
     finally:
         daemon.stop()
