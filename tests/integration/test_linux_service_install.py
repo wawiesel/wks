@@ -6,6 +6,7 @@ service backend can actually install, start, stop, and uninstall systemd user se
 Requires Docker and a systemd-enabled container image.
 """
 
+import platform
 import subprocess
 from pathlib import Path
 
@@ -68,13 +69,19 @@ def _check_systemd_available() -> bool:
 def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
     """Test full lifecycle: install, start, status, stop, uninstall.
 
-    This test REQUIRES systemd and must run in a Docker container with systemd enabled.
-    It will FAIL if systemd is not available (no skipping, no mocks - NoHedging principle).
+    This test REQUIRES systemd and must run on Linux (or in a Docker container with systemd enabled).
+    On non-Linux platforms, this test is skipped (we test platform-specific code on the appropriate platform).
     """
-    # No skipping - test must run in Docker workflow with systemd
-    # If systemd is not available, the test will fail (as it should)
+    # Only run on Linux - test platform-specific code on the appropriate platform
+    if platform.system() != "Linux":
+        pytest.skip(f"Linux service tests only run on Linux (current platform: {platform.system()})")
+
+    # On Linux, systemd must be available
     if not _check_systemd_available():
-        pytest.fail("systemd not available - this test requires Docker with systemd (test-linux-service.yml workflow)")
+        pytest.fail(
+            "systemd not available - this test requires systemd "
+            "(run in Docker with systemd or on a Linux system with systemd)"
+        )
 
     # Set up WKS_HOME
     wks_home = tmp_path / ".wks"
