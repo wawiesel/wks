@@ -27,6 +27,33 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Upgrade pip and install heavy Python dependencies globally to speed up CI
+# These will be cached in the image layer
+RUN python3 -m pip install --upgrade pip --break-system-packages && \
+    python3 -m pip install --no-cache-dir --break-system-packages \
+    watchdog \
+    rich \
+    typer \
+    pydantic \
+    pymongo \
+    sentence-transformers \
+    docling \
+    bsdiff4 \
+    mongomock \
+    jinja2 \
+    mutmut \
+    pyyaml \
+    pytest \
+    pytest-timeout \
+    pytest-xdist \
+    pre-commit \
+    ruff \
+    mypy \
+    lizard \
+    types-requests \
+    types-PyYAML \
+    types-setuptools
+
 # Remove unnecessary getty and udev targets that cause high CPU usage
 # and aren't needed for testing (from geerlingguy's setup)
 RUN rm -f /lib/systemd/system/systemd*udev* \

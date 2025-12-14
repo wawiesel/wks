@@ -153,8 +153,35 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
         # 3. Start service
         start_result = service.start_service()
         if not start_result.get("success"):
-            # Print error for debugging
+            # Print detailed debug info
             error_msg = start_result.get("error", "Unknown error")
+            print("\n=== SERVICE START FAILED ===")
+            print(f"Error: {error_msg}")
+
+            # Show the unit file contents
+            unit_path = Path.home() / ".config" / "systemd" / "user" / "wks-test-integration.service"
+            if unit_path.exists():
+                print(f"\n=== Unit file ({unit_path}) ===")
+                print(unit_path.read_text())
+
+            # Show journalctl output
+            import subprocess
+
+            result = subprocess.run(
+                ["journalctl", "--user", "-u", "wks-test-integration.service", "-n", "20", "--no-pager"],
+                capture_output=True,
+                text=True,
+            )
+            print("\n=== journalctl output ===")
+            print(result.stdout or result.stderr)
+
+            # Show systemctl status
+            result = subprocess.run(
+                ["systemctl", "--user", "status", "wks-test-integration.service"], capture_output=True, text=True
+            )
+            print("\n=== systemctl status ===")
+            print(result.stdout or result.stderr)
+
             pytest.fail(f"Service start failed: {error_msg}")
         assert start_result["success"] is True
 
