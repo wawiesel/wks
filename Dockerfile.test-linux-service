@@ -10,17 +10,28 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install systemd and required dependencies
 RUN apt-get update && \
     apt-get install -y \
-        systemd \
-        systemd-sysv \
-        python3 \
-        python3-pip \
-        python3-venv \
-        git \
-        sudo \
-        build-essential \
-        && \
+    systemd \
+    systemd-sysv \
+    dbus \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git \
+    sudo \
+    build-essential \
+    && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Remove unnecessary systemd services that cause issues in containers
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i = systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+    rm -f /lib/systemd/system/multi-user.target.wants/*; \
+    rm -f /etc/systemd/system/*.wants/*; \
+    rm -f /lib/systemd/system/local-fs.target.wants/*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+    rm -f /lib/systemd/system/basic.target.wants/*; \
+    rm -f /lib/systemd/system/anaconda.target.wants/*
 
 # Create a non-root user for testing (systemd user services require a user)
 RUN useradd -m -s /bin/bash testuser && \
