@@ -46,6 +46,8 @@ jobs:
 
           # Try running systemd with strace or verbose output
           echo "=== Testing systemd invocation ==="
+          docker run --rm --entrypoint="" wks-test-linux-service:latest ldd /usr/bin/systemd || echo "ldd failed"
+          docker run --rm --entrypoint="" wks-test-linux-service:latest bash -c "echo hello && /usr/bin/systemd --help" || echo "bash exec failed with code $?"
           docker run --rm wks-test-linux-service:latest /usr/bin/systemd --help || echo "systemd --help failed with code $?"
 
           echo "=== Testing container startup ==="
