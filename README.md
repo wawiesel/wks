@@ -142,8 +142,8 @@ See [docs/specifications/wks.md](docs/specifications/wks.md) for the complete sy
 
 ## Documentation
 
--   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Your primary guide for contributing to WKS, covering setup, coding standards, Git commit guidelines, quality checks, and testing procedures.
--   **[docs/testing/README.md](docs/testing/README.md)**: Comprehensive testing guide including test levels, CI/CD pipeline, Docker infrastructure, and troubleshooting.
+-   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Development & Testing Guide
+-   **[docker/README.md](docker/README.md)**: CI Docker Image Guide
 -   **[docs/specifications/wks.md](docs/specifications/wks.md)**: The complete system specification and architectural overview.
 -   **[docs/campaigns/NEXT.md](docs/campaigns/NEXT.md)**: Current development priorities and high-level roadmap.
 -   **[AGENTS.md](AGENTS.md)**: Specific directives and guidelines for AI agents working on this project.

@@ -63,13 +63,13 @@ Update the version in these files:
    - Line 85: `docker pull ghcr.io/${REPO_LOWER}/ci-runner:v2`
    - Line 99: `ghcr.io/${REPO_LOWER}/ci-runner:v2`
 
-3. **`docs/CI_DOCKER_IMAGE.md`** (this file):
+3. **`docker/README.md`** (this file):
    - Line 3: `## Current Version: v2`
 
 ### Step 3: Commit and Push
 
 ```bash
-git add .github/workflows/publish-ci-image.yml .github/workflows/test.yml docs/CI_DOCKER_IMAGE.md
+git add .github/workflows/publish-ci-image.yml .github/workflows/test.yml docker/README.md
 git commit -m "chore: bump CI Docker image to v2"
 git push origin chore/bump-ci-image-v2
 ```

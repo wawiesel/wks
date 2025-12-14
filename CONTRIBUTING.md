@@ -93,7 +93,7 @@ We have three levels of tests, each runnable independently via scripts:
     ./scripts/test_integration.py
     ```
 
-For comprehensive testing documentation, including CI/CD pipeline details, Docker image management, and troubleshooting, see [docs/testing/README.md](docs/testing/README.md).
+For comprehensive testing documentation, including writing tests and troubleshooting, see the [Writing Tests](#writing-tests) and [Troubleshooting Tests](#troubleshooting-tests) sections below. For Docker infrastructure, see [docker/README.md](docker/README.md).
 
 ## Mutation Testing (API)
 
@@ -305,5 +305,148 @@ def monitor_status(display=None):
 
 ## Testing
 
-- **Clean Up**: Remove or disable obsolete tests tied to deprecated functionality.
 - **Validation**: Ensure remaining tests pass after refactoring.
+
+## Writing Tests
+
+### Test Structure
+
+```python
+"""Test module docstring explaining what's being tested."""
+
+import pytest
+from wks.monitor.controller import MonitorController
+
+def test_monitor_status_success():
+    """Test that status returns correctly under normal conditions."""
+    # Arrange
+    controller = MonitorController(config)
+
+    # Act
+    status = controller.get_status()
+
+    # Assert
+    assert status.running is True
+    assert status.file_count > 0
+
+def test_monitor_status_not_running():
+    """Test status when monitor is not running."""
+    # Arrange
+    controller = MonitorController(config)
+    controller.stop()
+
+    # Act
+    status = controller.get_status()
+
+    # Assert
+    assert status.running is False
+```
+
+### Fixtures
+
+**Shared fixtures** in `tests/conftest.py`:
+- `tmp_path`: Temporary directory (pytest builtin)
+- `minimal_config_dict()`: Minimal WKS config
+- `run_cmd()`: Helper for testing CLI commands
+
+**Custom fixtures**:
+```python
+@pytest.fixture
+def mongo_wks_env(tmp_path, monkeypatch):
+    """Set up temporary WKS environment with MongoDB."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+
+    config = WKSConfig.model_validate(minimal_config_dict())
+    config.save()
+
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    yield {"wks_home": wks_home, "config": config}
+```
+
+### Test Markers
+
+Mark tests with pytest markers for selective execution:
+
+```python
+@pytest.mark.integration
+def test_real_mongodb():
+    """This test requires real MongoDB."""
+    pass
+
+@pytest.mark.mongo
+def test_with_mongodb():
+    """This test uses MongoDB."""
+    pass
+
+@pytest.mark.slow
+def test_long_running():
+    """This test takes > 1 second."""
+    pass
+```
+
+Run only marked tests:
+```bash
+pytest -m integration  # Integration tests only
+pytest -m "not slow"   # Skip slow tests
+```
+
+## Troubleshooting Tests
+
+### Tests Fail with "mongod not found"
+
+Integration tests require MongoDB.
+
+**Solution**:
+1. Install MongoDB: `brew install mongodb-community` (macOS)
+2. Or skip integration tests: `pytest -m "not mongo"`
+
+### Tests Hang or Timeout
+
+Some integration tests can be slow.
+
+**Solution**:
+- Increase timeout: `pytest --timeout=60`
+- Or skip integration tests: `pytest tests/unit tests/smoke`
+
+### Coverage Report Missing Lines
+
+Coverage might not track all execution paths.
+
+**Solution**:
+- Check `.coveragerc` for excluded patterns
+- Ensure tests actually exercise the code paths
+- Use `--cov-report=html` to visualize coverage gaps
+
+### Pre-commit Hooks Failing
+
+Hooks might fail on first run due to missing dependencies.
+
+**Solution**:
+```bash
+pre-commit clean
+pre-commit install --install-hooks
+pre-commit run --all-files
+```
+
+### Port Conflicts in Integration Tests
+
+Multiple test runs might conflict on MongoDB ports.
+
+**Solution**:
+- Tests use unique ports per worker (pytest-xdist)
+- If conflicts persist, reduce parallelism: `pytest -n 2`
+
+## Coverage Goals
+
+- **Target**: 100% line coverage for `wks/api`
+- **Current**: 49.8% overall (actively improving)
+- **Priority**: Core business logic in API layer
+- **Excluded**: Auto-generated code, external interfaces
+
+Track progress in README.md badges and CI dashboard.
+
+## Docker Testing Infrastructure
+
+For details on the Docker CI image management, versioning, and running tests in Docker, see [docker/README.md](docker/README.md).

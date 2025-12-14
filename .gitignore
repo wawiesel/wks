@@ -97,3 +97,6 @@ demo_*.py
 
 # Generated visualizations
 docs/codebase_stats.png
+
+# Node
+node_modules/

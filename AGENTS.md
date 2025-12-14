@@ -28,7 +28,7 @@ If you are an AI agent doing coding, here is some help for you. For **all contri
         *   Smoke tests: `./scripts/test_smoke.py`
         *   Unit tests: `./scripts/test_unit.py`
         *   Integration tests: `./scripts/test_integration.py`
-    *   For detailed testing procedures, CI/CD pipeline information, and troubleshooting, see [docs/testing/README.md](docs/testing/README.md).
+    *   For detailed testing procedures and troubleshooting, see [CONTRIBUTING.md](CONTRIBUTING.md#testing). For Docker CI info, see [docker/README.md](docker/README.md).
 *   Eliminate unnecessary features and legacy code wherever possible—remove complexity, redundant state, backward compatibility, and unused paths.
 *   Support **only CLI and MCP** interfaces; drop all other modes.
 *   Consolidate configuration to minimal, essential parameters.
