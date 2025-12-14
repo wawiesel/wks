@@ -45,6 +45,9 @@ jobs:
           cat /proc/self/cgroup || true
 
           # Try running systemd with strace or verbose output
+          echo "=== Testing systemd invocation ==="
+          docker run --rm wks-test-linux-service:latest /usr/bin/systemd --help || echo "systemd --help failed with code $?"
+
           echo "=== Testing container startup ==="
           timeout 30 docker run --rm \
             --privileged \
