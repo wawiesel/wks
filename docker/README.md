@@ -147,21 +147,27 @@ docker run --rm \
 ### Run Full Test Suite
 
 ```bash
-docker run --rm \
-  --privileged \
-  --cgroupns=host \
-  --tmpfs /run \
-  --tmpfs /run/lock \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-  -v $(pwd):/workspace \
-  -w /workspace \
-  ci-runner:v1 \
-  bash -c "
-    /lib/systemd/systemd --system &
-    sleep 2
-    sudo -u testuser bash -c 'cd /workspace && pip3 install --user -e . --break-system-packages'
-    sudo -u testuser bash -c 'cd /workspace && python3 -m pytest tests/ -v --tb=short'
-  "
+### Run Tests Inside Docker (Simplified)
+
+ We provide a helper script that spins up the container with systemd, mounts your workspace, and drops you into a shell:
+
+ ```bash
+ ./scripts/docker_shell.sh
+ ```
+
+ Once inside the shell (you'll be `testuser`), you can run commands as if you were local:
+
+ ```bash
+ # The script auto-checks image freshness on entry!
+
+ # Run smoke tests
+ python3 -m pytest tests/smoke/ -v
+
+ # Run full suite
+ python3 -m pytest tests/ -v
+ ```
+
+ This is much easier than manually constructing the `docker run` command.
 ```
 
 ## Troubleshooting
