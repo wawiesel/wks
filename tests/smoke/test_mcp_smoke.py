@@ -127,8 +127,17 @@ def send_request(process, method, params=None, req_id=1):
     request = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params or {}}
 
     # Write request
-    process.stdin.write(json.dumps(request) + "\n")
-    process.stdin.flush()
+    try:
+        process.stdin.write(json.dumps(request) + "\n")
+        process.stdin.flush()
+    except (BrokenPipeError, ValueError):
+        # Process died unexpectedly. Capture stderr for debugging.
+        try:
+            _, errs = process.communicate(timeout=1)
+            err = errs if errs else ""
+        except Exception:
+            err = "Could not retrieve stderr."
+        raise AssertionError(f"MCP process died unexpectedly when sending request. STDERR:\n{err}") from None
 
     # Read response
     line = process.stdout.readline()
@@ -139,7 +148,10 @@ def send_request(process, method, params=None, req_id=1):
         except Exception:
             rc = None
         try:
-            err = process.stderr.read() if process.stderr else ""
+            # If we can read more stderr, do so (non-blocking if possible, but here we likely can just read)
+            # Use communicate to safely get rest of output
+            _, err_full = process.communicate(timeout=1)
+            err = err_full if err_full else ""
         except Exception:
             err = ""
         raise AssertionError(f"No response from MCP process (returncode={rc}). STDERR:\n{err}")

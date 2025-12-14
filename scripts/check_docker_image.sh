@@ -7,6 +7,8 @@ LOG_FILE=$(mktemp)
 
 # Run the command passed as arguments, pipe to tee to show output while capturing
 echo "Running: pip3 install $*"
+echo "Disk Usage before pip:"
+df -h
 pip3 install "$@" 2>&1 | tee "$LOG_FILE"
 PIP_EXIT_CODE=${PIPESTATUS[0]}
 
