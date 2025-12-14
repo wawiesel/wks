@@ -82,13 +82,14 @@ jobs:
             export PATH=/home/testuser/.local/bin:$PATH
             USER_ID=$(id -u)
             export XDG_RUNTIME_DIR=/run/user/$USER_ID
-            mkdir -p "$XDG_RUNTIME_DIR" || true
+            sudo mkdir -p "$XDG_RUNTIME_DIR"
+            sudo chown testuser:testuser "$XDG_RUNTIME_DIR"
             cd /workspace
             sudo chown -R testuser:testuser /workspace || true
             echo "Upgrading pip..."
-            python3 -m pip install --user --upgrade pip
+            python3 -m pip install --user --upgrade pip --break-system-packages
             echo "Installing package..."
-            pip3 install --user -e .
+            pip3 install --user -e . --break-system-packages
             echo "Running tests..."
             python3 -m pytest tests/integration/test_linux_service_install.py -v -m linux_service
           ' 2>&1
