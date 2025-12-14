@@ -19,9 +19,5 @@ jobs:
 
       - name: Check Image Freshness
         run: |
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            -w /workspace \
-            ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            bash -c "./scripts/check_docker_image.sh -e . --break-system-packages"
+          export IMAGE_NAME="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/ci-runner:v1"
+          ./scripts/docker_shell.sh "./scripts/check_docker_image.sh -e . --break-system-packages"
