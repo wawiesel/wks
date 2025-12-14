@@ -1,7 +1,7 @@
 # Dockerfile for testing Linux systemd service installation.
-# Based on Ubuntu with systemd properly configured for containers.
+# Using Ubuntu 24.04 for systemd 255 with proper cgroups v2 support.
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV container=docker
