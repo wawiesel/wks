@@ -26,50 +26,13 @@ jobs:
 
       - name: Run Linux service integration test
         run: |
-          set -x  # Enable debug output
-
-          # First, debug the image - run bash to check what's inside
-          echo "=== Debug: checking image contents ==="
-          docker run --rm wks-test-linux-service:latest ls -la /lib/systemd/ || true
-          docker run --rm wks-test-linux-service:latest ls -la /usr/lib/systemd/ || true
-          docker run --rm wks-test-linux-service:latest which systemd || true
-          docker run --rm wks-test-linux-service:latest file /lib/systemd/systemd || true
-          docker run --rm wks-test-linux-service:latest file /usr/lib/systemd/systemd || true
-          docker run --rm wks-test-linux-service:latest /lib/systemd/systemd --help || true
-          docker run --rm wks-test-linux-service:latest /usr/lib/systemd/systemd --help || true
-          docker run --rm wks-test-linux-service:latest cat /etc/os-release || true
-
-          # Check cgroups on host
-          echo "=== Debug: host cgroups ==="
-          ls -la /sys/fs/cgroup/ || true
-          cat /proc/self/cgroup || true
-
-          # Try running systemd with strace or verbose output
-          echo "=== Testing systemd invocation ==="
-          docker run --rm --entrypoint="" wks-test-linux-service:latest ldd /usr/bin/systemd || echo "ldd failed"
-          docker run --rm --entrypoint="" wks-test-linux-service:latest bash -c "echo hello && /usr/bin/systemd --help" || echo "bash exec failed with code $?"
-          docker run --rm wks-test-linux-service:latest /usr/bin/systemd --help || echo "systemd --help failed with code $?"
-
-          echo "=== Testing container startup ==="
-          # Run with systemd as the direct entrypoint (will be PID 1)
-          echo "Trying with default CMD (systemd as PID 1)..."
-          timeout 30 docker run --rm \
-            --privileged \
-            --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
-            wks-test-linux-service:latest 2>&1 || echo "Container exited (code: $?)"
-
-          # Try with explicit systemd entrypoint
-          echo "Trying with explicit systemd entrypoint..."
-          timeout 30 docker run --rm \
-            --privileged \
-            --entrypoint="/usr/bin/systemd" \
-            --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
-            wks-test-linux-service:latest --system 2>&1 || echo "Container exited (code: $?)"
-
-          echo "=== Starting container in background ==="
+          # Run container with systemd support
+          # Based on geerlingguy's proven approach:
+          # https://github.com/geerlingguy/docker-ubuntu2404-ansible
           CONTAINER_ID=$(docker run -d \
             --privileged \
-            --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
+            --cgroupns=host \
+            --volume=/sys/fs/cgroup:/sys/fs/cgroup:rw \
             --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \
             -e WKS_HOME=/home/testuser/.wks \
@@ -77,47 +40,25 @@ jobs:
 
           echo "Container ID: $CONTAINER_ID"
 
-          # Poll for container status
-          for i in {1..20}; do
-            echo "=== Check $i: Container status ==="
-            docker ps -a | grep $CONTAINER_ID || true
+          # Wait for systemd to boot
+          echo "Waiting for systemd to initialize..."
+          sleep 10
 
-            if docker ps | grep -q $CONTAINER_ID; then
-              echo "Container is running"
-              docker logs $CONTAINER_ID 2>&1 | tail -50 || true
-              break
-            else
-              echo "Container not running yet, checking logs..."
-              docker logs $CONTAINER_ID 2>&1 || true
-
-              # Check if it exited
-              STATUS=$(docker inspect -f '{{.State.Status}}' $CONTAINER_ID 2>/dev/null || echo "unknown")
-              echo "Container status: $STATUS"
-
-              if [ "$STATUS" = "exited" ]; then
-                echo "Container exited. Exit code:"
-                docker inspect -f '{{.State.ExitCode}}' $CONTAINER_ID || true
-                echo "Full logs:"
-                docker logs $CONTAINER_ID 2>&1 || true
-                exit 1
-              fi
-            fi
-            sleep 2
-          done
-
-          # Final check
+          # Check if container is running
           if ! docker ps | grep -q $CONTAINER_ID; then
-            echo "Container failed to stay running"
+            echo "Container stopped unexpectedly. Logs:"
             docker logs $CONTAINER_ID 2>&1 || true
+            echo "Inspect:"
+            docker inspect $CONTAINER_ID | head -50 || true
             exit 1
           fi
 
-          # Verify systemd is actually running
+          # Verify systemd is running
           echo "Checking systemd status..."
-          docker exec $CONTAINER_ID systemctl is-system-running || echo "systemd check failed"
+          docker exec $CONTAINER_ID systemctl is-system-running --wait || docker exec $CONTAINER_ID systemctl status || true
 
           # Enable lingering for testuser (required for user services)
-          docker exec $CONTAINER_ID sudo -u testuser loginctl enable-linger testuser || true
+          docker exec $CONTAINER_ID loginctl enable-linger testuser || true
 
           # Wait for user systemd session to be ready
           echo "Waiting for user systemd session..."
@@ -155,8 +96,6 @@ jobs:
             echo "Test failed with exit code $EXIT_CODE"
             echo "Container logs:"
             docker logs $CONTAINER_ID 2>&1 | tail -100 || true
-            echo "Checking container status..."
-            docker ps -a | grep $CONTAINER_ID || true
           fi
 
           # Cleanup
