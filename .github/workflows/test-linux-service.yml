@@ -31,7 +31,12 @@ jobs:
           # First, debug the image - run bash to check what's inside
           echo "=== Debug: checking image contents ==="
           docker run --rm wks-test-linux-service:latest ls -la /lib/systemd/ || true
+          docker run --rm wks-test-linux-service:latest ls -la /usr/lib/systemd/ || true
+          docker run --rm wks-test-linux-service:latest which systemd || true
           docker run --rm wks-test-linux-service:latest file /lib/systemd/systemd || true
+          docker run --rm wks-test-linux-service:latest file /usr/lib/systemd/systemd || true
+          docker run --rm wks-test-linux-service:latest /lib/systemd/systemd --help || true
+          docker run --rm wks-test-linux-service:latest /usr/lib/systemd/systemd --help || true
           docker run --rm wks-test-linux-service:latest cat /etc/os-release || true
 
           # Check cgroups on host
