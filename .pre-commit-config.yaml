@@ -36,6 +36,7 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+        args: ["-m", "not linux_service"]
 
       - id: update-readme-stats
         name: Update README Statistics
