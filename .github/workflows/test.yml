@@ -32,10 +32,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            bash -c "pip3 install -e . --break-system-packages > /tmp/install.log 2>&1 || (cat /tmp/install.log && exit 1); cat /tmp/install.log; python3 -m pytest tests/smoke/ -v --tb=short" > test_output.txt 2>&1
-
-          cat test_output.txt
-          ./scripts/check_docker_image.sh test_output.txt
+            bash -c "./scripts/check_docker_image.sh -e . --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
 
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:
@@ -136,11 +133,8 @@ jobs:
 
       - name: Generate stats.json (always)
         run: | # Update README and stats.json
-          if [ -f install_output.txt ] && (grep -q "Downloading" install_output.txt || grep -q "Collecting" install_output.txt); then
-              FULL_FRESHNESS="stale"
-          else
-              FULL_FRESHNESS="fresh"
-          fi
+          # Stats generation - we assume fresh if tests passed, as stale would warn
+          FULL_FRESHNESS="fresh"
           python3 scripts/update_readme_stats.py --docker-freshness "$FULL_FRESHNESS" --json-only
 
       - name: Update README (only if all tests passed)

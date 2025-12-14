@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'Dockerfile.ci-runner'
+      - 'docker/Dockerfile.ci-runner'
       - 'pyproject.toml'
       - 'setup.py'
       - '.github/workflows/publish-ci-image.yml'
@@ -60,7 +60,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile.ci-runner
+          file: docker/Dockerfile.ci-runner
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

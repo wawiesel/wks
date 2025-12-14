@@ -33,7 +33,7 @@ This installs ONLY the `wks` package itself (editable) without downloading any d
 - Adding new dependencies to `pyproject.toml` or `setup.py`
 - Removing dependencies
 - Upgrading major versions of dependencies
-- Changing system packages in `Dockerfile.ci-runner`
+- Changing system packages in `docker/Dockerfile.ci-runner`
 
 **Red Flag**: If you see pip downloading packages during CI runs, the image is stale and needs a version bump.
 
@@ -90,7 +90,7 @@ Once all tests pass using the new `v2` image, merge the PR.
 ### Build the Image
 
 ```bash
-docker build -f Dockerfile.ci-runner -t ci-runner:v1 .
+docker build -f docker/Dockerfile.ci-runner -t ci-runner:v1 .
 ```
 
 This will take 10-15 minutes due to downloading heavy dependencies like `sentence-transformers` and `docling`.

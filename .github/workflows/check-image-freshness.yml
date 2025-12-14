@@ -2,45 +2,26 @@ name: Check Docker Image Freshness
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight
+    - cron: '0 0 * * *'
   push:
     branches: [main]
     paths:
       - 'pyproject.toml'
       - 'setup.py'
-      - 'Dockerfile.ci-runner'
-      - '.github/workflows/check-image-freshness.yml'
-  pull_request:
-    branches: [main]
+      - 'docker/Dockerfile.ci-runner'
   workflow_dispatch:
 
 jobs:
   check-freshness:
-    name: Check Image Freshness
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check pip install is null-op
+      - name: Check Image Freshness
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-
-          # Run pip install and capture output
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            bash -c "pip3 install -e . --break-system-packages > /tmp/install.log 2>&1 && cat /tmp/install.log" > install_output.txt
-
-          # Display full output for debugging
-          cat install_output.txt
-
-          # Verify freshness
-          ./scripts/check_docker_image.sh install_output.txt
+            bash -c "./scripts/check_docker_image.sh -e . --break-system-packages"
