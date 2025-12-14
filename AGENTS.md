@@ -4,6 +4,8 @@ alwaysApply: true
 
 # Directives for AI
 
+*   **Authentication**: Under no circumstances authenticate yourself as a human user. You will always use a bot account. If you are unsure which bot account to use, you need to ask.
+
 Follow all `.cursor/rules/*`.
 
 If you are an AI agent doing coding, here is some help for you. For **all contributors (human and AI)**, please refer to the primary `CONTRIBUTING.md` for a comprehensive guide on development setup, coding standards, commit messages, and quality processes. This document provides supplementary directives specifically for AI agents.

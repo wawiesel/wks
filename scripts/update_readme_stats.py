@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Update code statistics in README.md from current codebase metrics."""
 
+import argparse
 import contextlib
+import json
 import re
 import subprocess
 import sys
 import tokenize
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from io import StringIO
 from pathlib import Path
 
@@ -18,6 +20,7 @@ except ImportError:
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README_PATH = REPO_ROOT / "README.md"
+STATS_JSON_PATH = REPO_ROOT / "stats.json"
 
 
 @dataclass
@@ -66,7 +69,7 @@ def _get_mutation_stats() -> tuple[float, int, int]:
 
 
 def _get_test_count() -> int:
-    """Get total number of tests."""
+    """Get total number of tests by running pytest."""
     _rc, output = _run_cmd([sys.executable, "-m", "pytest", "-q", "tests/"])
     for line in reversed(output.splitlines()):
         match = re.search(r"(\d+)\s+passed", line, re.IGNORECASE)
@@ -194,10 +197,9 @@ def _get_test_section_stats(test_subdir: str) -> SectionStats:
 
 
 def _get_user_docs_stats() -> SectionStats:
-    """Get statistics for user documentation."""
-    stats = _get_file_stats(REPO_ROOT / "README.md")
-    stats += _get_text_file_stats(REPO_ROOT / "docs" / "patterns", [".md"])
-    return stats
+    """Get statistics for user documentation (excludes root README.md to avoid circular dependency)."""
+    # Note: Root README.md is excluded because it contains these stats
+    return _get_text_file_stats(REPO_ROOT / "docs" / "patterns", [".md"])
 
 
 def _get_dev_docs_stats() -> SectionStats:
@@ -433,57 +435,87 @@ def _generate_table(
 **Test Statistics**: {test_count:,} tests across {test_files:,} test files."""
 
 
-def _update_readme() -> None:
-    """Update README.md with current statistics."""
-    if not README_PATH.exists():
-        print(f"Error: {README_PATH} not found", file=sys.stderr)
-        sys.exit(1)
-
-    # Collect all stats
+def _collect_all_stats() -> dict:
+    """Collect all statistics into a dictionary."""
     coverage_pct, coverage_status = _get_code_coverage()
     mutation_score, killed, survived = _get_mutation_stats()
     test_count = _get_test_count()
     test_files = len(list((REPO_ROOT / "tests").rglob("test_*.py")))
 
-    stats = {
-        "api": _get_section_stats("api"),
-        "cli": _get_section_stats("cli"),
-        "mcp": _get_section_stats("mcp"),
-        "utils": _get_section_stats("utils"),
-        "unit": _get_test_section_stats("unit"),
-        "integration": _get_test_section_stats("integration"),
-        "smoke": _get_test_section_stats("smoke"),
-        "cicd": _get_infrastructure_cicd_stats(),
-        "build_config": _get_infrastructure_build_config_stats(),
-        "scripts": _get_infrastructure_scripts_stats(),
-        "specs": _get_specifications_stats(),
-        "user_docs": _get_user_docs_stats(),
-        "dev_docs": _get_dev_docs_stats(),
+    section_stats = {
+        "api": asdict(_get_section_stats("api")),
+        "cli": asdict(_get_section_stats("cli")),
+        "mcp": asdict(_get_section_stats("mcp")),
+        "utils": asdict(_get_section_stats("utils")),
+        "unit": asdict(_get_test_section_stats("unit")),
+        "integration": asdict(_get_test_section_stats("integration")),
+        "smoke": asdict(_get_test_section_stats("smoke")),
+        "cicd": asdict(_get_infrastructure_cicd_stats()),
+        "build_config": asdict(_get_infrastructure_build_config_stats()),
+        "scripts": asdict(_get_infrastructure_scripts_stats()),
+        "specs": asdict(_get_specifications_stats()),
+        "user_docs": asdict(_get_user_docs_stats()),
+        "dev_docs": asdict(_get_dev_docs_stats()),
     }
 
+    return {
+        "coverage_pct": round(coverage_pct, 1),
+        "coverage_status": coverage_status,
+        "mutation_score": round(mutation_score, 1),
+        "mutation_killed": killed,
+        "mutation_survived": survived,
+        "test_count": test_count,
+        "test_files": test_files,
+        "sections": section_stats,
+    }
+
+
+def _save_stats_json(stats: dict) -> None:
+    """Save stats to JSON file with fixed precision."""
+    STATS_JSON_PATH.write_text(json.dumps(stats, indent=2, sort_keys=True) + "\n")
+    print(f"✅ Saved stats to {STATS_JSON_PATH}")
+
+
+def _load_stats_json() -> dict:
+    """Load stats from JSON file."""
+    if not STATS_JSON_PATH.exists():
+        print(f"Error: {STATS_JSON_PATH} not found", file=sys.stderr)
+        sys.exit(1)
+    return json.loads(STATS_JSON_PATH.read_text())
+
+
+def _update_readme_from_stats(stats: dict) -> None:
+    """Update README.md from stats dictionary."""
+    if not README_PATH.exists():
+        print(f"Error: {README_PATH} not found", file=sys.stderr)
+        sys.exit(1)
+
+    # Reconstruct SectionStats objects
+    sections = {k: SectionStats(**v) for k, v in stats["sections"].items()}
+
     # Generate content
-    badges = _generate_badges(coverage_pct, mutation_score, test_count)
+    badges = _generate_badges(stats["coverage_pct"], stats["mutation_score"], stats["test_count"])
     table = _generate_table(
-        coverage_pct,
-        coverage_status,
-        mutation_score,
-        killed,
-        survived,
-        test_count,
-        test_files,
-        stats["api"],
-        stats["cli"],
-        stats["mcp"],
-        stats["utils"],
-        stats["unit"],
-        stats["integration"],
-        stats["smoke"],
-        stats["cicd"],
-        stats["build_config"],
-        stats["scripts"],
-        stats["specs"],
-        stats["user_docs"],
-        stats["dev_docs"],
+        stats["coverage_pct"],
+        stats["coverage_status"],
+        stats["mutation_score"],
+        stats["mutation_killed"],
+        stats["mutation_survived"],
+        stats["test_count"],
+        stats["test_files"],
+        sections["api"],
+        sections["cli"],
+        sections["mcp"],
+        sections["utils"],
+        sections["unit"],
+        sections["integration"],
+        sections["smoke"],
+        sections["cicd"],
+        sections["build_config"],
+        sections["scripts"],
+        sections["specs"],
+        sections["user_docs"],
+        sections["dev_docs"],
     )
 
     # Update README
@@ -496,7 +528,6 @@ def _update_readme() -> None:
     table_header = "## Code Quality Metrics\n\n"
     table_start = content.find(table_header)
     if table_start != -1:
-        # Find next section or end marker
         next_section = content.find("\n## ", table_start + len(table_header))
         if next_section == -1:
             next_section = content.find("\nAI-assisted", table_start)
@@ -505,7 +536,6 @@ def _update_readme() -> None:
         else:
             content = content[: table_start + len(table_header)] + table
     else:
-        # Fallback regex
         content = re.sub(
             r"(## Code Quality Metrics\n\n)(.*?)(\n\n## |\nAI-assisted)", rf"\1{table}\n\n\3", content, flags=re.DOTALL
         )
@@ -514,5 +544,30 @@ def _update_readme() -> None:
     print(f"✅ Updated {README_PATH} with current statistics")
 
 
+def _update_readme() -> None:
+    """Legacy function: collect stats, save JSON, update README."""
+    stats = _collect_all_stats()
+    _save_stats_json(stats)
+    _update_readme_from_stats(stats)
+
+
+def main() -> None:
+    """CLI entry point with JSON support."""
+    parser = argparse.ArgumentParser(description="Update README statistics")
+    parser.add_argument("--json-only", action="store_true", help="Only generate stats.json, don't update README")
+    parser.add_argument("--from-json", action="store_true", help="Update README from existing stats.json")
+    args = parser.parse_args()
+
+    if args.from_json:
+        stats = _load_stats_json()
+        _update_readme_from_stats(stats)
+    elif args.json_only:
+        stats = _collect_all_stats()
+        _save_stats_json(stats)
+    else:
+        # Default: collect stats, save JSON, update README
+        _update_readme()
+
+
 if __name__ == "__main__":
-    _update_readme()
+    main()

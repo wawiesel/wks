@@ -99,6 +99,8 @@ def mongo_wks_env(tmp_path, monkeypatch):
 
     # Start with minimal config and override for MongoDB
     config_dict = minimal_config_dict()
+    # Use Database context manager to start/manage mongod persistence
+    # This prevents restarts inside the test loops which cause lock issues
     mongo_data_path = str(wks_home / "mongo-data")
     config_dict["database"] = {
         "type": "mongo",
@@ -118,14 +120,23 @@ def mongo_wks_env(tmp_path, monkeypatch):
     config = WKSConfig.model_validate(config_dict)
     config.save()
 
-    yield {
-        "wks_home": wks_home,
-        "watch_dir": watch_dir,
-        "config": config,
-        "mongo_port": mongo_port,
-    }
+    # Start mongod once for the duration of the test
+    # The Database context manager handles startup of local mongod
+    from wks.api.database.Database import Database
 
-    # Cleanup: stop any daemon that might be running
+    with Database(config.database, "setup") as db:
+        # Verify connection
+        db.get_client().server_info()
+
+        yield {
+            "wks_home": wks_home,
+            "watch_dir": watch_dir,
+            "config": config,
+            "mongo_port": mongo_port,
+        }
+
+    # Context manager exit handles cleanup, but we can double check
+    # to be safe for next tests
     try:
         daemon = Daemon()
         daemon.stop()
