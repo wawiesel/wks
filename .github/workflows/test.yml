@@ -31,8 +31,8 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
-            ghcr.io/${REPO_LOWER}/ci-runner:latest \
-            bash -c "pip3 install -e . --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
+            ghcr.io/${REPO_LOWER}/ci-runner:v1 \
+            bash -c "pip3 install -e . --no-deps --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
 
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:
@@ -83,7 +83,7 @@ jobs:
       - name: Pull test image
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker pull ghcr.io/${REPO_LOWER}/ci-runner:latest
+          docker pull ghcr.io/${REPO_LOWER}/ci-runner:v1
 
       - name: Run tests in Docker
         id: docker-tests
@@ -98,7 +98,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -e GITHUB_ACTIONS=true \
-            ghcr.io/${REPO_LOWER}/ci-runner:latest \
+            ghcr.io/${REPO_LOWER}/ci-runner:v1 \
             bash -c "
               # Start systemd in background
               /lib/systemd/systemd --system &

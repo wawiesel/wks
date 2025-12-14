@@ -92,52 +92,8 @@ We have three levels of tests, each runnable independently via scripts:
     ```bash
     ./scripts/test_integration.py
     ```
-These scripts are also integrated into the `pre-push` hook (for the full `pytest` suite) and are run as part of the CI pipeline.
 
-## CI Docker Test Image
-
-Our CI uses a pre-built Docker image with all dependencies installed to speed up test execution (especially smoke tests, which must complete in <15 seconds).
-
-### Image Location
-- **Registry**: `ghcr.io/wawiesel/wks/ci-runner:latest`
-- **Dockerfile**: `Dockerfile.ci-runner`
-
-### When to Rebuild the Image
-
-Rebuild the Docker image when:
-- Adding/removing/updating Python dependencies in `pyproject.toml` or `setup.py`
-- Changing system dependencies (MongoDB, systemd packages, etc.)
-- Modifying the Dockerfile itself
-
-### Building the Image Locally
-
-```bash
-# Build the image
-docker build -f Dockerfile.ci-runner -t ghcr.io/wawiesel/wks/ci-runner:latest .
-
-# Test it locally
-docker run --rm -v $(pwd):/workspace -w /workspace ghcr.io/wawiesel/wks/ci-runner:latest \
-  bash -c "pip3 install --user --no-deps -e . --break-system-packages -q && python3 -m pytest tests/smoke/ -v"
-```
-
-### Publishing the Image
-
-The image is automatically built and pushed to GHCR when:
-- You push to `main` and `Dockerfile.ci-runner` or `pyproject.toml` has changed
-- You manually trigger the `publish-ci-image.yml` workflow
-
-To manually trigger a rebuild:
-1. Go to Actions → "Publish CI Docker Image" → "Run workflow"
-2. Or push a commit that modifies `Dockerfile.ci-runner`
-
-### Image Contents
-
-The Docker image includes:
-- **Python 3.x** with pip
-- **MongoDB** (mongod server)
-- **systemd** (for service installation tests)
-- **All Python dependencies** from `pyproject.toml` pre-installed
-- **testuser** account for non-root testing
+For comprehensive testing documentation, including CI/CD pipeline details, Docker image management, and troubleshooting, see [docs/testing/README.md](docs/testing/README.md).
 
 ## Mutation Testing (API)
 

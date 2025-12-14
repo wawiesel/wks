@@ -45,37 +45,27 @@ RUN useradd -m -s /bin/bash testuser && \
     mkdir -p /home/testuser/.config/systemd/user && \
     chown -R testuser:testuser /home/testuser
 
-# Install heavy Python dependencies as testuser to ensure visibility in tests
-# (since tests run as testuser with --user flag)
+# Install ALL project dependencies as testuser
+# Strategy: Copy only dependency files, install from them, then remove
+# This ensures the image has all deps but doesn't embed the source code
 USER testuser
 ENV PATH="/home/testuser/.local/bin:${PATH}"
+
+WORKDIR /tmp/wks-install
+
+# Copy only files needed for dependency resolution (for Docker layer caching)
+COPY --chown=testuser:testuser pyproject.toml setup.py setup.cfg ./
+# Create minimal wks package structure so setup.py doesn't fail
+RUN mkdir -p wks && touch wks/__init__.py
+
+# Install ALL dependencies from project files (not editable install)
+# This ensures complete coverage of all requirements
 RUN python3 -m pip install --upgrade pip --break-system-packages && \
-    python3 -m pip install --no-cache-dir --break-system-packages \
-    watchdog \
-    rich \
-    typer \
-    pydantic \
-    pymongo \
-    sentence-transformers \
-    docling \
-    bsdiff4 \
-    mongomock \
-    jinja2 \
-    mutmut \
-    pyyaml \
-    pytest \
-    pytest-timeout \
-    pytest-xdist \
-    pre-commit \
-    ruff \
-    mypy \
-    lizard \
-    types-requests \
-    types-PyYAML \
-    types-setuptools \
-    coverage \
-    pytest-cov \
-    tabulate
+    python3 -m pip install . --break-system-packages
+
+# Clean up - we'll mount actual source at runtime
+WORKDIR /
+RUN rm -rf /tmp/wks-install
 
 # Switch back to root for systemd setup
 USER root

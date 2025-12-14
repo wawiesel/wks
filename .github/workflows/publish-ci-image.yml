@@ -8,6 +8,7 @@ on:
     paths:
       - 'Dockerfile.ci-runner'
       - 'pyproject.toml'
+      - 'setup.py'
       - '.github/workflows/publish-ci-image.yml'
 
 env:
@@ -37,6 +38,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/ci-runner
           tags: |
+            type=raw,value=v1
             type=raw,value=latest
             type=sha,prefix=sha-
 
