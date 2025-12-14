@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/quality-20251212
     paths:
       - 'Dockerfile.test-linux-service'
       - '.github/workflows/publish-test-image.yml'

@@ -56,6 +56,7 @@ After=network.target
 
 [Service]
 Type=simple
+Environment=WKS_HOME={working_directory}
 ExecStart={exec_start}
 WorkingDirectory={working_directory}
 StandardOutput=append:{log_file}
