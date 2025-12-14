@@ -6,6 +6,7 @@ service backend can actually install, start, stop, and uninstall systemd user se
 Requires Docker and a systemd-enabled container image.
 """
 
+import os
 import platform
 import subprocess
 from pathlib import Path
@@ -181,6 +182,26 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
             )
             print("\n=== systemctl status ===")
             print(result.stdout or result.stderr)
+
+            # Show the service log file
+            log_path = wks_home / "logs" / "service.log"
+            print(f"\n=== Service log ({log_path}) ===")
+            if log_path.exists():
+                print(log_path.read_text())
+            else:
+                print("Log file does not exist")
+
+            # Try running wksc daemon start manually to see the error
+            print("\n=== Manual wksc daemon start test ===")
+            result = subprocess.run(
+                ["wksc", "daemon", "start"],
+                capture_output=True,
+                text=True,
+                env={**os.environ, "WKS_HOME": str(wks_home)},
+            )
+            print(f"stdout: {result.stdout}")
+            print(f"stderr: {result.stderr}")
+            print(f"returncode: {result.returncode}")
 
             pytest.fail(f"Service start failed: {error_msg}")
         assert start_result["success"] is True
