@@ -35,7 +35,9 @@ jobs:
             --privileged \
             --cgroupns=host \
             --tmpfs /run \
+            --tmpfs /run/lock \
             --tmpfs /tmp \
+            --stop-signal=SIGRTMIN+3 \
             --volume /sys/fs/cgroup:/sys/fs/cgroup:rw \
             --volume "${{ github.workspace }}:/workspace:rw" \
             --workdir /workspace \

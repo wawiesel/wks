@@ -38,10 +38,15 @@ ENV PATH=/home/testuser/.local/bin:$PATH
 # Configure systemd to run as PID 1
 RUN systemctl set-default multi-user.target || true
 
+# Create cgroup volume mount point for systemd
+VOLUME [ "/sys/fs/cgroup" ]
+
+# Set the proper stop signal for systemd containers
+STOPSIGNAL SIGRTMIN+3
+
 # Set systemd as the entrypoint so it runs as PID 1
-# Use /sbin/init as a wrapper that systemd expects
-# This is the standard way to run systemd in containers
-ENTRYPOINT ["/sbin/init"]
+# Use the full path to systemd for explicit control
+ENTRYPOINT ["/lib/systemd/systemd"]
 
 # Note: We don't install the package here - it will be installed in the workflow
 # to ensure we're testing the latest code
