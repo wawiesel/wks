@@ -44,5 +44,5 @@ ENV PATH=/home/testuser/.local/bin:$PATH
 VOLUME ["/sys/fs/cgroup"]
 STOPSIGNAL SIGRTMIN+3
 
-# Use systemd as init
-CMD ["/lib/systemd/systemd"]
+# Use systemd as init with debug logging to see startup errors
+CMD ["/lib/systemd/systemd", "--system", "--log-level=debug", "--log-target=console"]
