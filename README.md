@@ -5,6 +5,7 @@
 ![Tests](https://img.shields.io/badge/tests-226-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
+![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)
 
 ## Status
 - Alpha: monitor, vault, transform, diff layers are under active development; CLI and MCP may change without notice.
@@ -12,10 +13,11 @@
 
 ## Code Quality Metrics
 
-| Metric              |   Value |   Target | Status          |
-|---------------------|--------:|---------:|----------------:|
-| **Code Coverage**   |   49.8% |     100% | ⚠️ Below Target |
-| **Mutation Kill %** |   91.6% |     ≥90% | ✅ Pass          |
+| Metric               |   Value |     Target | Status          |
+|----------------------|--------:|-----------:|----------------:|
+| **Code Coverage**    |   49.8% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   91.6% |       ≥90% | ✅ Pass          |
+| **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
 ### Source Size Statistics
 

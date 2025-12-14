@@ -296,7 +296,8 @@ def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int
 ![Mutation Score](https://img.shields.io/badge/mutation-{mutation_score}%25-{mutation_color})
 ![Tests](https://img.shields.io/badge/tests-{test_count}-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
-![Status](https://img.shields.io/badge/status-alpha-orange)"""
+![Status](https://img.shields.io/badge/status-alpha-orange)
+![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)"""
 
 
 def _create_table(headers: list[str], rows: list[list[str]], num_numeric_cols: int) -> str:
@@ -315,6 +316,7 @@ def _format_row(label: str, stats: SectionStats, pct: str) -> list[str]:
 def _generate_table(
     coverage_pct: float,
     coverage_status: str,
+    docker_freshness: str,
     mutation_score: float,
     _killed: int,
     _survived: int,
@@ -353,6 +355,12 @@ def _generate_table(
         [
             ["**Code Coverage**", f"{coverage_pct}%", "100%", coverage_status],
             ["**Mutation Kill %**", f"{mutation_score}%", "≥90%", mutation_status],
+            [
+                "**Docker Freshness**",
+                "v1",
+                "Up to date",
+                "✅ Pass" if docker_freshness == "fresh" else "⚠️ Updates Available",
+            ],
         ],
         2,
     )
@@ -435,7 +443,7 @@ def _generate_table(
 **Test Statistics**: {test_count:,} tests across {test_files:,} test files."""
 
 
-def _collect_all_stats() -> dict:
+def _collect_all_stats(docker_freshness: str = "fresh") -> dict:
     """Collect all statistics into a dictionary."""
     coverage_pct, coverage_status = _get_code_coverage()
     mutation_score, killed, survived = _get_mutation_stats()
@@ -466,6 +474,7 @@ def _collect_all_stats() -> dict:
         "mutation_survived": survived,
         "test_count": test_count,
         "test_files": test_files,
+        "docker_freshness": docker_freshness,
         "sections": section_stats,
     }
 
@@ -498,6 +507,7 @@ def _update_readme_from_stats(stats: dict) -> None:
     table = _generate_table(
         stats["coverage_pct"],
         stats["coverage_status"],
+        stats.get("docker_freshness", "fresh"),
         stats["mutation_score"],
         stats["mutation_killed"],
         stats["mutation_survived"],
@@ -544,9 +554,9 @@ def _update_readme_from_stats(stats: dict) -> None:
     print(f"✅ Updated {README_PATH} with current statistics")
 
 
-def _update_readme() -> None:
+def _update_readme(docker_freshness: str = "fresh") -> None:
     """Legacy function: collect stats, save JSON, update README."""
-    stats = _collect_all_stats()
+    stats = _collect_all_stats(docker_freshness)
     _save_stats_json(stats)
     _update_readme_from_stats(stats)
 
@@ -556,17 +566,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Update README statistics")
     parser.add_argument("--json-only", action="store_true", help="Only generate stats.json, don't update README")
     parser.add_argument("--from-json", action="store_true", help="Update README from existing stats.json")
+    parser.add_argument(
+        "--docker-freshness", choices=["fresh", "stale"], default="fresh", help="Docker image freshness status"
+    )
     args = parser.parse_args()
 
     if args.from_json:
         stats = _load_stats_json()
         _update_readme_from_stats(stats)
     elif args.json_only:
-        stats = _collect_all_stats()
+        stats = _collect_all_stats(args.docker_freshness)
         _save_stats_json(stats)
     else:
         # Default: collect stats, save JSON, update README
-        _update_readme()
+        _update_readme(args.docker_freshness)
 
 
 if __name__ == "__main__":
