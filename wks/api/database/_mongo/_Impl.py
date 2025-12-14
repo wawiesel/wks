@@ -90,7 +90,6 @@ class _Impl(_AbstractImpl):
             f"--bind_ip={host}",
             f"--port={port}",
             "--quiet",
-            "--nojournal",  # Disable journaling for faster startup in tests
         ]
         try:
             # Capture stderr to diagnose startup issues
