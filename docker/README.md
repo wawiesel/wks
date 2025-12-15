@@ -14,18 +14,16 @@ The Docker image contains:
 - Test frameworks (pytest, coverage, mutation testing)
 - Linting tools (ruff, mypy)
 
-### Dependency Installation Strategy
-During the Docker image build:
-1. Copy `pyproject.toml`, `setup.py`, `setup.cfg` into image
-2. Run `pip install .` to install ALL dependencies
-3. Remove copied files (source code is mounted at runtime)
+### Dependency Strategy: Container is Source of Truth
+The `ci-runner:v1` image is the **single source of truth** for the test environment. It contains all dependencies (Python libraries, system tools like `mutmut`, `tabulate`, `systemd`).
 
 During CI test runs:
-```bash
-pip install -e . --break-system-packages
-```
-
-This installs ONLY the `wks` package itself (editable) without downloading any dependencies, since they're already in the image.
+1.  **Freshness Check**: We run `pip install -e . --break-system-packages` **inside the container**.
+    *   **Nominal Case (Fresh)**: This is a null-op (downloads nothing).
+    *   **Stale Case**: It downloads packages. We print a warning ("Image Stale!"), but tests proceed because the environment is now synced.
+2.  **Execution**: All tests and maintenance scripts (e.g., stats generation) run **inside the container** via `docker exec`.
+    *   The host runner's **only** job is to checkout code and start the container.
+    *   We NEVER install project dependencies on the host runner.
 
 ## When to Bump Version
 

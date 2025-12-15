@@ -76,6 +76,8 @@ To manually run a specific check: `./scripts/check_format.py [--fix]`
 
 Our GitHub Actions workflow (`.github/workflows/quality.yml`) enforces these same quality checks on every pull request. This ensures that all code merged into `main` adheres to our standards.
 
+**Note on CI**: All tests in CI run inside our `ci-runner` Docker container. The container is the source of truth for dependencies. See [docker/README.md](docker/README.md) for details.
+
 ## Test Suites
 
 We have three levels of tests, each runnable independently via scripts:
