@@ -8,6 +8,11 @@ include-package-data = true
 [tool.setuptools.package-data]
 "docs.specifications" = ["*.json"]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["wks*"]
+exclude = ["docker*", "tests*", "scripts*"]
+
 [project.scripts]
 wksc = "wks.cli:main"
 
