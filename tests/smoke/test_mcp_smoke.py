@@ -75,6 +75,11 @@ def mcp_process(tmp_path_factory):
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
 
+    # Symlink .local from real HOME to temp HOME so pip install --user packages are visible
+    real_home = Path(os.environ["HOME"])
+    if (real_home / ".local").exists():
+        (home_dir / ".local").symlink_to(real_home / ".local")
+
     # Don't add PYTHONPATH - we're testing the installed package, not the source
     # The installed wksc should work without PYTHONPATH manipulation
 

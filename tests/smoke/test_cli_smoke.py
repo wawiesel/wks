@@ -73,6 +73,11 @@ def smoke_env(tmp_path_factory):
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
 
+    # Symlink .local from real HOME to temp HOME so pip install --user packages are visible
+    real_home = Path(os.environ["HOME"])
+    if (real_home / ".local").exists():
+        (home_dir / ".local").symlink_to(real_home / ".local")
+
     # Create a dummy vault
     vault_dir = home_dir / "Vault"
     vault_dir.mkdir()
