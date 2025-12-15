@@ -77,7 +77,7 @@ if [ -n "$CMD" ]; then
     # We pass the command to bash -c via the wrapper
     $DOCKER_CMD exec \
         "${CONTAINER_NAME}" \
-        ci-as-testuser "$CMD"
+        /usr/local/bin/ci-as-testuser "$CMD"
 else
     # Interactive mode (default)
     echo "💻 Dropping into shell as 'testuser'..."
@@ -87,7 +87,7 @@ else
     # Enter container with TTY using wrapper
     $DOCKER_CMD exec -it \
         "${CONTAINER_NAME}" \
-        ci-as-testuser "
+        /usr/local/bin/ci-as-testuser "
             echo 'Welcome to WKS Docker Shell!'
             echo '----------------------------'
             echo 'Check image freshness:'
