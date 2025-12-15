@@ -6,6 +6,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 
@@ -137,10 +138,23 @@ def main() -> None:
     if not args.results_only:
         console.print("[bold blue]Running mutation tests for wks/api...[/bold blue]")
         run_cmd = [mutmut_cmd, "run", "--max-children", str(args.max_children)]
-        run_result = subprocess.run(run_cmd, cwd=str(REPO_ROOT), check=False)
-        if run_result.returncode != 0:
+        # Check if running in a CI environment (Github Actions) or non-interactive mode
+        # In CI, we capture output to avoid log spam from spinners.
+        # locally, we let it stream to show the "cool" interactive progress.
+        is_ci = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true"
+
+        if is_ci:
+            run_process: Any = subprocess.run(run_cmd, cwd=str(REPO_ROOT), check=False, capture_output=True, text=True)
+        else:
+            run_process = subprocess.run(run_cmd, cwd=str(REPO_ROOT), check=False, text=True)
+
+        if run_process.returncode != 0:
             console.print("[bold red]mutmut run FAILED[/bold red]")
-            raise SystemExit(run_result.returncode)
+            if is_ci:
+                # Print captured output to help debug the failure
+                console.print(run_process.stdout)
+                console.print(run_process.stderr)
+            raise SystemExit(run_process.returncode)
 
     console.print("[bold blue]Collecting mutation results...[/bold blue]")
     # Always collect the full results so we can compute accurate totals; printing is controlled by flags.
