@@ -50,6 +50,8 @@ env/
 
 # Testing and Coverage
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 .coverage.*
 htmlcov/
@@ -105,3 +107,6 @@ node_modules/
 repomix_*.xml
 repomix_*.txt
 repomix_*.json
+
+# User/Local
+.wks/
