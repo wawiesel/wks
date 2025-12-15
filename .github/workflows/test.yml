@@ -150,8 +150,13 @@ jobs:
         run: | # Update README and stats.json
           # Stats generation - we assume fresh if tests passed, as stale would warn
           FULL_FRESHNESS="fresh"
-          pip3 install tabulate mutmut --break-system-packages
-          python3 scripts/update_readme_stats.py --docker-freshness "$FULL_FRESHNESS" --json-only
+
+          # Fix git safety for container ops
+          docker exec "$CONTAINER_ID" git config --global --add safe.directory /workspace
+
+          # Run stats generation INSIDE container (uses pre-installed deps)
+          # Output writes to mounted /workspace, so it persists to host
+          docker exec "$CONTAINER_ID" python3 scripts/update_readme_stats.py --docker-freshness "$FULL_FRESHNESS" --json-only
 
       - name: Update README (only if all tests passed)
         if: steps.test-check.outputs.all_passed == 'true'
