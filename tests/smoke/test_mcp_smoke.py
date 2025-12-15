@@ -74,6 +74,8 @@ def mcp_process(tmp_path_factory):
     # Set HOME to the temp dir to isolate config
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
+    # Override WKS_HOME to ensure config is loaded from temp dir
+    env["WKS_HOME"] = str(home_dir / ".wks")
 
     # Symlink .local from real HOME to temp HOME so pip install --user packages are visible
     real_home = Path(os.environ["HOME"])
