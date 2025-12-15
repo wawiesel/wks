@@ -41,6 +41,8 @@ def _get_wks_mcp_cmd():
 
 def _mongod_available() -> bool:
     """Return True only if the `mongod` binary is available."""
+    if os.environ.get("WKS_TEST_MONGO_URI"):
+        return True
     if not shutil.which("mongod"):
         return False
     try:
@@ -93,14 +95,23 @@ def mcp_process(tmp_path_factory):
 
     config = minimal_config_dict()
 
-    mongo_port = random.randint(27100, 27999)
-    mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+    mongo_port = 0
+    external_uri = os.environ.get("WKS_TEST_MONGO_URI")
+
+    if external_uri:
+        mongo_uri = external_uri
+        is_local = False
+    else:
+        mongo_port = random.randint(27100, 27999)
+        mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+        is_local = True
+
     config["database"] = {
         "type": "mongo",
         "prefix": "wks_mcp_smoke",
         "data": {
             "uri": mongo_uri,
-            "local": True,
+            "local": is_local,
             "db_path": str((home_dir / ".wks" / "mongo-data").resolve()),
             "port": mongo_port,
             "bind_ip": "127.0.0.1",
