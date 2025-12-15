@@ -10,7 +10,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["wks*"]
+include = ["wks*", "docs*"]
 exclude = ["docker*", "tests*", "scripts*"]
 
 [project.scripts]
