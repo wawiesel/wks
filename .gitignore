@@ -100,3 +100,8 @@ docs/codebase_stats.png
 
 # Node
 node_modules/
+
+# Repomix
+repomix_*.xml
+repomix_*.txt
+repomix_*.json

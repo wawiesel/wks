@@ -33,7 +33,7 @@ RUN useradd -m -s /bin/bash -u 1001 testuser && \
 WORKDIR /tmp/wks-install
 COPY pyproject.toml setup.py setup.cfg ./
 RUN mkdir -p wks && touch wks/__init__.py && \
-    python3 -m pip install . tabulate --no-cache-dir --break-system-packages && \
+    python3 -m pip install . --no-cache-dir --break-system-packages && \
     python3 -m pip uninstall -y wks --break-system-packages && \
     rm -rf /tmp/wks-install
 
