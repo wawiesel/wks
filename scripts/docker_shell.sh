@@ -39,6 +39,7 @@ fi
 echo "📦 Running container..."
 $DOCKER_CMD run -d \
     --name "${CONTAINER_NAME}" \
+    --platform linux/amd64 \
     --privileged \
     --cgroupns=host \
     --tmpfs /run \
