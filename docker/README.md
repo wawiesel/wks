@@ -147,11 +147,12 @@ docker run --rm \
 ```bash
 ### Run Tests Inside Docker (Simplified)
 
- We provide a helper script that spins up the container with systemd, mounts your workspace, and drops you into a shell:
+We provide a helper script that spins up the container with systemd, mounts your workspace, and drops you into a shell.
+**Note**: This script automatically detects `docker` or `podman`.
 
- ```bash
- ./scripts/docker_shell.sh
- ```
+```bash
+./scripts/docker_shell.sh
+```
 
  Once inside the shell (you'll be `testuser`), you can run commands as if you were local:
 

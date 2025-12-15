@@ -12,21 +12,33 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "🚀 Starting WKS Docker Environment..."
 echo "Image: ${IMAGE_NAME}"
+echo "Image: ${IMAGE_NAME}"
 echo "-------------------------------------"
 
+# Detect container runtime
+if command -v $DOCKER_CMD &> /dev/null; then
+    DOCKER_CMD="$DOCKER_CMD"
+elif command -v podman &> /dev/null; then
+    DOCKER_CMD="podman"
+    echo "ℹ️  Using Podman as container runtime"
+else
+    echo "❌ Error: No container runtime found ($DOCKER_CMD or podman)"
+    exit 1
+fi
+
 # Check if container is already running
-if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+if $DOCKER_CMD ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "✅ Container '${CONTAINER_NAME}' needs restart..."
-    docker rm -f "${CONTAINER_NAME}" > /dev/null
+    $DOCKER_CMD rm -f "${CONTAINER_NAME}" > /dev/null
 fi
 
 # Cleanup existing stopped container
-if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    docker rm "${CONTAINER_NAME}" > /dev/null
+if $DOCKER_CMD ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    $DOCKER_CMD rm "${CONTAINER_NAME}" > /dev/null
 fi
 
 echo "📦 Running container..."
-docker run -d \
+$DOCKER_CMD run -d \
     --name "${CONTAINER_NAME}" \
     --privileged \
     --cgroupns=host \
@@ -47,8 +59,8 @@ cleanup() {
     EXIT_CODE=$?
     echo ""
     echo "🛑 Stopping container..."
-    docker kill "${CONTAINER_NAME}" > /dev/null
-    docker rm "${CONTAINER_NAME}" > /dev/null
+    $DOCKER_CMD kill "${CONTAINER_NAME}" > /dev/null
+    $DOCKER_CMD rm "${CONTAINER_NAME}" > /dev/null
     echo "Done."
     exit $EXIT_CODE
 }
@@ -62,7 +74,7 @@ if [ -n "$CMD" ]; then
     echo "-------------------------------------"
     # We don't use -t to avoid TTY control characters in logs unless needed
     # We pass the command to bash -c
-    docker exec \
+    $DOCKER_CMD exec \
         -u testuser \
         -w /workspace \
         "${CONTAINER_NAME}" \
@@ -74,7 +86,7 @@ else
     echo "-------------------------------------"
 
     # Enter container with TTY
-    docker exec -it \
+    $DOCKER_CMD exec -it \
         -u testuser \
         -w /workspace \
         "${CONTAINER_NAME}" \
