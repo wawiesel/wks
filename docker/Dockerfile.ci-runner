@@ -111,8 +111,7 @@ RUN mkdir -p wks && touch wks/__init__.py
 # Install ALL dependencies from project files (not editable install)
 # This ensures complete coverage of all requirements
 # Added tabulate explicitly as requested
-RUN python3 -m pip install --upgrade pip --no-cache-dir --break-system-packages && \
-    python3 -m pip install . tabulate --no-cache-dir --break-system-packages && \
+RUN python3 -m pip install . tabulate --no-cache-dir --break-system-packages && \
     python3 -m pip uninstall -y wks --break-system-packages
 
 # Clean up - we'll mount actual source at runtime
