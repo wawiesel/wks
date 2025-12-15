@@ -168,7 +168,7 @@ jobs:
   # Stage 3: Python version compatibility - parallel testing on multiple versions
   compatibility:
     name: Python ${{ matrix.python-version }}
-
+    needs: docker-tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
