@@ -38,5 +38,18 @@ if grep -q "Downloading" "$LOG_FILE" || grep -q "Collecting" "$LOG_FILE"; then
 else
     echo "✅ Docker image is fresh (no dependencies downloaded)."
     rm "$LOG_FILE"
+
+    # Final verify: check if wks is actually importable
+    echo "Checking 'wks' module installation..."
+    if ! python3 -c "import wks; print(f'wks imported from: {wks.__file__}')" > /dev/null 2>&1; then
+        echo "❌ CRITICAL: 'wks' module could not be imported after install!"
+        echo "Pip list:"
+        pip3 list
+        echo "User site-packages:"
+        ls -R ~/.local/lib/python* || true
+        exit 1
+    fi
+    echo "✅ 'wks' module importable."
+
     exit 0
 fi

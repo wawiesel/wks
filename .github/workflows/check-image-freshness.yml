@@ -28,4 +28,4 @@ jobs:
       - name: Check Image Freshness
         run: |
           export IMAGE_NAME="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/ci-runner:v1"
-          ./scripts/docker_shell.sh "./scripts/check_docker_image.sh -e . --no-cache-dir --break-system-packages"
+          ./scripts/docker_shell.sh "./scripts/check_docker_image.sh -e . --user --no-cache-dir --break-system-packages"
