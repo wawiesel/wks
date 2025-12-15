@@ -27,12 +27,7 @@ RUN useradd -m -s /bin/bash -u 1001 testuser && \
     mkdir -p /var/lib/systemd/linger && \
     touch /var/lib/systemd/linger/testuser
 
-# 4. Set Environment Variables Globally
-# Since we are using 'docker exec' (not a login shell), we must tell the
-# session where to find the socket that Linger created.
-ENV XDG_RUNTIME_DIR=/run/user/1001
-ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
-ENV PATH="/home/testuser/.local/bin:${PATH}"
+
 
 # 5. Project Dependency Installation (Caching layer)
 WORKDIR /tmp/wks-install
@@ -50,3 +45,8 @@ RUN rm -f /lib/systemd/system/systemd*udev* \
 WORKDIR /workspace
 VOLUME ["/sys/fs/cgroup", "/tmp", "/run"]
 CMD ["/lib/systemd/systemd"]
+
+# 7. Set Environment Variables Globally (Last step to avoid build-time influence)
+ENV XDG_RUNTIME_DIR=/run/user/1001
+ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
+ENV PATH="/home/testuser/.local/bin:${PATH}"
