@@ -45,23 +45,24 @@ RUN useradd -m -s /bin/bash testuser && \
     mkdir -p /home/testuser/.config/systemd/user && \
     chown -R testuser:testuser /home/testuser
 
-# Install ALL project dependencies as testuser
+# Install ALL project dependencies as root (globally available)
 # Strategy: Copy only dependency files, install from them, then remove
 # This ensures the image has all deps but doesn't embed the source code
-USER testuser
-ENV PATH="/home/testuser/.local/bin:${PATH}"
+# USER testuser <-- REMOVED, stay as root
+ENV PATH="/usr/local/bin:${PATH}"
 
 WORKDIR /tmp/wks-install
 
 # Copy only files needed for dependency resolution (for Docker layer caching)
-COPY --chown=testuser:testuser pyproject.toml setup.py setup.cfg ./
+COPY pyproject.toml setup.py setup.cfg ./
 # Create minimal wks package structure so setup.py doesn't fail
 RUN mkdir -p wks && touch wks/__init__.py
 
 # Install ALL dependencies from project files (not editable install)
 # This ensures complete coverage of all requirements
+# Added tabulate explicitly as requested
 RUN python3 -m pip install --upgrade pip --no-cache-dir --break-system-packages && \
-    python3 -m pip install . --no-cache-dir --break-system-packages && \
+    python3 -m pip install . tabulate --no-cache-dir --break-system-packages && \
     python3 -m pip uninstall -y wks --break-system-packages
 
 # Clean up - we'll mount actual source at runtime

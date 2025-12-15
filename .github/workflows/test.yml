@@ -94,7 +94,8 @@ jobs:
         id: docker-tests
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker run --rm \
+          # Run container in background with systemd as init (PID 1)
+          CONTAINER_ID=$(docker run -d \
             --privileged \
             --cgroupns=host \
             --tmpfs /run \
@@ -104,26 +105,35 @@ jobs:
             -w /workspace \
             -e GITHUB_ACTIONS=true \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            bash -c "
-              # Start systemd in background
-              /lib/systemd/systemd --system &
-              sleep 2
+            /lib/systemd/systemd)
 
-              # Install package as testuser (should be null-op if deps are in image)
-              sudo -u testuser bash -c 'cd /workspace && pip3 install --user -e . --no-cache-dir --break-system-packages'
+          # Function to run cmd as testuser with correct PATH
+          exec_as_testuser() {
+            docker exec "$CONTAINER_ID" bash -c "sudo -u testuser bash -c 'export PATH=/home/testuser/.local/bin:\$PATH && cd /workspace && $1'"
+          }
 
-              # Run full test suite with coverage
-              sudo -u testuser bash -c 'cd /workspace && python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short'
-              TEST_RESULT=\$?
+          # Wait for systemd
+          sleep 5
 
-              # Run mutation tests
-              sudo -u testuser bash -c 'cd /workspace && python3 scripts/test_mutation_api.py --max-children 2' || true
+          # Install package as testuser
+          exec_as_testuser "pip3 install --user -e . --no-cache-dir --break-system-packages"
 
-              # Run Linux service installation test
-              sudo -u testuser bash -c 'cd /workspace && python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short' || true
+          # Run full test suite with coverage
+          exec_as_testuser "python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short"
+          TEST_RESULT=$?
 
-              exit \$TEST_RESULT
-            "
+          # Run mutation tests (now finds mutmut in PATH)
+          exec_as_testuser "python3 scripts/test_mutation_api.py --max-children 2" || true
+
+          # Run Linux service installation test (now has systemd)
+          exec_as_testuser "python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short" || true
+
+          # Cleanup
+          docker rm -f "$CONTAINER_ID"
+
+          if [ $TEST_RESULT -ne 0 ]; then
+            exit $TEST_RESULT
+          fi
           echo "passed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
@@ -140,6 +150,7 @@ jobs:
         run: | # Update README and stats.json
           # Stats generation - we assume fresh if tests passed, as stale would warn
           FULL_FRESHNESS="fresh"
+          pip3 install tabulate
           python3 scripts/update_readme_stats.py --docker-freshness "$FULL_FRESHNESS" --json-only
 
       - name: Update README (only if all tests passed)
