@@ -1,138 +1,52 @@
 # Dockerfile for testing Linux systemd service installation.
-# Based on geerlingguy's proven systemd container setup for CI testing.
-# Reference: https://github.com/geerlingguy/docker-ubuntu2404-ansible
-
 FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV container=docker
 
-# Install systemd, MongoDB, and required dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-    systemd \
-    systemd-sysv \
-    systemd-cron \
-    libpam-systemd \
-    rsyslog \
-    dbus \
-    dbus-user-session \
-    python3 \
-    python3-pip \
-    python3-venv \
-    git \
-    sudo \
-    iproute2 \
-    build-essential \
-    python3-dev \
-    ca-certificates \
-    wget \
-    gnupg \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# 1. Install systemd, MongoDB, and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    systemd systemd-sysv dbus dbus-user-session \
+    python3 python3-pip python3-venv \
+    sudo wget gnupg ca-certificates \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install MongoDB server
+# 2. Install MongoDB
 RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg \
     && echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-7.0.list \
-    && apt-get update \
-    && apt-get install -y mongodb-org-server \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get update && apt-get install -y mongodb-org-server \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user with a fixed UID for predictable env vars
-RUN useradd -u 1001 -m -s /bin/bash testuser && \
+# 3. Configure User and Systemd "Linger"
+# - Create user with fixed UID 1001
+# - Create /var/lib/systemd/linger/testuser: This tells systemd (PID 1) to
+#   automatically start user@1001.service at boot. This service creates
+#   /run/user/1001 and the DBus socket.
+RUN useradd -m -s /bin/bash -u 1001 testuser && \
     echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
-    mkdir -p /home/testuser/.config/systemd/user && \
-    chown -R testuser:testuser /home/testuser
-
-# --- Enable Systemd User Session for CI ---
-
-# 1. Enable Linger "Offline"
-# By creating this file, we tell systemd (PID 1) to start user@1001.service
-# automatically at boot time, creating the /run/user/1001 directory.
-RUN mkdir -p /var/lib/systemd/linger && \
+    mkdir -p /var/lib/systemd/linger && \
     touch /var/lib/systemd/linger/testuser
 
-# 2. Ensure dbus/systemd have a machine-id (helps avoid dbus weirdness)
-RUN systemd-machine-id-setup
+# 4. Set Environment Variables Globally
+# Since we are using 'docker exec' (not a login shell), we must tell the
+# session where to find the socket that Linger created.
+ENV XDG_RUNTIME_DIR=/run/user/1001
+ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
+ENV PATH="/home/testuser/.local/bin:${PATH}"
 
-# 3. Create runtime dir at boot with correct ownership/perms
-# We use tmpfiles.d to ensure this happens at boot
-RUN cat >/etc/tmpfiles.d/ci-testuser.conf <<'EOF'
-d /run/user/1001 0700 testuser testuser -
-EOF
-
-# 4. Boot-time unit to (re)create runtime dir and start the user manager
-RUN cat >/etc/systemd/system/ci-testuser-user@.service <<'EOF'
-[Unit]
-Description=CI bootstrap for testuser systemd --user
-After=basic.target
-Wants=basic.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/systemd-tmpfiles --create /etc/tmpfiles.d/ci-testuser.conf
-ExecStart=/usr/bin/systemctl start user@1001.service
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Enable the unit (symlink manually to avoid enabling via systemctl at build time)
-RUN mkdir -p /etc/systemd/system/multi-user.target.wants && \
-    ln -sf /etc/systemd/system/ci-testuser-user@.service \
-    /etc/systemd/system/multi-user.target.wants/ci-testuser-user@.service
-
-# 5. Create a wrapper script to run commands as testuser with correct environment
-# This replaces "docker exec -u testuser" which lacks the session env
-RUN cat >/usr/local/bin/ci-as-testuser <<'EOF' && chmod +x /usr/local/bin/ci-as-testuser
-#!/bin/bash
-set -euo pipefail
-uid="1001"
-export XDG_RUNTIME_DIR="/run/user/${uid}"
-export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
-exec sudo -iu testuser /bin/bash -lc "$*"
-EOF
-
-# Install ALL project dependencies as root (globally available)
-# Strategy: Copy only dependency files, install from them, then remove
-# This ensures the image has all deps but doesn't embed the source code
-# USER testuser <-- REMOVED, stay as root
-ENV PATH="/usr/local/bin:${PATH}"
-
+# 5. Project Dependency Installation (Caching layer)
 WORKDIR /tmp/wks-install
-
-# Copy only files needed for dependency resolution (for Docker layer caching)
 COPY pyproject.toml setup.py setup.cfg ./
-# Create minimal wks package structure so setup.py doesn't fail
-RUN mkdir -p wks && touch wks/__init__.py
+RUN mkdir -p wks && touch wks/__init__.py && \
+    python3 -m pip install . tabulate --no-cache-dir --break-system-packages && \
+    python3 -m pip uninstall -y wks --break-system-packages && \
+    rm -rf /tmp/wks-install
 
-# Install ALL dependencies from project files (not editable install)
-# This ensures complete coverage of all requirements
-# Added tabulate explicitly as requested
-RUN python3 -m pip install . tabulate --no-cache-dir --break-system-packages && \
-    python3 -m pip uninstall -y wks --break-system-packages
-
-# Clean up - we'll mount actual source at runtime
-WORKDIR /
-RUN rm -rf /tmp/wks-install
-
-# Switch back to root for systemd setup
+# 6. Final Systemd Cleanup
 USER root
-
-# Remove unnecessary getty and udev targets that cause high CPU usage
-# and aren't needed for testing (from geerlingguy's setup)
 RUN rm -f /lib/systemd/system/systemd*udev* \
     && rm -f /lib/systemd/system/getty.target
 
 WORKDIR /workspace
-
-ENV WKS_HOME=/home/testuser/.wks
-ENV PATH=/home/testuser/.local/bin:$PATH
-
-# Volumes for systemd (from geerlingguy's setup)
 VOLUME ["/sys/fs/cgroup", "/tmp", "/run"]
-
-# Use systemd as init
 CMD ["/lib/systemd/systemd"]

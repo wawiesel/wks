@@ -75,9 +75,9 @@ if [ -n "$CMD" ]; then
     # We don't use -t to avoid TTY control characters in logs unless needed
     # We pass the command to bash -c
     # We pass the command to bash -c via the wrapper
-    $DOCKER_CMD exec \
+    $DOCKER_CMD exec -u testuser \
         "${CONTAINER_NAME}" \
-        /usr/local/bin/ci-as-testuser "$CMD"
+        bash -c "$CMD"
 else
     # Interactive mode (default)
     echo "💻 Dropping into shell as 'testuser'..."
@@ -85,9 +85,9 @@ else
     echo "-------------------------------------"
 
     # Enter container with TTY using wrapper
-    $DOCKER_CMD exec -it \
+    $DOCKER_CMD exec -it -u testuser \
         "${CONTAINER_NAME}" \
-        /usr/local/bin/ci-as-testuser "
+        bash -c "
             echo 'Welcome to WKS Docker Shell!'
             echo '----------------------------'
             echo 'Check image freshness:'

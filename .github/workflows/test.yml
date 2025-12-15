@@ -104,17 +104,17 @@ jobs:
           sleep 5
 
           # Install package as testuser
-          docker exec "$CONTAINER_ID" /usr/local/bin/ci-as-testuser "pip3 install --user -e . --no-cache-dir --break-system-packages"
+          docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
 
           # Run full test suite with coverage
-          docker exec "$CONTAINER_ID" /usr/local/bin/ci-as-testuser "python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short"
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
           # Run mutation tests (now finds mutmut in PATH)
-          docker exec "$CONTAINER_ID" /usr/local/bin/ci-as-testuser "python3 scripts/test_mutation_api.py --max-children 2" || true
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py --max-children 2 || true
 
           # Run Linux service installation test (now has systemd)
-          docker exec "$CONTAINER_ID" /usr/local/bin/ci-as-testuser "python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short" || true
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Cleanup
           docker rm -f "$CONTAINER_ID"
