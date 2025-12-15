@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/failing-tests
     paths:
       - 'docker/Dockerfile.ci-runner'
       - 'pyproject.toml'

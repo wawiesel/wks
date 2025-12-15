@@ -39,11 +39,61 @@ RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for testing - created EARLY so we can install deps for it
-RUN useradd -m -s /bin/bash testuser && \
+# Create a non-root user with a fixed UID for predictable env vars
+RUN useradd -u 1000 -m -s /bin/bash testuser && \
     echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     mkdir -p /home/testuser/.config/systemd/user && \
     chown -R testuser:testuser /home/testuser
+
+# --- Enable Systemd User Session for CI ---
+
+# 1. Enable Linger "Offline"
+# By creating this file, we tell systemd (PID 1) to start user@1000.service
+# automatically at boot time, creating the /run/user/1000 directory.
+RUN mkdir -p /var/lib/systemd/linger && \
+    touch /var/lib/systemd/linger/testuser
+
+# 2. Ensure dbus/systemd have a machine-id (helps avoid dbus weirdness)
+RUN systemd-machine-id-setup
+
+# 3. Create runtime dir at boot with correct ownership/perms
+# We use tmpfiles.d to ensure this happens at boot
+RUN cat >/etc/tmpfiles.d/ci-testuser.conf <<'EOF'
+d /run/user/1000 0700 testuser testuser -
+EOF
+
+# 4. Boot-time unit to (re)create runtime dir and start the user manager
+RUN cat >/etc/systemd/system/ci-testuser-user@.service <<'EOF'
+[Unit]
+Description=CI bootstrap for testuser systemd --user
+After=basic.target
+Wants=basic.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-tmpfiles --create /etc/tmpfiles.d/ci-testuser.conf
+ExecStart=/usr/bin/systemctl start user@1000.service
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable the unit (symlink manually to avoid enabling via systemctl at build time)
+RUN mkdir -p /etc/systemd/system/multi-user.target.wants && \
+    ln -sf /etc/systemd/system/ci-testuser-user@.service \
+    /etc/systemd/system/multi-user.target.wants/ci-testuser-user@.service
+
+# 5. Create a wrapper script to run commands as testuser with correct environment
+# This replaces "docker exec -u testuser" which lacks the session env
+RUN cat >/usr/local/bin/ci-as-testuser <<'EOF' && chmod +x /usr/local/bin/ci-as-testuser
+#!/bin/bash
+set -euo pipefail
+uid="1000"
+export XDG_RUNTIME_DIR="/run/user/${uid}"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+exec sudo -iu testuser /bin/bash -lc "$*"
+EOF
 
 # Install ALL project dependencies as root (globally available)
 # Strategy: Copy only dependency files, install from them, then remove
@@ -72,8 +122,6 @@ RUN rm -rf /tmp/wks-install
 # Switch back to root for systemd setup
 USER root
 
-# Remove unnecessary getty and udev targets that cause high CPU usage
-# and aren't needed for testing (from geerlingguy's setup)
 # Remove unnecessary getty and udev targets that cause high CPU usage
 # and aren't needed for testing (from geerlingguy's setup)
 RUN rm -f /lib/systemd/system/systemd*udev* \

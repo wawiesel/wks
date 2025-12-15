@@ -100,26 +100,21 @@ jobs:
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
             /lib/systemd/systemd)
 
-          # Function to run cmd as testuser with correct PATH
-          exec_as_testuser() {
-            docker exec "$CONTAINER_ID" bash -c "sudo -u testuser bash -c 'export PATH=/home/testuser/.local/bin:\$PATH && cd /workspace && $1'"
-          }
-
-          # Wait for systemd
+          # Wait for systemd to settle (now bootstraps user session automatically)
           sleep 5
 
           # Install package as testuser
-          exec_as_testuser "pip3 install --user -e . --no-cache-dir --break-system-packages"
+          docker exec "$CONTAINER_ID" ci-as-testuser "pip3 install --user -e . --no-cache-dir --break-system-packages"
 
           # Run full test suite with coverage
-          exec_as_testuser "python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short"
+          docker exec "$CONTAINER_ID" ci-as-testuser "python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short"
           TEST_RESULT=$?
 
           # Run mutation tests (now finds mutmut in PATH)
-          exec_as_testuser "python3 scripts/test_mutation_api.py --max-children 2" || true
+          docker exec "$CONTAINER_ID" ci-as-testuser "python3 scripts/test_mutation_api.py --max-children 2" || true
 
           # Run Linux service installation test (now has systemd)
-          exec_as_testuser "python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short" || true
+          docker exec "$CONTAINER_ID" ci-as-testuser "python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short" || true
 
           # Cleanup
           docker rm -f "$CONTAINER_ID"
