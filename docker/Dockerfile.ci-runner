@@ -40,7 +40,7 @@ RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user with a fixed UID for predictable env vars
-RUN useradd -u 1000 -m -s /bin/bash testuser && \
+RUN useradd -u 1001 -m -s /bin/bash testuser && \
     echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     mkdir -p /home/testuser/.config/systemd/user && \
     chown -R testuser:testuser /home/testuser
@@ -48,8 +48,8 @@ RUN useradd -u 1000 -m -s /bin/bash testuser && \
 # --- Enable Systemd User Session for CI ---
 
 # 1. Enable Linger "Offline"
-# By creating this file, we tell systemd (PID 1) to start user@1000.service
-# automatically at boot time, creating the /run/user/1000 directory.
+# By creating this file, we tell systemd (PID 1) to start user@1001.service
+# automatically at boot time, creating the /run/user/1001 directory.
 RUN mkdir -p /var/lib/systemd/linger && \
     touch /var/lib/systemd/linger/testuser
 
@@ -59,7 +59,7 @@ RUN systemd-machine-id-setup
 # 3. Create runtime dir at boot with correct ownership/perms
 # We use tmpfiles.d to ensure this happens at boot
 RUN cat >/etc/tmpfiles.d/ci-testuser.conf <<'EOF'
-d /run/user/1000 0700 testuser testuser -
+d /run/user/1001 0700 testuser testuser -
 EOF
 
 # 4. Boot-time unit to (re)create runtime dir and start the user manager
@@ -72,7 +72,7 @@ Wants=basic.target
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/systemd-tmpfiles --create /etc/tmpfiles.d/ci-testuser.conf
-ExecStart=/usr/bin/systemctl start user@1000.service
+ExecStart=/usr/bin/systemctl start user@1001.service
 RemainAfterExit=yes
 
 [Install]
@@ -89,7 +89,7 @@ RUN mkdir -p /etc/systemd/system/multi-user.target.wants && \
 RUN cat >/usr/local/bin/ci-as-testuser <<'EOF' && chmod +x /usr/local/bin/ci-as-testuser
 #!/bin/bash
 set -euo pipefail
-uid="1000"
+uid="1001"
 export XDG_RUNTIME_DIR="/run/user/${uid}"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
 exec sudo -iu testuser /bin/bash -lc "$*"
