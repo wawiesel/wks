@@ -12,17 +12,16 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "🚀 Starting WKS Docker Environment..."
 echo "Image: ${IMAGE_NAME}"
-echo "Image: ${IMAGE_NAME}"
 echo "-------------------------------------"
 
-# Detect container runtime
-if command -v $DOCKER_CMD &> /dev/null; then
-    DOCKER_CMD="$DOCKER_CMD"
-elif command -v podman &> /dev/null; then
-    DOCKER_CMD="podman"
-    echo "ℹ️  Using Podman as container runtime"
+# Argument parsing: Check if first argument is a known runtime
+if [[ "$1" == "docker" || "$1" == "podman" ]]; then
+    DOCKER_CMD="$1"
+    shift
+    echo "⚙️  Runtime explicitly set to: $DOCKER_CMD"
 else
-    echo "❌ Error: No container runtime found ($DOCKER_CMD or podman)"
+    echo "❌ Error: You must specify the container runtime."
+    echo "Usage: ./scripts/docker_shell.sh [docker|podman] [command]"
     exit 1
 fi
 

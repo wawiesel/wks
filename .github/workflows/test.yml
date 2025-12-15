@@ -37,7 +37,7 @@ jobs:
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           export IMAGE_NAME="ghcr.io/${REPO_LOWER}/ci-runner:v1"
-          ./scripts/docker_shell.sh "./scripts/check_docker_image.sh -e . --user --no-cache-dir --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
+          ./scripts/docker_shell.sh docker "./scripts/check_docker_image.sh -e . --user --no-cache-dir --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
 
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:
