@@ -90,8 +90,7 @@ else
         bash -c "
             echo 'Welcome to WKS Docker Shell!'
             echo '----------------------------'
-            echo 'Check image freshness:'
-            ./scripts/check_docker_image.sh -e . --break-system-packages
+            echo 'Environment ready.'
             echo '----------------------------'
             exec bash
         "
