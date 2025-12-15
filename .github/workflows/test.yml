@@ -150,7 +150,7 @@ jobs:
         run: | # Update README and stats.json
           # Stats generation - we assume fresh if tests passed, as stale would warn
           FULL_FRESHNESS="fresh"
-          pip3 install tabulate
+          pip3 install tabulate --break-system-packages
           python3 scripts/update_readme_stats.py --docker-freshness "$FULL_FRESHNESS" --json-only
 
       - name: Update README (only if all tests passed)
