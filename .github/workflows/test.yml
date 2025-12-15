@@ -140,28 +140,18 @@ jobs:
       - name: Check test result
         id: test-check
         run: |
-          if [ "${{ steps.docker-tests.outcome }}" == "success" ]; then
+          if [ "${{ steps.docker-tests.outputs.passed }}" == "true" ]; then
             echo "all_passed=true" >> $GITHUB_OUTPUT
           else
             echo "all_passed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate stats.json (always)
-        run: | # Update README and stats.json
-          # Stats generation - we assume fresh if tests passed, as stale would warn
-          FULL_FRESHNESS="fresh"
-
-          # Fix git safety for container ops
-          docker exec "$CONTAINER_ID" git config --global --add safe.directory /workspace
-
-          # Run stats generation INSIDE container (uses pre-installed deps)
-          # Output writes to mounted /workspace, so it persists to host
-          docker exec "$CONTAINER_ID" python3 scripts/update_readme_stats.py --docker-freshness "$FULL_FRESHNESS" --json-only
-
       - name: Update README (only if all tests passed)
-        if: steps.test-check.outputs.all_passed == 'true'
+        if: steps.docker-tests.outputs.passed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          python3 scripts/update_readme_stats.py --from-json
+           # The stats.json was generated in the previous step and persists on disk
+           # We just need to commit it if this is the main branch
+           python3 scripts/update_readme_stats.py --from-json
 
       - name: Check for changes
         id: check-changes
