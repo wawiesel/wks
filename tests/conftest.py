@@ -37,7 +37,6 @@ def service_config_dict_for_platform() -> dict:
     if backend_type == "darwin":
         return {
             "type": "darwin",
-            "sync_interval_secs": 60.0,
             "data": {
                 "label": "com.test.wks",
                 "keep_alive": True,
@@ -47,7 +46,6 @@ def service_config_dict_for_platform() -> dict:
     if backend_type == "linux":
         return {
             "type": "linux",
-            "sync_interval_secs": 60.0,
             "data": {
                 "unit_name": "wks-test.service",
                 "enabled": False,

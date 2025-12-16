@@ -96,7 +96,6 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
         },
         "service": {
             "type": "darwin",
-            "sync_interval_secs": 60.0,
             "data": {
                 "label": "com.test.wks.integration",
                 "keep_alive": False,

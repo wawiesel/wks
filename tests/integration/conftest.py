@@ -152,10 +152,8 @@ def service_config(tmp_path):
     database_cfg = DatabaseConfig(type="mongomock", prefix="wks", data={})
     service_cfg = ServiceConfig(
         type="darwin",
-        sync_interval_secs=60.0,
         data={
             "label": "com.wks.service.test",
-            "log_file": "service.log",
             "keep_alive": True,
             "run_at_load": False,
         },
