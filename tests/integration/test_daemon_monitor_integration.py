@@ -76,7 +76,7 @@ def mongo_wks_env(tmp_path, monkeypatch):
 
     # Use tmp_path to generate a unique but deterministic port per test
     # tmp_path is unique per test, so this ensures no collisions
-    mongo_port = 0  # Default if using external URI
+    mongo_port = 27017  # Default valid port if using external URI
     external_uri = os.environ.get("WKS_TEST_MONGO_URI")
 
     if external_uri:

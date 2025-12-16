@@ -95,7 +95,7 @@ def mcp_process(tmp_path_factory):
 
     config = minimal_config_dict()
 
-    mongo_port = 0
+    mongo_port = 27017
     external_uri = os.environ.get("WKS_TEST_MONGO_URI")
 
     if external_uri:
