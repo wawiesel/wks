@@ -5,35 +5,12 @@ when `database.type="mongo"` and `database.data.local=true`, but the `mongod`
 binary must exist on the system.
 """
 
-import os
-import shutil
-import subprocess
 import time
 
 import pytest
 
-from wks.api.config.WKSConfig import WKSConfig
 from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
-
-
-def _mongod_available() -> bool:
-    """Check if mongod is available and can be started."""
-    if os.environ.get("WKS_TEST_MONGO_URI"):
-        return True
-    if not shutil.which("mongod"):
-        return False
-    # Try to connect to default port or check if we can start one
-    try:
-        result = subprocess.run(
-            ["mongod", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
 
 
 # Mark all tests in this module
@@ -41,115 +18,6 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.mongo,
 ]
-
-
-@pytest.fixture
-def mongo_wks_env(tmp_path, monkeypatch):
-    """Set up WKS environment with real MongoDB."""
-    from tests.conftest import minimal_config_dict
-
-    if not _mongod_available():
-        pytest.fail(
-            "MongoDB tests require `mongod` in PATH. "
-            "Install MongoDB so `mongod --version` works, or run without -m mongo."
-        )
-
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir(parents=True, exist_ok=True)
-    watch_dir = tmp_path / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    # Use a unique port to avoid conflicts with parallel test execution
-    # Use tmp_path (unique per test) to generate a deterministic but unique port
-    import hashlib
-    import os
-    import socket
-
-    # Get worker ID from pytest-xdist if available
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
-    worker_num = 0
-    if worker_id.startswith("gw"):
-        import contextlib
-
-        with contextlib.suppress(ValueError):
-            worker_num = int(worker_id[2:])
-
-    # Use tmp_path to generate a unique but deterministic port per test
-    # tmp_path is unique per test, so this ensures no collisions
-    mongo_port = 27017  # Default valid port if using external URI
-    external_uri = os.environ.get("WKS_TEST_MONGO_URI")
-
-    if external_uri:
-        mongo_uri = external_uri
-        is_local = False
-    else:
-        path_hash = int(hashlib.md5(str(tmp_path).encode()).hexdigest()[:6], 16)
-        pid = os.getpid()
-        base_port = 27100
-        # Each worker gets 10000 ports, use path hash and pid for uniqueness
-        mongo_port = base_port + (worker_num * 10000) + (path_hash % 9000) + (pid % 100)
-
-        # Verify port is actually available (in case of rare collision)
-        max_attempts = 50
-        original_port = mongo_port
-        for attempt in range(max_attempts):
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                try:
-                    s.bind(("127.0.0.1", mongo_port))
-                    break  # Port is available
-                except OSError:
-                    # Port in use, try next one in sequence
-                    mongo_port = original_port + attempt
-                    if mongo_port > 27999:
-                        mongo_port = base_port + (attempt % 900)
-        else:
-            raise RuntimeError(f"Could not find available port after {max_attempts} attempts")
-
-        mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
-        is_local = True
-
-    # Start with minimal config and override for MongoDB
-    config_dict = minimal_config_dict()
-    # Use Database context manager to start/manage mongod persistence
-    # This prevents restarts inside the test loops which cause lock issues
-    mongo_data_path = str(wks_home / "mongo-data")
-    config_dict["database"] = {
-        "type": "mongo",
-        "prefix": "wks_test",
-        "data": {
-            "uri": mongo_uri,
-            "local": is_local,
-        },
-    }
-    config_dict["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
-    config_dict["daemon"]["sync_interval_secs"] = 0.1
-
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    config = WKSConfig.model_validate(config_dict)
-    config.save()
-
-    # Start mongod once for the duration of the test
-    # The Database context manager handles startup of local mongod
-    from wks.api.database.Database import Database
-
-    with Database(config.database, "setup") as db:
-        # Verify connection
-        db.get_client().server_info()
-
-        yield {
-            "wks_home": wks_home,
-            "watch_dir": watch_dir,
-            "config": config,
-            "mongo_port": mongo_port,
-        }
-
-    # Context manager exit handles cleanup, but we can double check
-    # to be safe for next tests
-    try:
-        daemon = Daemon()
-        daemon.stop()
-    except Exception:
-        pass
 
 
 def test_daemon_sync_creates_db_record(mongo_wks_env):

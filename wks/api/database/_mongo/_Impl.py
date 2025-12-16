@@ -26,10 +26,10 @@ class _Impl(_AbstractImpl):
             raise ValueError("MongoDB config data is required")
         self.local = database_config.data.local
         self.uri = database_config.data.uri
-        
+
         # Determine paths and defaults
         self.db_path = WKSConfig.get_home_dir() / "database" / "mongo"
-        
+
         self.database_name = database_name
         self.collection_name = collection_name  # MongoDB collection name
         self._client: MongoClient[Any] | None = None
@@ -87,7 +87,7 @@ class _Impl(_AbstractImpl):
         if self._can_connect(uri):
             return
         host, port = self._parse_host_port(uri)
-        
+
         # Use hardcoded db_path based on WKS_HOME
         db_path = self.db_path
         db_path.mkdir(parents=True, exist_ok=True)

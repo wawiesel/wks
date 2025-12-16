@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests.conftest import check_mongod_available, get_mongo_connection_info
 
 
 def _find_wksc_command():
@@ -39,28 +40,9 @@ def _get_wks_mcp_cmd():
     return [_find_wksc_command(), "mcp", "run", "--direct"]
 
 
-def _mongod_available() -> bool:
-    """Return True only if the `mongod` binary is available."""
-    if os.environ.get("WKS_TEST_MONGO_URI"):
-        return True
-    if not shutil.which("mongod"):
-        return False
-    try:
-        result = subprocess.run(
-            ["mongod", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
-
-
 def _require_mongod() -> None:
     """Fail loudly if MongoDB requirements are not met."""
-    if not _mongod_available():
+    if not check_mongod_available():
         pytest.fail("MCP smoke tests require `mongod` in PATH. Install MongoDB so `mongod --version` works.")
 
 
@@ -89,22 +71,11 @@ def mcp_process(tmp_path_factory):
 
     (home_dir / ".wks").mkdir()
     # Build a valid config using shared helpers, then override DB to use local Mongo.
-    import random
-
     from tests.conftest import minimal_config_dict
 
     config = minimal_config_dict()
 
-    mongo_port = 27017
-    external_uri = os.environ.get("WKS_TEST_MONGO_URI")
-
-    if external_uri:
-        mongo_uri = external_uri
-        is_local = False
-    else:
-        mongo_port = random.randint(27100, 27999)
-        mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
-        is_local = True
+    mongo_uri, _, is_local = get_mongo_connection_info(home_dir)
 
     config["database"] = {
         "type": "mongo",
