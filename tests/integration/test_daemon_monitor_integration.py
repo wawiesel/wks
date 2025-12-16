@@ -119,9 +119,6 @@ def mongo_wks_env(tmp_path, monkeypatch):
         "data": {
             "uri": mongo_uri,
             "local": is_local,
-            "db_path": mongo_data_path,
-            "port": mongo_port,
-            "bind_ip": "127.0.0.1",
         },
     }
     config_dict["monitor"]["filter"]["include_paths"] = [str(watch_dir)]

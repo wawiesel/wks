@@ -112,9 +112,6 @@ def mcp_process(tmp_path_factory):
         "data": {
             "uri": mongo_uri,
             "local": is_local,
-            "db_path": str((home_dir / ".wks" / "mongo-data").resolve()),
-            "port": mongo_port,
-            "bind_ip": "127.0.0.1",
         },
     }
     # Ensure monitor has at least one include path so monitor_check can succeed for an in-scope path.

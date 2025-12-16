@@ -73,9 +73,6 @@ class TestDatabaseConfig:
             data={
                 "uri": "mongodb://127.0.0.1:27017/",
                 "local": True,
-                "db_path": "/tmp/test-mongo-data",
-                "port": 27017,
-                "bind_ip": "127.0.0.1",
             },
         )
         assert cfg.data.local is True

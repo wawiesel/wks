@@ -111,9 +111,6 @@ def smoke_env(tmp_path_factory):
         "data": {
             "uri": mongo_uri,
             "local": is_local,
-            "db_path": str((home_dir / ".wks" / "mongo-data").resolve()),
-            "port": mongo_port,
-            "bind_ip": "127.0.0.1",
         },
     }
 
