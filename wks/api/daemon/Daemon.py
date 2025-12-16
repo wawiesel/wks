@@ -46,6 +46,14 @@ def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
             log_fn(f"WARN: {msg}")
         for msg in errs:
             log_fn(f"ERROR: {msg}")
+    except RuntimeError as exc:
+        # If it's the "mongod binary not found" error, log it as FATAL once and re-raise/stop?
+        # Actually, if we are in _sync_path_static, we are inside the loop.
+        # But we added a pre-flight check, so this should not happen often.
+        if "mongod binary not found" in str(exc):
+            log_fn(f"ERROR: Database binary missing during sync: {exc}")
+        else:
+            log_fn(f"ERROR: sync failed for {path}: {exc}")
     except Exception as exc:  # pragma: no cover - defensive logging
         log_fn(f"ERROR: sync failed for {path}: {exc}")
 
@@ -98,6 +106,34 @@ def _child_main(
     else:
         append_log(f"DEBUG: Daemon WKS_HOME={home_debug} (config loaded)")
 
+    # Pre-flight check: Ensure database is accessible/startable
+    # This prevents the daemon from entering a crash loop if mongod is missing.
+    if not startup_error:
+        try:
+            from ..database.Database import Database
+
+            # Attempt a quick connection/start
+            # We use a zero-timeout or very short timeout check if possible,
+            # but Database init with local=True triggers _ensure_local_mongod which checks binary
+            assert monitor_cfg is not None
+            with Database(wks_config.database, monitor_cfg.database) as db:
+                db.get_client().server_info()
+        except Exception as exc:
+            append_log(f"FATAL: Database initialization failed: {exc}")
+            # Write error status and exit
+            status = {
+                "errors": [f"Database initialization failed: {exc}"],
+                "warnings": [],
+                "running": False,
+                "pid": None,
+                "restrict_dir": restrict_val,
+                "log_path": str(log_file),
+                "lock_path": lock_path,
+                "last_sync": None,
+            }
+            write_status_file(status, wks_home=Path(home_dir))
+            return
+
     def handle_sigterm(_signum, _frame):
         nonlocal stop_flag
         stop_flag = True
@@ -120,13 +156,17 @@ def _child_main(
 
     def write_status(running: bool) -> None:
         warnings_log, errors_log = extract_log_messages(log_file) if log_file else ([], [])
+        import datetime
+
         status = {
             "errors": errors_log,
             "warnings": warnings_log,
             "running": running,
-            "pid": os.getpid(),
+            "pid": os.getpid() if running else None,
             "restrict_dir": restrict_val,
             "log_path": str(log_file),
+            "lock_path": lock_path,
+            "last_sync": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         write_status_file(status, wks_home=Path(home_dir))
 
@@ -437,13 +477,17 @@ class Daemon:
         self._current_restrict = restrict_value
         warnings_log, errors_log = extract_log_messages(self._log_path) if self._log_path else ([], [])
         log_path = str(self._log_path) if self._log_path else str(home / "logs" / "daemon.log")
+        import datetime
+
         status = {
             "errors": errors_log,
             "warnings": warnings_log,
             "running": running,
-            "pid": self._pid,
+            "pid": self._pid if running else None,
             "restrict_dir": restrict_value,
             "log_path": log_path,
+            "lock_path": str(self._lock_path) if self._lock_path else str(home / "daemon.lock"),
+            "last_sync": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         write_status_file(status, wks_home=home)
 

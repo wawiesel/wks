@@ -61,5 +61,13 @@ def run_command(
     cmd_run(restrict_dir=restrict)
 
 
+def clear_command() -> None:
+    """Clear daemon logs and warnings (only if stopped)."""
+    from wks.api.daemon.cmd_clear import cmd_clear
+
+    handle_stage_result(cmd_clear)()
+
+
 daemon_app.command(name="run")(run_command)
 daemon_app.command(name="stop")(stop_command)
+daemon_app.command(name="clear")(clear_command)

@@ -69,3 +69,62 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
         time.sleep(0.1)
 
     run_cmd(cmd_stop)
+
+
+@pytest.mark.daemon
+def test_status_updates_timestamp_when_running(monkeypatch, tmp_path):
+    """Test that last_sync timestamp updates on status checks if running."""
+    cfg = minimal_wks_config()
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    cfg.save()
+
+    run_cmd(cmd_start)
+
+    # First status check
+    res1 = run_cmd(cmd_status)
+    t1 = res1.output["last_sync"]
+    assert t1 is not None
+
+    time.sleep(1.1)
+
+    # Second status check
+    res2 = run_cmd(cmd_status)
+    t2 = res2.output["last_sync"]
+    assert t2 is not None
+
+    assert t1 != t2, "Timestamp should update on each status check when running"
+
+    run_cmd(cmd_stop)
+
+
+@pytest.mark.daemon
+def test_status_preserves_timestamp_when_stopped(monkeypatch, tmp_path):
+    """Test that last_sync timestamp is preserved (not updated) if stopped."""
+    cfg = minimal_wks_config()
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    cfg.save()
+
+    run_cmd(cmd_start)
+    time.sleep(0.5)
+    run_cmd(cmd_stop)
+
+    # Wait for child process to fully exit and settle status file writes
+    time.sleep(2.0)
+
+    # First status check on stopped daemon
+    res1 = run_cmd(cmd_status)
+    assert res1.output["running"] is False
+    t1 = res1.output["last_sync"]
+    assert t1 is not None
+
+    time.sleep(1.1)
+
+    # Second status check
+    res2 = run_cmd(cmd_status)
+    t2 = res2.output["last_sync"]
+
+    assert t1 == t2, "Timestamp should NOT update when stopped"

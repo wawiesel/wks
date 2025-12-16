@@ -71,9 +71,13 @@ def cmd_sync(
                 finally:
                     pass
             warn_msg = f"Removed missing path from monitor DB: {path_obj}"
-            if removed_count == 0:
-                warn_msg = f"Path missing; no existing record to remove: {path_obj}"
             warning_list = [warn_msg]
+            if removed_count == 0:
+                # If path is missing AND not in DB, this is a no-op.
+                # Do not populate warning_list to avoid log spam in Daemon.
+                warn_msg = f"Path missing; no existing record to remove: {path_obj}"
+                warning_list = []
+
             yield (1.0, "Complete")
             _build_result(
                 result_obj,

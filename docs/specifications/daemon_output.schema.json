@@ -48,13 +48,23 @@
             },
             "log_path": {
               "type": "string"
+            },
+            "last_sync": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "lock_path": {
+              "type": "string"
             }
           },
           "required": [
             "running",
             "pid",
             "restrict_dir",
-            "log_path"
+            "log_path",
+            "lock_path"
           ],
           "additionalProperties": false
         }
@@ -124,6 +134,29 @@
           "additionalProperties": false
         }
       ]
+    },
+    "DaemonClearOutput": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cleared": {
+              "type": "boolean"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cleared",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "oneOf": [
@@ -138,6 +171,9 @@
     },
     {
       "$ref": "#/definitions/DaemonRunOutput"
+    },
+    {
+      "$ref": "#/definitions/DaemonClearOutput"
     }
   ]
 }
