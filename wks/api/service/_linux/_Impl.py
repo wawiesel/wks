@@ -44,8 +44,8 @@ class _Impl(_AbstractImpl):
         log_file.parent.mkdir(parents=True, exist_ok=True)
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        # Build ExecStart command - run 'wksc daemon run [--restrict PATH]'
-        exec_start = f"{wksc_path} daemon run"
+        # Build ExecStart command - run 'wksc daemon start --blocking [--restrict PATH]'
+        exec_start = f"{wksc_path} daemon start --blocking"
         if restrict_dir is not None:
             restrict_path = str(restrict_dir.expanduser().resolve())
             exec_start += f" --restrict {restrict_path}"

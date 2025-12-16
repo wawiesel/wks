@@ -64,19 +64,14 @@ def cmd_sync(
         path_obj = Path(path).expanduser().resolve()
         if not path_obj.exists():
             yield (0.3, "Path missing; removing from monitor DB...")
-            removed_count = 0
+
             with Database(config.database, monitor_cfg.database) as database:
                 try:
-                    removed_count = database.delete_many({"path": path_obj.as_uri()})
+                    database.delete_many({"path": path_obj.as_uri()})
                 finally:
                     pass
             warn_msg = f"Removed missing path from monitor DB: {path_obj}"
             warning_list = [warn_msg]
-            if removed_count == 0:
-                # If path is missing AND not in DB, this is a no-op.
-                # Do not populate warning_list to avoid log spam in Daemon.
-                warn_msg = f"Path missing; no existing record to remove: {path_obj}"
-                warning_list = []
 
             yield (1.0, "Complete")
             _build_result(

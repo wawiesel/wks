@@ -36,9 +36,10 @@ def start_command(
     restrict: Path | None = typer.Option(  # noqa: B008
         None, "--restrict", help="Restrict monitoring to this directory"
     ),
+    blocking: bool = typer.Option(False, "--blocking", help="Run in foreground (blocking mode)"),
 ) -> None:
     """Start daemon runtime."""
-    handle_stage_result(cmd_start)(restrict_dir=restrict)
+    handle_stage_result(cmd_start)(restrict_dir=restrict, blocking=blocking)
 
 
 def stop_command() -> None:
@@ -50,17 +51,6 @@ daemon_app.command(name="status")(status_command)
 daemon_app.command(name="start")(start_command)
 
 
-def run_command(
-    restrict: Path | None = typer.Option(  # noqa: B008
-        None, "--restrict", help="Restrict monitoring to this directory"
-    ),
-) -> None:
-    """Run daemon in foreground (blocking)."""
-    from wks.api.daemon.cmd_run import cmd_run
-
-    cmd_run(restrict_dir=restrict)
-
-
 def clear_command() -> None:
     """Clear daemon logs and warnings (only if stopped)."""
     from wks.api.daemon.cmd_clear import cmd_clear
@@ -68,6 +58,6 @@ def clear_command() -> None:
     handle_stage_result(cmd_clear)()
 
 
-daemon_app.command(name="run")(run_command)
+# Run command removed (merged into start --blocking)
 daemon_app.command(name="stop")(stop_command)
 daemon_app.command(name="clear")(clear_command)

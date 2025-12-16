@@ -45,10 +45,11 @@ class _Impl(_AbstractImpl):
         log_file.parent.mkdir(parents=True, exist_ok=True)
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        # Build program arguments - run 'wksc daemon start [--restrict-dir PATH]'
+        # Build program arguments - run 'wksc daemon start --blocking [--restrict-dir PATH]'
         program_args = f"""    <string>{wksc_path}</string>
     <string>daemon</string>
-    <string>run</string>"""
+    <string>start</string>
+    <string>--blocking</string>"""
         if restrict_dir is not None:
             restrict_path = str(restrict_dir.expanduser().resolve())
             program_args += f"""
