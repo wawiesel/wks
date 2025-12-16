@@ -4,6 +4,8 @@ Follow `.cursor/rules/*`.
 
 ## Development Setup
 
+For details on the CI Docker environment and running tests in containers, see **[docker/README.md](docker/README.md)**.
+
 1. **Virtual Environment**: Always use a virtual environment.
    ```bash
    python3 -m venv .venv

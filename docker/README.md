@@ -15,7 +15,11 @@ The Docker image contains:
 - Linting tools (ruff, mypy)
 
 ### Dependency Strategy: Container is Source of Truth
+<<<<<<< HEAD
 The `ci-runner:v1` image is the **single source of truth** for the test environment. It contains all dependencies (Python libraries, system tools like `mutmut`, `tabulate`, `systemd`).
+=======
+The `ci-runner:v1` image is the **single source of truth** for the test environment. It contains all dependencies (Python libraries, system tools like `mutmut`, `tabulate`, `systemd`) and pre-configures the `systemd` user environment (via linger and ENV vars).
+>>>>>>> 179e30c (docs: finalize cleanup (campaigns, docker docs, readme stats))
 
 During CI test runs:
 1.  **Freshness Check**: We run `pip install -e . --break-system-packages` **inside the container**.
