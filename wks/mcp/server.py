@@ -8,7 +8,7 @@ from typing import Any
 
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.StageResult import StageResult
-from wks.cli.get_typer_command_schema import get_typer_command_schema
+from wks.cli._get_typer_command_schema import get_typer_command_schema
 
 from .discover_commands import discover_commands
 from .get_app import get_app

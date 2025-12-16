@@ -14,6 +14,7 @@ from wks.cli.daemon import daemon_app
 from wks.cli.database import db_app
 from wks.cli.mcp import mcp_app
 from wks.cli.monitor import monitor_app
+from wks.cli.service import service_app
 
 # TODO: Create wks/api/diff/app.py
 # from wks.api.diff.app import diff_app
@@ -34,6 +35,7 @@ app.add_typer(monitor_app, name="monitor")
 # app.add_typer(transform_app, name="transform")
 # app.add_typer(diff_app, name="diff")
 app.add_typer(daemon_app, name="daemon")
+app.add_typer(service_app, name="service")
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="database")
 app.add_typer(mcp_app, name="mcp")
