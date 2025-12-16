@@ -294,7 +294,7 @@ def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int
     coverage_color = "brightgreen" if coverage_pct >= 100.0 else "yellow" if coverage_pct >= 80.0 else "red"
     return f"""![Coverage](https://img.shields.io/badge/coverage-{coverage_pct}%25-{coverage_color})
 ![Mutation Score](https://img.shields.io/badge/mutation-{mutation_score}%25-{mutation_color})
-![Tests](https://img.shields.io/badge/tests-{test_count}-passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-{test_count}_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)"""

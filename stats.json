@@ -1,10 +1,10 @@
 {
-  "coverage_pct": 0.0,
-  "coverage_status": "\u26a0\ufe0f No Data",
+  "coverage_pct": 49.8,
+  "coverage_status": "\u26a0\ufe0f Below Target",
   "docker_freshness": "fresh",
-  "mutation_killed": 0,
-  "mutation_score": 0.0,
-  "mutation_survived": 0,
+  "mutation_killed": 306,
+  "mutation_score": 91.6,
+  "mutation_survived": 28,
   "sections": {
     "api": {
       "chars": 322897,
@@ -13,16 +13,16 @@
       "tokens": 52267
     },
     "build_config": {
-      "chars": 5831,
+      "chars": 4678,
       "files": 5,
-      "loc": 211,
-      "tokens": 1457
+      "loc": 180,
+      "tokens": 1168
     },
     "cicd": {
-      "chars": 11461,
+      "chars": 10073,
       "files": 4,
-      "loc": 373,
-      "tokens": 2865
+      "loc": 343,
+      "tokens": 2518
     },
     "cli": {
       "chars": 34491,
@@ -31,16 +31,16 @@
       "tokens": 6197
     },
     "dev_docs": {
-      "chars": 125133,
-      "files": 24,
-      "loc": 2841,
-      "tokens": 31276
+      "chars": 116670,
+      "files": 43,
+      "loc": 2717,
+      "tokens": 29161
     },
     "integration": {
-      "chars": 52600,
+      "chars": 53000,
       "files": 12,
-      "loc": 1566,
-      "tokens": 9482
+      "loc": 1577,
+      "tokens": 9541
     },
     "mcp": {
       "chars": 17049,
@@ -49,16 +49,16 @@
       "tokens": 3354
     },
     "scripts": {
-      "chars": 56707,
-      "files": 14,
-      "loc": 1665,
-      "tokens": 11478
+      "chars": 57504,
+      "files": 13,
+      "loc": 1681,
+      "tokens": 11608
     },
     "smoke": {
-      "chars": 11593,
+      "chars": 12135,
       "files": 3,
-      "loc": 359,
-      "tokens": 1926
+      "loc": 381,
+      "tokens": 2038
     },
     "specs": {
       "chars": 65344,
@@ -85,6 +85,6 @@
       "tokens": 1417
     }
   },
-  "test_count": 212,
+  "test_count": 226,
   "test_files": 53
 }
