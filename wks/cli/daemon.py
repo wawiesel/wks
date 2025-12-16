@@ -48,4 +48,18 @@ def stop_command() -> None:
 
 daemon_app.command(name="status")(status_command)
 daemon_app.command(name="start")(start_command)
+
+
+def run_command(
+    restrict: Path | None = typer.Option(  # noqa: B008
+        None, "--restrict", help="Restrict monitoring to this directory"
+    ),
+) -> None:
+    """Run daemon in foreground (blocking)."""
+    from wks.api.daemon.cmd_run import cmd_run
+
+    cmd_run(restrict_dir=restrict)
+
+
+daemon_app.command(name="run")(run_command)
 daemon_app.command(name="stop")(stop_command)

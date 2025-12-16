@@ -239,12 +239,12 @@ def check_mongod_available() -> bool:
 
 def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
     """Get MongoDB connection info (uri, port, is_local).
-    
+
     Generates a unique but deterministic port based on tmp_path if not using external URI.
     """
     import hashlib
     import socket
-    
+
     external_uri = os.environ.get("WKS_TEST_MONGO_URI")
     if external_uri:
         # Default port 27017 is a placeholder if parsing fails, but URI takes precedence
@@ -261,7 +261,7 @@ def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
     path_hash = int(hashlib.md5(str(tmp_path).encode()).hexdigest()[:6], 16)
     pid = os.getpid()
     base_port = 27100
-    
+
     # Each worker gets 10000 ports, use path hash and pid for uniqueness
     mongo_port = base_port + (worker_num * 10000) + (path_hash % 9000) + (pid % 100)
 
@@ -287,7 +287,7 @@ def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
 @pytest.fixture
 def mongo_wks_env(tmp_path, monkeypatch):
     """Set up WKS environment with real MongoDB.
-    
+
     Yields dict with:
         - wks_home: Path to WKS home
         - watch_dir: Path to watched directory

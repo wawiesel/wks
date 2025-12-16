@@ -91,8 +91,21 @@ class _Impl(_AbstractImpl):
         # Use hardcoded db_path based on WKS_HOME
         db_path = self.db_path
         db_path.mkdir(parents=True, exist_ok=True)
+        # Resolve mongod binary path
+        import shutil
+        mongod_bin = shutil.which("mongod")
+        if not mongod_bin:
+            # Try common fallback paths
+            for fallback in ["/opt/homebrew/bin/mongod", "/usr/local/bin/mongod", "/usr/bin/mongod"]:
+                if Path(fallback).exists():
+                    mongod_bin = fallback
+                    break
+        
+        if not mongod_bin:
+             raise RuntimeError("mongod binary not found; install MongoDB or specify database.uri")
+
         cmd = [
-            "mongod",
+            mongod_bin,
             f"--dbpath={db_path}",
             f"--bind_ip={host}",
             f"--port={port}",

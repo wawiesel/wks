@@ -18,6 +18,8 @@ from ._extract_log_messages import extract_log_messages
 from ._write_status_file import write_status_file
 from .DaemonConfig import DaemonConfig
 from .FilesystemEvents import FilesystemEvents
+from ..monitor.explain_path import explain_path
+from ..config.WKSConfig import WKSConfig
 
 
 def _append_log_file(log_file: Path, message: str) -> None:
@@ -57,6 +59,22 @@ def _child_main(
     status_path: str,
     lock_path: str,
 ) -> None:
+    # Load monitor config for filtering
+    try:
+        wks_config = WKSConfig.load()
+        monitor_cfg = wks_config.monitor
+        home_debug = WKSConfig.get_home_dir()
+    except Exception as exc:
+        # Fallback if config fails load in child
+        # We must log this because it disables filtering!
+        monitor_cfg = None
+        home_debug = "UNKNOWN"
+        # We can't use append_log yet because log_file isn't set up until below.
+        # So we'll store the error and log it after setup.
+        startup_error = f"ERROR: Failed to load monitor config in child: {exc}"
+    else:
+        startup_error = None
+
     # Detach child stdio to avoid blocking or noisy output
     try:
         devnull = Path(os.devnull).open("w")  # noqa: SIM115
@@ -74,6 +92,11 @@ def _child_main(
         _append_log_file(log_file, message)
 
     stop_flag = False
+
+    if startup_error:
+        append_log(startup_error)
+    else:
+        append_log(f"DEBUG: Daemon WKS_HOME={home_debug} (config loaded)")
 
     def handle_sigterm(_signum, _frame):
         nonlocal stop_flag
@@ -130,16 +153,28 @@ def _child_main(
         to_delete: set[Path] = set()
         to_sync: set[Path] = set()
         for p_path in filtered_modified + filtered_created:
-            to_sync.add(p_path)
+            if monitor_cfg is None:
+                to_sync.add(p_path)
+            else:
+                allowed, reason = explain_path(monitor_cfg, p_path)
+                if allowed:
+                    to_sync.add(p_path)
+            
         for src_path, dest_path in filtered_moved:
             if src_path not in ignore_paths:
-                to_delete.add(src_path)
+                if monitor_cfg is None or explain_path(monitor_cfg, src_path)[0]:
+                    to_delete.add(src_path)
             if dest_path not in ignore_paths:
-                to_sync.add(dest_path)
+                if monitor_cfg is None or explain_path(monitor_cfg, dest_path)[0]:
+                    to_sync.add(dest_path)
+                    
         for p_path in filtered_deleted:
-            to_delete.add(p_path)
+            if monitor_cfg is None or explain_path(monitor_cfg, p_path)[0]:
+                to_delete.add(p_path)
+            
         for path in to_delete:
             _sync_path_static(path, log_file, append_log)
+            
         for path in to_sync:
             _sync_path_static(path, log_file, append_log)
 
@@ -280,6 +315,56 @@ class Daemon:
                 "restrict_dir": self._current_restrict,
             },
         )
+
+    def run_foreground(self, restrict_dir: Path | None = None) -> None:
+        """Run the daemon watcher in the foreground (blocking)."""
+        with self._global_lock:
+            if Daemon._global_instance and Daemon._global_instance._running:
+                raise RuntimeError("Daemon already running")
+
+        self._config = self._load_config()
+        from ..config.WKSConfig import WKSConfig
+
+        home = WKSConfig.get_home_dir()
+        self._log_path = home / "logs" / "daemon.log"
+        self._log_path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path = home / "daemon.lock"
+        existing_pid = None
+        if self._lock_path.exists():
+            try:
+                existing_pid = int(self._lock_path.read_text().strip())
+                if existing_pid > 0 and self._pid_running(existing_pid):
+                    raise RuntimeError("Daemon already running")
+            except Exception as exc:
+                if isinstance(exc, RuntimeError):
+                    raise
+                existing_pid = None
+
+        watch_paths = self._resolve_watch_paths(restrict_dir)
+        restrict_value = str(restrict_dir) if restrict_dir else ""
+        self._current_restrict = restrict_value
+        status_path = home / "daemon.json"
+        
+        # Write lock file with current PID
+        self._pid = os.getpid()
+        self._lock_path.write_text(str(self._pid), encoding="utf-8")
+        self._running = True
+        
+        try:
+            _child_main(
+                home_dir=str(home),
+                log_path=str(self._log_path),
+                paths=[str(p) for p in watch_paths],
+                restrict_val=restrict_value,
+                sync_interval=self._config.sync_interval_secs,
+                status_path=str(status_path),
+                lock_path=str(self._lock_path),
+            )
+        finally:
+            self._running = False
+            if self._lock_path.exists():
+                with suppress(Exception):
+                    self._lock_path.unlink()
 
     def stop(self) -> Any:
         """Stop the daemon watcher."""

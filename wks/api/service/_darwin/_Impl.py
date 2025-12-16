@@ -48,12 +48,22 @@ class _Impl(_AbstractImpl):
         # Build program arguments - run 'wksc daemon start [--restrict-dir PATH]'
         program_args = f"""    <string>{wksc_path}</string>
     <string>daemon</string>
-    <string>start</string>"""
+    <string>run</string>"""
         if restrict_dir is not None:
             restrict_path = str(restrict_dir.expanduser().resolve())
             program_args += f"""
-    <string>--restrict-dir</string>
+    <string>--restrict</string>
     <string>{restrict_path}</string>"""
+
+        # Construct PATH to include wksc and potential mongod locations
+        wksc_dir = Path(wksc_path).parent
+        # Try to find mongod to include its path
+        mongod_path = shutil.which("mongod")
+        mongod_dir = Path(mongod_path).parent if mongod_path else None
+        
+        path_str = f"{wksc_dir}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        if mongod_dir and str(mongod_dir) not in path_str:
+            path_str = f"{mongod_dir}:{path_str}"
 
         plist = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -63,6 +73,11 @@ class _Impl(_AbstractImpl):
   <string>{config.label}</string>
   <key>LimitLoadToSessionType</key>
   <string>Aqua</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{path_str}</string>
+  </dict>
   <key>ProgramArguments</key>
   <array>
 {program_args}
@@ -159,6 +174,15 @@ class _Impl(_AbstractImpl):
     def uninstall_service(self) -> dict[str, Any]:
         """Uninstall daemon macOS launchd service."""
         plist_path = self._get_plist_path(self._data.label)
+
+        if not plist_path.exists():
+            return {
+                "success": False,
+                "type": "darwin",
+                "label": self._data.label,
+                "error": "Service is not installed (plist not found).",
+            }
+
         uid = os.getuid()
 
         # Unload service
@@ -173,6 +197,14 @@ class _Impl(_AbstractImpl):
         # Remove plist file
         if plist_path.exists():
             plist_path.unlink()
+
+        # Remove lock file if it exists (robustness)
+        from ...config.WKSConfig import WKSConfig
+
+        lock_path = WKSConfig.get_home_dir() / "daemon.lock"
+        if lock_path.exists():
+            with suppress(Exception):
+                lock_path.unlink()
 
         return {
             "success": True,
