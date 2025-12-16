@@ -93,6 +93,7 @@ class _Impl(_AbstractImpl):
         db_path.mkdir(parents=True, exist_ok=True)
         # Resolve mongod binary path
         import shutil
+
         mongod_bin = shutil.which("mongod")
         if not mongod_bin:
             # Try common fallback paths
@@ -100,9 +101,9 @@ class _Impl(_AbstractImpl):
                 if Path(fallback).exists():
                     mongod_bin = fallback
                     break
-        
+
         if not mongod_bin:
-             raise RuntimeError("mongod binary not found; install MongoDB or specify database.uri")
+            raise RuntimeError("mongod binary not found; install MongoDB or specify database.uri")
 
         cmd = [
             mongod_bin,

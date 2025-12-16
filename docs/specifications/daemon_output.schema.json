@@ -7,61 +7,137 @@
     "Base": {
       "type": "object",
       "properties": {
-        "errors": { "type": "array", "items": { "type": "string" } },
-        "warnings": { "type": "array", "items": { "type": "string" } }
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       },
-      "required": ["errors", "warnings"],
+      "required": [
+        "errors",
+        "warnings"
+      ],
       "additionalProperties": true
     },
     "DaemonStatusOutput": {
       "allOf": [
-        { "$ref": "#/definitions/Base" },
+        {
+          "$ref": "#/definitions/Base"
+        },
         {
           "type": "object",
           "properties": {
-            "running": { "type": "boolean" },
-            "pid": { "type": ["integer", "null"] },
-            "restrict_dir": { "type": "string" },
-            "log_path": { "type": "string" }
+            "running": {
+              "type": "boolean"
+            },
+            "pid": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "restrict_dir": {
+              "type": "string"
+            },
+            "log_path": {
+              "type": "string"
+            }
           },
-          "required": ["running", "pid", "restrict_dir", "log_path"],
+          "required": [
+            "running",
+            "pid",
+            "restrict_dir",
+            "log_path"
+          ],
           "additionalProperties": false
         }
       ]
     },
     "DaemonStartOutput": {
       "allOf": [
-        { "$ref": "#/definitions/Base" },
+        {
+          "$ref": "#/definitions/Base"
+        },
         {
           "type": "object",
           "properties": {
-            "message": { "type": "string" },
-            "running": { "type": "boolean" }
+            "message": {
+              "type": "string"
+            },
+            "running": {
+              "type": "boolean"
+            }
           },
-          "required": ["message", "running"],
+          "required": [
+            "message",
+            "running"
+          ],
           "additionalProperties": false
         }
       ]
     },
     "DaemonStopOutput": {
       "allOf": [
-        { "$ref": "#/definitions/Base" },
+        {
+          "$ref": "#/definitions/Base"
+        },
         {
           "type": "object",
           "properties": {
-            "message": { "type": "string" },
-            "stopped": { "type": "boolean" }
+            "message": {
+              "type": "string"
+            },
+            "stopped": {
+              "type": "boolean"
+            }
           },
-          "required": ["message", "stopped"],
+          "required": [
+            "message",
+            "stopped"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DaemonRunOutput": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "message"
+          ],
           "additionalProperties": false
         }
       ]
     }
   },
   "oneOf": [
-    { "$ref": "#/definitions/DaemonStatusOutput" },
-    { "$ref": "#/definitions/DaemonStartOutput" },
-    { "$ref": "#/definitions/DaemonStopOutput" }
+    {
+      "$ref": "#/definitions/DaemonStatusOutput"
+    },
+    {
+      "$ref": "#/definitions/DaemonStartOutput"
+    },
+    {
+      "$ref": "#/definitions/DaemonStopOutput"
+    },
+    {
+      "$ref": "#/definitions/DaemonRunOutput"
+    }
   ]
 }
-

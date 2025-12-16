@@ -14,17 +14,24 @@ from wks.api.service.ServiceConfig import ServiceConfig
 pytestmark = pytest.mark.daemon
 
 
-def test_cmd_status_success(tracked_wks_config, monkeypatch):
+def test_cmd_status_success(tracked_wks_config, monkeypatch, tmp_path):
     """Test cmd_status with successful status check."""
-    tracked_wks_config.service = ServiceConfig(
-        type="darwin",
-        sync_interval_secs=60.0,
-        data={
-            "label": "com.test.wks",
-            "keep_alive": True,
-            "run_at_load": False,
-        },
+    tracked_wks_config.service = ServiceConfig.model_validate(
+        {
+            "type": "darwin",
+            "data": {
+                "label": "com.test.wks",
+                "keep_alive": True,
+                "run_at_load": False,
+            },
+        }
     )
+
+    # Mock WKS_HOME to isolated tmp_path preventing real daemon.json read
+    from wks.api.config.WKSConfig import WKSConfig
+
+    monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: tmp_path))
+
     # Mock daemon implementation
     mock_impl = MagicMock()
     mock_impl.get_service_status.return_value = {
@@ -60,17 +67,24 @@ def test_cmd_status_success(tracked_wks_config, monkeypatch):
     assert "warnings" in result.output and result.output["warnings"] == []
 
 
-def test_cmd_status_not_installed(tracked_wks_config, monkeypatch):
+def test_cmd_status_not_installed(tracked_wks_config, monkeypatch, tmp_path):
     """Test cmd_status when service is not installed."""
-    tracked_wks_config.service = ServiceConfig(
-        type="darwin",
-        sync_interval_secs=60.0,
-        data={
-            "label": "com.test.wks",
-            "keep_alive": True,
-            "run_at_load": False,
-        },
+    tracked_wks_config.service = ServiceConfig.model_validate(
+        {
+            "type": "darwin",
+            "data": {
+                "label": "com.test.wks",
+                "keep_alive": True,
+                "run_at_load": False,
+            },
+        }
     )
+
+    # Mock WKS_HOME to isolated tmp_path
+    from wks.api.config.WKSConfig import WKSConfig
+
+    monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: tmp_path))
+
     # Mock daemon implementation
     mock_impl = MagicMock()
     mock_impl.get_service_status.return_value = {

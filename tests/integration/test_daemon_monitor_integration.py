@@ -12,7 +12,6 @@ import pytest
 from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
 
-
 # Mark all tests in this module
 pytestmark = [
     pytest.mark.integration,

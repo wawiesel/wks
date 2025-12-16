@@ -14,12 +14,12 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
     # Use absolute() instead of resolve() to preserve symlinks
     # This allows monitoring symlinks that point outside the monitor root
     # and ensures we exclude symlinks residing IN .wks
-    resolved = path.expanduser().absolute() 
+    resolved = path.expanduser().absolute()
 
     # Check if path is within WKS home directory (automatically excluded)
     wks_home = WKSConfig.get_home_dir()
     try:
-        # Check against wks_home. We accept that wks_home might be resolved, 
+        # Check against wks_home. We accept that wks_home might be resolved,
         # but 'resolved' (the file) is absolute-unresolved.
         # This correctly catches files physically inside ~/.wks structure.
         if resolved == wks_home or resolved.is_relative_to(wks_home):
@@ -47,22 +47,22 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
 
     # Check dirname and glob exclusions
     excluded = False
-    
+
     # Check all path parts for excluded dirnames
     # We check the file name itself (if it's a directory effectively) and all parents
     # But for a file, we usually only care if it's INSIDE an excluded directory
     # The config name is 'exclude_dirnames', so we should check if any PARENT matches
-    
+
     for p in resolved.parents:
         if p.name in exclude_dirnames:
             trace.append(f"Parent dir '{p.name}' excluded")
             excluded = True
             break
-            
+
     if not excluded and resolved.name in exclude_dirnames:
-         # Also check the name itself, in case we are asking about a directory
-         trace.append(f"Directory '{resolved.name}' excluded")
-         excluded = True
+        # Also check the name itself, in case we are asking about a directory
+        trace.append(f"Directory '{resolved.name}' excluded")
+        excluded = True
 
     if not excluded and matches_glob(exclude_globs, resolved):
         trace.append("Excluded by glob pattern")
@@ -73,15 +73,15 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
         # Check if any parent satisfies include_dirnames (nested include)
         # Strategy: Search from closest parent up to root
         # If we hit an include_dirname BEFORE hitting the exclude_dirname that banned us, we are good?
-        # The current config structure is simple lists. 
+        # The current config structure is simple lists.
         # For now, let's keep the override logic simple: if immediate parent or glob matches include.
         # But this might be insufficient for deep nesting.
         # Given the "junk" issue, strict exclusion is better.
-        
+
         parent = resolved.parent.name if resolved.parent != resolved else ""
         if parent in include_dirnames:
-             trace.append(f"Parent dir '{parent}' override")
-             return True, trace
+            trace.append(f"Parent dir '{parent}' override")
+            return True, trace
 
         if matches_glob(include_globs, resolved):
             trace.append("Included by glob override")

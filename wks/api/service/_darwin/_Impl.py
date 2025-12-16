@@ -60,7 +60,7 @@ class _Impl(_AbstractImpl):
         # Try to find mongod to include its path
         mongod_path = shutil.which("mongod")
         mongod_dir = Path(mongod_path).parent if mongod_path else None
-        
+
         path_str = f"{wksc_dir}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         if mongod_dir and str(mongod_dir) not in path_str:
             path_str = f"{mongod_dir}:{path_str}"

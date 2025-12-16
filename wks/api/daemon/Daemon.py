@@ -13,13 +13,13 @@ from typing import Any
 
 from watchdog.observers import Observer
 
+from ..config.WKSConfig import WKSConfig
+from ..monitor.explain_path import explain_path
 from ._EventHandler import _EventHandler
 from ._extract_log_messages import extract_log_messages
 from ._write_status_file import write_status_file
 from .DaemonConfig import DaemonConfig
 from .FilesystemEvents import FilesystemEvents
-from ..monitor.explain_path import explain_path
-from ..config.WKSConfig import WKSConfig
 
 
 def _append_log_file(log_file: Path, message: str) -> None:
@@ -63,7 +63,7 @@ def _child_main(
     try:
         wks_config = WKSConfig.load()
         monitor_cfg = wks_config.monitor
-        home_debug = WKSConfig.get_home_dir()
+        home_debug = str(WKSConfig.get_home_dir())
     except Exception as exc:
         # Fallback if config fails load in child
         # We must log this because it disables filtering!
@@ -71,7 +71,7 @@ def _child_main(
         home_debug = "UNKNOWN"
         # We can't use append_log yet because log_file isn't set up until below.
         # So we'll store the error and log it after setup.
-        startup_error = f"ERROR: Failed to load monitor config in child: {exc}"
+        startup_error: str | None = f"ERROR: Failed to load monitor config in child: {exc}"
     else:
         startup_error = None
 
@@ -156,25 +156,23 @@ def _child_main(
             if monitor_cfg is None:
                 to_sync.add(p_path)
             else:
-                allowed, reason = explain_path(monitor_cfg, p_path)
+                allowed, _reason = explain_path(monitor_cfg, p_path)
                 if allowed:
                     to_sync.add(p_path)
-            
+
         for src_path, dest_path in filtered_moved:
-            if src_path not in ignore_paths:
-                if monitor_cfg is None or explain_path(monitor_cfg, src_path)[0]:
-                    to_delete.add(src_path)
-            if dest_path not in ignore_paths:
-                if monitor_cfg is None or explain_path(monitor_cfg, dest_path)[0]:
-                    to_sync.add(dest_path)
-                    
+            if src_path not in ignore_paths and (monitor_cfg is None or explain_path(monitor_cfg, src_path)[0]):
+                to_delete.add(src_path)
+            if dest_path not in ignore_paths and (monitor_cfg is None or explain_path(monitor_cfg, dest_path)[0]):
+                to_sync.add(dest_path)
+
         for p_path in filtered_deleted:
             if monitor_cfg is None or explain_path(monitor_cfg, p_path)[0]:
                 to_delete.add(p_path)
-            
+
         for path in to_delete:
             _sync_path_static(path, log_file, append_log)
-            
+
         for path in to_sync:
             _sync_path_static(path, log_file, append_log)
 
@@ -344,12 +342,12 @@ class Daemon:
         restrict_value = str(restrict_dir) if restrict_dir else ""
         self._current_restrict = restrict_value
         status_path = home / "daemon.json"
-        
+
         # Write lock file with current PID
         self._pid = os.getpid()
         self._lock_path.write_text(str(self._pid), encoding="utf-8")
         self._running = True
-        
+
         try:
             _child_main(
                 home_dir=str(home),

@@ -340,5 +340,6 @@ def mongo_wks_env(tmp_path, monkeypatch):
 
     # Helper cleanup
     from wks.api.daemon.Daemon import Daemon
+
     with suppress(Exception):
         Daemon().stop()
