@@ -5,9 +5,11 @@ on:
   push:
     branches:
       - main
+      - fix/failing-tests
     paths:
-      - 'Dockerfile.ci-runner'
+      - 'docker/Dockerfile.ci-runner'
       - 'pyproject.toml'
+      - 'setup.py'
       - '.github/workflows/publish-ci-image.yml'
 
 env:
@@ -21,6 +23,7 @@ jobs:
       packages: write
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -37,8 +40,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/ci-runner
           tags: |
+            type=raw,value=v1
             type=raw,value=latest
             type=sha,prefix=sha-
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,7 +54,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile.ci-runner
+          file: docker/Dockerfile.ci-runner
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

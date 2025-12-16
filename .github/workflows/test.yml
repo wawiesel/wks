@@ -2,16 +2,176 @@ name: Tests
 
 on:
   push:
-    branches: [ main, test-refactor-campaign, test-refactor/integration-tests ]
+    branches: [main]
   pull_request:
-    branches: [ main, test-refactor-campaign, test-refactor/integration-tests ]
-  workflow_dispatch:  # Allow manual triggering
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  test:
+  # Stage 1: Smoke tests - ultra-fast using pre-built Docker image
+  smoke:
+    name: Smoke Tests
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run smoke tests in Docker
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          export IMAGE_NAME="ghcr.io/${REPO_LOWER}/ci-runner:v1"
+          ./scripts/docker_shell.sh docker "pip3 install --user . --no-cache-dir --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
+
+  # Stage 2a: Code Quality - runs in parallel with Docker Tests
+  quality:
+    name: Code Quality
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip --no-cache-dir
+          pip install ruff mypy --no-cache-dir
+
+      - name: Run Ruff (format + lint)
+        run: |
+          ruff format --check .
+          ruff check .
+
+      - name: Run Mypy
+        run: |
+          pip install -e . --quiet --no-cache-dir
+          mypy wks/ --ignore-missing-imports
+
+  # Stage 2b: Docker deep tests - comprehensive testing with stats generation
+  docker-tests:
+    name: Docker Deep Tests
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull test image
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker pull ghcr.io/${REPO_LOWER}/ci-runner:v1
+
+      - name: Run tests in Docker
+        id: docker-tests
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          # Run container in background with systemd as init (PID 1)
+          CONTAINER_ID=$(docker run -d \
+            --privileged \
+            --cgroupns=host \
+            --tmpfs /run \
+            --tmpfs /run/lock \
+            -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e GITHUB_ACTIONS=true \
+            ghcr.io/${REPO_LOWER}/ci-runner:v1 \
+            /lib/systemd/systemd)
+
+          # Wait for systemd to settle (now bootstraps user session automatically)
+          sleep 5
+
+          # Install package as testuser
+          docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
+
+          # Run full test suite with coverage
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
+          TEST_RESULT=$?
+
+          # Run mutation tests (now finds mutmut in PATH)
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py --max-children 2 || true
+
+          # Run Linux service installation test (now has systemd)
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
+
+          # Cleanup
+          docker rm -f "$CONTAINER_ID"
+
+          if [ $TEST_RESULT -ne 0 ]; then
+            exit $TEST_RESULT
+          fi
+          echo "passed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Check test result
+        id: test-check
+        run: |
+          if [ "${{ steps.docker-tests.outputs.passed }}" == "true" ]; then
+            echo "all_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "all_passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update README (only if all tests passed)
+        if: steps.docker-tests.outputs.passed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+           # The stats.json was generated in the previous step and persists on disk
+           # We just need to commit it if this is the main branch
+           python3 scripts/update_readme_stats.py --from-json
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if [ -n "$(git status --porcelain stats.json README.md)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            git diff stats.json README.md
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit updated statistics
+        if: steps.check-changes.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update statistics [skip ci]"
+          file_pattern: "stats.json README.md"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+
+      - name: Fail if tests failed
+        if: steps.test-check.outputs.all_passed != 'true'
+        run: exit 1
+
+  # Stage 3: Python version compatibility - parallel testing on multiple versions
+  compatibility:
+    name: Python ${{ matrix.python-version }}
+    needs: docker-tests
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.10', '3.11', '3.12']
 
@@ -27,6 +187,11 @@ jobs:
           --health-retries 5
 
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+
       - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
@@ -40,36 +205,16 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'setup.py') }}
 
-      - name: Install MongoDB
-        run: |
-          # Install MongoDB client tools (includes mongod)
-          # Use modern GPG keyring approach (apt-key is deprecated)
-          # Note: MongoDB doesn't have a repository for Ubuntu 24.04 (noble) yet,
-          # so we use jammy (22.04) which is compatible
-          sudo apt-get update
-          sudo apt-get install -y wget gnupg ca-certificates
-          # Download and install MongoDB GPG key
-          # Create keyrings directory if it doesn't exist
-          sudo mkdir -p /usr/share/keyrings
-          wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-          # Add MongoDB repository for Ubuntu 22.04 (jammy) - compatible with 24.04
-          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-          sudo apt-get update
-          # Install mongodb-org-server which includes mongod binary
-          # mongodb-org-tools only includes utilities, not the server
-          sudo apt-get install -y mongodb-org-server
-          mongod --version
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .
 
       - name: Run tests
+        env:
+          WKS_TEST_MONGO_URI: mongodb://127.0.0.1:27017
         run: |
-          # Run tests in parallel (auto-detects CPU count)
-          python -m pytest tests/ -v --tb=short -n auto
-        continue-on-error: false
+          python -m pytest tests/ -v --tb=short -n auto --ignore=tests/integration/test_linux_service_install.py
 
       - name: Check imports
         run: |

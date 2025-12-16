@@ -1,0 +1,33 @@
+# Exclude version control
+.git
+.gitignore
+
+# Exclude virtual environments
+.venv
+venv
+ENV
+
+# Exclude python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Exclude test cache
+.pytest_cache
+.coverage
+htmlcov
+.mutmut-cache
+
+# Exclude IDE settings
+.vscode
+.idea
+.cursor
+
+# Exclude OS files
+.DS_Store
+
+# Exclude large documentation or temporary files
+dist
+build
+*.egg-info

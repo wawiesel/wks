@@ -50,6 +50,8 @@ env/
 
 # Testing and Coverage
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 .coverage.*
 htmlcov/
@@ -97,3 +99,14 @@ demo_*.py
 
 # Generated visualizations
 docs/codebase_stats.png
+
+# Node
+node_modules/
+
+# Repomix
+repomix_*.xml
+repomix_*.txt
+repomix_*.json
+
+# User/Local
+.wks/

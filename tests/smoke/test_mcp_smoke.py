@@ -41,6 +41,8 @@ def _get_wks_mcp_cmd():
 
 def _mongod_available() -> bool:
     """Return True only if the `mongod` binary is available."""
+    if os.environ.get("WKS_TEST_MONGO_URI"):
+        return True
     if not shutil.which("mongod"):
         return False
     try:
@@ -74,6 +76,13 @@ def mcp_process(tmp_path_factory):
     # Set HOME to the temp dir to isolate config
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
+    # Override WKS_HOME to ensure config is loaded from temp dir
+    env["WKS_HOME"] = str(home_dir / ".wks")
+
+    # Symlink .local from real HOME to temp HOME so pip install --user packages are visible
+    real_home = Path(os.environ["HOME"])
+    if (real_home / ".local").exists():
+        (home_dir / ".local").symlink_to(real_home / ".local")
 
     # Don't add PYTHONPATH - we're testing the installed package, not the source
     # The installed wksc should work without PYTHONPATH manipulation
@@ -86,14 +95,23 @@ def mcp_process(tmp_path_factory):
 
     config = minimal_config_dict()
 
-    mongo_port = random.randint(27100, 27999)
-    mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+    mongo_port = 27017
+    external_uri = os.environ.get("WKS_TEST_MONGO_URI")
+
+    if external_uri:
+        mongo_uri = external_uri
+        is_local = False
+    else:
+        mongo_port = random.randint(27100, 27999)
+        mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+        is_local = True
+
     config["database"] = {
         "type": "mongo",
         "prefix": "wks_mcp_smoke",
         "data": {
             "uri": mongo_uri,
-            "local": True,
+            "local": is_local,
             "db_path": str((home_dir / ".wks" / "mongo-data").resolve()),
             "port": mongo_port,
             "bind_ip": "127.0.0.1",
@@ -127,8 +145,17 @@ def send_request(process, method, params=None, req_id=1):
     request = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params or {}}
 
     # Write request
-    process.stdin.write(json.dumps(request) + "\n")
-    process.stdin.flush()
+    try:
+        process.stdin.write(json.dumps(request) + "\n")
+        process.stdin.flush()
+    except (BrokenPipeError, ValueError):
+        # Process died unexpectedly. Capture stderr for debugging.
+        try:
+            _, errs = process.communicate(timeout=1)
+            err = errs if errs else ""
+        except Exception:
+            err = "Could not retrieve stderr."
+        raise AssertionError(f"MCP process died unexpectedly when sending request. STDERR:\n{err}") from None
 
     # Read response
     line = process.stdout.readline()
@@ -139,7 +166,10 @@ def send_request(process, method, params=None, req_id=1):
         except Exception:
             rc = None
         try:
-            err = process.stderr.read() if process.stderr else ""
+            # If we can read more stderr, do so (non-blocking if possible, but here we likely can just read)
+            # Use communicate to safely get rest of output
+            _, err_full = process.communicate(timeout=1)
+            err = err_full if err_full else ""
         except Exception:
             err = ""
         raise AssertionError(f"No response from MCP process (returncode={rc}). STDERR:\n{err}")

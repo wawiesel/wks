@@ -1,0 +1,24 @@
+name: Check Docker Image Freshness
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'pyproject.toml'
+      - 'setup.py'
+      - 'docker/Dockerfile.ci-runner'
+  workflow_dispatch:
+
+jobs:
+  check-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+
+      - name: Check Image Freshness
+        run: |
+          export IMAGE_NAME="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/ci-runner:v1"
+          ./scripts/docker_shell.sh docker "./scripts/check_docker_image.sh -e . --user --no-cache-dir --break-system-packages"

@@ -15,6 +15,8 @@ import pytest
 
 def _mongod_available() -> bool:
     """Return True only if the `mongod` binary is available."""
+    if os.environ.get("WKS_TEST_MONGO_URI"):
+        return True
     if not shutil.which("mongod"):
         return False
     try:
@@ -72,6 +74,14 @@ def smoke_env(tmp_path_factory):
     # Set HOME to the temp dir to isolate config
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
+    # Content of Dockerfile or local env might set WKS_HOME, so we must override it
+    # to ensure the app looks in our temp dir, not the hardcoded /home/testuser/.wks
+    env["WKS_HOME"] = str(home_dir / ".wks")
+
+    # Symlink .local from real HOME to temp HOME so pip install --user packages are visible
+    real_home = Path(os.environ["HOME"])
+    if (real_home / ".local").exists():
+        (home_dir / ".local").symlink_to(real_home / ".local")
 
     # Create a dummy vault
     vault_dir = home_dir / "Vault"
@@ -84,14 +94,23 @@ def smoke_env(tmp_path_factory):
 
     config = minimal_config_dict()
 
-    mongo_port = random.randint(27100, 27999)
-    mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+    mongo_port = 27017
+    external_uri = os.environ.get("WKS_TEST_MONGO_URI")
+
+    if external_uri:
+        mongo_uri = external_uri
+        is_local = False
+    else:
+        mongo_port = random.randint(27100, 27999)
+        mongo_uri = f"mongodb://127.0.0.1:{mongo_port}"
+        is_local = True
+
     config["database"] = {
         "type": "mongo",
         "prefix": "wks_smoke",
         "data": {
             "uri": mongo_uri,
-            "local": True,
+            "local": is_local,
             "db_path": str((home_dir / ".wks" / "mongo-data").resolve()),
             "port": mongo_port,
             "bind_ip": "127.0.0.1",
