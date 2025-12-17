@@ -58,13 +58,18 @@ def cmd_check(path: str | None = None) -> StageResult:
                     file_path = Path(path).expanduser().resolve()
                     if not file_path.exists():
                         result_obj.success = False
-                        result_obj.output = {
-                            "errors": [f"File not found: {path}"],
-                            "notes_checked": 0,
-                            "links_checked": 0,
-                            "broken_count": 0,
-                            "is_valid": False,
-                        }
+                        result_obj.output = VaultCheckOutput(
+                            errors=[f"File not found: {path}"],
+                            warnings=[],
+                            path=path,
+                            notes_checked=0,
+                            links_checked=0,
+                            broken_count=0,
+                            issues=[],
+                            is_valid=False,
+                            success=False,
+                        ).model_dump(mode="python")
+                        result_obj.result = f"File not found: {path}"
                         return
                     files_to_scan = [file_path]
 
@@ -72,43 +77,57 @@ def cmd_check(path: str | None = None) -> StageResult:
                 records = scanner.scan(files=files_to_scan)
                 stats = scanner.stats
 
-                # Convert records to edges
-                edges = []
+                # Convert records to issues
+                issues = []
                 broken_count = 0
                 for rec in records:
-                    edge = {
-                        "from_uri": rec.from_uri,
-                        "to_uri": rec.to_uri,
-                        "line_number": rec.line_number,
-                        "status": rec.status,
-                        "raw_target": rec.raw_target,
-                    }
                     if rec.status != STATUS_OK:
                         broken_count += 1
-                        # edge["error_msg"] = rec.error_msg # Record does not have error_msg
-                    edges.append(edge)
+                        issues.append(
+                            {
+                                "note_path": rec.note_path,
+                                "line_number": rec.line_number,
+                                "target_uri": rec.to_uri,
+                                "status": rec.status,
+                            }
+                        )
 
-                result_obj.success = len(stats.errors) == 0
-                result_obj.output = {
-                    "notes_checked": stats.notes_scanned,
-                    "links_checked": stats.edge_total,
-                    "broken_count": broken_count,
-                    "is_valid": broken_count == 0 and len(stats.errors) == 0,
-                    "errors": [e for e in records if e.status != STATUS_OK],
-                    "success": len(stats.errors) == 0,
-                }
-                if stats.errors and "errors" not in result_obj.output:
-                    result_obj.output["errors"] = []
+                # Errors from stats are strings
+                all_errors = list(stats.errors)
+
+                is_valid = broken_count == 0 and len(all_errors) == 0
+
+                result_obj.success = len(all_errors) == 0
+                result_obj.output = VaultCheckOutput(
+                    path=path,
+                    notes_checked=stats.notes_scanned,
+                    links_checked=stats.edge_total,
+                    broken_count=broken_count,
+                    issues=issues,
+                    is_valid=is_valid,
+                    errors=all_errors,
+                    warnings=[],
+                    success=result_obj.success,
+                ).model_dump(mode="python")
+
+                status_msg = "Health Check Passed" if is_valid else "Health Check Failed"
+                result_obj.result = (
+                    f"{status_msg}: {stats.notes_scanned} notes, {stats.edge_total} links, {broken_count} broken"
+                )
 
         except Exception as e:
             result_obj.success = False
-            result_obj.output = {
-                "errors": [f"Failed to check vault: {e}"],
-                "notes_checked": 0,
-                "links_checked": 0,
-                "broken_count": 0,
-                "is_valid": False,
-            }
+            result_obj.output = VaultCheckOutput(
+                errors=[f"Failed to check vault: {e}"],
+                warnings=[],
+                path=path,
+                notes_checked=0,
+                links_checked=0,
+                broken_count=0,
+                issues=[],
+                is_valid=False,
+                success=False,
+            ).model_dump(mode="python")
             result_obj.result = f"Vault check failed: {e}"
             result_obj.success = False
 

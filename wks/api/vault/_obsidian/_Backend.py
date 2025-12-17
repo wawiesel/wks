@@ -10,15 +10,21 @@ import platform
 from collections.abc import Iterator
 from pathlib import Path
 
-from .._AbstractImpl import _AbstractImpl
+from .._AbstractBackend import _AbstractBackend
+from ..VaultConfig import VaultConfig
 
 
-class _Impl(_AbstractImpl):
+class _Backend(_AbstractBackend):
     """Obsidian vault implementation for link maintenance."""
 
-    def __init__(self, vault_path: Path, *, machine_name: str | None = None):
-        self._vault_path = Path(vault_path)
-        self.machine = (machine_name or platform.node().split(".")[0]).strip()
+    def __init__(self, vault_config: VaultConfig):
+        from wks.utils.expand_path import expand_path
+
+        if not vault_config.base_dir:
+            raise ValueError("vault.base_dir is required")
+
+        self._vault_path = expand_path(vault_config.base_dir)
+        self.machine = (platform.node().split(".")[0]).strip()
         self._links_dir = self._vault_path / "_links"
 
     @property

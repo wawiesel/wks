@@ -11,8 +11,8 @@ from typing import Any
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..utils._write_status_file import write_status_file
 from . import MonitorStatusOutput
-from ._write_status_file import write_status_file
 from .explain_path import explain_path
 
 
@@ -42,12 +42,12 @@ def cmd_status() -> StageResult:
             time_based_counts=time_based_counts,
             last_sync=last_sync,
             success=success,
-        ).model_dump(mode="python")
+        )
 
         # Write status file
-        write_status_file(output, wks_home=wks_home)
+        write_status_file(output.model_dump(mode="python"), wks_home=wks_home, filename="monitor.json")
 
-        result_obj.output = output
+        result_obj.output = output.model_dump(mode="python")
         result_obj.result = message
         result_obj.success = success
 

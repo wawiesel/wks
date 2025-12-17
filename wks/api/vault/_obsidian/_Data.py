@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from .._constants import DOC_TYPE_LINK, DOC_TYPE_META, META_DOCUMENT_ID
 
 
-def _identity(note_path: str, line_number: int, target_uri: str) -> str:
-    payload = f"{note_path}|{line_number}|{target_uri}".encode("utf-8", errors="ignore")
+def _identity(note_path: str, line_number: int, column_number: int, target_uri: str) -> str:
+    payload = f"{note_path}|{line_number}|{column_number}|{target_uri}".encode("utf-8", errors="ignore")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -21,6 +21,7 @@ class _EdgeRecord:
     note_path: str
     from_uri: str
     line_number: int
+    column_number: int
     source_heading: str
     raw_line: str
 
@@ -35,7 +36,7 @@ class _EdgeRecord:
 
     @property
     def identity(self) -> str:
-        return _identity(self.note_path, self.line_number, self.to_uri)
+        return _identity(self.note_path, self.line_number, self.column_number, self.to_uri)
 
     def to_document(self, seen_at_iso: str) -> dict[str, object]:
         return {
@@ -44,6 +45,7 @@ class _EdgeRecord:
             "from_uri": self.from_uri,
             "to_uri": self.to_uri,
             "line_number": self.line_number,
+            "column_number": self.column_number,
             "source_heading": self.source_heading,
             "raw_line": self.raw_line,
             "link_type": self.link_type,

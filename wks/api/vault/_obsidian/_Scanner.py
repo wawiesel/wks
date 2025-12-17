@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .._AbstractImpl import _AbstractImpl
+from .._AbstractBackend import _AbstractBackend
 from .._constants import (
     LINK_TYPE_EMBED,
     LINK_TYPE_MARKDOWN_URL,
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class _Scanner:
     """Parse Obsidian markdown for wiki links and URLs."""
 
-    def __init__(self, vault: _AbstractImpl):
+    def __init__(self, vault: _AbstractBackend):
         self.vault = vault
         self.link_resolver = _LinkResolver(vault.links_dir)
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []
@@ -112,6 +112,7 @@ class _Scanner:
             record = self._build_wikilink_record(
                 note_path=note_path,
                 line_number=wiki_link.line_number,
+                column_number=wiki_link.column_number,
                 raw_line=lines[wiki_link.line_number - 1],
                 heading=headings[wiki_link.line_number],
                 target=wiki_link.target,
@@ -126,6 +127,7 @@ class _Scanner:
             record = self._build_url_record(
                 note_path=note_path,
                 line_number=md_url.line_number,
+                column_number=md_url.column_number,
                 raw_line=lines[md_url.line_number - 1],
                 heading=headings[md_url.line_number],
                 url=md_url.url,
@@ -153,6 +155,7 @@ class _Scanner:
         self,
         note_path: Path,
         line_number: int,
+        column_number: int,
         raw_line: str,
         heading: str,
         target: str,
@@ -166,6 +169,7 @@ class _Scanner:
             note_path=note_rel,
             from_uri=f"vault:///{note_rel}",
             line_number=line_number,
+            column_number=column_number,
             source_heading=heading,
             raw_line=self._preview_line(raw_line),
             link_type=LINK_TYPE_EMBED if is_embed else LINK_TYPE_WIKILINK,
@@ -215,6 +219,7 @@ class _Scanner:
         self,
         note_path: Path,
         line_number: int,
+        column_number: int,
         raw_line: str,
         heading: str,
         url: str,
@@ -230,6 +235,7 @@ class _Scanner:
                     note_path=note_rel,
                     from_uri=f"vault:///{note_rel}",
                     line_number=line_number,
+                    column_number=column_number,
                     source_heading=heading,
                     raw_line=self._preview_line(raw_line),
                     link_type=LINK_TYPE_WIKILINK,
@@ -243,6 +249,7 @@ class _Scanner:
             note_path=note_rel,
             from_uri=f"vault:///{note_rel}",
             line_number=line_number,
+            column_number=column_number,
             source_heading=heading,
             raw_line=self._preview_line(raw_line),
             link_type=LINK_TYPE_MARKDOWN_URL,

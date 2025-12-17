@@ -109,9 +109,12 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
                     "extension_weights": {},
                 },
             },
-            "database": "monitor",
             "max_documents": 1000000,
             "min_priority": 0.0,
+        },
+        "vault": {
+            "type": "obsidian",
+            "base_dir": "~/_vault",
         },
         "database": {
             "type": "mongomock",

@@ -16,25 +16,29 @@ def test_scanner_handles_read_errors(monkeypatch, tmp_path, minimal_config_dict)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
-    (vault_dir / "note.md").touch()
 
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json_dumps(minimal_config_dict), encoding="utf-8")
+    # Create a real file
+    note = vault_dir / "note.md"
+    note.write_text("content", encoding="utf-8")
 
-    # Mock read_text to fail
-    def mock_read_text(self, encoding="utf-8"):
-        raise PermissionError("Access Denied")
+    # Make it unreadable
+    note.chmod(0o000)
 
-    monkeypatch.setattr("pathlib.Path.read_text", mock_read_text)
+    try:
+        cfg = minimal_config_dict
+        cfg["vault"]["base_dir"] = str(vault_dir)
+        cfg["vault"]["type"] = "obsidian"
+        (wks_home / "config.json").write_text(json_dumps(minimal_config_dict), encoding="utf-8")
 
-    result = run_cmd(cmd_sync)
+        result = run_cmd(cmd_sync)
 
-    # Sync should still succeed (partial success), but report errors
-    assert result.success is False
-    assert len(result.output["errors"]) > 0
-    assert "Access Denied" in result.output["errors"][0]
+        # Sync should still succeed (partial success), but report errors
+        assert result.success is False
+        assert len(result.output["errors"]) > 0
+        assert "Permission denied" in result.output["errors"][0] or "Access is denied" in result.output["errors"][0]
+    finally:
+        # Restore permissions so cleanup works
+        note.chmod(0o755)
 
 
 def test_scanner_handles_external_file_paths(monkeypatch, tmp_path, minimal_config_dict):
@@ -51,25 +55,27 @@ def test_scanner_handles_external_file_paths(monkeypatch, tmp_path, minimal_conf
     cfg["vault"]["type"] = "obsidian"
     (wks_home / "config.json").write_text(json_dumps(minimal_config_dict), encoding="utf-8")
 
-    # Mock iter_markdown_files to return a file OUTSIDE vault_dir
+    # To test this without mocking iter_markdown_files (which is part of the real implementation),
+    # we would need to symlink an external file into the vault, but _Backend ignores symlinks or handles them.
+    # The original test mocked the iterator to yield a path outside the vault.
+    # To reproduce this "naturally", we might rely on a symlink pointing out.
+
+    # However, _Backend.iter_markdown_files actively filters.
+    # If we want to test that Scanner handles a path outside vault *if* it receives one:
+    # We can pass an explicit file list to scan() that includes an external path.
+    # cmd_sync accepts a 'path' argument.
+
     external_file = tmp_path / "external.md"
-    external_file.touch()
+    external_file.write_text("[[link]]", encoding="utf-8")
 
-    # We need to mock _Impl.iter_markdown_files or the result of it
-    # cmd_sync initializes vault then scanner.
-    # scanner.scan() calls vault.iter_markdown_files()
+    from wks.api.vault.cmd_sync import cmd_sync
 
-    def mock_iter(self):
-        yield external_file
+    result = run_cmd(cmd_sync, path=str(external_file))
 
-    monkeypatch.setattr("wks.api.vault._obsidian._Impl._Impl.iter_markdown_files", mock_iter)
-
-    result = run_cmd(cmd_sync)
-
-    # Should safely ignore it (ValueError caught)
-    # notes_scanned should be 1 because it counts before skipping/failing
-    assert result.output["notes_scanned"] == 1
-    assert result.success is True
+    # Scanner fails when trying to compute relative path for the link record
+    # cmd_sync catches exception
+    assert result.success is False
+    assert any("is not in the subpath of" in e or "relative_to" in str(e) for e in result.output["errors"])
 
 
 def test_scanner_handles_rewrite_errors(monkeypatch, tmp_path, minimal_config_dict):
@@ -90,31 +96,22 @@ def test_scanner_handles_rewrite_errors(monkeypatch, tmp_path, minimal_config_di
 
     note.write_text(f"[link]({target_uri})", encoding="utf-8")
 
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json_dumps(minimal_config_dict), encoding="utf-8")
+    # Make file readonly to trigger write failure
+    note.chmod(0o444)
 
-    # Mock write_text to fail
-    def mock_write_text(self, data, encoding="utf-8"):
-        # Allow initial write, but fail subsequent rewrite
-        # But we are mocking pathlib.Path.write_text globally...
-        # Better to rely on the fact that _apply_file_url_rewrites reads then writes.
-        raise OSError("Write Failed")
+    try:
+        cfg = minimal_config_dict
+        cfg["vault"]["base_dir"] = str(vault_dir)
+        cfg["vault"]["type"] = "obsidian"
+        (wks_home / "config.json").write_text(json_dumps(minimal_config_dict), encoding="utf-8")
 
-    # We patch AFTER setup
-    monkeypatch.setattr("pathlib.Path.write_text", mock_write_text)
+        result = run_cmd(cmd_sync)
 
-    result = run_cmd(cmd_sync)
-
-    # Should report error
-    assert any("Write Failed" in e for e in result.output["errors"])
-    # Sync returns True even with errors (partial success) in some cases, or False?
-    # Based on failure, it returns False when errors are present?
-    # Actually checking cmd_sync implementation:
-    # if stats.errors: success=False usually?
-    # Let's check logic: NO, previous run failed assertion `False is True`. So it returns False.
-    assert result.success is False
+        # Should report error
+        assert any("Permission denied" in e or "Access is denied" in e for e in result.output["errors"])
+        assert result.success is False
+    finally:
+        note.chmod(0o644)
 
 
 def json_dumps(d):

@@ -1,7 +1,5 @@
 """Database public API coverage with mongomock backend (no mocks)."""
 
-import builtins
-from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -31,7 +29,9 @@ def test_database_context_and_operations():
         # find_one must respect filter and projection
         projected = db.find_one({"path": "/a"}, projection={"_id": 0, "path": 1})
         assert projected == {"path": "/a"}
-        assert db.find_one({"path": "/b"})["value"] == 9
+        res = db.find_one({"path": "/b"})
+        assert res is not None
+        assert res["value"] == 9
         assert db.find_one({"path": "/missing"}) is None
 
         db.update_many({"path": "/a"}, {"$set": {"value": 2}})
@@ -101,37 +101,34 @@ def test_database_get_database_default_and_override():
         assert other_db.name == "other"
 
 
-def test_database_exit_passes_exception_info_to_impl(monkeypatch) -> None:
+def test_database_exit_passes_exception_info_to_impl() -> None:
     """Ensure Database.__exit__ forwards exc_type/exc_val/exc_tb to the backend impl."""
-    cfg = _db_config()
-    seen: dict[str, object] = {}
 
-    class FakeImpl:
-        def __init__(self, database_config, database_name, collection_name):
-            pass
+    class SpyBackend:
+        def __init__(self):
+            self.exit_args = None
 
         def __enter__(self):
             return self
 
         def __exit__(self, exc_type, exc_val, exc_tb):
-            seen["exc_type"] = exc_type
-            seen["exc_val"] = exc_val
-            seen["exc_tb"] = exc_tb
+            self.exit_args = (exc_type, exc_val, exc_tb)
             return False
 
-    real_import = builtins.__import__
+    cfg = _db_config()
 
-    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "wks.api.database._mongomock._Impl":
-            return SimpleNamespace(_Impl=FakeImpl)
-        return real_import(name, globals, locals, fromlist, level)
+    with pytest.raises(ValueError), Database(cfg, "monitor") as db:
+        # Substitute the real backend with a Spy
+        spy_backend = SpyBackend()
+        db._backend = spy_backend  # type: ignore[assignment]
 
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-
-    with pytest.raises(ValueError), Database(cfg, "monitor"):
+        # Trigger exception
         raise ValueError("boom")
 
-    assert seen["exc_type"] is ValueError
-    assert isinstance(seen["exc_val"], ValueError)
-    assert str(seen["exc_val"]) == "boom"
-    assert seen["exc_tb"] is not None
+    # Verify delegation
+    assert spy_backend.exit_args is not None
+    args = spy_backend.exit_args
+    assert args[0] is ValueError
+    assert isinstance(args[1], ValueError)
+    assert str(args[1]) == "boom"
+    assert args[2] is not None

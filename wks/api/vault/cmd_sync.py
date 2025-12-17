@@ -11,8 +11,8 @@ from typing import Any
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..utils._write_status_file import write_status_file
 from . import VaultSyncOutput
-from ._write_status_file import write_status_file
 
 
 def cmd_sync(path: str | None = None) -> StageResult:
@@ -143,7 +143,7 @@ def cmd_sync(path: str | None = None) -> StageResult:
                         "edges_deleted": deleted,
                         "success": len(stats.errors) == 0,
                     }
-                    write_status_file(status, wks_home=wks_home)
+                    write_status_file(status, wks_home=wks_home, filename="vault.json")
 
                 except Exception as e:
                     # Inner exception (scanning/syncing)

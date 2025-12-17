@@ -26,10 +26,10 @@ The `VaultConfig` model defines the configuration schema. It requires a `type` f
 ```
 
 ### Backend Implementations
-Backends are located in subpackages (e.g., `_obsidian`). Each backend must implement the `_AbstractImpl` interface (formerly `_AbstractVault`).
+Backends are located in subpackages (e.g., `_obsidian`). Each backend must implement the `_AbstractBackend` interface.
 
-- **_AbstractImpl.py**: Defines the contract for vault backends.
-- **_obsidian/_Impl.py**: Concrete implementation for Obsidian vaults.
+- **_AbstractBackend.py**: Defines the contract for vault backends.
+- **_obsidian/_Backend.py**: Concrete implementation for Obsidian vaults.
 
 ### Registry
 The `VaultConfig._BACKEND_REGISTRY` maps backend type strings (e.g., "obsidian") to their module paths. This allows for dynamic loading of implementations.

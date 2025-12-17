@@ -1,4 +1,4 @@
-"""Write vault status to vault.json (UNO: single function)."""
+"""Write status to a JSON file (UNO: single function)."""
 
 import json
 import tempfile
@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any
 
 
-def write_status_file(status: dict[str, Any], *, wks_home: Path) -> None:
-    """Write vault status to {WKS_HOME}/vault.json."""
-    path = wks_home / "vault.json"
+def write_status_file(status: dict[str, Any], *, wks_home: Path, filename: str) -> None:
+    """Write status to {WKS_HOME}/{filename}."""
+    path = wks_home / filename
     path.parent.mkdir(parents=True, exist_ok=True)
 
     # Write via NamedTemporaryFile in target directory to avoid cross-device issues
@@ -18,7 +18,7 @@ def write_status_file(status: dict[str, Any], *, wks_home: Path) -> None:
         encoding="utf-8",
         dir=path.parent,
         delete=False,
-        prefix="vault.",
+        prefix=f"{filename}.",
         suffix=".tmp",
     ) as fh:
         tmp_path = Path(fh.name)

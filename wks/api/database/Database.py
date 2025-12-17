@@ -1,21 +1,27 @@
 """Database public API."""
 
-from typing import Any
+from typing import Any, Literal
 
-from ._AbstractImpl import _AbstractImpl
+from ._AbstractBackend import _AbstractBackend
 from .DatabaseConfig import DatabaseConfig
 
 
-class Database:
-    """Public API for database operations."""
+class Database(_AbstractBackend):
+    """Facade for database operations.
 
-    def __init__(self, database_config: DatabaseConfig, database_name: str):
+    Delegates to a concrete implementation based on configuration.
+    Acts as a Context Manager to ensure proper resource handling.
+    """
+
+    def __init__(self, database_config: DatabaseConfig, database_name: str | None = None):
         self.database_config = database_config
         self.prefix = database_config.prefix
-        self.database_name = database_name
-        self._impl: _AbstractImpl | None = None
+        # Allow overriding database name (for tests or multi-tenant scenarios)
+        self.name = database_name or self.prefix
+        self.type = database_config.type
+        self._backend: _AbstractBackend | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "Database":
         backend_type = self.database_config.type
 
         # Validate backend type using DatabaseConfig registry (single source of truth)
@@ -25,29 +31,32 @@ class Database:
         if backend_type not in backend_registry:
             raise ValueError(f"Unsupported backend type: {backend_type!r} (supported: {list(backend_registry.keys())})")
 
-        # Import database implementation class directly from backend _Impl module
-        module = __import__(f"wks.api.database._{backend_type}._Impl", fromlist=[""])
-        impl_class = module._Impl
-        # _Impl expects: (database_config, database_name, collection_name)
-        # database_name = MongoDB database name (prefix)
-        # collection_name = MongoDB collection name (our database_name)
-        self._impl = impl_class(self.database_config, self.prefix, self.database_name)
-        self._impl.__enter__()
+        # Import backend implementation class directly from backend _Backend module
+        # Pattern: wks.api.database._mongo._Backend
+        module = __import__(f"wks.api.database._{backend_type}._Backend", fromlist=[""])
+        backend_class = module._Backend
+
+        # Instantiate backend
+        # Note: Backends expect the *entire* config object plus the specific database name to use
+        # mongo backend expects: (config, database_name, collection_name)
+        self._backend = backend_class(self.database_config, self.database_config.prefix, self.name)
+        self._backend.__enter__()  # Enter the backend context
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._impl:
-            return self._impl.__exit__(exc_type, exc_val, exc_tb)
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
+        if self._backend:
+            self._backend.__exit__(exc_type, exc_val, exc_tb)
+        self._backend = None
         return False
 
     def count_documents(self, filter: dict[str, Any] | None = None) -> int:
-        return self._impl.count_documents(filter)  # type: ignore[union-attr]
+        return self._backend.count_documents(filter)  # type: ignore[union-attr]
 
     def find_one(self, filter: dict[str, Any], projection: dict[str, Any] | None = None) -> dict[str, Any] | None:
-        return self._impl.find_one(filter, projection)  # type: ignore[union-attr]
+        return self._backend.find_one(filter, projection)  # type: ignore[union-attr]
 
     def update_one(self, filter: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> None:
-        self._impl.update_one(filter, update, upsert)  # type: ignore[union-attr]
+        self._backend.update_one(filter, update, upsert)  # type: ignore[union-attr]
 
     def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
         """Update multiple documents matching the filter.
@@ -55,13 +64,13 @@ class Database:
         Returns:
             Number of documents modified
         """
-        return self._impl.update_many(filter, update)  # type: ignore[union-attr]
+        return self._backend.update_many(filter, update)  # type: ignore[union-attr]
 
     def delete_many(self, filter: dict[str, Any]) -> int:
-        return self._impl.delete_many(filter)  # type: ignore[union-attr]
+        return self._backend.delete_many(filter)  # type: ignore[union-attr]
 
     def find(self, filter: dict[str, Any] | None = None, projection: dict[str, Any] | None = None) -> Any:
-        return self._impl.find(filter, projection)  # type: ignore[union-attr]
+        return self._backend.find(filter, projection)  # type: ignore[union-attr]
 
     @classmethod
     def list_databases(cls, database_config: DatabaseConfig) -> list[str]:
@@ -130,13 +139,13 @@ class Database:
 
     def get_client(self) -> Any:
         """Get the underlying database client (for code that needs direct access)."""
-        if not self._impl:
+        if not self._backend:
             raise RuntimeError("Collection not initialized. Use as context manager first.")
-        return self._impl._client  # type: ignore[attr-defined]
+        return self._backend._client  # type: ignore[attr-defined]
 
     def get_database(self, database_name: str | None = None) -> Any:
         """Get the underlying database object (for code that needs direct access)."""
-        if not self._impl:
+        if not self._backend:
             raise RuntimeError("Collection not initialized. Use as context manager first.")
         database_prefix = database_name or self.prefix
-        return self._impl._client[database_prefix]  # type: ignore[attr-defined]
+        return self._backend._client[database_prefix]  # type: ignore[attr-defined]

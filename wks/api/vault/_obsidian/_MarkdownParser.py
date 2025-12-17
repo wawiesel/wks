@@ -24,6 +24,7 @@ class WikiLink:
     """A parsed wiki link from markdown."""
 
     line_number: int
+    column_number: int
     is_embed: bool
     target: str
     alias: str
@@ -51,6 +52,7 @@ class MarkdownURL:
     """A parsed markdown URL from markdown."""
 
     line_number: int
+    column_number: int
     url: str
     text: str
 
@@ -72,6 +74,7 @@ def parse_wikilinks(text: str) -> Iterator[WikiLink]:
             target, alias = WikiLink.split_alias(raw_target)
             yield WikiLink(
                 line_number=line_num,
+                column_number=match.start() + 1,
                 is_embed=is_embed,
                 target=target,
                 alias=alias,
@@ -93,6 +96,7 @@ def parse_markdown_urls(text: str) -> Iterator[MarkdownURL]:
         for match in MARKDOWN_URL_PATTERN.finditer(line):
             yield MarkdownURL(
                 line_number=line_num,
+                column_number=match.start() + 1,
                 url=match.group(2).strip(),
                 text=match.group(1).strip(),
             )

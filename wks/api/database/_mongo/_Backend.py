@@ -10,12 +10,12 @@ from pymongo.collection import Collection
 from pymongo.uri_parser import parse_uri
 
 from ...config.WKSConfig import WKSConfig
-from .._AbstractImpl import _AbstractImpl
+from .._AbstractBackend import _AbstractBackend
 from ..DatabaseConfig import DatabaseConfig
 from ._Data import _Data as _DatabaseConfigData
 
 
-class _Impl(_AbstractImpl):
+class _Backend(_AbstractBackend):
     def __init__(self, database_config: DatabaseConfig, database_name: str, collection_name: str):
         """Initialize MongoDB implementation.
 

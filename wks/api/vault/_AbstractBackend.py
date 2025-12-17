@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 
-class _AbstractImpl(ABC):
+class _AbstractBackend(ABC):
     """Abstract interface for a Vault implementation."""
 
     @property

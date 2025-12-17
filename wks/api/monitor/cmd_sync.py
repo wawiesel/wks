@@ -10,9 +10,9 @@ from pathlib import Path
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..utils._write_status_file import write_status_file
 from . import MonitorSyncOutput
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
-from ._write_status_file import write_status_file
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
 
@@ -189,14 +189,15 @@ def cmd_sync(
         )
 
         # Write status file after sync
-        status = {
+
+        output = {
             "database": database_name,
             "last_sync": datetime.now(timezone.utc).isoformat(),
             "files_synced": files_synced,
             "files_skipped": files_skipped,
             "success": success,
         }
-        write_status_file(status, wks_home=wks_home)
+        write_status_file(output, wks_home=wks_home, filename="monitor.json")
 
     return StageResult(
         announce=f"Syncing {path}...",

@@ -9,8 +9,8 @@ from typing import Any
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..utils._write_status_file import write_status_file
 from . import VaultStatusOutput
-from ._write_status_file import write_status_file
 
 
 def cmd_status() -> StageResult:
@@ -95,7 +95,7 @@ def cmd_status() -> StageResult:
             ).model_dump(mode="python")
 
             # Write status file
-            write_status_file(output, wks_home=wks_home)
+            write_status_file(output, wks_home=wks_home, filename="vault.json")
 
             result_obj.output = output
             result_obj.result = f"Vault status: {total_links} links ({broken_links} broken)"
