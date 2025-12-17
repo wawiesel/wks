@@ -1,0 +1,268 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://wks/specifications/vault_output.schema.json",
+    "title": "WKS Vault Output Schemas",
+    "type": "object",
+    "definitions": {
+        "Base": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "errors",
+                "warnings"
+            ],
+            "additionalProperties": true
+        },
+        "VaultIssue": {
+            "type": "object",
+            "properties": {
+                "note_path": {
+                    "type": "string"
+                },
+                "line_number": {
+                    "type": "integer"
+                },
+                "target_uri": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "note_path",
+                "line_number",
+                "target_uri",
+                "status"
+            ],
+            "additionalProperties": false
+        },
+        "VaultEdge": {
+            "type": "object",
+            "properties": {
+                "from_uri": {
+                    "type": "string"
+                },
+                "to_uri": {
+                    "type": "string"
+                },
+                "line_number": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "from_uri",
+                "to_uri",
+                "line_number",
+                "status"
+            ],
+            "additionalProperties": false
+        },
+        "VaultStatusOutput": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Base"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "total_links": {
+                            "type": "integer"
+                        },
+                        "ok_links": {
+                            "type": "integer"
+                        },
+                        "broken_links": {
+                            "type": "integer"
+                        },
+                        "issues": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VaultIssue"
+                            }
+                        },
+                        "last_sync": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "notes_scanned": {
+                            "type": "integer"
+                        },
+                        "success": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "total_links",
+                        "ok_links",
+                        "broken_links",
+                        "issues",
+                        "last_sync",
+                        "notes_scanned",
+                        "success"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "VaultSyncOutput": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Base"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "notes_scanned": {
+                            "type": "integer"
+                        },
+                        "edges_written": {
+                            "type": "integer"
+                        },
+                        "edges_deleted": {
+                            "type": "integer"
+                        },
+                        "sync_duration_ms": {
+                            "type": "integer"
+                        },
+                        "success": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "notes_scanned",
+                        "edges_written",
+                        "edges_deleted",
+                        "sync_duration_ms",
+                        "success"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "VaultCheckOutput": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Base"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "notes_checked": {
+                            "type": "integer"
+                        },
+                        "links_checked": {
+                            "type": "integer"
+                        },
+                        "broken_count": {
+                            "type": "integer"
+                        },
+                        "issues": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VaultIssue"
+                            }
+                        },
+                        "is_valid": {
+                            "type": "boolean"
+                        },
+                        "success": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "path",
+                        "notes_checked",
+                        "links_checked",
+                        "broken_count",
+                        "issues",
+                        "is_valid",
+                        "success"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "VaultLinksOutput": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Base"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string"
+                        },
+                        "direction": {
+                            "type": "string",
+                            "enum": [
+                                "to",
+                                "from",
+                                "both"
+                            ]
+                        },
+                        "edges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VaultEdge"
+                            }
+                        },
+                        "count": {
+                            "type": "integer"
+                        },
+                        "success": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "path",
+                        "direction",
+                        "edges",
+                        "count",
+                        "success"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        }
+    },
+    "oneOf": [
+        {
+            "$ref": "#/definitions/VaultStatusOutput"
+        },
+        {
+            "$ref": "#/definitions/VaultSyncOutput"
+        },
+        {
+            "$ref": "#/definitions/VaultCheckOutput"
+        },
+        {
+            "$ref": "#/definitions/VaultLinksOutput"
+        }
+    ]
+}

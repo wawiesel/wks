@@ -15,6 +15,7 @@ from wks.cli.database import db_app
 from wks.cli.mcp import mcp_app
 from wks.cli.monitor import monitor_app
 from wks.cli.service import service_app
+from wks.cli.vault import vault_app
 
 # TODO: Create wks/api/diff/app.py
 # from wks.api.diff.app import diff_app
@@ -31,7 +32,7 @@ app = typer.Typer(
 
 # Register all domain apps
 app.add_typer(monitor_app, name="monitor")
-# app.add_typer(vault_app, name="vault")
+app.add_typer(vault_app, name="vault")
 # app.add_typer(transform_app, name="transform")
 # app.add_typer(diff_app, name="diff")
 app.add_typer(daemon_app, name="daemon")

@@ -1,34 +1,20 @@
-"""Vault integration entry points."""
-
-from __future__ import annotations
+"""Vault API module."""
 
 from pathlib import Path
 from typing import Any
 
-from ...utils import expand_path
+from pydantic import BaseModel
 
-# from ..config import load_config
-from ...utils.constants import WKS_HOME_DISPLAY
+from ...utils import expand_path
+from ..schema_loader import SchemaLoader
 from ._AbstractVault import _AbstractVault
-from .controller import VaultController
 from .obsidian import ObsidianVault
 
-VaultType = _AbstractVault
-
-_VAULT_CLASSES: dict[str, type[_AbstractVault]] = {
-    "obsidian": ObsidianVault,
-}
-
-
-def _resolve_obsidian_settings(cfg: dict[str, Any]) -> dict[str, Any]:
-    """Extract the minimal Obsidian settings required for vault mode."""
-    vault_cfg = cfg.get("vault", {}) or {}
-    base_path = vault_cfg.get("base_dir")
-    if not base_path:
-        raise SystemExit(f"Fatal: 'vault.base_dir' is required in {WKS_HOME_DISPLAY}/config.json")
-    return {
-        "vault_path": expand_path(base_path),
-    }
+_models = SchemaLoader.register_from_schema("vault")
+VaultStatusOutput: type[BaseModel] = _models["VaultStatusOutput"]
+VaultSyncOutput: type[BaseModel] = _models["VaultSyncOutput"]
+VaultCheckOutput: type[BaseModel] = _models["VaultCheckOutput"]
+VaultLinksOutput: type[BaseModel] = _models["VaultLinksOutput"]
 
 
 def load_vault(cfg: dict[str, Any] | None = None) -> _AbstractVault:
@@ -37,17 +23,25 @@ def load_vault(cfg: dict[str, Any] | None = None) -> _AbstractVault:
         from ..config.WKSConfig import WKSConfig
 
         cfg = WKSConfig.load().to_dict()
-    # cfg = cfg or load_config()
+
     vault_cfg = cfg.get("vault", {})
     vault_type = (vault_cfg.get("type") or "obsidian").lower()
-    if vault_type not in _VAULT_CLASSES:
+
+    if vault_type != "obsidian":
         raise SystemExit(f"Fatal: unsupported vault.type '{vault_type}'")
-    if vault_type == "obsidian":
-        settings = _resolve_obsidian_settings(cfg)
-        return ObsidianVault(
-            vault_path=Path(settings["vault_path"]),
-        )
-    raise SystemExit(f"Fatal: unsupported vault.type '{vault_type}'")
+
+    base_path = vault_cfg.get("base_dir")
+    if not base_path:
+        raise SystemExit("Fatal: 'vault.base_dir' is required in config")
+
+    return ObsidianVault(vault_path=Path(expand_path(base_path)))
 
 
-__all__ = ["ObsidianVault", "VaultController", "load_vault"]
+__all__ = [
+    "ObsidianVault",
+    "VaultCheckOutput",
+    "VaultLinksOutput",
+    "VaultStatusOutput",
+    "VaultSyncOutput",
+    "load_vault",
+]
