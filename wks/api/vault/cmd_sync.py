@@ -22,8 +22,8 @@ def cmd_sync(path: str | None = None) -> StageResult:
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ...utils import expand_path
         from ..config.WKSConfig import WKSConfig
-        from .indexer import VaultLinkIndexer
-        from .obsidian import ObsidianVault
+        from ._obsidian._Impl import _Impl as ObsidianVault
+        from ._obsidian._Indexer import _Indexer
 
         yield (0.1, "Loading configuration...")
         try:
@@ -48,7 +48,7 @@ def cmd_sync(path: str | None = None) -> StageResult:
         yield (0.2, "Initializing vault...")
         try:
             vault = ObsidianVault(expand_path(base_dir))
-            indexer = VaultLinkIndexer.from_config(vault, config)
+            indexer = _Indexer.from_config(vault, config)
         except Exception as e:
             result_obj.output = VaultSyncOutput(
                 errors=[f"Failed to initialize vault: {e}"],

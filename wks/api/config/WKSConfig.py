@@ -12,7 +12,7 @@ from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
-from ..vault.config import VaultConfig
+from ..vault.VaultConfig import VaultConfig
 
 
 class WKSConfig(BaseModel):

@@ -11,10 +11,10 @@ import platform
 from collections.abc import Iterator
 from pathlib import Path
 
-from ._AbstractVault import _AbstractVault
+from .._AbstractVault import _AbstractVault
 
 
-class ObsidianVault(_AbstractVault):
+class _Impl(_AbstractVault):
     """Obsidian vault implementation for link maintenance."""
 
     def __init__(self, vault_path: Path, *, machine_name: str | None = None):

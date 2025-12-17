@@ -22,9 +22,9 @@ def cmd_check(path: str | None = None) -> StageResult:
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ...utils import expand_path
         from ..config.WKSConfig import WKSConfig
-        from .constants import STATUS_OK
-        from .indexer import VaultLinkScanner
-        from .obsidian import ObsidianVault
+        from ._constants import STATUS_OK
+        from ._obsidian._Impl import _Impl as ObsidianVault
+        from ._obsidian._Scanner import _Scanner
 
         yield (0.1, "Loading configuration...")
         try:
@@ -51,7 +51,7 @@ def cmd_check(path: str | None = None) -> StageResult:
         yield (0.2, "Initializing vault...")
         try:
             vault = ObsidianVault(expand_path(base_dir))
-            scanner = VaultLinkScanner(vault)
+            scanner = _Scanner(vault)
         except Exception as e:
             result_obj.output = VaultCheckOutput(
                 errors=[f"Failed to initialize vault: {e}"],

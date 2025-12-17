@@ -24,7 +24,7 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
 
         from ..config.WKSConfig import WKSConfig
         from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
-        from .constants import DOC_TYPE_LINK
+        from ._constants import DOC_TYPE_LINK
 
         yield (0.1, "Loading configuration...")
         try:

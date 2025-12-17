@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from ...utils import expand_path
 from ..schema_loader import SchemaLoader
 from ._AbstractVault import _AbstractVault
-from .obsidian import ObsidianVault
+from ._obsidian._Impl import _Impl as ObsidianVault
 
 _models = SchemaLoader.register_from_schema("vault")
 VaultStatusOutput: type[BaseModel] = _models["VaultStatusOutput"]
