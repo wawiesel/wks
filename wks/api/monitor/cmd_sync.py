@@ -123,7 +123,7 @@ def cmd_sync(
                         )
 
                         # Skip files below min_priority
-                        if priority < monitor_cfg.sync.min_priority:
+                        if priority < monitor_cfg.min_priority:
                             files_skipped += 1
                             yield (
                                 0.4 + (i / max(len(files_to_process), 1)) * 0.5,
@@ -162,7 +162,7 @@ def cmd_sync(
                         )
             finally:
                 yield (0.9, "Enforcing database limits...")
-                _enforce_monitor_db_limit(database, monitor_cfg.sync.max_documents, monitor_cfg.sync.min_priority)
+                _enforce_monitor_db_limit(database, monitor_cfg.max_documents, monitor_cfg.min_priority)
 
         success = len(errors) == 0
         result_msg = (

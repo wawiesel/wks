@@ -34,11 +34,8 @@ def test_matches_glob_empty_pattern(tmp_path):
                     },
                 },
                 "database": "monitor",
-                "sync": {
-                    "max_documents": 1000000,
-                    "min_priority": 0.0,
-                    "prune_interval_secs": 300.0,
-                },
+                "max_documents": 1000000,
+                "min_priority": 0.0,
             }
         }
     )

@@ -145,6 +145,30 @@ def test_cmd_example_success(wks_home_with_config):
 
 ## Progress Notes
 
+### Session: 2025-12-16
+
+**Goal**: Re-enable the vault domain
+
+**Context:**
+The vault code exists at `wks/api/vault/` but needs to be brought up to current standards:
+- Align with the schema-driven pattern used by config, database, monitor, and daemon domains
+- Create `vault_output.schema.json` as the normative schema
+- Implement MCP tools: `wksm_vault_status`, `wksm_vault_sync`, `wksm_vault_links`, `wksm_vault_validate`, `wksm_vault_fix_symlinks`
+- Add CLI commands that wrap MCP tools
+- Ensure 100% test coverage
+
+**Action Items:**
+- [ ] Review existing vault code (`wks/api/vault/`) to understand current state
+- [ ] Create `docs/specifications/vault_output.schema.json`
+- [ ] Update vault commands to use the `StageResult` pattern
+- [ ] Register vault output schema via `register_from_schema()`
+- [ ] Add vault CLI commands under `wks/cli/vault.py`
+- [ ] Add MCP tools for vault operations
+- [ ] Write unit tests for all vault commands
+- [ ] Verify all tests pass with 100% coverage
+
+---
+
 ### Session: 2025-12-15
 
 **What was accomplished:**
