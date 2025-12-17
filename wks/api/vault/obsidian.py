@@ -16,34 +16,41 @@ from pathlib import Path
 
 # from ..config import WKSConfig
 from ...utils.constants import DEFAULT_TIMESTAMP_FORMAT
+from ._AbstractVault import _AbstractVault
 
 
-class ObsidianVault:
+class ObsidianVault(_AbstractVault):
     """Minimal interface to an Obsidian vault for link maintenance."""
 
-    def __init__(self, vault_path: Path, *, base_dir: str, machine_name: str | None = None):
-        self.vault_path = Path(vault_path)
-        if not base_dir or not str(base_dir).strip():
-            raise ValueError("vault.wks_dir is required in configuration")
-        self.base_dir = str(base_dir).strip().strip("/")
+    def __init__(self, vault_path: Path, *, base_dir: str = "WKS", machine_name: str | None = None):
+        self._vault_path = Path(vault_path)
+        self.base_dir = str(base_dir).strip().strip("/") if base_dir else "WKS"
         self.machine = (machine_name or platform.node().split(".")[0]).strip()
         self._recompute_paths()
         self.timestamp_format = DEFAULT_TIMESTAMP_FORMAT
 
     # ------------------------------------------------------------------ helpers
 
+    @property
+    def vault_path(self) -> Path:
+        return self._vault_path
+
+    @property
+    def links_dir(self) -> Path:
+        return self._links_dir
+
     def _base_path(self) -> Path:
-        return self.vault_path / self.base_dir
+        return self._vault_path / self.base_dir
 
     def _recompute_paths(self) -> None:
         base = self._base_path()
-        self.links_dir = self.vault_path / "_links"
-        self.projects_dir = self.vault_path / "Projects"
-        self.people_dir = self.vault_path / "People"
-        self.topics_dir = self.vault_path / "Topics"
-        self.ideas_dir = self.vault_path / "Ideas"
-        self.orgs_dir = self.vault_path / "Organizations"
-        self.records_dir = self.vault_path / "Records"
+        self._links_dir = self._vault_path / "_links"
+        self.projects_dir = self._vault_path / "Projects"
+        self.people_dir = self._vault_path / "People"
+        self.topics_dir = self._vault_path / "Topics"
+        self.ideas_dir = self._vault_path / "Ideas"
+        self.orgs_dir = self._vault_path / "Organizations"
+        self.records_dir = self._vault_path / "Records"
         self.docs_dir = base / "Docs"
 
     def set_base_dir(self, base_dir: str) -> None:
@@ -54,7 +61,7 @@ class ObsidianVault:
         """Create the base directories that the daemon expects."""
         self._base_path().mkdir(parents=True, exist_ok=True)
         for directory in [
-            self.links_dir,
+            self._links_dir,
             self.projects_dir,
             self.people_dir,
             self.topics_dir,
@@ -84,11 +91,11 @@ class ObsidianVault:
         if preserve_structure:
             try:
                 relative = source_file.resolve().relative_to(Path("/"))
-                link_path = self.links_dir / self.machine / relative
+                link_path = self._links_dir / self.machine / relative
             except ValueError:
-                link_path = self.links_dir / self.machine / source_file.name
+                link_path = self._links_dir / self.machine / source_file.name
         else:
-            link_path = self.links_dir / self.machine / source_file.name
+            link_path = self._links_dir / self.machine / source_file.name
 
         link_path.parent.mkdir(parents=True, exist_ok=True)
         if not link_path.exists():
@@ -102,7 +109,7 @@ class ObsidianVault:
         except (ValueError, OSError):
             # Path not relative to home or resolution failed
             return
-        old_link = self.links_dir / relative_old
+        old_link = self._links_dir / relative_old
         if old_link.exists() and old_link.is_symlink():
             try:
                 old_link.unlink()
@@ -112,10 +119,10 @@ class ObsidianVault:
             self.link_file(new_path)
 
     def _iter_vault_markdown(self) -> Iterator[Path]:
-        for md in self.vault_path.rglob("*.md"):
+        for md in self._vault_path.rglob("*.md"):
             # Skip root-level _links/ directory (symlinked external files)
             try:
-                rel_to_vault = md.relative_to(self.vault_path)
+                rel_to_vault = md.relative_to(self._vault_path)
                 if rel_to_vault.parts[0] == "_links":
                     continue
             except (ValueError, IndexError):
@@ -263,7 +270,7 @@ class ObsidianVault:
 
     def find_broken_links(self) -> list[Path]:
         broken = []
-        for link in self.links_dir.rglob("*"):
+        for link in self._links_dir.rglob("*"):
             if link.is_symlink() and not link.exists():
                 broken.append(link)
         return broken

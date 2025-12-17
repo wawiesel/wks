@@ -19,6 +19,7 @@ from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
 
 from ..config.WKSConfig import WKSConfig
+from ._AbstractVault import _AbstractVault
 from .constants import (
     DOC_TYPE_LINK,
     DOC_TYPE_META,
@@ -31,7 +32,6 @@ from .constants import (
 )
 from .link_resolver import LinkResolver
 from .markdown_parser import extract_headings, parse_markdown_urls, parse_wikilinks
-from .obsidian import ObsidianVault
 
 __all__ = [
     "VaultEdgeRecord",
@@ -134,7 +134,7 @@ class VaultSyncResult:
 class VaultLinkScanner:
     """Parse Obsidian markdown for wiki links and URLs."""
 
-    def __init__(self, vault: ObsidianVault):
+    def __init__(self, vault: _AbstractVault):
         self.vault = vault
         self.link_resolver = LinkResolver(vault.links_dir)
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []  # (note_path, line_num, old_link, new_link)
@@ -417,7 +417,7 @@ class VaultLinkIndexer:
 
     def __init__(
         self,
-        vault: ObsidianVault,
+        vault: _AbstractVault,
         *,
         mongo_uri: str,
         db_name: str,
@@ -449,7 +449,7 @@ class VaultLinkIndexer:
             client.close()
 
     @classmethod
-    def from_config(cls, vault: ObsidianVault, cfg: Any | None = None) -> VaultLinkIndexer:
+    def from_config(cls, vault: _AbstractVault, cfg: Any | None = None) -> VaultLinkIndexer:
         if cfg is None:
             config = WKSConfig.load()
         elif isinstance(cfg, dict):

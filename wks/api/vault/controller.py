@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ._AbstractVault import _AbstractVault
 from .obsidian import ObsidianVault
 
 
@@ -21,11 +22,11 @@ class SymlinkFixResult:
 class VaultController:
     """Business logic for vault operations."""
 
-    def __init__(self, vault: ObsidianVault, machine_name: str | None = None):
+    def __init__(self, vault: _AbstractVault, machine_name: str | None = None):
         """Initialize vault controller.
 
         Args:
-            vault: ObsidianVault instance
+            vault: _AbstractVault instance
             machine_name: Machine name for symlink paths (defaults to platform.node())
         """
         self.vault = vault
@@ -226,11 +227,10 @@ class VaultController:
 
         config: Any = WKSConfig.load()
         base_dir = config.vault.base_dir
-        wks_dir = config.vault.wks_dir
         if not base_dir:
             raise ValueError("vault.base_dir not configured")
 
-        vault = ObsidianVault(expand_path(base_dir), base_dir=wks_dir)
+        vault = ObsidianVault(expand_path(base_dir))
         indexer = VaultLinkIndexer.from_config(vault, config)
         result = indexer.sync(batch_size=batch_size, incremental=incremental)
 

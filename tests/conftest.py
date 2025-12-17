@@ -94,6 +94,11 @@ def minimal_config_dict() -> dict:
         "daemon": {
             "sync_interval_secs": 0.1,
         },
+        "vault": {
+            "type": "obsidian",
+            "base_dir": "~/_vault",
+            "database": "vault",
+        },
     }
 
 
