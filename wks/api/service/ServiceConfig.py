@@ -21,13 +21,6 @@ class ServiceConfig(BaseModel):
 
     type: str = Field(..., description="Platform/service manager type")
     data: BaseModel = Field(..., description="Platform-specific configuration data")
-    sync_interval_secs: float = Field(
-        ...,
-        gt=0,
-        description=(
-            "How long (in seconds) the daemon accumulates filesystem events before syncing them to the monitor database"
-        ),
-    )
 
     @model_validator(mode="before")
     @classmethod

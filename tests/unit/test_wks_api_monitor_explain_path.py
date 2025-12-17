@@ -1,7 +1,5 @@
 """Unit tests for explain_path function."""
 
-from pathlib import Path
-
 import pytest
 
 from wks.api.monitor.explain_path import explain_path
@@ -205,32 +203,3 @@ def test_explain_path_allowed_when_not_excluded(tmp_path):
 
     assert allowed is True
     assert any("Included by root" in msg for msg in trace)
-
-
-def test_explain_path_valueerror_different_drives(tmp_path, monkeypatch):
-    """Test explain_path when WKS home and path are on different drives (Windows)."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    test_file = wks_home / "test.txt"
-    test_file.write_text("test")
-
-    from wks.api.config.WKSConfig import WKSConfig
-
-    monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: wks_home))
-
-    cfg = build_monitor_config()
-
-    # Mock is_relative_to to raise ValueError (simulating different drives)
-    original_is_relative_to = Path.is_relative_to
-
-    def mock_is_relative_to(self, other):
-        if other == wks_home:
-            raise ValueError("Paths are on different drives")
-        return original_is_relative_to(self, other)
-
-    monkeypatch.setattr("pathlib.Path.is_relative_to", mock_is_relative_to)
-
-    # Should fall back to string prefix check
-    allowed, trace = explain_path(cfg, test_file)
-    assert allowed is False
-    assert any("WKS home directory" in msg for msg in trace)

@@ -11,6 +11,12 @@ Filesystem monitoring: check/sync/status, manage filters and priorities, with co
 - Canonical output schema: `docs/specifications/monitor_output.schema.json`.
 - Implementations MUST validate outputs against this schema; unknown fields are rejected.
 
+## Path Resolution & Filtering
+- **Symlink Handling**: Monitor filters MUST evaluate paths using their **unresolved absolute path** (e.g., `path.expanduser().absolute()`).
+  - This allows monitoring symbolic links that point to locations outside the `include_paths` roots (the link itself is inside, so it is monitored).
+  - This ensures that internal WKS directories (`~/.wks`) are strictly excluded based on their logical location, avoiding infinite feedback loops even if they contain symlinks to monitored areas.
+- **WKS_HOME Exclusion**: The WKS home directory (default `~/.wks`) MUST be automatically excluded from monitoring to prevent feedback loops. This check MUST be performed against the unresolved absolute path.
+
 ## CLI
 
 - Entry: `wksc monitor`

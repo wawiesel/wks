@@ -13,6 +13,8 @@ from typing import Any
 
 from watchdog.observers import Observer
 
+from ..config.WKSConfig import WKSConfig
+from ..monitor.explain_path import explain_path
 from ._EventHandler import _EventHandler
 from ._extract_log_messages import extract_log_messages
 from ._write_status_file import write_status_file
@@ -44,6 +46,14 @@ def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
             log_fn(f"WARN: {msg}")
         for msg in errs:
             log_fn(f"ERROR: {msg}")
+    except RuntimeError as exc:
+        # If it's the "mongod binary not found" error, log it as FATAL once and re-raise/stop?
+        # Actually, if we are in _sync_path_static, we are inside the loop.
+        # But we added a pre-flight check, so this should not happen often.
+        if "mongod binary not found" in str(exc):
+            log_fn(f"ERROR: Database binary missing during sync: {exc}")
+        else:
+            log_fn(f"ERROR: sync failed for {path}: {exc}")
     except Exception as exc:  # pragma: no cover - defensive logging
         log_fn(f"ERROR: sync failed for {path}: {exc}")
 
@@ -57,6 +67,22 @@ def _child_main(
     status_path: str,
     lock_path: str,
 ) -> None:
+    # Load monitor config for filtering
+    try:
+        wks_config = WKSConfig.load()
+        monitor_cfg = wks_config.monitor
+        home_debug = str(WKSConfig.get_home_dir())
+    except Exception as exc:
+        # Fallback if config fails load in child
+        # We must log this because it disables filtering!
+        monitor_cfg = None
+        home_debug = "UNKNOWN"
+        # We can't use append_log yet because log_file isn't set up until below.
+        # So we'll store the error and log it after setup.
+        startup_error: str | None = f"ERROR: Failed to load monitor config in child: {exc}"
+    else:
+        startup_error = None
+
     # Detach child stdio to avoid blocking or noisy output
     try:
         devnull = Path(os.devnull).open("w")  # noqa: SIM115
@@ -74,6 +100,39 @@ def _child_main(
         _append_log_file(log_file, message)
 
     stop_flag = False
+
+    if startup_error:
+        append_log(startup_error)
+    else:
+        append_log(f"DEBUG: Daemon WKS_HOME={home_debug} (config loaded)")
+
+    # Pre-flight check: Ensure database is accessible/startable
+    # This prevents the daemon from entering a crash loop if mongod is missing.
+    if not startup_error:
+        try:
+            from ..database.Database import Database
+
+            # Attempt a quick connection/start
+            # We use a zero-timeout or very short timeout check if possible,
+            # but Database init with local=True triggers _ensure_local_mongod which checks binary
+            assert monitor_cfg is not None
+            with Database(wks_config.database, monitor_cfg.database) as db:
+                db.get_client().server_info()
+        except Exception as exc:
+            append_log(f"FATAL: Database initialization failed: {exc}")
+            # Write error status and exit
+            status = {
+                "errors": [f"Database initialization failed: {exc}"],
+                "warnings": [],
+                "running": False,
+                "pid": None,
+                "restrict_dir": restrict_val,
+                "log_path": str(log_file),
+                "lock_path": lock_path,
+                "last_sync": None,
+            }
+            write_status_file(status, wks_home=Path(home_dir))
+            return
 
     def handle_sigterm(_signum, _frame):
         nonlocal stop_flag
@@ -97,13 +156,17 @@ def _child_main(
 
     def write_status(running: bool) -> None:
         warnings_log, errors_log = extract_log_messages(log_file) if log_file else ([], [])
+        import datetime
+
         status = {
             "errors": errors_log,
             "warnings": warnings_log,
             "running": running,
-            "pid": os.getpid(),
+            "pid": os.getpid() if running else None,
             "restrict_dir": restrict_val,
             "log_path": str(log_file),
+            "lock_path": lock_path,
+            "last_sync": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         write_status_file(status, wks_home=Path(home_dir))
 
@@ -130,16 +193,26 @@ def _child_main(
         to_delete: set[Path] = set()
         to_sync: set[Path] = set()
         for p_path in filtered_modified + filtered_created:
-            to_sync.add(p_path)
+            if monitor_cfg is None:
+                to_sync.add(p_path)
+            else:
+                allowed, _reason = explain_path(monitor_cfg, p_path)
+                if allowed:
+                    to_sync.add(p_path)
+
         for src_path, dest_path in filtered_moved:
-            if src_path not in ignore_paths:
+            if src_path not in ignore_paths and (monitor_cfg is None or explain_path(monitor_cfg, src_path)[0]):
                 to_delete.add(src_path)
-            if dest_path not in ignore_paths:
+            if dest_path not in ignore_paths and (monitor_cfg is None or explain_path(monitor_cfg, dest_path)[0]):
                 to_sync.add(dest_path)
+
         for p_path in filtered_deleted:
-            to_delete.add(p_path)
+            if monitor_cfg is None or explain_path(monitor_cfg, p_path)[0]:
+                to_delete.add(p_path)
+
         for path in to_delete:
             _sync_path_static(path, log_file, append_log)
+
         for path in to_sync:
             _sync_path_static(path, log_file, append_log)
 
@@ -281,6 +354,56 @@ class Daemon:
             },
         )
 
+    def run_foreground(self, restrict_dir: Path | None = None) -> None:
+        """Run the daemon watcher in the foreground (blocking)."""
+        with self._global_lock:
+            if Daemon._global_instance and Daemon._global_instance._running:
+                raise RuntimeError("Daemon already running")
+
+        self._config = self._load_config()
+        from ..config.WKSConfig import WKSConfig
+
+        home = WKSConfig.get_home_dir()
+        self._log_path = home / "logs" / "daemon.log"
+        self._log_path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_path = home / "daemon.lock"
+        existing_pid = None
+        if self._lock_path.exists():
+            try:
+                existing_pid = int(self._lock_path.read_text().strip())
+                if existing_pid > 0 and self._pid_running(existing_pid):
+                    raise RuntimeError("Daemon already running")
+            except Exception as exc:
+                if isinstance(exc, RuntimeError):
+                    raise
+                existing_pid = None
+
+        watch_paths = self._resolve_watch_paths(restrict_dir)
+        restrict_value = str(restrict_dir) if restrict_dir else ""
+        self._current_restrict = restrict_value
+        status_path = home / "daemon.json"
+
+        # Write lock file with current PID
+        self._pid = os.getpid()
+        self._lock_path.write_text(str(self._pid), encoding="utf-8")
+        self._running = True
+
+        try:
+            _child_main(
+                home_dir=str(home),
+                log_path=str(self._log_path),
+                paths=[str(p) for p in watch_paths],
+                restrict_val=restrict_value,
+                sync_interval=self._config.sync_interval_secs,
+                status_path=str(status_path),
+                lock_path=str(self._lock_path),
+            )
+        finally:
+            self._running = False
+            if self._lock_path.exists():
+                with suppress(Exception):
+                    self._lock_path.unlink()
+
     def stop(self) -> Any:
         """Stop the daemon watcher."""
         from ..config.WKSConfig import WKSConfig
@@ -354,13 +477,17 @@ class Daemon:
         self._current_restrict = restrict_value
         warnings_log, errors_log = extract_log_messages(self._log_path) if self._log_path else ([], [])
         log_path = str(self._log_path) if self._log_path else str(home / "logs" / "daemon.log")
+        import datetime
+
         status = {
             "errors": errors_log,
             "warnings": warnings_log,
             "running": running,
-            "pid": self._pid,
+            "pid": self._pid if running else None,
             "restrict_dir": restrict_value,
             "log_path": log_path,
+            "lock_path": str(self._lock_path) if self._lock_path else str(home / "daemon.lock"),
+            "last_sync": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         write_status_file(status, wks_home=home)
 

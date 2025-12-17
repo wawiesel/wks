@@ -123,7 +123,6 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
         },
         "service": {
             "type": "linux",
-            "sync_interval_secs": 60.0,
             "data": {
                 "unit_name": "wks-test-integration.service",
                 "enabled": False,

@@ -153,7 +153,9 @@ Detailed specifications for each component:
 *   **[Search Layer](search.md)**: Query execution and ranking.
 *   **[Patterns Layer](patterns.md)**: Agentic workflows and automation.
 *   **[Database](database.md)**: Database abstraction and collection operations.
-*   **[Daemon](daemon.md)**: Background service for filesystem monitoring and knowledge graph maintenance.
+
+*   **[Daemon](daemon.md)**: Background runtime that performs the actual filesystem monitoring and knowledge graph maintenance.
+*   **[Service](service.md)**: Platform-specific installation management (install/start/stop) for the daemon.
 *   **[MCP Installation Management](mcp.md)**: Commands for managing WKS MCP server installations across various MCP client applications.
 
 ## Formal Requirements (Global)

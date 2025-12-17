@@ -36,14 +36,20 @@ def cmd_uninstall() -> StageResult:
                 result = service.uninstall_service()
 
             yield (1.0, "Complete")
-            result_obj.result = f"Service uninstalled successfully (label: {result.get('label', 'unknown')})"
+
+            success = result.get("success", False)
+            if success:
+                result_obj.result = f"Service uninstalled successfully (label: {result.get('label', 'unknown')})"
+            else:
+                result_obj.result = result.get("error", "Failed to uninstall service")
+
             result_obj.output = ServiceUninstallOutput(
-                errors=[],
+                errors=[] if success else [result_obj.result],
                 warnings=[],
                 message=result_obj.result,
-                uninstalled=result.get("success", True),
+                uninstalled=success,
             ).model_dump(mode="python")
-            result_obj.success = result.get("success", True)
+            result_obj.success = success
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service uninstallation not supported for backend '{backend_type}'"

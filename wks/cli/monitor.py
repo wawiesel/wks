@@ -11,7 +11,7 @@ from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
 from wks.api.monitor.cmd_priority_show import cmd_priority_show
 from wks.api.monitor.cmd_status import cmd_status
 from wks.api.monitor.cmd_sync import cmd_sync
-from wks.cli.handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import handle_stage_result
 
 monitor_app = typer.Typer(
     name="monitor",

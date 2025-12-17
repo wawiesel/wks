@@ -5,7 +5,7 @@ import typer
 from wks.api.config.cmd_list import cmd_list
 from wks.api.config.cmd_show import cmd_show
 from wks.api.config.cmd_version import cmd_version
-from wks.cli.handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import handle_stage_result
 
 config_app = typer.Typer(
     name="config",

@@ -44,18 +44,18 @@ class _Impl(_AbstractImpl):
         log_file.parent.mkdir(parents=True, exist_ok=True)
         working_directory.mkdir(parents=True, exist_ok=True)
 
-        # Build ExecStart command - run 'wksc daemon start [--restrict-dir PATH]'
-        exec_start = f"{wksc_path} daemon start"
+        # Build ExecStart command - run 'wksc daemon start --blocking [--restrict PATH]'
+        exec_start = f"{wksc_path} daemon start --blocking"
         if restrict_dir is not None:
             restrict_path = str(restrict_dir.expanduser().resolve())
-            exec_start += f" --restrict-dir {restrict_path}"
+            exec_start += f" --restrict {restrict_path}"
 
         unit = f"""[Unit]
 Description=WKS Daemon Service
 After=network.target
 
 [Service]
-Type=forking
+Type=simple
 Environment=WKS_HOME={working_directory}
 ExecStart={exec_start}
 PIDFile={working_directory}/daemon.lock
@@ -144,6 +144,14 @@ WantedBy=default.target
         """Uninstall daemon Linux systemd user service."""
         unit_path = self._get_unit_path(self._data.unit_name)
 
+        if not unit_path.exists():
+            return {
+                "success": False,
+                "type": "linux",
+                "unit_name": self._data.unit_name,
+                "error": "Service is not installed (unit file not found).",
+            }
+
         # Stop and disable service
         with suppress(Exception):
             subprocess.run(
@@ -163,6 +171,14 @@ WantedBy=default.target
         # Remove unit file
         if unit_path.exists():
             unit_path.unlink()
+
+        # Remove lock file if it exists (robustness)
+        from ...config.WKSConfig import WKSConfig
+
+        lock_path = WKSConfig.get_home_dir() / "daemon.lock"
+        if lock_path.exists():
+            with suppress(Exception):
+                lock_path.unlink()
 
         # Reload systemd daemon
         with suppress(Exception):

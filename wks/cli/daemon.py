@@ -7,7 +7,7 @@ import typer
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
 from wks.api.daemon.cmd_stop import cmd_stop
-from wks.cli.handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import handle_stage_result
 
 daemon_app = typer.Typer(
     name="daemon",
@@ -36,9 +36,10 @@ def start_command(
     restrict: Path | None = typer.Option(  # noqa: B008
         None, "--restrict", help="Restrict monitoring to this directory"
     ),
+    blocking: bool = typer.Option(False, "--blocking", help="Run in foreground (blocking mode)"),
 ) -> None:
     """Start daemon runtime."""
-    handle_stage_result(cmd_start)(restrict_dir=restrict)
+    handle_stage_result(cmd_start)(restrict_dir=restrict, blocking=blocking)
 
 
 def stop_command() -> None:
@@ -48,4 +49,15 @@ def stop_command() -> None:
 
 daemon_app.command(name="status")(status_command)
 daemon_app.command(name="start")(start_command)
+
+
+def clear_command() -> None:
+    """Clear daemon logs and warnings (only if stopped)."""
+    from wks.api.daemon.cmd_clear import cmd_clear
+
+    handle_stage_result(cmd_clear)()
+
+
+# Run command removed (merged into start --blocking)
 daemon_app.command(name="stop")(stop_command)
+daemon_app.command(name="clear")(clear_command)

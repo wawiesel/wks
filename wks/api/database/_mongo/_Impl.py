@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.uri_parser import parse_uri
 
+from ...config.WKSConfig import WKSConfig
 from .._AbstractImpl import _AbstractImpl
 from ..DatabaseConfig import DatabaseConfig
 from ._Data import _Data as _DatabaseConfigData
@@ -25,7 +26,10 @@ class _Impl(_AbstractImpl):
             raise ValueError("MongoDB config data is required")
         self.local = database_config.data.local
         self.uri = database_config.data.uri
-        self.db_path = database_config.data.db_path
+
+        # Determine paths and defaults
+        self.db_path = WKSConfig.get_home_dir() / "database" / "mongo"
+
         self.database_name = database_name
         self.collection_name = collection_name  # MongoDB collection name
         self._client: MongoClient[Any] | None = None
@@ -83,13 +87,26 @@ class _Impl(_AbstractImpl):
         if self._can_connect(uri):
             return
         host, port = self._parse_host_port(uri)
-        # db_path is required when local=true (validated in _Data)
-        if not self.db_path:
-            raise RuntimeError("database.data.db_path is required when database.data.local=true")
-        db_path = Path(self.db_path)
+
+        # Use hardcoded db_path based on WKS_HOME
+        db_path = self.db_path
         db_path.mkdir(parents=True, exist_ok=True)
+        # Resolve mongod binary path
+        import shutil
+
+        mongod_bin = shutil.which("mongod")
+        if not mongod_bin:
+            # Try common fallback paths
+            for fallback in ["/opt/homebrew/bin/mongod", "/usr/local/bin/mongod", "/usr/bin/mongod"]:
+                if Path(fallback).exists():
+                    mongod_bin = fallback
+                    break
+
+        if not mongod_bin:
+            raise RuntimeError("mongod binary not found; install MongoDB or specify database.uri")
+
         cmd = [
-            "mongod",
+            mongod_bin,
             f"--dbpath={db_path}",
             f"--bind_ip={host}",
             f"--port={port}",

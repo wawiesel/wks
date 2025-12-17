@@ -20,7 +20,6 @@ def test_cmd_install_success(tracked_wks_config, monkeypatch):
     """Test cmd_install with successful installation."""
     tracked_wks_config.service = ServiceConfig(
         type="darwin",
-        sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
             "keep_alive": True,

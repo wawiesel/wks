@@ -20,7 +20,6 @@ def test_cmd_stop_not_installed(tracked_wks_config, monkeypatch):
     """Test cmd_stop when service is not installed."""
     tracked_wks_config.service = ServiceConfig(
         type="darwin",
-        sync_interval_secs=60.0,
         data={
             "label": "com.test.wks",
             "keep_alive": True,

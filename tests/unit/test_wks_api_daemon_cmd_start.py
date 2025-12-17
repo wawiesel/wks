@@ -83,3 +83,30 @@ def test_cmd_start_twice_emits_warning(monkeypatch, tmp_path):
     assert stop_result.success is True
     assert stop_result.output["stopped"] is True
     assert not (wks_home / "daemon.lock").exists()
+
+
+@pytest.mark.daemon
+def test_cmd_start_blocking(monkeypatch):
+    """Verify that blocking=True calls run_foreground."""
+    from unittest.mock import MagicMock
+
+    # Mock Daemon class to verify method calls
+    mock_daemon_instance = MagicMock()
+    mock_daemon_cls = MagicMock(return_value=mock_daemon_instance)
+
+    monkeypatch.setattr("wks.api.daemon.cmd_start.Daemon", mock_daemon_cls)
+
+    from wks.api.daemon.cmd_start import cmd_start
+
+    # Simulate run_foreground returning (which it does on exception or stop)
+    # Here we just want to ensure it's called.
+    run_cmd(cmd_start, blocking=True)
+
+    mock_daemon_instance.run_foreground.assert_called_once()
+    mock_daemon_instance.start.assert_not_called()
+
+    # Verify existing behavior (blocking=False)
+    mock_daemon_instance.reset_mock()
+    run_cmd(cmd_start, blocking=False)
+    mock_daemon_instance.start.assert_called_once()
+    mock_daemon_instance.run_foreground.assert_not_called()
