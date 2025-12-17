@@ -259,7 +259,7 @@ class CLIDisplay(Display):
 
         if output_format == "yaml":
             try:
-                import yaml
+                import yaml  # type: ignore
             except ImportError:
                 raise ImportError("PyYAML required for YAML output. Install with: pip install pyyaml") from None
 
