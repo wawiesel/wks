@@ -29,7 +29,7 @@ class TestWKSConfigLoad:
         assert isinstance(config, WKSConfig)
         assert isinstance(config.monitor, MonitorConfig)
         assert isinstance(config.database, DatabaseConfig)
-        assert config.monitor.database == "monitor"
+
         assert config.database.type == "mongomock"
 
     def test_load_uses_default_path(self, wks_home_with_priority):
@@ -113,7 +113,6 @@ class TestWKSConfigToDict:
 
         assert "monitor" in result
         assert isinstance(result["monitor"], dict)
-        assert result["monitor"]["database"] == "monitor"
 
 
 class TestWKSConfigSave:

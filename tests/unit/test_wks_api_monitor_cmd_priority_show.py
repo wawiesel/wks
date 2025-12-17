@@ -30,7 +30,6 @@ def test_cmd_priority_show_returns_stage_result(tracked_wks_config, monkeypatch)
                     "extension_weights": {},
                 },
             },
-            "database": "monitor",
             "max_documents": 1000000,
             "min_priority": 0.0,
         }
