@@ -83,11 +83,8 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
                 },
             },
             "database": "monitor",
-            "sync": {
-                "max_documents": 1000000,
-                "min_priority": 0.0,
-                "prune_interval_secs": 300.0,
-            },
+            "max_documents": 1000000,
+            "min_priority": 0.0,
         },
         "database": {
             "type": "mongomock",

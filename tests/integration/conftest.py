@@ -4,11 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from wks.api.config.WKSConfig import WKSConfig
-from wks.api.database.DatabaseConfig import DatabaseConfig
-from wks.api.monitor.MonitorConfig import MonitorConfig
-from wks.api.service.ServiceConfig import ServiceConfig
-
 
 class FakeCollection:
     """Fake MongoDB collection for testing."""
@@ -126,41 +121,3 @@ def temp_watch_directory(tmp_path):
     watch_dir.mkdir()
     (watch_dir / "test.txt").write_text("test content")
     return watch_dir
-
-
-@pytest.fixture
-def service_config(tmp_path):
-    """Create a valid service configuration."""
-    monitor_cfg = MonitorConfig.from_config_dict(
-        {
-            "monitor": {
-                "include_paths": [str(tmp_path)],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-                "managed_directories": {str(tmp_path): 100},
-                "touch_weight": 0.5,
-                "database": "wks.monitor",
-                "max_documents": 1000000,
-                "priority": {},
-                "prune_interval_secs": 300.0,
-            }
-        }
-    )
-    database_cfg = DatabaseConfig(type="mongomock", prefix="wks", data={})
-    service_cfg = ServiceConfig(
-        type="darwin",
-        data={
-            "label": "com.wks.service.test",
-            "keep_alive": True,
-            "run_at_load": False,
-        },
-    )
-
-    return WKSConfig(
-        monitor=monitor_cfg,
-        database=database_cfg,
-        service=service_cfg,
-    )
