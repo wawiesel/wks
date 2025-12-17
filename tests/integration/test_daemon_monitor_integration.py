@@ -41,7 +41,8 @@ def test_daemon_sync_creates_db_record(mongo_wks_env):
         time.sleep(3.0)
 
         # Check database
-        with Database(config.database, config.monitor.database) as db:
+        db_name = f"{config.database.prefix}.monitor"
+        with Database(config.database, db_name) as db:
             record = db.find_one({"path": test_file.resolve().as_uri()})
         assert record is not None, f"File should be in database: {test_file}"
 
@@ -74,7 +75,8 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         assert sync_result.success
 
         # Verify it's in DB
-        with Database(config.database, config.monitor.database) as db:
+        db_name = f"{config.database.prefix}.monitor"
+        with Database(config.database, db_name) as db:
             record = db.find_one({"path": test_file.resolve().as_uri()})
             assert record is not None, "File should be in database before deletion"
 
@@ -84,7 +86,7 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         # Poll until removed (delete events can take a few cycles, especially in CI)
         deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
-            with Database(config.database, config.monitor.database) as db:
+            with Database(config.database, db_name) as db:
                 record = db.find_one({"path": test_file.resolve().as_uri()})
             if record is None:
                 break
@@ -121,7 +123,8 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         run_cmd(cmd_sync, str(src_file))
 
         # Verify source is in DB
-        with Database(config.database, config.monitor.database) as db:
+        db_name = f"{config.database.prefix}.monitor"
+        with Database(config.database, db_name) as db:
             assert db.find_one({"path": src_file.resolve().as_uri()}) is not None
 
         # Move the file
@@ -133,7 +136,7 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         # Poll until old removed and new added (move events can take a few cycles, especially on slower CI)
         deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
-            with Database(config.database, config.monitor.database) as db:
+            with Database(config.database, db_name) as db:
                 old_rec = db.find_one({"path": src_file.resolve().as_uri()})
                 new_rec = db.find_one({"path": dst_file.resolve().as_uri()})
             if old_rec is None and new_rec is not None:

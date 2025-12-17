@@ -5,11 +5,12 @@ Matches CLI: wksc monitor sync <path> [--recursive], MCP: wksm_monitor_sync
 """
 
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..utils._write_status_file import write_status_file
 from . import MonitorSyncOutput
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
@@ -60,12 +61,16 @@ def cmd_sync(
         config = WKSConfig.load()
         monitor_cfg = config.monitor
 
+        # Compute database name from prefix
+        database_name = f"{config.database.prefix}.monitor"
+        wks_home = WKSConfig.get_home_dir()
+
         yield (0.2, "Resolving path...")
         path_obj = Path(path).expanduser().resolve()
         if not path_obj.exists():
             yield (0.3, "Path missing; removing from monitor DB...")
 
-            with Database(config.database, monitor_cfg.database) as database:
+            with Database(config.database, database_name) as database:
                 try:
                     database.delete_many({"path": path_obj.as_uri()})
                 finally:
@@ -100,7 +105,7 @@ def cmd_sync(
         warnings: list[str] = []
 
         yield (0.4, f"Processing {len(files_to_process)} file(s)...")
-        with Database(config.database, monitor_cfg.database) as database:
+        with Database(config.database, database_name) as database:
             try:
                 for i, file_path in enumerate(files_to_process):
                     if not explain_path(monitor_cfg, file_path)[0]:
@@ -182,6 +187,17 @@ def cmd_sync(
             errors=errors,
             warnings=warnings,
         )
+
+        # Write status file after sync
+
+        output = {
+            "database": database_name,
+            "last_sync": datetime.now(timezone.utc).isoformat(),
+            "files_synced": files_synced,
+            "files_skipped": files_skipped,
+            "success": success,
+        }
+        write_status_file(output, wks_home=wks_home, filename="monitor.json")
 
     return StageResult(
         announce=f"Syncing {path}...",

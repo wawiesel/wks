@@ -12,6 +12,7 @@ from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
+from ..vault.VaultConfig import VaultConfig
 
 
 class WKSConfig(BaseModel):
@@ -23,6 +24,7 @@ class WKSConfig(BaseModel):
     database: DatabaseConfig
     service: ServiceConfig
     daemon: DaemonConfig
+    vault: VaultConfig
 
     @computed_field
     def path(self) -> Path:
@@ -82,6 +84,7 @@ class WKSConfig(BaseModel):
             "database": self.database.model_dump(),
             "service": self.service.model_dump(),
             "daemon": self.daemon.model_dump(),
+            "vault": self.vault.model_dump(),
         }
 
     def save(self) -> None:

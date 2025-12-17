@@ -412,3 +412,11 @@ Implement the commands of index and search.
 ## Priority 4
 
 Implement the patterns capability.
+
+### Monitor Refactoring & Config Updates
+
+**User Feedback (2025-12-17):**
+1. **Monitor Consistency**: The `monitor` module is inconsistent with the standard Facade pattern used in `database`, `vault`, and `service`.
+   - **Action**: Refactor `monitor` to introduce `Monitor.py` (Facade) and `_AbstractImpl.py`. Move domain logic out of `cmd_*.py` and into `Monitor` class. Ensure `cmd_` files do not access `Database` directly.
+2. **Prune Frequency**: Bring back `prune_frequency_secs` configuration option.
+   - **Goal**: Configure how often to scan the database and remove incorrect/stale entries.

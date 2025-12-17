@@ -33,7 +33,6 @@ def build_monitor_config(**overrides):
                     },
                 },
             ),
-            "database": overrides.pop("database", "monitor"),
             "max_documents": overrides.pop("max_documents", 1000000),
             "min_priority": overrides.pop("min_priority", 0.0),
         }

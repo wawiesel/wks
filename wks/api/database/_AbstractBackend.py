@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 
-class _AbstractImpl(ABC):
+class _AbstractBackend(ABC):
     @abstractmethod
     def __enter__(self):
         pass

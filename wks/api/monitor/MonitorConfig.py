@@ -15,7 +15,6 @@ class MonitorConfig(BaseModel):
 
     filter: _FilterConfig = Field(...)
     priority: _PriorityConfig = Field(...)
-    database: str = Field(..., description="Collection name (prefix from db config is automatically prepended)")
     max_documents: int = Field(..., ge=0, description="Maximum number of documents in monitor DB")
     min_priority: float = Field(..., ge=0.0, description="Minimum priority for files to be monitored")
 

@@ -32,7 +32,6 @@ def _make_monitor_config(**priority_dirs_override: float) -> MonitorConfig:
                     "extension_weights": {},
                 },
             },
-            "database": "monitor",
             "max_documents": 1000000,
             "min_priority": 0.0,
         }
@@ -94,7 +93,6 @@ def test_cmd_priority_add_updates(tracked_wks_config):
                     "extension_weights": {},
                 },
             },
-            "database": "monitor",
             "max_documents": 1000000,
             "min_priority": 0.0,
         }

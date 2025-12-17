@@ -16,6 +16,11 @@ jobs:
     name: Smoke Tests
     runs-on: ubuntu-latest
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+
       - uses: actions/checkout@v4
 
 
@@ -30,7 +35,7 @@ jobs:
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           export IMAGE_NAME="ghcr.io/${REPO_LOWER}/ci-runner:v1"
-          ./scripts/docker_shell.sh docker "pip3 install --user . --no-cache-dir --break-system-packages && python3 -m pytest tests/smoke/ -v --tb=short"
+          ./scripts/docker_shell.sh docker "python3 -m venv .venv && source .venv/bin/activate && pip install . --no-cache-dir && python -m pytest tests/smoke/ -v --tb=short"
 
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:

@@ -11,6 +11,7 @@ from typing import Any
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..utils._write_status_file import write_status_file
 from . import MonitorStatusOutput
 from .explain_path import explain_path
 
@@ -22,21 +23,31 @@ def cmd_status() -> StageResult:
         result_obj: StageResult,
         success: bool,
         message: str,
+        database: str,
         tracked_files: int,
         issues: list[str],
         priority_directories: list[dict[str, Any]],
         time_based_counts: dict[str, int],
+        last_sync: str | None,
+        wks_home: Path,
     ) -> None:
         """Helper to build and assign the output result."""
-        result_obj.output = MonitorStatusOutput(
+        output = MonitorStatusOutput(
             errors=[],
             warnings=[],
+            database=database,
             tracked_files=tracked_files,
             issues=issues,
             priority_directories=priority_directories,
             time_based_counts=time_based_counts,
+            last_sync=last_sync,
             success=success,
-        ).model_dump(mode="python")
+        )
+
+        # Write status file
+        write_status_file(output.model_dump(mode="python"), wks_home=wks_home, filename="monitor.json")
+
+        result_obj.output = output.model_dump(mode="python")
         result_obj.result = message
         result_obj.success = success
 
@@ -47,14 +58,25 @@ def cmd_status() -> StageResult:
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
         monitor_cfg = config.monitor
+        wks_home = WKSConfig.get_home_dir()
+
+        # Compute database name from prefix
+        database_name = f"{config.database.prefix}.monitor"
 
         # Count tracked files and time-based statistics via DB API
         yield (0.2, "Querying database...")
         total_files = 0
         time_based_counts: dict[str, int] = {}
+        last_sync: str | None = None
+
         try:
-            with Database(config.database, monitor_cfg.database) as database:
+            with Database(config.database, database_name) as database:
                 total_files = database.count_documents({})
+
+                # Get last sync timestamp from meta document
+                meta = database.find_one({"_id": "__meta__"})
+                if meta:
+                    last_sync = meta.get("last_sync")
 
                 # Calculate time ranges
                 yield (0.4, "Calculating time-based statistics...")
@@ -126,10 +148,13 @@ def cmd_status() -> StageResult:
             result_obj,
             success=len(issues) == 0,
             message=message,
+            database=database_name,
             tracked_files=total_files,
             issues=issues,
             priority_directories=priority_directories,
             time_based_counts=time_based_counts,
+            last_sync=last_sync,
+            wks_home=wks_home,
         )
 
     return StageResult(

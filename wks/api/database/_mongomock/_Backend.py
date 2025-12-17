@@ -5,7 +5,7 @@ from typing import Any
 import mongomock
 from pymongo.collection import Collection
 
-from .._AbstractImpl import _AbstractImpl
+from .._AbstractBackend import _AbstractBackend
 from ..DatabaseConfig import DatabaseConfig
 from ._Data import _Data as _DatabaseConfigData
 
@@ -21,7 +21,7 @@ def _get_mongomock_client() -> mongomock.MongoClient:
     return _shared_mongomock_client
 
 
-class _Impl(_AbstractImpl):
+class _Backend(_AbstractBackend):
     def __init__(self, database_config: DatabaseConfig, database_name: str, collection_name: str):
         if not isinstance(database_config.data, _DatabaseConfigData):
             raise ValueError("MongoMock config data is required")
