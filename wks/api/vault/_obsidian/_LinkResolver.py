@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-__all__ = ["LinkMetadata", "LinkResolver"]
+__all__ = ["_LinkMetadata", "_LinkResolver"]
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from .constants import (
+from .._constants import (
     STATUS_LEGACY_LINK,
     STATUS_MISSING_SYMLINK,
     STATUS_MISSING_TARGET,
@@ -17,7 +17,7 @@ from .constants import (
 
 
 @dataclass(frozen=True)
-class LinkMetadata:
+class _LinkMetadata:
     """Metadata about a resolved link target.
 
     URI-first design: target_uri is the canonical identifier.
@@ -35,7 +35,7 @@ class LinkMetadata:
         }
 
 
-class LinkResolver:
+class _LinkResolver:
     """Resolves different types of Obsidian wiki links."""
 
     def __init__(self, links_dir: Path):
@@ -45,7 +45,7 @@ class LinkResolver:
             links_dir: Path to the vault's _links directory
         """
         self.links_dir = links_dir
-        self.resolvers: list[tuple[Callable[[str], bool], Callable[[str], LinkMetadata]]] = [
+        self.resolvers: list[tuple[Callable[[str], bool], Callable[[str], _LinkMetadata]]] = [
             (self._is_legacy_links, self._resolve_legacy_links),
             (self._is_symlink, self._resolve_symlink),
             (self._is_attachment, self._resolve_attachment),
@@ -53,14 +53,14 @@ class LinkResolver:
             (self._is_legacy_path, self._resolve_legacy_path),
         ]
 
-    def resolve(self, target: str) -> LinkMetadata:
+    def resolve(self, target: str) -> _LinkMetadata:
         """Resolve a wiki link target to metadata.
 
         Args:
             target: The link target string from [[target]]
 
         Returns:
-            LinkMetadata with target information
+            _LinkMetadata with target information
         """
         target = target.strip()
         for predicate, resolver in self.resolvers:
@@ -85,15 +85,15 @@ class LinkResolver:
         return target.startswith("/")
 
     # Resolvers
-    def _resolve_legacy_links(self, target: str) -> LinkMetadata:
+    def _resolve_legacy_links(self, target: str) -> _LinkMetadata:
         """Resolve legacy links/ prefix (deprecated)."""
         normalized = target[target.lower().index("links/") + len("links/") :]
-        return LinkMetadata(
+        return _LinkMetadata(
             target_uri=f"legacy:///{normalized}",
             status=STATUS_LEGACY_LINK,
         )
 
-    def _resolve_symlink(self, target: str) -> LinkMetadata:
+    def _resolve_symlink(self, target: str) -> _LinkMetadata:
         """Resolve _links/ symlink target.
 
         Returns file:// URI for resolved symlink target, or vault:// fallback if missing.
@@ -103,7 +103,7 @@ class LinkResolver:
 
         if not symlink_path.exists():
             # Symlink doesn't exist - use vault:// fallback
-            return LinkMetadata(
+            return _LinkMetadata(
                 target_uri=f"vault:///{target}",
                 status=STATUS_MISSING_SYMLINK,
             )
@@ -126,35 +126,35 @@ class LinkResolver:
             # Fallback to vault:// if URI conversion fails
             target_uri = f"vault:///{target}"
 
-        return LinkMetadata(
+        return _LinkMetadata(
             target_uri=target_uri,
             status=status,
         )
 
-    def _resolve_attachment(self, target: str) -> LinkMetadata:
+    def _resolve_attachment(self, target: str) -> _LinkMetadata:
         """Resolve vault attachment (files starting with _)."""
-        return LinkMetadata(
+        return _LinkMetadata(
             target_uri=f"vault:///{target}",
             status=STATUS_OK,
         )
 
-    def _resolve_external_url(self, target: str) -> LinkMetadata:
+    def _resolve_external_url(self, target: str) -> _LinkMetadata:
         """Resolve external URL (contains ://)."""
-        return LinkMetadata(
+        return _LinkMetadata(
             target_uri=target,
             status=STATUS_OK,
         )
 
-    def _resolve_legacy_path(self, target: str) -> LinkMetadata:
+    def _resolve_legacy_path(self, target: str) -> _LinkMetadata:
         """Resolve legacy absolute path."""
-        return LinkMetadata(
+        return _LinkMetadata(
             target_uri=f"legacy:///{target}",
             status=STATUS_LEGACY_LINK,
         )
 
-    def _resolve_vault_note(self, target: str) -> LinkMetadata:
+    def _resolve_vault_note(self, target: str) -> _LinkMetadata:
         """Resolve as vault note (default case)."""
-        return LinkMetadata(
+        return _LinkMetadata(
             target_uri=f"vault:///{target}",
             status=STATUS_OK,
         )

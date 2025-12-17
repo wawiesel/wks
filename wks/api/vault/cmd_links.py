@@ -7,6 +7,7 @@ MCP: wksm_vault_links
 from collections.abc import Iterator
 from typing import Any, Literal
 
+from ..database.Database import Database
 from ..StageResult import StageResult
 from . import VaultLinksOutput
 
@@ -20,32 +21,12 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
     """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        from pymongo import MongoClient
-
         from ..config.WKSConfig import WKSConfig
-        from ..database._mongo._DbConfigData import _DbConfigData as _MongoDbConfigData
         from ._constants import DOC_TYPE_LINK
 
         yield (0.1, "Loading configuration...")
         try:
             config: Any = WKSConfig.load()
-            if isinstance(config.database.data, _MongoDbConfigData):
-                mongo_uri = config.database.data.uri
-            else:
-                result_obj.output = VaultLinksOutput(
-                    errors=[f"Vault requires mongo backend, got {config.database.type}"],
-                    warnings=[],
-                    path=path,
-                    direction=direction,
-                    edges=[],
-                    count=0,
-                    success=False,
-                ).model_dump(mode="python")
-                result_obj.result = "Vault links failed: unsupported database backend"
-                result_obj.success = False
-                return
-
-            db_name, coll_name = config.vault.database.split(".", 1)
         except Exception as e:
             result_obj.output = VaultLinksOutput(
                 errors=[f"Failed to load config: {e}"],
@@ -62,41 +43,34 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
 
         yield (0.3, "Querying vault database...")
         try:
-            client: MongoClient = MongoClient(
-                mongo_uri,
-                serverSelectionTimeoutMS=5000,
-            )
-            collection = client[db_name][coll_name]
+            with Database(config.database, config.vault.database) as database:
+                # Build URI pattern for the path (normalize to vault:/// format)
+                path_uri = path if path.startswith("vault:///") else f"vault:///{path.lstrip('/')}"
 
-            # Build URI pattern for the path (normalize to vault:/// format)
-            path_uri = path if path.startswith("vault:///") else f"vault:///{path.lstrip('/')}"
+                # Build query based on direction
+                query: dict[str, Any] = {"doc_type": DOC_TYPE_LINK}
+                if direction == "to":
+                    query["to_uri"] = path_uri
+                elif direction == "from":
+                    query["from_uri"] = path_uri
+                else:  # both
+                    query["$or"] = [{"from_uri": path_uri}, {"to_uri": path_uri}]
 
-            # Build query based on direction
-            query: dict[str, Any] = {"doc_type": DOC_TYPE_LINK}
-            if direction == "to":
-                query["to_uri"] = path_uri
-            elif direction == "from":
-                query["from_uri"] = path_uri
-            else:  # both
-                query["$or"] = [{"from_uri": path_uri}, {"to_uri": path_uri}]
+                yield (0.6, "Fetching edges...")
+                cursor = database.find(
+                    query,
+                    {"from_uri": 1, "to_uri": 1, "line_number": 1, "status": 1},
+                )
 
-            yield (0.6, "Fetching edges...")
-            cursor = collection.find(
-                query,
-                {"from_uri": 1, "to_uri": 1, "line_number": 1, "status": 1},
-            ).limit(100)
-
-            edges = [
-                {
-                    "from_uri": doc.get("from_uri", ""),
-                    "to_uri": doc.get("to_uri", ""),
-                    "line_number": doc.get("line_number", 0),
-                    "status": doc.get("status", ""),
-                }
-                for doc in cursor
-            ]
-
-            client.close()
+                edges = [
+                    {
+                        "from_uri": doc.get("from_uri", ""),
+                        "to_uri": doc.get("to_uri", ""),
+                        "line_number": doc.get("line_number", 0),
+                        "status": doc.get("status", ""),
+                    }
+                    for doc in list(cursor)[:100]  # Limit to 100
+                ]
 
             yield (1.0, "Complete")
             result_obj.output = VaultLinksOutput(
