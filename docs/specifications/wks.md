@@ -140,6 +140,44 @@ For operations that may take significant time, MCP supports asynchronous executi
 
 **Error Handling**: If an error occurs during async execution, the final `notifications/tool_result` contains an error result with `success: false` and error details in the `messages` field.
 
+## Status Pattern
+
+Domains that maintain persistent state (monitor, vault) follow the **Status Pattern** for cached status reporting:
+
+### Behavior
+
+1. **Status File**: Each domain maintains a status file at `{WKS_HOME}/{domain}.json` (e.g., `~/.wks/monitor.json`, `~/.wks/vault.json`)
+2. **Auto-Update**: Status files are updated automatically by operations that modify state (sync, filter changes, etc.)
+3. **Same Schema**: Status file content matches the domain's `{Domain}StatusOutput` schema
+4. **Fixed Database Names**: Database names are derived from the global prefix: `{database.prefix}.{domain}` (e.g., `wks.monitor`, `wks.vault`). These are not configurable per-domain.
+
+### Status File Content
+
+Status files contain the same data returned by `wksc {domain} status`:
+
+```json
+{
+  "database": "wks.monitor",
+  "total_documents": 1234,
+  "errors": [],
+  "warnings": [],
+  "last_sync": "2024-12-17T00:00:00Z",
+  "success": true
+}
+```
+
+### Update Triggers
+
+- `{domain} sync` — Updates after successful sync
+- `{domain} status` — Reads from database and updates file
+- Operations that modify database state
+
+### Benefits
+
+- Fast status reads without database queries
+- Consistent state across CLI and MCP
+- Enables lightweight health monitoring
+
 ## Layer Specifications
 
 Detailed specifications for each component:

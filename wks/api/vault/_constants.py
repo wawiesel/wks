@@ -4,7 +4,7 @@
 STATUS_OK = "ok"
 STATUS_MISSING_SYMLINK = "missing_symlink"
 STATUS_MISSING_TARGET = "missing_target"
-STATUS_LEGACY_LINK = "legacy_link"  # Extension for backwards compat
+
 
 # Internal document types for MongoDB
 DOC_TYPE_LINK = "link"

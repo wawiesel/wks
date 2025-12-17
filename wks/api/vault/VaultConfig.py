@@ -14,9 +14,8 @@ class VaultConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    type: str = Field(..., description="Vault type (e.g. 'obsidian')")
+    type: str = Field(..., description="Vault backend type")
     base_dir: str = Field(..., description="Path to vault root directory")
-    database: str = Field(..., description="MongoDB collection name")
 
     @classmethod
     def from_config_dict(cls, config: dict[str, Any]) -> VaultConfig:
@@ -34,3 +33,8 @@ class VaultConfig(BaseModel):
             # Re-raise or let it bubble? WKSConfig catches ValidationError.
             # But if called directly, we might want it to bubble.
             raise e
+
+
+_BACKEND_REGISTRY = {
+    "obsidian": "wks.api.vault._obsidian",
+}

@@ -81,7 +81,6 @@ def minimal_config_dict() -> dict:
                     "extension_weights": {},
                 },
             },
-            "database": "monitor",
             "max_documents": 1000000,
             "min_priority": 0.0,
         },
@@ -97,7 +96,6 @@ def minimal_config_dict() -> dict:
         "vault": {
             "type": "obsidian",
             "base_dir": "~/_vault",
-            "database": "vault",
         },
     }
 

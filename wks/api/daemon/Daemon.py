@@ -116,7 +116,8 @@ def _child_main(
             # We use a zero-timeout or very short timeout check if possible,
             # but Database init with local=True triggers _ensure_local_mongod which checks binary
             assert monitor_cfg is not None
-            with Database(wks_config.database, monitor_cfg.database) as db:
+            database_name = f"{wks_config.database.prefix}.monitor"
+            with Database(wks_config.database, database_name) as db:
                 db.get_client().server_info()
         except Exception as exc:
             append_log(f"FATAL: Database initialization failed: {exc}")

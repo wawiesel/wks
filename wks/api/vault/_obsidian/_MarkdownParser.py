@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 # Compiled regex patterns for performance
 WIKILINK_PATTERN = re.compile(r"(!)?\[\[([^\]]+)\]\]")
-MARKDOWN_URL_PATTERN = re.compile(r"\[([^\]]+)\]\(((?:https?|file)://[^)]+)\)")
+MARKDOWN_URL_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
 
 @dataclass(frozen=True)

@@ -27,6 +27,8 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
         yield (0.1, "Loading configuration...")
         try:
             config: Any = WKSConfig.load()
+            # Compute database name from prefix
+            database_name = f"{config.database.prefix}.vault"
         except Exception as e:
             result_obj.output = VaultLinksOutput(
                 errors=[f"Failed to load config: {e}"],
@@ -43,7 +45,7 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
 
         yield (0.3, "Querying vault database...")
         try:
-            with Database(config.database, config.vault.database) as database:
+            with Database(config.database, database_name) as database:
                 # Build URI pattern for the path (normalize to vault:/// format)
                 path_uri = path if path.startswith("vault:///") else f"vault:///{path.lstrip('/')}"
 

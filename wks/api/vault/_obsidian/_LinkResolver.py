@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .._constants import (
-    STATUS_LEGACY_LINK,
     STATUS_MISSING_SYMLINK,
     STATUS_MISSING_TARGET,
     STATUS_OK,
@@ -46,11 +45,9 @@ class _LinkResolver:
         """
         self.links_dir = links_dir
         self.resolvers: list[tuple[Callable[[str], bool], Callable[[str], _LinkMetadata]]] = [
-            (self._is_legacy_links, self._resolve_legacy_links),
             (self._is_symlink, self._resolve_symlink),
             (self._is_attachment, self._resolve_attachment),
             (self._is_external_url, self._resolve_external_url),
-            (self._is_legacy_path, self._resolve_legacy_path),
         ]
 
     def resolve(self, target: str) -> _LinkMetadata:
@@ -69,9 +66,6 @@ class _LinkResolver:
         return self._resolve_vault_note(target)
 
     # Predicates
-    def _is_legacy_links(self, target: str) -> bool:
-        return target.lower().startswith("links/")
-
     def _is_symlink(self, target: str) -> bool:
         return target.startswith("_links/")
 
@@ -81,18 +75,7 @@ class _LinkResolver:
     def _is_external_url(self, target: str) -> bool:
         return "://" in target
 
-    def _is_legacy_path(self, target: str) -> bool:
-        return target.startswith("/")
-
     # Resolvers
-    def _resolve_legacy_links(self, target: str) -> _LinkMetadata:
-        """Resolve legacy links/ prefix (deprecated)."""
-        normalized = target[target.lower().index("links/") + len("links/") :]
-        return _LinkMetadata(
-            target_uri=f"legacy:///{normalized}",
-            status=STATUS_LEGACY_LINK,
-        )
-
     def _resolve_symlink(self, target: str) -> _LinkMetadata:
         """Resolve _links/ symlink target.
 
@@ -143,13 +126,6 @@ class _LinkResolver:
         return _LinkMetadata(
             target_uri=target,
             status=STATUS_OK,
-        )
-
-    def _resolve_legacy_path(self, target: str) -> _LinkMetadata:
-        """Resolve legacy absolute path."""
-        return _LinkMetadata(
-            target_uri=f"legacy:///{target}",
-            status=STATUS_LEGACY_LINK,
         )
 
     def _resolve_vault_note(self, target: str) -> _LinkMetadata:

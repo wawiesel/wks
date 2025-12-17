@@ -21,6 +21,7 @@ def test_cmd_status_returns_structure(monkeypatch, tmp_path, minimal_config_dict
     vault_dir.mkdir()
     cfg = minimal_config_dict
     cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_status)
@@ -44,7 +45,16 @@ def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
     vault_dir.mkdir()
     cfg = minimal_config_dict
     cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Clear DB state
+    from wks.api.database.Database import Database
+    from wks.api.database.DatabaseConfig import DatabaseConfig
+
+    db_config = DatabaseConfig(**cfg["database"])
+    with Database(db_config, "wks.vault") as db:
+        db.delete_many({})
 
     result = run_cmd(cmd_status)
 

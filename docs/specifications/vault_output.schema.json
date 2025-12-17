@@ -82,6 +82,9 @@
                 {
                     "type": "object",
                     "properties": {
+                        "database": {
+                            "type": "string"
+                        },
                         "total_links": {
                             "type": "integer"
                         },
@@ -111,6 +114,7 @@
                         }
                     },
                     "required": [
+                        "database",
                         "total_links",
                         "ok_links",
                         "broken_links",

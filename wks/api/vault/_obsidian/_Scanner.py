@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .._AbstractVault import _AbstractVault
+from .._AbstractImpl import _AbstractImpl
 from .._constants import (
     LINK_TYPE_EMBED,
     LINK_TYPE_MARKDOWN_URL,
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class _Scanner:
     """Parse Obsidian markdown for wiki links and URLs."""
 
-    def __init__(self, vault: _AbstractVault):
+    def __init__(self, vault: _AbstractImpl):
         self.vault = vault
         self.link_resolver = _LinkResolver(vault.links_dir)
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []

@@ -10,6 +10,7 @@ from typing import Any
 from ..database.Database import Database
 from ..StageResult import StageResult
 from . import VaultStatusOutput
+from ._write_status_file import write_status_file
 
 
 def cmd_status() -> StageResult:
@@ -22,10 +23,14 @@ def cmd_status() -> StageResult:
         yield (0.1, "Loading configuration...")
         try:
             config: Any = WKSConfig.load()
+            wks_home = WKSConfig.get_home_dir()
+            # Compute database name from prefix
+            database_name = f"{config.database.prefix}.vault"
         except Exception as e:
             result_obj.output = VaultStatusOutput(
                 errors=[f"Failed to load config: {e}"],
                 warnings=[],
+                database="",
                 total_links=0,
                 ok_links=0,
                 broken_links=0,
@@ -40,7 +45,7 @@ def cmd_status() -> StageResult:
 
         yield (0.3, "Querying vault database...")
         try:
-            with Database(config.database, config.vault.database) as database:
+            with Database(config.database, database_name) as database:
                 # Get metadata document
                 meta = database.find_one({"_id": META_DOCUMENT_ID}) or {}
 
@@ -76,9 +81,10 @@ def cmd_status() -> StageResult:
                 ]
 
             yield (1.0, "Complete")
-            result_obj.output = VaultStatusOutput(
+            output = VaultStatusOutput(
                 errors=[],
                 warnings=[],
+                database=database_name,
                 total_links=total_links,
                 ok_links=ok_links,
                 broken_links=broken_links,
@@ -87,6 +93,11 @@ def cmd_status() -> StageResult:
                 notes_scanned=meta.get("notes_scanned", 0),
                 success=True,
             ).model_dump(mode="python")
+
+            # Write status file
+            write_status_file(output, wks_home=wks_home)
+
+            result_obj.output = output
             result_obj.result = f"Vault status: {total_links} links ({broken_links} broken)"
             result_obj.success = True
 
@@ -94,6 +105,7 @@ def cmd_status() -> StageResult:
             result_obj.output = VaultStatusOutput(
                 errors=[f"Database query failed: {e}"],
                 warnings=[],
+                database=database_name,
                 total_links=0,
                 ok_links=0,
                 broken_links=0,

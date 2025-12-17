@@ -20,6 +20,7 @@ def test_cmd_check_returns_structure(monkeypatch, tmp_path, minimal_config_dict)
     vault_dir.mkdir()
     cfg = minimal_config_dict
     cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_check)
@@ -40,7 +41,9 @@ def test_cmd_check_empty_vault_is_valid(monkeypatch, tmp_path, minimal_config_di
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
     cfg = minimal_config_dict
+    cfg = minimal_config_dict
     cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_check)
@@ -59,10 +62,49 @@ def test_cmd_check_nonexistent_path_fails(monkeypatch, tmp_path, minimal_config_
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
     cfg = minimal_config_dict
+    cfg = minimal_config_dict
     cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_check, path="/nonexistent/file.md")
 
     assert result.success is False
     assert len(result.output["errors"]) > 0
+
+
+def test_cmd_check_config_failure(monkeypatch):
+    """cmd_check handles config load failure gracefully."""
+
+    def mock_load():
+        raise RuntimeError("Config Error")
+
+    monkeypatch.setattr("wks.api.config.WKSConfig.WKSConfig.load", mock_load)
+
+    result = run_cmd(cmd_check)
+    assert result.success is False
+    assert "Config Error" in result.output["errors"][0]
+
+
+def test_cmd_check_vault_init_failure(monkeypatch, tmp_path, minimal_config_dict):
+    """cmd_check handles vault init failure gracefully."""
+    # Setup valid config to bypass config load
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    cfg = minimal_config_dict
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = "/tmp"
+    cfg["vault"]["type"] = "obsidian"
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Mock Vault init failure
+    def mock_enter(*args, **kwargs):
+        raise RuntimeError("Vault Init Error")
+
+    monkeypatch.setattr("wks.api.vault.Vault.Vault.__enter__", mock_enter)
+
+    result = run_cmd(cmd_check)
+    assert result.success is False
+    assert "Vault Init Error" in result.output["errors"][0]
