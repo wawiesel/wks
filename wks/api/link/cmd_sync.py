@@ -10,9 +10,11 @@ from urllib.parse import urlparse
 from wks.api.database.Database import Database
 from wks.api.vault._constants import DOC_TYPE_LINK
 from wks.utils.expand_paths import expand_paths
+from wks.utils.logger import get_logger
 from wks.utils.uri_utils import path_to_uri, uri_to_path
 
 from ..config.WKSConfig import WKSConfig
+from ..monitor.remote_resolver import resolve_remote_uri
 from ..StageResult import StageResult
 from ..vault._obsidian._LinkResolver import _LinkResolver
 from ..vault.Vault import Vault
@@ -20,14 +22,13 @@ from . import LinkSyncOutput
 
 # Accessing private module as we reuse the logic
 from ._parsers import get_parser
-from .cloud_resolver import resolve_cloud_url
 
 # Supported extensions for link parsing
 _LINK_EXTENSIONS = {".md", ".html", ".htm", ".rst", ".txt"}
 
 
-def _identity(from_uri: str, line_number: int, column_number: int, to_uri: str) -> str:
-    payload = f"{from_uri}|{line_number}|{column_number}|{to_uri}".encode("utf-8", errors="ignore")
+def _identity(from_uri: str, line_number: int, column_number: int, to_uri: str, remote_uri: str | None = None) -> str:
+    payload = f"{from_uri}|{line_number}|{column_number}|{to_uri}|{remote_uri}".encode("utf-8", errors="ignore")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -75,6 +76,9 @@ def _sync_single_file(
         else:
             from_uri = path_to_uri(file_path)
 
+        # Determine from_remote_uri
+        from_remote_uri = resolve_remote_uri(file_path, config.monitor.remote)
+
         # Resolve links
         records = []
         for ref in link_refs:
@@ -95,11 +99,11 @@ def _sync_single_file(
                     "parser": actual_parser,
                     "name": ref.alias,
                     "status": "ok",
-                    "cloud_url": None,
+                    "to_remote_uri": None,
                 }
             )
 
-            # Attempt cloud URL resolution
+            # Attempt remote resolution for target
             target_path_obj = None
             try:
                 if str(to_uri).startswith("vault:///"):
@@ -107,9 +111,19 @@ def _sync_single_file(
                         target_path_obj = vault_root / str(to_uri)[11:]
                 elif str(to_uri).startswith("file://"):
                     target_path_obj = uri_to_path(str(to_uri))
+                elif "://" not in str(to_uri):
+                    # Assume relative path from current file
+                    try:
+                        possible_path = file_path.parent / str(to_uri)
+                        target_path_obj = possible_path.resolve()
+                    except Exception:
+                        pass
 
                 if target_path_obj:
-                    records[-1]["cloud_url"] = resolve_cloud_url(target_path_obj, config.cloud)
+                    remote_uri = resolve_remote_uri(target_path_obj, config.monitor.remote)
+                    if remote_uri:
+                        records[-1]["to_remote_uri"] = remote_uri
+
             except Exception:
                 pass
 
@@ -131,33 +145,40 @@ def _sync_single_file(
                     pass
 
             doc_id = _identity(
-                str(rec["from_uri"]), int(str(rec["line_number"])), int(str(rec["column_number"])), str(to_uri)
+                str(rec["from_uri"]),
+                int(str(rec["line_number"])),
+                int(str(rec["column_number"])),
+                str(to_uri),
+                str(rec["to_remote_uri"]) if rec["to_remote_uri"] else None,
             )
             valid_docs.append(
                 {
                     "_id": doc_id,
                     "doc_type": DOC_TYPE_LINK,
-                    "from_uri": rec["from_uri"],
-                    "to_uri": to_uri,
+                    "from_local_uri": rec["from_uri"],
+                    "from_remote_uri": from_remote_uri,
+                    "to_local_uri": to_uri,
+                    "to_remote_uri": rec["to_remote_uri"],
                     "line_number": rec["line_number"],
                     "column_number": rec["column_number"],
                     "parser": rec["parser"],
                     "name": rec["name"],
                     "last_seen": seen_at_iso,
                     "last_updated": seen_at_iso,
-                    "cloud_url": rec["cloud_url"],
                 }
             )
 
         # Write to DB
-        with Database(config.database, "link") as db:
-            db.delete_many({"from_uri": from_uri})
+        with Database(config.database, "edges") as db:
+            db.delete_many({"from_local_uri": from_uri})
             if valid_docs:
                 db.insert_many(valid_docs)
 
         return (len(records), len(valid_docs), [])
 
     except Exception as e:
+        logger = get_logger("link.sync")
+        logger.error(f"Failed to sync file {file_path}: {e}")
         return (0, 0, [f"Error in {file_path.name}: {e}"])
 
 

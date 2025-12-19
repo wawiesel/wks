@@ -38,7 +38,7 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # 1. Manually seed DB with a "stale" link
-    with Database(DatabaseConfig(**cfg["database"]), "link") as db:
+    with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         db.insert_many([{"doc_type": "link", "from_uri": "vault:///note.md", "to_uri": "vault:///foo"}])
 
     # 2. Sync (note.md does NOT exist on disk, so it should be pruned)
@@ -47,7 +47,7 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
 
     # 3. Verify deleted
     assert res.output["links_deleted"] > 0
-    with Database(DatabaseConfig(**cfg["database"]), "link") as db:
+    with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         assert db.find_one({"from_uri": "vault:///note.md"}) is None
 
 
@@ -73,7 +73,7 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
     # deleted.md is NOT created on disk
 
     # Seed DB with all 3
-    with Database(DatabaseConfig(**cfg["database"]), "link") as db:
+    with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         db.insert_many(
             [
                 {"doc_type": "link", "from_uri": "vault:///root.md"},
@@ -88,7 +88,7 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
     # 1. root.md should STILL exist (pruning scoped to 'sub')
     # 2. nested.md IS GONE because file is empty -> 0 links. (Correct behavior)
     # 3. deleted.md should be GONE (was in scope 'sub' and missing from disk)
-    with Database(DatabaseConfig(**cfg["database"]), "link") as db:
+    with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         assert db.find_one({"from_uri": "vault:///root.md"}) is not None
         # nested.md is gone because empty content = 0 links
         assert db.find_one({"from_uri": "vault:///sub/deleted.md"}) is None

@@ -25,7 +25,7 @@ def cmd_status() -> StageResult:
             config: Any = WKSConfig.load()
             wks_home = WKSConfig.get_home_dir()
             # Collection name is 'links'
-            database_name = "link"
+            database_name = "edges"
         except Exception as e:
             result_obj.output = VaultStatusOutput(
                 errors=[f"Failed to load config: {e}"],

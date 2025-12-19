@@ -10,6 +10,7 @@ from wks.api.monitor.cmd_priority_add import cmd_priority_add
 from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
 from wks.api.monitor.cmd_priority_show import cmd_priority_show
 from wks.api.monitor.cmd_prune import cmd_prune
+from wks.api.monitor.cmd_remote_detect import cmd_remote_detect
 from wks.api.monitor.cmd_status import cmd_status
 from wks.api.monitor.cmd_sync import cmd_sync
 from wks.cli._handle_stage_result import handle_stage_result
@@ -54,6 +55,15 @@ def filter_callback(ctx: typer.Context) -> None:
 priority_app = typer.Typer(
     name="priority",
     help="Manage priority directories",
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+remote_app = typer.Typer(
+    name="remote",
+    help="Manage remote integrations",
     pretty_exceptions_show_locals=False,
     pretty_exceptions_enable=False,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -148,8 +158,19 @@ def priority_show_command() -> None:
 
 priority_app.command(name="show")(priority_show_command)
 priority_app.command(name="add")(priority_add_command)
+priority_app.command(name="add")(priority_add_command)
 priority_app.command(name="remove")(priority_remove_command)
+
+
+# Remote subcommands
+def remote_detect_command() -> None:
+    """Detect remote folders like OneDrive/SharePoint."""
+    handle_stage_result(cmd_remote_detect)()
+
+
+remote_app.command(name="detect")(remote_detect_command)
 
 # Attach sub-apps
 monitor_app.add_typer(filter_app, name="filter")
 monitor_app.add_typer(priority_app, name="priority")
+monitor_app.add_typer(remote_app, name="remote")

@@ -30,9 +30,9 @@ class TestCmdPrune:
 
         mock_db = MagicMock()
         mock_db.find.side_effect = [
-            # First call: from_uri query
-            [{"from_uri": existing_uri}, {"from_uri": nonexistent_uri}],
-            # Second call: to_uri query
+            # First call: from_local_uri query
+            [{"from_local_uri": existing_uri}, {"from_local_uri": nonexistent_uri}],
+            # Second call: to_local_uri query
             [],
         ]
         mock_db.delete_many.return_value = 1
@@ -65,10 +65,10 @@ class TestCmdPrune:
 
         mock_db = MagicMock()
         mock_db.find.side_effect = [
-            # First call: from_uri query (no stale sources)
+            # First call: from_local_uri query (no stale sources)
             [],
-            # Second call: to_uri query
-            [{"to_uri": nonexistent_target}],
+            # Second call: to_local_uri query
+            [{"to_local_uri": nonexistent_target}],
         ]
         mock_db.delete_many.return_value = 1
 
@@ -105,8 +105,8 @@ class TestCmdPrune:
 
         mock_db = MagicMock()
         mock_db.find.side_effect = [
-            [{"from_uri": source_uri}],
-            [{"to_uri": target_uri}],
+            [{"from_local_uri": source_uri}],
+            [{"to_local_uri": target_uri}],
         ]
         mock_db.delete_many.return_value = 0
 
@@ -156,8 +156,8 @@ class TestCmdPrune:
 
         mock_db = MagicMock()
         mock_db.find.side_effect = [
-            [{"from_uri": vault_uri}],
-            [{"to_uri": vault_uri}],
+            [{"from_local_uri": vault_uri}],
+            [{"to_local_uri": vault_uri}],
         ]
         mock_db.delete_many.return_value = 0
 
@@ -184,7 +184,7 @@ class TestCmdPrune:
         mock_db = MagicMock()
         mock_db.find.side_effect = [
             [],
-            [{"to_uri": https_uri}],
+            [{"to_local_uri": https_uri}],
         ]
         mock_db.delete_many.return_value = 0
 

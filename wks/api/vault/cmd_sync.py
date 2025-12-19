@@ -145,7 +145,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                 # Database operations
                 from wks.api.database.Database import Database
 
-                with Database(config.database, "link") as database:
+                with Database(config.database, "edges") as database:
                     if scope_prefix:
                         # Find all matching URIs in DB (limited to .md files as this command only syncs markdown)
                         # We MUST NOT delete non-md links (e.g. .txt, .html) that might be managed by other tools
@@ -163,7 +163,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
 
                 # Update meta document in link database with last_sync
                 sync_time = datetime.now(timezone.utc).isoformat()
-                with Database(config.database, "link") as database:
+                with Database(config.database, "edges") as database:
                     database.update_one(
                         {"_id": "__meta__"},
                         {"$set": {"_id": "__meta__", "doc_type": "meta", "last_sync": sync_time}},

@@ -94,7 +94,7 @@ class TestCmdCheckLinkExtraction:
         links = result.output["links"]
 
         # Should find WikiLinks
-        wikilink_targets = [lnk["to_uri"] for lnk in links if "WikiLink" in lnk.get("to_uri", "")]
+        wikilink_targets = [lnk["to_local_uri"] for lnk in links if "WikiLink" in lnk.get("to_local_uri", "")]
         assert len(wikilink_targets) >= 2  # At least [[WikiLink]] and [[WikiLink|With Alias]]
 
     @patch("wks.api.link.cmd_check.WKSConfig")
@@ -118,7 +118,7 @@ class TestCmdCheckLinkExtraction:
         links = result.output["links"]
 
         # Find the named link
-        named_link = next((lnk for lnk in links if lnk.get("to_uri") == "https://example.com"), None)
+        named_link = next((lnk for lnk in links if lnk.get("to_local_uri") == "https://example.com"), None)
         assert named_link is not None
         assert named_link.get("name") == "Named Link"
 
@@ -144,7 +144,7 @@ class TestCmdCheckLinkExtraction:
         links = result.output["links"]
 
         # Should find href and src
-        uris = [lnk["to_uri"] for lnk in links]
+        uris = [lnk["to_local_uri"] for lnk in links]
         assert "https://example.com" in uris
         assert "image.png" in uris
 
@@ -167,7 +167,7 @@ class TestCmdCheckLinkExtraction:
         assert result.success is True
         links = result.output["links"]
 
-        uris = [lnk["to_uri"] for lnk in links]
+        uris = [lnk["to_local_uri"] for lnk in links]
         assert "https://example.com" in uris
         assert "diagram.png" in uris
 
@@ -190,7 +190,7 @@ class TestCmdCheckLinkExtraction:
         assert result.success is True
         links = result.output["links"]
 
-        uris = [lnk["to_uri"] for lnk in links]
+        uris = [lnk["to_local_uri"] for lnk in links]
         assert any("example.com" in uri for uri in uris)
         assert any("another.com" in uri for uri in uris)
 

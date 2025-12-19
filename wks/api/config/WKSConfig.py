@@ -13,7 +13,6 @@ from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..vault.VaultConfig import VaultConfig
-from .CloudConfig import CloudConfig
 
 
 class WKSConfig(BaseModel):
@@ -26,7 +25,6 @@ class WKSConfig(BaseModel):
     service: ServiceConfig
     daemon: DaemonConfig
     vault: VaultConfig
-    cloud: CloudConfig = CloudConfig()
     uri: str | None = None
 
     @computed_field
@@ -88,7 +86,6 @@ class WKSConfig(BaseModel):
             "service": self.service.model_dump(),
             "daemon": self.daemon.model_dump(),
             "vault": self.vault.model_dump(),
-            "cloud": self.cloud.model_dump(),
             "uri": self.uri,
         }
 

@@ -24,17 +24,17 @@ def cmd_show(uri: str, direction: str = "from") -> StageResult:
 
         yield (0.1, "Loading configuration...")
         config: Any = WKSConfig.load()
-        database_name = "link"
+        database_name = "edges"
 
         yield (0.3, f"Searching for links {direction} {uri}...")
 
         query: dict[str, Any] = {}
         if direction == "from":
-            query = {"from_uri": uri}
+            query = {"from_local_uri": uri}
         elif direction == "to":
-            query = {"to_uri": uri}
+            query = {"to_local_uri": uri}
         elif direction == "both":
-            query = {"$or": [{"from_uri": uri}, {"to_uri": uri}]}
+            query = {"$or": [{"from_local_uri": uri}, {"to_local_uri": uri}]}
 
         with Database(config.database, database_name) as database:
             links = list(database.find(query))
@@ -44,8 +44,10 @@ def cmd_show(uri: str, direction: str = "from") -> StageResult:
             for link in links:
                 formatted_links.append(
                     {
-                        "from_uri": link.get("from_uri"),
-                        "to_uri": link.get("to_uri"),
+                        "from_local_uri": link.get("from_local_uri"),
+                        "from_remote_uri": link.get("from_remote_uri"),
+                        "to_local_uri": link.get("to_local_uri"),
+                        "to_remote_uri": link.get("to_remote_uri"),
                         "line_number": link.get("line_number"),
                         "column_number": link.get("column_number"),
                     }

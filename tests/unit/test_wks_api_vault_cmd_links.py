@@ -32,7 +32,7 @@ def test_cmd_links_returns_structure(monkeypatch, tmp_path, minimal_config_dict)
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     db_config = DatabaseConfig(**minimal_config_dict["database"])
-    with Database(db_config, "link") as db:
+    with Database(db_config, "edges") as db:
         db.delete_many({})
 
     result = run_cmd(cmd_links, path="note.md", direction="both")
@@ -63,12 +63,12 @@ def test_cmd_links_finds_outgoing(monkeypatch, tmp_path, minimal_config_dict):
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     db_config = DatabaseConfig(**minimal_config_dict["database"])
-    with Database(db_config, "link") as db:
+    with Database(db_config, "edges") as db:
         db.delete_many({})
-        db.get_database()["link"].insert_one(
+        db.get_database()["edges"].insert_one(
             {
-                "from_uri": "vault:///note1.md",
-                "to_uri": "vault:///note2",
+                "from_local_uri": "vault:///note1.md",
+                "to_local_uri": "vault:///note2",
                 "line_number": 10,
             }
         )
@@ -102,12 +102,12 @@ def test_cmd_links_finds_incoming(monkeypatch, tmp_path, minimal_config_dict):
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     db_config = DatabaseConfig(**minimal_config_dict["database"])
-    with Database(db_config, "link") as db:
+    with Database(db_config, "edges") as db:
         db.delete_many({})
-        db.get_database()["link"].insert_one(
+        db.get_database()["edges"].insert_one(
             {
-                "from_uri": "vault:///note1.md",
-                "to_uri": "vault:///note2.md",
+                "from_local_uri": "vault:///note1.md",
+                "to_local_uri": "vault:///note2.md",
                 "line_number": 10,
             }
         )

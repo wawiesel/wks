@@ -17,6 +17,7 @@ from . import MonitorSyncOutput
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
+from .remote_resolver import resolve_remote_uri
 
 
 def cmd_sync(
@@ -63,8 +64,8 @@ def cmd_sync(
         config = WKSConfig.load()
         monitor_cfg = config.monitor
 
-        # Collection name is just 'monitor' - prefix is the DB name
-        database_name = "monitor"
+        # Collection name: 'nodes' (formerly 'monitor')
+        database_name = "nodes"
         wks_home = WKSConfig.get_home_dir()
 
         yield (0.2, "Resolving path...")
@@ -76,7 +77,7 @@ def cmd_sync(
                 try:
                     from wks.utils.uri_utils import path_to_uri
 
-                    database.delete_many({"path": path_to_uri(path_obj)})
+                    database.delete_many({"local_uri": path_to_uri(path_obj)})
                 finally:
                     pass
             warn_msg = f"Removed missing path from monitor DB: {path_obj}"
@@ -140,15 +141,19 @@ def cmd_sync(
                         # Use file's last modified time (st_mtime)
                         timestamp = datetime.fromtimestamp(stat.st_mtime).isoformat()
 
+                        # Resolve remote URI
+                        remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
+
                         doc = {
-                            "path": path_uri,
+                            "local_uri": path_uri,
+                            "remote_uri": remote_uri,
                             "checksum": checksum,
                             "bytes": stat.st_size,
                             "priority": priority,
                             "timestamp": timestamp,
                         }
 
-                        database.update_one({"path": doc["path"]}, {"$set": doc}, upsert=True)
+                        database.update_one({"local_uri": doc["local_uri"]}, {"$set": doc}, upsert=True)
                         files_synced += 1
                         yield (
                             0.4 + (i / max(len(files_to_process), 1)) * 0.5,

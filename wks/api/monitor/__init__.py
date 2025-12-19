@@ -15,6 +15,7 @@ MonitorPriorityAddOutput: type[BaseModel] = _models["MonitorPriorityAddOutput"]
 MonitorPriorityRemoveOutput: type[BaseModel] = _models["MonitorPriorityRemoveOutput"]
 MonitorPriorityShowOutput: type[BaseModel] = _models["MonitorPriorityShowOutput"]
 MonitorPruneOutput: type[BaseModel] = _models["MonitorPruneOutput"]
+MonitorRemoteDetectOutput: type[BaseModel] = _models["MonitorRemoteDetectOutput"]
 
 __all__ = [
     "MonitorCheckOutput",
@@ -25,6 +26,7 @@ __all__ = [
     "MonitorPriorityRemoveOutput",
     "MonitorPriorityShowOutput",
     "MonitorPruneOutput",
+    "MonitorRemoteDetectOutput",
     "MonitorStatusOutput",
     "MonitorSyncOutput",
 ]

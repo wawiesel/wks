@@ -12,11 +12,11 @@ pytestmark = pytest.mark.database
 
 class TestCmdList:
     def test_cmd_list_success(self, tracked_wks_config):
-        with patch("wks.api.database.cmd_list.Database.list_databases", return_value=["monitor", "vault", "transform"]):
+        with patch("wks.api.database.cmd_list.Database.list_databases", return_value=["nodes", "vault", "transform"]):
             result = run_cmd(cmd_list)
             assert result.success
             assert result.output["prefix"] == tracked_wks_config.database.prefix
-            assert set(result.output["databases"]) == {"monitor", "vault", "transform"}
+            assert set(result.output["databases"]) == {"nodes", "vault", "transform"}
 
     def test_cmd_list_empty(self, tracked_wks_config):
         with patch("wks.api.database.cmd_list.Database.list_databases", return_value=[]):
@@ -62,7 +62,7 @@ class TestCmdList:
         db_cfg = DatabaseConfig(type="mongomock", prefix=prefix, data=cast(BaseModel, {}))
 
         # Create collections (names should NOT include prefix here because Database facade prepends it)
-        with Database(db_cfg, "monitor") as db:
+        with Database(db_cfg, "nodes") as db:
             db.update_one({"id": 1}, {"$set": {"id": 1}}, upsert=True)
 
         with Database(db_cfg, "vault") as db:
@@ -74,7 +74,7 @@ class TestCmdList:
         assert result.success is True
         assert result.output["prefix"] == prefix
         # Databases should be 'monitor' and 'vault'
-        assert "monitor" in result.output["databases"]
+        assert "nodes" in result.output["databases"]
         assert "vault" in result.output["databases"]
         assert f"{prefix}.monitor" not in result.output["databases"]
 
@@ -102,8 +102,8 @@ class TestCmdList:
         other_prefix = "other"
         other_cfg = DatabaseConfig(type="mongomock", prefix=other_prefix, data=cast(BaseModel, {}))
 
-        # Create other prefixed collection (DB "other", collection "monitor")
-        with Database(other_cfg, "monitor") as db:
+        # Create other prefixed collection (DB "other", collection "nodes")
+        with Database(other_cfg, "nodes") as db:
             db.update_one({"id": 1}, {"$set": {"id": 1}}, upsert=True)
 
         # Run the command for prefix "wks_test_2"

@@ -8,6 +8,7 @@ from wks.utils.uri_utils import path_to_uri, uri_to_path
 
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
+from ..monitor.remote_resolver import resolve_remote_uri
 from ..StageResult import StageResult
 from ..vault._obsidian._LinkResolver import _LinkResolver
 from ..vault.Vault import Vault
@@ -15,7 +16,6 @@ from . import LinkCheckOutput
 
 # Accessing private module as we reuse the logic
 from ._parsers import get_parser
-from .cloud_resolver import resolve_cloud_url
 
 
 def cmd_check(path: str, parser: str | None = None) -> StageResult:
@@ -102,8 +102,8 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
                     # If it looks like a path
                     pass  # TODO: Implement robust relative path resolution outside vault
 
-                # Calculate cloud_url
-                cloud_url = None
+                # Calculate remote_uri
+                remote_uri = None
                 target_path_obj = None
                 try:
                     if to_uri.startswith("vault:///"):
@@ -115,20 +115,24 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
                         target_path_obj = uri_to_path(to_uri)
 
                     if target_path_obj:
-                        cloud_url = resolve_cloud_url(target_path_obj, config.cloud)
+                        remote_uri = resolve_remote_uri(target_path_obj, monitor_cfg.remote)
                 except Exception:
-                    # Failures in cloud resolution/path checks shouldn't fail the link check
+                    # Failures in remote resolution/path checks shouldn't fail the link check
                     pass
+
+                # Calculate remote_uri
+                from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
 
                 links_out.append(
                     {
-                        "from_uri": from_uri,
-                        "to_uri": to_uri,
+                        "from_local_uri": from_uri,
+                        "from_remote_uri": from_remote_uri,
+                        "to_local_uri": to_uri,
+                        "to_remote_uri": remote_uri,
                         "line_number": ref.line_number,
                         "column_number": ref.column_number,
                         "parser": parser_name,
                         "name": ref.alias,
-                        "cloud_url": cloud_url,
                     }
                 )
 

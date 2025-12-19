@@ -27,7 +27,7 @@ def cmd_prune() -> StageResult:
 
         yield (0.1, "Loading configuration...")
         config: Any = WKSConfig.load()
-        database_name = "monitor"
+        database_name = "nodes"
 
         yield (0.3, "Querying database...")
         deleted_count = 0

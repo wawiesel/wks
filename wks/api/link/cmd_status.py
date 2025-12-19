@@ -21,18 +21,18 @@ def cmd_status() -> StageResult:
         config: Any = WKSConfig.load()
 
         yield (0.3, "Connecting to database...")
-        with Database(config.database, "link") as database:
+        with Database(config.database, "edges") as database:
             total_links = database.count_documents({})
 
             yield (0.5, "Calculating statistics...")
             # Fetch all edges to count unique nodes
-            docs = list(database.find({}, {"from_uri": 1, "to_uri": 1, "_id": 0}))
+            docs = list(database.find({}, {"from_local_uri": 1, "to_local_uri": 1, "_id": 0}))
             nodes = set()
             for doc in docs:
-                if "from_uri" in doc:
-                    nodes.add(doc["from_uri"])
-                if "to_uri" in doc:
-                    nodes.add(doc["to_uri"])
+                if "from_local_uri" in doc:
+                    nodes.add(doc["from_local_uri"])
+                if "to_local_uri" in doc:
+                    nodes.add(doc["to_local_uri"])
 
             result = {
                 "total_links": total_links,
