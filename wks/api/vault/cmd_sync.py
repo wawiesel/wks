@@ -6,6 +6,7 @@ MCP: wksm_vault_sync
 Per spec VAU.3: vault sync delegates to link sync, then runs backend-specific ops.
 """
 
+import re
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any
@@ -90,19 +91,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                     # No path = entire vault (always recursive)
                     files = list(expand_paths(vault_path, recursive=True, extensions=_VAULT_EXTENSIONS))
 
-                if not files:
-                    result_obj.output = VaultSyncOutput(
-                        errors=[],
-                        warnings=["No markdown files found"],
-                        notes_scanned=0,
-                        links_written=0,
-                        links_deleted=0,
-                        sync_duration_ms=int((time.perf_counter() - started) * 1000),
-                        success=True,
-                    ).model_dump(mode="python")
-                    result_obj.result = "No files to sync"
-                    result_obj.success = True
-                    return
+                # if not files: block removed to allow pruning of deleted files
 
                 yield (0.4, f"Syncing {len(files)} vault files...")
                 total_found = 0
@@ -127,13 +116,52 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                         if link_result.output.get("errors"):
                             all_errors.extend(link_result.output["errors"])
 
+                yield (0.9, "Pruning deleted files...")
+                deleted_count = 0
+                # Calculate what we expect to exist based on this run
+                processed_uris = set()
+                # Determine scope prefix
+                scope_prefix = "vault:///"
+
+                try:
+                    if path:
+                        # input_path was calculated earlier (resolved)
+                        rel_scope = input_path.relative_to(vault_path)
+                        scope_prefix = f"vault:///{rel_scope}"
+                        # Ensure directory semantics for scope
+                        if input_path.is_dir() and not scope_prefix.endswith("/"):
+                            scope_prefix += "/"
+
+                    # Collect confirmed URIs
+                    for f in files:
+                        try:
+                            rel = f.relative_to(vault_path)
+                            processed_uris.add(f"vault:///{rel}")
+                        except ValueError:
+                            pass
+                except Exception:
+                    pass
+
+                # Database operations
+                from wks.api.database.Database import Database
+
+                with Database(config.database, "link") as database:
+                    if scope_prefix:
+                        # Find all matching URIs in DB (limited to .md files as this command only syncs markdown)
+                        # We MUST NOT delete non-md links (e.g. .txt, .html) that might be managed by other tools
+                        regex = f"^{re.escape(scope_prefix)}.*\\.md$"
+                        cursor = database.find({"from_uri": {"$regex": regex}}, {"from_uri": 1})
+                        db_uris = {doc["from_uri"] for doc in cursor}
+
+                        stale = db_uris - processed_uris
+                        if stale:
+                            deleted_count = database.delete_many({"from_uri": {"$in": list(stale)}})
+
                 yield (0.95, "Running backend-specific operations...")
                 # TODO: Backend-specific ops (e.g., symlink management for Obsidian)
                 # For now, this is a placeholder for future backend hooks
 
                 # Update meta document in link database with last_sync
-                from wks.api.database.Database import Database
-
                 sync_time = datetime.now(timezone.utc).isoformat()
                 with Database(config.database, "link") as database:
                     database.update_one(
@@ -149,7 +177,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                     warnings=[],
                     notes_scanned=len(files),
                     links_written=total_synced,
-                    links_deleted=0,  # Deletion handled by link sync's replace strategy
+                    links_deleted=deleted_count,
                     sync_duration_ms=duration_ms,
                     success=len(all_errors) == 0,
                 ).model_dump(mode="python")
