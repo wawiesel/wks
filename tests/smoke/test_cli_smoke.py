@@ -90,6 +90,10 @@ def smoke_env(tmp_path_factory):
             "local": True,  # Force local to ensure backend starts it if needed
         },
     }
+    config_dict["vault"] = {
+        "type": "obsidian",
+        "base_dir": str(vault_dir),
+    }
 
     # Write config
     (wks_home / "config.json").write_text(json.dumps(config_dict), encoding="utf-8")
@@ -178,5 +182,5 @@ def test_cli_vault_sync(smoke_env):
 
     # Verify sync success output
     assert "notes_scanned" in result.stdout
-    assert "edges_written" in result.stdout
+    assert "links_written" in result.stdout
     assert "success" in result.stdout

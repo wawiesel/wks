@@ -9,6 +9,7 @@ from wks.api.monitor.cmd_filter_show import cmd_filter_show
 from wks.api.monitor.cmd_priority_add import cmd_priority_add
 from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
 from wks.api.monitor.cmd_priority_show import cmd_priority_show
+from wks.api.monitor.cmd_prune import cmd_prune
 from wks.api.monitor.cmd_status import cmd_status
 from wks.api.monitor.cmd_sync import cmd_sync
 from wks.cli._handle_stage_result import handle_stage_result
@@ -124,6 +125,14 @@ def priority_remove_command(
 
 monitor_app.command(name="check")(check_command)
 monitor_app.command(name="sync")(sync_command)
+
+
+def prune_command() -> None:
+    """Remove stale entries for files that no longer exist."""
+    handle_stage_result(cmd_prune)()
+
+
+monitor_app.command(name="prune")(prune_command)
 
 # Filter subcommands
 filter_app.command(name="show")(filter_show_command)

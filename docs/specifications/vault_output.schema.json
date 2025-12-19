@@ -29,13 +29,13 @@
         "VaultIssue": {
             "type": "object",
             "properties": {
-                "note_path": {
+                "from_uri": {
                     "type": "string"
                 },
                 "line_number": {
                     "type": "integer"
                 },
-                "target_uri": {
+                "to_uri": {
                     "type": "string"
                 },
                 "status": {
@@ -43,9 +43,9 @@
                 }
             },
             "required": [
-                "note_path",
+                "from_uri",
                 "line_number",
-                "target_uri",
+                "to_uri",
                 "status"
             ],
             "additionalProperties": false
@@ -61,16 +61,12 @@
                 },
                 "line_number": {
                     "type": "integer"
-                },
-                "status": {
-                    "type": "string"
                 }
             },
             "required": [
                 "from_uri",
                 "to_uri",
-                "line_number",
-                "status"
+                "line_number"
             ],
             "additionalProperties": false
         },
@@ -88,26 +84,11 @@
                         "total_links": {
                             "type": "integer"
                         },
-                        "ok_links": {
-                            "type": "integer"
-                        },
-                        "broken_links": {
-                            "type": "integer"
-                        },
-                        "issues": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/VaultIssue"
-                            }
-                        },
                         "last_sync": {
                             "type": [
                                 "string",
                                 "null"
                             ]
-                        },
-                        "notes_scanned": {
-                            "type": "integer"
                         },
                         "success": {
                             "type": "boolean"
@@ -116,11 +97,7 @@
                     "required": [
                         "database",
                         "total_links",
-                        "ok_links",
-                        "broken_links",
-                        "issues",
                         "last_sync",
-                        "notes_scanned",
                         "success"
                     ],
                     "additionalProperties": false
@@ -138,10 +115,10 @@
                         "notes_scanned": {
                             "type": "integer"
                         },
-                        "edges_written": {
+                        "links_written": {
                             "type": "integer"
                         },
-                        "edges_deleted": {
+                        "links_deleted": {
                             "type": "integer"
                         },
                         "sync_duration_ms": {
@@ -153,8 +130,8 @@
                     },
                     "required": [
                         "notes_scanned",
-                        "edges_written",
-                        "edges_deleted",
+                        "links_written",
+                        "links_deleted",
                         "sync_duration_ms",
                         "success"
                     ],

@@ -66,6 +66,9 @@ class _Backend(_AbstractBackend):
     def update_one(self, filter: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> None:
         self._collection.update_one(filter, update, upsert=upsert)  # type: ignore[union-attr]
 
+    def insert_many(self, documents: list[dict[str, Any]]) -> Any:
+        return self._collection.insert_many(documents)  # type: ignore[union-attr]
+
     def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
         result = self._collection.update_many(filter, update)  # type: ignore[union-attr]
         return result.modified_count

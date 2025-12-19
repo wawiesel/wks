@@ -31,6 +31,7 @@ def cmd_list() -> StageResult:
             result_obj.output = DatabaseListOutput(
                 errors=[str(e)],
                 warnings=[],
+                prefix="",
                 databases=[],
             ).model_dump(mode="python")
             result_obj.success = False
@@ -45,19 +46,29 @@ def cmd_list() -> StageResult:
             result_obj.output = DatabaseListOutput(
                 errors=[str(e)],
                 warnings=[],
+                prefix=config.database.prefix,
                 databases=[],
             ).model_dump(mode="python")
             result_obj.success = False
             return
 
         yield (0.8, "Processing database names...")
+        # Strip prefix from database names
+        prefix = config.database.prefix
+        short_names = []
+        for full_name in database_names:
+            if full_name.startswith(f"{prefix}."):
+                short_names.append(full_name[len(prefix) + 1 :])
+            else:
+                short_names.append(full_name)
 
         yield (1.0, "Complete")
         result_obj.result = f"Found {len(database_names)} database(s)"
         result_obj.output = DatabaseListOutput(
             errors=[],
             warnings=[],
-            databases=database_names,
+            prefix=prefix,
+            databases=short_names,
         ).model_dump(mode="python")
         result_obj.success = True
 

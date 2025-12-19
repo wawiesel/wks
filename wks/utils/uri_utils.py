@@ -13,32 +13,42 @@ from urllib.parse import unquote
 
 
 def path_to_uri(path: Path) -> str:
-    """Convert Path to file:// URI.
+    """Convert Path to file:// URI with hostname.
 
-    Args:
-        path: Path object
-
-    Returns:
-        URI string like 'file:///Users/ww5/file.txt'
+    Uses socket.gethostname() to include machine name for portable URIs.
+    Format: file://hostname/absolute/path
     """
-    return path.resolve().as_uri()
+    import socket
+
+    hostname = socket.gethostname()
+    abs_path = path.resolve()
+    # Build URI: file://hostname + absolute_path
+    return f"file://{hostname}{abs_path}"
 
 
 def uri_to_path(uri: str) -> Path:
     """Convert file:// URI to Path.
 
+    Handles both standard 'file:///' URIs and machine-prefixed 'file://host/' URIs.
+
     Args:
-        uri: URI string like 'file:///Users/ww5/file.txt'
+        uri: URI string like 'file:///Users/ww5/file.txt' or 'file://host/Users/ww5/file.txt'
 
     Returns:
         Path object
     """
     if uri.startswith("file://"):
-        # Remove file:// prefix
-        path_str = uri[7:]
-        # URL decode any percent-encoded characters
-        path_str = unquote(path_str)
-        return Path(path_str)
+        # Strip 'file://'
+        path_part = uri[7:]
+
+        # Find the first slash after the hostname (if any)
+        # file://hostname/path -> hostname/path -> find('/') at hostname's end
+        # file:///path -> /path -> find('/') at 0
+        first_slash = path_part.find("/")
+        path_part = path_part[first_slash:] if first_slash != -1 else "/"
+
+        # URL decode and return Path
+        return Path(unquote(path_part))
     return Path(uri)
 
 
@@ -71,7 +81,7 @@ def convert_to_uri(path_or_uri: str | Path, vault_path: Path | None = None) -> s
     from .expand_path import expand_path
 
     # Already a URI - return as-is
-    if isinstance(path_or_uri, str) and (path_or_uri.startswith("vault:///") or path_or_uri.startswith("file:///")):
+    if isinstance(path_or_uri, str) and (path_or_uri.startswith("vault:///") or path_or_uri.startswith("file://")):
         return path_or_uri
 
     # Convert to Path and expand

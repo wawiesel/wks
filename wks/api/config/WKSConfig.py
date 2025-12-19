@@ -25,6 +25,7 @@ class WKSConfig(BaseModel):
     service: ServiceConfig
     daemon: DaemonConfig
     vault: VaultConfig
+    uri: str | None = None
 
     @computed_field
     def path(self) -> Path:
@@ -85,6 +86,7 @@ class WKSConfig(BaseModel):
             "service": self.service.model_dump(),
             "daemon": self.daemon.model_dump(),
             "vault": self.vault.model_dump(),
+            "uri": self.uri,
         }
 
     def save(self) -> None:

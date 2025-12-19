@@ -37,12 +37,14 @@ class _LinkMetadata:
 class _LinkResolver:
     """Resolves different types of Obsidian wiki links."""
 
-    def __init__(self, links_dir: Path):
-        """Initialize link resolver with vault's _links directory.
+    def __init__(self, vault_path: Path, links_dir: Path):
+        """Initialize link resolver.
 
         Args:
+            vault_path: Path to the vault root directory
             links_dir: Path to the vault's _links directory
         """
+        self.vault_path = vault_path
         self.links_dir = links_dir
         self.resolvers: list[tuple[Callable[[str], bool], Callable[[str], _LinkMetadata]]] = [
             (self._is_symlink, self._resolve_symlink),
@@ -85,11 +87,8 @@ class _LinkResolver:
         symlink_path = self.links_dir / rel
 
         if not symlink_path.exists():
-            # Symlink doesn't exist - use vault:// fallback
-            return _LinkMetadata(
-                target_uri=f"vault:///{target}",
-                status=STATUS_MISSING_SYMLINK,
-            )
+            # Symlink doesn't exist - resolve as internal if it looks like one, or mark missing
+            return self._resolve_vault_note(target, status=STATUS_MISSING_SYMLINK)
 
         try:
             resolved = symlink_path.resolve(strict=False)
@@ -102,12 +101,14 @@ class _LinkResolver:
         resolved_exists = resolved.exists()
         status = STATUS_MISSING_TARGET if not resolved_exists else STATUS_OK
 
-        # Use file:// URI for resolved filesystem path
+        # Use path_to_uri for resolved filesystem path
         try:
-            target_uri = resolved.as_uri()
+            from wks.utils.uri_utils import path_to_uri
+
+            target_uri = path_to_uri(resolved)
         except (ValueError, OSError):
-            # Fallback to vault:// if URI conversion fails
-            target_uri = f"vault:///{target}"
+            # Fallback to absolute file path string if URI conversion fails
+            target_uri = f"file://{resolved}"
 
         return _LinkMetadata(
             target_uri=target_uri,
@@ -116,9 +117,12 @@ class _LinkResolver:
 
     def _resolve_attachment(self, target: str) -> _LinkMetadata:
         """Resolve vault attachment (files starting with _)."""
+        abs_path = self.vault_path / target
+        # Vault attachments use vault:/// URI
+        target_uri = f"vault:///{target}"
         return _LinkMetadata(
-            target_uri=f"vault:///{target}",
-            status=STATUS_OK,
+            target_uri=target_uri,
+            status=STATUS_OK if abs_path.exists() else STATUS_MISSING_TARGET,
         )
 
     def _resolve_external_url(self, target: str) -> _LinkMetadata:
@@ -128,9 +132,22 @@ class _LinkResolver:
             status=STATUS_OK,
         )
 
-    def _resolve_vault_note(self, target: str) -> _LinkMetadata:
-        """Resolve as vault note (default case)."""
+    def _resolve_vault_note(self, target: str, status: str = STATUS_OK) -> _LinkMetadata:
+        """Resolve as vault note (default case) using vault:/// URI."""
+        # Append .md if not present and doesn't look like a file with extension
+        note_target = target
+        if not note_target.endswith(".md") and "." not in note_target:
+            note_target += ".md"
+
+        abs_path = self.vault_path / note_target
+
+        target_status = status
+        if target_status == STATUS_OK and not abs_path.exists():
+            target_status = STATUS_MISSING_TARGET
+
+        # Use vault:/// relative URI
+        target_uri = f"vault:///{note_target}"
         return _LinkMetadata(
-            target_uri=f"vault:///{target}",
-            status=STATUS_OK,
+            target_uri=target_uri,
+            status=target_status,
         )

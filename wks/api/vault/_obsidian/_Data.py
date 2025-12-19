@@ -33,6 +33,8 @@ class _EdgeRecord:
     # Target resolution (URI-first)
     to_uri: str
     status: str
+    parser: str = "vault"
+    source_domain: str = "vault"
 
     @property
     def identity(self) -> str:
@@ -52,6 +54,8 @@ class _EdgeRecord:
             "raw_target": self.raw_target,
             "alias_or_text": self.alias_or_text,
             "status": self.status,
+            "parser": self.parser,
+            "source_domain": self.source_domain,
             "last_seen": seen_at_iso,
             "last_updated": seen_at_iso,
         }
@@ -82,7 +86,7 @@ class _SyncResult:
             "last_scan_started_at": self.sync_started,
             "last_scan_duration_ms": self.sync_duration_ms,
             "notes_scanned": self.stats.notes_scanned,
-            "edges_written": self.stats.edge_total,
+            "links_written": self.stats.edge_total,
             "type_counts": dict(self.stats.type_counts),
             "status_counts": dict(self.stats.status_counts),
             "errors": list(self.stats.errors),

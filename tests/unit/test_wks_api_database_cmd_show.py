@@ -9,7 +9,7 @@ from tests.unit.conftest import run_cmd
 from wks.api.database.cmd_show import cmd_show
 from wks.api.database.Database import Database
 
-pytestmark = pytest.mark.db
+pytestmark = pytest.mark.database
 
 
 class TestCmdShow:
