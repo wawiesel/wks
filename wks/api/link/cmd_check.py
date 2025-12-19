@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from wks.utils.uri_utils import path_to_uri
+from wks.utils.uri_utils import path_to_uri, uri_to_path
 
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
@@ -15,6 +15,7 @@ from . import LinkCheckOutput
 
 # Accessing private module as we reuse the logic
 from ._parsers import get_parser
+from .cloud_resolver import resolve_cloud_url
 
 
 def cmd_check(path: str, parser: str | None = None) -> StageResult:
@@ -101,6 +102,24 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
                     # If it looks like a path
                     pass  # TODO: Implement robust relative path resolution outside vault
 
+                # Calculate cloud_url
+                cloud_url = None
+                target_path_obj = None
+                try:
+                    if to_uri.startswith("vault:///"):
+                        if vault_root:
+                            # Strip "vault:///" and join with vault_root
+                            rel_part = to_uri[11:]
+                            target_path_obj = vault_root / rel_part
+                    elif to_uri.startswith("file://"):
+                        target_path_obj = uri_to_path(to_uri)
+
+                    if target_path_obj:
+                        cloud_url = resolve_cloud_url(target_path_obj, config.cloud)
+                except Exception:
+                    # Failures in cloud resolution/path checks shouldn't fail the link check
+                    pass
+
                 links_out.append(
                     {
                         "from_uri": from_uri,
@@ -109,6 +128,7 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
                         "column_number": ref.column_number,
                         "parser": parser_name,
                         "name": ref.alias,
+                        "cloud_url": cloud_url,
                     }
                 )
 

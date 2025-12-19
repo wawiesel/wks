@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from wks.api.database.Database import Database
 from wks.api.vault._constants import DOC_TYPE_LINK
 from wks.utils.expand_paths import expand_paths
-from wks.utils.uri_utils import path_to_uri
+from wks.utils.uri_utils import path_to_uri, uri_to_path
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
@@ -20,6 +20,7 @@ from . import LinkSyncOutput
 
 # Accessing private module as we reuse the logic
 from ._parsers import get_parser
+from .cloud_resolver import resolve_cloud_url
 
 # Supported extensions for link parsing
 _LINK_EXTENSIONS = {".md", ".html", ".htm", ".rst", ".txt"}
@@ -94,8 +95,23 @@ def _sync_single_file(
                     "parser": actual_parser,
                     "name": ref.alias,
                     "status": "ok",
+                    "cloud_url": None,
                 }
             )
+
+            # Attempt cloud URL resolution
+            target_path_obj = None
+            try:
+                if str(to_uri).startswith("vault:///"):
+                    if vault_root:
+                        target_path_obj = vault_root / str(to_uri)[11:]
+                elif str(to_uri).startswith("file://"):
+                    target_path_obj = uri_to_path(str(to_uri))
+
+                if target_path_obj:
+                    records[-1]["cloud_url"] = resolve_cloud_url(target_path_obj, config.cloud)
+            except Exception:
+                pass
 
         # Build documents
         seen_at_iso = datetime.now(timezone.utc).isoformat()
@@ -129,6 +145,7 @@ def _sync_single_file(
                     "name": rec["name"],
                     "last_seen": seen_at_iso,
                     "last_updated": seen_at_iso,
+                    "cloud_url": rec["cloud_url"],
                 }
             )
 
