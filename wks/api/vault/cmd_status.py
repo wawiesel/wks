@@ -17,6 +17,8 @@ def cmd_status() -> StageResult:
     """Get vault link health status."""
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
+        from wks.utils.uri_utils import path_to_uri
+
         from ..config.WKSConfig import WKSConfig
         from ._constants import META_DOCUMENT_ID
 
@@ -24,7 +26,19 @@ def cmd_status() -> StageResult:
         try:
             config: Any = WKSConfig.load()
             wks_home = WKSConfig.get_home_dir()
-            # Collection name is 'links'
+
+            # Get vault base URI
+            from pathlib import Path
+
+            if not config.vault.base_dir:
+                raise ValueError("Vault base_dir not configured")
+
+            vault_base = Path(config.vault.base_dir).resolve()
+            vault_base_uri = path_to_uri(vault_base)
+            if not vault_base_uri.endswith("/"):
+                vault_base_uri += "/"
+
+            # Collection name is 'edges'
             database_name = "edges"
         except Exception as e:
             result_obj.output = VaultStatusOutput(
@@ -42,8 +56,10 @@ def cmd_status() -> StageResult:
         yield (0.3, "Querying vault links...")
         try:
             with Database(config.database, database_name) as database:
-                # Filter for vault domain: links with from_uri starting with vault:///
-                vault_filter = {"from_uri": {"$regex": "^vault:///"}}
+                # Filter for vault domain: links with from_local_uri starting with vault base URI
+                import re
+
+                vault_filter = {"from_local_uri": {"$regex": f"^{re.escape(vault_base_uri)}"}}
 
                 # Count links
                 total_links = database.count_documents(vault_filter)

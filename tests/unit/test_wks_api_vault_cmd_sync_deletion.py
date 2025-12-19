@@ -38,8 +38,13 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # 1. Manually seed DB with a "stale" link
+    from wks.utils.uri_utils import path_to_uri
+
+    stale_note = vault_dir / "note.md"
+    stale_uri = path_to_uri(stale_note)
+
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
-        db.insert_many([{"doc_type": "link", "from_uri": "vault:///note.md", "to_uri": "vault:///foo"}])
+        db.insert_many([{"doc_type": "link", "from_local_uri": stale_uri, "to_uri": "vault:///foo"}])
 
     # 2. Sync (note.md does NOT exist on disk, so it should be pruned)
     res = run_cmd(cmd_sync)
@@ -48,7 +53,7 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
     # 3. Verify deleted
     assert res.output["links_deleted"] > 0
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
-        assert db.find_one({"from_uri": "vault:///note.md"}) is None
+        assert db.find_one({"from_local_uri": stale_uri}) is None
 
 
 def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_dict, shared_mongo):
@@ -72,13 +77,20 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
     (subdir / "nested.md").write_text("", encoding="utf-8")
     # deleted.md is NOT created on disk
 
+    # URIs
+    from wks.utils.uri_utils import path_to_uri
+
+    root_uri = path_to_uri(vault_dir / "root.md")
+    nested_uri = path_to_uri(subdir / "nested.md")
+    deleted_uri = path_to_uri(subdir / "deleted.md")
+
     # Seed DB with all 3
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         db.insert_many(
             [
-                {"doc_type": "link", "from_uri": "vault:///root.md"},
-                {"doc_type": "link", "from_uri": "vault:///sub/nested.md"},
-                {"doc_type": "link", "from_uri": "vault:///sub/deleted.md"},
+                {"doc_type": "link", "from_local_uri": root_uri},
+                {"doc_type": "link", "from_local_uri": nested_uri},
+                {"doc_type": "link", "from_local_uri": deleted_uri},
             ]
         )
 
@@ -89,6 +101,6 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
     # 2. nested.md IS GONE because file is empty -> 0 links. (Correct behavior)
     # 3. deleted.md should be GONE (was in scope 'sub' and missing from disk)
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
-        assert db.find_one({"from_uri": "vault:///root.md"}) is not None
+        assert db.find_one({"from_local_uri": root_uri}) is not None
         # nested.md is gone because empty content = 0 links
-        assert db.find_one({"from_uri": "vault:///sub/deleted.md"}) is None
+        assert db.find_one({"from_local_uri": deleted_uri}) is None
