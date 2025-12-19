@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.monitor.remote_detection import detect_remote_mappings
+from wks.api.monitor.detect_remote_mappings import detect_remote_mappings
 from wks.api.StageResult import StageResult
 
 

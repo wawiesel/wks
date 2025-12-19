@@ -14,7 +14,7 @@ from wks.utils.logger import get_logger
 from wks.utils.uri_utils import path_to_uri, uri_to_path
 
 from ..config.WKSConfig import WKSConfig
-from ..monitor.remote_resolver import resolve_remote_uri
+from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ..StageResult import StageResult
 from ..vault._obsidian._LinkResolver import _LinkResolver
 from ..vault.Vault import Vault

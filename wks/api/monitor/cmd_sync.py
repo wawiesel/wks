@@ -17,7 +17,7 @@ from . import MonitorSyncOutput
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
-from .remote_resolver import resolve_remote_uri
+from .resolve_remote_uri import resolve_remote_uri
 
 
 def cmd_sync(

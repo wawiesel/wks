@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from ..monitor.RemoteConfig import RemoteMapping
+from ..monitor.RemoteMapping import RemoteMapping
 
 
 def detect_remote_mappings(home_dir: Path | None = None) -> list[RemoteMapping]:
