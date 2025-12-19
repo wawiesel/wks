@@ -64,7 +64,7 @@ def cmd_sync(
         config = WKSConfig.load()
         monitor_cfg = config.monitor
 
-        # Collection name: 'nodes' (formerly 'monitor')
+        # Collection name: 'nodes'
         database_name = "nodes"
         wks_home = WKSConfig.get_home_dir()
 

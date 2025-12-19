@@ -60,7 +60,7 @@ def cmd_status() -> StageResult:
         monitor_cfg = config.monitor
         wks_home = WKSConfig.get_home_dir()
 
-        # Collection name: 'nodes' (formerly 'monitor')
+        # Collection name: 'nodes'
         database_name = "nodes"
 
         # Count tracked files and time-based statistics via DB API

@@ -35,16 +35,24 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 - Behavior: Shows documents from the specified collection with optional filter/limit.
 - Output schema: `DatabaseShowOutput` from `database_output.schema.json`.
 
+
 ### reset
 - Command: `wksc database reset <database>`
 - Behavior: Deletes all documents from the specified collection.
 - Output schema: `DatabaseResetOutput` from `database_output.schema.json`.
 
+### prune
+- Command: `wksc database prune <database>`
+- Behavior: Iterates through documents in the specified database. For each document with a `from_local_uri` field, checks if the local file exists. If missing, deletes the document.
+- Output schema: `DatabasePruneOutput` from `database_output.schema.json`.
+
 ## MCP
+
 - Commands mirror CLI:
   - `wksm_database_list`
   - `wksm_database_show <database> [query] [limit]`
   - `wksm_database_reset <database>`
+  - `wksm_database_prune <database>`
 - Output format: JSON.
 - CLI and MCP MUST return the same data and structure for equivalent calls.
 
@@ -57,5 +65,5 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 - DB.2 — `wksc database list` lists all databases (names without prefix).
 - DB.3 — `wksc database show <database>` requires a database name; optional query/limit parameters; returns matching documents.
 - DB.4 — `wksc database reset <database>` clears the specified database.
-- DB.5 — Unknown/invalid database or schema violation returns schema-conformant errors; no partial success.
-
+- DB.5 — `wksc database prune <database>` removes entries where the local source file (`from_local_uri`) no longer exists.
+- DB.6 — Unknown/invalid database or schema violation returns schema-conformant errors; no partial success.

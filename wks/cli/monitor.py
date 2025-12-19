@@ -148,7 +148,7 @@ def priority_show_command() -> None:
 
 priority_app.command(name="show")(priority_show_command)
 priority_app.command(name="add")(priority_add_command)
-priority_app.command(name="add")(priority_add_command)
+
 priority_app.command(name="remove")(priority_remove_command)
 
 

@@ -420,40 +420,6 @@
           "additionalProperties": false
         }
       ]
-    },
-    "MonitorRemoteDetectOutput": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/Base"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "mappings_detected": {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            },
-            "previous_count": {
-              "type": "integer"
-            },
-            "new_count": {
-              "type": "integer"
-            },
-            "success": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "mappings_detected",
-            "previous_count",
-            "new_count",
-            "success"
-          ],
-          "additionalProperties": false
-        }
-      ]
     }
   },
   "oneOf": [
@@ -486,9 +452,6 @@
     },
     {
       "$ref": "#/definitions/MonitorPruneOutput"
-    },
-    {
-      "$ref": "#/definitions/MonitorRemoteDetectOutput"
     }
   ]
 }

@@ -32,10 +32,6 @@
                 },
                 "parser": {
                     "type": "string"
-                },
-                "cloud_url": {
-                    "type": "string",
-                    "format": "uri"
                 }
             }
         },

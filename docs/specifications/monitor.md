@@ -6,7 +6,7 @@ Filesystem monitoring: check/sync/status, manage filters and priorities, with co
 ## Configuration File Structure
 - Location: `{WKS_HOME}/config.json` (override via `WKS_HOME`)
 - Composition: Uses `monitor` block as defined in `docs/specifications/wks.md`.
-- **Remote Support**: Includes optional `remote` block for mapping local paths to remote URIs (e.g., OneDrive/SharePoint).
+- **Remote Support**: Includes `remote` block for mapping local paths to remote URIs (e.g., OneDrive/SharePoint). This block is required.
 
 ## Normative Schema
 - Canonical output schema: `docs/specifications/monitor_output.schema.json`.
