@@ -7,7 +7,7 @@ import pytest
 from tests.unit.conftest import run_cmd
 from wks.api.database.cmd_reset import cmd_reset
 
-pytestmark = pytest.mark.db
+pytestmark = pytest.mark.database
 
 
 class TestCmdReset:

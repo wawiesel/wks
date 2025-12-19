@@ -1,0 +1,141 @@
+{
+    "definitions": {
+        "LinkRecord": {
+            "type": "object",
+            "required": [
+                "from_uri",
+                "to_uri",
+                "line_number",
+                "column_number",
+                "parser",
+                "name"
+            ],
+            "properties": {
+                "from_uri": {
+                    "type": "string",
+                    "format": "uri"
+                },
+                "to_uri": {
+                    "type": "string",
+                    "format": "uri"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "line_number": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "column_number": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "parser": {
+                    "type": "string"
+                }
+            }
+        },
+        "LinkStatusOutput": {
+            "type": "object",
+            "required": [
+                "total_links",
+                "total_files"
+            ],
+            "properties": {
+                "total_links": {
+                    "type": "integer"
+                },
+                "total_files": {
+                    "type": "integer"
+                }
+            }
+        },
+        "LinkShowOutput": {
+            "type": "object",
+            "required": [
+                "uri",
+                "direction",
+                "links"
+            ],
+            "properties": {
+                "uri": {
+                    "type": "string"
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": [
+                        "to",
+                        "from",
+                        "both"
+                    ]
+                },
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/LinkRecord"
+                    }
+                }
+            }
+        },
+        "LinkCheckOutput": {
+            "type": "object",
+            "required": [
+                "path",
+                "is_monitored",
+                "links"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "is_monitored": {
+                    "type": "boolean"
+                },
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/LinkRecord"
+                    }
+                }
+            }
+        },
+        "LinkSyncOutput": {
+            "type": "object",
+            "required": [
+                "path",
+                "is_monitored",
+                "links_found",
+                "links_synced"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "is_monitored": {
+                    "type": "boolean"
+                },
+                "links_found": {
+                    "type": "integer"
+                },
+                "links_synced": {
+                    "type": "integer"
+                }
+            }
+        },
+        "LinkPruneOutput": {
+            "type": "object",
+            "required": [
+                "deleted_count",
+                "stale_files"
+            ],
+            "properties": {
+                "deleted_count": {
+                    "type": "integer"
+                },
+                "stale_files": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}

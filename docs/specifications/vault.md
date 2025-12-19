@@ -2,61 +2,78 @@
 
 ## Purpose
 
-Central knowledge linker: store edges (links) between resources in the personal knowledge graph.
-- **Monitor** = nodes (files being tracked)
-- **Vault** = edges (links between files)
+The **Vault** is a knowledge base (currently Obsidian-compatible) that provides:
+
+1. **Configuration**: Defines the vault root directory and backend type.
+2. **Monitor Registration**: Automatically registers the vault with the Monitor domain.
+3. **URI Scheme**: Uses `vault:///relative/path` for portable in-vault references.
+4. **Scoped Operations**: Provides vault-specific `status` and `sync` commands.
+
+For **edge storage and management**, see [Link Specification](link.md).
 
 ## Configuration
 
-- Location: `{WKS_HOME}/config.json` (override via `WKS_HOME`)
-- Composition: Uses `vault` block as defined in `docs/specifications/wks.md`; all fields required, no defaults in code.
+Location: `{WKS_HOME}/config.json`
 
 ```json
 {
   "vault": {
     "type": "obsidian",
-    "base_dir": "~/_vault",
-    "database": "vault"
+    "base_dir": "~/_vault"
   }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | string | Vault type (currently only `obsidian`) |
+| `type` | string | Vault backend type (currently only `obsidian`) |
 | `base_dir` | string | Path to vault root directory |
-| `database` | string | MongoDB collection name |
 
-## Normative Schema
+All fields are required; no defaults in code.
 
-- Canonical output schema: `docs/specifications/vault_output.schema.json`
-- Implementations MUST validate outputs against this schema; unknown fields are rejected.
+## URI Scheme
 
-## Database Schema
+Files within the vault use the `vault:///` scheme for portability:
 
-Collection: `wks.vault`
+| Location | URI Format | Example |
+|----------|------------|---------|
+| In-Vault | `vault:///<relative_path>` | `vault:///Concepts/Agent.md` |
+| External | `file://<hostname>/<absolute_path>` | `file://laptop/Users/me/doc.md` |
 
-Each edge is one document. `_id` is `sha256(from_uri + line_number + column_number + to_uri)` for deterministic upserts.
+This allows the vault to be moved or synced across machines without breaking internal links.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `from_uri` | string | URI of source file |
-| `line_number` | int | 1-based line number |
-| `column_number` | int | 1-based column number |
-| `to_uri` | string | URI of target resource |
-| `status` | string | `ok`, `missing_symlink`, `missing_target` |
+> [!IMPORTANT]
+> The vault should only have **outgoing** links. No edges should have `to_uri` starting with `vault:///` from non-vault sources.
 
-### URI Schemes
+## Path Resolution
 
-- `vault:///path/to/note.md` — Vault-internal notes
-- `file:///absolute/path` — External files (via _links/ symlinks on Obsidian)
-- `https://...` — External URLs
+All `wksc vault` commands interpret paths as **vault-relative**:
+
+**If CWD is inside vault** (e.g., `~/_vault/Projects`):
+- `Index.md` → `vault:///Projects/Index.md` (relative to CWD)
+
+**If CWD is outside vault** (e.g., `~/Desktop`):
+- `Index.md` → `vault:///Index.md` (relative to vault root)
+
+| Input | CWD | Interpreted As |
+|-------|-----|----------------|
+| `Index.md` | `~/_vault/Projects` | `vault:///Projects/Index.md` |
+| `Index.md` | `~/Desktop` | `vault:///Index.md` |
+| `./local/x.md` | `~/Desktop` | `vault:///local/x.md` |
+| `vault:///Index.md` | any | `vault:///Index.md` |
+| `~/_vault/Index.md` | any | `vault:///Index.md` |
+
+**Error Cases:**
+- Path outside vault: `"~/other/file.md" is not in the vault`
+- Vault path doesn't exist: `"vault:///local/path/to/x.md" does not exist`
 
 ## Monitor Registration
 
-Vault uses the monitor API to register paths. State is stored in `{WKS_HOME}/vault.json`.
+The vault directory is automatically registered with the Monitor domain.
 
 ### State File
+
+Location: `{WKS_HOME}/vault.json`
 
 ```json
 {
@@ -68,101 +85,87 @@ Vault uses the monitor API to register paths. State is stored in `{WKS_HOME}/vau
 
 ### Registration Flow
 
-On `vault sync` or startup:
+On daemon startup or config change:
 
-1. Load saved state from `{WKS_HOME}/vault.json`
+1. Load saved state from `vault.json`
 2. Compare `config.vault.base_dir` to saved `base_dir`
 3. If changed:
-   - Call `wksm_monitor_filter_remove` for old paths
-   - Call `wksm_monitor_filter_add` for new paths
+   - Remove old paths from monitor
+   - Add new paths to monitor
    - Update `vault.json`
-4. On first run (no state file): register paths and create state file
 
-### Status Validation
-
-`vault status` checks:
-- Is vault `base_dir` in monitor's `include_paths`? (warn if not)
-- Is vault exclude path in monitor's `exclude_paths`? (warn if not)
-
-Monitor remains agnostic—vault is just directories.
-
-## Link Validation
-
-External file links (`file:///...` URIs) MUST be validated against monitor before being added to the database.
-
-For each external file link discovered during sync:
-
-1. Call `wksm_monitor_check` on the target path
-2. If `is_monitored` is `false`: skip, record as issue
-3. If `is_monitored` is `true`: add edge to database
-
-`vault status` reports count/list of unmonitored link targets.
-
-## CLI
-
-Entry: `wksc vault`
+## CLI: `wksc vault`
 
 ### status
 
-- Command: `wksc vault status`
-- Behavior: Report edge counts, link health, issues, last sync time
-- Output schema: `VaultStatusOutput`
+**Signature**: `wksc vault status`
+
+**Purpose**: Vault-scoped statistics and validation.
+
+- Queries edges where `from_uri` starts with `vault:///`
+- Reports node count, edge count for vault only
+- **Validates** no invalid incoming edges (edges with `to_uri` starting with `vault:///` from non-vault sources)
+- Reports health issues (broken links, missing targets)
 
 ### sync
 
-- Command: `wksc vault sync [path]`
-- Behavior: Parse file(s) for links, validate external links, upsert valid edges, delete stale edges. Without path: scan entire vault. With path: incremental sync of that file.
-- Output schema: `VaultSyncOutput`
+**Signature**: `wksc vault sync [path] [--recursive]`
 
-### check
+**Purpose**: Sync vault links with vault-specific processing.
 
-- Command: `wksc vault check [path]`
-- Behavior: Check link health for file or entire vault
-- Output schema: `VaultCheckOutput`
+- If `path` is omitted: syncs entire vault (recursive).
+- If `path` is a file: syncs that file.
+- If `path` is a directory and `--recursive`: syncs all matching files recursively.
+- Calls `wksc link sync` to parse and store edges.
+- Vault backend may perform backend-specific operations.
+- Reports vault-specific sync metrics.
 
-### links
+### Other Link Operations
 
-- Command: `wksc vault links <path> [--direction to|from|both]`
-- Behavior: Show all edges to/from a specific file
-- Output schema: `VaultLinksOutput`
+For general link operations, use `wksc link`:
 
-## MCP
+| Action | Command |
+|--------|---------|
+| Check links in a file | `wksc link check <path>` |
+| Show links for a URI | `wksc link show <uri>` |
+| Clean stale links | `wksc link clean` |
 
-Commands mirror CLI:
+## MCP Interface
 
-- `wksm_vault_status`
-- `wksm_vault_sync [path]`
-- `wksm_vault_check [path]`
-- `wksm_vault_links <path> [direction]`
+| Tool | Description |
+|------|-------------|
+| `wksm_vault_status()` | Get vault-scoped statistics |
+| `wksm_vault_sync(path?)` | Sync vault links |
 
-Output format: JSON. CLI and MCP MUST return the same data and structure.
+For other link operations, use `wksm_link_*` tools.
 
 ## Daemon Integration
 
-The daemon watches the vault directory and triggers `vault sync` on file changes:
+The daemon watches monitored directories and routes file changes appropriately:
 
-- On markdown file change: calls `wksm_vault_sync <changed_file>`
-- Uses daemon's `sync_interval_secs` for debouncing (same as monitor)
+| File Location | Action |
+|---------------|--------|
+| Within `vault.base_dir` | Calls `wksm_vault_sync(<changed_file>)` |
+| Other monitored file | Calls `wksm_link_sync(<changed_file>)` |
 
-## Error Semantics
+Debounced by `sync_interval_secs`.
 
-- Unknown/invalid paths or schema violations return schema-conformant errors; no partial success.
-- All outputs MUST validate against their schemas before returning.
+## Backend: Obsidian
+
+The `obsidian` vault backend:
+
+- Parses WikiLinks: `[[Note]]`, `[[Note|Alias]]`, `![[Embed]]`
+- Parses standard Markdown links: `[Text](url)`
+- Uses `_links/<machine>/` symlink convention for external file references
+- Excludes `_links/` from monitoring to avoid symlink loops
+
+Future vault backends may implement different conventions.
 
 ## Formal Requirements
 
-- VAU.1 — All vault config fields are required; no defaults in code.
-- VAU.2 — `wksc vault status` returns `VaultStatusOutput`.
-- VAU.3 — `wksc vault sync [path]` syncs edges; returns `VaultSyncOutput`.
-- VAU.4 — `wksc vault check [path]` validates links; returns `VaultCheckOutput`.
-- VAU.5 — `wksc vault links <path>` requires path; returns `VaultLinksOutput`.
-- VAU.6 — Schema validation required; unknown/invalid inputs yield schema-conformant errors.
-
-## Provider Notes
-
-The `obsidian` vault type:
-- Uses `_links/<machine>/` symlink convention for external files
-- Creates/updates symlinks during sync for external file links
-- Parses Obsidian-style wikilinks and embeds
-
-Future vault types may implement different conventions.
+- **VAU.1**: All vault config fields are required; no defaults in code.
+- **VAU.2**: `vault status` returns vault-scoped statistics only.
+- **VAU.3**: `vault sync` delegates to `link sync` then runs backend-specific ops.
+- **VAU.4**: `vault:///` URIs are relative to vault root; portable across machines.
+- **VAU.5**: Vault should only have outgoing edges; incoming edges are invalid.
+- **VAU.6**: Daemon routes vault files to `vault sync`, others to `link sync`.

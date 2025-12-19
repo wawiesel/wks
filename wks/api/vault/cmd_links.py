@@ -5,6 +5,7 @@ MCP: wksm_vault_links
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any, Literal
 
 from ..database.Database import Database
@@ -22,13 +23,12 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
-        from ._constants import DOC_TYPE_LINK
 
         yield (0.1, "Loading configuration...")
         try:
             config: Any = WKSConfig.load()
-            # Compute database name from prefix
-            database_name = f"{config.database.prefix}.vault"
+            # Collection name is just 'vault' - prefix is the DB name
+            database_name = "vault"
         except Exception as e:
             result_obj.output = VaultLinksOutput(
                 errors=[f"Failed to load config: {e}"],
@@ -43,25 +43,48 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
             result_obj.success = False
             return
 
-        yield (0.3, "Querying vault database...")
+        # Collection name is 'link' - prefix is the DB name
+        database_name = "link"
+        yield (0.3, "Resolving vault path...")
         try:
+            # Resolve path to vault:/// URI using CWD-aware logic
+            from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
+
+            vault_base = Path(config.vault.base_dir).expanduser().resolve()
+            try:
+                uri, _abs_path = resolve_vault_path(path, vault_base)
+            except VaultPathError as e:
+                result_obj.output = VaultLinksOutput(
+                    errors=[str(e)],
+                    warnings=[],
+                    path=path,
+                    direction=direction,
+                    edges=[],
+                    count=0,
+                    success=False,
+                ).model_dump(mode="python")
+                result_obj.result = str(e)
+                result_obj.success = False
+                return
+
+            yield (0.4, "Querying vault database...")
             with Database(config.database, database_name) as database:
-                # Build URI pattern for the path (normalize to vault:/// format)
-                path_uri = path if path.startswith("vault:///") else f"vault:///{path.lstrip('/')}"
+                # Filter for vault domain: links with from_uri starting with vault:///
+                vault_filter = {"from_uri": {"$regex": "^vault:///"}}
 
                 # Build query based on direction
-                query: dict[str, Any] = {"doc_type": DOC_TYPE_LINK}
-                if direction == "to":
-                    query["to_uri"] = path_uri
-                elif direction == "from":
-                    query["from_uri"] = path_uri
-                else:  # both
-                    query["$or"] = [{"from_uri": path_uri}, {"to_uri": path_uri}]
+                query: dict[str, Any] = {}
+                if direction == "from":
+                    query = {**vault_filter, "from_uri": uri}
+                elif direction == "to":
+                    query = {**vault_filter, "to_uri": uri}
+                elif direction == "both":
+                    query = {**vault_filter, "$or": [{"from_uri": uri}, {"to_uri": uri}]}
 
                 yield (0.6, "Fetching edges...")
                 cursor = database.find(
                     query,
-                    {"from_uri": 1, "to_uri": 1, "line_number": 1, "status": 1},
+                    {"from_uri": 1, "to_uri": 1, "line_number": 1},
                 )
 
                 edges = [
@@ -69,7 +92,6 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
                         "from_uri": doc.get("from_uri", ""),
                         "to_uri": doc.get("to_uri", ""),
                         "line_number": doc.get("line_number", 0),
-                        "status": doc.get("status", ""),
                     }
                     for doc in list(cursor)[:100]  # Limit to 100
                 ]

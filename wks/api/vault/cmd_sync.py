@@ -1,51 +1,55 @@
 """Vault sync API command.
 
-CLI: wksc vault sync [path]
+CLI: wksc vault sync [path] [--recursive]
 MCP: wksm_vault_sync
+
+Per spec VAU.3: vault sync delegates to link sync, then runs backend-specific ops.
 """
 
 from collections.abc import Iterator
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from ..database.Database import Database
+from wks.utils.expand_paths import expand_paths
+
 from ..StageResult import StageResult
 from ..utils._write_status_file import write_status_file
 from . import VaultSyncOutput
 
+# Vault only processes markdown files
+_VAULT_EXTENSIONS = {".md"}
 
-def cmd_sync(path: str | None = None) -> StageResult:
+
+def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
     """Sync vault links to database.
 
     Args:
-        path: Optional file path to sync. If None, sync entire vault.
+        path: Optional file/directory path to sync. If None, sync entire vault.
+        recursive: If True and path is directory, recurse into subdirectories.
     """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         import time
 
         from ..config.WKSConfig import WKSConfig
-        from ._constants import DOC_TYPE_LINK, META_DOCUMENT_ID
-        from ._obsidian._Scanner import _Scanner
+        from ..link.cmd_sync import cmd_sync as link_cmd_sync
         from .Vault import Vault
 
         yield (0.1, "Loading configuration...")
         try:
             config: Any = WKSConfig.load()
-            base_dir = config.vault.base_dir
+            vault_cfg = config.vault
+            base_dir = vault_cfg.base_dir
             if not base_dir:
                 raise ValueError("vault.base_dir not configured")
             wks_home = WKSConfig.get_home_dir()
-            # Compute database name from prefix
-            database_name = f"{config.database.prefix}.vault"
         except Exception as e:
             result_obj.output = VaultSyncOutput(
                 errors=[f"Failed to load config: {e}"],
                 warnings=[],
                 notes_scanned=0,
-                edges_written=0,
-                edges_deleted=0,
+                links_written=0,
+                links_deleted=0,
                 sync_duration_ms=0,
                 success=False,
             ).model_dump(mode="python")
@@ -55,107 +59,118 @@ def cmd_sync(path: str | None = None) -> StageResult:
 
         yield (0.2, "Initializing vault...")
         try:
-            # Vault acts as a context manager and facade
-            with Vault(config.vault) as vault:
-                scanner = _Scanner(vault)
+            with Vault(vault_cfg) as vault:
+                vault_path = vault.vault_path
+                started = time.perf_counter()
+                _started_iso = datetime.now(timezone.utc).isoformat()
 
-                yield (0.3, "Scanning vault for links...")
-                try:
-                    started = time.perf_counter()
-                    started_iso = datetime.now(timezone.utc).isoformat()
+                yield (0.3, "Resolving vault path...")
+                # Determine sync scope using vault path resolution
+                if path:
+                    from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
 
-                    # If path specified, validate it exists
-                    files_to_scan = None
-                    if path:
-                        file_path = Path(path).expanduser().resolve()
-                        if not file_path.exists():
-                            result_obj.output = VaultSyncOutput(
-                                errors=[f"File not found: {path}"],
-                                warnings=[],
-                                notes_scanned=0,
-                                edges_written=0,
-                                edges_deleted=0,
-                                sync_duration_ms=0,
-                                success=False,
-                            ).model_dump(mode="python")
-                            result_obj.result = "Vault sync failed: file not found"
-                            result_obj.success = False
-                            return
-                        files_to_scan = [file_path]
+                    try:
+                        _uri, input_path = resolve_vault_path(path, vault_path)
+                    except VaultPathError as e:
+                        result_obj.output = VaultSyncOutput(
+                            errors=[str(e)],
+                            warnings=[],
+                            notes_scanned=0,
+                            links_written=0,
+                            links_deleted=0,
+                            sync_duration_ms=0,
+                            success=False,
+                        ).model_dump(mode="python")
+                        result_obj.result = str(e)
+                        result_obj.success = False
+                        return
+                    # Use resolved path
+                    files = list(expand_paths(input_path, recursive=recursive, extensions=_VAULT_EXTENSIONS))
+                else:
+                    # No path = entire vault (always recursive)
+                    files = list(expand_paths(vault_path, recursive=True, extensions=_VAULT_EXTENSIONS))
 
-                    records = scanner.scan(files=files_to_scan)
-                    stats = scanner.stats
-
-                    yield (0.5, "Writing to database...")
-                    total_upserts = 0
-                    with Database(config.database, database_name) as database:
-                        for record in records:
-                            doc = record.to_document(seen_at_iso=started_iso)
-                            database.update_one(
-                                {"_id": record.identity},
-                                {
-                                    "$set": doc,
-                                    "$setOnInsert": {"first_seen": started_iso},
-                                },
-                                upsert=True,
-                            )
-                            total_upserts += 1
-
-                        # Delete stale links
-                        yield (0.8, "Cleaning stale links...")
-                        deleted = database.delete_many(
-                            {
-                                "doc_type": DOC_TYPE_LINK,
-                                "last_seen": {"$lt": started_iso},
-                            }
-                        )
-
-                        # Update meta document
-                        meta_doc = {
-                            "_id": META_DOCUMENT_ID,
-                            "doc_type": "meta",
-                            "last_scan_started_at": started_iso,
-                            "last_scan_duration_ms": int((time.perf_counter() - started) * 1000),
-                            "notes_scanned": stats.notes_scanned,
-                            "edges_written": stats.edge_total,
-                        }
-                        database.update_one({"_id": META_DOCUMENT_ID}, {"$set": meta_doc}, upsert=True)
-
-                    yield (1.0, "Complete")
+                if not files:
                     result_obj.output = VaultSyncOutput(
-                        errors=stats.errors,
-                        warnings=[],
-                        notes_scanned=stats.notes_scanned,
-                        edges_written=total_upserts,
-                        edges_deleted=deleted,
+                        errors=[],
+                        warnings=["No markdown files found"],
+                        notes_scanned=0,
+                        links_written=0,
+                        links_deleted=0,
                         sync_duration_ms=int((time.perf_counter() - started) * 1000),
-                        success=len(stats.errors) == 0,
+                        success=True,
                     ).model_dump(mode="python")
-                    result_obj.result = f"Synced {stats.notes_scanned} notes, {total_upserts} edges"
-                    result_obj.success = len(stats.errors) == 0
+                    result_obj.result = "No files to sync"
+                    result_obj.success = True
+                    return
 
-                    # Write status file after sync
-                    status = {
-                        "database": database_name,
-                        "last_sync": datetime.now(timezone.utc).isoformat(),
-                        "notes_scanned": stats.notes_scanned,
-                        "edges_written": total_upserts,
-                        "edges_deleted": deleted,
-                        "success": len(stats.errors) == 0,
-                    }
-                    write_status_file(status, wks_home=wks_home, filename="vault.json")
+                yield (0.4, f"Syncing {len(files)} vault files...")
+                total_found = 0
+                total_synced = 0
+                all_errors: list[str] = []
 
-                except Exception as e:
-                    # Inner exception (scanning/syncing)
-                    raise e
+                # Delegate to link sync for each file
+                for i, file_path in enumerate(files):
+                    progress = 0.4 + (0.5 * (i / len(files)))
+                    yield (progress, f"Syncing {file_path.name}...")
+
+                    # Call link sync for this file
+                    link_result = link_cmd_sync(str(file_path), parser="vault", recursive=False, remote=False)
+
+                    # Execute the link sync
+                    for _ in link_result.progress_callback(link_result):
+                        pass
+
+                    if link_result.output:
+                        total_found += link_result.output.get("links_found", 0)
+                        total_synced += link_result.output.get("links_synced", 0)
+                        if link_result.output.get("errors"):
+                            all_errors.extend(link_result.output["errors"])
+
+                yield (0.95, "Running backend-specific operations...")
+                # TODO: Backend-specific ops (e.g., symlink management for Obsidian)
+                # For now, this is a placeholder for future backend hooks
+
+                # Update meta document in link database with last_sync
+                from wks.api.database.Database import Database
+
+                sync_time = datetime.now(timezone.utc).isoformat()
+                with Database(config.database, "link") as database:
+                    database.update_one(
+                        {"_id": "__meta__"},
+                        {"$set": {"_id": "__meta__", "doc_type": "meta", "last_sync": sync_time}},
+                        upsert=True,
+                    )
+
+                duration_ms = int((time.perf_counter() - started) * 1000)
+
+                result_obj.output = VaultSyncOutput(
+                    errors=all_errors,
+                    warnings=[],
+                    notes_scanned=len(files),
+                    links_written=total_synced,
+                    links_deleted=0,  # Deletion handled by link sync's replace strategy
+                    sync_duration_ms=duration_ms,
+                    success=len(all_errors) == 0,
+                ).model_dump(mode="python")
+                result_obj.result = f"Synced {len(files)} notes, {total_synced} edges"
+                result_obj.success = len(all_errors) == 0
+
+                # Write status file
+                status = {
+                    "last_sync": sync_time,
+                    "links_written": total_synced,
+                    "success": len(all_errors) == 0,
+                }
+                write_status_file(status, wks_home=wks_home, filename="vault.json")
 
         except Exception as e:
             result_obj.output = VaultSyncOutput(
-                errors=[f"Failed to initialize vault: {e}"],
+                errors=[f"Vault sync failed: {e}"],
                 warnings=[],
                 notes_scanned=0,
-                edges_written=0,
-                edges_deleted=0,
+                links_written=0,
+                links_deleted=0,
                 sync_duration_ms=0,
                 success=False,
             ).model_dump(mode="python")
@@ -163,7 +178,8 @@ def cmd_sync(path: str | None = None) -> StageResult:
             result_obj.success = False
             return
 
-    announce = f"Syncing vault{f' ({path})' if path else ''}..."
+    path_info = f" ({path})" if path else ""
+    announce = f"Syncing vault{path_info}..."
     return StageResult(
         announce=announce,
         progress_callback=do_work,

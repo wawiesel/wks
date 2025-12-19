@@ -58,6 +58,9 @@ class Database(_AbstractBackend):
     def update_one(self, filter: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> None:
         self._backend.update_one(filter, update, upsert)  # type: ignore[union-attr]
 
+    def insert_many(self, documents: list[dict[str, Any]]) -> Any:
+        return self._backend.insert_many(documents)  # type: ignore[union-attr]
+
     def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
         """Update multiple documents matching the filter.
 

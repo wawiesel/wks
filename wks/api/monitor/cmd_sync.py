@@ -8,6 +8,8 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 
+from wks.utils.expand_paths import expand_paths
+
 from ..database.Database import Database
 from ..StageResult import StageResult
 from ..utils._write_status_file import write_status_file
@@ -61,8 +63,8 @@ def cmd_sync(
         config = WKSConfig.load()
         monitor_cfg = config.monitor
 
-        # Compute database name from prefix
-        database_name = f"{config.database.prefix}.monitor"
+        # Collection name is just 'monitor' - prefix is the DB name
+        database_name = "monitor"
         wks_home = WKSConfig.get_home_dir()
 
         yield (0.2, "Resolving path...")
@@ -72,7 +74,9 @@ def cmd_sync(
 
             with Database(config.database, database_name) as database:
                 try:
-                    database.delete_many({"path": path_obj.as_uri()})
+                    from wks.utils.uri_utils import path_to_uri
+
+                    database.delete_many({"path": path_to_uri(path_obj)})
                 finally:
                     pass
             warn_msg = f"Removed missing path from monitor DB: {path_obj}"
@@ -91,13 +95,7 @@ def cmd_sync(
             return
 
         yield (0.3, "Collecting files to process...")
-        files_to_process: list[Path]
-        if path_obj.is_file():
-            files_to_process = [path_obj]
-        elif recursive:
-            files_to_process = [p for p in path_obj.rglob("*") if p.is_file()]
-        else:
-            files_to_process = [p for p in path_obj.iterdir() if p.is_file()]
+        files_to_process: list[Path] = list(expand_paths(path_obj, recursive=recursive))
 
         files_synced = 0
         files_skipped = 0
@@ -119,7 +117,6 @@ def cmd_sync(
                     try:
                         stat = file_path.stat()
                         checksum = file_checksum(file_path)
-                        now = datetime.now()
 
                         priority = calculate_priority(
                             file_path,
@@ -136,13 +133,12 @@ def cmd_sync(
                             )
                             continue
 
-                        path_uri = file_path.as_uri()
-                        # Check if file content changed (checksum comparison)
-                        existing_doc = database.find_one({"path": path_uri}, {"checksum": 1, "timestamp": 1})
-                        timestamp = now.isoformat()
-                        # If file unchanged (same checksum), preserve existing timestamp
-                        if existing_doc and existing_doc.get("checksum") == checksum:
-                            timestamp = existing_doc.get("timestamp", timestamp)
+                        from wks.utils.uri_utils import path_to_uri
+
+                        path_uri = path_to_uri(file_path)
+
+                        # Use file's last modified time (st_mtime)
+                        timestamp = datetime.fromtimestamp(stat.st_mtime).isoformat()
 
                         doc = {
                             "path": path_uri,
@@ -168,6 +164,14 @@ def cmd_sync(
             finally:
                 yield (0.9, "Enforcing database limits...")
                 _enforce_monitor_db_limit(database, monitor_cfg.max_documents, monitor_cfg.min_priority)
+
+                # Update meta document with last_sync timestamp
+                sync_time = datetime.now(timezone.utc).isoformat()
+                database.update_one(
+                    {"_id": "__meta__"},
+                    {"$set": {"_id": "__meta__", "doc_type": "meta", "last_sync": sync_time}},
+                    upsert=True,
+                )
 
         success = len(errors) == 0
         result_msg = (

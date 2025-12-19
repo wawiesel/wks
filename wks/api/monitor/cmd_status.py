@@ -60,8 +60,8 @@ def cmd_status() -> StageResult:
         monitor_cfg = config.monitor
         wks_home = WKSConfig.get_home_dir()
 
-        # Compute database name from prefix
-        database_name = f"{config.database.prefix}.monitor"
+        # Collection name is just 'monitor' - prefix is the DB name
+        database_name = "monitor"
 
         # Count tracked files and time-based statistics via DB API
         yield (0.2, "Querying database...")
@@ -78,30 +78,32 @@ def cmd_status() -> StageResult:
                 if meta:
                     last_sync = meta.get("last_sync")
 
-                # Calculate time ranges
+                # Calculate time ranges (exclusive bins)
                 yield (0.4, "Calculating time-based statistics...")
                 now = datetime.now()
                 time_ranges = [
                     ("Last hour", timedelta(hours=1)),
-                    ("4 hours", timedelta(hours=4)),
-                    ("8 hours", timedelta(hours=8)),
-                    ("1 day", timedelta(days=1)),
-                    ("3 days", timedelta(days=3)),
-                    ("7 days", timedelta(days=7)),
-                    ("2 weeks", timedelta(weeks=2)),
-                    ("1 month", timedelta(days=30)),
-                    ("3 months", timedelta(days=90)),
-                    ("6 months", timedelta(days=180)),
-                    ("1 year", timedelta(days=365)),
+                    ("1-4 hours", timedelta(hours=4)),
+                    ("4-8 hours", timedelta(hours=8)),
+                    ("8-24 hours", timedelta(days=1)),
+                    ("1-3 days", timedelta(days=3)),
+                    ("3-7 days", timedelta(days=7)),
+                    ("1-2 weeks", timedelta(weeks=2)),
+                    ("2-4 weeks", timedelta(days=30)),
+                    ("1-3 months", timedelta(days=90)),
+                    ("3-6 months", timedelta(days=180)),
+                    ("6-12 months", timedelta(days=365)),
                 ]
 
-                # Count files in each time range
+                # Count files in each exclusive time bin
+                prev_cutoff_iso = now.isoformat()  # Start from now
                 for i, (label, delta) in enumerate(time_ranges):
                     cutoff = now - delta
                     cutoff_iso = cutoff.isoformat()
-                    # Query for files with timestamp >= cutoff (modified within the range)
-                    count = database.count_documents({"timestamp": {"$gte": cutoff_iso}})
+                    # Query for files in range: cutoff <= timestamp < prev_cutoff
+                    count = database.count_documents({"timestamp": {"$gte": cutoff_iso, "$lt": prev_cutoff_iso}})
                     time_based_counts[label] = count
+                    prev_cutoff_iso = cutoff_iso  # Move window
                     yield (
                         0.4 + (i / len(time_ranges)) * 0.2,
                         f"Processing time range: {label}...",

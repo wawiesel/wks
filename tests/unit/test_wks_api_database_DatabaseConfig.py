@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from wks.api.database.DatabaseConfig import DatabaseConfig
 
-pytestmark = pytest.mark.db
+pytestmark = pytest.mark.database
 
 
 class TestDatabaseConfig:

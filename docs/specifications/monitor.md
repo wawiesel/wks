@@ -24,7 +24,9 @@ Filesystem monitoring: check/sync/status, manage filters and priorities, with co
 
 ### status
 - Command: `wksc monitor status`
-- Behavior: Reports monitoring status, issues, priority directories, counts.
+- Behavior: Reports monitoring status, issues, priority directories, time-based file counts.
+- **Time-Based Counts**: Uses exclusive bins (each file is counted in exactly one bin):
+  - `Last hour`, `1-4 hours`, `4-8 hours`, `8-24 hours`, `1-3 days`, `3-7 days`, `1-2 weeks`, `2-4 weeks`, `1-3 months`, `3-6 months`, `6-12 months`, `>1 year`
 - Output schema: `MonitorStatusOutput` (see normative schema).
 
 ### check

@@ -26,13 +26,16 @@ def test_cmd_status_returns_structure(monkeypatch, tmp_path, minimal_config_dict
 
     result = run_cmd(cmd_status)
 
-    # Should have expected output keys
+    # Should have expected output keys (simplified schema)
     assert "total_links" in result.output
-    assert "ok_links" in result.output
-    assert "broken_links" in result.output
-    assert "issues" in result.output
     assert "last_sync" in result.output
     assert "success" in result.output
+    assert "database" in result.output
+    # These were removed from schema
+    assert "ok_links" not in result.output
+    assert "broken_links" not in result.output
+    assert "issues" not in result.output
+    assert "notes_scanned" not in result.output
 
 
 def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
@@ -53,11 +56,11 @@ def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     db_config = DatabaseConfig(**cfg["database"])
-    with Database(db_config, "wks.vault") as db:
+    with Database(db_config, "link") as db:
         db.delete_many({})
 
     result = run_cmd(cmd_status)
 
     assert result.output["total_links"] == 0
-    assert result.output["ok_links"] == 0
-    assert result.output["broken_links"] == 0
+    assert result.output["last_sync"] is None
+    assert result.success is True

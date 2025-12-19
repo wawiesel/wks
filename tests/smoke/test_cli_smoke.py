@@ -178,5 +178,5 @@ def test_cli_vault_sync(smoke_env):
 
     # Verify sync success output
     assert "notes_scanned" in result.stdout
-    assert "edges_written" in result.stdout
+    assert "links_written" in result.stdout
     assert "success" in result.stdout

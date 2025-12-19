@@ -28,8 +28,19 @@ class _Scanner:
 
     def __init__(self, vault: _AbstractBackend):
         self.vault = vault
-        self.link_resolver = _LinkResolver(vault.links_dir)
+        self.link_resolver = _LinkResolver(vault.vault_path, vault.links_dir)
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []
+
+    def _note_to_uri(self, note_path: Path) -> str:
+        """Convert note path to vault:/// URI."""
+        try:
+            rel_path = note_path.relative_to(self.vault.vault_path)
+            return f"vault:///{rel_path}"
+        except ValueError:
+            # Path is outside vault, fall back to file:// URI
+            from wks.utils.uri_utils import path_to_uri
+
+            return path_to_uri(note_path)
 
     def scan(self, files: list[Path] | None = None) -> list[_EdgeRecord]:
         """Scan vault for links."""
@@ -167,7 +178,7 @@ class _Scanner:
         metadata = self.link_resolver.resolve(target)
         return _EdgeRecord(
             note_path=note_rel,
-            from_uri=f"vault:///{note_rel}",
+            from_uri=self._note_to_uri(note_path),
             line_number=line_number,
             column_number=column_number,
             source_heading=heading,
@@ -233,7 +244,7 @@ class _Scanner:
                 metadata = self.link_resolver.resolve(symlink_target)
                 return _EdgeRecord(
                     note_path=note_rel,
-                    from_uri=f"vault:///{note_rel}",
+                    from_uri=self._note_to_uri(note_path),
                     line_number=line_number,
                     column_number=column_number,
                     source_heading=heading,
@@ -247,7 +258,7 @@ class _Scanner:
 
         return _EdgeRecord(
             note_path=note_rel,
-            from_uri=f"vault:///{note_rel}",
+            from_uri=self._note_to_uri(note_path),
             line_number=line_number,
             column_number=column_number,
             source_heading=heading,

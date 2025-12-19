@@ -26,6 +26,10 @@ class _AbstractBackend(ABC):
         pass
 
     @abstractmethod
+    def insert_many(self, documents: list[dict[str, Any]]) -> Any:
+        pass
+
+    @abstractmethod
     def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
         """Update multiple documents matching the filter.
 

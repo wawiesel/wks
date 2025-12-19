@@ -5,7 +5,6 @@ MCP: wksm_vault_check
 """
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 from ..StageResult import StageResult
@@ -55,11 +54,14 @@ def cmd_check(path: str | None = None) -> StageResult:
                 # If path specified, scan only that file
                 files_to_scan = None
                 if path:
-                    file_path = Path(path).expanduser().resolve()
-                    if not file_path.exists():
+                    from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
+
+                    try:
+                        _uri, file_path = resolve_vault_path(path, vault.vault_path)
+                    except VaultPathError as e:
                         result_obj.success = False
                         result_obj.output = VaultCheckOutput(
-                            errors=[f"File not found: {path}"],
+                            errors=[str(e)],
                             warnings=[],
                             path=path,
                             notes_checked=0,
@@ -69,7 +71,7 @@ def cmd_check(path: str | None = None) -> StageResult:
                             is_valid=False,
                             success=False,
                         ).model_dump(mode="python")
-                        result_obj.result = f"File not found: {path}"
+                        result_obj.result = str(e)
                         return
                     files_to_scan = [file_path]
 
@@ -77,20 +79,20 @@ def cmd_check(path: str | None = None) -> StageResult:
                 records = scanner.scan(files=files_to_scan)
                 stats = scanner.stats
 
-                # Convert records to issues
+                # Build issues list from scanner records (live scan results)
+                # Records have status from the scanner's link resolution
                 issues = []
-                broken_count = 0
-                for rec in records:
-                    if rec.status != STATUS_OK:
-                        broken_count += 1
+                for record in records:
+                    if record.status != STATUS_OK:
                         issues.append(
                             {
-                                "note_path": rec.note_path,
-                                "line_number": rec.line_number,
-                                "target_uri": rec.to_uri,
-                                "status": rec.status,
+                                "from_uri": record.from_uri,
+                                "line_number": record.line_number,
+                                "to_uri": record.to_uri,
+                                "status": record.status,
                             }
                         )
+                broken_count = len(issues)
 
                 # Errors from stats are strings
                 all_errors = list(stats.errors)

@@ -32,10 +32,11 @@ def status_command() -> None:
 
 
 def sync_command(
-    path: str | None = typer.Argument(None, help="File path to sync (default: entire vault)"),
+    path: str | None = typer.Argument(None, help="File/directory path to sync (default: entire vault)"),
+    recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively sync directory"),
 ) -> None:
     """Sync vault links to database."""
-    handle_stage_result(cmd_sync)(path)
+    handle_stage_result(cmd_sync)(path, recursive=recursive)
 
 
 def check_command(
