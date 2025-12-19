@@ -11,6 +11,7 @@ import pytest
 
 from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
+from wks.utils.uri_utils import path_to_uri
 
 # Mark all tests in this module
 pytestmark = [
@@ -41,9 +42,9 @@ def test_daemon_sync_creates_db_record(mongo_wks_env):
         time.sleep(3.0)
 
         # Check database
-        db_name = f"{config.database.prefix}.monitor"
+        db_name = "monitor"
         with Database(config.database, db_name) as db:
-            record = db.find_one({"path": test_file.resolve().as_uri()})
+            record = db.find_one({"path": path_to_uri(test_file.resolve())})
         assert record is not None, f"File should be in database: {test_file}"
 
     finally:
@@ -75,9 +76,9 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         assert sync_result.success
 
         # Verify it's in DB
-        db_name = f"{config.database.prefix}.monitor"
+        db_name = "monitor"
         with Database(config.database, db_name) as db:
-            record = db.find_one({"path": test_file.resolve().as_uri()})
+            record = db.find_one({"path": path_to_uri(test_file.resolve())})
             assert record is not None, "File should be in database before deletion"
 
         # Delete the file
@@ -87,7 +88,7 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
             with Database(config.database, db_name) as db:
-                record = db.find_one({"path": test_file.resolve().as_uri()})
+                record = db.find_one({"path": path_to_uri(test_file.resolve())})
             if record is None:
                 break
             if time.time() > deadline:
@@ -120,12 +121,19 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         from tests.conftest import run_cmd
         from wks.api.monitor.cmd_sync import cmd_sync
 
-        run_cmd(cmd_sync, str(src_file))
+        res = run_cmd(cmd_sync, str(src_file))
+        assert res.success, f"Sync failed: {res.output}"
+        if res.output["files_synced"] != 1:
+            print(f"DEBUG: Sync Output: {res.output}")
+        assert res.output["files_synced"] == 1
 
         # Verify source is in DB
-        db_name = f"{config.database.prefix}.monitor"
+        db_name = "monitor"
         with Database(config.database, db_name) as db:
-            assert db.find_one({"path": src_file.resolve().as_uri()}) is not None
+            if db.find_one({"path": path_to_uri(src_file.resolve())}) is None:
+                print(f"DEBUG: DB docs: {list(db.find({}, {'path': 1}))}")
+                print(f"DEBUG: Looking for: {path_to_uri(src_file.resolve())}")
+            assert db.find_one({"path": path_to_uri(src_file.resolve())}) is not None
 
         # Move the file
         src_file.rename(dst_file)
@@ -137,8 +145,8 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
             with Database(config.database, db_name) as db:
-                old_rec = db.find_one({"path": src_file.resolve().as_uri()})
-                new_rec = db.find_one({"path": dst_file.resolve().as_uri()})
+                old_rec = db.find_one({"path": path_to_uri(src_file.resolve())})
+                new_rec = db.find_one({"path": path_to_uri(dst_file.resolve())})
             if old_rec is None and new_rec is not None:
                 break
             if time.time() > deadline:

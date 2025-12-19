@@ -90,6 +90,10 @@ def smoke_env(tmp_path_factory):
             "local": True,  # Force local to ensure backend starts it if needed
         },
     }
+    config_dict["vault"] = {
+        "type": "obsidian",
+        "base_dir": str(vault_dir),
+    }
 
     # Write config
     (wks_home / "config.json").write_text(json.dumps(config_dict), encoding="utf-8")
