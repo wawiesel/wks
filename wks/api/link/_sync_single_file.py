@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from wks.api.database.Database import Database
 from wks.api.vault._constants import DOC_TYPE_LINK
-from wks.utils.logger import get_logger
+from wks.utils.get_logger import get_logger
 from wks.utils.uri_utils import path_to_uri, uri_to_path
 
 from ..monitor.resolve_remote_uri import resolve_remote_uri
