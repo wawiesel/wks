@@ -5,6 +5,7 @@ import time
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
 from wks.api.daemon.cmd_stop import cmd_stop
@@ -28,7 +29,7 @@ def test_cmd_status_reads_written_status(monkeypatch, tmp_path):
     assert status_result.success is True
     assert status_result.output["running"] is True
     assert status_result.output["restrict_dir"] == ""
-    assert status_result.output["log_path"].endswith("logfile")
+    assert status_result.output["log_path"].endswith(WKSConfig.get_logfile_path().name)
 
     # Stop to clean up
     stop_result = run_cmd(cmd_stop)
@@ -46,7 +47,7 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
 
     run_cmd(cmd_start)
 
-    log_path = wks_home / "logfile"
+    log_path = WKSConfig.get_logfile_path()
     # Append messages; the daemon subprocess extracts WARN/ERROR lines into daemon.json.
     with log_path.open("a", encoding="utf-8") as f:
         f.write("WARN: something happened\n")

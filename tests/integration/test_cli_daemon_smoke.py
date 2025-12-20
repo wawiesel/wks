@@ -31,7 +31,6 @@ def test_cli_daemon_smoke(wks_env: dict):
     """Full CLI workflow: start daemon, create file, verify in DB, stop daemon."""
     env = wks_env["env"]
     watch_dir: Path = wks_env["watch_dir"]
-    wks_home: Path = wks_env["wks_home"]
 
     # 1. Start daemon
     result = run_wksc("daemon", "start", env=env)
@@ -70,7 +69,9 @@ def test_cli_daemon_smoke(wks_env: dict):
     assert "results" in output or "count" in output
 
     # 6. Check daemon log exists
-    daemon_log = wks_home / "logfile"
+    from wks.api.config.WKSConfig import WKSConfig
+
+    daemon_log = WKSConfig.get_logfile_path()
     assert daemon_log.exists(), "Daemon log should exist"
     log_content = daemon_log.read_text(encoding="utf-8")
     assert "INFO:" in log_content, "Daemon log should have INFO entries"

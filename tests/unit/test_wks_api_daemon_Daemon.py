@@ -6,6 +6,7 @@ import time
 import pytest
 
 from tests.unit.conftest import minimal_wks_config
+from wks.api.config.WKSConfig import WKSConfig
 
 
 @pytest.mark.daemon
@@ -95,7 +96,7 @@ def test_daemon_status_includes_restrict_and_log(monkeypatch, tmp_path):
     d.stop()
 
     assert str(restrict) == status.restrict_dir
-    assert str(wks_home / "logfile") == status.log_path
+    assert str(WKSConfig.get_logfile_path()) == status.log_path
 
 
 @pytest.mark.daemon
