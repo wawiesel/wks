@@ -4,15 +4,29 @@ CLI: wksc database prune <database>
 MCP: wksm_database_prune
 """
 
+import socket
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+
+import requests
 
 from wks.utils.uri_utils import uri_to_path
 
 from ..StageResult import StageResult
 from . import DatabasePruneOutput
 from .Database import Database
+
+
+def _has_internet(host: str = "8.8.8.8", port: int = 53, timeout: int = 3) -> bool:
+    """Check for internet connectivity."""
+    try:
+        socket.setdefaulttimeout(timeout)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((host, port))
+        return True
+    except OSError:
+        return False
 
 
 def cmd_prune(database: str, remote: bool = False) -> StageResult:
@@ -105,13 +119,29 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
             yield (0.6, "Pruning edges database...")
             edges_checked = 0
             edges_deleted = 0
+            # Check Internet Availability upfront
+            internet_available = False
+            if remote:
+                internet_available = _has_internet()
 
             with Database(config.database, "edges") as edges_db:
                 # Check Sources
-                docs = list(edges_db.find({}, {"from_local_uri": 1, "to_local_uri": 1, "to_remote_uri": 1}))
+                docs = list(
+                    edges_db.find(
+                        {},
+                        {
+                            "from_local_uri": 1,
+                            "to_local_uri": 1,
+                            "to_remote_uri": 1,
+                            "from_remote_uri": 1,
+                        },
+                    )
+                )
                 edges_checked = len(docs)
 
                 to_delete = []
+                to_unset_to_remote = []
+                to_unset_from_remote = []
 
                 # We can do this in memory or query. Memory is safer for complex logic.
                 for doc in docs:
@@ -121,31 +151,73 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                     if doc.get("from_local_uri") not in valid_nodes:
                         should_delete = True
 
-                    # 2. Target check
-                    if (
-                        not should_delete
-                        and (to_uri := doc.get("to_local_uri"))
-                        and to_uri not in valid_nodes
-                        # Preservation Rule: If to_remote_uri is present, we defer to remote checks.
-                        # We only treat it as "broken local" if there is no remote fallback.
-                        and not doc.get("to_remote_uri")
-                    ):
-                        # Not monitored. Check if file exists on disk.
+                    # 2. Determine Local Status
+                    local_target_broken = False
+                    to_uri = doc.get("to_local_uri")
+
+                    if not to_uri:
+                        # Empty local target
+                        local_target_broken = True  # Treated as "broken" for purpose of fallback check
+                    elif to_uri not in valid_nodes:
+                        # Not monitored. Check filesystem.
                         try:
                             path_str = uri_to_path(to_uri)
                             if not Path(path_str).exists():
-                                should_delete = True
+                                local_target_broken = True
                         except ValueError:
-                            # Invalid URI format -> treat as broken
-                            should_delete = True
+                            local_target_broken = True
 
-                    # TODO: Remote check
+                    # 3. Remote Check
+                    remote_uri = doc.get("to_remote_uri")
+                    if remote and not should_delete and local_target_broken and remote_uri:
+                        if not internet_available:
+                            # Skip check if offline
+                            pass
+                        else:
+                            try:
+                                # Use HEAD to be efficient
+                                response = requests.head(remote_uri, timeout=5)
+                                if response.status_code in (404, 410):
+                                    to_unset_to_remote.append(doc["_id"])
+                                    remote_uri = None
+
+                            except (requests.RequestException, ValueError):
+                                # Transient error or invalid URL -> Persist safely
+                                pass
+
+                    # 4. From Remote Check
+                    # Check from_remote_uri independently.
+                    if remote and internet_available and (from_remote := doc.get("from_remote_uri")):
+                        try:
+                            response = requests.head(from_remote, timeout=5)
+                            if response.status_code in (404, 410):
+                                to_unset_from_remote.append(doc["_id"])
+                        except (requests.RequestException, ValueError):
+                            pass
+
+                    # 5. Final Decision
+                    if not should_delete and local_target_broken and not remote_uri:
+                        should_delete = True
 
                     if should_delete:
                         to_delete.append(doc["_id"])
 
                 if to_delete:
+                    # Filter out IDs that are being deleted from unset lists to avoid redundant update
+                    to_unset_to_remote = [uid for uid in to_unset_to_remote if uid not in to_delete]
+                    to_unset_from_remote = [uid for uid in to_unset_from_remote if uid not in to_delete]
                     edges_deleted = edges_db.delete_many({"_id": {"$in": to_delete}})
+
+                if to_unset_to_remote:
+                    edges_db.update_many({"_id": {"$in": to_unset_to_remote}}, {"$unset": {"to_remote_uri": ""}})
+
+                if to_unset_from_remote:
+                    # Filter: skip already-deleted edges
+                    to_unset_from_remote = [uid for uid in to_unset_from_remote if uid not in to_delete]
+                    if to_unset_from_remote:
+                        edges_db.update_many(
+                            {"_id": {"$in": to_unset_from_remote}}, {"$unset": {"from_remote_uri": ""}}
+                        )
 
                 total_checked += edges_checked
                 total_deleted += edges_deleted

@@ -3,6 +3,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
+
+from wks.api.database.cmd_prune import cmd_prune
 
 
 @pytest.fixture
@@ -145,6 +148,139 @@ class TestCmdPrune:
 
         assert "e1" not in deleted_ids
         assert result.output["deleted_count"] == 2
+
+    @patch("wks.api.database.cmd_prune.requests.head")
+    @patch("wks.api.database.cmd_prune._has_internet")
+    @patch("wks.api.database.cmd_prune.Database")
+    def test_prune_edges_remote(self, mock_database, mock_has_internet, mock_head, mock_config, tmp_path):
+        """Test remote pruning logic (unset instead of delete)."""
+        valid_uri = "file:///valid/path"
+
+        mock_nodes_db = MagicMock()
+        mock_edges_db = MagicMock()
+
+        def db_side_effect(config, name):
+            mock_ctx = MagicMock()
+            if name == "nodes":
+                mock_ctx.__enter__.return_value = mock_nodes_db
+            elif name == "edges":
+                mock_ctx.__enter__.return_value = mock_edges_db
+            return mock_ctx
+
+        mock_database.side_effect = db_side_effect
+        mock_has_internet.return_value = True
+
+        mock_nodes_db.find.return_value = [{"local_uri": valid_uri}]
+
+        # Edges
+        # e1: Remote 200 (Keep)
+        # e2: Remote 404 (Unset Remote)
+        # e3: Remote 410 (Unset Remote)
+        # e4: Remote Timeout (Keep)
+        # e5: Local Valid, Remote 404 (Local populated -> Skip Remote Check)
+        mock_edges_db.find.return_value = [
+            {"_id": "e1", "from_local_uri": valid_uri, "to_local_uri": "", "to_remote_uri": "http://ok"},
+            {"_id": "e2", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://gone"},
+            {"_id": "e3", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://vanished"},
+            {"_id": "e4", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://timeout"},
+            {"_id": "e5", "from_local_uri": valid_uri, "to_local_uri": valid_uri, "to_remote_uri": "http://gone"},
+        ]
+
+        # Mock responses
+        def head_side_effect(url, timeout=5):
+            m = MagicMock()
+            if "ok" in url:
+                m.status_code = 200
+            elif "gone" in url:
+                m.status_code = 404
+            elif "vanished" in url:
+                m.status_code = 410
+            elif "timeout" in url:
+                raise requests.Timeout("Timeout")
+            return m
+
+        mock_head.side_effect = head_side_effect
+
+        result = cmd_prune(database="edges", remote=True)
+        for _ in result.progress_callback(result):
+            pass
+
+        assert result.success is True
+
+        # Verify deletions (e2 and e3 should be deleted as both Local and Remote are gone)
+        mock_edges_db.delete_many.assert_called_once()
+        args, _ = mock_edges_db.delete_many.call_args
+        deleted_ids = args[0]["_id"]["$in"]
+        assert "e2" in deleted_ids
+        assert "e3" in deleted_ids
+        assert "e1" not in deleted_ids
+        assert "e4" not in deleted_ids
+        assert "e5" not in deleted_ids
+
+        # Verify updates (should not happen for e2/e3 as they are deleted)
+        mock_edges_db.update_many.assert_not_called()
+
+    @patch("wks.api.database.cmd_prune.requests.head")
+    @patch("wks.api.database.cmd_prune._has_internet")
+    @patch("wks.api.database.cmd_prune.Database")
+    def test_prune_edges_from_remote(self, mock_database, mock_has_internet, mock_head, mock_config, tmp_path):
+        """Test from_remote_uri validation logic."""
+        valid_uri = "file:///valid/path"
+
+        mock_nodes_db = MagicMock()
+        mock_edges_db = MagicMock()
+
+        def db_side_effect(config, name):
+            mock_ctx = MagicMock()
+            if name == "nodes":
+                mock_ctx.__enter__.return_value = mock_nodes_db
+            elif name == "edges":
+                mock_ctx.__enter__.return_value = mock_edges_db
+            return mock_ctx
+
+        mock_database.side_effect = db_side_effect
+        mock_has_internet.return_value = True
+
+        mock_nodes_db.find.return_value = [{"local_uri": valid_uri}]
+
+        # Edges
+        # e1: From Remote 200 (Keep)
+        # e2: From Remote 404 (Unset from_remote_uri)
+        mock_edges_db.find.return_value = [
+            {"_id": "e1", "from_local_uri": valid_uri, "to_local_uri": valid_uri, "from_remote_uri": "http://ok"},
+            {"_id": "e2", "from_local_uri": valid_uri, "to_local_uri": valid_uri, "from_remote_uri": "http://gone"},
+        ]
+
+        def head_side_effect(url, timeout=5):
+            m = MagicMock()
+            if "ok" in url:
+                m.status_code = 200
+            elif "gone" in url:
+                m.status_code = 404
+            return m
+
+        mock_head.side_effect = head_side_effect
+
+        result = cmd_prune(database="edges", remote=True)
+        for _ in result.progress_callback(result):
+            pass
+
+        assert result.success is True
+
+        # Verify deletions (0, as local targets are valid)
+        mock_edges_db.delete_many.assert_not_called()
+
+        # Verify updates (unset from_remote_uri for e2)
+        mock_edges_db.update_many.assert_called_once()
+        args, _ = mock_edges_db.update_many.call_args
+
+        updated_ids = args[0]["_id"]["$in"]
+        assert "e1" not in updated_ids
+        assert "e2" in updated_ids
+
+        unset_op = args[1]
+        assert "$unset" in unset_op
+        assert "from_remote_uri" in unset_op["$unset"]
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.Database")
