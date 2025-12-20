@@ -32,7 +32,7 @@ def test_cmd_priority_show_returns_stage_result(tracked_wks_config, monkeypatch)
             },
             "max_documents": 1000000,
             "min_priority": 0.0,
-            "remote": {"sync": {"enabled": False, "path": "gdrive"}, "api": {"url": "http://localhost:8000"}},
+            "remote": {"mappings": []},
         }
     )
 
