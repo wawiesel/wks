@@ -13,6 +13,7 @@ from wks.cli.config import config_app
 from wks.cli.daemon import daemon_app
 from wks.cli.database import db_app
 from wks.cli.link import app as link_app
+from wks.cli.log import log_app
 from wks.cli.mcp import mcp_app
 from wks.cli.monitor import monitor_app
 from wks.cli.service import service_app
@@ -42,6 +43,7 @@ app.add_typer(service_app, name="service")
 app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="database")
 app.add_typer(mcp_app, name="mcp")
+app.add_typer(log_app, name="log")
 
 
 @app.callback(invoke_without_command=True)

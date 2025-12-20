@@ -125,13 +125,6 @@
                 "type": "string"
               }
             },
-            "priority_directories": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": true
-              }
-            },
             "time_based_counts": {
               "type": "object",
               "additionalProperties": {
@@ -152,7 +145,6 @@
             "database",
             "tracked_files",
             "issues",
-            "priority_directories",
             "time_based_counts",
             "last_sync",
             "success"

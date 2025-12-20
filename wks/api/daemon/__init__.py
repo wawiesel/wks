@@ -10,6 +10,7 @@ DaemonStartOutput: type[BaseModel] = _models["DaemonStartOutput"]
 DaemonStopOutput: type[BaseModel] = _models["DaemonStopOutput"]
 DaemonClearOutput: type[BaseModel] = _models["DaemonClearOutput"]
 
+
 __all__ = [
     "DaemonClearOutput",
     "DaemonStartOutput",

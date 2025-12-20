@@ -3,6 +3,7 @@
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_stop import cmd_stop
 
@@ -25,7 +26,7 @@ def test_cmd_start_creates_artifacts(monkeypatch, tmp_path):
 
     # Artifacts should exist
     assert (wks_home / "daemon.json").exists()
-    assert (wks_home / "logs" / "daemon.log").exists()
+    assert WKSConfig.get_logfile_path().exists()
     assert (wks_home / "daemon.lock").exists()
 
     stop_result = run_cmd(cmd_stop)
@@ -74,7 +75,7 @@ def test_cmd_start_twice_emits_warning(monkeypatch, tmp_path):
     assert second.success is False
     assert second.output["running"] is True
 
-    log_path = wks_home / "logs" / "daemon.log"
+    log_path = WKSConfig.get_logfile_path()
     log_text = log_path.read_text()
     assert "ERROR: Daemon already running" in log_text
     assert (wks_home / "daemon.lock").exists()

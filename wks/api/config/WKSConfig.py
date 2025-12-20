@@ -13,6 +13,7 @@ from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..vault.VaultConfig import VaultConfig
+from .LogConfig import LogConfig
 
 
 class WKSConfig(BaseModel):
@@ -25,7 +26,7 @@ class WKSConfig(BaseModel):
     service: ServiceConfig
     daemon: DaemonConfig
     vault: VaultConfig
-    uri: str | None = None
+    log: LogConfig
 
     @computed_field
     def path(self) -> Path:
@@ -44,6 +45,11 @@ class WKSConfig(BaseModel):
     def get_config_path(cls) -> Path:
         """Get path to config file based on WKS_HOME or default to ~/.wks."""
         return cls.get_home_dir() / "config.json"
+
+    @classmethod
+    def get_logfile_path(cls) -> Path:
+        """Get path to the unified logfile."""
+        return cls.get_home_dir() / "logfile"
 
     @classmethod
     def load(cls) -> "WKSConfig":
@@ -86,7 +92,7 @@ class WKSConfig(BaseModel):
             "service": self.service.model_dump(),
             "daemon": self.daemon.model_dump(),
             "vault": self.vault.model_dump(),
-            "uri": self.uri,
+            "log": self.log.model_dump(),
         }
 
     def save(self) -> None:

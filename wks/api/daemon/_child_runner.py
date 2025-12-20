@@ -20,11 +20,11 @@ def main() -> None:
 
     paths = json.loads(paths_json)
 
-    from .Daemon import _child_main
+    from ._child_main import _child_main
 
     _child_main(
         home_dir=home_dir,
-        log_path=log_path,
+        _log_path=log_path,
         paths=paths,
         restrict_val=restrict_val,
         sync_interval=sync_interval,

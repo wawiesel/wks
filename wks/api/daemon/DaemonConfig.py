@@ -2,11 +2,13 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DaemonConfig(BaseModel):
     """Daemon configuration."""
+
+    model_config = ConfigDict(extra="forbid")
 
     sync_interval_secs: float = Field(..., gt=0, description="Interval to poll/flush filesystem events")
 

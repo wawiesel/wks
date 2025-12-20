@@ -81,6 +81,9 @@ def minimal_config_dict() -> dict:
                     "extension_weights": {},
                 },
             },
+            "remote": {
+                "mappings": [],
+            },
             "max_documents": 1000000,
             "min_priority": 0.0,
         },
@@ -96,6 +99,13 @@ def minimal_config_dict() -> dict:
         "vault": {
             "type": "obsidian",
             "base_dir": "~/_vault",
+        },
+        "log": {
+            "level": "INFO",
+            "debug_retention_days": 0.5,
+            "info_retention_days": 1.0,
+            "warning_retention_days": 2.0,
+            "error_retention_days": 7.0,
         },
     }
 

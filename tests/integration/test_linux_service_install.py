@@ -111,6 +111,9 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
             },
             "max_documents": 1000000,
             "min_priority": 0.0,
+            "remote": {
+                "mappings": [],
+            },
         },
         "vault": {
             "type": "obsidian",
@@ -130,6 +133,13 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
         },
         "daemon": {
             "sync_interval_secs": 0.1,
+        },
+        "log": {
+            "level": "INFO",
+            "debug_retention_days": 0.5,
+            "info_retention_days": 1.0,
+            "warning_retention_days": 2.0,
+            "error_retention_days": 7.0,
         },
     }
 
@@ -189,6 +199,14 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
                 print(log_path.read_text())
             else:
                 print("Log file does not exist")
+
+            # Show the internal daemon log file
+            internal_log = wks_home / "logfile"
+            print(f"\n=== Internal Daemon Log ({internal_log}) ===")
+            if internal_log.exists():
+                print(internal_log.read_text())
+            else:
+                print("Internal log file does not exist")
 
             # Try running wksc daemon start manually to see the error
             print("\n=== Manual wksc daemon start test ===")

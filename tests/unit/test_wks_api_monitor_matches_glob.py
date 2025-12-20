@@ -35,6 +35,7 @@ def test_matches_glob_empty_pattern(tmp_path):
                 },
                 "max_documents": 1000000,
                 "min_priority": 0.0,
+                "remote": {"mappings": []},
             }
         }
     )

@@ -3,11 +3,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
+from wks.api.log.append_log import append_log
 from wks.api.vault._constants import DOC_TYPE_LINK
-from wks.utils.get_logger import get_logger
-from wks.utils.uri_utils import path_to_uri, uri_to_path
 
+from ...utils.path_to_uri import path_to_uri
+from ...utils.uri_to_path import uri_to_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ._identity import _identity
 from ._parsers import get_parser
@@ -158,6 +160,8 @@ def _sync_single_file(
         return (len(records), len(valid_docs), [])
 
     except Exception as e:
-        logger = get_logger("link.sync")
-        logger.error(f"Failed to sync file {file_path}: {e}")
+        from contextlib import suppress
+
+        with suppress(Exception):
+            append_log(WKSConfig.get_logfile_path(), "link.sync", "ERROR", f"Failed to sync file {file_path}: {e}")
         return (0, 0, [f"Error in {file_path.name}: {e}"])

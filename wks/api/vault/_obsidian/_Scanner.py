@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 import platform
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
+
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.log.append_log import append_log
 
 from .._AbstractBackend import _AbstractBackend
 from .._constants import (
@@ -19,8 +21,6 @@ from .._constants import (
 from ._Data import _EdgeRecord, _ScanStats
 from ._LinkResolver import _LinkResolver
 from ._MarkdownParser import extract_headings, parse_markdown_urls, parse_wikilinks
-
-logger = logging.getLogger(__name__)
 
 
 class _Scanner:
@@ -38,7 +38,7 @@ class _Scanner:
             return f"vault:///{rel_path}"
         except ValueError:
             # Path is outside vault, fall back to file:// URI
-            from wks.utils.uri_utils import path_to_uri
+            from ....utils.path_to_uri import path_to_uri
 
             return path_to_uri(note_path)
 
@@ -204,7 +204,9 @@ class _Scanner:
                 return None
 
             if file_path.is_dir():
-                logger.debug(f"Skipping directory conversion to wikilink: {url}")
+                append_log(
+                    WKSConfig.get_logfile_path(), "vault", "DEBUG", f"Skipping directory conversion to wikilink: {url}"
+                )
                 return None
 
             machine = platform.node().split(".")[0]

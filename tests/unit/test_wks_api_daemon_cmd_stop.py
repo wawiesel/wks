@@ -3,7 +3,6 @@
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
-from wks.api.daemon._read_status_file import read_status_file
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_stop import cmd_stop
 
@@ -26,7 +25,9 @@ def test_cmd_stop_clears_lock_and_updates_status(monkeypatch, tmp_path):
     assert result.output["stopped"] is True
     assert not (wks_home / "daemon.lock").exists()
 
-    status = read_status_file(wks_home)
+    import json
+
+    status = json.loads((wks_home / "daemon.json").read_text())
     assert status["running"] is False
 
 

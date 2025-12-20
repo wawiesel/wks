@@ -7,13 +7,12 @@ Matches CLI: wksc monitor status, MCP: wksm_monitor_status
 from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+
+from wks.api.config.write_status_file import write_status_file
 
 from ..database.Database import Database
 from ..StageResult import StageResult
-from ..utils._write_status_file import write_status_file
 from . import MonitorStatusOutput
-from .explain_path import explain_path
 
 
 def cmd_status() -> StageResult:
@@ -26,7 +25,6 @@ def cmd_status() -> StageResult:
         database: str,
         tracked_files: int,
         issues: list[str],
-        priority_directories: list[dict[str, Any]],
         time_based_counts: dict[str, int],
         last_sync: str | None,
         wks_home: Path,
@@ -38,7 +36,6 @@ def cmd_status() -> StageResult:
             database=database,
             tracked_files=tracked_files,
             issues=issues,
-            priority_directories=priority_directories,
             time_based_counts=time_based_counts,
             last_sync=last_sync,
             success=success,
@@ -57,7 +54,6 @@ def cmd_status() -> StageResult:
 
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
-        monitor_cfg = config.monitor
         wks_home = WKSConfig.get_home_dir()
 
         # Collection name: 'nodes'
@@ -71,7 +67,8 @@ def cmd_status() -> StageResult:
 
         try:
             with Database(config.database, database_name) as database:
-                total_files = database.count_documents({})
+                # Exclude meta document from file count
+                total_files = database.count_documents({"_id": {"$ne": "__meta__"}})
 
                 # Get last sync timestamp from meta document
                 meta = database.find_one({"_id": "__meta__"})
@@ -82,6 +79,7 @@ def cmd_status() -> StageResult:
                 yield (0.4, "Calculating time-based statistics...")
                 now = datetime.now()
                 time_ranges = [
+                    ("Last minute", timedelta(minutes=1)),
                     ("Last hour", timedelta(hours=1)),
                     ("1-4 hours", timedelta(hours=4)),
                     ("4-8 hours", timedelta(hours=8)),
@@ -117,43 +115,19 @@ def cmd_status() -> StageResult:
             total_files = 0
             time_based_counts = {}
 
-        # Validate priority directories
-        yield (0.7, "Validating priority directories...")
-        issues: list[str] = []
-        priority_directories: list[dict[str, Any]] = []
-
-        for i, (path, priority) in enumerate(monitor_cfg.priority.dirs.items()):
-            managed_resolved = Path(path).expanduser().resolve()
-            allowed, trace = explain_path(monitor_cfg, managed_resolved)
-            err = None if allowed else (trace[-1] if trace else "Excluded by monitor rules")
-            priority_directories.append(
-                {
-                    "path": path,
-                    "priority": priority,
-                    "valid": allowed,
-                    "error": err,
-                }
-            )
-            if err:
-                issues.append(f"Priority directory invalid: {path} ({err})")
-            yield (
-                0.7 + (i / max(len(monitor_cfg.priority.dirs), 1)) * 0.2,
-                f"Validating: {path}...",
-            )
-
         # Only include status-specific data (not config that can be retrieved elsewhere)
         yield (1.0, "Complete")
 
-        message = f"Monitor status retrieved ({len(issues)} issue(s) found)" if issues else "Monitor status retrieved"
+        issues: list[str] = []
+        message = "Monitor status retrieved"
 
         _build_result(
             result_obj,
-            success=len(issues) == 0,
+            success=True,
             message=message,
             database=database_name,
             tracked_files=total_files,
             issues=issues,
-            priority_directories=priority_directories,
             time_based_counts=time_based_counts,
             last_sync=last_sync,
             wks_home=wks_home,

@@ -157,6 +157,33 @@
           "additionalProperties": false
         }
       ]
+    },
+    "DaemonClearLogOutput": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cleared": {
+              "type": "boolean"
+            },
+            "message": {
+              "type": "string"
+            },
+            "log_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cleared",
+            "message",
+            "log_path"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "oneOf": [
@@ -174,6 +201,9 @@
     },
     {
       "$ref": "#/definitions/DaemonClearOutput"
+    },
+    {
+      "$ref": "#/definitions/DaemonClearLogOutput"
     }
   ]
 }

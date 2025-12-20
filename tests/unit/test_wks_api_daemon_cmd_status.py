@@ -5,6 +5,7 @@ import time
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
 from wks.api.daemon.cmd_stop import cmd_stop
@@ -28,7 +29,7 @@ def test_cmd_status_reads_written_status(monkeypatch, tmp_path):
     assert status_result.success is True
     assert status_result.output["running"] is True
     assert status_result.output["restrict_dir"] == ""
-    assert status_result.output["log_path"].endswith("daemon.log")
+    assert status_result.output["log_path"].endswith(WKSConfig.get_logfile_path().name)
 
     # Stop to clean up
     stop_result = run_cmd(cmd_stop)
@@ -46,8 +47,7 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
 
     run_cmd(cmd_start)
 
-    log_path = wks_home / "logs" / "daemon.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path = WKSConfig.get_logfile_path()
     # Append messages; the daemon subprocess extracts WARN/ERROR lines into daemon.json.
     with log_path.open("a", encoding="utf-8") as f:
         f.write("WARN: something happened\n")
@@ -118,13 +118,11 @@ def test_status_preserves_timestamp_when_stopped(monkeypatch, tmp_path):
     # First status check on stopped daemon
     res1 = run_cmd(cmd_status)
     assert res1.output["running"] is False
-    t1 = res1.output["last_sync"]
-    assert t1 is not None
+    # Since we don't read stale status, last_sync is None when stopped
+    assert res1.output["last_sync"] is None
 
     time.sleep(1.1)
 
     # Second status check
     res2 = run_cmd(cmd_status)
-    t2 = res2.output["last_sync"]
-
-    assert t1 == t2, "Timestamp should NOT update when stopped"
+    assert res2.output["last_sync"] is None

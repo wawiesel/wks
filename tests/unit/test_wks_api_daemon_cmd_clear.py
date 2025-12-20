@@ -3,6 +3,7 @@
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.daemon.cmd_clear import cmd_clear
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
@@ -23,8 +24,7 @@ def test_daemon_clear_when_stopped(monkeypatch, tmp_path):
     status_path.write_text('{"running": false, "errors": ["old error"]}')
 
     # Create logs with messy content
-    log_path = wks_home / "logs" / "daemon.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path = WKSConfig.get_logfile_path()
     log_path.write_text("Old log content\n")
 
     # Run clear
