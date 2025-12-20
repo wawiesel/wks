@@ -3,10 +3,10 @@
 from collections.abc import Iterator
 
 from ..config.WKSConfig import WKSConfig
+from ..config.write_status_file import write_status_file
 from ..log.read_log_entries import read_log_entries
 from ..StageResult import StageResult
 from . import DaemonStatusOutput
-from ._write_status_file import write_status_file
 
 
 def cmd_status() -> StageResult:
@@ -66,7 +66,7 @@ def cmd_status() -> StageResult:
                         "last_sync": None,
                     }
                     # We might want to fix the file?
-                    write_status_file(status_data, wks_home=home)
+                    write_status_file(status_data, wks_home=home, filename="daemon.json")
             else:
                 # Stopped. Generate fresh status.
                 log_cfg = WKSConfig.load().log
@@ -90,7 +90,7 @@ def cmd_status() -> StageResult:
                     # Stopped, we don't know last sync unless we parse old file, but user said "don't read stats".
                 }
                 # Update the file to reflect "Stopped"
-                write_status_file(status_data, wks_home=home)
+                write_status_file(status_data, wks_home=home, filename="daemon.json")
 
             result_obj.result = "Daemon status retrieved"
             result_obj.output = DaemonStatusOutput(**status_data).model_dump(mode="python")

@@ -7,9 +7,10 @@ MCP: wksm_vault_status
 from collections.abc import Iterator
 from typing import Any
 
+from wks.api.config.write_status_file import write_status_file
+
 from ..database.Database import Database
 from ..StageResult import StageResult
-from ..utils._write_status_file import write_status_file
 from . import VaultStatusOutput
 
 
@@ -17,8 +18,7 @@ def cmd_status() -> StageResult:
     """Get vault link health status."""
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        from wks.utils.uri_utils import path_to_uri
-
+        from ...utils.path_to_uri import path_to_uri
         from ..config.WKSConfig import WKSConfig
         from ._constants import META_DOCUMENT_ID
 

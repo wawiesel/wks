@@ -11,8 +11,7 @@ from typing import Any
 
 import requests
 
-from wks.utils.uri_utils import uri_to_path
-
+from ...utils.uri_to_path import uri_to_path
 from ..StageResult import StageResult
 from . import DatabasePruneOutput
 from .Database import Database

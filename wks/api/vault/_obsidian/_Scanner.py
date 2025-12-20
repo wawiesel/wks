@@ -38,7 +38,7 @@ class _Scanner:
             return f"vault:///{rel_path}"
         except ValueError:
             # Path is outside vault, fall back to file:// URI
-            from wks.utils.uri_utils import path_to_uri
+            from ....utils.path_to_uri import path_to_uri
 
             return path_to_uri(note_path)
 

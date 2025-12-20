@@ -4,9 +4,9 @@ from collections.abc import Iterator
 from typing import Any
 
 from ..config.WKSConfig import WKSConfig
+from ..config.write_status_file import write_status_file
 from ..StageResult import StageResult
 from . import DaemonClearOutput
-from ._write_status_file import write_status_file
 
 
 def cmd_clear() -> StageResult:
@@ -88,7 +88,7 @@ def cmd_clear() -> StageResult:
             "errors": [],
             "warnings": [],
         }
-        write_status_file(clean_status, wks_home=home)
+        write_status_file(clean_status, wks_home=home, filename="daemon.json")
 
         result_obj.success = True
         result_obj.result = "Daemon state cleared"

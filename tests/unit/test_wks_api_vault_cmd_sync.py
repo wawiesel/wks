@@ -144,7 +144,7 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # 1. Manually seed DB with a "stale" link
-    from wks.utils.uri_utils import path_to_uri
+    from wks.utils.path_to_uri import path_to_uri
 
     stale_note = vault_dir / "note.md"
     stale_uri = path_to_uri(stale_note)
@@ -187,7 +187,7 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
     # deleted.md is NOT created on disk
 
     # URIs
-    from wks.utils.uri_utils import path_to_uri
+    from wks.utils.path_to_uri import path_to_uri
 
     root_uri = path_to_uri(vault_dir / "root.md")
     nested_uri = path_to_uri(subdir / "nested.md")

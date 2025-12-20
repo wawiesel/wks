@@ -103,7 +103,7 @@ class _LinkResolver:
 
         # Use path_to_uri for resolved filesystem path
         try:
-            from wks.utils.uri_utils import path_to_uri
+            from ....utils.path_to_uri import path_to_uri
 
             target_uri = path_to_uri(resolved)
         except (ValueError, OSError):

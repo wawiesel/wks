@@ -8,11 +8,12 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 
+from wks.api.config.write_status_file import write_status_file
 from wks.utils.expand_paths import expand_paths
+from wks.utils.path_to_uri import path_to_uri
 
 from ..database.Database import Database
 from ..StageResult import StageResult
-from ..utils._write_status_file import write_status_file
 from . import MonitorSyncOutput
 from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
 from .calculate_priority import calculate_priority
@@ -75,8 +76,6 @@ def cmd_sync(
 
             with Database(config.database, database_name) as database:
                 try:
-                    from wks.utils.uri_utils import path_to_uri
-
                     database.delete_many({"local_uri": path_to_uri(path_obj)})
                 finally:
                     pass
@@ -132,8 +131,6 @@ def cmd_sync(
                                 f"Skipping low priority: {file_path.name}...",
                             )
                             continue
-
-                        from wks.utils.uri_utils import path_to_uri
 
                         path_uri = path_to_uri(file_path)
 

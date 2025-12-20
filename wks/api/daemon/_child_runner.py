@@ -20,7 +20,7 @@ def main() -> None:
 
     paths = json.loads(paths_json)
 
-    from .Daemon import _child_main
+    from ._child_main import _child_main
 
     _child_main(
         home_dir=home_dir,

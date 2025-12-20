@@ -4,8 +4,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from wks.utils.uri_utils import path_to_uri, uri_to_path
-
+from ...utils.path_to_uri import path_to_uri
+from ...utils.uri_to_path import uri_to_path
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri

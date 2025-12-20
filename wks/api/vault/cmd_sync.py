@@ -11,10 +11,10 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any
 
+from wks.api.config.write_status_file import write_status_file
 from wks.utils.expand_paths import expand_paths
 
 from ..StageResult import StageResult
-from ..utils._write_status_file import write_status_file
 from . import VaultSyncOutput
 
 # Vault only processes markdown files
@@ -122,7 +122,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                 processed_uris = set()
 
                 # Determine scope prefix using file URIs
-                from wks.utils.uri_utils import path_to_uri
+                from ...utils.path_to_uri import path_to_uri
 
                 # scope_prefix is the URI of the sync root
                 scope_prefix = path_to_uri(input_path) if path else path_to_uri(vault_path)

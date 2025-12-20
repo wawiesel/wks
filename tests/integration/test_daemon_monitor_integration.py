@@ -11,7 +11,7 @@ import pytest
 
 from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
-from wks.utils.uri_utils import path_to_uri
+from wks.utils.path_to_uri import path_to_uri
 
 # Mark all tests in this module
 pytestmark = [

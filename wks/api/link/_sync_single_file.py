@@ -7,8 +7,9 @@ from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.log.append_log import append_log
 from wks.api.vault._constants import DOC_TYPE_LINK
-from wks.utils.uri_utils import path_to_uri, uri_to_path
 
+from ...utils.path_to_uri import path_to_uri
+from ...utils.uri_to_path import uri_to_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ._identity import _identity
 from ._parsers import get_parser

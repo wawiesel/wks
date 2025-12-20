@@ -8,9 +8,10 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from wks.api.config.write_status_file import write_status_file
+
 from ..database.Database import Database
 from ..StageResult import StageResult
-from ..utils._write_status_file import write_status_file
 from . import MonitorStatusOutput
 
 
