@@ -20,14 +20,19 @@ class TestCmdShow:
             assert result.success
             assert result.output["count"] == 1
             assert result.output["database"] == "monitor"
-            mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", {"status": "active"}, 10)
+            mock_query.assert_called_once_with(
+                tracked_wks_config.database,
+                "monitor",
+                {"$and": [{"_id": {"$ne": "__meta__"}}, {"status": "active"}]},
+                10,
+            )
 
     def test_cmd_show_no_filter(self, tracked_wks_config):
         with patch.object(Database, "query", return_value={"results": [], "count": 0}) as mock_query:
             result = run_cmd(cmd_show, database="monitor", query=None, limit=50)
             assert result.success
             assert result.output["count"] == 0
-            mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", None, 50)
+            mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", {"_id": {"$ne": "__meta__"}}, 50)
 
     def test_cmd_show_invalid_json(self, tracked_wks_config):
         result = run_cmd(cmd_show, database="nodes", query='{"invalid": json}', limit=50)
@@ -39,7 +44,7 @@ class TestCmdShow:
         with patch.object(Database, "query", return_value={"results": [], "count": 0}) as mock_query:
             result = run_cmd(cmd_show, database="monitor", query="", limit=50)
             assert result.success
-            mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", None, 50)
+            mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", {"_id": {"$ne": "__meta__"}}, 50)
 
     def test_cmd_show_query_fails(self, tracked_wks_config):
         with patch.object(Database, "query", side_effect=Exception("Connection failed")):
@@ -52,4 +57,9 @@ class TestCmdShow:
         with patch.object(Database, "query", return_value={"results": [{"_id": "1"}], "count": 1}) as mock_query:
             result = run_cmd(cmd_show, database="users", query=complex_filter, limit=100)
             assert result.success
-            mock_query.assert_called_once_with(tracked_wks_config.database, "users", json.loads(complex_filter), 100)
+            mock_query.assert_called_once_with(
+                tracked_wks_config.database,
+                "users",
+                {"$and": [{"_id": {"$ne": "__meta__"}}, json.loads(complex_filter)]},
+                100,
+            )
