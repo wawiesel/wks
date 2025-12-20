@@ -190,6 +190,14 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
             else:
                 print("Log file does not exist")
 
+            # Show the internal daemon log file
+            internal_log = wks_home / "logfile"
+            print(f"\n=== Internal Daemon Log ({internal_log}) ===")
+            if internal_log.exists():
+                print(internal_log.read_text())
+            else:
+                print("Internal log file does not exist")
+
             # Try running wksc daemon start manually to see the error
             print("\n=== Manual wksc daemon start test ===")
             result = subprocess.run(
