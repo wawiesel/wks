@@ -66,12 +66,12 @@ The `run(restrict_dir)` method:
 - `Label`: Service identifier (reverse DNS format, from config)
 - `ProgramArguments`: Python module to run (`wks.api.service._darwin._Impl`)
 - `WorkingDirectory`: WKS_HOME
-- `EnvironmentVariables`: 
+- `EnvironmentVariables`:
   - `PYTHONPATH`: Project root directory
   - `WKS_SERVICE_RESTRICT_DIR`: (Optional) Directory to restrict monitoring to
 - `RunAtLoad`: Whether to start on load (from config)
 - `KeepAlive`: Whether to restart on exit (from config)
-- `StandardOutPath` / `StandardErrorPath`: Log file path (relative to WKS_HOME)
+- `StandardOutPath` / `StandardErrorPath`: Unified log file at `{WKS_HOME}/logfile`
 
 **Service Commands**:
 - `launchctl bootstrap`: Load and start service
@@ -93,10 +93,8 @@ Darwin configuration uses the `_Data` class:
 {
   "service": {
     "type": "darwin",
-    "sync_interval_secs": 5.0,
     "data": {
       "label": "com.example.wks.service",
-      "log_file": "logs/service.log",
       "keep_alive": true,
       "run_at_load": false
     }
@@ -106,7 +104,6 @@ Darwin configuration uses the `_Data` class:
 
 **Fields**:
 - `label` (string, required): Launchd service identifier in reverse DNS format (e.g., "com.example.wks.service"). Must have at least 2 parts separated by dots.
-- `log_file` (string, required): Path to log file relative to WKS_HOME. Must be relative (not absolute).
 - `keep_alive` (boolean, required): Whether launchd should auto-restart the service if it exits.
 - `run_at_load` (boolean, required): Whether the service should start automatically when installed.
 
@@ -130,4 +127,3 @@ The `_Impl` class in `_Impl.py` implements the abstract interface defined in `_A
 - Supports `--restrict` directory via `WKS_SERVICE_RESTRICT_DIR` environment variable
 
 **Note**: This implementation is internal. Application code should use the public `Service` API from `wks.api.service.Service`. If you need platform-specific details, access them from the backend's config data: `service_config.data.label` (with proper type checking).
-

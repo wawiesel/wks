@@ -1,6 +1,6 @@
 # Database Schema: Edges
 
-Name: `edges` (formerly `link`)
+Name: `edges`
 
 Each document represents a directional relationship (link) between nodes.
 

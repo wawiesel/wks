@@ -1,7 +1,7 @@
 # Daemon Specification
 
 ## Purpose
-Runtime worker that watches the filesystem and syncs changes to the monitor database. Runs in a background thread/process started by the system service (or manually). Provides start/stop/status only.
+OS-independent runtime worker that watches the filesystem and syncs changes to the nodes database. Runs in a background thread/process started by the system service (or manually via CLI). Provides start/stop/status operations.
 
 ## Runtime Behavior
 - Watches filesystem events (modified, created, deleted, moved) via watchdog observer.
@@ -29,7 +29,7 @@ Example:
 - Written continuously by the daemon loop (and at start/stop).
 - Required fields: `running`, `pid`, `restrict_dir`, `log_path`, `errors`, `warnings`.
 - CLI `daemon status` reads this file and returns schema-conformant output. Missing/invalid file is an error (no silent defaults).
- - All runtime information output to `{WKS_HOME}/logs/daemon.log`. Errors and warnings must be extracted from that log and surfaced in the status output as lists in the `errors` and `warnings` fields.
+- All runtime information output to unified logfile at `{WKS_HOME}/logfile`. Errors and warnings are extracted and surfaced in the status output.
 
 ## CLI
 - Entry: `wksc daemon`
@@ -68,4 +68,3 @@ Example:
 - DAEMON.4 — Moves must emit delete+create semantics.
 - DAEMON.5 — Non-existent paths must be supported for deletes.
 - DAEMON.6 — CLI and MCP return identical structures for equivalent commands.
-

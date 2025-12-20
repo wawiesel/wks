@@ -13,7 +13,7 @@ Platform-dependent installer/manager for the daemon. Provides install/uninstall/
 - Location: `{WKS_HOME}/config.json` (override via `WKS_HOME`)
 - Section: `service`
 - Uses `type/data` pattern; all fields required; no defaults in code.
-- Logging: single standardized log path `{WKS_HOME}/logs/service.log` (not configurable); entries MUST annotate severity (INFO/WARN/ERROR/DEBUG).
+- Logging: All entries go to the unified log at `{WKS_HOME}/logfile` with severity annotations (INFO/WARN/ERROR/DEBUG).
 
 Example (darwin):
 ```json
@@ -23,8 +23,7 @@ Example (darwin):
     "data": {
       "label": "com.example.wks.service",
       "keep_alive": true,
-      "run_at_load": false,
-      "restrict_dir": null
+      "run_at_load": false
     }
   }
 }
@@ -38,7 +37,8 @@ Example (darwin):
 - `label`: Launchd service identifier in reverse DNS format. Required.
 - `keep_alive`: Whether launchd should auto-restart the service if it exits. Required.
 - `run_at_load`: Whether the service should start automatically when installed. Required.
-- `restrict_dir`: Optional directory to restrict daemon monitoring to; stored as an environment variable for the daemon at launch.
+
+> **Note**: The `--restrict` flag on `wksc service install` is passed to the daemon at launch time via an environment variable; it is not stored in the config.
 
 ## Normative Schema
 - Canonical output schema: `docs/specifications/service_output.schema.json`.
@@ -94,5 +94,4 @@ Example (darwin):
 - SERVICE.4 — Errors are schema-conformant; no partial success.
 - SERVICE.5 — `wksc service start` MUST start the installed daemon via the platform service manager; if not installed, it MUST fail.
 - SERVICE.6 — `wksc service install` MUST persist restrict dir (if provided) so the daemon launches with that scope.
-- SERVICE.7 — Log path is standardized to `{WKS_HOME}/logs/service.log`; status commands must include this path and surface extracted warnings/errors from the log.
-
+- SERVICE.7 — Logging goes to the unified log at `{WKS_HOME}/logfile`; status commands must surface extracted warnings/errors from it.
