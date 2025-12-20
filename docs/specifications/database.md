@@ -45,10 +45,13 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 ### prune
 - Command: `wksc database prune <database> [--remote]`
 - Behavior: Prunes stale data from the specified database.
-    - If `database` is `nodes` (or `monitor`), removes documents where the `local_uri` points to a non-existent file.
-    - If `database` is `edges` (or `link`), removes edges where source or target nodes are missing from the `nodes` database.
+    - **Local Pruning** (Default):
+        - `nodes`: Removes documents where `local_uri` points to a non-existent file on the filesystem.
+        - `edges`: Removes edges where `from_local_uri` (source) points to a node not present in the `nodes` database (orphaned links).
+    - **Remote Pruning** (`--remote`):
+        - `edges`: Validates `to_remote_uri` targets (HTTP HEAD/GET). Removes edges where the remote resource is unreachable (e.g., 404).
+        - *Note*: Remote pruning is additive; local pruning always runs.
     - If `database` is `all`, runs prune on all databases.
-    - `--remote` flag enables validation of remote URIs where applicable.
 - Output schema: `DatabasePruneOutput` from `database_output.schema.json`.
 
 ### wksm_database_prune
