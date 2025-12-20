@@ -64,6 +64,7 @@ def _child_main(
     lock_path: str,
 ) -> None:
     # Load monitor config for filtering
+    wks_config = None
     try:
         wks_config = WKSConfig.load()
         monitor_cfg = wks_config.monitor
@@ -123,6 +124,7 @@ def _child_main(
             # We use a zero-timeout or very short timeout check if possible,
             # but Database init with local=True triggers _ensure_local_mongod which checks binary
             assert monitor_cfg is not None
+            assert wks_config is not None
             database_name = f"{wks_config.database.prefix}.monitor"
             with Database(wks_config.database, database_name) as db:
                 db.get_client().server_info()
@@ -166,14 +168,25 @@ def _child_main(
     log_file = Path(_log_path)
 
     def write_status(running: bool) -> None:
-        log_cfg = wks_config.log
-        log_cfg = wks_config.log
+        if wks_config:
+            log_cfg = wks_config.log
+            d_ret = log_cfg.debug_retention_days
+            i_ret = log_cfg.info_retention_days
+            w_ret = log_cfg.warning_retention_days
+            e_ret = log_cfg.error_retention_days
+        else:
+            # Defaults if config failed to load
+            d_ret = 0.5
+            i_ret = 1.0
+            w_ret = 2.0
+            e_ret = 7.0
+
         warnings_log, errors_log = read_log_entries(
             log_file,
-            debug_retention_days=log_cfg.debug_retention_days,
-            info_retention_days=log_cfg.info_retention_days,
-            warning_retention_days=log_cfg.warning_retention_days,
-            error_retention_days=log_cfg.error_retention_days,
+            debug_retention_days=d_ret,
+            info_retention_days=i_ret,
+            warning_retention_days=w_ret,
+            error_retention_days=e_ret,
         )
         import datetime
 
