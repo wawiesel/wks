@@ -54,10 +54,13 @@ class TestCmdReset:
         mock_collection.delete_many.return_value = 5
         mock_collection.__enter__ = MagicMock(return_value=mock_collection)
         mock_collection.__exit__ = MagicMock(return_value=False)
-        with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection):
-            # We expect Database to be initialized multiple times (once per target)
-            # Hardcoded targets in implementation is 3: nodes, edges, vault
+
+        with (
+            patch("wks.api.database.cmd_reset.Database", return_value=mock_collection) as mock_db,
+        ):
+            # Mock list_databases to return actual databases
+            mock_db.list_databases.return_value = ["nodes", "edges"]
             result = run_cmd(cmd_reset, "all")
             assert result.success
-            assert result.output["deleted_count"] == 15  # 5 * 3
-            assert mock_collection.delete_many.call_count == 3
+            assert result.output["deleted_count"] == 10  # 5 * 2 (nodes, edges)
+            assert mock_collection.delete_many.call_count == 2

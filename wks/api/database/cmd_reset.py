@@ -28,27 +28,7 @@ def cmd_reset(database: str) -> StageResult:
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
 
-        # Determine targets
-        targets = []
-        if database == "all":
-            # For now, hardcode known databases or query list?
-            # Safest is to list known ones to avoid deleting internal/unintended.
-            # However, Database.py might abstract listing collections.
-            # Let's use hardcoded list of known domain stores for safety.
-            targets = ["monitor", "vault", "link", "nodes", "edges"]
-            # Mapping: monitor->nodes, link->edges, vault->vault
-            # Actually, standardizing on schematic names:
-            # nodes, edges, vault.
-            # But let's handle the aliases if they exist.
-            # Based on current usage: database names are flexible strings.
-            # Let's query Database.list_database_names if possible?
-            # The facade doesn't expose it directly in context of connection string.
-            # Let's stick to known schemas:
-            # 'nodes' (monitor), 'edges' (link), 'vault' (legacy/status?), 'transform' (maybe?)
-            # Actually, let's just use the strict list used elsewhere or safe defaults.
-            targets = ["nodes", "edges", "vault"]
-        else:
-            targets = [database]
+        targets = Database.list_databases(config.database) if database == "all" else [database]
 
         total_deleted = 0
         deleted_details = []

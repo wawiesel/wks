@@ -84,7 +84,7 @@ All CLI commands follow the standard format:
 
 Example:
 - `wksc monitor status`
-- `wksc database show monitor`
+- `wksc database show nodes`
 - `wksc link sync /path/to/file`
 
 ## CLI Global Options
