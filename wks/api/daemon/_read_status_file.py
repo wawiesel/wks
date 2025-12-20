@@ -4,9 +4,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ..log._utils import get_logfile_path
+
 
 def read_status_file(wks_home: Path) -> dict[str, Any]:
     """Read daemon.json from WKS_HOME; raises on missing/invalid."""
+    log_path = str(get_logfile_path(wks_home))
     path = wks_home / "daemon.json"
     if not path.exists():
         # Missing file = clean state = not running
@@ -14,7 +17,7 @@ def read_status_file(wks_home: Path) -> dict[str, Any]:
             "running": False,
             "pid": None,
             "restrict_dir": "",
-            "log_path": str(wks_home / "logs" / "daemon.log"),
+            "log_path": log_path,
             "lock_path": str(wks_home / "daemon.lock"),
             "last_sync": None,
             "errors": [],
@@ -28,7 +31,7 @@ def read_status_file(wks_home: Path) -> dict[str, Any]:
                 "running": False,
                 "pid": None,
                 "restrict_dir": "",
-                "log_path": str(wks_home / "logs" / "daemon.log"),
+                "log_path": log_path,
                 "lock_path": str(wks_home / "daemon.lock"),
                 "last_sync": None,
                 "errors": ["Corrupt daemon.json, assumed stopped"],
@@ -41,7 +44,7 @@ def read_status_file(wks_home: Path) -> dict[str, Any]:
             "running": False,
             "pid": None,
             "restrict_dir": "",
-            "log_path": str(wks_home / "logs" / "daemon.log"),
+            "log_path": log_path,
             "lock_path": str(wks_home / "daemon.lock"),
             "last_sync": None,
             "errors": ["Invalid daemon.json, assumed stopped"],

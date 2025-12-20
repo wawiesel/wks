@@ -1,0 +1,132 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://wks/specifications/log_output.schema.json",
+    "title": "WKS Log Output Schemas",
+    "type": "object",
+    "definitions": {
+        "Base": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "errors",
+                "warnings"
+            ],
+            "additionalProperties": true
+        },
+        "LogPruneOutput": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Base"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "pruned_debug": {
+                            "type": "integer"
+                        },
+                        "pruned_info": {
+                            "type": "integer"
+                        },
+                        "pruned_warnings": {
+                            "type": "integer"
+                        },
+                        "pruned_errors": {
+                            "type": "integer"
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "pruned_debug",
+                        "pruned_info",
+                        "pruned_warnings",
+                        "pruned_errors",
+                        "message"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "LogStatusOutput": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Base"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "log_path": {
+                            "type": "string"
+                        },
+                        "size_bytes": {
+                            "type": "integer"
+                        },
+                        "entry_counts": {
+                            "type": "object",
+                            "properties": {
+                                "debug": {
+                                    "type": "integer"
+                                },
+                                "info": {
+                                    "type": "integer"
+                                },
+                                "warn": {
+                                    "type": "integer"
+                                },
+                                "error": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": [
+                                "debug",
+                                "info",
+                                "warn",
+                                "error"
+                            ]
+                        },
+                        "oldest_entry": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "newest_entry": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "log_path",
+                        "size_bytes",
+                        "entry_counts"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
+        }
+    },
+    "oneOf": [
+        {
+            "$ref": "#/definitions/LogPruneOutput"
+        },
+        {
+            "$ref": "#/definitions/LogStatusOutput"
+        }
+    ]
+}

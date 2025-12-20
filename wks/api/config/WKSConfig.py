@@ -13,6 +13,7 @@ from ..database.DatabaseConfig import DatabaseConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..vault.VaultConfig import VaultConfig
+from .LogConfig import LogConfig
 
 
 class WKSConfig(BaseModel):
@@ -25,7 +26,7 @@ class WKSConfig(BaseModel):
     service: ServiceConfig
     daemon: DaemonConfig
     vault: VaultConfig
-    uri: str | None = None
+    log: LogConfig
 
     @computed_field
     def path(self) -> Path:
@@ -86,7 +87,7 @@ class WKSConfig(BaseModel):
             "service": self.service.model_dump(),
             "daemon": self.daemon.model_dump(),
             "vault": self.vault.model_dump(),
-            "uri": self.uri,
+            "log": self.log.model_dump(),
         }
 
     def save(self) -> None:

@@ -34,6 +34,7 @@ def _make_monitor_config(**priority_dirs_override: float) -> MonitorConfig:
             },
             "max_documents": 1000000,
             "min_priority": 0.0,
+            "remote": {"mappings": []},
         }
     )
 
@@ -95,6 +96,7 @@ def test_cmd_priority_add_updates(tracked_wks_config):
             },
             "max_documents": 1000000,
             "min_priority": 0.0,
+            "remote": {"mappings": []},
         }
     )
 

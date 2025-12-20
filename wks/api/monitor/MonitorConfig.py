@@ -16,7 +16,7 @@ class MonitorConfig(BaseModel):
 
     filter: _FilterConfig = Field(...)
     priority: _PriorityConfig = Field(...)
-    remote: RemoteConfig = RemoteConfig()
+    remote: RemoteConfig = Field(...)
     max_documents: int = Field(..., ge=0, description="Maximum number of documents in monitor DB")
     min_priority: float = Field(..., ge=0.0, description="Minimum priority for files to be monitored")
 

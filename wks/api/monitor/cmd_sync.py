@@ -80,16 +80,15 @@ def cmd_sync(
                     database.delete_many({"local_uri": path_to_uri(path_obj)})
                 finally:
                     pass
-            warn_msg = f"Removed missing path from monitor DB: {path_obj}"
-            warning_list = [warn_msg]
 
+            # File deletions are silent - no warning needed
             yield (1.0, "Complete")
             _build_result(
                 result_obj,
                 success=True,
-                message=warn_msg,
+                message=f"Removed {path_obj.name} from monitor DB",
                 errors=[],
-                warnings=warning_list,
+                warnings=[],
                 files_synced=0,
                 files_skipped=0,
             )

@@ -74,6 +74,105 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 - **MCP Server**: AI assistant integration via Model Context Protocol
 - **Service Daemon**: Background monitoring with automatic sync
 
+## CLI Reference
+
+| Command Group | Description |
+|---------------|-------------|
+| `wksc monitor` | Filesystem monitoring operations |
+| `wksc vault` | Vault link management (Obsidian-style) |
+| `wksc link` | Resource edge/link operations |
+| `wksc daemon` | Daemon runtime management |
+| `wksc service` | System service install/uninstall |
+| `wksc config` | Configuration operations |
+| `wksc database` | Database operations |
+| `wksc mcp` | MCP server management |
+
+<details>
+<summary><strong>wksc monitor</strong> - Filesystem monitoring</summary>
+
+- `status` - Get filesystem monitoring status
+- `check <path>` - Check if path would be monitored and its priority
+- `sync <path> [--recursive]` - Force update file/directory into database
+- `filter show [list_name]` - Show filter list contents
+- `filter add <list_name> <value>` - Add value to filter list
+- `filter remove <list_name> <value>` - Remove value from filter list
+- `priority show` - List all priority directories
+- `priority add <path> <priority>` - Set priority for directory
+- `priority remove <path>` - Remove priority directory
+
+</details>
+
+<details>
+<summary><strong>wksc vault</strong> - Vault link management</summary>
+
+- `status` - Get vault link health status
+- `sync [path] [--recursive]` - Sync vault links to database
+- `check [path]` - Check vault link health
+- `links <path> [--direction to|from|both]` - Show edges to/from a file
+
+</details>
+
+<details>
+<summary><strong>wksc link</strong> - Resource edge operations</summary>
+
+- `status` - Get health and statistics for links collection
+- `show <uri> [--direction to|from|both]` - Show edges connected to URI
+- `check <path> [--parser]` - Check links in file
+- `sync <path> [--parser] [--recursive] [--remote]` - Sync links to database
+
+</details>
+
+<details>
+<summary><strong>wksc daemon</strong> - Daemon runtime</summary>
+
+- `status` - Check daemon status
+- `start [--restrict] [--blocking]` - Start daemon
+- `stop` - Stop daemon
+- `clear` - Clear daemon logs (only if stopped)
+
+</details>
+
+<details>
+<summary><strong>wksc service</strong> - System service</summary>
+
+- `status` - Check service status
+- `start` / `stop` - Start/stop service
+- `install [--restrict]` - Install system service
+- `uninstall` - Uninstall system service
+
+</details>
+
+<details>
+<summary><strong>wksc config</strong> - Configuration</summary>
+
+- `list` - List configuration sections
+- `show <section>` - Show section configuration
+- `version` - Show WKS version
+
+</details>
+
+<details>
+<summary><strong>wksc database</strong> - Database operations</summary>
+
+- `list` - List all databases
+- `show <database> [--query] [--limit]` - Show database contents
+- `reset <database>` - Reset (clear) database
+- `prune <database> [--remote]` - Prune stale entries
+
+</details>
+
+<details>
+<summary><strong>wksc mcp</strong> - MCP server</summary>
+
+- `list` - List MCP installations
+- `install <name> [--type] [--settings-path]` - Install MCP server
+- `uninstall <name>` - Uninstall MCP server
+- `run [--direct]` - Run MCP server
+
+</details>
+
+**Global Options**: `--version` / `-v`, `--display json|yaml` (default: yaml), `--help` / `-h`
+
 ## Install
 
 ### Requirements

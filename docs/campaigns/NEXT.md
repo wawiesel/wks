@@ -1,5 +1,9 @@
 ## Getting Started (For Next Developer)
 
+### Notes
+
+We may need to dive into the efficiency of the mongodb "local" mode.
+
 ### Quick Orientation
 
 **Reading Order:**

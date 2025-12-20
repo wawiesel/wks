@@ -44,7 +44,10 @@ def cmd_show(
 
         yield (0.7, "Querying database...")
         try:
-            query_result = Database.query(config.database, database, parsed_query, limit)
+            # Exclude internal meta documents from results
+            base_filter = {"_id": {"$ne": "__meta__"}}
+            combined_filter = {"$and": [base_filter, parsed_query]} if parsed_query else base_filter
+            query_result = Database.query(config.database, database, combined_filter, limit)
             yield (1.0, "Complete")
             result_obj.result = f"Found {query_result['count']} document(s) in {database}"
             result_obj.output = DatabaseShowOutput(

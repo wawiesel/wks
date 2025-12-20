@@ -1,9 +1,9 @@
 """Daemon status command (reads daemon.json)."""
 
 from collections.abc import Iterator
-from pathlib import Path
 
 from ..config.WKSConfig import WKSConfig
+from ..log._utils import get_logfile_path, read_log_entries
 from ..StageResult import StageResult
 from . import DaemonStatusOutput
 from ._read_status_file import read_status_file
@@ -21,7 +21,7 @@ def cmd_status() -> StageResult:
 
             # 1. Recover persistent config from stale status file
             restrict_dir = raw.get("restrict_dir", "")
-            log_path_str = raw.get("log_path", str(home / "logs" / "daemon.log"))
+            log_path_str = str(get_logfile_path(home))
             old_last_sync: str | None = raw.get("last_sync")
 
             # 2. Check lock file for authoritative PID and running state
@@ -40,10 +40,15 @@ def cmd_status() -> StageResult:
                 except (ValueError, OSError):
                     pass
 
-            # 3. Freshly parse logs for errors/warnings
-            from ._extract_log_messages import extract_log_messages
-
-            warnings, errors = extract_log_messages(Path(log_path_str))
+            # 3. Freshly parse logs for errors/warnings with retention filtering (prune-on-access)
+            log_cfg = WKSConfig.load().log
+            warnings, errors = read_log_entries(
+                home,
+                debug_retention_days=log_cfg.debug_retention_days,
+                info_retention_days=log_cfg.info_retention_days,
+                warning_retention_days=log_cfg.warning_retention_days,
+                error_retention_days=log_cfg.error_retention_days,
+            )
 
             # 4. Construct fresh status and override daemon.json
             from ._write_status_file import write_status_file
@@ -85,7 +90,7 @@ def cmd_status() -> StageResult:
             yield (1.0, "Complete")
         except Exception as exc:
             home = WKSConfig.get_home_dir()
-            log_path = str(home / "logs" / "daemon.log")
+            log_path = str(get_logfile_path(home))
             result_obj.result = f"Error checking daemon status: {exc}"
             result_obj.output = DaemonStatusOutput(
                 errors=[str(exc)],
