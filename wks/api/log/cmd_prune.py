@@ -1,14 +1,13 @@
 """Log prune command - remove log entries by level."""
 
-import re
+
 from collections.abc import Iterator
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import LogPruneOutput
 
-# Pattern to parse [ISO_TIMESTAMP] [DOMAIN] LEVEL: message
-_LOG_PATTERN = re.compile(r"^\[([^\]]+)\]\s*\[(\w+)\]\s*(DEBUG|INFO|WARN|ERROR):\s*(.*)$", re.IGNORECASE)
+from ._utils import LOG_PATTERN
 
 
 def cmd_prune(
@@ -28,8 +27,7 @@ def cmd_prune(
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
-        home = WKSConfig.get_home_dir()
-        log_path = home / "logfile"
+        log_path = WKSConfig.get_logfile_path()
 
         pruned_debug = 0
         pruned_info = 0
@@ -78,7 +76,7 @@ def cmd_prune(
             if not stripped:
                 continue
 
-            match = _LOG_PATTERN.match(stripped)
+            match = LOG_PATTERN.match(stripped)
             if match:
                 level = match.group(3).upper()
 

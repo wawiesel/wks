@@ -25,7 +25,7 @@ def test_cmd_start_creates_artifacts(monkeypatch, tmp_path):
 
     # Artifacts should exist
     assert (wks_home / "daemon.json").exists()
-    assert (wks_home / "logs" / "daemon.log").exists()
+    assert (wks_home / "logfile").exists()
     assert (wks_home / "daemon.lock").exists()
 
     stop_result = run_cmd(cmd_stop)
@@ -74,7 +74,7 @@ def test_cmd_start_twice_emits_warning(monkeypatch, tmp_path):
     assert second.success is False
     assert second.output["running"] is True
 
-    log_path = wks_home / "logs" / "daemon.log"
+    log_path = wks_home / "logfile"
     log_text = log_path.read_text()
     assert "ERROR: Daemon already running" in log_text
     assert (wks_home / "daemon.lock").exists()

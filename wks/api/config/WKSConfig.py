@@ -47,6 +47,11 @@ class WKSConfig(BaseModel):
         return cls.get_home_dir() / "config.json"
 
     @classmethod
+    def get_logfile_path(cls) -> Path:
+        """Get path to the unified logfile."""
+        return cls.get_home_dir() / "logfile"
+
+    @classmethod
     def load(cls) -> "WKSConfig":
         """Load and validate config from file.
 

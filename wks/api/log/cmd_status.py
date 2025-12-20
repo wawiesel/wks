@@ -1,6 +1,6 @@
 """Log status command - show log file status after auto-pruning by retention."""
 
-import re
+
 from collections.abc import Iterator
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
@@ -8,9 +8,7 @@ from datetime import datetime, timedelta, timezone
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import LogStatusOutput
-
-# Pattern to parse [ISO_TIMESTAMP] [DOMAIN] LEVEL: message
-_LOG_PATTERN = re.compile(r"^\[([^\]]+)\]\s*\[(\w+)\]\s*(DEBUG|INFO|WARN|ERROR):\s*(.*)$", re.IGNORECASE)
+from ._utils import LOG_PATTERN
 
 
 def cmd_status() -> StageResult:
@@ -20,8 +18,7 @@ def cmd_status() -> StageResult:
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
         log_cfg = config.log
-        home = WKSConfig.get_home_dir()
-        log_path = home / "logfile"
+        log_path = WKSConfig.get_logfile_path()
 
         yield (0.2, "Auto-pruning expired entries...")
 
@@ -78,7 +75,7 @@ def cmd_status() -> StageResult:
             if not stripped:
                 continue
 
-            match = _LOG_PATTERN.match(stripped)
+            match = LOG_PATTERN.match(stripped)
             if match:
                 timestamp_str = match.group(1)
                 level = match.group(3).upper()

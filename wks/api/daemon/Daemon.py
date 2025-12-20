@@ -15,7 +15,7 @@ from watchdog.observers import Observer
 
 from ..config.WKSConfig import WKSConfig
 from ..log._utils import append_log as unified_append_log
-from ..log._utils import get_logfile_path, read_log_entries
+from ..log._utils import read_log_entries
 from ..monitor.explain_path import explain_path
 from ._EventHandler import _EventHandler
 from ._write_status_file import write_status_file
@@ -25,7 +25,19 @@ from .FilesystemEvents import FilesystemEvents
 
 def _daemon_log(home_dir: str, level: str, message: str) -> None:
     """Append a log entry for daemon domain."""
-    unified_append_log(Path(home_dir), "daemon", level, message)
+    from ..config.WKSConfig import WKSConfig
+
+    # We need to resolve the logfile path here, or pass it in.
+    # Since this is a helper, let's look it up from config to avoid changing valid signature if possible,
+    # OR better, update signature to take log_path.
+    # The caller is responsible for providing the path.
+    # But wait, this is used by append_log inside _child_main.
+    # Let's see how _child_main is called.
+    pass  # We will inline this logic or update calls.
+
+# Redefining helper to take path
+def _daemon_log_with_path(log_path: Path, level: str, message: str) -> None:
+    unified_append_log(log_path, "daemon", level, message)
 
 
 def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
@@ -91,20 +103,20 @@ def _child_main(
     lock_file = Path(lock_path)
 
     # Define log_file for status reporting and ignore paths
-    log_file = get_logfile_path(Path(home_dir))
+    log_file = Path(_log_path)
 
     def append_log(message: str) -> None:
         # Parse level from message prefix (e.g., "INFO: ..." or "ERROR: ...")
         if message.startswith("DEBUG:"):
-            _daemon_log(home_dir, "DEBUG", message[6:].strip())
+            _daemon_log_with_path(log_file, "DEBUG", message[6:].strip())
         elif message.startswith("INFO:"):
-            _daemon_log(home_dir, "INFO", message[5:].strip())
+            _daemon_log_with_path(log_file, "INFO", message[5:].strip())
         elif message.startswith("WARN:"):
-            _daemon_log(home_dir, "WARN", message[5:].strip())
+            _daemon_log_with_path(log_file, "WARN", message[5:].strip())
         elif message.startswith("ERROR:") or message.startswith("FATAL:"):
-            _daemon_log(home_dir, "ERROR", message[6:].strip())
+            _daemon_log_with_path(log_file, "ERROR", message[6:].strip())
         else:
-            _daemon_log(home_dir, "INFO", message)
+            _daemon_log_with_path(log_file, "INFO", message)
 
     stop_flag = False
 
@@ -163,12 +175,13 @@ def _child_main(
     append_log("INFO: Daemon child started")
 
     # Get logfile path for ignore_paths
-    log_file = get_logfile_path(Path(home_dir))
+    log_file = Path(_log_path)
 
     def write_status(running: bool) -> None:
         log_cfg = wks_config.log
+        log_cfg = wks_config.log
         warnings_log, errors_log = read_log_entries(
-            Path(home_dir),
+            log_file,
             debug_retention_days=log_cfg.debug_retention_days,
             info_retention_days=log_cfg.info_retention_days,
             warning_retention_days=log_cfg.warning_retention_days,
@@ -311,7 +324,7 @@ class Daemon:
         from ..config.WKSConfig import WKSConfig
 
         home = WKSConfig.get_home_dir()
-        self._log_path = get_logfile_path(home)
+        self._log_path = WKSConfig.get_logfile_path()
         self._lock_path = home / "daemon.lock"
         existing_pid = None
         if self._lock_path.exists():
@@ -381,7 +394,7 @@ class Daemon:
         from ..config.WKSConfig import WKSConfig
 
         home = WKSConfig.get_home_dir()
-        self._log_path = get_logfile_path(home)
+        self._log_path = WKSConfig.get_logfile_path()
         self._lock_path = home / "daemon.lock"
         existing_pid = None
         if self._lock_path.exists():
@@ -487,20 +500,19 @@ class Daemon:
     def _write_status(self, *, running: bool, restrict_dir: Path | None) -> None:
         """Write daemon status to daemon.json."""
         from ..config.WKSConfig import WKSConfig
-        from ..log._utils import get_logfile_path
 
         home = WKSConfig.get_home_dir()
         restrict_value = str(restrict_dir) if restrict_dir else self._current_restrict
         self._current_restrict = restrict_value
         log_cfg = WKSConfig.load().log
+        log_path = WKSConfig.get_logfile_path()
         warnings_log, errors_log = read_log_entries(
-            home,
+            log_path,
             debug_retention_days=log_cfg.debug_retention_days,
             info_retention_days=log_cfg.info_retention_days,
             warning_retention_days=log_cfg.warning_retention_days,
             error_retention_days=log_cfg.error_retention_days,
         )
-        log_path = str(get_logfile_path(home))
         import datetime
 
         status = {
@@ -509,7 +521,7 @@ class Daemon:
             "running": running,
             "pid": self._pid if running else None,
             "restrict_dir": restrict_value,
-            "log_path": log_path,
+            "log_path": str(log_path),
             "lock_path": str(self._lock_path) if self._lock_path else str(home / "daemon.lock"),
             "last_sync": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
@@ -519,13 +531,13 @@ class Daemon:
         """Append a log entry for daemon domain using unified utils."""
         from ..config.WKSConfig import WKSConfig
 
-        home = WKSConfig.get_home_dir()
+        log_path = WKSConfig.get_logfile_path()
         # Parse level from message prefix
         if message.startswith("ERROR:"):
-            unified_append_log(home, "daemon", "ERROR", message[6:].strip())
+            unified_append_log(log_path, "daemon", "ERROR", message[6:].strip())
         elif message.startswith("INFO:"):
-            unified_append_log(home, "daemon", "INFO", message[5:].strip())
+            unified_append_log(log_path, "daemon", "INFO", message[5:].strip())
         elif message.startswith("WARN:"):
-            unified_append_log(home, "daemon", "WARN", message[5:].strip())
+            unified_append_log(log_path, "daemon", "WARN", message[5:].strip())
         else:
-            unified_append_log(home, "daemon", "INFO", message)
+            unified_append_log(log_path, "daemon", "INFO", message)

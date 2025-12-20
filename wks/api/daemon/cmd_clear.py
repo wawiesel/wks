@@ -4,10 +4,8 @@ from collections.abc import Iterator
 from typing import Any
 
 from ..config.WKSConfig import WKSConfig
-from ..log._utils import get_logfile_path
 from ..StageResult import StageResult
 from . import DaemonClearOutput
-from ._read_status_file import read_status_file
 from ._write_status_file import write_status_file
 
 
@@ -18,8 +16,8 @@ def cmd_clear() -> StageResult:
         yield (0.1, "Checking daemon status...")
         home = WKSConfig.get_home_dir()
 
-        # Read status for metadata (log location)
-        read_status_file(home)
+        # No need to read status file, we operate on environment state
+
 
         # Check lock file for authoritative running state
         lock_path = home / "daemon.lock"
@@ -45,7 +43,7 @@ def cmd_clear() -> StageResult:
                 pass
 
         yield (0.3, "Clearing logs...")
-        log_path = get_logfile_path(home)
+        log_path = WKSConfig.get_logfile_path()
         if log_path.exists():
             try:
                 # Truncate file

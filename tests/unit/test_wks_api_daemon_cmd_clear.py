@@ -23,8 +23,7 @@ def test_daemon_clear_when_stopped(monkeypatch, tmp_path):
     status_path.write_text('{"running": false, "errors": ["old error"]}')
 
     # Create logs with messy content
-    log_path = wks_home / "logs" / "daemon.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path = wks_home / "logfile"
     log_path.write_text("Old log content\n")
 
     # Run clear

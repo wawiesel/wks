@@ -9,24 +9,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Pattern to parse [ISO_TIMESTAMP] [DOMAIN] LEVEL: message
-_LOG_PATTERN = re.compile(r"^\[([^\]]+)\]\s*\[(\w+)\]\s*(DEBUG|INFO|WARN|ERROR):\s*(.*)$", re.IGNORECASE)
+LOG_PATTERN = re.compile(r"^\[([^\]]+)\]\s*\[(\w+)\]\s*(DEBUG|INFO|WARN|ERROR):\s*(.*)$", re.IGNORECASE)
 
 
-def get_logfile_path(wks_home: Path) -> Path:
-    """Get the unified logfile path."""
-    return wks_home / "logfile"
 
-
-def append_log(wks_home: Path, domain: str, level: str, message: str) -> None:
+def append_log(log_path: Path, domain: str, level: str, message: str) -> None:
     """Append a timestamped entry to the unified logfile.
 
     Args:
-        wks_home: WKS home directory
+        log_path: Path to the logfile
         domain: Domain name (e.g., 'daemon', 'monitor', 'vault')
         level: Log level (DEBUG, INFO, WARN, ERROR)
         message: Log message
     """
-    log_path = get_logfile_path(wks_home)
     timestamp = datetime.now(timezone.utc).isoformat()
     try:
         with log_path.open("a", encoding="utf-8") as fh:
@@ -36,7 +31,7 @@ def append_log(wks_home: Path, domain: str, level: str, message: str) -> None:
 
 
 def read_log_entries(
-    wks_home: Path,
+    log_path: Path,
     debug_retention_days: float = 0.5,
     info_retention_days: float = 1.0,
     warning_retention_days: float = 2.0,
@@ -49,7 +44,6 @@ def read_log_entries(
     Returns:
         Tuple of (warnings, errors) lists
     """
-    log_path = get_logfile_path(wks_home)
     warnings: list[str] = []
     errors: list[str] = []
 
@@ -72,7 +66,7 @@ def read_log_entries(
             if not stripped:
                 continue
 
-            match = _LOG_PATTERN.match(stripped)
+            match = LOG_PATTERN.match(stripped)
             if match:
                 timestamp_str = match.group(1)
                 level = match.group(3).upper()
