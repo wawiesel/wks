@@ -3,7 +3,6 @@
 import typer
 
 from wks.api.link.cmd_check import cmd_check
-from wks.api.link.cmd_prune import cmd_prune
 from wks.api.link.cmd_show import cmd_show
 from wks.api.link.cmd_status import cmd_status
 from wks.api.link.cmd_sync import cmd_sync
@@ -25,14 +24,6 @@ def show(
 ):
     """Show edges connected to a specific URI."""
     handle_stage_result(cmd_show)(uri=uri, direction=direction)
-
-
-@app.command()
-def prune(
-    remote: bool = typer.Option(False, help="Clean remote targets (requires fetch)"),
-):
-    """Remove stale links."""
-    handle_stage_result(cmd_prune)(remote=remote)
 
 
 @app.command()

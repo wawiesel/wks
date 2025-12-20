@@ -114,6 +114,33 @@
           "additionalProperties": false
         }
       ]
+    },
+    "DatabasePruneOutput": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "database": {
+              "type": "string"
+            },
+            "deleted_count": {
+              "type": "integer"
+            },
+            "checked_count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "database",
+            "deleted_count",
+            "checked_count"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "oneOf": [
@@ -125,6 +152,9 @@
     },
     {
       "$ref": "#/definitions/DatabaseResetOutput"
+    },
+    {
+      "$ref": "#/definitions/DatabasePruneOutput"
     }
   ]
 }

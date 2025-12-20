@@ -74,15 +74,7 @@ Link parsers are registered in `wks/api/link/parsers/`. Selection is automatic b
 - Lists edges connected to/from the given URI.
 - Default direction: `from`.
 
-### prune
 
-**Signature**: `wksc link prune [--remote]`
-
-**Purpose**: Maintenance.
-
-- Removes edges for non-existent source files.
-- Removes edges for non-existent local target files.
-- If `--remote` is specified, removes edges for non-existent remote targets.
 
 ## MCP Interface
 

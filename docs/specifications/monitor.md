@@ -74,6 +74,8 @@ See `docs/specifications/database_nodes.md`.
 - Behavior: Remove a priority directory.
 - Output schema: `MonitorPriorityRemoveOutput`.
 
+
+
 ## MCP
 - Commands mirror CLI:
   - `wksm_monitor_status`

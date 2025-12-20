@@ -39,12 +39,24 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 ### reset
 - Command: `wksc database reset <database>`
 - Behavior: Deletes all documents from the specified collection.
+    - If `database` is `all`, resets all collections in the configured database (dangerous!).
 - Output schema: `DatabaseResetOutput` from `database_output.schema.json`.
 
 ### prune
-- Command: `wksc database prune <database>`
-- Behavior: Iterates through documents in the specified database. For each document with a `from_local_uri` field, checks if the local file exists. If missing, deletes the document.
+- Command: `wksc database prune <database> [--remote]`
+- Behavior: Prunes stale data from the specified database.
+    - If `database` is `nodes` (or `monitor`), removes documents where the `local_uri` points to a non-existent file.
+    - If `database` is `edges` (or `link`), removes edges where source or target nodes are missing from the `nodes` database.
+    - If `database` is `all`, runs prune on all databases.
+    - `--remote` flag enables validation of remote URIs where applicable.
 - Output schema: `DatabasePruneOutput` from `database_output.schema.json`.
+
+### wksm_database_prune
+- Description: Prune stale entries from a database.
+- Arguments:
+    - `database`: Database to prune ('all', 'nodes', 'edges').
+    - `remote`: Boolean (default false) to check remote targets.
+- Output schema: `DatabasePruneOutput`.
 
 ## MCP
 
