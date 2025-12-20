@@ -18,7 +18,6 @@ def cmd_clear() -> StageResult:
 
         # No need to read status file, we operate on environment state
 
-
         # Check lock file for authoritative running state
         lock_path = home / "daemon.lock"
         if lock_path.exists():

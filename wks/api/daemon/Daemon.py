@@ -23,18 +23,6 @@ from .DaemonConfig import DaemonConfig
 from .FilesystemEvents import FilesystemEvents
 
 
-def _daemon_log(home_dir: str, level: str, message: str) -> None:
-    """Append a log entry for daemon domain."""
-    from ..config.WKSConfig import WKSConfig
-
-    # We need to resolve the logfile path here, or pass it in.
-    # Since this is a helper, let's look it up from config to avoid changing valid signature if possible,
-    # OR better, update signature to take log_path.
-    # The caller is responsible for providing the path.
-    # But wait, this is used by append_log inside _child_main.
-    # Let's see how _child_main is called.
-    pass  # We will inline this logic or update calls.
-
 # Redefining helper to take path
 def _daemon_log_with_path(log_path: Path, level: str, message: str) -> None:
     unified_append_log(log_path, "daemon", level, message)

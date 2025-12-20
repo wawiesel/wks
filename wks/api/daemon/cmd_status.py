@@ -26,6 +26,7 @@ def cmd_status() -> StageResult:
             if lock_path.exists():
                 try:
                     import os
+
                     pid_val = int(lock_path.read_text().strip())
                     os.kill(pid_val, 0)
                     is_running = True
@@ -38,6 +39,7 @@ def cmd_status() -> StageResult:
                 # If running, the daemon's output file IS the record.
                 # We read it directly.
                 import json
+
                 try:
                     status_data = json.loads(status_path.read_text())
                     # Ensure metadata is consistent with our view if needed, or just trust it.
@@ -58,7 +60,7 @@ def cmd_status() -> StageResult:
                         "warnings": warnings,
                         "running": True,
                         "pid": actual_pid,
-                        "restrict_dir": "UNKNOWN", # Can't know without file
+                        "restrict_dir": "UNKNOWN",  # Can't know without file
                         "log_path": str(log_path),
                         "lock_path": str(lock_path),
                         "last_sync": None,
@@ -84,7 +86,8 @@ def cmd_status() -> StageResult:
                     "restrict_dir": "",
                     "log_path": str(log_path),
                     "lock_path": str(lock_path),
-                    "last_sync": None, # Stopped, we don't know last sync unless we parse old file, but user said "don't read stats".
+                    "last_sync": None,
+                    # Stopped, we don't know last sync unless we parse old file, but user said "don't read stats".
                 }
                 # Update the file to reflect "Stopped"
                 write_status_file(status_data, wks_home=home)
@@ -95,7 +98,7 @@ def cmd_status() -> StageResult:
             yield (1.0, "Complete")
         except Exception as exc:
             home = WKSConfig.get_home_dir()
-            log_path = str(WKSConfig.get_logfile_path())
+            log_path = WKSConfig.get_logfile_path()
             result_obj.result = f"Error checking daemon status: {exc}"
             result_obj.output = DaemonStatusOutput(
                 errors=[str(exc)],
@@ -103,7 +106,7 @@ def cmd_status() -> StageResult:
                 running=False,
                 pid=None,
                 restrict_dir="",
-                log_path=log_path,
+                log_path=str(log_path),
                 lock_path=str(home / "daemon.lock"),
                 last_sync=None,
             ).model_dump(mode="python")

@@ -12,7 +12,6 @@ from pathlib import Path
 LOG_PATTERN = re.compile(r"^\[([^\]]+)\]\s*\[(\w+)\]\s*(DEBUG|INFO|WARN|ERROR):\s*(.*)$", re.IGNORECASE)
 
 
-
 def append_log(log_path: Path, domain: str, level: str, message: str) -> None:
     """Append a timestamped entry to the unified logfile.
 

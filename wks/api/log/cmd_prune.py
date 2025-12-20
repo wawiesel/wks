@@ -1,12 +1,10 @@
 """Log prune command - remove log entries by level."""
 
-
 from collections.abc import Iterator
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import LogPruneOutput
-
 from ._utils import LOG_PATTERN
 
 

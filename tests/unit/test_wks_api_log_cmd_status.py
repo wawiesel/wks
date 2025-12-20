@@ -1,11 +1,13 @@
 """Unit tests for wks.api.log.cmd_status."""
 
+from datetime import datetime, timezone
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+
+from tests.unit.conftest import minimal_wks_config, run_cmd
 from wks.api.log.cmd_status import cmd_status
-from wks.api.config.WKSConfig import WKSConfig
-from tests.unit.conftest import run_cmd, minimal_wks_config
+
 
 @pytest.mark.log
 def test_cmd_status_success(monkeypatch, tmp_path):
@@ -13,7 +15,6 @@ def test_cmd_status_success(monkeypatch, tmp_path):
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     logfile = wks_home / "logfile"
-    from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     logfile.write_text(f"[{now}] [test] INFO: hello\n")
 

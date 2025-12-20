@@ -1,6 +1,5 @@
 """Log status command - show log file status after auto-pruning by retention."""
 
-
 from collections.abc import Iterator
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
