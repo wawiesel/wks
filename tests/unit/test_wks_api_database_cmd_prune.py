@@ -83,26 +83,68 @@ class TestCmdPrune:
         # Edges
         # 1. Valid -> Valid (keep)
         # 2. Invalid -> Valid (delete, bad source)
-        # 3. Valid -> Invalid (delete, bad target)
+        # 3. Valid -> Unmonitored Existing (keep, FS check passes)
+        # 4. Valid -> Broken (delete, FS check fails)
+        # 5. Valid -> Remote (to_local_uri is None) (keep)
+        # 6. Valid -> Broken Local BUT Has Remote Fallback (keep)
         mock_edges_db.find.return_value = [
             {"_id": "e1", "from_local_uri": valid_uri, "to_local_uri": valid_uri},
             {"_id": "e2", "from_local_uri": "bad", "to_local_uri": valid_uri},
-            {"_id": "e3", "from_local_uri": valid_uri, "to_local_uri": "bad"},
+            {"_id": "e3", "from_local_uri": valid_uri, "to_local_uri": "file:///unmonitored/exists"},
+            {"_id": "e4", "from_local_uri": valid_uri, "to_local_uri": "file:///broken/missing"},
+            {"_id": "e5", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://foo"},
+            {
+                "_id": "e6",
+                "from_local_uri": valid_uri,
+                "to_local_uri": "file:///broken/missing",
+                "to_remote_uri": "http://foo",
+            },
         ]
-        mock_edges_db.delete_many.return_value = 1
+        mock_edges_db.delete_many.return_value = 2
 
-        result = cmd_prune(database="edges")
-        for _ in result.progress_callback(result):
-            pass
+        with (
+            patch("wks.api.database.cmd_prune.uri_to_path") as mock_u2p,
+            patch("wks.api.database.cmd_prune.Path") as mock_path,
+        ):
+            # Map URIs to paths
+            mock_u2p.side_effect = lambda u: u.replace("file://", "")
+
+            # Mock filesystem existence
+            # Path(path_str).exists()
+            def path_side_effect(path_str):
+                m = MagicMock()
+                # /path/to/valid covered by DB check
+                m.exists.return_value = "exists" in str(path_str) or "valid" in str(path_str)
+                return m
+
+            mock_path.side_effect = path_side_effect
+
+            result = cmd_prune(database="edges")
+            for _ in result.progress_callback(result):
+                pass
 
         assert result.success is True
         mock_edges_db.delete_many.assert_called()
         args, _ = mock_edges_db.delete_many.call_args
         deleted_ids = args[0]["_id"]["$in"]
+
+        # e2: Bad source -> Delete
         assert "e2" in deleted_ids
-        assert "e3" not in deleted_ids  # e3 should be preserved now
+
+        # e3: Bad DB target but exists on FS -> Keep
+        assert "e3" not in deleted_ids
+
+        # e4: Bad DB target AND missing on FS -> Delete
+        assert "e4" in deleted_ids
+
+        # e5: Remote target (no local uri) -> Keep
+        assert "e5" not in deleted_ids
+
+        # e6: Broken Local but Has Remote -> Keep
+        assert "e6" not in deleted_ids
+
         assert "e1" not in deleted_ids
-        assert result.output["deleted_count"] == 1
+        assert result.output["deleted_count"] == 2
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.Database")

@@ -5,6 +5,7 @@ MCP: wksm_database_prune
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 from wks.utils.uri_utils import uri_to_path
@@ -107,7 +108,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
 
             with Database(config.database, "edges") as edges_db:
                 # Check Sources
-                docs = list(edges_db.find({}, {"from_local_uri": 1, "to_local_uri": 1}))
+                docs = list(edges_db.find({}, {"from_local_uri": 1, "to_local_uri": 1, "to_remote_uri": 1}))
                 edges_checked = len(docs)
 
                 to_delete = []
@@ -120,12 +121,23 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                     if doc.get("from_local_uri") not in valid_nodes:
                         should_delete = True
 
-                    # 2. Target check - REMOVED
-                    # We cannot safely prune based on target validity because:
-                    # a) The target might be a valid file that is simply not monitored (not in nodes).
-                    # b) Remote edges logic is complex.
-                    # Per feedback, we must preserve edges even if target is not in valid_nodes to avoid data loss.
-                    # We only prune "orphaned" edges where the SOURCE is gone.
+                    # 2. Target check
+                    if (
+                        not should_delete
+                        and (to_uri := doc.get("to_local_uri"))
+                        and to_uri not in valid_nodes
+                        # Preservation Rule: If to_remote_uri is present, we defer to remote checks.
+                        # We only treat it as "broken local" if there is no remote fallback.
+                        and not doc.get("to_remote_uri")
+                    ):
+                        # Not monitored. Check if file exists on disk.
+                        try:
+                            path_str = uri_to_path(to_uri)
+                            if not Path(path_str).exists():
+                                should_delete = True
+                        except ValueError:
+                            # Invalid URI format -> treat as broken
+                            should_delete = True
 
                     # TODO: Remote check
 

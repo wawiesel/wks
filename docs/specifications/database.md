@@ -47,7 +47,9 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 - Behavior: Prunes stale data from the specified database.
     - **Local Pruning** (Default):
         - `nodes`: Removes documents where `local_uri` points to a non-existent file on the filesystem.
-        - `edges`: Removes edges where `from_local_uri` (source) points to a node not present in the `nodes` database (orphaned links).
+        - `edges`:
+            - Removes edges where `from_local_uri` (source) points to a node not present in the `nodes` database.
+            - Removes edges where `to_local_uri` is populated AND `to_remote_uri` is **NOT populated** AND `to_local_uri` is NEITHER in the `nodes` database NOR exists on the filesystem (broken local-only link).
     - **Remote Pruning** (`--remote`):
         - `edges`: Validates `to_remote_uri` targets (HTTP HEAD/GET). Removes edges where the remote resource is unreachable (e.g., 404).
         - *Note*: Remote pruning is additive; local pruning always runs.
