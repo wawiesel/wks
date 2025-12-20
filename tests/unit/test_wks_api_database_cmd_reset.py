@@ -48,3 +48,19 @@ class TestCmdReset:
             result = run_cmd(cmd_reset, "nodes")
             assert not result.success
             assert "Connection failed" in result.output["errors"][0]
+
+    def test_cmd_reset_all(self, tracked_wks_config):
+        mock_collection = MagicMock()
+        mock_collection.delete_many.return_value = 5
+        mock_collection.__enter__ = MagicMock(return_value=mock_collection)
+        mock_collection.__exit__ = MagicMock(return_value=False)
+
+        with (
+            patch("wks.api.database.cmd_reset.Database", return_value=mock_collection) as mock_db,
+        ):
+            # Mock list_databases to return actual databases
+            mock_db.list_databases.return_value = ["nodes", "edges"]
+            result = run_cmd(cmd_reset, "all")
+            assert result.success
+            assert result.output["deleted_count"] == 10  # 5 * 2 (nodes, edges)
+            assert mock_collection.delete_many.call_count == 2

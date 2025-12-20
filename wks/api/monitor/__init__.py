@@ -14,7 +14,6 @@ MonitorFilterShowOutput: type[BaseModel] = _models["MonitorFilterShowOutput"]
 MonitorPriorityAddOutput: type[BaseModel] = _models["MonitorPriorityAddOutput"]
 MonitorPriorityRemoveOutput: type[BaseModel] = _models["MonitorPriorityRemoveOutput"]
 MonitorPriorityShowOutput: type[BaseModel] = _models["MonitorPriorityShowOutput"]
-MonitorPruneOutput: type[BaseModel] = _models["MonitorPruneOutput"]
 
 __all__ = [
     "MonitorCheckOutput",
@@ -24,7 +23,6 @@ __all__ = [
     "MonitorPriorityAddOutput",
     "MonitorPriorityRemoveOutput",
     "MonitorPriorityShowOutput",
-    "MonitorPruneOutput",
     "MonitorStatusOutput",
     "MonitorSyncOutput",
 ]

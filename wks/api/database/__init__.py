@@ -8,9 +8,12 @@ _models = SchemaLoader.register_from_schema("database")
 DatabaseListOutput: type[BaseModel] = _models["DatabaseListOutput"]
 DatabaseShowOutput: type[BaseModel] = _models["DatabaseShowOutput"]
 DatabaseResetOutput: type[BaseModel] = _models["DatabaseResetOutput"]
+DatabasePruneOutput: type[BaseModel] = _models["DatabasePruneOutput"]
+
 
 __all__ = [
     "DatabaseListOutput",
+    "DatabasePruneOutput",
     "DatabaseResetOutput",
     "DatabaseShowOutput",
 ]

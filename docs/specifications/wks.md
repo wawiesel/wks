@@ -78,6 +78,15 @@ WKS is built as a stack of independent, composable layers:
 -   **Structured Error Handling**: Errors are collected and reported together rather than failing immediately. System behavior is deterministic with no optional or hidden recovery logic.
 -   **Consistent Output Structure**: The `output` dict in `StageResult` must have the exact same structure for every call to the same command. All fields must always be present (even if empty, null, or zero). No conditional fields based on success/failure state. This ensures predictable parsing, consistent MCP/CLI behavior, and reliable programmatic access. If a field is sometimes present and sometimes absent, it violates this rule - either always include it (with a default value when not applicable) or restructure the output to use a different field.
 
+## Command Structure
+All CLI commands follow the standard format:
+`wksc <domain> <command> [flags] [arguments]`
+
+Example:
+- `wksc monitor status`
+- `wksc database show nodes`
+- `wksc link sync /path/to/file`
+
 ## CLI Global Options
 
 All CLI commands support the following global options:

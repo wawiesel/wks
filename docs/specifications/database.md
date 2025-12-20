@@ -39,11 +39,26 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 ### reset
 - Command: `wksc database reset <database>`
 - Behavior: Deletes all documents from the specified collection.
+    - If `database` is `all`, resets all collections in the configured database (dangerous!).
 - Output schema: `DatabaseResetOutput` from `database_output.schema.json`.
 
 ### prune
-- Command: `wksc database prune <database>`
-- Behavior: Iterates through documents in the specified database. For each document with a `from_local_uri` field, checks if the local file exists. If missing, deletes the document.
+- Command: `wksc database prune <database> [--remote]`
+- Behavior: Prunes stale data from the specified database.
+    - **Local Pruning** (Default):
+        - `nodes`: Removes documents where `local_uri` points to a non-existent file on the filesystem.
+        - `edges`:
+            - Removes edges where `from_local_uri` (source) points to a node not present in the `nodes` database.
+            - Removes edges where `to_local_uri` is populated AND `to_remote_uri` is **NOT populated** AND `to_local_uri` is NEITHER in the `nodes` database NOR exists on the filesystem (broken local-only link).
+    - **Remote Pruning** (`--remote`):
+        - `edges`:
+            - Requires active internet connection. If offline, remote pruning is skipped.
+            - Validates `to_remote_uri` if `to_local_uri` is **NOT populated** OR **broken** (not in DB/FS).
+            - Validates `from_remote_uri` (always, if present).
+            - If `to_remote_uri` or `from_remote_uri` is unreachable (e.g., 404/410), the respective field is **unset**.
+            - This runs **before** limiting local pruning.
+        - *Note*: Remote pruning is additive; local pruning always runs.
+    - If `database` is `all`, runs prune on all databases.
 - Output schema: `DatabasePruneOutput` from `database_output.schema.json`.
 
 ## MCP
@@ -67,3 +82,38 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 - DB.4 — `wksc database reset <database>` clears the specified database.
 - DB.5 — `wksc database prune <database>` removes entries where the local source file (`from_local_uri`) no longer exists.
 - DB.6 — Unknown/invalid database or schema violation returns schema-conformant errors; no partial success.
+
+## Clarifications
+
+### Edge Pruning Scenarios
+
+Assumption: `from_local_uri` (source) is **Valid** (exists in `nodes` DB). If invalid, edge is **always deleted**.
+`--remote` flag is ON and internet is available.
+
+#### Target Resolution
+
+| `to_local_uri`                   | `to_remote_uri` | Remote HTTP | Outcome         |
+| :------------------------------- | :-------------- | :---------- | :-------------- |
+| In `nodes` DB                    | *any*           | *skipped*   | **Keep**        |
+| Not in DB, exists on filesystem  | *any*           | *skipped*   | **Keep**        |
+| Not in DB, not on filesystem     | Empty/None      | *N/A*       | **Delete**      |
+| Not in DB, not on filesystem     | Populated       | 200         | **Keep**        |
+| Not in DB, not on filesystem     | Populated       | 404/410     | **Delete**      |
+| Not in DB, not on filesystem     | Populated       | Error       | **Keep**        |
+| Empty/None                       | Empty/None      | *N/A*       | **Delete**      |
+| Empty/None                       | Populated       | 200         | **Keep**        |
+| Empty/None                       | Populated       | 404/410     | **Delete**      |
+| Empty/None                       | Populated       | Error       | **Keep**        |
+
+#### Source Remote (`from_remote_uri`)
+
+| `from_remote_uri` | Remote HTTP | Action                      |
+| :---------------- | :---------- | :-------------------------- |
+| Populated         | 200         | Keep field                  |
+| Populated         | 404/410     | **Unset field** (no delete) |
+| Populated         | Error       | Keep field                  |
+
+*Notes:*
+- If `--remote` is **OFF** or offline, remote checks are skipped. Edges with broken local targets but populated `to_remote_uri` are **kept**.
+- "Delete" for (Broken Local + 404 Remote) occurs because `to_remote_uri` is unset first, then the edge has no valid targets.
+- "Keep on Error" is a safety measure: transient network issues (timeouts, DNS failures, temporary outages) don't confirm the resource is gone. We only delete on **definitive** 404/410 responses.

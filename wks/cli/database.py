@@ -33,27 +33,66 @@ def list_command() -> None:
 db_app.command(name="list")(list_command)
 
 
+@db_app.command(name="show")
 def show_command(
+    ctx: typer.Context,
     database: str = typer.Argument(
-        ...,
+        None,
         help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
     query: str | None = typer.Option(None, "--query", "-q", help="Query filter as JSON string (MongoDB-style)"),
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of documents to return"),
 ) -> None:
     """Show a database."""
+    if not database:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
     handle_stage_result(cmd_show)(database, query, limit)
 
 
+@db_app.command(name="reset")
 def reset_command(
+    ctx: typer.Context,
     database: str = typer.Argument(
-        ...,
+        None,
         help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
 ) -> None:
     """Reset (clear) a database collection by deleting all documents."""
+    if not database:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
     handle_stage_result(cmd_reset)(database)
 
 
-db_app.command(name="show")(show_command)
-db_app.command(name="reset")(reset_command)
+def prune_command(
+    ctx: typer.Context,
+    database: str = typer.Argument(
+        None,
+        help="Database to prune ('all', 'nodes', 'edges').",
+    ),
+    remote: bool = typer.Option(False, "--remote", help="Also check remote targets (if supported)."),
+) -> None:
+    """Prune stale entries from a database (or all databases).
+
+    Removes entries that are no longer valid (e.g., file not found).
+    """
+    if not database:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
+
+    from wks.api.database.cmd_prune import cmd_prune
+
+    # Normalized mapping
+    # monitor -> nodes
+    # link -> edges
+    target = database.lower()
+
+    if target in ("all", "nodes", "monitor", "edges", "link"):
+        handle_stage_result(cmd_prune)(database=target, remote=remote)
+    else:
+        typer.echo(f"Error: Unknown database '{database}'. Supported: all, nodes, edges.", err=True)
+        raise typer.Exit(1)
+
+
+db_app.command(name="prune")(prune_command)
