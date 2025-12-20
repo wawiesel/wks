@@ -149,11 +149,13 @@ class TestCmdPrune:
         assert "e1" not in deleted_ids
         assert result.output["deleted_count"] == 2
 
+    @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.requests.head")
     @patch("wks.api.database.cmd_prune._has_internet")
     @patch("wks.api.database.cmd_prune.Database")
-    def test_prune_edges_remote(self, mock_database, mock_has_internet, mock_head, mock_config, tmp_path):
+    def test_prune_edges_remote(self, mock_database, mock_has_internet, mock_head, mock_load, mock_config, tmp_path):
         """Test remote pruning logic (unset instead of delete)."""
+        mock_load.return_value = mock_config
         valid_uri = "file:///valid/path"
 
         mock_nodes_db = MagicMock()
@@ -220,11 +222,15 @@ class TestCmdPrune:
         # Verify updates (should not happen for e2/e3 as they are deleted)
         mock_edges_db.update_many.assert_not_called()
 
+    @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.requests.head")
     @patch("wks.api.database.cmd_prune._has_internet")
     @patch("wks.api.database.cmd_prune.Database")
-    def test_prune_edges_from_remote(self, mock_database, mock_has_internet, mock_head, mock_config, tmp_path):
+    def test_prune_edges_from_remote(
+        self, mock_database, mock_has_internet, mock_head, mock_load, mock_config, tmp_path
+    ):
         """Test from_remote_uri validation logic."""
+        mock_load.return_value = mock_config
         valid_uri = "file:///valid/path"
 
         mock_nodes_db = MagicMock()
