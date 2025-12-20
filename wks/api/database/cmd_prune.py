@@ -120,13 +120,12 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                     if doc.get("from_local_uri") not in valid_nodes:
                         should_delete = True
 
-                    # 2. Target check
-                    if not should_delete and "to_local_uri" in doc:
-                        to_uri = doc["to_local_uri"]
-                        if to_uri and to_uri not in valid_nodes:
-                            # Logic: only prune local references.
-                            # If to_local_uri is populated, it implies a local node relationship.
-                            should_delete = True
+                    # 2. Target check - REMOVED
+                    # We cannot safely prune based on target validity because:
+                    # a) The target might be a valid file that is simply not monitored (not in nodes).
+                    # b) Remote edges logic is complex.
+                    # Per feedback, we must preserve edges even if target is not in valid_nodes to avoid data loss.
+                    # We only prune "orphaned" edges where the SOURCE is gone.
 
                     # TODO: Remote check
 

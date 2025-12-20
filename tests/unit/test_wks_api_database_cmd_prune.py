@@ -89,7 +89,7 @@ class TestCmdPrune:
             {"_id": "e2", "from_local_uri": "bad", "to_local_uri": valid_uri},
             {"_id": "e3", "from_local_uri": valid_uri, "to_local_uri": "bad"},
         ]
-        mock_edges_db.delete_many.return_value = 2
+        mock_edges_db.delete_many.return_value = 1
 
         result = cmd_prune(database="edges")
         for _ in result.progress_callback(result):
@@ -100,9 +100,9 @@ class TestCmdPrune:
         args, _ = mock_edges_db.delete_many.call_args
         deleted_ids = args[0]["_id"]["$in"]
         assert "e2" in deleted_ids
-        assert "e3" in deleted_ids
+        assert "e3" not in deleted_ids  # e3 should be preserved now
         assert "e1" not in deleted_ids
-        assert result.output["deleted_count"] == 2
+        assert result.output["deleted_count"] == 1
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.Database")
