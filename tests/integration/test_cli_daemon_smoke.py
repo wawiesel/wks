@@ -70,7 +70,7 @@ def test_cli_daemon_smoke(wks_env: dict):
     assert "results" in output or "count" in output
 
     # 6. Check daemon log exists
-    daemon_log = wks_home / "logs" / "daemon.log"
+    daemon_log = wks_home / "logfile"
     assert daemon_log.exists(), "Daemon log should exist"
     log_content = daemon_log.read_text(encoding="utf-8")
     assert "INFO:" in log_content, "Daemon log should have INFO entries"

@@ -84,6 +84,9 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
             },
             "max_documents": 1000000,
             "min_priority": 0.0,
+            "remote": {
+                "mappings": [],
+            },
         },
         "vault": {
             "type": "obsidian",
@@ -104,6 +107,13 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
         },
         "daemon": {
             "sync_interval_secs": 0.1,
+        },
+        "log": {
+            "level": "INFO",
+            "debug_retention_days": 1.0,
+            "info_retention_days": 1.0,
+            "warning_retention_days": 1.0,
+            "error_retention_days": 1.0,
         },
     }
 
