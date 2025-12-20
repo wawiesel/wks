@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import LogStatusOutput
-from ._utils import LOG_PATTERN
+from .LOG_PATTERN import LOG_PATTERN
 
 
 def cmd_status() -> StageResult:

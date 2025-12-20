@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 
 from ..config.WKSConfig import WKSConfig
-from ..log._utils import read_log_entries
+from ..log.read_log_entries import read_log_entries
 from ..StageResult import StageResult
 from . import DaemonStatusOutput
 from ._write_status_file import write_status_file

@@ -14,8 +14,8 @@ from typing import Any
 from watchdog.observers import Observer
 
 from ..config.WKSConfig import WKSConfig
-from ..log._utils import append_log as unified_append_log
-from ..log._utils import read_log_entries
+from ..log.append_log import append_log as unified_append_log
+from ..log.read_log_entries import read_log_entries
 from ..monitor.explain_path import explain_path
 from ._EventHandler import _EventHandler
 from ._write_status_file import write_status_file

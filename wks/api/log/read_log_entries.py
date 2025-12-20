@@ -1,32 +1,7 @@
-"""Unified log utilities for all WKS domains.
-
-Single shared logfile at $WKS_HOME/logfile with format:
-[TIMESTAMP] [DOMAIN] LEVEL: message
-"""
-
-import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# Pattern to parse [ISO_TIMESTAMP] [DOMAIN] LEVEL: message
-LOG_PATTERN = re.compile(r"^\[([^\]]+)\]\s*\[(\w+)\]\s*(DEBUG|INFO|WARN|ERROR):\s*(.*)$", re.IGNORECASE)
-
-
-def append_log(log_path: Path, domain: str, level: str, message: str) -> None:
-    """Append a timestamped entry to the unified logfile.
-
-    Args:
-        log_path: Path to the logfile
-        domain: Domain name (e.g., 'daemon', 'monitor', 'vault')
-        level: Log level (DEBUG, INFO, WARN, ERROR)
-        message: Log message
-    """
-    timestamp = datetime.now(timezone.utc).isoformat()
-    try:
-        with log_path.open("a", encoding="utf-8") as fh:
-            fh.write(f"[{timestamp}] [{domain}] {level}: {message}\n")
-    except Exception:
-        pass  # Logging should never raise
+from .LOG_PATTERN import LOG_PATTERN
 
 
 def read_log_entries(

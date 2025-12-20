@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.log._utils import append_log
+from wks.api.log.append_log import append_log
 
 from .._AbstractBackend import _AbstractBackend
 from .._constants import (

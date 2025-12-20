@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import LogPruneOutput
-from ._utils import LOG_PATTERN
+from .LOG_PATTERN import LOG_PATTERN
 
 
 def cmd_prune(
