@@ -35,6 +35,10 @@ def build_monitor_config(**overrides):
             ),
             "max_documents": overrides.pop("max_documents", 1000000),
             "min_priority": overrides.pop("min_priority", 0.0),
+            "remote": {
+                "sync": {"enabled": overrides.pop("remote_sync_enabled", False), "path": "gdrive"},
+                "api": {"url": "http://localhost:8000"},
+            },
         }
     }
     return MonitorConfig.from_config_dict(config_dict)
