@@ -33,10 +33,15 @@ def list_command() -> None:
 config_app.command(name="list")(list_command)
 
 
+@config_app.command(name="show")
 def show_command(
-    section: str = typer.Argument(..., help="Configuration section name"),
+    ctx: typer.Context,
+    section: str = typer.Argument(None, help="Configuration section name"),
 ) -> None:
     """Show configuration for a specific section."""
+    if not section:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
     handle_stage_result(cmd_show)(section)
 
 
@@ -45,5 +50,4 @@ def version_command() -> None:
     handle_stage_result(cmd_version)()
 
 
-config_app.command(name="show")(show_command)
 config_app.command(name="version")(version_command)

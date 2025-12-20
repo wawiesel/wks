@@ -33,30 +33,36 @@ def list_command() -> None:
 db_app.command(name="list")(list_command)
 
 
+@db_app.command(name="show")
 def show_command(
+    ctx: typer.Context,
     database: str = typer.Argument(
-        ...,
+        None,
         help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
     query: str | None = typer.Option(None, "--query", "-q", help="Query filter as JSON string (MongoDB-style)"),
     limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of documents to return"),
 ) -> None:
     """Show a database."""
+    if not database:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
     handle_stage_result(cmd_show)(database, query, limit)
 
 
+@db_app.command(name="reset")
 def reset_command(
+    ctx: typer.Context,
     database: str = typer.Argument(
-        ...,
+        None,
         help="Database name (without prefix, e.g., 'monitor'). Use 'wksc database list' to find available databases.",
     ),
 ) -> None:
     """Reset (clear) a database collection by deleting all documents."""
+    if not database:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
     handle_stage_result(cmd_reset)(database)
-
-
-db_app.command(name="show")(show_command)
-db_app.command(name="reset")(reset_command)
 
 
 def prune_command(

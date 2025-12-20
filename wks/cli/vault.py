@@ -46,11 +46,16 @@ def check_command(
     handle_stage_result(cmd_check)(path)
 
 
+@vault_app.command(name="links")
 def links_command(
-    path: str = typer.Argument(..., help="File path to query links for"),
+    ctx: typer.Context,
+    path: str = typer.Argument(None, help="File path to query links for"),
     direction: str = typer.Option("both", "--direction", "-d", help="Link direction: to, from, or both"),
 ) -> None:
     """Show edges to/from a specific file."""
+    if not path:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
     if direction not in ("to", "from", "both"):
         typer.echo(f"Invalid direction: {direction}. Must be 'to', 'from', or 'both'", err=True)
         raise typer.Exit(code=1)
@@ -60,4 +65,3 @@ def links_command(
 vault_app.command(name="status")(status_command)
 vault_app.command(name="sync")(sync_command)
 vault_app.command(name="check")(check_command)
-vault_app.command(name="links")(links_command)
