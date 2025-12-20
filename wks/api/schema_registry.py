@@ -3,6 +3,8 @@
 This is a kernel module: callers register and query output schemas by (domain, command).
 """
 
+from __future__ import annotations
+
 from pydantic import BaseModel
 
 

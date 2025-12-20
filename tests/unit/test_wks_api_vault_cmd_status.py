@@ -56,7 +56,7 @@ def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
     from wks.api.database.DatabaseConfig import DatabaseConfig
 
     db_config = DatabaseConfig(**cfg["database"])
-    with Database(db_config, "link") as db:
+    with Database(db_config, "edges") as db:
         db.delete_many({})
 
     result = run_cmd(cmd_status)

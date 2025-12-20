@@ -30,7 +30,7 @@ class TestCmdShow:
             mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", None, 50)
 
     def test_cmd_show_invalid_json(self, tracked_wks_config):
-        result = run_cmd(cmd_show, database="monitor", query='{"invalid": json}', limit=50)
+        result = run_cmd(cmd_show, database="nodes", query='{"invalid": json}', limit=50)
         assert not result.success
         assert "Invalid JSON" in result.result
         assert result.output["errors"]
@@ -43,7 +43,7 @@ class TestCmdShow:
 
     def test_cmd_show_query_fails(self, tracked_wks_config):
         with patch.object(Database, "query", side_effect=Exception("Connection failed")):
-            result = run_cmd(cmd_show, database="monitor", query='{"status": "active"}', limit=50)
+            result = run_cmd(cmd_show, database="nodes", query='{"status": "active"}', limit=50)
             assert not result.success
             assert "Connection failed" in result.output["errors"][0]
 

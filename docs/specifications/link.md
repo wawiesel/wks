@@ -9,20 +9,7 @@ The **Link** domain is the system's centralized **Edge Provider**. It extracts, 
 This separation of concerns allows the Link domain to operate on any valid node provided by the Monitor, regardless of the underlying content type (e.g., Markdown, HTML, RST), provided a parser exists.
 
 ## Database Schema
-
-Name: `link`
-
-Each edge is a single document representing a directional relationship.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `_id` | string | Deterministic ID: `sha256(from_uri\|line\|col\|to_uri)` |
-| `from_uri` | string | Source URI (`file://...` or `vault:///...`). |
-| `name` | string | Display name/alias of the link (may be empty). |
-| `to_uri` | string | Target URI (`file://...`, `vault:///...`, `https://...`). |
-| `line_number` | int | 1-based line number in source file. |
-| `column_number` | int | 1-based column number in source file. |
-| `parser` | string | Parser used to extract the link. |
+See `docs/specifications/database_edges.md`.
 
 ## URI Standard
 

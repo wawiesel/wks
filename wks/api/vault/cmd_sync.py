@@ -120,42 +120,42 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                 deleted_count = 0
                 # Calculate what we expect to exist based on this run
                 processed_uris = set()
-                # Determine scope prefix
-                scope_prefix = "vault:///"
+
+                # Determine scope prefix using file URIs
+                from wks.utils.uri_utils import path_to_uri
+
+                # scope_prefix is the URI of the sync root
+                scope_prefix = path_to_uri(input_path) if path else path_to_uri(vault_path)
+
+                if not scope_prefix.endswith("/") and ((path and input_path.is_dir()) or (not path)):
+                    # If it's a directory, ensure trailing slash for regex matching of children
+                    scope_prefix += "/"
 
                 try:
-                    if path:
-                        # input_path was calculated earlier (resolved)
-                        rel_scope = input_path.relative_to(vault_path)
-                        scope_prefix = f"vault:///{rel_scope}"
-                        # Ensure directory semantics for scope
-                        if input_path.is_dir() and not scope_prefix.endswith("/"):
-                            scope_prefix += "/"
-
-                    # Collect confirmed URIs
+                    # Collect confirmed URIs (as file URIs)
                     for f in files:
-                        try:
-                            rel = f.relative_to(vault_path)
-                            processed_uris.add(f"vault:///{rel}")
-                        except ValueError:
-                            pass
+                        processed_uris.add(path_to_uri(f))
                 except Exception:
                     pass
 
                 # Database operations
                 from wks.api.database.Database import Database
 
-                with Database(config.database, "link") as database:
+                with Database(config.database, "edges") as database:
                     if scope_prefix:
                         # Find all matching URIs in DB (limited to .md files as this command only syncs markdown)
                         # We MUST NOT delete non-md links (e.g. .txt, .html) that might be managed by other tools
+                        # Query from_local_uri
                         regex = f"^{re.escape(scope_prefix)}.*\\.md$"
-                        cursor = database.find({"from_uri": {"$regex": regex}}, {"from_uri": 1})
-                        db_uris = {doc["from_uri"] for doc in cursor}
+                        cursor = database.find({"from_local_uri": {"$regex": regex}}, {"from_local_uri": 1})
+
+                        # Use from_local_uri
+                        db_uris = {doc["from_local_uri"] for doc in cursor}
 
                         stale = db_uris - processed_uris
                         if stale:
-                            deleted_count = database.delete_many({"from_uri": {"$in": list(stale)}})
+                            # Delete using from_local_uri
+                            deleted_count = database.delete_many({"from_local_uri": {"$in": list(stale)}})
 
                 yield (0.95, "Running backend-specific operations...")
                 # TODO: Backend-specific ops (e.g., symlink management for Obsidian)
@@ -163,7 +163,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
 
                 # Update meta document in link database with last_sync
                 sync_time = datetime.now(timezone.utc).isoformat()
-                with Database(config.database, "link") as database:
+                with Database(config.database, "edges") as database:
                     database.update_one(
                         {"_id": "__meta__"},
                         {"$set": {"_id": "__meta__", "doc_type": "meta", "last_sync": sync_time}},

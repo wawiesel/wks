@@ -26,7 +26,7 @@ def cmd_prune(remote: bool = False) -> StageResult:
 
         yield (0.1, "Loading configuration...")
         config: Any = WKSConfig.load()
-        database_name = "link"
+        database_name = "edges"
 
         yield (0.3, "Querying database...")
         deleted_count = 0
@@ -36,8 +36,8 @@ def cmd_prune(remote: bool = False) -> StageResult:
 
             # Find all unique source URIs
             # Note: Database facade doesn't support distinct, so we fetch and aggregate
-            docs = list(db.find(query, {"from_uri": 1}))
-            unique_uris = {doc["from_uri"] for doc in docs if "from_uri" in doc}
+            docs = list(db.find(query, {"from_local_uri": 1}))
+            unique_uris = {doc["from_local_uri"] for doc in docs if "from_local_uri" in doc}
 
             yield (0.5, f"Checking {len(unique_uris)} source files...")
 
@@ -55,8 +55,8 @@ def cmd_prune(remote: bool = False) -> StageResult:
             if uris_to_remove:
                 yield (0.8, f"Removing links from {len(uris_to_remove)} stale files...")
                 # Delete all links originating from these URIs
-                # Construct query: from_uri IN [...] AND source_domain == domain (if specified)
-                delete_query: dict[str, Any] = {"from_uri": {"$in": uris_to_remove}}
+                # Construct query: from_local_uri IN [...] AND source_domain == domain (if specified)
+                delete_query: dict[str, Any] = {"from_local_uri": {"$in": uris_to_remove}}
 
                 deleted_count += db.delete_many(delete_query)
 
@@ -64,8 +64,8 @@ def cmd_prune(remote: bool = False) -> StageResult:
             yield (0.8, "Checking target validity...")
 
             # Find all unique target URIs
-            docs = list(db.find({}, {"to_uri": 1}))
-            unique_targets = {doc["to_uri"] for doc in docs if "to_uri" in doc}
+            docs = list(db.find({}, {"to_local_uri": 1}))
+            unique_targets = {doc["to_local_uri"] for doc in docs if "to_local_uri" in doc}
 
             current_host = platform.node().split(".")[0]
             targets_to_remove = []
@@ -93,7 +93,7 @@ def cmd_prune(remote: bool = False) -> StageResult:
 
             if targets_to_remove:
                 yield (0.9, f"Removing edges to {len(targets_to_remove)} invalid targets...")
-                target_delete_query = {"to_uri": {"$in": targets_to_remove}}
+                target_delete_query = {"to_local_uri": {"$in": targets_to_remove}}
                 deleted_count += db.delete_many(target_delete_query)
 
         yield (1.0, "Complete")

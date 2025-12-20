@@ -31,11 +31,17 @@ Single JSON configuration consumed uniformly by CLI and MCP.
 - Behavior: Shows the current version string only.
 - Output schema (normative): `ConfigVersionOutput` defined in `docs/specifications/config_output.schema.json`. Implementations MUST consume/generate from that artifact; the schema file is the single source of truth.
 
+### detect-remote
+- Command: `wksc config detect-remote`
+- Behavior: Scans the user's environment for known cloud storage locations (e.g., OneDrive, SharePoint, iCloud) and updates the `monitor.remote` configuration block with discovered mappings.
+- Output schema (normative): `ConfigDetectRemoteOutput` defined in `docs/specifications/config_output.schema.json`.
+
 ## MCP
 - Commands mirror CLI:
   - `wksm_config_list` — lists all sections.
   - `wksm_config_show <section>` — shows the specified section (section argument is required).
   - `wksm_config_version` — shows the current version string.
+  - `wksm_config_detect_remote` — runs remote detection.
 - Output format: JSON.
 - CLI and MCP MUST return the same data and structure for equivalent calls.
 
@@ -50,4 +56,5 @@ Single JSON configuration consumed uniformly by CLI and MCP.
 - CONFIG.3 — `wksc config list` lists all sections of the config.
 - CONFIG.4 — `wksc config show <section>` requires a section argument and returns that section’s config; omission is invalid.
 - CONFIG.5 — `wksc config version` shows the current version string.
-- CONFIG.6 — Unknown or invalid section and any schema violation must return a schema-conformant error response (populate `errors`, no partial success).
+- CONFIG.6 — `wksc config detect-remote` scans for cloud folders and updates configuration; fails if config is unwritable.
+- CONFIG.7 — Unknown or invalid section and any schema violation must return a schema-conformant error response (populate `errors`, no partial success).

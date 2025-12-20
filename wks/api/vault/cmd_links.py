@@ -44,7 +44,7 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
             return
 
         # Collection name is 'link' - prefix is the DB name
-        database_name = "link"
+        database_name = "edges"
         yield (0.3, "Resolving vault path...")
         try:
             # Resolve path to vault:/// URI using CWD-aware logic
@@ -69,28 +69,28 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
 
             yield (0.4, "Querying vault database...")
             with Database(config.database, database_name) as database:
-                # Filter for vault domain: links with from_uri starting with vault:///
-                vault_filter = {"from_uri": {"$regex": "^vault:///"}}
+                # Filter for vault domain: links with from_local_uri starting with vault:///
+                vault_filter = {"from_local_uri": {"$regex": "^vault:///"}}
 
                 # Build query based on direction
                 query: dict[str, Any] = {}
                 if direction == "from":
-                    query = {**vault_filter, "from_uri": uri}
+                    query = {**vault_filter, "from_local_uri": uri}
                 elif direction == "to":
-                    query = {**vault_filter, "to_uri": uri}
+                    query = {**vault_filter, "to_local_uri": uri}
                 elif direction == "both":
-                    query = {**vault_filter, "$or": [{"from_uri": uri}, {"to_uri": uri}]}
+                    query = {**vault_filter, "$or": [{"from_local_uri": uri}, {"to_local_uri": uri}]}
 
                 yield (0.6, "Fetching edges...")
                 cursor = database.find(
                     query,
-                    {"from_uri": 1, "to_uri": 1, "line_number": 1},
+                    {"from_local_uri": 1, "to_local_uri": 1, "line_number": 1},
                 )
 
                 edges = [
                     {
-                        "from_uri": doc.get("from_uri", ""),
-                        "to_uri": doc.get("to_uri", ""),
+                        "from_uri": doc.get("from_local_uri", ""),
+                        "to_uri": doc.get("to_local_uri", ""),
                         "line_number": doc.get("line_number", 0),
                     }
                     for doc in list(cursor)[:100]  # Limit to 100
