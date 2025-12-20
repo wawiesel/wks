@@ -1,11 +1,11 @@
 """Daemon filesystem event integration test (TDD scaffold)."""
 
+import json
 import time
 
 import pytest
 
 from tests.unit.conftest import minimal_wks_config
-from wks.api.daemon._read_status_file import read_status_file
 
 
 @pytest.mark.daemon
@@ -95,7 +95,7 @@ def test_daemon_status_includes_restrict_and_log(monkeypatch, tmp_path):
     d.stop()
 
     assert str(restrict) == status.restrict_dir
-    assert str(wks_home / "logs" / "daemon.log") == status.log_path
+    assert str(wks_home / "logfile") == status.log_path
 
 
 @pytest.mark.daemon
@@ -116,11 +116,12 @@ def test_daemon_writes_status_file(monkeypatch, tmp_path):
     rdir2.mkdir()
 
     d = Daemon()
+    d = Daemon()
     d.start(restrict_dir=rdir1)
-    status1 = read_status_file(wks_home)
+    status1 = json.loads((wks_home / "daemon.json").read_text())
     d.stop()
     d.start(restrict_dir=rdir2)
-    status2 = read_status_file(wks_home)
+    status2 = json.loads((wks_home / "daemon.json").read_text())
     d.stop()
 
     assert status1["restrict_dir"] == str(rdir1)

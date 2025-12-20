@@ -428,7 +428,7 @@ class Daemon:
         home = WKSConfig.get_home_dir()
         lock_path = home / "daemon.lock"
         self._lock_path = lock_path
-        self._log_path = home / "logs" / "daemon.log"
+        self._log_path = WKSConfig.get_logfile_path()
 
         pid_to_stop = None
         if lock_path.exists():
