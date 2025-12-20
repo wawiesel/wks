@@ -395,32 +395,6 @@
         }
       ]
     },
-    "MonitorPruneOutput": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/Base"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "checked_count": {
-              "type": "integer"
-            },
-            "deleted_count": {
-              "type": "integer"
-            },
-            "success": {
-              "type": "boolean"
-            }
-          },
-          "required": [
-            "checked_count",
-            "deleted_count"
-          ],
-          "additionalProperties": false
-        }
-      ]
-    }
   },
   "oneOf": [
     {
@@ -449,9 +423,6 @@
     },
     {
       "$ref": "#/definitions/MonitorPriorityShowOutput"
-    },
-    {
-      "$ref": "#/definitions/MonitorPruneOutput"
     }
   ]
 }

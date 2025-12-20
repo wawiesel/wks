@@ -121,21 +121,6 @@
                     "type": "integer"
                 }
             }
-        },
-        "LinkPruneOutput": {
-            "type": "object",
-            "required": [
-                "deleted_count",
-                "stale_files"
-            ],
-            "properties": {
-                "deleted_count": {
-                    "type": "integer"
-                },
-                "stale_files": {
-                    "type": "integer"
-                }
-            }
         }
     }
 }
