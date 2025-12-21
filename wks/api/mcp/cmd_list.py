@@ -40,7 +40,7 @@ def cmd_list() -> StageResult:
                     "name": name,
                     "type": install.type,
                     "active": install.active,
-                    "path": install.data.get("settings_path", ""),
+                    "path": install.data.settings_path,
                 }
             )
 
