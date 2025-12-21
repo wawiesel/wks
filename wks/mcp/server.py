@@ -9,6 +9,7 @@ from typing import Any
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.StageResult import StageResult
 from wks.cli._get_typer_command_schema import get_typer_command_schema
+from wks.utils import get_package_version
 
 from .discover_commands import discover_commands
 from .get_app import get_app
@@ -165,7 +166,7 @@ class MCPServer:
                     "result": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {},
-                        "serverInfo": {"name": "wks-mcp-server", "version": "1.0.0"},
+                        "serverInfo": {"name": "wks-mcp-server", "version": get_package_version()},
                     },
                 }
             )
