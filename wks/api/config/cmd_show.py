@@ -46,7 +46,7 @@ def cmd_show(section: str) -> StageResult:
             errors=all_errors,
             warnings=all_warnings,
             section=section,
-            content=config_dict.get(section, {}),
+            content=config_dict[section],
             config_path=str(config.path),
         ).model_dump(mode="python")
         result_obj.success = True

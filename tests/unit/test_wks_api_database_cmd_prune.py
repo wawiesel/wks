@@ -91,16 +91,47 @@ class TestCmdPrune:
         # 5. Valid -> Remote (to_local_uri is None) (keep)
         # 6. Valid -> Broken Local BUT Has Remote Fallback (keep)
         mock_edges_db.find.return_value = [
-            {"_id": "e1", "from_local_uri": valid_uri, "to_local_uri": valid_uri},
-            {"_id": "e2", "from_local_uri": "bad", "to_local_uri": valid_uri},
-            {"_id": "e3", "from_local_uri": valid_uri, "to_local_uri": "file:///unmonitored/exists"},
-            {"_id": "e4", "from_local_uri": valid_uri, "to_local_uri": "file:///broken/missing"},
-            {"_id": "e5", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://foo"},
+            {
+                "_id": "e1",
+                "from_local_uri": valid_uri,
+                "to_local_uri": valid_uri,
+                "to_remote_uri": None,
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e2",
+                "from_local_uri": "bad",
+                "to_local_uri": valid_uri,
+                "to_remote_uri": None,
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e3",
+                "from_local_uri": valid_uri,
+                "to_local_uri": "file:///unmonitored/exists",
+                "to_remote_uri": None,
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e4",
+                "from_local_uri": valid_uri,
+                "to_local_uri": "file:///broken/missing",
+                "to_remote_uri": None,
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e5",
+                "from_local_uri": valid_uri,
+                "to_local_uri": None,
+                "to_remote_uri": "http://foo",
+                "from_remote_uri": None,
+            },
             {
                 "_id": "e6",
                 "from_local_uri": valid_uri,
                 "to_local_uri": "file:///broken/missing",
                 "to_remote_uri": "http://foo",
+                "from_remote_uri": None,
             },
         ]
         mock_edges_db.delete_many.return_value = 2
@@ -181,11 +212,41 @@ class TestCmdPrune:
         # e4: Remote Timeout (Keep)
         # e5: Local Valid, Remote 404 (Local populated -> Skip Remote Check)
         mock_edges_db.find.return_value = [
-            {"_id": "e1", "from_local_uri": valid_uri, "to_local_uri": "", "to_remote_uri": "http://ok"},
-            {"_id": "e2", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://gone"},
-            {"_id": "e3", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://vanished"},
-            {"_id": "e4", "from_local_uri": valid_uri, "to_local_uri": None, "to_remote_uri": "http://timeout"},
-            {"_id": "e5", "from_local_uri": valid_uri, "to_local_uri": valid_uri, "to_remote_uri": "http://gone"},
+            {
+                "_id": "e1",
+                "from_local_uri": valid_uri,
+                "to_local_uri": "",
+                "to_remote_uri": "http://ok",
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e2",
+                "from_local_uri": valid_uri,
+                "to_local_uri": None,
+                "to_remote_uri": "http://gone",
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e3",
+                "from_local_uri": valid_uri,
+                "to_local_uri": None,
+                "to_remote_uri": "http://vanished",
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e4",
+                "from_local_uri": valid_uri,
+                "to_local_uri": None,
+                "to_remote_uri": "http://timeout",
+                "from_remote_uri": None,
+            },
+            {
+                "_id": "e5",
+                "from_local_uri": valid_uri,
+                "to_local_uri": valid_uri,
+                "to_remote_uri": "http://gone",
+                "from_remote_uri": None,
+            },
         ]
 
         # Mock responses
@@ -253,8 +314,20 @@ class TestCmdPrune:
         # e1: From Remote 200 (Keep)
         # e2: From Remote 404 (Unset from_remote_uri)
         mock_edges_db.find.return_value = [
-            {"_id": "e1", "from_local_uri": valid_uri, "to_local_uri": valid_uri, "from_remote_uri": "http://ok"},
-            {"_id": "e2", "from_local_uri": valid_uri, "to_local_uri": valid_uri, "from_remote_uri": "http://gone"},
+            {
+                "_id": "e1",
+                "from_local_uri": valid_uri,
+                "to_local_uri": valid_uri,
+                "from_remote_uri": "http://ok",
+                "to_remote_uri": None,
+            },
+            {
+                "_id": "e2",
+                "from_local_uri": valid_uri,
+                "to_local_uri": valid_uri,
+                "from_remote_uri": "http://gone",
+                "to_remote_uri": None,
+            },
         ]
 
         def head_side_effect(url, timeout=5):

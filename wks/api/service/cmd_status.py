@@ -88,8 +88,8 @@ def _build_result_message(terminal_pid: int | None, service_data: dict[str, Any]
     """Build the result message based on daemon status."""
     if terminal_pid:
         return f"Daemon status retrieved (running directly, PID: {terminal_pid})"
-    if service_data.get("installed") is not None:
-        status_data["installed"] = service_data.get("installed", False)
+    if "installed" in service_data:
+        status_data["installed"] = service_data["installed"]
         if status_data["installed"]:
             return "Daemon status retrieved (service installed but not running)"
         return "Daemon status retrieved (service not installed)"

@@ -111,8 +111,8 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                         pass
 
                     if link_result.output:
-                        total_found += link_result.output.get("links_found", 0)
-                        total_synced += link_result.output.get("links_synced", 0)
+                        total_found += link_result.output["links_found"]
+                        total_synced += link_result.output["links_synced"]
                         if link_result.output.get("errors"):
                             all_errors.extend(link_result.output["errors"])
 

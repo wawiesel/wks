@@ -73,7 +73,7 @@ def cmd_status() -> StageResult:
                 # Get last sync timestamp from meta document
                 meta = database.find_one({"_id": "__meta__"})
                 if meta:
-                    last_sync = meta.get("last_sync")
+                    last_sync = meta["last_sync"]
 
                 # Calculate time ranges (exclusive bins)
                 yield (0.4, "Calculating time-based statistics...")

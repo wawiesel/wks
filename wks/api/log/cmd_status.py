@@ -85,7 +85,7 @@ def cmd_status() -> StageResult:
                     entry_time = now  # Treat unparseable as current
 
                 # Check if entry is expired
-                cutoff = cutoffs.get(level, now)
+                cutoff = cutoffs[level]
                 if entry_time < cutoff:
                     # Entry expired, don't keep it
                     continue

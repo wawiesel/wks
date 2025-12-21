@@ -41,14 +41,18 @@ def cmd_install(restrict_dir: Path | None = None) -> StageResult:
                 result = service.install_service(restrict_dir=restrict_dir)
 
             yield (1.0, "Complete")
-            result_obj.result = f"Service installed successfully (label: {result.get('label', 'unknown')})"
+            if result["success"]:
+                result_obj.result = "Service installed successfully"
+            else:
+                result_obj.result = result["error"]
+
             result_obj.output = ServiceInstallOutput(
-                errors=[],
+                errors=[] if result["success"] else [result_obj.result],
                 warnings=[],
                 message=result_obj.result,
-                installed=result.get("success", True),
+                installed=result["success"],
             ).model_dump(mode="python")
-            result_obj.success = result.get("success", True)
+            result_obj.success = result["success"]
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service installation not supported for backend '{backend_type}'"

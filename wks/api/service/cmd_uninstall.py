@@ -37,11 +37,11 @@ def cmd_uninstall() -> StageResult:
 
             yield (1.0, "Complete")
 
-            success = result.get("success", False)
+            success = result["success"]
             if success:
-                result_obj.result = f"Service uninstalled successfully (label: {result.get('label', 'unknown')})"
+                result_obj.result = "Service uninstalled successfully"
             else:
-                result_obj.result = result.get("error", "Failed to uninstall service")
+                result_obj.result = result["error"]
 
             result_obj.output = ServiceUninstallOutput(
                 errors=[] if success else [result_obj.result],

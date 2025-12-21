@@ -44,12 +44,12 @@ def cmd_show(uri: str, direction: str = "from") -> StageResult:
             for link in links:
                 formatted_links.append(
                     {
-                        "from_local_uri": link.get("from_local_uri"),
-                        "from_remote_uri": link.get("from_remote_uri"),
-                        "to_local_uri": link.get("to_local_uri"),
-                        "to_remote_uri": link.get("to_remote_uri"),
-                        "line_number": link.get("line_number"),
-                        "column_number": link.get("column_number"),
+                        "from_local_uri": link["from_local_uri"],
+                        "from_remote_uri": link["from_remote_uri"],
+                        "to_local_uri": link["to_local_uri"],
+                        "to_remote_uri": link["to_remote_uri"],
+                        "line_number": link["line_number"],
+                        "column_number": link["column_number"],
                     }
                 )
 

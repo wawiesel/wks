@@ -147,12 +147,12 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                     should_delete = False
 
                     # 1. Source check
-                    if doc.get("from_local_uri") not in valid_nodes:
+                    if doc["from_local_uri"] not in valid_nodes:
                         should_delete = True
 
                     # 2. Determine Local Status
                     local_target_broken = False
-                    to_uri = doc.get("to_local_uri")
+                    to_uri = doc["to_local_uri"]
 
                     if not to_uri:
                         # Empty local target
@@ -167,7 +167,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                             local_target_broken = True
 
                     # 3. Remote Check
-                    remote_uri = doc.get("to_remote_uri")
+                    remote_uri = doc["to_remote_uri"]
                     if remote and not should_delete and local_target_broken and remote_uri:
                         if not internet_available:
                             # Skip check if offline
@@ -186,7 +186,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
 
                     # 4. From Remote Check
                     # Check from_remote_uri independently.
-                    if remote and internet_available and (from_remote := doc.get("from_remote_uri")):
+                    if remote and internet_available and (from_remote := doc["from_remote_uri"]):
                         try:
                             response = requests.head(from_remote, timeout=5)
                             if response.status_code in (404, 410):
