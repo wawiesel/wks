@@ -19,8 +19,8 @@ def _run_single_execution(
     """Run command once and display result.
 
     Stage 1 (Announce) must happen IMMEDIATELY before any work starts.
-    Any unhandled exception from the progress callback is caught and
-    converted to a structured error output.
+    Commands must handle all exceptions internally and format errors
+    via their domain-specific output schema.
     """
     # Stage 1: Announce - display IMMEDIATELY before calling function
     result = func(*args, **kwargs)
@@ -30,19 +30,12 @@ def _run_single_execution(
 
     # Stage 2: Progress - REQUIRED for all commands
     # progress_callback is a generator that yields (progress_percent, message) tuples
-    # Wrap in try/except to catch any unhandled exceptions and convert to structured error
-    try:
-        progress_gen = result.progress_callback(result)
-        for progress_percent, message in progress_gen:
-            from datetime import datetime
+    progress_gen = result.progress_callback(result)
+    for progress_percent, message in progress_gen:
+        from datetime import datetime
 
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            display.info(f"[dim]{timestamp}[/dim] Progress: {message} ({progress_percent:.1%})")
-    except Exception as exc:
-        # Caught unhandled exception - convert to structured error
-        result.result = f"Command failed: {exc}"
-        result.output = {"errors": [str(exc)], "warnings": [], "success": False}
-        result.success = False
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        display.info(f"[dim]{timestamp}[/dim] Progress: {message} ({progress_percent:.1%})")
 
     # Ensure required fields are set after callback completes
     if not result.result:
