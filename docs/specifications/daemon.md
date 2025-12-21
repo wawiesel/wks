@@ -50,11 +50,17 @@ Example:
 - Behavior: Stop the running daemon instance.
 - Output schema: `DaemonStopOutput`.
 
+### clear
+- Command: `wksc daemon clear`
+- Behavior: Clear daemon logs. Only allowed when daemon is stopped.
+- Output schema: `DaemonClearOutput`.
+
 ## MCP
 - Commands mirror CLI:
   - `wksm_daemon_status`
   - `wksm_daemon_start`
   - `wksm_daemon_stop`
+  - `wksm_daemon_clear`
 - Output format: JSON; structures mirror CLI outputs.
 
 ## Error Semantics

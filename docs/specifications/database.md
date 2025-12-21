@@ -67,7 +67,7 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
   - `wksm_database_list`
   - `wksm_database_show <database> [query] [limit]`
   - `wksm_database_reset <database>`
-  - `wksm_database_prune <database>`
+  - `wksm_database_prune <database> [remote]`
 - Output format: JSON.
 - CLI and MCP MUST return the same data and structure for equivalent calls.
 

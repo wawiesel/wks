@@ -50,6 +50,25 @@
 
 ## Priority 3
 
+### Implement Diff and Transform CLI/MCP
+
+- [ ] Create `wks/api/diff/app.py` and expose via CLI
+- [ ] Create `wks/api/transform/app.py` and expose via CLI
+
+### Link Module Improvements
+
+- [ ] Implement robust relative path resolution in link check (outside vault context)
+- [ ] Implement remote URL validation in link sync (http/https targets)
+
+### Vault Backend Hooks
+
+- [ ] Implement backend-specific operations in vault sync (e.g., symlink management for Obsidian)
+- [ ] Add event collapsing for daemon filesystem watcher (move chains, create+delete pairs)
+
+### MCP Schema Generation
+
+- [ ] Implement full Typer command parameter parsing in `_get_typer_command_schema.py`
+
 - [ ] Implement index and search commands
 
 ---

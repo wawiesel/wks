@@ -37,7 +37,7 @@ The `_ServiceEventHandler` class (nested in `_Impl`) accumulates events in inter
 
 Events are accumulated and returned via `get_and_clear_events()` which clears the accumulator after returning.
 
-**Event Collapsing**: TODO - The implementation currently does not collapse temporary operations (move chains, create+delete pairs, etc.). This should be added in the future to reduce unnecessary monitor sync calls.
+**Event Collapsing**: Not yet implemented - see NEXT.md for roadmap.
 
 ### Main Loop Implementation
 

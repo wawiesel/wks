@@ -57,9 +57,9 @@ def cmd_list() -> StageResult:
             installations.append(
                 {
                     "name": name,
-                    "type": install_data.get("type", "unknown"),
+                    "type": install_data["type"],
                     "active": install_data.get("active", False),
-                    "path": install_data.get("data", {}).get("settings_path", "unknown"),
+                    "path": install_data.get("data", {}).get("settings_path", ""),
                 }
             )
 

@@ -158,8 +158,6 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                             deleted_count = database.delete_many({"from_local_uri": {"$in": list(stale)}})
 
                 yield (0.95, "Running backend-specific operations...")
-                # TODO: Backend-specific ops (e.g., symlink management for Obsidian)
-                # For now, this is a placeholder for future backend hooks
 
                 # Update meta document in link database with last_sync
                 sync_time = datetime.now(timezone.utc).isoformat()

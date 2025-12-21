@@ -25,7 +25,7 @@ The systemd unit file includes:
 
 **Working Directory**: Always `WKS_HOME` (from `WKSConfig.get_home_dir()`)
 
-**Logging**: Single standardized log file at `{WKS_HOME}/logs/service.log`
+**Logging**: Uses unified log file at `{WKS_HOME}/logfile`
 
 **Restart Policy**: `Restart=always` with `RestartSec=10` to automatically restart the service if it crashes
 

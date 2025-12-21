@@ -98,9 +98,7 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
                     metadata = resolver.resolve(ref.raw_target)
                     to_uri = metadata.target_uri
                 elif "://" not in ref.raw_target:
-                    # Assume relative to file or absolute path
-                    # If it looks like a path
-                    pass  # TODO: Implement robust relative path resolution outside vault
+                    pass  # Relative path resolution not yet implemented
 
                 # Calculate remote_uri
                 remote_uri = None

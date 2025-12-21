@@ -211,7 +211,7 @@ warnings: []
 running: true
 pid: 5008
 restrict_dir: /Users/ww5/Desktop/wks_test
-log_path: /Users/ww5/.wks/logs/daemon.log
+log_path: /Users/ww5/.wks/logfile
 last_sync: '2025-12-20T16:54:59.646057+00:00'
 lock_path: /Users/ww5/.wks/daemon.lock
 ```
@@ -277,7 +277,7 @@ warnings: []
 running: false
 pid: null
 restrict_dir: ''
-log_path: /Users/ww5/.wks/logs/daemon.log
+log_path: /Users/ww5/.wks/logfile
 last_sync: '2025-12-20T17:07:09.279114+00:00'
 lock_path: /Users/ww5/.wks/daemon.lock
 ```
