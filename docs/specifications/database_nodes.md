@@ -1,6 +1,6 @@
 # Database Schema: Nodes
 
-Name: `nodes` (formerly `monitor`)
+Name: `nodes`
 
 Each document represents a monitored node (file) in the filesystem.
 

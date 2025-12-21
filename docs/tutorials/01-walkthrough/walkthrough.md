@@ -36,7 +36,11 @@ Create `~/.wks/config.json` with your paths:
   },
   "service": {
     "type": "darwin",
-    "data": {}
+    "data": {
+      "label": "com.wks.daemon",
+      "keep_alive": true,
+      "run_at_load": false
+    }
   },
   "daemon": {
     "sync_interval_secs": 5.0
@@ -44,6 +48,13 @@ Create `~/.wks/config.json` with your paths:
   "vault": {
     "type": "obsidian",
     "base_dir": "~/_vault"
+  },
+  "log": {
+    "level": "INFO",
+    "debug_retention_days": 0.5,
+    "info_retention_days": 1.0,
+    "warning_retention_days": 2.0,
+    "error_retention_days": 7.0
   }
 }
 ```
@@ -372,6 +383,71 @@ results:
 
 ---
 
+## 6. Config — Inspect Configuration
+
+View your current configuration settings.
+
+```bash
+wksc config show monitor
+```
+
+```yaml
+section: monitor
+content:
+  filter:
+    include_paths: ['~']
+    exclude_paths: ['~/Library']
+    # ...
+  priority:
+    dirs:
+      ~/Desktop: 160.0
+      '~': 100.0
+config_path: /Users/ww5/.wks/config.json
+```
+
+Use `wksc config show` to see available sections or see the full config.
+
+---
+
+## 7. Log — Monitor System Health
+
+Check the status of the unified system log.
+
+### Check log status
+
+```bash
+wksc log status
+```
+
+```yaml
+log_path: /Users/ww5/.wks/logfile
+size_bytes: 3078
+entry_counts:
+  debug: 8
+  info: 33
+  warn: 0
+  error: 0
+oldest_entry: '2025-12-20T19:36:01.573197+00:00'
+newest_entry: '2025-12-20T21:16:29.305802+00:00'
+```
+
+### Prune log entries
+
+You can manually prune logs by level (although WKS auto-prunes on access based on retention settings).
+
+```bash
+wksc log prune
+```
+
+```yaml
+pruned_debug: 8
+pruned_info: 33
+pruned_warnings: 0
+pruned_errors: 0
+message: Pruned 41 log entries
+```
+
+
 ## Command Reference
 
 | Command | Purpose |
@@ -387,3 +463,6 @@ results:
 | `wksc link status` | Link collection stats |
 | `wksc database show <db>` | Query raw data |
 | `wksc database reset all` | Clear all data |
+| `wksc config show [section]` | View configuration |
+| `wksc log status` | Check log file health |
+| `wksc log prune` | Manually prune logs |
