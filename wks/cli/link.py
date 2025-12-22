@@ -19,21 +19,21 @@ app = typer.Typer(
 
 
 @app.callback(invoke_without_command=True)
-def link_callback(ctx: typer.Context) -> None:
+def _link_callback(ctx: typer.Context) -> None:
     """Link operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit()
 
 
-@app.command()
-def status():
+@app.command(name="status")
+def _status():
     """Get health and statistics for the links collection."""
     handle_stage_result(cmd_status)()
 
 
-@app.command()
-def show(
+@app.command(name="show")
+def _show(
     ctx: typer.Context,
     uri: str = typer.Argument(None, help="Search for edges connected to this URI"),
     direction: str = typer.Option("from", help="Direction of edges: to, from, or both"),
@@ -45,8 +45,8 @@ def show(
     handle_stage_result(cmd_show)(uri=uri, direction=direction)
 
 
-@app.command()
-def check(
+@app.command(name="check")
+def _check(
     ctx: typer.Context,
     path: str = typer.Argument(None, help="Path to file check"),
     parser: str | None = typer.Option(None, help="Parser to use (e.g., 'vault')"),
@@ -58,8 +58,8 @@ def check(
     handle_stage_result(cmd_check)(path=path, parser=parser)
 
 
-@app.command()
-def sync(
+@app.command(name="sync")
+def _sync(
     ctx: typer.Context,
     path: str = typer.Argument(None, help="Path to file or directory to sync"),
     parser: str | None = typer.Option(None, help="Parser to use (e.g., 'vault')"),

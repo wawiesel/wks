@@ -305,7 +305,7 @@ def mongo_wks_env(tmp_path, monkeypatch):
         - mongo_port: Port used for MongoDB
     """
     if not check_mongod_available():
-        pytest.fail(
+        pytest.skip(
             "MongoDB tests require `mongod` in PATH. "
             "Install MongoDB so `mongod --version` works, or run without -m mongo."
         )

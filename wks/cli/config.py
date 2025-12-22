@@ -17,7 +17,7 @@ config_app = typer.Typer(
 
 
 @config_app.callback(invoke_without_command=True)
-def config_callback(ctx: typer.Context) -> None:
+def _config_callback(ctx: typer.Context) -> None:
     """Show help when no subcommand is provided."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=False)
@@ -25,16 +25,16 @@ def config_callback(ctx: typer.Context) -> None:
 
 
 # Register commands with StageResult handler
-def list_command() -> None:
+def _list_command() -> None:
     """List configuration."""
     handle_stage_result(cmd_list)()
 
 
-config_app.command(name="list")(list_command)
+config_app.command(name="list")(_list_command)
 
 
 @config_app.command(name="show")
-def show_command(
+def _show_command(
     ctx: typer.Context,
     section: str = typer.Argument(None, help="Configuration section name"),
 ) -> None:
@@ -45,9 +45,9 @@ def show_command(
     handle_stage_result(cmd_show)(section)
 
 
-def version_command() -> None:
+def _version_command() -> None:
     """Show WKS version information."""
     handle_stage_result(cmd_version)()
 
 
-config_app.command(name="version")(version_command)
+config_app.command(name="version")(_version_command)

@@ -24,7 +24,7 @@ monitor_app = typer.Typer(
 
 
 @monitor_app.callback(invoke_without_command=True)
-def monitor_callback(ctx: typer.Context) -> None:
+def _monitor_callback(ctx: typer.Context) -> None:
     """Monitor operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
@@ -43,7 +43,7 @@ filter_app = typer.Typer(
 
 
 @filter_app.callback(invoke_without_command=True)
-def filter_callback(ctx: typer.Context) -> None:
+def _filter_callback(ctx: typer.Context) -> None:
     """Filter operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
@@ -60,20 +60,20 @@ priority_app = typer.Typer(
 
 
 # Register commands with StageResult handler
-def status_command() -> None:
+def _status_command() -> None:
     """Get filesystem monitoring status."""
     handle_stage_result(cmd_status)()
 
 
-monitor_app.command(name="status")(status_command)
+monitor_app.command(name="status")(_status_command)
 
 
-def check_command(path: str = typer.Argument(..., help="File or directory path to check")) -> None:
+def _check_command(path: str = typer.Argument(..., help="File or directory path to check")) -> None:
     """Check if a path would be monitored and calculate its priority."""
     handle_stage_result(cmd_check)(path)
 
 
-def sync_command(
+def _sync_command(
     path: str | None = typer.Argument(None, help="File or directory path to sync"),
     recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
 ) -> None:
@@ -84,14 +84,14 @@ def sync_command(
     handle_stage_result(cmd_sync)(path, recursive)
 
 
-def filter_show_command(
+def _filter_show_command(
     list_name: str | None = typer.Argument(None, help="Name of list to show (leave empty to list available)"),
 ) -> None:
     """Get contents of a monitor configuration list or list available names."""
     handle_stage_result(cmd_filter_show)(list_name)
 
 
-def filter_add_command(
+def _filter_add_command(
     list_name: str = typer.Argument(..., help="Name of list to modify"),
     value: str = typer.Argument(..., help="Value to add"),
 ) -> None:
@@ -99,7 +99,7 @@ def filter_add_command(
     handle_stage_result(cmd_filter_add)(list_name, value)
 
 
-def filter_remove_command(
+def _filter_remove_command(
     list_name: str = typer.Argument(..., help="Name of list to modify"),
     value: str = typer.Argument(..., help="Value to remove"),
 ) -> None:
@@ -107,7 +107,7 @@ def filter_remove_command(
     handle_stage_result(cmd_filter_remove)(list_name, value)
 
 
-def priority_add_command(
+def _priority_add_command(
     path: str = typer.Argument(..., help="Path to set priority for"),
     priority: float = typer.Argument(..., help="New priority of the path"),
 ) -> None:
@@ -115,33 +115,33 @@ def priority_add_command(
     handle_stage_result(cmd_priority_add)(path, priority)
 
 
-def priority_remove_command(
+def _priority_remove_command(
     path: str = typer.Argument(..., help="Path to unmanage"),
 ) -> None:
     """Remove a priority directory."""
     handle_stage_result(cmd_priority_remove)(path)
 
 
-monitor_app.command(name="check")(check_command)
-monitor_app.command(name="sync")(sync_command)
+monitor_app.command(name="check")(_check_command)
+monitor_app.command(name="sync")(_sync_command)
 
 
 # Filter subcommands
-filter_app.command(name="show")(filter_show_command)
-filter_app.command(name="add")(filter_add_command)
-filter_app.command(name="remove")(filter_remove_command)
+filter_app.command(name="show")(_filter_show_command)
+filter_app.command(name="add")(_filter_add_command)
+filter_app.command(name="remove")(_filter_remove_command)
 
 
 # Priority subcommands
-def priority_show_command() -> None:
+def _priority_show_command() -> None:
     """List all priority directories."""
     handle_stage_result(cmd_priority_show)()
 
 
-priority_app.command(name="show")(priority_show_command)
-priority_app.command(name="add")(priority_add_command)
+priority_app.command(name="show")(_priority_show_command)
+priority_app.command(name="add")(_priority_add_command)
 
-priority_app.command(name="remove")(priority_remove_command)
+priority_app.command(name="remove")(_priority_remove_command)
 
 
 # Attach sub-apps

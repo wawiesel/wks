@@ -22,29 +22,29 @@ service_app = typer.Typer(
 
 
 @service_app.callback(invoke_without_command=True)
-def service_callback(ctx: typer.Context) -> None:
+def _service_callback(ctx: typer.Context) -> None:
     """Service operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit()
 
 
-def status_command() -> None:
+def _status_command() -> None:
     """Check service status."""
     handle_stage_result(cmd_status)()
 
 
-def start_command() -> None:
+def _start_command() -> None:
     """Start service."""
     handle_stage_result(cmd_start)()
 
 
-def stop_command() -> None:
+def _stop_command() -> None:
     """Stop service."""
     handle_stage_result(cmd_stop)()
 
 
-def install_command(
+def _install_command(
     restrict: Path | None = typer.Option(  # noqa: B008
         None, "--restrict", help="Restrict monitoring to this directory"
     ),
@@ -53,13 +53,13 @@ def install_command(
     handle_stage_result(cmd_install)(restrict_dir=restrict)
 
 
-def uninstall_command() -> None:
+def _uninstall_command() -> None:
     """Uninstall system service."""
     handle_stage_result(cmd_uninstall)()
 
 
-service_app.command(name="status")(status_command)
-service_app.command(name="start")(start_command)
-service_app.command(name="stop")(stop_command)
-service_app.command(name="install")(install_command)
-service_app.command(name="uninstall")(uninstall_command)
+service_app.command(name="status")(_status_command)
+service_app.command(name="start")(_start_command)
+service_app.command(name="stop")(_stop_command)
+service_app.command(name="install")(_install_command)
+service_app.command(name="uninstall")(_uninstall_command)

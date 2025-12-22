@@ -17,14 +17,14 @@ log_app = typer.Typer(
 
 
 @log_app.callback(invoke_without_command=True)
-def log_callback(ctx: typer.Context) -> None:
+def _log_callback(ctx: typer.Context) -> None:
     """Log operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit()
 
 
-def prune_command(
+def _prune_command(
     debug: bool = typer.Option(True, "--debug/--no-debug", help="Prune DEBUG entries"),
     info: bool = typer.Option(True, "--info/--no-info", help="Prune INFO entries"),
     warnings: bool = typer.Option(False, "--warnings/--no-warnings", help="Prune WARN entries"),
@@ -39,10 +39,10 @@ def prune_command(
     )
 
 
-def status_command() -> None:
+def _status_command() -> None:
     """Show log file status (auto-prunes expired entries)."""
     handle_stage_result(cmd_status)()
 
 
-log_app.command(name="prune")(prune_command)
-log_app.command(name="status")(status_command)
+log_app.command(name="prune")(_prune_command)
+log_app.command(name="status")(_status_command)

@@ -20,19 +20,19 @@ daemon_app = typer.Typer(
 
 
 @daemon_app.callback(invoke_without_command=True)
-def daemon_callback(ctx: typer.Context) -> None:
+def _daemon_callback(ctx: typer.Context) -> None:
     """Daemon operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit()
 
 
-def status_command() -> None:
+def _status_command() -> None:
     """Check daemon status."""
     handle_stage_result(cmd_status)()
 
 
-def start_command(
+def _start_command(
     restrict: Path | None = typer.Option(  # noqa: B008
         None, "--restrict", help="Restrict monitoring to this directory"
     ),
@@ -42,16 +42,16 @@ def start_command(
     handle_stage_result(cmd_start)(restrict_dir=restrict, blocking=blocking)
 
 
-def stop_command() -> None:
+def _stop_command() -> None:
     """Stop daemon runtime."""
     handle_stage_result(cmd_stop)()
 
 
-daemon_app.command(name="status")(status_command)
-daemon_app.command(name="start")(start_command)
+daemon_app.command(name="status")(_status_command)
+daemon_app.command(name="start")(_start_command)
 
 
-def clear_command() -> None:
+def _clear_command() -> None:
     """Clear daemon logs and warnings (only if stopped)."""
     from wks.api.daemon.cmd_clear import cmd_clear
 
@@ -59,5 +59,5 @@ def clear_command() -> None:
 
 
 # Run command removed (merged into start --blocking)
-daemon_app.command(name="stop")(stop_command)
-daemon_app.command(name="clear")(clear_command)
+daemon_app.command(name="stop")(_stop_command)
+daemon_app.command(name="clear")(_clear_command)

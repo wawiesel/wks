@@ -20,22 +20,22 @@ mcp_app = typer.Typer(
 
 
 @mcp_app.callback(invoke_without_command=True)
-def mcp_callback(ctx: typer.Context) -> None:
+def _mcp_callback(ctx: typer.Context) -> None:
     """MCP operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit()
 
 
-def list_command() -> None:
+def _list_command() -> None:
     """List MCP installations."""
     handle_stage_result(cmd_list)()
 
 
-mcp_app.command(name="list")(list_command)
+mcp_app.command(name="list")(_list_command)
 
 
-def install_command(
+def _install_command(
     name: str = typer.Argument(..., help="Installation name"),
     install_type: str = typer.Option("mcpServersJson", "--type", help="Installation type"),
     settings_path: str | None = typer.Option(None, "--settings-path", help="Path to settings file"),
@@ -44,18 +44,18 @@ def install_command(
     handle_stage_result(cmd_install)(name, install_type, settings_path)
 
 
-def uninstall_command(
+def _uninstall_command(
     name: str = typer.Argument(..., help="Installation name"),
 ) -> None:
     """Uninstall WKS MCP server for the named installation."""
     handle_stage_result(cmd_uninstall)(name)
 
 
-mcp_app.command(name="install")(install_command)
-mcp_app.command(name="uninstall")(uninstall_command)
+mcp_app.command(name="install")(_install_command)
+mcp_app.command(name="uninstall")(_uninstall_command)
 
 
-def run_command(
+def _run_command(
     direct: bool = typer.Option(False, "--direct", help="Run MCP directly over stdio (no socket proxy)"),
 ) -> None:
     """Run the MCP server."""
@@ -66,4 +66,4 @@ def run_command(
     mcp_main()
 
 
-mcp_app.command(name="run")(run_command)
+mcp_app.command(name="run")(_run_command)

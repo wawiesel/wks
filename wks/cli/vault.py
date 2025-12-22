@@ -19,19 +19,19 @@ vault_app = typer.Typer(
 
 
 @vault_app.callback(invoke_without_command=True)
-def vault_callback(ctx: typer.Context) -> None:
+def _vault_callback(ctx: typer.Context) -> None:
     """Vault operations - shows available commands."""
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help(), err=True)
         raise typer.Exit()
 
 
-def status_command() -> None:
+def _status_command() -> None:
     """Get vault link health status."""
     handle_stage_result(cmd_status)()
 
 
-def sync_command(
+def _sync_command(
     path: str | None = typer.Argument(None, help="File/directory path to sync (default: entire vault)"),
     recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively sync directory"),
 ) -> None:
@@ -39,7 +39,7 @@ def sync_command(
     handle_stage_result(cmd_sync)(path, recursive=recursive)
 
 
-def check_command(
+def _check_command(
     path: str | None = typer.Argument(None, help="File path to check (default: entire vault)"),
 ) -> None:
     """Check vault link health."""
@@ -47,7 +47,7 @@ def check_command(
 
 
 @vault_app.command(name="links")
-def links_command(
+def _links_command(
     ctx: typer.Context,
     path: str = typer.Argument(None, help="File path to query links for"),
     direction: str = typer.Option("both", "--direction", "-d", help="Link direction: to, from, or both"),
@@ -62,6 +62,6 @@ def links_command(
     handle_stage_result(cmd_links)(path, direction)  # type: ignore[arg-type]
 
 
-vault_app.command(name="status")(status_command)
-vault_app.command(name="sync")(sync_command)
-vault_app.command(name="check")(check_command)
+vault_app.command(name="status")(_status_command)
+vault_app.command(name="sync")(_sync_command)
+vault_app.command(name="check")(_check_command)

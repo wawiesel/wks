@@ -44,7 +44,7 @@ app.add_typer(log_app, name="log")
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(
+def _main_callback(
     ctx: typer.Context,
     display: str = typer.Option("yaml", "--display", "-d", help="Output format: 'json' or 'yaml' (default: yaml)"),
 ) -> None:
