@@ -124,8 +124,7 @@ def _sync_single_file(
             if remote:
                 parsed = urlparse(to_uri)
                 if parsed.scheme in ("http", "https"):
-                    # TODO: Implement actual remote check
-                    pass
+                    pass  # Remote URL validation not yet implemented
 
             doc_id = _identity(
                 str(rec["from_uri"]),

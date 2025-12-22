@@ -19,6 +19,8 @@ def _run_single_execution(
     """Run command once and display result.
 
     Stage 1 (Announce) must happen IMMEDIATELY before any work starts.
+    Commands must handle all exceptions internally and format errors
+    via their domain-specific output schema.
     """
     # Stage 1: Announce - display IMMEDIATELY before calling function
     result = func(*args, **kwargs)

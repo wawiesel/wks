@@ -52,20 +52,20 @@ def cmd_stop() -> StageResult:
                 yield (0.7, "Stopping service...")
                 result = service.stop_service()
                 yield (1.0, "Complete")
-                if result.get("success", False):
+                if result["success"]:
                     if "note" in result:
-                        result_obj.result = f"Service is already stopped (label: {result.get('label', 'unknown')})"
+                        result_obj.result = "Service is already stopped"
                     else:
-                        result_obj.result = f"Service stopped successfully (label: {result.get('label', 'unknown')})"
+                        result_obj.result = "Service stopped successfully"
                 else:
-                    result_obj.result = f"Error stopping service: {result.get('error', 'unknown error')}"
+                    result_obj.result = f"Error stopping service: {result['error']}"
                 result_obj.output = ServiceStopOutput(
-                    errors=[result.get("error", "")] if not result.get("success", False) else [],
+                    errors=[result["error"]] if not result["success"] else [],
                     warnings=[],
                     message=result_obj.result,
-                    stopped=result.get("success", False),
+                    stopped=result["success"],
                 ).model_dump(mode="python")
-                result_obj.success = result.get("success", False)
+                result_obj.success = result["success"]
         except NotImplementedError as e:
             yield (1.0, "Complete")
             result_obj.result = f"Error: Service stop not supported for backend '{backend_type}'"

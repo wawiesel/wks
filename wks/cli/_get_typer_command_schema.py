@@ -82,14 +82,12 @@ def get_typer_command_schema(app: typer.Typer, command_name: str | None) -> dict
     # Find the command
     for cmd in app.registered_commands:
         if cmd.name == command_name:
-            # Extract schema from command info
-            # This is a simplified version - full implementation would parse Typer's internal structure
+            # Extract schema from command info (simplified - returns empty schema)
             schema: dict[str, Any] = {
                 "type": "object",
                 "properties": {},
                 "required": [],
             }
-            # TODO: Parse actual command parameters from Typer
             return schema
 
     # Handle callback command (command_name is None)

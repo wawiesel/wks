@@ -73,7 +73,7 @@ def cmd_status() -> StageResult:
                 warnings=[],
                 database=database_name,
                 total_links=total_links,
-                last_sync=meta.get("last_sync"),
+                last_sync=meta["last_sync"] if meta else None,
                 success=True,
             ).model_dump(mode="python")
 

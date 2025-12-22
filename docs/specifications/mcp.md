@@ -15,7 +15,7 @@ wksc mcp uninstall <name>                       # Uninstall WKS MCP server for t
 - `wksm_mcp_uninstall` - Equivalent to `wksc mcp uninstall`
 
 **Configuration**:
-MCP server installation locations are managed in `{WKS_HOME}/config.json` under the `mcp.installs` section. Each installation has a unique name and uses a `type/data` pattern similar to the database and daemon configurations. Each installation also has an `active` boolean field that indicates whether WKS is currently installed:
+MCP server installation locations are managed in `{WKS_HOME}/config.json` under the `mcp.installs` section. Each installation has a unique name and is validated against a strongly-typed Pydantic model using a discriminated union pattern (`McpConfig` in `wks/api/mcp/McpConfig.py`). The `type` field determines which typed model is used for validation:
 
 ```json
 {
@@ -48,8 +48,8 @@ MCP server installation locations are managed in `{WKS_HOME}/config.json` under 
 ```
 
 **Installation Types**:
-- **`mcpServersJson`**: Generic type for any JSON file that follows the standard MCP servers pattern (contains an `mcpServers` object). This type can be used for any MCP client that stores server configurations in a JSON file with an `mcpServers` field. Currently, all supported agent types (gemini, claude-desktop, claude-code) use this standard pattern.
-- **Future agent-specific types**: If an agent requires a non-standard installation mechanism, a new type can be added to support it.
+- **`mcpServersJson`**: Requires `data.settings_path` (validated at config load). Used for any JSON file that follows the standard MCP servers pattern (contains an `mcpServers` object).
+- **Future types**: Add new typed models to `McpConfig.py` with their required `data` fields. The discriminated union ensures type-safe validation.
 
 **Installation Behavior**:
 - `wksc mcp list` reads from `mcp.installs` configuration and displays each installation name along with its path and installation status (based on the `active` field)
@@ -66,4 +66,3 @@ The following are examples of currently supported agent types and their configur
 - `claude-code`: Uses a JSON settings file at `~/.config/claude-code/settings.json`
 
 Future agent types may use different file formats, locations, or installation mechanisms as required by their specific implementation.
-

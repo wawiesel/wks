@@ -50,7 +50,7 @@ def read_log_entries(
                 except ValueError:
                     entry_time = now
 
-                cutoff = cutoffs.get(level, now)
+                cutoff = cutoffs[level]
                 if entry_time < cutoff:
                     continue  # Expired
 

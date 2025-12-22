@@ -11,7 +11,7 @@ All commands are handled by domain-specific Typer apps:
 - `wks/api/diff/app.py` - Diff commands
 - `wks/api/service/app.py` - Service commands
 - `wks/api/config/app.py` - Config commands
-- `wks/api/db/app.py` - Database commands
+- `wks/api/database/app.py` - Database commands
 
 Each domain app implements the unified 4-stage pattern for both CLI and MCP:
 1. Functions return `StageResult` with 4-stage data (announce, progress, result, output)

@@ -72,6 +72,6 @@ def test_cmd_list_invalid_json(wks_home):
     result = run_cmd(cmd_list)
 
     assert result.success is False
-    assert "Error reading config" in result.result
+    assert "Configuration error" in result.result
     assert "errors" in result.output
     assert "warnings" in result.output

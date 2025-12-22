@@ -19,10 +19,7 @@ from wks.cli.monitor import monitor_app
 from wks.cli.service import service_app
 from wks.cli.vault import vault_app
 
-# TODO: Create wks/api/diff/app.py
-# from wks.api.diff.app import diff_app
-# from wks.api.transform.app import transform_app
-# from wks.api.vault.app import vault_app
+# diff and transform apps not yet implemented
 
 app = typer.Typer(
     pretty_exceptions_show_locals=False,

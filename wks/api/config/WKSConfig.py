@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, computed_field
 
 from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
+from ..mcp.McpConfig import McpConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..vault.VaultConfig import VaultConfig
@@ -27,6 +28,7 @@ class WKSConfig(BaseModel):
     daemon: DaemonConfig
     vault: VaultConfig
     log: LogConfig
+    mcp: McpConfig = McpConfig()  # Optional, defaults to empty
 
     @computed_field
     def path(self) -> Path:
@@ -93,6 +95,7 @@ class WKSConfig(BaseModel):
             "daemon": self.daemon.model_dump(),
             "vault": self.vault.model_dump(),
             "log": self.log.model_dump(),
+            "mcp": self.mcp.model_dump(),
         }
 
     def save(self) -> None:

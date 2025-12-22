@@ -70,7 +70,7 @@ def calculate_priority(path: Path, priority_dirs: dict[str, float], weights: dic
         score *= _calculate_underscore_multiplier(filename_stem, underscore_multiplier, only_underscore_multiplier)
 
     extension = path.suffix.lower()
-    weight = float(extension_weights.get(extension, 1.0))
+    weight = float(extension_weights[extension]) if extension in extension_weights else 1.0
     score *= weight
 
     return score

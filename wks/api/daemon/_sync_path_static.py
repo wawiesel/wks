@@ -9,8 +9,8 @@ def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
         result = cmd_sync(str(path))
         list(result.progress_callback(result))
         out = result.output or {}
-        errs = out.get("errors", [])
-        warns = out.get("warnings", [])
+        errs = out["errors"]
+        warns = out["warnings"]
         for msg in warns:
             log_fn(f"WARN: {msg}")
         for msg in errs:

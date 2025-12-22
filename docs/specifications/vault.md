@@ -120,6 +120,16 @@ On daemon startup or config change:
 - Vault backend may perform backend-specific operations.
 - Reports vault-specific sync metrics.
 
+### links
+
+**Signature**: `wksc vault links <path> [--direction to|from|both]`
+
+**Purpose**: Query edges for a file in the vault.
+
+- Shows edges connected to/from the given vault file.
+- Default direction: `both`.
+- This is a convenience wrapper around `wksc link show` with vault path resolution.
+
 ### Other Link Operations
 
 For general link operations, use `wksc link`:
@@ -136,6 +146,7 @@ For general link operations, use `wksc link`:
 |------|-------------|
 | `wksm_vault_status()` | Get vault-scoped statistics |
 | `wksm_vault_sync(path?)` | Sync vault links |
+| `wksm_vault_links(path, direction?)` | Query edges for vault file |
 
 For other link operations, use `wksm_link_*` tools.
 

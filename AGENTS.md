@@ -4,6 +4,18 @@ alwaysApply: true
 
 # Directives for AI
 
+## First Priority: Rules Before Action
+
+Before implementing any code change, you MUST:
+
+1. **Identify which `.cursor/rules/*` apply** to the change you're about to make.
+2. **Verify your proposed solution satisfies those rules** — especially DRY, NoHedging, and architectural boundaries.
+3. **If in doubt, check the existing patterns** in the codebase (wrappers, handlers, facades) before adding new logic.
+
+This is not optional. This is the first thing you think about every time.
+
+---
+
 *   **Authentication**: Under no circumstances authenticate yourself as a human user. You will always use a bot account. If you are unsure which bot account to use, you need to ask.
 
 Follow all `.cursor/rules/*`.

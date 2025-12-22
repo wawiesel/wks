@@ -89,9 +89,9 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
 
                 edges = [
                     {
-                        "from_uri": doc.get("from_local_uri", ""),
-                        "to_uri": doc.get("to_local_uri", ""),
-                        "line_number": doc.get("line_number", 0),
+                        "from_uri": doc["from_local_uri"],
+                        "to_uri": doc["to_local_uri"],
+                        "line_number": doc["line_number"],
                     }
                     for doc in list(cursor)[:100]  # Limit to 100
                 ]
