@@ -2,6 +2,7 @@
 
 import os
 import sys
+from collections.abc import Callable
 from typing import Literal
 
 from .Display import Display
@@ -15,34 +16,46 @@ def is_mcp_context() -> bool:
     Returns:
         True if MCP environment detected, False otherwise
     """
-    # Check environment variables that MCP might set
     if os.getenv("MCP_MODE") == "1":
         return True
 
     if os.getenv("MCP_SERVER") is not None:
         return True
 
-    # Check if stdin/stdout are pipes (common in MCP)
-    # But also check we're not in a regular terminal with pipes
-    # If TERM is not set and we're piped, likely MCP
     return not sys.stdout.isatty() and os.getenv("TERM") is None
 
 
-def get_display(_mode: DisplayMode | None = None) -> Display:
+def _display_factories() -> dict[DisplayMode, Callable[[], Display]]:
+    """Factory registry for display implementations."""
+    from wks.cli.display import CLIDisplay
+
+    return {"cli": CLIDisplay, "mcp": CLIDisplay}
+
+
+def _resolve_mode(mode: DisplayMode | None) -> DisplayMode:
+    """Resolve requested mode to a supported display mode."""
+    if mode is not None:
+        if mode not in _display_factories():
+            raise ValueError(f"Unsupported display mode: {mode}")
+        return mode
+    return "mcp" if is_mcp_context() else "cli"
+
+
+def get_display(mode: DisplayMode | None = None) -> Display:
     """Get appropriate display implementation.
 
     Args:
-        mode: Explicit display mode ("cli" or "mcp")
-              If None, auto-detect based on context
+        mode: Explicit display mode ("cli" or "mcp"). If None, auto-detect.
 
     Returns:
-        Display implementation (CLIDisplay)
+        Display implementation (currently CLI for both modes).
     """
-    # MCP server calls API functions directly, bypassing display layer
-    # So we always return CLI display
-    from wks.cli.display import CLIDisplay
-
-    return CLIDisplay()
+    factories = _display_factories()
+    resolved_mode = _resolve_mode(mode)
+    factory = factories.get(resolved_mode)
+    if factory is None:
+        raise RuntimeError(f"No display factory registered for mode: {resolved_mode}")
+    return factory()
 
 
 def add_display_argument(parser) -> None:
