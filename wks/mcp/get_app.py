@@ -1,20 +1,21 @@
-"""Locate the Typer app for a domain."""
+"""Locate the Typer app for a domain (UNO: single function)."""
 
 import importlib
 from typing import Any
 
 
 def get_app(domain: str) -> Any:
-    """Auto-discover Typer app for a domain by trying common naming patterns."""
-    patterns = [f"{domain}_app", "db_app" if domain == "database" else None, f"{domain}app", "app"]
-    for pattern in patterns:
-        if pattern is None:
-            continue
-        try:
-            module = importlib.import_module(f"wks.cli.{domain}")
-            app = getattr(module, pattern, None)
-            if app is not None:
-                return app
-        except Exception:
-            continue
+    """Auto-discover Typer app for a domain by calling its factory function.
+
+    Each CLI domain module exports a factory function matching its name.
+    For example: wks.cli.monitor exports monitor() -> typer.Typer
+    """
+    try:
+        module = importlib.import_module(f"wks.cli.{domain}")
+        # Factory function matches domain name
+        factory = getattr(module, domain, None)
+        if factory is not None and callable(factory):
+            return factory()
+    except Exception:
+        pass
     return None

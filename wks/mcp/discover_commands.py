@@ -1,4 +1,4 @@
-"""Discover Typer command callbacks and their underlying API functions."""
+"""Discover Typer command callbacks and their underlying API functions (UNO: single function)."""
 
 import importlib
 from collections.abc import Callable
@@ -8,7 +8,11 @@ from .extract_api_function_from_command import extract_api_function_from_command
 
 
 def discover_commands() -> dict[tuple[str, str], Callable]:
-    """Auto-discover all cmd_* functions by scanning CLI Typer apps."""
+    """Auto-discover all cmd_* functions by scanning CLI Typer apps.
+
+    Each CLI domain module exports a factory function matching its name.
+    For example: wks.cli.monitor exports monitor() -> typer.Typer
+    """
     commands: dict[tuple[str, str], Callable] = {}
     cli_path = Path(__file__).parent.parent / "cli"
 
@@ -23,17 +27,12 @@ def discover_commands() -> dict[tuple[str, str], Callable]:
         try:
             cli_module = importlib.import_module(f"wks.cli.{domain}")
 
-            app = None
-            patterns = [f"{domain}_app", "db_app" if domain == "database" else None, f"{domain}app", "app"]
-            for pattern in patterns:
-                if pattern is None:
-                    continue
-                app = getattr(cli_module, pattern, None)
-                if app is not None:
-                    break
-
-            if app is None:
+            # Factory function matches domain name
+            factory = getattr(cli_module, domain, None)
+            if factory is None or not callable(factory):
                 continue
+
+            app = factory()
 
             for cmd in app.registered_commands:
                 if cmd.name is None:

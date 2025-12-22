@@ -1,4 +1,4 @@
-"""Service Typer app that registers service commands."""
+"""Service Typer app factory."""
 
 from pathlib import Path
 
@@ -11,55 +11,52 @@ from wks.api.service.cmd_stop import cmd_stop
 from wks.api.service.cmd_uninstall import cmd_uninstall
 from wks.cli._handle_stage_result import handle_stage_result
 
-service_app = typer.Typer(
-    name="service",
-    help="System service install/uninstall",
-    pretty_exceptions_show_locals=False,
-    pretty_exceptions_enable=False,
-    context_settings={"help_option_names": ["-h", "--help"]},
-    invoke_without_command=True,
-)
 
+def service() -> typer.Typer:
+    """Create and configure the service Typer app."""
+    app = typer.Typer(
+        name="service",
+        help="System service install/uninstall",
+        pretty_exceptions_show_locals=False,
+        pretty_exceptions_enable=False,
+        context_settings={"help_option_names": ["-h", "--help"]},
+        invoke_without_command=True,
+    )
 
-@service_app.callback(invoke_without_command=True)
-def service_callback(ctx: typer.Context) -> None:
-    """Service operations - shows available commands."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit()
+    @app.callback(invoke_without_command=True)
+    def callback(ctx: typer.Context) -> None:
+        """Service operations - shows available commands."""
+        if ctx.invoked_subcommand is None:
+            typer.echo(ctx.get_help(), err=True)
+            raise typer.Exit()
 
+    @app.command(name="status")
+    def status_cmd() -> None:
+        """Check service status."""
+        handle_stage_result(cmd_status)()
 
-def status_command() -> None:
-    """Check service status."""
-    handle_stage_result(cmd_status)()
+    @app.command(name="start")
+    def start_cmd() -> None:
+        """Start service."""
+        handle_stage_result(cmd_start)()
 
+    @app.command(name="stop")
+    def stop_cmd() -> None:
+        """Stop service."""
+        handle_stage_result(cmd_stop)()
 
-def start_command() -> None:
-    """Start service."""
-    handle_stage_result(cmd_start)()
+    @app.command(name="install")
+    def install_cmd(
+        restrict: Path | None = typer.Option(  # noqa: B008
+            None, "--restrict", help="Restrict monitoring to this directory"
+        ),
+    ) -> None:
+        """Install system service."""
+        handle_stage_result(cmd_install)(restrict_dir=restrict)
 
+    @app.command(name="uninstall")
+    def uninstall_cmd() -> None:
+        """Uninstall system service."""
+        handle_stage_result(cmd_uninstall)()
 
-def stop_command() -> None:
-    """Stop service."""
-    handle_stage_result(cmd_stop)()
-
-
-def install_command(
-    restrict: Path | None = typer.Option(  # noqa: B008
-        None, "--restrict", help="Restrict monitoring to this directory"
-    ),
-) -> None:
-    """Install system service."""
-    handle_stage_result(cmd_install)(restrict_dir=restrict)
-
-
-def uninstall_command() -> None:
-    """Uninstall system service."""
-    handle_stage_result(cmd_uninstall)()
-
-
-service_app.command(name="status")(status_command)
-service_app.command(name="start")(start_command)
-service_app.command(name="stop")(stop_command)
-service_app.command(name="install")(install_command)
-service_app.command(name="uninstall")(uninstall_command)
+    return app

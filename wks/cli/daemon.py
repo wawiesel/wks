@@ -1,63 +1,57 @@
-"""Daemon Typer app that registers daemon commands."""
+"""Daemon Typer app factory."""
 
 from pathlib import Path
 
 import typer
 
+from wks.api.daemon.cmd_clear import cmd_clear
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
 from wks.api.daemon.cmd_stop import cmd_stop
 from wks.cli._handle_stage_result import handle_stage_result
 
-daemon_app = typer.Typer(
-    name="daemon",
-    help="Daemon runtime management",
-    pretty_exceptions_show_locals=False,
-    pretty_exceptions_enable=False,
-    context_settings={"help_option_names": ["-h", "--help"]},
-    invoke_without_command=True,
-)
 
+def daemon() -> typer.Typer:
+    """Create and configure the daemon Typer app."""
+    app = typer.Typer(
+        name="daemon",
+        help="Daemon runtime management",
+        pretty_exceptions_show_locals=False,
+        pretty_exceptions_enable=False,
+        context_settings={"help_option_names": ["-h", "--help"]},
+        invoke_without_command=True,
+    )
 
-@daemon_app.callback(invoke_without_command=True)
-def daemon_callback(ctx: typer.Context) -> None:
-    """Daemon operations - shows available commands."""
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help(), err=True)
-        raise typer.Exit()
+    @app.callback(invoke_without_command=True)
+    def callback(ctx: typer.Context) -> None:
+        """Daemon operations - shows available commands."""
+        if ctx.invoked_subcommand is None:
+            typer.echo(ctx.get_help(), err=True)
+            raise typer.Exit()
 
+    @app.command(name="status")
+    def status_cmd() -> None:
+        """Check daemon status."""
+        handle_stage_result(cmd_status)()
 
-def status_command() -> None:
-    """Check daemon status."""
-    handle_stage_result(cmd_status)()
+    @app.command(name="start")
+    def start_cmd(
+        restrict: Path | None = typer.Option(  # noqa: B008
+            None, "--restrict", help="Restrict monitoring to this directory"
+        ),
+        blocking: bool = typer.Option(False, "--blocking", help="Run in foreground (blocking mode)"),
+    ) -> None:
+        """Start daemon runtime."""
+        handle_stage_result(cmd_start)(restrict_dir=restrict, blocking=blocking)
 
+    @app.command(name="stop")
+    def stop_cmd() -> None:
+        """Stop daemon runtime."""
+        handle_stage_result(cmd_stop)()
 
-def start_command(
-    restrict: Path | None = typer.Option(  # noqa: B008
-        None, "--restrict", help="Restrict monitoring to this directory"
-    ),
-    blocking: bool = typer.Option(False, "--blocking", help="Run in foreground (blocking mode)"),
-) -> None:
-    """Start daemon runtime."""
-    handle_stage_result(cmd_start)(restrict_dir=restrict, blocking=blocking)
+    @app.command(name="clear")
+    def clear_cmd() -> None:
+        """Clear daemon logs and warnings (only if stopped)."""
+        handle_stage_result(cmd_clear)()
 
-
-def stop_command() -> None:
-    """Stop daemon runtime."""
-    handle_stage_result(cmd_stop)()
-
-
-daemon_app.command(name="status")(status_command)
-daemon_app.command(name="start")(start_command)
-
-
-def clear_command() -> None:
-    """Clear daemon logs and warnings (only if stopped)."""
-    from wks.api.daemon.cmd_clear import cmd_clear
-
-    handle_stage_result(cmd_clear)()
-
-
-# Run command removed (merged into start --blocking)
-daemon_app.command(name="stop")(stop_command)
-daemon_app.command(name="clear")(clear_command)
+    return app

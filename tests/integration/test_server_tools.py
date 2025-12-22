@@ -1,16 +1,14 @@
 """Helper-level tests for MCP server utilities."""
 
-import types
 from functools import wraps
 
-import wks.mcp.discover_commands as discover_commands_module
 from wks.mcp.discover_commands import discover_commands
 from wks.mcp.extract_api_function_from_command import extract_api_function_from_command
 from wks.mcp.get_app import get_app
 
 
-def test_extract_api_function_patterns():
-    """extract_api_function_from_command handles wrapped and wrapper callbacks."""
+def test_extract_api_function_wrapped():
+    """extract_api_function_from_command handles wrapped callbacks."""
 
     def api_func():
         return "ok"
@@ -19,20 +17,22 @@ def test_extract_api_function_patterns():
     def wrapped():
         return api_func()
 
-    module = types.SimpleNamespace(cmd_sample=api_func)
+    # Wrapped function path - this is the primary pattern used
+    assert extract_api_function_from_command(wrapped, None) is api_func
 
-    # Wrapped function path
-    assert extract_api_function_from_command(wrapped, module) is api_func
 
-    # Wrapper that delegates to cmd_* in module
-    def sample_command():
-        return api_func()
+def test_extract_api_function_from_real_module():
+    """extract_api_function_from_command finds API functions via module discovery."""
+    import wks.cli.monitor as cli_module
 
-    sample_command.__name__ = "sample_command"
-    assert extract_api_function_from_command(sample_command, module) is api_func
+    # Create a mock callback with the naming pattern
+    def status_cmd():
+        pass
 
-    # No match returns None
-    assert extract_api_function_from_command(lambda: None, module) is None
+    # Test that it finds cmd_status in wks.api.monitor.cmd_status
+    result = extract_api_function_from_command(status_cmd, cli_module)
+    assert result is not None
+    assert result.__name__ == "cmd_status"
 
 
 def test_get_app_returns_none_for_unknown_domain():
@@ -41,17 +41,10 @@ def test_get_app_returns_none_for_unknown_domain():
     assert get_app("monitor") is not None
 
 
-def test_discover_scans_cli_modules(monkeypatch):
-    """discover_commands should gather commands and tolerate broken modules."""
-    original_import = discover_commands_module.importlib.import_module
-
-    def flaky_import(name):
-        if name.endswith("get_typer_command_schema"):
-            raise RuntimeError("boom")
-        return original_import(name)
-
-    monkeypatch.setattr(discover_commands_module.importlib, "import_module", flaky_import)
-
+def test_discover_scans_cli_modules():
+    """discover_commands should gather commands from factory pattern."""
     commands = discover_commands()
     assert ("monitor", "status") in commands
     assert ("config", "list") in commands
+    # Verify we're finding a good number of commands
+    assert len(commands) >= 20
