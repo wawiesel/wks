@@ -56,9 +56,9 @@ def handle_stage_result(func: F) -> F:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        from wks.utils.display.context import get_display
+        from wks.utils.display.context import display_context
 
-        display = get_display("cli")
+        display = display_context.get_display("cli")
         display_format = _extract_display_format()
 
         _run_single_execution(func, args, kwargs, display, display_format)
