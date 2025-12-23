@@ -8,7 +8,7 @@ from wks.utils.expand_paths import expand_paths
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
-from ..vault._obsidian._LinkResolver import _LinkResolver
+from ..vault._obsidian.LinkResolver import LinkResolver
 from ..vault.Vault import Vault
 from . import LinkSyncOutput
 from ._sync_single_file import _sync_single_file
@@ -78,7 +78,7 @@ def cmd_sync(
         vault_root = None
         try:
             with Vault(vault_cfg) as vault:
-                resolver = _LinkResolver(vault.vault_path, vault.links_dir)
+                resolver = LinkResolver(vault.vault_path, vault.links_dir)
                 vault_root = vault.vault_path
         except Exception:
             pass  # No vault configured

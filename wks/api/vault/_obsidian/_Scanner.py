@@ -18,9 +18,12 @@ from .._constants import (
     MAX_LINE_PREVIEW,
     STATUS_OK,
 )
-from ._Data import _EdgeRecord, _ScanStats
-from ._LinkResolver import _LinkResolver
-from ._MarkdownParser import extract_headings, parse_markdown_urls, parse_wikilinks
+from .EdgeRecord import EdgeRecord
+from .extract_headings import extract_headings
+from .LinkResolver import LinkResolver
+from .parse_markdown_urls import parse_markdown_urls
+from .parse_wikilinks import parse_wikilinks
+from .ScanStats import ScanStats
 
 
 class _Scanner:
@@ -28,7 +31,7 @@ class _Scanner:
 
     def __init__(self, vault: _AbstractBackend):
         self.vault = vault
-        self.link_resolver = _LinkResolver(vault.vault_path, vault.links_dir)
+        self.link_resolver = LinkResolver(vault.vault_path, vault.links_dir)
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []
 
     def _note_to_uri(self, note_path: Path) -> str:
@@ -42,9 +45,9 @@ class _Scanner:
 
             return path_to_uri(note_path)
 
-    def scan(self, files: list[Path] | None = None) -> list[_EdgeRecord]:
+    def scan(self, files: list[Path] | None = None) -> list[EdgeRecord]:
         """Scan vault for links."""
-        records: list[_EdgeRecord] = []
+        records: list[EdgeRecord] = []
         self._errors: list[str] = []
         self._notes_scanned = 0
         self._scanned_file_paths: set[str] = set()
@@ -75,7 +78,7 @@ class _Scanner:
 
         self._apply_file_url_rewrites()
 
-        self._stats = _ScanStats(
+        self._stats = ScanStats(
             notes_scanned=self._notes_scanned,
             edge_total=len(records),
             type_counts=dict(self._ensure_type_keys(self._type_counts)),
@@ -104,7 +107,7 @@ class _Scanner:
                 self._errors.append(f"Failed to rewrite {note_path}: {exc}")
 
     @property
-    def stats(self) -> _ScanStats:
+    def stats(self) -> ScanStats:
         return self._stats
 
     @staticmethod
@@ -113,9 +116,9 @@ class _Scanner:
             counter.setdefault(key, 0)
         return counter
 
-    def _parse_note(self, note_path: Path, text: str) -> list[_EdgeRecord]:
+    def _parse_note(self, note_path: Path, text: str) -> list[EdgeRecord]:
         """Parse all links from a markdown note."""
-        records: list[_EdgeRecord] = []
+        records: list[EdgeRecord] = []
         headings = extract_headings(text)
         lines = text.splitlines()
 
@@ -149,7 +152,7 @@ class _Scanner:
 
         return records
 
-    def _record_counts(self, record: _EdgeRecord) -> None:
+    def _record_counts(self, record: EdgeRecord) -> None:
         self._type_counts[record.link_type] += 1
         self._status_counts[record.status] += 1
 
@@ -173,10 +176,10 @@ class _Scanner:
         alias: str,
         is_embed: bool,
         raw_target: str,
-    ) -> _EdgeRecord:
+    ) -> EdgeRecord:
         note_rel = self._note_path(note_path)
         metadata = self.link_resolver.resolve(target)
-        return _EdgeRecord(
+        return EdgeRecord(
             note_path=note_rel,
             from_uri=self._note_to_uri(note_path),
             line_number=line_number,
@@ -237,14 +240,14 @@ class _Scanner:
         heading: str,
         url: str,
         alias: str,
-    ) -> _EdgeRecord:
+    ) -> EdgeRecord:
         note_rel = self._note_path(note_path)
 
         if url.startswith("file://"):
             symlink_target = self._convert_file_url_to_symlink(url, note_path, line_number, alias)
             if symlink_target:
                 metadata = self.link_resolver.resolve(symlink_target)
-                return _EdgeRecord(
+                return EdgeRecord(
                     note_path=note_rel,
                     from_uri=self._note_to_uri(note_path),
                     line_number=line_number,
@@ -258,7 +261,7 @@ class _Scanner:
                     status=metadata.status,
                 )
 
-        return _EdgeRecord(
+        return EdgeRecord(
             note_path=note_rel,
             from_uri=self._note_to_uri(note_path),
             line_number=line_number,

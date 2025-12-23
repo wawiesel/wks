@@ -4,8 +4,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .config import DiffConfig
-from .engines import get_engine
+from .DiffConfig import DiffConfig
+from .get_engine import get_engine
 
 
 class DiffController:

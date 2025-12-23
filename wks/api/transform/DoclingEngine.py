@@ -1,53 +1,11 @@
-"""Transform engines for converting binary to text."""
+"""Docling transform engine (UNO: single class)."""
 
-import hashlib
 import subprocess
 import tempfile
-from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-
-class TransformEngine(ABC):
-    """Base class for transform engines."""
-
-    @abstractmethod
-    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:
-        """Transform file from input to output.
-
-        Args:
-            input_path: Source file path
-            output_path: Destination file path
-            options: Engine-specific options
-
-        Raises:
-            RuntimeError: If transform fails
-        """
-        pass
-
-    @abstractmethod
-    def get_extension(self, options: dict[str, Any]) -> str:
-        """Get output file extension for this engine.
-
-        Args:
-            options: Engine-specific options
-
-        Returns:
-            File extension (e.g., "md", "txt")
-        """
-        pass
-
-    def compute_options_hash(self, options: dict[str, Any]) -> str:
-        """Compute hash of options for cache key.
-
-        Args:
-            options: Engine-specific options
-
-        Returns:
-            SHA-256 hash of options
-        """
-        options_str = str(sorted(options.items()))
-        return hashlib.sha256(options_str.encode()).hexdigest()[:16]
+from .TransformEngine import TransformEngine
 
 
 class DoclingEngine(TransformEngine):
@@ -107,35 +65,3 @@ class DoclingEngine(TransformEngine):
             File extension from options or default "md"
         """
         return options.get("write_extension", "md")
-
-
-class TestEngine(TransformEngine):
-    """Test engine that copies content."""
-
-    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:  # noqa: ARG002
-        """Copy input to output."""
-        content = input_path.read_text()
-        output_path.write_text(f"Transformed: {content}")
-
-    def get_extension(self, options: dict[str, Any]) -> str:  # noqa: ARG002
-        """Get extension."""
-        return "md"
-
-
-# Registry of available engines
-ENGINES: dict[str, TransformEngine] = {
-    "docling": DoclingEngine(),
-    "test": TestEngine(),
-}
-
-
-def get_engine(name: str) -> TransformEngine | None:
-    """Get transform engine by name.
-
-    Args:
-        name: Engine name (e.g., "docling")
-
-    Returns:
-        Engine instance or None if not found
-    """
-    return ENGINES.get(name)

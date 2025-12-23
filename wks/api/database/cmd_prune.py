@@ -4,7 +4,6 @@ CLI: wksc database prune <database>
 MCP: wksm_database_prune
 """
 
-import socket
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -14,18 +13,8 @@ import requests  # type: ignore
 from ...utils.uri_to_path import uri_to_path
 from ..StageResult import StageResult
 from . import DatabasePruneOutput
+from ._has_internet import _has_internet
 from .Database import Database
-
-
-def _has_internet(host: str = "8.8.8.8", port: int = 53, timeout: int = 3) -> bool:
-    """Check for internet connectivity."""
-    try:
-        socket.setdefaulttimeout(timeout)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((host, port))
-        return True
-    except OSError:
-        return False
 
 
 def cmd_prune(database: str, remote: bool = False) -> StageResult:

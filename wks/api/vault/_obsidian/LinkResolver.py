@@ -1,11 +1,6 @@
-"""Link resolution strategies for different target types."""
-
-from __future__ import annotations
-
-__all__ = ["_LinkMetadata", "_LinkResolver"]
+"""Link resolver (UNO: single class)."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 
 from .._constants import (
@@ -13,28 +8,10 @@ from .._constants import (
     STATUS_MISSING_TARGET,
     STATUS_OK,
 )
+from .LinkMetadata import LinkMetadata
 
 
-@dataclass(frozen=True)
-class _LinkMetadata:
-    """Metadata about a resolved link target.
-
-    URI-first design: target_uri is the canonical identifier.
-    Filesystem paths and target_kind can be derived from target_uri and other fields.
-    """
-
-    target_uri: str
-    status: str
-
-    def to_dict(self) -> dict[str, object]:
-        """Convert to dictionary for backward compatibility."""
-        return {
-            "target_uri": self.target_uri,
-            "status": self.status,
-        }
-
-
-class _LinkResolver:
+class LinkResolver:
     """Resolves different types of Obsidian wiki links."""
 
     def __init__(self, vault_path: Path, links_dir: Path):
@@ -46,20 +23,20 @@ class _LinkResolver:
         """
         self.vault_path = vault_path
         self.links_dir = links_dir
-        self.resolvers: list[tuple[Callable[[str], bool], Callable[[str], _LinkMetadata]]] = [
+        self.resolvers: list[tuple[Callable[[str], bool], Callable[[str], LinkMetadata]]] = [
             (self._is_symlink, self._resolve_symlink),
             (self._is_attachment, self._resolve_attachment),
             (self._is_external_url, self._resolve_external_url),
         ]
 
-    def resolve(self, target: str) -> _LinkMetadata:
+    def resolve(self, target: str) -> LinkMetadata:
         """Resolve a wiki link target to metadata.
 
         Args:
             target: The link target string from [[target]]
 
         Returns:
-            _LinkMetadata with target information
+            LinkMetadata with target information
         """
         target = target.strip()
         for predicate, resolver in self.resolvers:
@@ -78,7 +55,7 @@ class _LinkResolver:
         return "://" in target
 
     # Resolvers
-    def _resolve_symlink(self, target: str) -> _LinkMetadata:
+    def _resolve_symlink(self, target: str) -> LinkMetadata:
         """Resolve _links/ symlink target.
 
         Returns file:// URI for resolved symlink target, or vault:// fallback if missing.
@@ -110,29 +87,29 @@ class _LinkResolver:
             # Fallback to absolute file path string if URI conversion fails
             target_uri = f"file://{resolved}"
 
-        return _LinkMetadata(
+        return LinkMetadata(
             target_uri=target_uri,
             status=status,
         )
 
-    def _resolve_attachment(self, target: str) -> _LinkMetadata:
+    def _resolve_attachment(self, target: str) -> LinkMetadata:
         """Resolve vault attachment (files starting with _)."""
         abs_path = self.vault_path / target
         # Vault attachments use vault:/// URI
         target_uri = f"vault:///{target}"
-        return _LinkMetadata(
+        return LinkMetadata(
             target_uri=target_uri,
             status=STATUS_OK if abs_path.exists() else STATUS_MISSING_TARGET,
         )
 
-    def _resolve_external_url(self, target: str) -> _LinkMetadata:
+    def _resolve_external_url(self, target: str) -> LinkMetadata:
         """Resolve external URL (contains ://)."""
-        return _LinkMetadata(
+        return LinkMetadata(
             target_uri=target,
             status=STATUS_OK,
         )
 
-    def _resolve_vault_note(self, target: str, status: str = STATUS_OK) -> _LinkMetadata:
+    def _resolve_vault_note(self, target: str, status: str = STATUS_OK) -> LinkMetadata:
         """Resolve as vault note (default case) using vault:/// URI."""
         # Append .md if not present and doesn't look like a file with extension
         note_target = target
@@ -147,7 +124,7 @@ class _LinkResolver:
 
         # Use vault:/// relative URI
         target_uri = f"vault:///{note_target}"
-        return _LinkMetadata(
+        return LinkMetadata(
             target_uri=target_uri,
             status=target_status,
         )

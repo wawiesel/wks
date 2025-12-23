@@ -10,11 +10,7 @@ Per vault specification:
 
 from pathlib import Path
 
-
-class VaultPathError(Exception):
-    """Error resolving vault path."""
-
-    pass
+from .VaultPathError import VaultPathError
 
 
 def resolve_vault_path(

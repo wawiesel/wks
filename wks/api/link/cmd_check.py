@@ -10,7 +10,7 @@ from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ..StageResult import StageResult
-from ..vault._obsidian._LinkResolver import _LinkResolver
+from ..vault._obsidian.LinkResolver import LinkResolver
 from ..vault.Vault import Vault
 from . import LinkCheckOutput
 
@@ -78,7 +78,7 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
             vault_root = None
             try:
                 with Vault(vault_cfg) as vault:
-                    resolver = _LinkResolver(vault.vault_path, vault.links_dir)
+                    resolver = LinkResolver(vault.vault_path, vault.links_dir)
                     vault_root = vault.vault_path
             except Exception:
                 pass  # Vault might not be configured or file is outside vault

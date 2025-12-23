@@ -1,124 +1,10 @@
-"""Transform configuration dataclass with validation."""
-
-from __future__ import annotations
-
-__all__ = ["CacheConfig", "EngineConfig", "TransformConfig", "TransformConfigError"]
+"""Transform configuration root model (UNO: single model)."""
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
 
-
-class TransformConfigError(Exception):
-    """Raised when transform configuration is invalid."""
-
-    def __init__(self, errors: list[str]):
-        if isinstance(errors, str):
-            errors = [errors]
-        self.errors = errors
-        message = "Transform configuration validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
-        super().__init__(message)
-
-
-@dataclass
-class CacheConfig:
-    """Cache configuration for transformed files."""
-
-    location: str
-    max_size_bytes: int
-
-    def _validate_cache_location(self) -> list[str]:
-        """Validate cache location is a non-empty string or Path."""
-        errors: list[str] = []
-
-        if not isinstance(self.location, (str, Path)) or not str(self.location):
-            errors.append(
-                f"transform.cache.location must be a non-empty string or Path "
-                f"(found: {type(self.location).__name__} = {self.location!r}, "
-                f"expected: path string like '.wks/transform/cache')"
-            )
-
-        return errors
-
-    def _validate_max_size(self) -> list[str]:
-        """Validate max_size_bytes is a positive integer."""
-        errors: list[str] = []
-
-        if not isinstance(self.max_size_bytes, int) or self.max_size_bytes <= 0:
-            errors.append(
-                f"transform.cache.max_size_bytes must be a positive integer "
-                f"(found: {type(self.max_size_bytes).__name__} = {self.max_size_bytes!r}, "
-                f"expected: integer > 0 like 1073741824)"
-            )
-
-        return errors
-
-    def __post_init__(self):
-        """Validate cache configuration after initialization."""
-        errors: list[str] = []
-        errors.extend(self._validate_cache_location())
-        errors.extend(self._validate_max_size())
-
-        if errors:
-            raise TransformConfigError(errors)
-
-
-@dataclass
-class EngineConfig:
-    """Engine-specific configuration."""
-
-    name: str
-    enabled: bool
-    options: dict[str, Any]
-
-    def _validate_name(self) -> list[str]:
-        """Validate engine name is a non-empty string."""
-        errors: list[str] = []
-
-        if not isinstance(self.name, str) or not self.name:
-            errors.append(
-                f"engine name must be a non-empty string "
-                f"(found: {type(self.name).__name__} = {self.name!r}, "
-                f"expected: string like 'docling')"
-            )
-
-        return errors
-
-    def _validate_enabled(self) -> list[str]:
-        """Validate enabled is a boolean."""
-        errors: list[str] = []
-
-        if not isinstance(self.enabled, bool):
-            errors.append(
-                f"engine '{self.name}' enabled must be a boolean "
-                f"(found: {type(self.enabled).__name__} = {self.enabled!r}, "
-                f"expected: true or false)"
-            )
-
-        return errors
-
-    def _validate_options(self) -> list[str]:
-        """Validate options is a dictionary."""
-        errors: list[str] = []
-
-        if not isinstance(self.options, dict):
-            errors.append(
-                f"engine '{self.name}' options must be a dict "
-                f"(found: {type(self.options).__name__} = {self.options!r}, "
-                f"expected: dict)"
-            )
-
-        return errors
-
-    def __post_init__(self):
-        """Validate engine configuration after initialization."""
-        errors: list[str] = []
-        errors.extend(self._validate_name())
-        errors.extend(self._validate_enabled())
-        errors.extend(self._validate_options())
-
-        if errors:
-            raise TransformConfigError(errors)
+from .CacheConfig import CacheConfig
+from .EngineConfig import EngineConfig
+from .TransformConfigError import TransformConfigError
 
 
 @dataclass
@@ -180,7 +66,7 @@ class TransformConfig:
             raise TransformConfigError(errors)
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> TransformConfig:
+    def from_config_dict(cls, config: dict) -> "TransformConfig":
         """Load transform config from config dict.
 
         Args:

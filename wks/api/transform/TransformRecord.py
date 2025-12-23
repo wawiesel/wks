@@ -1,7 +1,6 @@
-"""Transform database models and schemas."""
+"""Transform record model (UNO: single model)."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 
 @dataclass
@@ -43,8 +42,3 @@ class TransformRecord:
             "options_hash": self.options_hash,
             "cache_location": self.cache_location,
         }
-
-
-def now_iso() -> str:
-    """Get current time as ISO timestamp."""
-    return datetime.now(timezone.utc).isoformat()
