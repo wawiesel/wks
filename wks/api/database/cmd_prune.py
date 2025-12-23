@@ -9,7 +9,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-import requests
+import requests  # type: ignore
 
 from ...utils.uri_to_path import uri_to_path
 from ..StageResult import StageResult

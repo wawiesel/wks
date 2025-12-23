@@ -35,7 +35,7 @@ def test_is_mcp_context_piped_stdout(monkeypatch):
     try:
         assert display_context.is_mcp_context() is True
     finally:
-        sys.stdout.isatty = original_isatty
+        sys.stdout.isatty = original_isatty  # type: ignore[assignment]
 
 
 def test_is_mcp_context_false_with_terminal(monkeypatch):

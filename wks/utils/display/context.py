@@ -2,10 +2,10 @@
 
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Literal, Mapping
+from typing import Literal
 
 from .Display import Display
 
