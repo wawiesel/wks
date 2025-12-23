@@ -1,4 +1,4 @@
-"""Locate the Typer app for a domain (UNO: single function)."""
+"""Locate the Typer app for a domain."""
 
 import importlib
 from typing import Any
