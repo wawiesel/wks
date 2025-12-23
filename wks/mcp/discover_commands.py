@@ -1,4 +1,4 @@
-"""Discover Typer command callbacks and their underlying API functions (UNO: single function)."""
+"""Discover Typer command callbacks and their underlying API functions."""
 
 import importlib
 from collections.abc import Callable

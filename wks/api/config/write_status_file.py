@@ -1,4 +1,4 @@
-"""Write status to a JSON file (UNO: single function)."""
+"""Write status to a JSON file."""
 
 import json
 import tempfile

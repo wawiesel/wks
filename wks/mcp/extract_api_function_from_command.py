@@ -1,4 +1,4 @@
-"""Extract the underlying API function from a Typer command callback (UNO: single function)."""
+"""Extract the underlying API function from a Typer command callback."""
 
 import importlib
 from collections.abc import Callable
