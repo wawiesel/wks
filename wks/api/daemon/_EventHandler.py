@@ -1,4 +1,4 @@
-"""Filesystem event handler for daemon (UNO: single class)."""
+"""Filesystem event handler for daemon."""
 
 import threading
 
