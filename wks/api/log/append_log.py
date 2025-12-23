@@ -10,10 +10,14 @@ def append_log(log_path: Path, domain: str, level: str, message: str) -> None:
         domain: Domain name (e.g., 'daemon', 'monitor', 'vault')
         level: Log level (DEBUG, INFO, WARN, ERROR)
         message: Log message
+
+    Note:
+        Silently ignores file I/O errors - logging must not crash the application.
     """
     timestamp = datetime.now(timezone.utc).isoformat()
     try:
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(f"[{timestamp}] [{domain}] {level}: {message}\n")
-    except Exception:
-        pass  # Logging should never raise
+    except OSError:
+        # File I/O errors are silently ignored - logging must not crash the application
+        pass

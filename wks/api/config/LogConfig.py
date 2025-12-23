@@ -1,4 +1,4 @@
-"""Log configuration (UNO: single model)."""
+"""Log configuration."""
 
 from typing import Literal
 

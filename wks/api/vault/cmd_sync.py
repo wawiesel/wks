@@ -131,12 +131,9 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                     # If it's a directory, ensure trailing slash for regex matching of children
                     scope_prefix += "/"
 
-                try:
-                    # Collect confirmed URIs (as file URIs)
-                    for f in files:
-                        processed_uris.add(path_to_uri(f))
-                except Exception:
-                    pass
+                # Collect confirmed URIs (as file URIs)
+                for f in files:
+                    processed_uris.add(path_to_uri(f))
 
                 # Database operations
                 from wks.api.database.Database import Database

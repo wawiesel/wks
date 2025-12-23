@@ -6,7 +6,12 @@ from typing import Any
 
 
 def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
-    """Read daemon.json file and extract warnings/errors/pid."""
+    """Read daemon.json file and extract warnings/errors/pid.
+
+    Returns:
+        Dict with 'warnings', 'errors', and optionally 'pid'.
+        If file cannot be read or parsed, adds error to 'errors' list.
+    """
     result: dict[str, Any] = {"warnings": [], "errors": []}
     if daemon_file.exists():
         try:
@@ -15,6 +20,8 @@ def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
             result["errors"] = daemon_data.get("errors", [])
             if "pid" in daemon_data:
                 result["pid"] = daemon_data["pid"]
-        except Exception:
-            pass
+        except json.JSONDecodeError as e:
+            result["errors"].append(f"Failed to parse daemon file {daemon_file}: {e}")
+        except OSError as e:
+            result["errors"].append(f"Failed to read daemon file {daemon_file}: {e}")
     return result

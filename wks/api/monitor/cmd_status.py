@@ -28,10 +28,11 @@ def cmd_status() -> StageResult:
         time_based_counts: dict[str, int],
         last_sync: str | None,
         wks_home: Path,
+        errors: list[str] | None = None,
     ) -> None:
         """Helper to build and assign the output result."""
         output = MonitorStatusOutput(
-            errors=[],
+            errors=errors or [],
             warnings=[],
             database=database,
             tracked_files=tracked_files,
@@ -65,6 +66,7 @@ def cmd_status() -> StageResult:
         time_based_counts: dict[str, int] = {}
         last_sync: str | None = None
 
+        errors: list[str] = []
         try:
             with Database(config.database, database_name) as database:
                 # Exclude meta document from file count
@@ -111,19 +113,19 @@ def cmd_status() -> StageResult:
                 one_year_ago = (now - timedelta(days=365)).isoformat()
                 time_based_counts[">1 year"] = database.count_documents({"timestamp": {"$lt": one_year_ago}})
 
-        except Exception:
-            total_files = 0
-            time_based_counts = {}
+        except Exception as e:
+            errors.append(f"Database error: {e}")
 
         # Only include status-specific data (not config that can be retrieved elsewhere)
         yield (1.0, "Complete")
 
         issues: list[str] = []
-        message = "Monitor status retrieved"
+        success = len(errors) == 0
+        message = "Monitor status retrieved" if success else f"Monitor status retrieved with {len(errors)} error(s)"
 
         _build_result(
             result_obj,
-            success=True,
+            success=success,
             message=message,
             database=database_name,
             tracked_files=total_files,
@@ -131,6 +133,7 @@ def cmd_status() -> StageResult:
             time_based_counts=time_based_counts,
             last_sync=last_sync,
             wks_home=wks_home,
+            errors=errors,
         )
 
     return StageResult(

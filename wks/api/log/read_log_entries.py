@@ -70,7 +70,8 @@ def read_log_entries(
 
         # Write back non-expired entries (prune-on-access)
         log_path.write_text("\n".join(kept_lines) + "\n" if kept_lines else "", encoding="utf-8")
-    except Exception:
-        pass
+    except OSError as e:
+        # Report log file access errors as warnings (non-fatal for reading)
+        warnings.append(f"Log file access error during prune: {e}")
 
     return warnings, errors
