@@ -69,8 +69,8 @@ def cmd_status() -> StageResult:
         errors: list[str] = []
         try:
             with Database(config.database, database_name) as database:
-                # Exclude meta document from file count
-                total_files = database.count_documents({"_id": {"$ne": "__meta__"}})
+                # Exclude meta document from file count (robustly)
+                total_files = database.count_documents({"local_uri": {"$exists": True}})
 
                 # Get last sync timestamp from meta document
                 meta = database.find_one({"_id": "__meta__"})
