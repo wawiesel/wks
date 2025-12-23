@@ -5,11 +5,9 @@ import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Literal
 
 from .Display import Display
-
-DisplayMode = Literal["cli", "mcp"]
+from .DisplayMode import DisplayMode
 
 
 @dataclass(frozen=True)
@@ -69,6 +67,3 @@ class DisplayContext:
             default=default_mode,
             help=f"Output display format (default: {default_mode}, auto-detected)",
         )
-
-
-display_context = DisplayContext()

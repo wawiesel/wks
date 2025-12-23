@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from wks.cli.display import CLIDisplay
-from wks.utils.display.context import display_context
+from wks.utils.display.display_context import display_context
 
 
 def test_get_display_returns_cli_for_all_modes():
