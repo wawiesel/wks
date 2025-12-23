@@ -1,12 +1,46 @@
 """Decorator to handle StageResult for CLI display."""
 
+from __future__ import annotations
+
 import functools
 from collections.abc import Callable
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from ._run_single_execution import _run_single_execution
 
+if TYPE_CHECKING:
+    import click
+
 F = TypeVar("F", bound=Callable)
+
+
+def _extract_display_format() -> str:
+    """Get the display format from the active Typer/Click context.
+
+    Returns:
+        The display format specified in the CLI context.
+
+    Raises:
+        RuntimeError: If no context is available or the flag was never set.
+        ValueError: If an invalid display format value is encountered.
+    """
+    import click
+
+    context: click.Context | None = click.get_current_context(silent=True)
+    if context is None:
+        raise RuntimeError("Display format unavailable: Typer context is missing")
+
+    current: click.Context | None = context
+    while current is not None:
+        obj = current.obj
+        if isinstance(obj, dict) and "display_format" in obj:
+            value = obj["display_format"]
+            if value in ("json", "yaml"):
+                return value
+            raise ValueError(f"Invalid display_format value: {value!r}")
+        current = current.parent
+
+    raise RuntimeError("Display format not set in the Typer context chain")
 
 
 def handle_stage_result(func: F) -> F:
@@ -27,29 +61,15 @@ def handle_stage_result(func: F) -> F:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        import click
+        from wks.utils.display.context import display_context
 
-        from wks.utils.display.context import get_display
+        display = display_context.get_display("cli")
 
-        display = get_display("cli")
-
-        # Get display format from Click/Typer context (json or yaml)
-        # Walk up context tree to find display_format set by main_callback
-        display_format = "yaml"  # default
         try:
-            ctx = click.get_current_context(silent=True)
-            while ctx:
-                if hasattr(ctx, "obj") and ctx.obj and isinstance(ctx.obj, dict):
-                    format_val = ctx.obj.get("display_format")
-                    # If found and valid, use it and stop
-                    if format_val in ("json", "yaml"):
-                        display_format = format_val
-                        break
-                # Continue to parent context if not found
-                ctx = getattr(ctx, "parent", None)
-        except RuntimeError:
-            # RuntimeError raised when no context is active - use default format
-            pass
+            display_format = _extract_display_format()
+        except (RuntimeError, ValueError):
+            # Default to yaml if context missing or format invalid
+            display_format = "yaml"
 
         _run_single_execution(func, args, kwargs, display, display_format)
 
