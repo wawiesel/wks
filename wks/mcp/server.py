@@ -28,7 +28,6 @@ class MCPServer:
         ]
 
     @staticmethod
-    @staticmethod
     def _find_command_in_app(app: Any, cmd_name: str) -> tuple[Any, Any, str] | None:
         """Find command in app's registered commands."""
         for cmd in app.registered_commands:

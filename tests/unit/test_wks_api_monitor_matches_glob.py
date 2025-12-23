@@ -47,8 +47,8 @@ def test_matches_glob_empty_pattern(tmp_path):
     assert allowed is True
 
 
-def test_matches_glob_exception_handling(monkeypatch):
-    """Test exception handling in matches_glob."""
+def test_matches_glob_exception_propagates(monkeypatch):
+    """Test that exceptions in matches_glob propagate (fail fast)."""
 
     # Mock fnmatchcase to raise an exception
     def mock_fnmatchcase(*args, **kwargs):
@@ -57,8 +57,9 @@ def test_matches_glob_exception_handling(monkeypatch):
     monkeypatch.setattr("fnmatch.fnmatchcase", mock_fnmatchcase)
 
     path = Path("/tmp/test.txt")
-    # Should catch the exception and continue/return False
-    assert not matches_glob(["*.txt"], path)
+    # Exception should propagate - no silent failure (fail fast principle)
+    with pytest.raises(ValueError, match="Simulated glob error"):
+        matches_glob(["*.txt"], path)
 
 
 def test_matches_glob_empty_pattern_in_list():

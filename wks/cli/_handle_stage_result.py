@@ -47,7 +47,8 @@ def handle_stage_result(func: F) -> F:
                         break
                 # Continue to parent context if not found
                 ctx = getattr(ctx, "parent", None)
-        except Exception:
+        except RuntimeError:
+            # RuntimeError raised when no context is active - use default format
             pass
 
         _run_single_execution(func, args, kwargs, display, display_format)

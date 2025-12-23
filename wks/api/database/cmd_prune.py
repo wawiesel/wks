@@ -56,6 +56,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
 
         total_deleted = 0
         total_checked = 0
+        all_warnings: list[str] = []
 
         # We need to maintain state across prune operations if 'all' is used
         # But StageResult only returns one output object.
@@ -90,10 +91,9 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                                 ids_to_remove.append(doc["_id"])
                             else:
                                 valid_nodes.add(uri)
-                        except Exception:
-                            # Keep if can't parse? Or remove?
-                            # Strict: if invalid URI, maybe remove.
-                            pass
+                        except ValueError as e:
+                            # Invalid URI format - track as warning, keep document
+                            all_warnings.append(f"Invalid URI format in nodes: {uri} ({e})")
 
                 if ids_to_remove:
                     nodes_deleted = nodes_db.delete_many({"_id": {"$in": ids_to_remove}})
@@ -224,7 +224,11 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
         yield (1.0, "Complete")
 
         result_obj.output = DatabasePruneOutput(
-            errors=[], warnings=[], database=database, deleted_count=total_deleted, checked_count=total_checked
+            errors=[],
+            warnings=all_warnings,
+            database=database,
+            deleted_count=total_deleted,
+            checked_count=total_checked,
         ).model_dump(mode="python")
 
         result_obj.result = f"Pruned {database}: Checked {total_checked}, Deleted {total_deleted}"

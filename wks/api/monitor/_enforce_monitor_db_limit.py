@@ -3,8 +3,17 @@
 from ..database.Database import Database
 
 
-def _enforce_monitor_db_limit(database: Database, max_docs: int, min_priority: float) -> None:
-    """Ensure monitor database does not exceed max_docs and remove entries below min_priority."""
+def _enforce_monitor_db_limit(
+    database: Database, max_docs: int, min_priority: float, warnings: list[str] | None = None
+) -> None:
+    """Ensure monitor database does not exceed max_docs and remove entries below min_priority.
+
+    Args:
+        database: Database instance to enforce limits on
+        max_docs: Maximum number of documents to keep (0 = no limit)
+        min_priority: Minimum priority threshold (documents below are removed)
+        warnings: Optional list to append warning messages to
+    """
     try:
         # First, remove entries below min_priority
         if min_priority > 0.0:
@@ -24,6 +33,7 @@ def _enforce_monitor_db_limit(database: Database, max_docs: int, min_priority: f
         ids_to_delete = [doc["_id"] for doc in lowest_priority_docs]
         if ids_to_delete:
             database.delete_many({"_id": {"$in": ids_to_delete}})
-    except Exception:
-        # Silent on purpose: sync should not crash on enforcement issues
-        return
+    except Exception as e:
+        # Report warning but don't crash sync operation
+        if warnings is not None:
+            warnings.append(f"Database limit enforcement failed: {e}")
