@@ -24,70 +24,54 @@ except ImportError:
 from wks.utils.display.Display import Display
 
 
-class ProgressContext:
-    """Context manager for progress bars."""
-
-    def __init__(self, display: "CLIDisplay", total: int, description: str = ""):
-        self.display = display
-        self.total = total
-        self.description = description
-        self.handle: Any | None = None
-
-    def __enter__(self) -> "ProgressContext":
-        """Start progress bar."""
-        self.handle = self.display.progress_start(self.total, self.description)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Finish progress bar."""
-        if self.handle is not None:
-            self.display.progress_finish(self.handle)
-        return False
-
-    def update(self, advance: int = 1, description: str | None = None) -> None:
-        """Update progress within context.
-
-        Args:
-            advance: Number of items to advance (default: 1)
-            description: Optional new description for the progress bar
-        """
-        if self.handle is not None:
-            kwargs = {"description": description} if description else {}
-            self.display.progress_update(self.handle, advance=advance, **kwargs)
-
-
 class CLIDisplay(Display):
     """Beautiful CLI display using Rich library."""
+
+    class ProgressContext:
+        """Context manager for progress bars."""
+
+        def __init__(self, display: "CLIDisplay", total: int, description: str = ""):
+            self.display = display
+            self.total = total
+            self.description = description
+            self.handle: Any | None = None
+
+        def __enter__(self) -> "CLIDisplay.ProgressContext":
+            self.handle = self.display.progress_start(self.total, self.description)
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if self.handle is not None:
+                self.display.progress_finish(self.handle)
+            return False
+
+        def update(self, advance: int = 1, description: str | None = None) -> None:
+            if self.handle is not None:
+                kwargs = {"description": description} if description else {}
+                self.display.progress_update(self.handle, advance=advance, **kwargs)
 
     def __init__(self):
         if not RICH_AVAILABLE:
             raise ImportError("Rich library required for CLI display. Install with: pip install rich")
 
-        # Store original stdout before Rich wraps it
         self._original_stdout = sys.stdout
-        # Main console outputs to stdout (for data output)
-        # Rich automatically detects TTY and outputs plain text when piped
         self.console = Console(file=sys.stdout)
-        # stderr console for status messages
         self.stderr_console = Console(file=sys.stderr)
-        self._progress_contexts = {}  # Store Progress contexts by handle
+        self._progress_contexts = {}
 
     def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display a status message in blue (to STDERR per CLI guidelines)."""
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.stderr_console.print(f"[dim]{timestamp}[/dim] [blue]i[/blue] {message}")
 
     def success(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display a success message in green (to STDERR per CLI guidelines)."""
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.stderr_console.print(f"[dim]{timestamp}[/dim] [green]✓[/green] {message}")
 
     def error(self, message: str, **kwargs) -> None:
-        """Display an error message in red (to STDERR per CLI guidelines)."""
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -99,25 +83,21 @@ class CLIDisplay(Display):
             self.stderr_console.print(f"[dim]{timestamp}[/dim] [red]✗[/red] {message}")
 
     def warning(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display a warning message in yellow (to STDERR per CLI guidelines)."""
         self.stderr_console.print(f"[yellow]⚠[/yellow] {message}")
 
     def info(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        """Display an informational message (to STDERR per CLI guidelines)."""
         self.stderr_console.print(message)
 
     def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
-        """Display data in a rich table."""
         if not data:
             self.info("No data to display")
             return
 
         title = kwargs.get("title", "")
-        column_justify = kwargs.get("column_justify", {})  # dict[str, str] mapping header to justify
+        column_justify = kwargs.get("column_justify", {})
         show_header = kwargs.get("show_header", True)
-        width = kwargs.get("width")  # None = use full terminal width
+        width = kwargs.get("width")
 
-        # Infer headers from first row if not provided
         if headers is None:
             headers = list(data[0].keys())
 
@@ -125,7 +105,7 @@ class CLIDisplay(Display):
             title=title,
             show_header=show_header,
             header_style="bold cyan",
-            width=width,  # None = no width limit
+            width=width,
         )
 
         for header in headers:
@@ -138,32 +118,28 @@ class CLIDisplay(Display):
         self.console.print(table)
 
     def progress_start(self, total: int, description: str = "", **kwargs) -> Any:  # noqa: ARG002
-        """Start a progress bar (outputs to STDERR)."""
         progress = Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn(),
-            console=self.stderr_console,  # Progress goes to STDERR
+            console=self.stderr_console,
         )
         progress.start()
         task_id = progress.add_task(description, total=total)
 
-        # Store progress context with task_id
         handle = id(progress)
         self._progress_contexts[handle] = (progress, task_id)
 
         return handle
 
     def progress_update(self, handle: Any, advance: int = 1, **kwargs) -> None:
-        """Update progress bar."""
         if handle not in self._progress_contexts:
             return
 
         progress, task_id = self._progress_contexts[handle]
 
-        # Update description if provided
         description = kwargs.get("description")
         if description:
             progress.update(task_id, description=description, advance=advance)
@@ -171,59 +147,41 @@ class CLIDisplay(Display):
             progress.update(task_id, advance=advance)
 
     def progress_finish(self, handle: Any, **kwargs) -> None:  # noqa: ARG002
-        """Finish progress bar."""
         if handle not in self._progress_contexts:
             return
 
         progress, task_id = self._progress_contexts[handle]
-        # Ensure progress is at 100% before finishing
         task = progress.tasks[task_id]
         if task.total and task.completed < task.total:
             progress.update(task_id, completed=task.total)
         progress.stop()
         del self._progress_contexts[handle]
 
-    def progress(self, total: int, description: str = "") -> ProgressContext:
-        """Context manager for progress bars.
-
-        Usage:
-            with display.progress(total=10, description="Processing..."):
-                for i in range(10):
-                    # do work
-                    display.progress_update(handle, advance=1)
-
-        For simple operations that complete immediately:
-            with display.progress(total=1, description="Working..."):
-                result = do_work()
-        """
-        return ProgressContext(self, total, description)
+    def progress(self, total: int, description: str = "") -> "CLIDisplay.ProgressContext":
+        """Context manager for progress bars."""
+        return CLIDisplay.ProgressContext(self, total, description)
 
     def spinner_start(self, description: str = "", **kwargs) -> Any:  # noqa: ARG002
-        """Start a spinner."""
         status = self.console.status(description, spinner="dots")
         status.start()
         return status
 
     def spinner_update(self, handle: Any, description: str, **kwargs) -> None:  # noqa: ARG002
-        """Update spinner description."""
         if handle:
             handle.update(description)
 
     def spinner_finish(self, handle: Any, message: str = "", **kwargs) -> None:  # noqa: ARG002
-        """Stop spinner."""
         if handle:
             handle.stop()
         if message:
             self.info(message)
 
     def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:  # noqa: ARG002
-        """Display hierarchical data as a tree."""
         tree = Tree(title if title else "Tree")
         self._build_tree(tree, data)
         self.console.print(tree)
 
     def _build_tree(self, tree: Tree, data: Any, key: str = "") -> None:  # noqa: ARG002
-        """Recursively build tree structure."""
         if isinstance(data, dict):
             for k, v in data.items():
                 if isinstance(v, (dict, list)):
@@ -242,15 +200,6 @@ class CLIDisplay(Display):
             tree.add(str(data))
 
     def json_output(self, data: Any, **kwargs) -> None:
-        """Output JSON or YAML.
-
-        Interactive terminal: syntax highlighted output using Rich.
-        Piped/redirected: plain text output (valid JSON/YAML for parsing).
-
-        Args:
-            data: Data to output
-            format: Output format - "yaml" or "json"
-        """
         import json
         import sys
 
@@ -265,8 +214,6 @@ class CLIDisplay(Display):
 
             yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
             if sys.stdout.isatty():
-                # Print with syntax highlighting using pygments directly
-                # This avoids Rich's width management while keeping colors
                 try:
                     from pygments import highlight
                     from pygments.formatters import Terminal256Formatter
@@ -277,13 +224,10 @@ class CLIDisplay(Display):
                 except ImportError:
                     print(yaml_str, end="")
             else:
-                # Piped/redirected: plain text
                 print(yaml_str, end="")
         else:
             json_str = json.dumps(data, indent=indent, ensure_ascii=False)
             if sys.stdout.isatty():
-                # Print with syntax highlighting using pygments directly
-                # This avoids Rich's width management while keeping colors
                 try:
                     from pygments import highlight
                     from pygments.formatters import Terminal256Formatter
@@ -294,11 +238,9 @@ class CLIDisplay(Display):
                 except ImportError:
                     print(json_str, file=sys.stdout)
             else:
-                # Piped/redirected: plain text
                 print(json_str, file=sys.stdout)
 
     def panel(self, content: Any, title: str = "", **kwargs) -> None:
-        """Display content in a panel."""
         panel_kwargs = dict(kwargs)
         border_style = panel_kwargs.pop("border_style", "blue")
         panel = Panel(

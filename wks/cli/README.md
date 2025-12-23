@@ -1,36 +1,68 @@
 # CLI Layer
 
-The CLI layer (`wks/cli/__init__.py`) is a thin router that delegates all commands to domain-specific Typer apps in `wks/api/{domain}/app.py`.
+The CLI layer uses **factory functions** to create Typer apps for each domain.
 
-## Architecture
+## Factory Pattern
 
-All commands are handled by domain-specific Typer apps:
-- `wks/api/monitor/app.py` - Monitor commands
-- `wks/api/vault/app.py` - Vault commands
-- `wks/api/transform/app.py` - Transform commands
-- `wks/api/diff/app.py` - Diff commands
-- `wks/api/service/app.py` - Service commands
-- `wks/api/config/app.py` - Config commands
-- `wks/api/database/app.py` - Database commands
+Each CLI domain module exports a single factory function matching its filename:
 
-Each domain app implements the unified 4-stage pattern for both CLI and MCP:
-1. Functions return `StageResult` with 4-stage data (announce, progress, result, output)
-2. Wrapper handles 4-stage pattern for CLI display
-3. MCP server extracts data from `StageResult` for protocol responses
+| File | Factory | Description |
+|------|---------|-------------|
+| `config.py` | `config()` | Configuration operations |
+| `daemon.py` | `daemon()` | Daemon runtime management |
+| `database.py` | `database()` | Database operations |
+| `link.py` | `link()` | Link/edge management |
+| `log.py` | `log()` | Log management |
+| `mcp.py` | `mcp()` | MCP installation |
+| `monitor.py` | `monitor()` | File monitoring |
+| `service.py` | `service()` | System service |
+| `vault.py` | `vault()` | Vault operations |
 
-## Structure
+## Uniformity Rules
 
-The main CLI file (`wks/cli/__init__.py`) contains:
-- **Domain app registration**: All domain Typer apps are registered as subcommands
-- **Infrastructure commands**: MCP server operations (`wksc mcp`)
-- **Flag handlers**: Version and display flag handling
-- **Main entry point**: Routes to appropriate domain apps
+All CLI files follow these patterns:
 
-## Adding New Commands
+### Imports
+- All imports at module level (no inline imports inside functions)
+- Import order: stdlib → typer → API cmd_* functions → handle_stage_result
 
-To add a new command:
-1. Create the API function in `wks/api/{domain}/{command}.py` that returns `StageResult`
-2. Register it in `wks/api/{domain}/app.py` using the `handle_stage_result` wrapper from `wks.api.handle_stage_result`
-3. The CLI automatically picks it up through the domain app registration
+### App Creation
+```python
+app = typer.Typer(
+    name="{domain}",
+    help="{Description}",
+    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+    invoke_without_command=True,
+)
+```
 
-No business logic should be added to the CLI layer - it's purely a router.
+### Callback
+```python
+@app.callback(invoke_without_command=True)
+def callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help(), err=True)
+        raise typer.Exit()
+```
+
+### Commands
+- Use `typer.Argument(...)` (required) to avoid manual None checks
+- Use `typer.Argument(None)` only when the argument is truly optional
+- Simple commands: just call `handle_stage_result(cmd_*)()`
+
+## Why This Pattern?
+
+1. **UNO Compliance** - One file, one public function
+2. **Thin Router** - No business logic, just wiring to API
+3. **Testability** - Fresh app instances per test
+4. **Encapsulation** - Callbacks are function-scoped
+
+## Adding Commands
+
+1. Create `wks/api/{domain}/cmd_{name}.py` returning `StageResult`
+2. Import at top of `wks/cli/{domain}.py`
+3. Add command using `handle_stage_result(cmd_*)()`
+
+No business logic in CLI - it's purely a router.
