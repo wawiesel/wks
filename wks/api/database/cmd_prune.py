@@ -80,9 +80,9 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                                 ids_to_remove.append(doc["_id"])
                             else:
                                 valid_nodes.add(uri)
-                        except ValueError as e:
-                            # Invalid URI format - track as warning, keep document
-                            all_warnings.append(f"Invalid URI format in nodes: {uri} ({e})")
+                        except OSError as e:
+                            # Filesystem error - track as warning, keep document
+                            all_warnings.append(f"Filesystem error for {uri}: {e}")
 
                 if ids_to_remove:
                     nodes_deleted = nodes_db.delete_many({"_id": {"$in": ids_to_remove}})
