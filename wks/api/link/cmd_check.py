@@ -49,6 +49,7 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
         }
     )
 
+
 # Accessing private module as we reuse the logic
 
 
@@ -94,8 +95,8 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
             # Parse links
             link_refs = parser_instance.parse(text)
 
-            # Resolve links
-            links_out = []
+            # Yield link results
+            links_out: list[dict[str, Any]] = []
             # We need a resolver for WikiLinks (fuzzy matching)
             # Basic URLs (http/file) we can resolve directly
             # Ideally resolver should be decoupled from Vault too, but for now we reuse it if it's a vault path

@@ -63,3 +63,11 @@ If you are an AI agent doing coding, here is some help for you. For **all contri
 *   If a single file is more than 900 lines, break it up. This includes tests.
 *   Use a logger for all informational/debug and warning/error conditions. Output the informational debug content to logs only. In MCP mode, send warning/errors in the returned JSON packet. In CLI mode, emit warnings/errors to STDERR. Information/debug should not be emitted to CLI (only logs). CLI STDOUT should always just be the expected content. If the error is so bad no content can be rendered, then STDOUT should be empty.
 *   Every CLI command needs to do 4 things: 1) immediately say what you are doing on STDERR, 2) on STDERR start a progress bar for doing it, 3) on STDERR say what you did and if there were problems, 4) display the output on STDOUT
+
+## Effective Workflow for PR Reviews
+
+When asked to address PR comments or check a PR:
+1.  **Do not rely on `gh pr view <id>` alone**: It often hides inline code comments, leading to missed feedback.
+2.  **Use `gh pr view <id> --json reviews,comments`**: This fetches the full raw data including all inline comments on specific lines.
+3.  **Use `gh api repos/{owner}/{repo}/pulls/{number}/comments`**: This is the most reliable way to get every single comment, including those that might be resolved but still relevant context.
+4.  **Check for "Files changed"**: Verify if files tagged for deletion are actually deleted in the git index (`git ls-files`).

@@ -20,8 +20,8 @@ from .._constants import (
     STATUS_OK,
 )
 from ..EdgeRecord import EdgeRecord
-from .extract_headings import extract_headings
 from ..ScanStats import ScanStats
+from .extract_headings import extract_headings
 
 
 class _Scanner:

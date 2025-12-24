@@ -7,9 +7,9 @@ from typing import Any
 
 from pymongo.database import Database
 
+from ...utils.now_iso import now_iso
 from .cache import CacheManager
 from .get_engine import get_engine
-from .now_iso import now_iso
 from .TransformRecord import TransformRecord
 
 

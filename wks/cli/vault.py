@@ -2,7 +2,6 @@
 
 import typer
 
-from wks.api.vault.cmd_check import cmd_check
 from wks.api.vault.cmd_links import cmd_links
 from wks.api.vault.cmd_status import cmd_status
 from wks.api.vault.cmd_sync import cmd_sync
@@ -38,13 +37,6 @@ def vault() -> typer.Typer:
     ) -> None:
         """Sync vault links to database."""
         handle_stage_result(cmd_sync)(path, recursive=recursive)
-
-    @app.command(name="check")
-    def check_cmd(
-        path: str | None = typer.Argument(None, help="Path to check (default: entire vault)"),
-    ) -> None:
-        """Check vault link health."""
-        handle_stage_result(cmd_check)(path)
 
     @app.command(name="links")
     def links_cmd(

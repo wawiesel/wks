@@ -21,12 +21,12 @@ def test_cmd_start_success(tracked_wks_config, monkeypatch):
     """Test cmd_start with successful start."""
     tracked_wks_config.service = ServiceConfig(
         type="darwin",
-        data={
+        data={  # type: ignore
             "label": "com.test.wks",
             "keep_alive": True,
             "run_at_load": False,
         },
-    )
+    )  # type: ignore
     # Mock backend implementation
     mock_impl = MagicMock()
     mock_impl.get_service_status.return_value = {"installed": True, "running": False}

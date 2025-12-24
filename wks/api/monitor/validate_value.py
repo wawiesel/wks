@@ -2,12 +2,12 @@
 
 import fnmatch
 from pathlib import Path
+from typing import Any
 
 from ...utils import canonicalize_path
-from .MonitorConfig import MonitorConfig
 
 
-def validate_value(list_name: str, value: str, monitor_cfg: MonitorConfig) -> tuple[str | None, str | None]:
+def validate_value(list_name: str, value: str, monitor_cfg: Any) -> tuple[str | None, str | None]:
     """Validate and normalize a value for a filter list."""
     value = value.strip()
     if list_name in ("include_paths", "exclude_paths"):

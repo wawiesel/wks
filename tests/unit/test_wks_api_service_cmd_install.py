@@ -20,12 +20,12 @@ def test_cmd_install_success(tracked_wks_config, monkeypatch):
     """Test cmd_install with successful installation."""
     tracked_wks_config.service = ServiceConfig(
         type="darwin",
-        data={
+        data={  # type: ignore
             "label": "com.test.wks",
             "keep_alive": True,
             "run_at_load": False,
         },
-    )
+    )  # type: ignore
     # Mock backend implementation
     mock_impl = MagicMock()
     mock_impl.install_service.return_value = {

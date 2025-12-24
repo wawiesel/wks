@@ -10,10 +10,10 @@ from typing import Any
 
 import requests  # type: ignore
 
+from ...utils.has_internet import has_internet
 from ...utils.uri_to_path import uri_to_path
 from ..StageResult import StageResult
 from . import DatabasePruneOutput
-from ._has_internet import _has_internet
 from .Database import Database
 
 
@@ -110,7 +110,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
             # Check Internet Availability upfront
             internet_available = False
             if remote:
-                internet_available = _has_internet()
+                internet_available = has_internet()
 
             with Database(config.database, "edges") as edges_db:
                 # Check Sources

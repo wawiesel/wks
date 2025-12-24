@@ -101,7 +101,7 @@ def cmd_sync(
             yield (0.5, f"Syncing {len(files)} files (no vault)...")
             total_found = 0
             total_synced = 0
-            all_errors: list[str] = []
+            all_errors = []
 
             for i, file_path in enumerate(files):
                 progress = 0.5 + (0.4 * (i / len(files)))

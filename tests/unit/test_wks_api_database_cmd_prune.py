@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-import requests
+import requests  # type: ignore
 
 from wks.api.database.cmd_prune import cmd_prune
 
