@@ -7,18 +7,8 @@ from pymongo.collection import Collection
 
 from .._AbstractBackend import _AbstractBackend
 from ..DatabaseConfig import DatabaseConfig
+from ._client import _get_mongomock_client
 from ._Data import _Data as _DatabaseConfigData
-
-# Shared mongomock client for all instances (singleton pattern)
-_shared_mongomock_client: mongomock.MongoClient | None = None
-
-
-def _get_mongomock_client() -> mongomock.MongoClient:
-    """Get or create shared mongomock client."""
-    global _shared_mongomock_client
-    if _shared_mongomock_client is None:
-        _shared_mongomock_client = mongomock.MongoClient()
-    return _shared_mongomock_client
 
 
 class _Backend(_AbstractBackend):

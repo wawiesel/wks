@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-import requests
+import requests  # type: ignore
 
 from wks.api.database.cmd_prune import cmd_prune
 
@@ -182,9 +182,9 @@ class TestCmdPrune:
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.requests.head")
-    @patch("wks.api.database.cmd_prune._has_internet")
+    @patch("wks.api.database.cmd_prune.has_internet")
     @patch("wks.api.database.cmd_prune.Database")
-    def test_prune_edges_remote(self, mock_database, mock_has_internet, mock_head, mock_load, mock_config, tmp_path):
+    def test_prune_edges_remote(self, mock_database, mockhas_internet, mock_head, mock_load, mock_config, tmp_path):
         """Test remote pruning logic (unset instead of delete)."""
         mock_load.return_value = mock_config
         valid_uri = "file:///valid/path"
@@ -201,7 +201,7 @@ class TestCmdPrune:
             return mock_ctx
 
         mock_database.side_effect = db_side_effect
-        mock_has_internet.return_value = True
+        mockhas_internet.return_value = True
 
         mock_nodes_db.find.return_value = [{"local_uri": valid_uri}]
 
@@ -285,10 +285,10 @@ class TestCmdPrune:
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.requests.head")
-    @patch("wks.api.database.cmd_prune._has_internet")
+    @patch("wks.api.database.cmd_prune.has_internet")
     @patch("wks.api.database.cmd_prune.Database")
     def test_prune_edges_from_remote(
-        self, mock_database, mock_has_internet, mock_head, mock_load, mock_config, tmp_path
+        self, mock_database, mockhas_internet, mock_head, mock_load, mock_config, tmp_path
     ):
         """Test from_remote_uri validation logic."""
         mock_load.return_value = mock_config
@@ -306,7 +306,7 @@ class TestCmdPrune:
             return mock_ctx
 
         mock_database.side_effect = db_side_effect
-        mock_has_internet.return_value = True
+        mockhas_internet.return_value = True
 
         mock_nodes_db.find.return_value = [{"local_uri": valid_uri}]
 

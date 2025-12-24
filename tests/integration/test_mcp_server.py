@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import wks.mcp.server as server_mod
 from wks.api.StageResult import StageResult
+from wks.mcp import discover_commands as discover_commands_mod
 from wks.mcp.call_tool import call_tool
 from wks.mcp.discover_commands import discover_commands
 from wks.mcp.main import main as mcp_main
@@ -145,20 +146,20 @@ def testbuild_registry_handles_stage_and_plain_results(monkeypatch):
     registry = server.build_registry()
 
     # StageResult path with missing required param falls back to empty string for config section
-    result_stage = registry["wksm_config_show"](None, {})
+    result_stage = registry["wksm_config_show"](None, {})  # type: ignore
     assert result_stage["success"] is True
     assert result_stage["data"]["section"] == ""
 
     # Query dict should be JSON encoded
-    result_query = registry["wksm_monitor_check"](None, {"query": {"a": 1}})
+    result_query = registry["wksm_monitor_check"](None, {"query": {"a": 1}})  # type: ignore
     assert captured["query"] == json.dumps({"a": 1})
     assert result_query["data"]["seen"] == json.dumps({"a": 1})
 
     # Non-dict return produces empty data
-    result_text = registry["wksm_database_reset"](None, {})
+    result_text = registry["wksm_database_reset"](None, {})  # type: ignore
     assert result_text == {"success": True, "data": {}}
 
-    result_self = registry["wksm_dummy_call"](None, {"value": "ok"})
+    result_self = registry["wksm_dummy_call"](None, {"value": "ok"})  # type: ignore
     assert result_self["data"]["echo"] == "ok"
 
 
@@ -204,10 +205,9 @@ def testdiscover_commands_and_define_tools_cover_branches(monkeypatch):
     assert discovered  # should find at least one command from real CLI
 
     class DummyApp:
-        from typing import ClassVar
-
-        registered_commands: ClassVar[list[Any]] = []
-        registered_groups: ClassVar[list[Any]] = []
+        def __init__(self):
+            self.registered_commands: list[Any] = []
+            self.registered_groups: list[Any] = []
 
     # Force define_tools to hit the "command is None" continue branch
     monkeypatch.setattr(server_mod, "discover_commands", lambda: {("dummy", "missing"): lambda: None})
@@ -223,7 +223,8 @@ def testbuild_registry_handles_self_param(monkeypatch):
     monkeypatch.setattr(server_mod, "discover_commands", lambda: {("dummy", "echo"): func_with_self})
     server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
     registry = server.build_registry()
-    result = registry["wksm_dummy_echo"](None, {"value": "hi"})
+    result = registry["wksm_dummy_echo"](None, {"value": "hi"})  # type: ignore
+    assert result is not None
     assert result["data"]["echo"] == "hi"
 
 
@@ -233,6 +234,7 @@ def testread_message_lsp_and_eof():
     server = server_mod.MCPServer(input_stream=input_stream, output_stream=io.StringIO())
 
     msg = server.read_message()
+    assert msg is not None
     assert msg["method"] == "initialize"
     assert server.read_message() is None  # EOF path
 
@@ -249,7 +251,7 @@ def testdiscover_commands_handles_none_command_and_group(monkeypatch, tmp_path):
     fake_cli_file = tmp_path / "dummy.py"
     fake_cli_file.write_text("# dummy cli")
 
-    cli_root = discover_commands.Path(discover_commands.__file__).parent.parent / "cli"
+    cli_root = discover_commands_mod.Path(discover_commands_mod.__file__).parent.parent / "cli"
 
     def fake_glob(self, pattern):
         if self == cli_root:
@@ -267,7 +269,7 @@ def testdiscover_commands_handles_none_command_and_group(monkeypatch, tmp_path):
             self.registered_groups = [type("Group", (), {})()]
 
     module = SimpleNamespace(dummy_app=DummyApp())
-    monkeypatch.setattr(discover_commands.Path, "glob", fake_glob)
-    monkeypatch.setattr(discover_commands.importlib, "import_module", lambda name: module)
+    monkeypatch.setattr(discover_commands_mod.Path, "glob", fake_glob)
+    monkeypatch.setattr(discover_commands_mod.importlib, "import_module", lambda name: module)
 
     assert discover_commands() == {}

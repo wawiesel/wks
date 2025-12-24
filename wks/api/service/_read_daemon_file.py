@@ -20,8 +20,6 @@ def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
             result["errors"] = daemon_data.get("errors", [])
             if "pid" in daemon_data:
                 result["pid"] = daemon_data["pid"]
-        except json.JSONDecodeError as e:
-            result["errors"].append(f"Failed to parse daemon file {daemon_file}: {e}")
-        except OSError as e:
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
             result["errors"].append(f"Failed to read daemon file {daemon_file}: {e}")
     return result

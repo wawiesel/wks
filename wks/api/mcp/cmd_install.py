@@ -24,7 +24,8 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from .McpConfig import McpServersJsonData, McpServersJsonInstall
+        from .McpServersJsonData import McpServersJsonData
+        from .McpServersJsonInstall import McpServersJsonInstall
 
         if install_type == "mcpServersJson" and not settings_path:
             yield (1.0, "Complete")

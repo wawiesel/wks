@@ -130,6 +130,15 @@ On daemon startup or config change:
 - Default direction: `both`.
 - This is a convenience wrapper around `wksc link show` with vault path resolution.
 
+### check
+
+**Signature**: `wksc vault check [path]`
+
+**Purpose**: Check validation of wiki links within the vault.
+
+- Scans a specific file or the entire vault for broken links or errors.
+- Reports detailed issues with line numbers and error types.
+
 ### Other Link Operations
 
 For general link operations, use `wksc link`:
@@ -146,6 +155,7 @@ For general link operations, use `wksc link`:
 |------|-------------|
 | `wksm_vault_status()` | Get vault-scoped statistics |
 | `wksm_vault_sync(path?)` | Sync vault links |
+| `wksm_vault_check(path?)` | Check vault link health |
 | `wksm_vault_links(path, direction?)` | Query edges for vault file |
 
 For other link operations, use `wksm_link_*` tools.
@@ -180,3 +190,4 @@ Future vault backends may implement different conventions.
 - **VAU.4**: `vault:///` URIs are relative to vault root; portable across machines.
 - **VAU.5**: Vault should only have outgoing edges; incoming edges are invalid.
 - **VAU.6**: Daemon routes vault files to `vault sync`, others to `link sync`.
+- **VAU.7**: `vault check` validates internal validity of vault links.

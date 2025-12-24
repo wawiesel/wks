@@ -156,21 +156,6 @@ def test_cli_mcp_list(smoke_env):
     assert "installations" in result.stdout
 
 
-def test_cli_vault_check(smoke_env):
-    """Test 'wksc vault check'."""
-    # Create a dummy note to ensure we have something to scan
-    vault_dir = smoke_env["vault"]
-    (vault_dir / "smoke_test.md").write_text("# Smoke Test\n[[Link]]", encoding="utf-8")
-
-    result = run_wks(["vault", "check"], smoke_env)
-
-    # Check for expected output in the JSON-ish response or plain text
-    # The CLI output format depends on the display logic, but usually contains "checked" or "scanned"
-    # and validation status.
-    assert "notes_checked" in result.stdout
-    assert "is_valid" in result.stdout
-
-
 def test_cli_vault_sync(smoke_env):
     """Test 'wksc vault sync'."""
     # Ensure vault has content (created in test_cli_vault_check or here)

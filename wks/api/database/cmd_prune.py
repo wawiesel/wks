@@ -4,28 +4,17 @@ CLI: wksc database prune <database>
 MCP: wksm_database_prune
 """
 
-import socket
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import requests  # type: ignore
 
+from ...utils.has_internet import has_internet
 from ...utils.uri_to_path import uri_to_path
 from ..StageResult import StageResult
 from . import DatabasePruneOutput
 from .Database import Database
-
-
-def _has_internet(host: str = "8.8.8.8", port: int = 53, timeout: int = 3) -> bool:
-    """Check for internet connectivity."""
-    try:
-        socket.setdefaulttimeout(timeout)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((host, port))
-        return True
-    except OSError:
-        return False
 
 
 def cmd_prune(database: str, remote: bool = False) -> StageResult:
@@ -91,9 +80,9 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                                 ids_to_remove.append(doc["_id"])
                             else:
                                 valid_nodes.add(uri)
-                        except ValueError as e:
-                            # Invalid URI format - track as warning, keep document
-                            all_warnings.append(f"Invalid URI format in nodes: {uri} ({e})")
+                        except OSError as e:
+                            # Filesystem error - track as warning, keep document
+                            all_warnings.append(f"Filesystem error for {uri}: {e}")
 
                 if ids_to_remove:
                     nodes_deleted = nodes_db.delete_many({"_id": {"$in": ids_to_remove}})
@@ -121,7 +110,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
             # Check Internet Availability upfront
             internet_available = False
             if remote:
-                internet_available = _has_internet()
+                internet_available = has_internet()
 
             with Database(config.database, "edges") as edges_db:
                 # Check Sources

@@ -66,6 +66,7 @@ def test_validate_value_dirnames():
 
     # Duplicate in opposite list (adding to include, present in exclude)
     val, err = validate_value("include_dirnames", "bar", cfg)
+    assert err is not None
     assert "already present in exclude_dirnames" in err
 
     # Valid
@@ -98,6 +99,7 @@ def test_validate_value_globs(monkeypatch):
 
     monkeypatch.setattr("fnmatch.fnmatch", mock_fnmatch)
     val, err = validate_value("include_globs", "[", None)
+    assert err is not None
     assert "Invalid glob syntax" in err
 
 

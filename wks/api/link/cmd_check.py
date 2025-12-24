@@ -10,12 +10,47 @@ from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ..StageResult import StageResult
-from ..vault._obsidian._LinkResolver import _LinkResolver
 from ..vault.Vault import Vault
 from . import LinkCheckOutput
 
 # Accessing private module as we reuse the logic
 from ._parsers import get_parser
+
+
+def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, from_remote_uri, links_out):
+    # Calculate remote_uri for target
+    remote_uri = None
+    target_path_obj = None
+    try:
+        if to_uri.startswith("vault:///"):
+            if vault_root:
+                # Strip "vault:///" and join with vault_root
+                rel_part = to_uri[11:]
+                target_path_obj = vault_root / rel_part
+        elif to_uri.startswith("file://"):
+            target_path_obj = uri_to_path(to_uri)
+
+        if target_path_obj:
+            remote_uri = resolve_remote_uri(target_path_obj, monitor_cfg.remote)
+    except Exception:
+        # Failures in remote resolution checks shouldn't fail the link check
+        pass
+
+    links_out.append(
+        {
+            "from_local_uri": from_uri,
+            "from_remote_uri": from_remote_uri,
+            "to_local_uri": to_uri,
+            "to_remote_uri": remote_uri,
+            "line_number": ref.line_number,
+            "column_number": ref.column_number,
+            "parser": parser_name,
+            "name": ref.alias,
+        }
+    )
+
+
+# Accessing private module as we reuse the logic
 
 
 def cmd_check(path: str, parser: str | None = None) -> StageResult:
@@ -60,8 +95,8 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
             # Parse links
             link_refs = parser_instance.parse(text)
 
-            # Resolve links
-            links_out = []
+            # Yield link results
+            links_out: list[dict[str, Any]] = []
             # We need a resolver for WikiLinks (fuzzy matching)
             # Basic URLs (http/file) we can resolve directly
             # Ideally resolver should be decoupled from Vault too, but for now we reuse it if it's a vault path
@@ -74,31 +109,59 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
             # 3. If "fuzzy" (WikiLink) -> try vault resolver
 
             # Temporary resolver access
-            resolver = None
-            vault_root = None
+            # We keep vault open to use its resolve_link method
             try:
                 with Vault(vault_cfg) as vault:
-                    resolver = _LinkResolver(vault.vault_path, vault.links_dir)
+                    # Determine from_uri inside vault context if possible
+                    # But path calculation only needs paths so we can do it before or inside
+
                     vault_root = vault.vault_path
+
+                    # Determine from_uri: use vault:/// if within vault, otherwise file://
+                    if vault_root and file_path.is_relative_to(vault_root):
+                        relative_path = file_path.relative_to(vault_root)
+                        from_uri = f"vault:///{relative_path}"
+                    else:
+                        from_uri = path_to_uri(file_path)
+
+                    # Calculate from_remote_uri once
+                    from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
+
+                    for ref in link_refs:
+                        to_uri = ref.raw_target
+                        # Attempt resolution for WikiLinks
+                        if ref.link_type == "wikilink":
+                            metadata = vault.resolve_link(ref.raw_target)
+                            to_uri = metadata.target_uri
+                        elif "://" not in ref.raw_target:
+                            pass  # Relative path resolution not yet implemented
+
+                        _process_link(
+                            ref,
+                            from_uri,
+                            to_uri,
+                            vault_root,
+                            monitor_cfg,
+                            parser_name,
+                            from_remote_uri,
+                            links_out,
+                        )
+
             except Exception:
-                pass  # Vault might not be configured or file is outside vault
-
-            # Determine from_uri: use vault:/// if within vault, otherwise file://
-            if vault_root and file_path.is_relative_to(vault_root):
-                relative_path = file_path.relative_to(vault_root)
-                from_uri = f"vault:///{relative_path}"
-            else:
+                # Vault failed or not configured - fall back to basic processing
                 from_uri = path_to_uri(file_path)
-
-            for ref in link_refs:
-                to_uri = ref.raw_target
-
-                # Attempt resolution for WikiLinks or relative paths
-                if ref.link_type == "wikilink" and resolver:
-                    metadata = resolver.resolve(ref.raw_target)
-                    to_uri = metadata.target_uri
-                elif "://" not in ref.raw_target:
-                    pass  # Relative path resolution not yet implemented
+                from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
+                for ref in link_refs:
+                    _process_link(
+                        ref,
+                        from_uri,
+                        ref.raw_target,
+                        None,
+                        monitor_cfg,
+                        parser_name,
+                        from_remote_uri,
+                        links_out,
+                    )
 
                 # Calculate remote_uri
                 remote_uri = None

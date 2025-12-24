@@ -9,6 +9,7 @@ This directory implements the daemon runtime (filesystem watcher). It follows th
 - `cmd_start.py` — API command to start the daemon (StageResult + schema output)
 - `cmd_stop.py` — API command to stop the daemon
 - `cmd_status.py` — API command to report daemon status
+- `cmd_clear.py` — API command to clear daemon logs
 - `__init__.py` — schema registration and public exports
 
 ## Behavior
@@ -19,4 +20,3 @@ This directory implements the daemon runtime (filesystem watcher). It follows th
 
 ## Testing
 - See `tests/unit/test_wks_api_daemon_Daemon.py` for TDD scaffold exercising the public API with real filesystem events.
-

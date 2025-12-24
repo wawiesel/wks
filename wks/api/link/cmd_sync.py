@@ -8,7 +8,6 @@ from wks.utils.expand_paths import expand_paths
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
-from ..vault._obsidian._LinkResolver import _LinkResolver
 from ..vault.Vault import Vault
 from . import LinkSyncOutput
 from ._sync_single_file import _sync_single_file
@@ -73,29 +72,45 @@ def cmd_sync(
             return
 
         yield (0.4, "Initializing resolver...")
-        # Setup resolver once for all files
-        resolver = None
-        vault_root = None
+        # Keep vault open for duration of sync
         try:
             with Vault(vault_cfg) as vault:
-                resolver = _LinkResolver(vault.vault_path, vault.links_dir)
+                # We reuse the vault's resolve_link for all files
+                resolver_func = vault.resolve_link
                 vault_root = vault.vault_path
+
+                yield (0.5, f"Syncing {len(files)} files...")
+                total_found = 0
+                total_synced = 0
+                all_errors: list[str] = []
+
+                for i, file_path in enumerate(files):
+                    progress = 0.5 + (0.4 * (i / len(files)))
+                    yield (progress, f"Syncing {file_path.name}...")
+
+                    found, synced, errors = _sync_single_file(
+                        file_path, parser, remote, config, resolver_func, vault_root
+                    )
+                    total_found += found
+                    total_synced += synced
+                    all_errors.extend(errors)
+
         except Exception:
-            pass  # No vault configured
+            # Fallback if vault fails (e.g. no config)
+            # Sync without vault context
+            yield (0.5, f"Syncing {len(files)} files (no vault)...")
+            total_found = 0
+            total_synced = 0
+            all_errors = []
 
-        yield (0.5, f"Syncing {len(files)} files...")
-        total_found = 0
-        total_synced = 0
-        all_errors: list[str] = []
+            for i, file_path in enumerate(files):
+                progress = 0.5 + (0.4 * (i / len(files)))
+                yield (progress, f"Syncing {file_path.name}...")
 
-        for i, file_path in enumerate(files):
-            progress = 0.5 + (0.4 * (i / len(files)))
-            yield (progress, f"Syncing {file_path.name}...")
-
-            found, synced, errors = _sync_single_file(file_path, parser, remote, config, resolver, vault_root)
-            total_found += found
-            total_synced += synced
-            all_errors.extend(errors)
+                found, synced, errors = _sync_single_file(file_path, parser, remote, config, None, None)
+                total_found += found
+                total_synced += synced
+                all_errors.extend(errors)
 
         result_obj.output = LinkSyncOutput(
             path=str(input_path),

@@ -143,7 +143,7 @@ def test_find_priority_dir_multiple_matches_shallow(tmp_path):
 
 def test_find_priority_dir_empty_dict(tmp_path):
     """Test that empty priority_dirs returns None."""
-    priority_dirs = {}
+    priority_dirs: dict[str, float] = {}
 
     test_file = tmp_path / "file.txt"
     test_file.write_text("test")

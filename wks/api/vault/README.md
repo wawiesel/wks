@@ -35,12 +35,10 @@ Backends are located in subpackages (e.g., `_obsidian`). Each backend must imple
 The `VaultConfig._BACKEND_REGISTRY` maps backend type strings (e.g., "obsidian") to their module paths. This allows for dynamic loading of implementations.
 
 ## Key Components
-
 - **Scanner**: (`_Scanner.py`) Responsible for parsing markdown files, extracting links, and validating them.
-- **LinkResolver**: (`_LinkResolver.py`) Handles the complexity of resolving wiki-links and relative paths.
 
 ## Testing
-The module is designed for testability. The `Vault` facade allows mocking the underlying implementation or swapping it for a test double. Tests should generally target the public `Vault` interface or the specific backend implementation if testing driver-specific logic.
+The module is designed for testability. The `Vault` facade allows mocking the underlying implementation.
 
 ## Usage
-Most commands (`cmd_sync`, `cmd_check`) interact with the vault via the `Vault` facade to ensure consistent resource management and configuration handling.
+Most commands (e.g., `cmd_sync`, `cmd_check`) interact with the vault via the `Vault` facade to ensure consistent resource management.

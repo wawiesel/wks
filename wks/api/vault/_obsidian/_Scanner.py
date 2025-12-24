@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from wks.api.config.WKSConfig import WKSConfig
+from wks.api.link._parsers._MarkdownParser import MarkdownParser
 from wks.api.log.append_log import append_log
 
 from .._AbstractBackend import _AbstractBackend
@@ -18,9 +19,9 @@ from .._constants import (
     MAX_LINE_PREVIEW,
     STATUS_OK,
 )
-from ._Data import _EdgeRecord, _ScanStats
-from ._LinkResolver import _LinkResolver
-from ._MarkdownParser import extract_headings, parse_markdown_urls, parse_wikilinks
+from ..EdgeRecord import EdgeRecord
+from ..ScanStats import ScanStats
+from .extract_headings import extract_headings
 
 
 class _Scanner:
@@ -28,7 +29,6 @@ class _Scanner:
 
     def __init__(self, vault: _AbstractBackend):
         self.vault = vault
-        self.link_resolver = _LinkResolver(vault.vault_path, vault.links_dir)
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []
 
     def _note_to_uri(self, note_path: Path) -> str:
@@ -42,9 +42,9 @@ class _Scanner:
 
             return path_to_uri(note_path)
 
-    def scan(self, files: list[Path] | None = None) -> list[_EdgeRecord]:
+    def scan(self, files: list[Path] | None = None) -> list[EdgeRecord]:
         """Scan vault for links."""
-        records: list[_EdgeRecord] = []
+        records: list[EdgeRecord] = []
         self._errors: list[str] = []
         self._notes_scanned = 0
         self._scanned_file_paths: set[str] = set()
@@ -75,7 +75,7 @@ class _Scanner:
 
         self._apply_file_url_rewrites()
 
-        self._stats = _ScanStats(
+        self._stats = ScanStats(
             notes_scanned=self._notes_scanned,
             edge_total=len(records),
             type_counts=dict(self._ensure_type_keys(self._type_counts)),
@@ -104,7 +104,7 @@ class _Scanner:
                 self._errors.append(f"Failed to rewrite {note_path}: {exc}")
 
     @property
-    def stats(self) -> _ScanStats:
+    def stats(self) -> ScanStats:
         return self._stats
 
     @staticmethod
@@ -113,43 +113,47 @@ class _Scanner:
             counter.setdefault(key, 0)
         return counter
 
-    def _parse_note(self, note_path: Path, text: str) -> list[_EdgeRecord]:
+    def _parse_note(self, note_path: Path, text: str) -> list[EdgeRecord]:
         """Parse all links from a markdown note."""
-        records: list[_EdgeRecord] = []
+        records: list[EdgeRecord] = []
         headings = extract_headings(text)
         lines = text.splitlines()
 
-        for wiki_link in parse_wikilinks(text):
-            record = self._build_wikilink_record(
-                note_path=note_path,
-                line_number=wiki_link.line_number,
-                column_number=wiki_link.column_number,
-                raw_line=lines[wiki_link.line_number - 1],
-                heading=headings[wiki_link.line_number],
-                target=wiki_link.target,
-                alias=wiki_link.alias,
-                is_embed=wiki_link.is_embed,
-                raw_target=wiki_link.raw_target,
-            )
-            records.append(record)
-            self._record_counts(record)
+        parser = MarkdownParser()
+        for link in parser.parse(text):
+            if link.link_type == "wikilink":
+                record = self._build_wikilink_record(
+                    note_path=note_path,
+                    line_number=link.line_number,
+                    column_number=link.column_number,
+                    raw_line=lines[link.line_number - 1],
+                    heading=headings.get(link.line_number, ""),
+                    target=link.raw_target,
+                    alias=link.alias,
+                    is_embed=link.is_embed,
+                    # Reconstruct approximately or use target.
+                    # EdgeRecord expects raw_target. LinkRef provides the target path.
+                    raw_target=link.raw_target,
+                )
+                records.append(record)
+                self._record_counts(record)
 
-        for md_url in parse_markdown_urls(text):
-            record = self._build_url_record(
-                note_path=note_path,
-                line_number=md_url.line_number,
-                column_number=md_url.column_number,
-                raw_line=lines[md_url.line_number - 1],
-                heading=headings[md_url.line_number],
-                url=md_url.url,
-                alias=md_url.text,
-            )
-            records.append(record)
-            self._record_counts(record)
+            elif link.link_type == "url":
+                record = self._build_url_record(
+                    note_path=note_path,
+                    line_number=link.line_number,
+                    column_number=link.column_number,
+                    raw_line=lines[link.line_number - 1],
+                    heading=headings.get(link.line_number, ""),
+                    url=link.raw_target,
+                    alias=link.alias,
+                )
+                records.append(record)
+                self._record_counts(record)
 
         return records
 
-    def _record_counts(self, record: _EdgeRecord) -> None:
+    def _record_counts(self, record: EdgeRecord) -> None:
         self._type_counts[record.link_type] += 1
         self._status_counts[record.status] += 1
 
@@ -173,10 +177,10 @@ class _Scanner:
         alias: str,
         is_embed: bool,
         raw_target: str,
-    ) -> _EdgeRecord:
+    ) -> EdgeRecord:
         note_rel = self._note_path(note_path)
-        metadata = self.link_resolver.resolve(target)
-        return _EdgeRecord(
+        metadata = self.vault.resolve_link(target)
+        return EdgeRecord(
             note_path=note_rel,
             from_uri=self._note_to_uri(note_path),
             line_number=line_number,
@@ -237,14 +241,14 @@ class _Scanner:
         heading: str,
         url: str,
         alias: str,
-    ) -> _EdgeRecord:
+    ) -> EdgeRecord:
         note_rel = self._note_path(note_path)
 
         if url.startswith("file://"):
             symlink_target = self._convert_file_url_to_symlink(url, note_path, line_number, alias)
             if symlink_target:
-                metadata = self.link_resolver.resolve(symlink_target)
-                return _EdgeRecord(
+                metadata = self.vault.resolve_link(symlink_target)
+                return EdgeRecord(
                     note_path=note_rel,
                     from_uri=self._note_to_uri(note_path),
                     line_number=line_number,
@@ -258,7 +262,7 @@ class _Scanner:
                     status=metadata.status,
                 )
 
-        return _EdgeRecord(
+        return EdgeRecord(
             note_path=note_rel,
             from_uri=self._note_to_uri(note_path),
             line_number=line_number,
