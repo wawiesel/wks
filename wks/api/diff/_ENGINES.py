@@ -1,4 +1,4 @@
-"""Diff engine registry (UNO: single global)."""
+"""Diff engine registry."""
 
 from .Bsdiff3Engine import Bsdiff3Engine
 from .MyersEngine import MyersEngine

@@ -1,4 +1,4 @@
-"""Internet check helper (UNO: single function)."""
+"""Internet check helper."""
 
 import socket
 

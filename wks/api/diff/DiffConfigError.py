@@ -1,4 +1,4 @@
-"""Diff configuration error (UNO: single exception)."""
+"""Diff configuration error."""
 
 
 class DiffConfigError(Exception):

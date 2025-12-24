@@ -1,4 +1,4 @@
-"""MCP server installation configuration (UNO: single model)."""
+"""MCP server installation configuration."""
 
 from pydantic import BaseModel, ConfigDict, Field
 

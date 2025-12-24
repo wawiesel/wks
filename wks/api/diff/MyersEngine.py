@@ -1,4 +1,4 @@
-"""Text diff engine (UNO: single class)."""
+"""Text diff engine."""
 
 import subprocess
 from pathlib import Path

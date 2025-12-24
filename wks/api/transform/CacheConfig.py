@@ -1,4 +1,4 @@
-"""Cache configuration (UNO: single model)."""
+"""Cache configuration."""
 
 from dataclasses import dataclass
 from pathlib import Path

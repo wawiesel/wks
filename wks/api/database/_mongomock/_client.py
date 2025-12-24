@@ -1,4 +1,4 @@
-"""Shared mongomock client (UNO: single helper)."""
+"""Shared mongomock client."""
 
 import mongomock
 

@@ -1,4 +1,4 @@
-"""Test transform engine (UNO: single class)."""
+"""Test transform engine."""
 
 from pathlib import Path
 from typing import Any

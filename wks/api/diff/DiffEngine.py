@@ -1,4 +1,4 @@
-"""Base class for diff engines (UNO: single ABC)."""
+"""Base class for diff engines."""
 
 from abc import ABC, abstractmethod
 from pathlib import Path

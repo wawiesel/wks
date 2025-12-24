@@ -1,4 +1,4 @@
-"""Union of all installation types (UNO: single type)."""
+"""Union of all installation types."""
 
 from typing import Annotated
 

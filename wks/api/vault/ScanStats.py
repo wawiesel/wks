@@ -1,4 +1,4 @@
-"""Scan stats model (UNO: single model)."""
+"""Scan stats model."""
 
 from dataclasses import dataclass, field
 

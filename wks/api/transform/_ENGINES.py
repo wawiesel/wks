@@ -1,4 +1,4 @@
-"""Transform engines registry (UNO: single global)."""
+"""Transform engines registry."""
 
 from .DoclingEngine import DoclingEngine
 from .TestEngine import TestEngine

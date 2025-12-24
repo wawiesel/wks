@@ -1,4 +1,4 @@
-"""Header extractor (UNO: single function)."""
+"""Header extractor."""
 
 
 def extract_headings(text: str) -> dict[int, str]:

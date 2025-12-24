@@ -1,4 +1,4 @@
-"""Diff router configuration (UNO: single model)."""
+"""Diff router configuration."""
 
 from dataclasses import dataclass
 from typing import Any

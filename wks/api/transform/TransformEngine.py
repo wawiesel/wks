@@ -1,4 +1,4 @@
-"""Transform engine base class (UNO: single ABC)."""
+"""Transform engine base class."""
 
 from abc import ABC, abstractmethod
 from pathlib import Path

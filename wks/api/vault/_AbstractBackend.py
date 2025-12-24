@@ -3,6 +3,10 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .LinkMetadata import LinkMetadata
 
 
 class _AbstractBackend(ABC):
@@ -12,6 +16,11 @@ class _AbstractBackend(ABC):
     @abstractmethod
     def vault_path(self) -> Path:
         """Root directory of the vault."""
+        pass
+
+    @abstractmethod
+    def resolve_link(self, target: str) -> "LinkMetadata":
+        """Resolve a wiki link target to metadata."""
         pass
 
     @property

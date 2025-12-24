@@ -20,7 +20,7 @@ def _sync_single_file(
     parser_name: str | None,
     remote: bool,
     config: Any,
-    resolver: Any,
+    resolver_func: Any,
     vault_root: Path | None,
 ) -> tuple[int, int, list[str]]:
     """Sync a single file and return (links_found, links_synced, errors).
@@ -67,8 +67,8 @@ def _sync_single_file(
         for ref in link_refs:
             to_uri = ref.raw_target
 
-            if ref.link_type == "wikilink" and resolver:
-                metadata = resolver.resolve(ref.raw_target)
+            if ref.link_type == "wikilink" and resolver_func:
+                metadata = resolver_func(ref.raw_target)
                 to_uri = metadata.target_uri
                 if metadata.status != "ok":
                     continue  # Skip broken links

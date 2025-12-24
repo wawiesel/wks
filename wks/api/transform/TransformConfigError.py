@@ -1,4 +1,4 @@
-"""Transform configuration error (UNO: single exception)."""
+"""Transform configuration error."""
 
 
 class TransformConfigError(Exception):

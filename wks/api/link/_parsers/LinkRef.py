@@ -1,4 +1,4 @@
-"""Link reference dataclass (UNO: single model)."""
+"""Link reference dataclass."""
 
 from dataclasses import dataclass
 

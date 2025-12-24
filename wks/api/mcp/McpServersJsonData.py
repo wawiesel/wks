@@ -1,4 +1,4 @@
-"""Data for mcpServersJson installation type (UNO: single model)."""
+"""Data for mcpServersJson installation type."""
 
 from pydantic import BaseModel, ConfigDict, Field
 

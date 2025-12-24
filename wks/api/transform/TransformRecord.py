@@ -1,4 +1,4 @@
-"""Transform record model (UNO: single model)."""
+"""Transform record model."""
 
 from dataclasses import dataclass
 

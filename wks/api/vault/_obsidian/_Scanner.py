@@ -19,10 +19,9 @@ from .._constants import (
     MAX_LINE_PREVIEW,
     STATUS_OK,
 )
-from .EdgeRecord import EdgeRecord
+from ..EdgeRecord import EdgeRecord
 from .extract_headings import extract_headings
-from .LinkResolver import LinkResolver
-from .ScanStats import ScanStats
+from ..ScanStats import ScanStats
 
 
 class _Scanner:
@@ -30,7 +29,6 @@ class _Scanner:
 
     def __init__(self, vault: _AbstractBackend):
         self.vault = vault
-        self.link_resolver = LinkResolver(vault.vault_path, vault.links_dir)
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []
 
     def _note_to_uri(self, note_path: Path) -> str:
@@ -181,7 +179,7 @@ class _Scanner:
         raw_target: str,
     ) -> EdgeRecord:
         note_rel = self._note_path(note_path)
-        metadata = self.link_resolver.resolve(target)
+        metadata = self.vault.resolve_link(target)
         return EdgeRecord(
             note_path=note_rel,
             from_uri=self._note_to_uri(note_path),
@@ -249,7 +247,7 @@ class _Scanner:
         if url.startswith("file://"):
             symlink_target = self._convert_file_url_to_symlink(url, note_path, line_number, alias)
             if symlink_target:
-                metadata = self.link_resolver.resolve(symlink_target)
+                metadata = self.vault.resolve_link(symlink_target)
                 return EdgeRecord(
                     note_path=note_rel,
                     from_uri=self._note_to_uri(note_path),

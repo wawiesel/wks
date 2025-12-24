@@ -79,9 +79,9 @@ class TestCmdCheckLinkExtraction:
         """Test WikiLinks are extracted from markdown files."""
         mock_config_cls.load.return_value = mock_config
         mock_explain_path.return_value = (True, [])
-        mock_vault_cls.return_value.__enter__ = MagicMock(
-            return_value=MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
-        )
+        vault_mock = MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
+        vault_mock.resolve_link.side_effect = lambda t: MagicMock(target_uri=t)
+        mock_vault_cls.return_value.__enter__ = MagicMock(return_value=vault_mock)
         mock_vault_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = cmd_check(str(temp_markdown_file))
@@ -106,9 +106,9 @@ class TestCmdCheckLinkExtraction:
         """Test that named links have their name/alias captured."""
         mock_config_cls.load.return_value = mock_config
         mock_explain_path.return_value = (True, [])
-        mock_vault_cls.return_value.__enter__ = MagicMock(
-            return_value=MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
-        )
+        vault_mock = MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
+        vault_mock.resolve_link.side_effect = lambda t: MagicMock(target_uri=t)
+        mock_vault_cls.return_value.__enter__ = MagicMock(return_value=vault_mock)
         mock_vault_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = cmd_check(str(temp_markdown_file))
@@ -131,9 +131,9 @@ class TestCmdCheckLinkExtraction:
         """Test HTML href and src attributes are extracted."""
         mock_config_cls.load.return_value = mock_config
         mock_explain_path.return_value = (True, [])
-        mock_vault_cls.return_value.__enter__ = MagicMock(
-            return_value=MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
-        )
+        vault_mock = MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
+        vault_mock.resolve_link.side_effect = lambda t: MagicMock(target_uri=t)
+        mock_vault_cls.return_value.__enter__ = MagicMock(return_value=vault_mock)
         mock_vault_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = cmd_check(str(temp_html_file))
@@ -155,9 +155,9 @@ class TestCmdCheckLinkExtraction:
         """Test RST links and images are extracted."""
         mock_config_cls.load.return_value = mock_config
         mock_explain_path.return_value = (True, [])
-        mock_vault_cls.return_value.__enter__ = MagicMock(
-            return_value=MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
-        )
+        vault_mock = MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
+        vault_mock.resolve_link.side_effect = lambda t: MagicMock(target_uri=t)
+        mock_vault_cls.return_value.__enter__ = MagicMock(return_value=vault_mock)
         mock_vault_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = cmd_check(str(temp_rst_file))
@@ -178,9 +178,9 @@ class TestCmdCheckLinkExtraction:
         """Test plain URLs are extracted from text files."""
         mock_config_cls.load.return_value = mock_config
         mock_explain_path.return_value = (True, [])
-        mock_vault_cls.return_value.__enter__ = MagicMock(
-            return_value=MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
-        )
+        vault_mock = MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
+        vault_mock.resolve_link.side_effect = lambda t: MagicMock(target_uri=t)
+        mock_vault_cls.return_value.__enter__ = MagicMock(return_value=vault_mock)
         mock_vault_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = cmd_check(str(temp_txt_file))
@@ -203,9 +203,9 @@ class TestCmdCheckLinkExtraction:
         """Test that line and column numbers are captured for each link."""
         mock_config_cls.load.return_value = mock_config
         mock_explain_path.return_value = (True, [])
-        mock_vault_cls.return_value.__enter__ = MagicMock(
-            return_value=MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
-        )
+        vault_mock = MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
+        vault_mock.resolve_link.side_effect = lambda t: MagicMock(target_uri=t)
+        mock_vault_cls.return_value.__enter__ = MagicMock(return_value=vault_mock)
         mock_vault_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = cmd_check(str(temp_markdown_file))
@@ -229,9 +229,9 @@ class TestCmdCheckLinkExtraction:
         """Test that parser field is populated for each link."""
         mock_config_cls.load.return_value = mock_config
         mock_explain_path.return_value = (True, [])
-        mock_vault_cls.return_value.__enter__ = MagicMock(
-            return_value=MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
-        )
+        vault_mock = MagicMock(vault_path=Path("/mock/vault"), links_dir=Path("/mock/vault/_links"))
+        vault_mock.resolve_link.side_effect = lambda t: MagicMock(target_uri=t)
+        mock_vault_cls.return_value.__enter__ = MagicMock(return_value=vault_mock)
         mock_vault_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = cmd_check(str(temp_markdown_file))

@@ -1,4 +1,4 @@
-"""Transform configuration root model (UNO: single model)."""
+"""Transform configuration root model."""
 
 from dataclasses import dataclass
 

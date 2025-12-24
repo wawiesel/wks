@@ -1,4 +1,4 @@
-"""Get diff engine helper (UNO: single function)."""
+"""Get diff engine helper."""
 
 from ._ENGINES import ENGINES
 from .DiffEngine import DiffEngine

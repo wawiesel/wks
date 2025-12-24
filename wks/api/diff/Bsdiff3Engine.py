@@ -1,4 +1,4 @@
-"""Binary diff engine (UNO: single class)."""
+"""Binary diff engine."""
 
 from pathlib import Path
 

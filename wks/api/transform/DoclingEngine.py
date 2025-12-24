@@ -1,4 +1,4 @@
-"""Docling transform engine (UNO: single class)."""
+"""Docling transform engine."""
 
 import subprocess
 import tempfile

@@ -1,4 +1,4 @@
-"""Configuration for mcpServersJson installation type (UNO: single model)."""
+"""Configuration for mcpServersJson installation type."""
 
 from typing import Literal
 

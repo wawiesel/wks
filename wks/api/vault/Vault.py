@@ -77,3 +77,10 @@ class Vault(_AbstractBackend):
         if hasattr(self._backend, "find_broken_links"):
             return self._backend.find_broken_links()  # type: ignore
         return []
+
+    def resolve_link(self, target: str) -> Any:
+        # Use Any return type to avoid circular import of LinkMetadata if it's not strictly needed here,
+        # or import it if we want strict typing. Let's rely on backend return.
+        if not self._backend:
+            raise RuntimeError("Vault not initialized (use 'with Vault(...)')")
+        return self._backend.resolve_link(target)

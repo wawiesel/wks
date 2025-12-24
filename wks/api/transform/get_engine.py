@@ -1,4 +1,4 @@
-"""Get transform engine helper (UNO: single function)."""
+"""Get transform engine helper."""
 
 from ._ENGINES import ENGINES
 from .TransformEngine import TransformEngine

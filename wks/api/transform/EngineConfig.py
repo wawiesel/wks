@@ -1,4 +1,4 @@
-"""Engine configuration (UNO: single model)."""
+"""Engine configuration."""
 
 from dataclasses import dataclass
 from typing import Any

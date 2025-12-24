@@ -1,9 +1,9 @@
-"""Edge record model (UNO: single model)."""
+"""Edge record model."""
 
 from dataclasses import dataclass
 
-from .._constants import DOC_TYPE_LINK
-from .identity import identity
+from ._constants import DOC_TYPE_LINK
+from ._identity import _identity
 
 
 @dataclass
@@ -31,7 +31,7 @@ class EdgeRecord:
 
     @property
     def identity(self) -> str:
-        return identity(self.note_path, self.line_number, self.column_number, self.to_uri)
+        return _identity(self.note_path, self.line_number, self.column_number, self.to_uri)
 
     def to_document(self, seen_at_iso: str) -> dict[str, object]:
         return {

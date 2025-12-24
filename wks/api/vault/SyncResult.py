@@ -1,8 +1,8 @@
-"""Sync result model (UNO: single model)."""
+"""Sync result model."""
 
 from dataclasses import dataclass
 
-from .._constants import DOC_TYPE_META, META_DOCUMENT_ID
+from ._constants import DOC_TYPE_META, META_DOCUMENT_ID
 from .ScanStats import ScanStats
 
 

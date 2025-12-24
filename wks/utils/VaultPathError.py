@@ -1,4 +1,4 @@
-"""Vault path resolution error (UNO: single exception)."""
+"""Vault path resolution error."""
 
 
 class VaultPathError(Exception):

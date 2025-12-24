@@ -1,4 +1,4 @@
-"""Diff configuration root model (UNO: single model)."""
+"""Diff configuration root model."""
 
 from dataclasses import dataclass
 

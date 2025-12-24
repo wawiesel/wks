@@ -1,4 +1,4 @@
-"""ISO timestamp helper (UNO: single function)."""
+"""ISO timestamp helper."""
 
 from datetime import datetime, timezone
 
