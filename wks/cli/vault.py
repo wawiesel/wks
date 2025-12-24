@@ -49,4 +49,13 @@ def vault() -> typer.Typer:
             raise typer.Exit(code=1)
         handle_stage_result(cmd_links)(path, direction)  # type: ignore[arg-type]
 
+    @app.command(name="check")
+    def check_cmd(
+        path: str | None = typer.Argument(None, help="File path to check (default: check entire vault)"),
+    ) -> None:
+        """Check vault link health."""
+        from wks.api.vault.cmd_check import cmd_check
+
+        handle_stage_result(cmd_check)(path)
+
     return app

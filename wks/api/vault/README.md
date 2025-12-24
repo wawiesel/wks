@@ -41,4 +41,4 @@ The `VaultConfig._BACKEND_REGISTRY` maps backend type strings (e.g., "obsidian")
 The module is designed for testability. The `Vault` facade allows mocking the underlying implementation.
 
 ## Usage
-Most commands (e.g., `cmd_sync`) interact with the vault via the `Vault` facade to ensure consistent resource management.
+Most commands (e.g., `cmd_sync`, `cmd_check`) interact with the vault via the `Vault` facade to ensure consistent resource management.
