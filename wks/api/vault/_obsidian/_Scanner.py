@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from wks.api.config.WKSConfig import WKSConfig
+from wks.api.link._parsers._MarkdownParser import MarkdownParser
 from wks.api.log.append_log import append_log
 
 from .._AbstractBackend import _AbstractBackend
@@ -21,8 +22,6 @@ from .._constants import (
 from .EdgeRecord import EdgeRecord
 from .extract_headings import extract_headings
 from .LinkResolver import LinkResolver
-from .parse_markdown_urls import parse_markdown_urls
-from .parse_wikilinks import parse_wikilinks
 from .ScanStats import ScanStats
 
 
@@ -122,33 +121,37 @@ class _Scanner:
         headings = extract_headings(text)
         lines = text.splitlines()
 
-        for wiki_link in parse_wikilinks(text):
-            record = self._build_wikilink_record(
-                note_path=note_path,
-                line_number=wiki_link.line_number,
-                column_number=wiki_link.column_number,
-                raw_line=lines[wiki_link.line_number - 1],
-                heading=headings[wiki_link.line_number],
-                target=wiki_link.target,
-                alias=wiki_link.alias,
-                is_embed=wiki_link.is_embed,
-                raw_target=wiki_link.raw_target,
-            )
-            records.append(record)
-            self._record_counts(record)
+        parser = MarkdownParser()
+        for link in parser.parse(text):
+            if link.link_type == "wikilink":
+                record = self._build_wikilink_record(
+                    note_path=note_path,
+                    line_number=link.line_number,
+                    column_number=link.column_number,
+                    raw_line=lines[link.line_number - 1],
+                    heading=headings.get(link.line_number, ""),
+                    target=link.raw_target,
+                    alias=link.alias,
+                    is_embed=link.is_embed,
+                    # Reconstruct approximately or use target.
+                    # EdgeRecord expects raw_target. LinkRef provides the target path.
+                    raw_target=link.raw_target,
+                )
+                records.append(record)
+                self._record_counts(record)
 
-        for md_url in parse_markdown_urls(text):
-            record = self._build_url_record(
-                note_path=note_path,
-                line_number=md_url.line_number,
-                column_number=md_url.column_number,
-                raw_line=lines[md_url.line_number - 1],
-                heading=headings[md_url.line_number],
-                url=md_url.url,
-                alias=md_url.text,
-            )
-            records.append(record)
-            self._record_counts(record)
+            elif link.link_type == "url":
+                record = self._build_url_record(
+                    note_path=note_path,
+                    line_number=link.line_number,
+                    column_number=link.column_number,
+                    raw_line=lines[link.line_number - 1],
+                    heading=headings.get(link.line_number, ""),
+                    url=link.raw_target,
+                    alias=link.alias,
+                )
+                records.append(record)
+                self._record_counts(record)
 
         return records
 
