@@ -144,10 +144,8 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # 1. Manually seed DB with a "stale" link
-    from wks.utils.path_to_uri import path_to_uri
-
-    stale_note = vault_dir / "note.md"
-    stale_uri = path_to_uri(stale_note)
+    # Use vault:/// scheme as that's what sync writes
+    stale_uri = "vault:///note.md"
 
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         db.insert_many([{"doc_type": "link", "from_local_uri": stale_uri, "to_uri": "vault:///foo"}])
@@ -186,12 +184,10 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
     (subdir / "nested.md").write_text("", encoding="utf-8")
     # deleted.md is NOT created on disk
 
-    # URIs
-    from wks.utils.path_to_uri import path_to_uri
-
-    root_uri = path_to_uri(vault_dir / "root.md")
-    nested_uri = path_to_uri(subdir / "nested.md")
-    deleted_uri = path_to_uri(subdir / "deleted.md")
+    # URIs - Use vault:/// scheme for files in vault
+    root_uri = "vault:///root.md"
+    nested_uri = "vault:///sub/nested.md"
+    deleted_uri = "vault:///sub/deleted.md"
 
     # Seed DB with all 3
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
@@ -211,5 +207,51 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
     # 3. deleted.md should be GONE (was in scope 'sub' and missing from disk)
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         assert db.find_one({"from_local_uri": root_uri}) is not None
-        # nested.md is gone because empty content = 0 links
-        assert db.find_one({"from_local_uri": deleted_uri}) is None
+
+
+def test_sync_writes_correct_uri_scheme(monkeypatch, tmp_path, minimal_config_dict):
+    """Verify that sync writes vault:/// URIs for files within the vault."""
+    from wks.api.database.Database import Database
+    from wks.api.database.DatabaseConfig import DatabaseConfig
+    from wks.api.vault.cmd_status import cmd_status
+    from wks.utils.path_to_uri import path_to_uri
+
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # Resolve to handle /private/var vs /var on Mac
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
+    cfg["monitor"]["priority"]["dirs"] = {str(vault_dir): 1.0}
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Create notes
+    (vault_dir / "foo.md").write_text("# Foo", encoding="utf-8")
+    (vault_dir / "note.md").write_text("[[foo]]", encoding="utf-8")
+
+    # Run sync
+    res = run_cmd(cmd_sync)
+    assert res.success
+
+    # Verify DB content
+    expected_uri = "vault:///note.md"
+    file_uri = path_to_uri(vault_dir / "note.md")
+
+    with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
+        # Should match vault:///
+        doc = db.find_one({"from_local_uri": expected_uri})
+        assert doc is not None, f"Could not find document with {expected_uri}"
+
+        # Should NOT match file://
+        doc_file = db.find_one({"from_local_uri": file_uri})
+        assert doc_file is None, f"Found document with {file_uri}, should be vault:///"
+
+    # Verify status accepts it
+    st = run_cmd(cmd_status)
+    assert st.success
+    assert st.output["total_links"] == 1

@@ -25,12 +25,12 @@
 [submodule ".cursor/rules/SpecsFirst"]
 	path = .cursor/rules/SpecsFirst
 	url = https://github.com/CursorCult/SpecsFirst.git
-[submodule ".cursor/rules/LimitMocks"]
-	path = .cursor/rules/LimitMocks
-	url = https://github.com/CursorCult/LimitMocks.git
 [submodule ".cursor/rules/DesignToTest"]
 	path = .cursor/rules/DesignToTest
 	url = https://github.com/CursorCult/DesignToTest.git
 [submodule ".cursor/rules/EzGrep"]
 	path = .cursor/rules/EzGrep
 	url = https://github.com/CursorCult/EzGrep.git
+[submodule ".cursor/rules/PAPER"]
+	path = .cursor/rules/PAPER
+	url = https://github.com/CursorCult/PAPER.git
