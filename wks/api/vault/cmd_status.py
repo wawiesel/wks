@@ -18,7 +18,6 @@ def cmd_status() -> StageResult:
     """Get vault link health status."""
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        from ...utils.path_to_uri import path_to_uri
         from ..config.WKSConfig import WKSConfig
         from ._constants import META_DOCUMENT_ID
 
@@ -28,15 +27,11 @@ def cmd_status() -> StageResult:
             wks_home = WKSConfig.get_home_dir()
 
             # Get vault base URI
-            from pathlib import Path
 
             if not config.vault.base_dir:
                 raise ValueError("Vault base_dir not configured")
 
-            vault_base = Path(config.vault.base_dir).resolve()
-            vault_base_uri = path_to_uri(vault_base)
-            if not vault_base_uri.endswith("/"):
-                vault_base_uri += "/"
+            vault_base_uri = "vault:///"
 
             # Collection name is 'edges'
             database_name = "edges"

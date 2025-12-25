@@ -121,19 +121,29 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                 # Calculate what we expect to exist based on this run
                 processed_uris = set()
 
-                # Determine scope prefix using file URIs
+                # Determine scope prefix using vault URIs
                 from ...utils.path_to_uri import path_to_uri
 
-                # scope_prefix is the URI of the sync root
-                scope_prefix = path_to_uri(input_path) if path else path_to_uri(vault_path)
+                target_path = input_path if path else vault_path
 
-                if not scope_prefix.endswith("/") and ((path and input_path.is_dir()) or (not path)):
+                if target_path == vault_path:
+                    scope_prefix = "vault:///"
+                elif target_path.is_relative_to(vault_path):
+                    # Note: strict posix style, spaces not escaped to match _sync_single_file
+                    scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"
+                else:
+                    scope_prefix = path_to_uri(target_path)
+
+                if not scope_prefix.endswith("/") and target_path.is_dir():
                     # If it's a directory, ensure trailing slash for regex matching of children
                     scope_prefix += "/"
 
-                # Collect confirmed URIs (as file URIs)
+                # Collect confirmed URIs
                 for f in files:
-                    processed_uris.add(path_to_uri(f))
+                    if f.is_relative_to(vault_path):
+                        processed_uris.add(f"vault:///{f.relative_to(vault_path)}")
+                    else:
+                        processed_uris.add(path_to_uri(f))
 
                 # Database operations
                 from wks.api.database.Database import Database
