@@ -7,27 +7,28 @@ from typing import Any
 
 from pymongo.database import Database
 
-from ...utils.now_iso import now_iso
-from .cache import CacheManager
-from .get_engine import get_engine
-from .TransformRecord import TransformRecord
+from ._CacheManager import _CacheManager
+from ._TransformRecord import _TransformRecord
+from ._get_engine_by_type import _get_engine_by_type
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ._TransformConfig import TransformConfig
+    from ...api.database.Database import Database
 
 
-class TransformController:
+class _TransformController:
     """Business logic for transform operations."""
 
-    def __init__(self, db: Database, cache_dir: Path, max_size_bytes: int, default_engine: str = "docling"):
+    def __init__(self, db: Database, config: "TransformConfig"):
         """Initialize transform controller.
 
         Args:
             db: MongoDB database instance
-            cache_dir: Directory for cached transforms
-            max_size_bytes: Maximum cache size in bytes
-            default_engine: Default engine to use for transforms
+            config: Transform configuration object
         """
         self.db = db
-        self.cache_manager = CacheManager(cache_dir, max_size_bytes, db)
-        self.default_engine = default_engine
+        self.config = config
+        self.cache_manager = _CacheManager(config.cache.base_dir, config.cache.max_size_bytes, db)
 
     def _compute_file_checksum(self, file_path: Path) -> str:
         """Compute SHA-256 checksum of file.
@@ -44,6 +45,51 @@ class TransformController:
                 sha256.update(chunk)
         return sha256.hexdigest()
 
+    def _update_graph(self, file_uri: str, output_path: Path):
+        """Update Knowledge Graph with new transform edge.
+
+        Args:
+            file_uri: Source file URI (file://...)
+            output_path: Path to the cached output file
+        """
+        output_uri = f"file://{output_path.resolve()}"
+
+        # Get raw database object for accessing other collections
+        # self.db is the Database facade
+        mongo_db = self.db.get_database()
+
+        # 1. Upsert Source Node
+        mongo_db["nodes"].update_one(
+            {"uri": file_uri},
+            {"$set": {"uri": file_uri, "type": "file"}},
+            upsert=True
+        )
+
+        # Upsert Output Node
+        mongo_db["nodes"].update_one(
+            {"uri": output_uri},
+            {"$set": {"uri": output_uri, "type": "file", "generated": True}},
+            upsert=True
+        )
+
+        # 2. Upsert Edge
+        mongo_db["edges"].update_one(
+            {
+                "source": file_uri,
+                "target": output_uri,
+                "type": "transform"
+            },
+            {
+                "$set": {
+                    "source": file_uri,
+                    "target": output_uri,
+                    "type": "transform",
+                    "created_at": now_iso()
+                }
+            },
+            upsert=True
+        )
+
     def _compute_cache_key(self, file_checksum: str, engine_name: str, options_hash: str) -> str:
         """Compute cache key from file, engine, and options.
 
@@ -58,7 +104,7 @@ class TransformController:
         key_str = f"{file_checksum}:{engine_name}:{options_hash}"
         return hashlib.sha256(key_str.encode()).hexdigest()
 
-    def _find_cached_transform(self, file_checksum: str, engine_name: str, options_hash: str) -> TransformRecord | None:
+    def _find_cached_transform(self, file_checksum: str, engine_name: str, options_hash: str) -> _TransformRecord | None:
         """Find existing cached transform.
 
         Args:
@@ -69,7 +115,7 @@ class TransformController:
         Returns:
             TransformRecord if found, None otherwise
         """
-        cursor = self.db.transform.find(
+        cursor = self.db.find(
             {
                 "checksum": file_checksum,
                 "engine": engine_name,
@@ -81,7 +127,7 @@ class TransformController:
         cache_key = self._compute_cache_key(file_checksum, engine_name, options_hash)
 
         for doc in cursor:
-            record = TransformRecord.from_dict(doc)
+            record = _TransformRecord.from_dict(doc)
             # Check if file exists in current cache directory (not stored absolute path)
             # This handles cases where temp directories are cleaned up between test runs
             stored_path = Path(record.cache_location)
@@ -101,13 +147,13 @@ class TransformController:
             engine_name: Transform engine name
             options_hash: Hash of engine options
         """
-        self.db.transform.update_one(
+        self.db.update_one(
             {"checksum": file_checksum, "engine": engine_name, "options_hash": options_hash},
             {"$set": {"last_accessed": now_iso()}},
         )
 
     def _handle_cached_transform(
-        self, cached: TransformRecord, file_checksum: str, engine_name: str, options_hash: str, output_path: Path | None
+        self, cached: _TransformRecord, file_checksum: str, engine_name: str, options_hash: str, output_path: Path | None
     ) -> str:
         """Handle transform when result is already cached.
 
@@ -191,7 +237,7 @@ class TransformController:
         self.cache_manager.add_file(output_size)
 
         # Store in database
-        record = TransformRecord(
+        record = _TransformRecord(
             file_uri=file_uri,
             checksum=file_checksum,
             size_bytes=output_size,
@@ -202,7 +248,7 @@ class TransformController:
             cache_location=str(cache_location),
         )
 
-        self.db.transform.insert_one(record.to_dict())
+        self.db.insert_one(record.to_dict())
 
         # Copy to output if requested
         if output_path:
@@ -211,6 +257,7 @@ class TransformController:
 
         return cache_key
 
+
     def transform(
         self,
         file_path: Path,
@@ -218,49 +265,52 @@ class TransformController:
         options: dict[str, Any] | None = None,
         output_path: Path | None = None,
     ) -> str:
-        """Transform file using specified engine.
-
-        Args:
-            file_path: Path to file to transform
-            engine_name: Transform engine name (e.g., "docling")
-            options: Engine-specific options (or None for defaults)
-            output_path: Optional output file path
-
-        Returns:
-            Cache key checksum
-
-        Raises:
-            ValueError: If file doesn't exist or engine not found
-            RuntimeError: If transform fails
-        """
+        """Transform file using specified engine."""
         file_path = file_path.resolve()
 
         if not file_path.exists() or not file_path.is_file():
             raise ValueError(f"File not found: {file_path}")
 
-        # Get engine
-        engine = get_engine(engine_name)
-        if not engine:
-            raise ValueError(f"Unknown engine: {engine_name}")
-
-        # Get file info
+        # Get engine config
+        if engine_name not in self.config.engines:
+            raise ValueError(
+                f"Engine '{engine_name}' not found in config. "
+                f"Available engines: {list(self.config.engines.keys())}"
+            )
+        
+        engine_config = self.config.engines[engine_name]
+        
+        # Get engine instance
+        engine = _get_engine_by_type(engine_config.type)
+        
+        # Merge base options with overrides
+        merged_options = {**engine_config.data, **(options or {})}
+        
+        # Compute file info
         file_uri = f"file://{file_path}"
         file_checksum = self._compute_file_checksum(file_path)
         file_size = file_path.stat().st_size
-
-        # Get options and compute hash
-        options = options or {}
-        options_hash = engine.compute_options_hash(options)
-
-        # Check if already cached
+        options_hash = engine.compute_options_hash(merged_options)
+        
+        # Check cache
         cached = self._find_cached_transform(file_checksum, engine_name, options_hash)
-
+        
         if cached:
-            return self._handle_cached_transform(cached, file_checksum, engine_name, options_hash, output_path)
-
-        # Not cached - need to transform
+            return self._handle_cached_transform(
+                cached, file_checksum, engine_name, options_hash, output_path
+            )
+        
+        # Perform new transform
         return self._perform_new_transform(
-            file_path, file_uri, file_checksum, file_size, engine_name, engine, options, options_hash, output_path
+            file_path,
+            file_uri,
+            file_checksum,
+            file_size,
+            engine_name,
+            engine,
+            merged_options,
+            options_hash,
+            output_path,
         )
 
     def remove_by_uri(self, file_uri: str) -> int:
@@ -273,7 +323,7 @@ class TransformController:
             Number of records removed
         """
         # Find all transforms for this URI
-        docs = list(self.db.transform.find({"file_uri": file_uri}))
+        docs = list(self.db.find({"file_uri": file_uri}))
 
         count = 0
         for doc in docs:
@@ -284,7 +334,7 @@ class TransformController:
                 self.cache_manager.remove_file(doc["size_bytes"])
 
             # Remove from database
-            self.db.transform.delete_one({"_id": doc["_id"]})
+            self.db.delete_one({"_id": doc["_id"]})
             count += 1
 
         return count
@@ -299,7 +349,7 @@ class TransformController:
         Returns:
             Number of records updated
         """
-        result = self.db.transform.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
+        result = self.db.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
         return result.modified_count
 
     def _copy_cache_file_to_output(self, cache_file: Path, output_path: Path) -> None:
@@ -322,7 +372,27 @@ class TransformController:
         except (OSError, AttributeError):
             output_path.write_bytes(cache_file.read_bytes())
 
-    def _find_matching_record_in_db(self, cache_key: str) -> TransformRecord | None:
+
+    def get_record(self, cache_key: str) -> _TransformRecord | None:
+        """Get transform record by cache key.
+
+        Args:
+            cache_key: Cache key checksum
+
+        Returns:
+            TransformRecord if found, None otherwise
+        """
+        # First try direct find by checksum (if key == file checksum)
+        # Note: Cache key != file checksum usually.
+        # But our DB stores file checksum. 
+        # Wait, the DB stores `checksum` (file content), `engine`, `options_hash`.
+        # The `cache_key` is a hash of those three.
+        # To find by cache_key, we must iterate matching records or query if we stored cache_key inside DB.
+        # We don't store cache_key in DB (per current schema).
+        # _find_matching_record_in_db does the iteration.
+        return self._find_matching_record_in_db(cache_key)
+
+    def _find_matching_record_in_db(self, cache_key: str) -> _TransformRecord | None:
         """Find matching transform record in database by cache key.
 
         Args:
@@ -331,17 +401,17 @@ class TransformController:
         Returns:
             TransformRecord if found, None otherwise
         """
-        records = list(self.db.transform.find())
+        records = list(self.db.find())
         for doc in records:
             record_checksum = doc["checksum"]
             record_engine = doc["engine"]
             record_options_hash = doc["options_hash"]
             computed_key = self._compute_cache_key(record_checksum, record_engine, record_options_hash)
             if computed_key == cache_key:
-                return TransformRecord.from_dict(doc)
+                return _TransformRecord.from_dict(doc)
         return None
 
-    def _resolve_cache_file_from_db(self, cache_key: str, matching_record: TransformRecord) -> Path:
+    def _resolve_cache_file_from_db(self, cache_key: str, matching_record: _TransformRecord) -> Path:
         """Resolve cache file path from database record.
 
         Args:
@@ -366,7 +436,7 @@ class TransformController:
 
         # If file still doesn't exist, clean up stale record and raise error
         if not cache_file.exists():
-            self.db.transform.delete_one(
+            self.db.delete_one(
                 {
                     "checksum": matching_record.checksum,
                     "engine": matching_record.engine,
@@ -446,7 +516,7 @@ class TransformController:
 
         # Transform it (using default engine/options for now)
         # This ensures we have the content in cache
-        cache_key = self.transform(file_path, self.default_engine, {})
+        cache_key = self.transform(file_path, self.config.default_engine, {})
 
         # Now recurse to get the content from cache
         return self.get_content(cache_key, output_path)

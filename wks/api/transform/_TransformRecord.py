@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class TransformRecord:
+class _TransformRecord:
     """Transform cache record from wks.transform collection."""
 
     file_uri: str

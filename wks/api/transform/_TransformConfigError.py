@@ -1,7 +1,7 @@
 """Transform configuration error."""
 
 
-class TransformConfigError(Exception):
+class _TransformConfigError(Exception):
     """Raised when transform configuration is invalid."""
 
     def __init__(self, errors: list[str]):

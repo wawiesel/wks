@@ -107,6 +107,21 @@ def minimal_config_dict() -> dict:
             "warning_retention_days": 2.0,
             "error_retention_days": 7.0,
         },
+        "transform": {
+            "cache": {
+                "base_dir": "/tmp/wks_test_transform",
+                "max_size_bytes": 1073741824,
+            },
+            "engines": {
+                "test": {
+                    "type": "test",
+                    "data": {},
+                },
+            },
+        },
+        "cat": {
+            "default_engine": "test",
+        },
     }
 
 

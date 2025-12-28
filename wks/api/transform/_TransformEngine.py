@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-class TransformEngine(ABC):
+class _TransformEngine(ABC):
     """Base class for transform engines."""
 
     @abstractmethod

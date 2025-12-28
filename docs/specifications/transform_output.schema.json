@@ -1,0 +1,86 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Transform Output Schema",
+    "description": "Schema for wks transform command outputs",
+    "definitions": {
+        "TransformResultOutput": {
+            "type": "object",
+            "properties": {
+                "source_uri": {
+                    "type": "string",
+                    "format": "uri"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "cached",
+                        "error"
+                    ]
+                },
+                "output_path": {
+                    "type": "string"
+                },
+                "output_content": {
+                    "type": "string",
+                    "description": "Optional content, if requested"
+                },
+                "checksum": {
+                    "type": "string"
+                },
+                "processing_time_ms": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "source_uri",
+                "engine",
+                "status"
+            ]
+        },
+        "TransformDatabaseRecord": {
+            "type": "object",
+            "properties": {
+                "file_uri": {
+                    "type": "string"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "engine_params_hash": {
+                    "type": "string"
+                },
+                "output_hash": {
+                    "type": "string"
+                },
+                "data_size": {
+                    "type": "integer"
+                },
+                "last_transform_time": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "cache_path": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "file_uri",
+                "engine",
+                "engine_params_hash",
+                "last_transform_time"
+            ]
+        }
+    },
+    "oneOf": [
+        {
+            "$ref": "#/definitions/TransformResultOutput"
+        },
+        {
+            "$ref": "#/definitions/TransformDatabaseRecord"
+        }
+    ]
+}

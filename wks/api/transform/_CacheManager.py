@@ -6,7 +6,7 @@ from pathlib import Path
 from pymongo.database import Database
 
 
-class CacheManager:
+class _CacheManager:
     """Manages transform cache with size limits and LRU eviction."""
 
     def __init__(self, cache_dir: Path, max_size_bytes: int, db: Database):
@@ -50,7 +50,7 @@ class CacheManager:
         Returns:
             List of (checksum, size_bytes, cache_location) tuples
         """
-        collection = self.db.transform
+        collection = self.db
         entries = []
         total_freed = 0
 
@@ -102,7 +102,7 @@ class CacheManager:
                 cache_path.unlink()
 
             # Delete from database
-            self.db.transform.delete_one({"checksum": checksum})
+            self.db.delete_one({"checksum": checksum})
 
             evicted_locations.append(cache_location)
             total_freed += size_bytes

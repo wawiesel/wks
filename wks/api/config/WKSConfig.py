@@ -14,7 +14,9 @@ from ..mcp.McpConfig import McpConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..vault.VaultConfig import VaultConfig
+from .CatConfig import CatConfig
 from .LogConfig import LogConfig
+from .TransformConfig import TransformConfig
 
 
 class WKSConfig(BaseModel):
@@ -29,6 +31,8 @@ class WKSConfig(BaseModel):
     vault: VaultConfig
     log: LogConfig
     mcp: McpConfig = McpConfig()  # Optional, defaults to empty
+    transform: TransformConfig
+    cat: CatConfig
 
     @computed_field
     def path(self) -> Path:
@@ -96,6 +100,8 @@ class WKSConfig(BaseModel):
             "vault": self.vault.model_dump(),
             "log": self.log.model_dump(),
             "mcp": self.mcp.model_dump(),
+            "transform": self.transform.model_dump(),
+            "cat": self.cat.model_dump(),
         }
 
     def save(self) -> None:

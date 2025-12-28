@@ -3,25 +3,25 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from .TransformConfigError import TransformConfigError
+from ._TransformConfigError import _TransformConfigError
 
 
 @dataclass
-class CacheConfig:
+class _CacheConfig:
     """Cache configuration for transformed files."""
 
-    location: str
+    base_dir: str
     max_size_bytes: int
 
-    def _validate_cache_location(self) -> list[str]:
-        """Validate cache location is a non-empty string or Path."""
+    def _validate_base_dir(self) -> list[str]:
+        """Validate base_dir is a non-empty string or Path."""
         errors: list[str] = []
 
-        if not isinstance(self.location, (str, Path)) or not str(self.location):
+        if not isinstance(self.base_dir, (str, Path)) or not str(self.base_dir):
             errors.append(
-                f"transform.cache.location must be a non-empty string or Path "
-                f"(found: {type(self.location).__name__} = {self.location!r}, "
-                f"expected: path string like '.wks/transform/cache')"
+                f"transform.cache.base_dir must be a non-empty string or Path "
+                f"(found: {type(self.base_dir).__name__} = {self.base_dir!r}, "
+                f"expected: path string like '~/_transform')"
             )
 
         return errors
@@ -42,8 +42,8 @@ class CacheConfig:
     def __post_init__(self):
         """Validate cache configuration after initialization."""
         errors: list[str] = []
-        errors.extend(self._validate_cache_location())
+        errors.extend(self._validate_base_dir())
         errors.extend(self._validate_max_size())
 
         if errors:
-            raise TransformConfigError(errors)
+            raise _TransformConfigError(errors)

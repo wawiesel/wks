@@ -3,10 +3,10 @@
 from pathlib import Path
 from typing import Any
 
-from .TransformEngine import TransformEngine
+from .._TransformEngine import _TransformEngine
 
 
-class TestEngine(TransformEngine):
+class _TestEngine(_TransformEngine):
     """Test engine that copies content."""
 
     def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:  # noqa: ARG002
