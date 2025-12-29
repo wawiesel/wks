@@ -82,13 +82,11 @@ def smoke_env(tmp_path_factory):
     # We use the real Database implementation driven by standard configuration.
     # Setting `local: True` tells the backend to manage a local mongod process.
     # We do NOT manually spawn mongod; we let the config drive the system behavior.
-    config_dict["database"] = {
-        "type": "mongo",
-        "prefix": "wks_smoke",
-        "data": {
-            "uri": mongo_uri,
-            "local": True,  # Force local to ensure backend starts it if needed
-        },
+    config_dict["database"]["type"] = "mongo"
+    config_dict["database"]["prefix"] = "wks_smoke"
+    config_dict["database"]["data"] = {
+        "uri": mongo_uri,
+        "local": True,  # Force local to ensure backend starts it if needed
     }
     config_dict["vault"] = {
         "type": "obsidian",

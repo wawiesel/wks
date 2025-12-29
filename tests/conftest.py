@@ -335,13 +335,11 @@ def mongo_wks_env(tmp_path, monkeypatch):
 
     # Start with minimal config and override for MongoDB
     config_dict = minimal_config_dict()
-    config_dict["database"] = {
-        "type": "mongo",
-        "prefix": "wks_test",
-        "data": {
-            "uri": mongo_uri,
-            "local": is_local,
-        },
+    config_dict["database"]["type"] = "mongo"
+    config_dict["database"]["prefix"] = "wks_test"
+    config_dict["database"]["data"] = {
+        "uri": mongo_uri,
+        "local": is_local,
     }
     config_dict["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
     config_dict["daemon"]["sync_interval_secs"] = 0.1
