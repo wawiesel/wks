@@ -141,6 +141,16 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
             "warning_retention_days": 2.0,
             "error_retention_days": 7.0,
         },
+        "transform": {
+            "cache": {
+                "base_dir": "~/_transform_cache",
+                "max_size_bytes": 1073741824,
+            },
+            "engines": {},
+        },
+        "cat": {
+            "default_engine": "cat",
+        },
     }
 
     config = WKSConfig.model_validate(config_dict)
