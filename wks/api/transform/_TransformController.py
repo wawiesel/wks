@@ -5,8 +5,6 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pymongo.database import Database
-
 from wks.utils.normalize_path import normalize_path
 
 from ...utils.now_iso import now_iso
@@ -16,7 +14,7 @@ from ._get_engine_by_type import _get_engine_by_type
 from ._TransformRecord import _TransformRecord
 
 if TYPE_CHECKING:
-    from pymongo.synchronous.database import Database
+    from wks.api.database.Database import Database
 
     from ._TransformConfig import _TransformConfig
 
@@ -28,12 +26,12 @@ class _TransformController:
         """Initialize transform controller.
 
         Args:
-            db: MongoDB database instance
+            db: Database facade
             config: Transform configuration object
         """
         self.db = db
         self.config = config
-        self.cache_manager = _CacheManager(Path(config.cache.base_dir), config.cache.max_size_bytes, db)
+        self.cache_manager = _CacheManager(Path(config.cache.base_dir), config.cache.max_size_bytes, db.get_database())
 
     def _compute_file_checksum(self, file_path: Path) -> str:
         """Compute SHA-256 checksum of file.
@@ -60,18 +58,17 @@ class _TransformController:
         output_uri = path_to_uri(normalize_path(output_path))
 
         # Get raw database object for accessing other collections
-        # self.db is the Database facade
-        mongo_db: Any = self.db
+        mongo_db: Any = self.db.get_database()
 
         # 1. Upsert Source Node
         mongo_db["nodes"].update_one({"uri": file_uri}, {"$set": {"uri": file_uri, "type": "file"}}, upsert=True)
 
-        # Upsert Output Node
+        # 2. Upsert Output Node
         mongo_db["nodes"].update_one(
             {"uri": output_uri}, {"$set": {"uri": output_uri, "type": "file", "generated": True}}, upsert=True
         )
 
-        # 2. Upsert Edge
+        # 3. Upsert Edge
         mongo_db["edges"].update_one(
             {"source": file_uri, "target": output_uri, "type": "transform"},
             {"$set": {"source": file_uri, "target": output_uri, "type": "transform", "created_at": now_iso()}},

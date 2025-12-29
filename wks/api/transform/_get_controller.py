@@ -21,5 +21,4 @@ def _get_controller() -> Iterator[_TransformController]:
 
     # We use the 'transform' collection/database name as per spec
     with Database(wks_config.database, "transform") as db:
-        # Cast to Any to satisfy Mypy as _TransformController expects a raw pymongo Database
-        yield _TransformController(db.get_database(), transform_config)
+        yield _TransformController(db, transform_config)

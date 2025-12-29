@@ -59,7 +59,7 @@ class TestCmdList:
         cfg["database"]["type"] = "mongomock"
         (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-        db_cfg = DatabaseConfig(type="mongomock", prefix=prefix, data=cast(BaseModel, {}))
+        db_cfg = DatabaseConfig(type="mongomock", prefix=prefix, prune_frequency_secs=3600, data=cast(BaseModel, {}))
 
         # Create collections (names should NOT include prefix here because Database facade prepends it)
         with Database(db_cfg, "nodes") as db:
@@ -100,7 +100,9 @@ class TestCmdList:
 
         # db_cfg = DatabaseConfig(type="mongomock", prefix=prefix, data=cast(BaseModel, {}))
         other_prefix = "other"
-        other_cfg = DatabaseConfig(type="mongomock", prefix=other_prefix, data=cast(BaseModel, {}))
+        other_cfg = DatabaseConfig(
+            type="mongomock", prefix=other_prefix, prune_frequency_secs=3600, data=cast(BaseModel, {})
+        )
 
         # Create other prefixed collection (DB "other", collection "nodes")
         with Database(other_cfg, "nodes") as db:

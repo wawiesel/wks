@@ -19,7 +19,7 @@ class DatabaseConfig(BaseModel):
 
     type: str = Field(..., description="Database backend type")
     prefix: str = Field(..., description="Database prefix for collection names")
-    prune_frequency_secs: float = Field(..., description="Seconds between auto-prune runs; 0 disables auto-prune")
+    prune_frequency_secs: float = Field(3600, description="Seconds between auto-prune runs; 0 disables auto-prune")
     data: BaseModel = Field(..., description="Backend-specific configuration data")
 
     @model_validator(mode="before")

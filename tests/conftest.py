@@ -288,8 +288,9 @@ def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
     pid = os.getpid()
     base_port = 27100
 
-    # Each worker gets 10000 ports, use path hash and pid for uniqueness
-    mongo_port = base_port + (worker_num * 10000) + (path_hash % 9000) + (pid % 100)
+    # Ensure port stays within 1024-65535 range
+    # With 12 workers, we use worker_num * 1000 roughly
+    mongo_port = base_port + (worker_num * 1000) + (path_hash % 900) + (pid % 10)
 
     # Verify port is actually available (in case of rare collision)
     max_attempts = 50

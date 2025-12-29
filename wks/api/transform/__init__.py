@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from ..schema_loader import SchemaLoader
 
 _models = SchemaLoader.register_from_schema("transform")
-TransformResultOutput: type[BaseModel] = _models["TransformResultOutput"]
+TransformTransformOutput: type[BaseModel] = _models["TransformTransformOutput"]
 
 __all__ = [
-    "TransformResultOutput",
+    "TransformTransformOutput",
 ]

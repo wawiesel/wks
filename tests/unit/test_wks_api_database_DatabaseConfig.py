@@ -37,7 +37,12 @@ class TestDatabaseConfig:
     def test_database_config_custom_prefix(self):
         """Test DatabaseConfig with custom prefix."""
         config = DatabaseConfig.model_validate(
-            {"type": "mongo", "prefix": "custom", "data": {"uri": "mongodb://localhost:27017/"}}
+            {
+                "type": "mongo",
+                "prefix": "custom",
+                "prune_frequency_secs": 3600,
+                "data": {"uri": "mongodb://localhost:27017/"},
+            }
         )
         assert config.prefix == "custom"
 
@@ -89,6 +94,7 @@ class TestDatabaseConfig:
                     "uri": "mongodb://127.0.0.1:27017/",
                     "local": True,
                 },
+                "prune_frequency_secs": 3600,
             }
         )
         assert cfg.data.local is True  # type: ignore[attr-defined]
@@ -111,7 +117,7 @@ class TestDatabaseConfig:
 
     def test_database_config_model_validator_with_mongomock(self):
         """Test model_validator works with mongomock backend."""
-        config_dict = {"type": "mongomock", "prefix": "wks", "data": {}}
+        config_dict = {"type": "mongomock", "prefix": "wks", "prune_frequency_secs": 3600, "data": {}}
         config = DatabaseConfig.model_validate(config_dict)
         # Verify data was transformed to _MongoMockDbConfigData instance
         assert config.type == "mongomock"

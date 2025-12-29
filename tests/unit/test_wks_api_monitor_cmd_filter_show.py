@@ -28,7 +28,11 @@ def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict
     result = run_cmd(cmd_filter_show.cmd_filter_show, list_name="include_paths")
     assert result.output["count"] == 2
     assert "Showing" in result.result
-    assert result.output["items"] == ["a", "b"]
+
+    from wks.utils.normalize_path import normalize_path
+
+    expected = [str(normalize_path("a")), str(normalize_path("b"))]
+    assert result.output["items"] == expected
 
 
 def test_cmd_filter_show_unknown_list_name(monkeypatch, tmp_path, minimal_config_dict):

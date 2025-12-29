@@ -3,7 +3,7 @@
     "title": "Transform Output Schema",
     "description": "Schema for wks transform command outputs",
     "definitions": {
-        "TransformResultOutput": {
+        "TransformTransformOutput": {
             "type": "object",
             "properties": {
                 "source_uri": {
@@ -93,7 +93,7 @@
     },
     "oneOf": [
         {
-            "$ref": "#/definitions/TransformResultOutput"
+            "$ref": "#/definitions/TransformTransformOutput"
         },
         {
             "$ref": "#/definitions/TransformDatabaseRecord"
