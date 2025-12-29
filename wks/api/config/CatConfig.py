@@ -1,11 +1,10 @@
 """Cat configuration for WKSConfig."""
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
 class CatConfig(BaseModel):
     """Cat section of WKS configuration."""
 
-    default_engine: Optional[str] = None
+    default_engine: str | None = None
+    mime_engines: dict[str, str] | None = None

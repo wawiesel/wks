@@ -8,7 +8,13 @@
             "properties": {
                 "source_uri": {
                     "type": "string",
-                    "format": "uri"
+                    "format": "uri",
+                    "description": "URI of the source file"
+                },
+                "destination_uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URI of the cached transformed file"
                 },
                 "engine": {
                     "type": "string"
@@ -21,15 +27,13 @@
                         "error"
                     ]
                 },
-                "output_path": {
-                    "type": "string"
+                "checksum": {
+                    "type": "string",
+                    "description": "SHA-256 hash of the transform (used as cache key)"
                 },
                 "output_content": {
                     "type": "string",
                     "description": "Optional content, if requested"
-                },
-                "checksum": {
-                    "type": "string"
                 },
                 "processing_time_ms": {
                     "type": "integer"
@@ -37,34 +41,46 @@
             },
             "required": [
                 "source_uri",
+                "destination_uri",
                 "engine",
-                "status"
+                "status",
+                "checksum"
             ]
         },
         "TransformDatabaseRecord": {
             "type": "object",
             "properties": {
                 "file_uri": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URI of the source file"
+                },
+                "cache_uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URI of the cached transformed file"
                 },
                 "engine": {
                     "type": "string"
                 },
-                "engine_params_hash": {
-                    "type": "string"
+                "options_hash": {
+                    "type": "string",
+                    "description": "Hash of engine options used"
                 },
-                "output_hash": {
-                    "type": "string"
+                "checksum": {
+                    "type": "string",
+                    "description": "SHA-256 hash of transformed content"
                 },
-                "data_size": {
+                "size_bytes": {
                     "type": "integer"
                 },
-                "last_transform_time": {
+                "created_at": {
                     "type": "string",
                     "format": "date-time"
                 },
-                "cache_path": {
-                    "type": "string"
+                "last_accessed": {
+                    "type": "string",
+                    "format": "date-time"
                 }
             },
             "required": [

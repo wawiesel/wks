@@ -1,34 +1,30 @@
 """Normalize a path string for comparison.
 
-Expands user home directory (~) and resolves symlinks to create a
-canonical representation of the path. If resolution fails (e.g., path
-doesn't exist), returns the expanded path without resolution.
+Expands user home directory (~) and returns an absolute path WITHOUT
+resolving symlinks. This ensures consistency with WKS monitor rules.
 """
-
-from pathlib import Path
 
 
 def canonicalize_path(path_str: str) -> str:
     """Normalize a path string for comparison.
 
-    Expands user home directory (~) and resolves symlinks to create a
-    canonical representation of the path. If resolution fails (e.g., path
-    doesn't exist), returns the expanded path without resolution.
+    Expands user home directory (~) and returns an absolute path
+    WITHOUT resolving symlinks. This ensures consistency with WKS
+    monitor rules which treat symlinks as distinct paths.
 
     Args:
         path_str: Path string to canonicalize (may include ~)
 
     Returns:
-        Canonical path string (absolute, resolved)
+        Normalized absolute path string (no symlink resolution)
 
     Examples:
         >>> canonicalize_path("~/Documents/file.txt")
         "/Users/user/Documents/file.txt"
         >>> canonicalize_path("/tmp/symlink")
-        "/tmp/resolved_target"
+        "/tmp/symlink"
     """
-    path_obj = Path(path_str).expanduser()
-    try:
-        return str(path_obj.resolve(strict=False))
-    except Exception:
-        return str(path_obj)
+    from wks.utils.normalize_path import normalize_path
+
+    path_obj = normalize_path(path_str)
+    return str(path_obj)

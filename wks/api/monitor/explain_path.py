@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from wks.utils.normalize_path import normalize_path
+
 from ..config.WKSConfig import WKSConfig
 from ._evaluate_roots import _evaluate_roots
 from .matches_glob import matches_glob
@@ -11,10 +13,8 @@ from .MonitorConfig import MonitorConfig
 def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
     """Explain why a path is allowed or excluded."""
     trace: list[str] = []
-    # Use absolute() instead of resolve() to preserve symlinks
-    # This allows monitoring symlinks that point outside the monitor root
-    # and ensures we exclude symlinks residing IN .wks
-    resolved = path.expanduser().absolute()
+    # Use normalize_path (expanduser + absolute) instead of resolve()
+    resolved = normalize_path(path)
 
     # Check if path is within WKS home directory (automatically excluded)
     wks_home = WKSConfig.get_home_dir()
@@ -29,9 +29,8 @@ def explain_path(cfg: MonitorConfig, path: Path) -> tuple[bool, list[str]]:
         pass
 
     # Normalize filter lists
-    # Use absolute() to match the behavior above
-    include_roots = [Path(p).expanduser().absolute() for p in cfg.filter.include_paths]
-    exclude_roots = [Path(p).expanduser().absolute() for p in cfg.filter.exclude_paths]
+    include_roots = [normalize_path(p) for p in cfg.filter.include_paths]
+    exclude_roots = [normalize_path(p) for p in cfg.filter.exclude_paths]
     include_root_set = set(include_roots)
     exclude_root_set = set(exclude_roots)
     include_dirnames = {d.strip() for d in cfg.filter.include_dirnames if d and d.strip()}

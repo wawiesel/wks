@@ -23,6 +23,8 @@ def uri_to_path(uri: str) -> Path:
         first_slash = path_part.find("/")
         path_part = path_part[first_slash:] if first_slash != -1 else "/"
 
+        from wks.utils.normalize_path import normalize_path
+
         # URL decode and return Path
-        return Path(unquote(path_part))
+        return normalize_path(unquote(path_part))
     return Path(uri)

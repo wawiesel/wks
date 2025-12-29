@@ -90,6 +90,7 @@ def minimal_config_dict() -> dict:
         "database": {
             "type": "mongomock",
             "prefix": "wks",
+            "prune_frequency_secs": 3600,
             "data": {},
         },
         "service": service_config_dict_for_platform(),

@@ -3,23 +3,28 @@
 import hashlib
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pymongo.database import Database
 
+from wks.utils.normalize_path import normalize_path
+
+from ...utils.now_iso import now_iso
+from ...utils.path_to_uri import path_to_uri
 from ._CacheManager import _CacheManager
-from ._TransformRecord import _TransformRecord
 from ._get_engine_by_type import _get_engine_by_type
-from typing import TYPE_CHECKING
+from ._TransformRecord import _TransformRecord
+
 if TYPE_CHECKING:
-    from ._TransformConfig import TransformConfig
-    from ...api.database.Database import Database
+    from pymongo.synchronous.database import Database
+
+    from ._TransformConfig import _TransformConfig
 
 
 class _TransformController:
     """Business logic for transform operations."""
 
-    def __init__(self, db: Database, config: "TransformConfig"):
+    def __init__(self, db: "Database", config: "_TransformConfig"):
         """Initialize transform controller.
 
         Args:
@@ -28,7 +33,7 @@ class _TransformController:
         """
         self.db = db
         self.config = config
-        self.cache_manager = _CacheManager(config.cache.base_dir, config.cache.max_size_bytes, db)
+        self.cache_manager = _CacheManager(Path(config.cache.base_dir), config.cache.max_size_bytes, db)
 
     def _compute_file_checksum(self, file_path: Path) -> str:
         """Compute SHA-256 checksum of file.
@@ -52,42 +57,25 @@ class _TransformController:
             file_uri: Source file URI (file://...)
             output_path: Path to the cached output file
         """
-        output_uri = f"file://{output_path.resolve()}"
+        output_uri = path_to_uri(normalize_path(output_path))
 
         # Get raw database object for accessing other collections
         # self.db is the Database facade
-        mongo_db = self.db.get_database()
+        mongo_db: Any = self.db
 
         # 1. Upsert Source Node
-        mongo_db["nodes"].update_one(
-            {"uri": file_uri},
-            {"$set": {"uri": file_uri, "type": "file"}},
-            upsert=True
-        )
+        mongo_db["nodes"].update_one({"uri": file_uri}, {"$set": {"uri": file_uri, "type": "file"}}, upsert=True)
 
         # Upsert Output Node
         mongo_db["nodes"].update_one(
-            {"uri": output_uri},
-            {"$set": {"uri": output_uri, "type": "file", "generated": True}},
-            upsert=True
+            {"uri": output_uri}, {"$set": {"uri": output_uri, "type": "file", "generated": True}}, upsert=True
         )
 
         # 2. Upsert Edge
         mongo_db["edges"].update_one(
-            {
-                "source": file_uri,
-                "target": output_uri,
-                "type": "transform"
-            },
-            {
-                "$set": {
-                    "source": file_uri,
-                    "target": output_uri,
-                    "type": "transform",
-                    "created_at": now_iso()
-                }
-            },
-            upsert=True
+            {"source": file_uri, "target": output_uri, "type": "transform"},
+            {"$set": {"source": file_uri, "target": output_uri, "type": "transform", "created_at": now_iso()}},
+            upsert=True,
         )
 
     def _compute_cache_key(self, file_checksum: str, engine_name: str, options_hash: str) -> str:
@@ -104,7 +92,9 @@ class _TransformController:
         key_str = f"{file_checksum}:{engine_name}:{options_hash}"
         return hashlib.sha256(key_str.encode()).hexdigest()
 
-    def _find_cached_transform(self, file_checksum: str, engine_name: str, options_hash: str) -> _TransformRecord | None:
+    def _find_cached_transform(
+        self, file_checksum: str, engine_name: str, options_hash: str
+    ) -> _TransformRecord | None:
         """Find existing cached transform.
 
         Args:
@@ -115,7 +105,7 @@ class _TransformController:
         Returns:
             TransformRecord if found, None otherwise
         """
-        cursor = self.db.find(
+        cursor: Any = self.db.find(
             {
                 "checksum": file_checksum,
                 "engine": engine_name,
@@ -130,7 +120,7 @@ class _TransformController:
             record = _TransformRecord.from_dict(doc)
             # Check if file exists in current cache directory (not stored absolute path)
             # This handles cases where temp directories are cleaned up between test runs
-            stored_path = Path(record.cache_location)
+            stored_path = Path(record.cache_path_from_uri())
             extension = stored_path.suffix.lstrip(".") or "md"
             cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
 
@@ -153,7 +143,12 @@ class _TransformController:
         )
 
     def _handle_cached_transform(
-        self, cached: _TransformRecord, file_checksum: str, engine_name: str, options_hash: str, output_path: Path | None
+        self,
+        cached: _TransformRecord,
+        file_checksum: str,
+        engine_name: str,
+        options_hash: str,
+        output_path: Path | None,
     ) -> str:
         """Handle transform when result is already cached.
 
@@ -173,7 +168,7 @@ class _TransformController:
         # Copy to output if requested
         if output_path:
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path = Path(cached.cache_location)
+            cache_path = Path(cached.cache_path_from_uri())
             if cache_path.exists():
                 output_path.write_bytes(cache_path.read_bytes())
 
@@ -239,13 +234,13 @@ class _TransformController:
         # Store in database
         record = _TransformRecord(
             file_uri=file_uri,
+            cache_uri=path_to_uri(cache_location),
             checksum=file_checksum,
             size_bytes=output_size,
             last_accessed=now_iso(),
             created_at=now_iso(),
             engine=engine_name,
             options_hash=options_hash,
-            cache_location=str(cache_location),
         )
 
         self.db.insert_one(record.to_dict())
@@ -257,7 +252,6 @@ class _TransformController:
 
         return cache_key
 
-
     def transform(
         self,
         file_path: Path,
@@ -266,7 +260,7 @@ class _TransformController:
         output_path: Path | None = None,
     ) -> str:
         """Transform file using specified engine."""
-        file_path = file_path.resolve()
+        file_path = normalize_path(file_path)
 
         if not file_path.exists() or not file_path.is_file():
             raise ValueError(f"File not found: {file_path}")
@@ -274,32 +268,29 @@ class _TransformController:
         # Get engine config
         if engine_name not in self.config.engines:
             raise ValueError(
-                f"Engine '{engine_name}' not found in config. "
-                f"Available engines: {list(self.config.engines.keys())}"
+                f"Engine '{engine_name}' not found in config. Available engines: {list(self.config.engines.keys())}"
             )
-        
+
         engine_config = self.config.engines[engine_name]
-        
+
         # Get engine instance
         engine = _get_engine_by_type(engine_config.type)
-        
+
         # Merge base options with overrides
         merged_options = {**engine_config.data, **(options or {})}
-        
+
         # Compute file info
-        file_uri = f"file://{file_path}"
+        file_uri = path_to_uri(file_path)
         file_checksum = self._compute_file_checksum(file_path)
         file_size = file_path.stat().st_size
         options_hash = engine.compute_options_hash(merged_options)
-        
+
         # Check cache
         cached = self._find_cached_transform(file_checksum, engine_name, options_hash)
-        
+
         if cached:
-            return self._handle_cached_transform(
-                cached, file_checksum, engine_name, options_hash, output_path
-            )
-        
+            return self._handle_cached_transform(cached, file_checksum, engine_name, options_hash, output_path)
+
         # Perform new transform
         return self._perform_new_transform(
             file_path,
@@ -323,12 +314,14 @@ class _TransformController:
             Number of records removed
         """
         # Find all transforms for this URI
-        docs = list(self.db.find({"file_uri": file_uri}))
+        docs: list[dict[str, Any]] = list(self.db.find({"file_uri": file_uri}))
 
         count = 0
         for doc in docs:
             # Remove cache file
-            cache_path = Path(doc["cache_location"])
+            from ...utils.uri_to_path import uri_to_path
+
+            cache_path = uri_to_path(doc["cache_uri"])
             if cache_path.exists():
                 cache_path.unlink()
                 self.cache_manager.remove_file(doc["size_bytes"])
@@ -349,7 +342,7 @@ class _TransformController:
         Returns:
             Number of records updated
         """
-        result = self.db.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
+        result: Any = self.db.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
         return result.modified_count
 
     def _copy_cache_file_to_output(self, cache_file: Path, output_path: Path) -> None:
@@ -372,7 +365,6 @@ class _TransformController:
         except (OSError, AttributeError):
             output_path.write_bytes(cache_file.read_bytes())
 
-
     def get_record(self, cache_key: str) -> _TransformRecord | None:
         """Get transform record by cache key.
 
@@ -384,7 +376,7 @@ class _TransformController:
         """
         # First try direct find by checksum (if key == file checksum)
         # Note: Cache key != file checksum usually.
-        # But our DB stores file checksum. 
+        # But our DB stores file checksum.
         # Wait, the DB stores `checksum` (file content), `engine`, `options_hash`.
         # The `cache_key` is a hash of those three.
         # To find by cache_key, we must iterate matching records or query if we stored cache_key inside DB.
@@ -401,7 +393,7 @@ class _TransformController:
         Returns:
             TransformRecord if found, None otherwise
         """
-        records = list(self.db.find())
+        records: list[dict[str, Any]] = list(self.db.find())
         for doc in records:
             record_checksum = doc["checksum"]
             record_engine = doc["engine"]
@@ -424,7 +416,7 @@ class _TransformController:
         Raises:
             ValueError: If cache file not found and stale record is cleaned up
         """
-        stored_path = Path(matching_record.cache_location)
+        stored_path = Path(matching_record.cache_path_from_uri())
         extension = stored_path.suffix.lstrip(".") or "md"  # Default to .md if no extension
         cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
 
@@ -453,6 +445,10 @@ class _TransformController:
     def _get_content_by_checksum(self, cache_key: str, output_path: Path | None = None) -> str:
         """Get content by cache key (checksum).
 
+        Per Cache-Database Sync Invariant #3: All access through database.
+        The database is the sole authority - we MUST verify the checksum
+        exists in the database before reading the cache file.
+
         Args:
             cache_key: 64-character hex cache key
             output_path: Optional output file path
@@ -461,24 +457,20 @@ class _TransformController:
             Content as string
 
         Raises:
-            ValueError: If cache entry not found
+            ValueError: If cache entry not found in database
         """
-        # First, prefer the cache directory as the source of truth.
-        candidates = list(self.cache_manager.cache_dir.glob(f"{cache_key}.*"))
-        cache_file: Path | None = candidates[0] if candidates else None
-
-        if cache_file is not None and cache_file.exists():
-            if output_path:
-                self._copy_cache_file_to_output(cache_file, output_path)
-            return cache_file.read_text(encoding="utf-8")
-
-        # Fallback: resolve via database metadata to support older entries.
+        # Per spec: Database is sole authority - check DB first
         matching_record = self._find_matching_record_in_db(cache_key)
 
         if not matching_record:
-            raise ValueError(f"Cache entry not found: {cache_key}")
+            raise ValueError(f"Checksum not found in database: {cache_key}")
 
+        # Get cache file path from database record
         cache_file = self._resolve_cache_file_from_db(cache_key, matching_record)
+
+        if not cache_file.exists():
+            # Stale record - file doesn't exist
+            raise ValueError(f"Cache file missing for checksum: {cache_key}")
 
         self._update_last_accessed(
             matching_record.checksum,
@@ -509,7 +501,7 @@ class _TransformController:
         try:
             file_path = expand_path(target)
         except Exception:
-            file_path = Path(target).resolve()
+            file_path = normalize_path(target)
 
         if not file_path.exists():
             raise ValueError(f"File not found: {file_path}")

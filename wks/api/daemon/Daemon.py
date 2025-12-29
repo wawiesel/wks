@@ -39,13 +39,14 @@ class Daemon:
 
     def _resolve_watch_paths(self, restrict_dir: Path | None) -> list[Path]:
         # Priority: explicit restrict_dir -> monitor include_paths
+        from wks.utils.normalize_path import normalize_path
 
         paths: list[Path] = []
         if restrict_dir is not None:
-            paths.append(restrict_dir.expanduser().resolve())
+            paths.append(normalize_path(restrict_dir))
         else:
             monitor_paths = WKSConfig.load().monitor.filter.include_paths
-            paths.extend(Path(p).expanduser().resolve() for p in monitor_paths)
+            paths.extend(normalize_path(p) for p in monitor_paths)
         # Deduplicate
         unique: list[Path] = []
         seen = set()

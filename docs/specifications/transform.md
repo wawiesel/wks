@@ -65,18 +65,33 @@ Users define **Named Engines** in `config.json`.
 - Canonical output schema: `docs/specifications/transform_output.schema.json`.
 - Implementations MUST validate outputs against this schema.
 
+## Cache-Database Sync Invariant
+
+The transform database is the **sole authority** for the transform cache. This invariant ensures cache and database are always in sync:
+
+1. **Database → Cache**: Every cache file on disk MUST have a corresponding database record. Orphaned cache files are invalid.
+2. **Cache → Database**: Every database record MUST point to an existing cache file. Stale records are invalid.
+3. **All access through database**: Reading cached content (by checksum) MUST verify the checksum exists in the database first.
+4. **Mutations propagate**: Any operation that modifies the database (reset, delete, prune) MUST also delete the corresponding cache files.
+
+**Consequences:**
+- `wksc database reset transform` MUST delete all files in the transform cache directory.
+- `wksc cat <checksum>` MUST fail if the checksum is not in the database (even if the file exists on disk).
+- Cache eviction (LRU) MUST delete both the database record and the cache file atomically.
+
 ## Database Schema
 The transform database acts as a localized index of the transform cache.
 
 Collection: `transform`
 
-- `file_uri`: Origin file URI (e.g., `file:///User/docs/invoice.pdf`)
-- `engine`: Engine identifier (e.g., `docling`)
-- `engine_params_hash`: SHA-256 of the engine configuration used used.
-- `output_hash`: SHA-256 of the *content* of the transformed file.
-- `data_size`: Size of the transformed output in bytes.
-- `last_transform_time`: ISO timestamp.
-- `cache_path`: Absolute path to the cached artifact.
+- `file_uri`: Origin file URI (e.g., `file://hostname/User/docs/invoice.pdf`)
+- `cache_uri`: Cached file URI (e.g., `file://hostname/path/to/cache.md`)
+- `engine`: Named engine identifier (e.g., `dx`)
+- `options_hash`: SHA-256 of the engine options used.
+- `checksum`: SHA-256 of the transformed content (also the cache filename).
+- `size_bytes`: Size of the transformed output in bytes.
+- `created_at`: ISO timestamp of original transform.
+- `last_accessed`: ISO timestamp of last access.
 
 ## Graph Integration
 When a transform is successfully executed (or retrieved from cache), the system MUST update the Knowledge Graph:
@@ -87,23 +102,24 @@ When a transform is successfully executed (or retrieved from cache), the system 
     - Allows traversal from the original document to its indexable content.
 
 ## CLI Interface
-Entry: `wksc transform`
 
 ### transform
-- Command: `wksc transform <engine> [options] <file>`
+- Command: `wksc transform <engine> <file> [options]`
+- No args: `wksc transform` - Lists available engines with supported types
+- Engine only: `wksc transform <engine>` - Shows engine info and supported types
 - Behavior: Transforms the file using the specified engine. Returns hash of the transformed content.
     - **Configuration Overrides**: Any key defined in the engine's `data` configuration block can be overridden via CLI flags.
-    - **Scripting**: Use `--raw` to output *only* the checksum to STDOUT, enabling shell variable assignment (e.g., `CS=$(wksc transform default x.pdf --raw)`).
-    - **Example**:
-        - Config: `{"engines": {"default": {"type": "docling", "data": {"ocr": false}}}}`
-        - Command: `wksc transform default document.pdf --ocr true`
-        - Result: Runs `default` engine but with `ocr=true`.
+    - **Scripting**: Use `--raw` to output *only* the checksum to STDOUT.
+    - **Example**: `wksc transform dx document.pdf --ocr true`
 - Output: `TransformResultOutput` (or raw string if `--raw`)
 
-### show
-- Command: `wksc transform show <checksum>`
-- Behavior: Retrieve content for a specific transform hash.
+### cat (top-level)
+- Command: `wksc cat <target> [--engine <engine>]`
+- TARGET can be a file path or a checksum (64 hex chars)
+- Behavior: Transform file (or retrieve cached content) and print to stdout.
+    - File path: Auto-selects engine based on MIME type from `cat.mime_engines` config.
+    - Checksum: Retrieves cached content directly.
+- Output: Raw content to stdout
 
 ## MCP Interface
-- `wksm_transform(engine_name,engine_options,file)`
-- `wksm_transform_show(checksum)`
+- `wksm_transform(engine, file)` - Transform a file

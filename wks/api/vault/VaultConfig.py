@@ -6,7 +6,7 @@ __all__ = ["VaultConfig"]
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
 class VaultConfig(BaseModel):
@@ -16,6 +16,13 @@ class VaultConfig(BaseModel):
 
     type: str = Field(..., description="Vault backend type")
     base_dir: str = Field(..., description="Path to vault root directory")
+
+    @field_validator("base_dir")
+    @classmethod
+    def _normalize_base_dir(cls, v: str) -> str:
+        from wks.utils.normalize_path import normalize_path
+
+        return str(normalize_path(v))
 
     @classmethod
     def from_config_dict(cls, config: dict[str, Any]) -> VaultConfig:

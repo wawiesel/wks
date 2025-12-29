@@ -10,6 +10,7 @@ from pathlib import Path
 
 from wks.api.config.write_status_file import write_status_file
 from wks.utils.expand_paths import expand_paths
+from wks.utils.normalize_path import normalize_path
 from wks.utils.path_to_uri import path_to_uri
 
 from ..database.Database import Database
@@ -70,7 +71,7 @@ def cmd_sync(
         wks_home = WKSConfig.get_home_dir()
 
         yield (0.2, "Resolving path...")
-        path_obj = Path(path).expanduser().resolve()
+        path_obj = normalize_path(path)
         if not path_obj.exists():
             yield (0.3, "Path missing; removing from monitor DB...")
 

@@ -51,7 +51,9 @@ class _Impl(_AbstractImpl):
     <string>start</string>
     <string>--blocking</string>"""
         if restrict_dir is not None:
-            restrict_path = str(restrict_dir.expanduser().resolve())
+            from ....utils.normalize_path import normalize_path
+
+            restrict_path = str(normalize_path(restrict_dir))
             program_args += f"""
     <string>--restrict</string>
     <string>{restrict_path}</string>"""

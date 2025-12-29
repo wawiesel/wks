@@ -6,6 +6,8 @@ from pathlib import Path
 
 from watchdog.observers import Observer
 
+from wks.utils.normalize_path import normalize_path
+
 from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file
 from ..log.read_log_entries import read_log_entries
@@ -165,15 +167,15 @@ def _child_main(
 
     def process_events() -> None:
         events = handler.get_and_clear_events()
-        ignore_paths = {log_file.resolve(), status_file.resolve(), lock_file.resolve()}
+        ignore_paths = {normalize_path(log_file), normalize_path(status_file), normalize_path(lock_file)}
 
-        filtered_modified = [Path(p).resolve() for p in events.modified if Path(p).resolve() not in ignore_paths]
-        filtered_created = [Path(p).resolve() for p in events.created if Path(p).resolve() not in ignore_paths]
-        filtered_deleted = [Path(p).resolve() for p in events.deleted if Path(p).resolve() not in ignore_paths]
+        filtered_modified = [normalize_path(p) for p in events.modified if normalize_path(p) not in ignore_paths]
+        filtered_created = [normalize_path(p) for p in events.created if normalize_path(p) not in ignore_paths]
+        filtered_deleted = [normalize_path(p) for p in events.deleted if normalize_path(p) not in ignore_paths]
         filtered_moved = [
-            (Path(src).resolve(), Path(dest).resolve())
+            (normalize_path(src), normalize_path(dest))
             for src, dest in events.moved
-            if Path(src).resolve() not in ignore_paths or Path(dest).resolve() not in ignore_paths
+            if normalize_path(src) not in ignore_paths or normalize_path(dest) not in ignore_paths
         ]
 
         if not (filtered_modified or filtered_created or filtered_deleted or filtered_moved):

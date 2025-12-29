@@ -2,8 +2,11 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
-from pymongo.database import Database
+from pymongo.synchronous.database import Database
+
+from ...utils.uri_to_path import uri_to_path
 
 
 class _CacheManager:
@@ -48,19 +51,19 @@ class _CacheManager:
             bytes_needed: Number of bytes to free
 
         Returns:
-            List of (checksum, size_bytes, cache_location) tuples
+            List of (checksum, size_bytes, cache_uri) tuples
         """
         collection = self.db
-        entries = []
+        entries: list[tuple[str, int, str]] = []
         total_freed = 0
 
         # Query oldest entries sorted by last_accessed
-        cursor = collection.find().sort("last_accessed", 1)
+        cursor: Any = collection.find().sort("last_accessed", 1)
 
         for doc in cursor:
             if total_freed >= bytes_needed:
                 break
-            entries.append((doc["checksum"], doc["size_bytes"], doc["cache_location"]))
+            entries.append((doc["checksum"], doc["size_bytes"], doc["cache_uri"]))
             total_freed += doc["size_bytes"]
 
         return entries
@@ -72,7 +75,7 @@ class _CacheManager:
             new_file_size: Size of file to add
 
         Returns:
-            List of evicted cache_locations, or None if no eviction needed
+            List of evicted cache_uris, or None if no eviction needed
         """
         current_size = self._load_cache_size()
 
@@ -91,20 +94,20 @@ class _CacheManager:
             # No entries to evict (cache is empty)
             return None
 
-        evicted_locations = []
+        evicted_locations: list[str] = []
         total_freed = 0
 
         # Evict entries
-        for checksum, size_bytes, cache_location in entries_to_evict:
+        for checksum, size_bytes, cache_uri in entries_to_evict:
             # Delete file from cache
-            cache_path = Path(cache_location)
+            cache_path = uri_to_path(cache_uri)
             if cache_path.exists():
                 cache_path.unlink()
 
             # Delete from database
             self.db.delete_one({"checksum": checksum})
 
-            evicted_locations.append(cache_location)
+            evicted_locations.append(cache_uri)
             total_freed += size_bytes
 
         # Update cache size

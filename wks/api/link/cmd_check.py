@@ -1,8 +1,9 @@
 """Link check API command."""
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
+
+from wks.utils.normalize_path import normalize_path
 
 from ...utils.path_to_uri import path_to_uri
 from ...utils.uri_to_path import uri_to_path
@@ -63,7 +64,7 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        file_path = Path(path).expanduser().resolve()
+        file_path = normalize_path(path)
 
         if not file_path.exists():
             result_obj.output = LinkCheckOutput(

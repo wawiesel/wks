@@ -4,31 +4,29 @@ Converts binary files to text/markdown with caching.
 
 ## Public API
 
-Two commands (the API surface):
+Single command (the API surface):
 
 | Command | Purpose |
 |---------|---------|
 | `cmd_transform` | Transform file → returns `StageResult` |
-| `cmd_show` | Show transform record → returns `StageResult` |
 
-CLI also exposes `wksc transform cat` as a shortcut (not an API command).
+CLI also exposes `wksc cat` (top-level) for direct content output.
 
 ## Architecture
 
 ```
-cmd_transform ──┐
-cmd_show ───────┼─→ _get_controller() ──→ _TransformController
-cmd_cat ────────┘              │
-                               ↓
-                        _TransformConfig
-                               │
-                    ┌──────────┼──────────┐
-                    ↓          ↓          ↓
-            _CacheManager  _get_engine  MongoDB
-                               │
-                    ┌──────────┴──────────┐
-                    ↓                     ↓
-            _DoclingEngine          _TestEngine
+cmd_transform ──→ _get_controller() ──→ _TransformController
+                          │
+                          ↓
+                   _TransformConfig
+                          │
+               ┌──────────┼──────────┐
+               ↓          ↓          ↓
+       _CacheManager  _get_engine  MongoDB
+                          │
+               ┌──────────┴──────────┐
+               ↓                     ↓
+       _DoclingEngine          _TestEngine
 ```
 
 ## Core Concepts
@@ -49,7 +47,7 @@ Engines declared in `config.json`:
 {
   "transform": {
     "engines": {
-      "docling": { "type": "docling", "data": {} }
+      "dx": { "type": "docling", "data": {} }
     }
   }
 }
@@ -60,7 +58,6 @@ Engines declared in `config.json`:
 ```
 transform/
 ├── cmd_transform.py      # Public
-├── cmd_show.py           # Public
 ├── __init__.py           # Schema exports only
 ├── _TransformController.py
 ├── _CacheManager.py

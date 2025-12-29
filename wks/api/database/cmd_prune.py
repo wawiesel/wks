@@ -39,6 +39,8 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
             targets.append("nodes")
         if database in ("all", "edges", "link"):
             targets.append("edges")
+        if database in ("all", "transform"):
+            targets.append("transform")
 
         # If 'all' or specific target not recognized (though CLI should handle verification),
         # but here we allow flexibility. If nothing matched (e.g. unknown), we do nothing.
@@ -209,6 +211,63 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
 
                 total_checked += edges_checked
                 total_deleted += edges_deleted
+
+        # 3. Prune Transform (Bidirectional cache sync)
+        if "transform" in targets:
+            yield (0.8, "Pruning transform cache...")
+            transform_deleted = 0
+            transform_checked = 0
+
+            with Database(config.database, "transform") as transform_db:
+                # Get all cache files on disk
+                from wks.utils.normalize_path import normalize_path
+
+                cache_dir = normalize_path(config.transform.cache.base_dir)
+                cache_files: set[str] = set()
+                if cache_dir.exists():
+                    for file in cache_dir.iterdir():
+                        if file.is_file():
+                            # Store just the checksum (filename without extension)
+                            cache_files.add(file.stem)
+
+                # Get all checksums in database
+                docs = list(transform_db.find({}, {"checksum": 1, "cache_uri": 1}))
+                db_checksums: set[str] = set()
+                stale_db_records = []
+
+                for doc in docs:
+                    transform_checked += 1
+                    checksum = doc.get("checksum", "")
+                    cache_uri = doc.get("cache_uri", "")
+                    db_checksums.add(checksum)
+
+                    # Check if cache file exists
+                    try:
+                        cache_path = uri_to_path(cache_uri) if cache_uri else None
+                        if cache_path is None or not cache_path.exists():
+                            stale_db_records.append(doc["_id"])
+                    except (ValueError, OSError):
+                        stale_db_records.append(doc["_id"])
+
+                # Delete stale DB records (no file on disk)
+                if stale_db_records:
+                    transform_deleted += transform_db.delete_many({"_id": {"$in": stale_db_records}})
+
+                # Delete orphaned files (not in database)
+                orphaned_files = cache_files - db_checksums
+                for checksum in orphaned_files:
+                    for file in cache_dir.glob(f"{checksum}.*"):
+                        file.unlink()
+                        transform_deleted += 1
+
+                total_checked += transform_checked
+                total_deleted += transform_deleted
+
+        # Update prune timer
+        from .prune_timer import set_last_prune_timestamp
+
+        for target in targets:
+            set_last_prune_timestamp(target)
 
         yield (1.0, "Complete")
 

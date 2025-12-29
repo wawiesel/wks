@@ -3,6 +3,8 @@
 from collections.abc import Iterator
 from pathlib import Path
 
+from wks.utils.normalize_path import normalize_path
+
 
 def expand_paths(
     path: Path,
@@ -23,7 +25,7 @@ def expand_paths(
     Raises:
         FileNotFoundError: If path does not exist
     """
-    path = path.expanduser().resolve()
+    path = normalize_path(path)
 
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")

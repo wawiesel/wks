@@ -2,6 +2,7 @@
 
 import typer
 
+from wks.cli.cat import cat
 from wks.cli.config import config
 from wks.cli.daemon import daemon
 from wks.cli.database import database
@@ -10,6 +11,7 @@ from wks.cli.log import log
 from wks.cli.mcp import mcp
 from wks.cli.monitor import monitor
 from wks.cli.service import service
+from wks.cli.transform import transform
 from wks.cli.vault import vault
 
 
@@ -24,6 +26,7 @@ def _create_app() -> typer.Typer:
     )
 
     # Register all domain apps (call factory functions)
+    app.add_typer(cat(), name="cat")
     app.add_typer(monitor(), name="monitor")
     app.add_typer(vault(), name="vault")
     app.add_typer(link(), name="link")
@@ -33,6 +36,7 @@ def _create_app() -> typer.Typer:
     app.add_typer(database(), name="database")
     app.add_typer(mcp(), name="mcp")
     app.add_typer(log(), name="log")
+    app.add_typer(transform(), name="transform")
 
     @app.callback(invoke_without_command=True)
     def main_callback(

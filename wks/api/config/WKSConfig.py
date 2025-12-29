@@ -42,9 +42,11 @@ class WKSConfig(BaseModel):
     @classmethod
     def get_home_dir(cls) -> Path:
         """Get WKS home directory based on WKS_HOME or default to ~/.wks."""
+        from wks.utils.normalize_path import normalize_path
+
         wks_home_env = os.environ.get("WKS_HOME")
         if wks_home_env:
-            return Path(wks_home_env).expanduser().resolve()
+            return normalize_path(wks_home_env)
         return Path.home() / ".wks"
 
     @classmethod

@@ -10,20 +10,16 @@ from ._TransformConfigError import _TransformConfigError
 class _EngineConfig:
     """Engine-specific configuration."""
 
-
-    name: str # The key from the engines dict
-    type: str # The value of the "type" field
-    data: dict[str, Any] # The value of the "data" field
+    name: str  # The key from the engines dict
+    type: str  # The value of the "type" field
+    data: dict[str, Any]  # The value of the "data" field
 
     def _validate_name(self) -> list[str]:
         """Validate engine name is a non-empty string."""
         errors: list[str] = []
 
         if not isinstance(self.name, str) or not self.name:
-            errors.append(
-                f"engine name must be a non-empty string "
-                f"(found: {type(self.name).__name__} = {self.name!r})"
-            )
+            errors.append(f"engine name must be a non-empty string (found: {type(self.name).__name__} = {self.name!r})")
 
         return errors
 

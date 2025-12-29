@@ -10,3 +10,4 @@ class TransformEngineConfig(BaseModel):
 
     type: str
     data: dict[str, Any] = {}
+    supported_types: list[str] | None = None

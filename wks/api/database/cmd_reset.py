@@ -7,6 +7,20 @@ from . import DatabaseResetOutput
 from .Database import Database
 
 
+def _clear_transform_cache(config) -> None:
+    """Clear all files in transform cache directory.
+
+    Per Cache-Database Sync Invariant: reset transform must delete cache files.
+    """
+    from wks.utils.normalize_path import normalize_path
+
+    cache_dir = normalize_path(config.transform.cache.base_dir)
+    if cache_dir.exists():
+        for file in cache_dir.iterdir():
+            if file.is_file() and file.suffix in (".md", ".txt", ".json"):
+                file.unlink()
+
+
 def cmd_reset(database: str) -> StageResult:
     """Reset (clear) a database by deleting all documents.
 
@@ -45,6 +59,11 @@ def cmd_reset(database: str) -> StageResult:
                     count = database_obj.delete_many({})
                     total_deleted += count
                     deleted_details.append(f"{target_db}: {count}")
+
+                    # Per Cache-Database Sync Invariant: reset transform must clear cache files
+                    if target_db == "transform":
+                        _clear_transform_cache(config)
+
             except Exception as e:
                 errors.append(f"Failed to reset {target_db}: {e}")
 

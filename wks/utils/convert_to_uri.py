@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from .expand_path import expand_path
 from .path_to_uri import path_to_uri
 
 
@@ -30,18 +29,18 @@ def convert_to_uri(path_or_uri: str | Path, vault_path: Path | None = None) -> s
         >>> convert_to_uri("/Users/ww5/2025-WKS/README.md")
         "file:///Users/ww5/2025-WKS/README.md"
     """
+    from wks.utils.normalize_path import normalize_path
+
     # Already a URI - return as-is
     if isinstance(path_or_uri, str) and (path_or_uri.startswith("vault:///") or path_or_uri.startswith("file://")):
         return path_or_uri
 
     # Convert to Path and expand
-    path = expand_path(path_or_uri) if isinstance(path_or_uri, str) else path_or_uri.expanduser().resolve()
+    path = normalize_path(path_or_uri)
 
     # If vault_path provided, check if path is within vault
     if vault_path is not None:
-        if isinstance(vault_path, str):
-            vault_path = Path(vault_path)
-        vault_path = vault_path.expanduser().resolve()
+        vault_path = normalize_path(vault_path)
         try:
             rel_path = path.relative_to(vault_path)
             # Path is within vault - return vault:/// URI

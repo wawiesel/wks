@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from wks.utils.normalize_path import normalize_path
+
 from ._CacheConfig import _CacheConfig
 from ._EngineConfig import _EngineConfig
 from ._TransformConfigError import _TransformConfigError
@@ -13,6 +15,7 @@ class _TransformConfig:
 
     cache: _CacheConfig
     engines: dict[str, _EngineConfig]
+    default_engine: str = "cat"  # Fallback engine
 
     def _validate_cache(self) -> list[str]:
         """Validate cache configuration."""
@@ -64,7 +67,7 @@ class _TransformConfig:
             raise _TransformConfigError(errors)
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> "TransformConfig":
+    def from_config_dict(cls, config: dict) -> "_TransformConfig":
         """Load transform config from config dict.
 
         Args:
@@ -85,11 +88,9 @@ class _TransformConfig:
                 ]
             )
 
-
-
         # Extract cache config
         cache_config = transform_config.get("cache", {})
-        cache_base_dir = cache_config.get("base_dir", "~/_transform")
+        cache_base_dir = normalize_path(cache_config.get("base_dir", "~/_transform"))
         max_size_bytes = cache_config.get("max_size_bytes", 1073741824)  # 1GB default
 
         cache = _CacheConfig(base_dir=cache_base_dir, max_size_bytes=max_size_bytes)
@@ -108,23 +109,17 @@ class _TransformConfig:
                     ]
                 )
 
-
             engine_type = engine_dict.get("type")
             if not engine_type:
-                 raise _TransformConfigError(
-                    [
-                        f"transform.engines['{engine_name}'] missing required 'type' field"
-                    ]
-                )
+                raise _TransformConfigError([f"transform.engines['{engine_name}'] missing required 'type' field"])
 
             data = engine_dict.get("data", {})
             if not isinstance(data, dict):
-                 raise _TransformConfigError(
-                    [
-                        f"transform.engines['{engine_name}'].data must be a dict"
-                    ]
-                )
+                raise _TransformConfigError([f"transform.engines['{engine_name}'].data must be a dict"])
 
             engines[engine_name] = _EngineConfig(name=engine_name, type=engine_type, data=data)
 
-        return cls(cache=cache, engines=engines)
+        # Default engine from cat section if available, else "cat"
+        default_engine = config.get("cat", {}).get("default_engine", "cat")
+
+        return cls(cache=cache, engines=engines, default_engine=default_engine)

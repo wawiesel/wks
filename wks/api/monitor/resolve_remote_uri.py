@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from wks.api.monitor.RemoteConfig import RemoteConfig
+from wks.utils.normalize_path import normalize_path
 
 
 def resolve_remote_uri(path: Path | str, remote_config: RemoteConfig) -> str | None:
@@ -14,7 +15,7 @@ def resolve_remote_uri(path: Path | str, remote_config: RemoteConfig) -> str | N
         Remote URI string or None if no mapping matches.
     """
     try:
-        resolved_path = Path(path).expanduser().resolve()
+        resolved_path = normalize_path(path)
     except Exception:
         # If path resolution fails, return None
         return None
@@ -22,7 +23,7 @@ def resolve_remote_uri(path: Path | str, remote_config: RemoteConfig) -> str | N
     for mapping in remote_config.mappings:
         try:
             # Expand user in config path
-            root = Path(mapping.local_path).expanduser().resolve()
+            root = normalize_path(mapping.local_path)
 
             if resolved_path.is_relative_to(root):
                 rel_path = resolved_path.relative_to(root)
