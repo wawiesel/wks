@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pymongo.synchronous.database import Database
+from wks.api.database.Database import Database
 
 from ...utils.uri_to_path import uri_to_path
 
@@ -18,7 +18,7 @@ class _CacheManager:
         Args:
             cache_dir: Directory for cached transforms
             max_size_bytes: Maximum total cache size
-            db: MongoDB database instance
+            db: Database facade instance
         """
         self.cache_dir = Path(cache_dir)
         self.max_size_bytes = max_size_bytes

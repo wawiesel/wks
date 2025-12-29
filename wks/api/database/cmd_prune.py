@@ -264,7 +264,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                 total_deleted += transform_deleted
 
         # Update prune timer
-        from .prune_timer import set_last_prune_timestamp
+        from .prune.set_last_prune_timestamp import set_last_prune_timestamp
 
         for target in targets:
             set_last_prune_timestamp(target)

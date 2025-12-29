@@ -31,7 +31,7 @@ class _TransformController:
         """
         self.db = db
         self.config = config
-        self.cache_manager = _CacheManager(Path(config.cache.base_dir), config.cache.max_size_bytes, db.get_database())
+        self.cache_manager = _CacheManager(Path(config.cache.base_dir), config.cache.max_size_bytes, db)
 
     def _compute_file_checksum(self, file_path: Path) -> str:
         """Compute SHA-256 checksum of file.

@@ -83,7 +83,7 @@ def test_prune_transform_updates_timer(monkeypatch, tmp_path, minimal_config_dic
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # No timer before prune
-    from wks.api.database.prune_timer import get_last_prune_timestamp
+    from wks.api.database.prune.get_last_prune_timestamp import get_last_prune_timestamp
 
     assert get_last_prune_timestamp("transform") is None
 
