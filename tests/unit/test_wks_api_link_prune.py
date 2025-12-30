@@ -59,6 +59,7 @@ def test_prune_remote(tracked_wks_config, monkeypatch):
     from wks.utils.path_to_uri import path_to_uri
 
     exists_path = Path(tracked_wks_config.vault.base_dir).expanduser() / "exists.txt"
+    exists_path.parent.mkdir(parents=True, exist_ok=True)
     exists_path.touch()
 
     # Correct the edge in DB to use the actual URI of exists.txt
