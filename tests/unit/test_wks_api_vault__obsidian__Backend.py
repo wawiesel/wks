@@ -42,7 +42,7 @@ def test_backend_resolve_link_broken(vault_dir):
     backend = _Backend(cfg)
 
     metadata = backend.resolve_link("missing.md")
-    assert metadata.status == "broken"
+    assert metadata.status == "missing_target"
 
 
 def test_backend_resolve_link_links_dir_fallback(vault_dir, tmp_path):
