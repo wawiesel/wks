@@ -8,7 +8,7 @@ from rich import print
 
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.transform._get_controller import _get_controller
-from wks.api.transform.cmd_transform import cmd_transform
+from wks.api.transform.cmd_engine import cmd_transform
 from wks.cli._handle_stage_result import handle_stage_result
 
 

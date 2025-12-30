@@ -8,14 +8,19 @@ Single command (the API surface):
 
 | Command | Purpose |
 |---------|---------|
-| `cmd_transform` | Transform file → returns `StageResult` |
+| `cmd_engine` | Transform file → returns `StageResult` |
 
 CLI also exposes `wksc cat` (top-level) for direct content output.
+
+### Command Naming Convention
+
+Unlike other domains (e.g. `wksc link check` -> `cmd_check.py`), the transform command is dynamic: `wksc transform <engine>`.
+The file is named `cmd_engine.py` because the command dispatches to a specific **engine**.
 
 ## Architecture
 
 ```
-cmd_transform ──→ _get_controller() ──→ _TransformController
+cmd_engine ──→ _get_controller() ──→ _TransformController
                           │
                           ↓
                    _TransformConfig
@@ -57,7 +62,7 @@ Engines declared in `config.json`:
 
 ```
 transform/
-├── cmd_transform.py      # Public
+├── cmd_engine.py      # Public
 ├── __init__.py           # Schema exports only
 ├── _TransformController.py
 ├── _CacheManager.py

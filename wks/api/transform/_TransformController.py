@@ -394,7 +394,7 @@ class _TransformController:
             Number of records updated
         """
         result: Any = self.db.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
-        return result.modified_count
+        return result
 
     def _copy_cache_file_to_output(self, cache_file: Path, output_path: Path) -> None:
         """Copy cache file to output path.
@@ -407,11 +407,13 @@ class _TransformController:
             FileExistsError: If output file already exists (when hard link fails)
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if output_path.exists():
+            raise FileExistsError(f"Output file already exists: {output_path}")
+
         try:
             import os
 
-            if output_path.exists():
-                raise FileExistsError(f"Output file already exists: {output_path}")
             os.link(cache_file, output_path)
         except (OSError, AttributeError):
             output_path.write_bytes(cache_file.read_bytes())

@@ -145,7 +145,7 @@ class _DoclingEngine(_TransformEngine):
                             shutil.copy2(img_file, cache_image_path)
 
                         # Record for return value
-                        from ...utils.path_to_uri import path_to_uri
+                        from wks.utils.path_to_uri import path_to_uri
 
                         referenced_images.append(path_to_uri(cache_image_path))
 
