@@ -55,6 +55,9 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
             progress_base = 0.2 + (0.7 * (i / max(1, total_targets)))
             yield (progress_base, f"Pruning {target_db}...")
 
+            progress_base = 0.2 + (0.7 * (i / max(1, total_targets)))
+            yield (progress_base, f"Pruning {target_db}...")
+
             handler_module_name = DB_HANDLERS.get(target_db)
             if not handler_module_name:
                 all_warnings.append(f"No prune handler found for database: {target_db}")

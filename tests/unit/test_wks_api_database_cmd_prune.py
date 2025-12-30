@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.unit.conftest import run_cmd
+
 
 @pytest.fixture
 def mock_config():
@@ -184,3 +186,44 @@ def test_should_prune_logic(monkeypatch, tmp_path):
     # Recently pruned
     set_last_prune_timestamp("transform")
     assert should_prune("transform", 3600) is False
+
+
+def test_prune_timestamp_recovery_from_corruption(monkeypatch, tmp_path):
+    """Test resilience against corrupted status file (invalid JSON)."""
+    import json
+
+    from wks.api.database._get_status_path import _get_status_path
+    from wks.api.database._set_last_prune_timestamp import set_last_prune_timestamp
+
+    # Setup environment
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # Create corrupted status file
+    status_path = _get_status_path()
+    status_path.write_text("THIS IS NOT JSON", encoding="utf-8")
+
+    # Attempt to set timestamp (should catch error and overwrite)
+    set_last_prune_timestamp("nodes")
+
+    # Verify recovery
+    assert status_path.exists()
+    data = json.loads(status_path.read_text())
+    assert "prune_timestamps" in data
+    assert "nodes" in data["prune_timestamps"]
+
+
+def test_cmd_prune_handler_error(tracked_wks_config):
+    """Test cmd_prune handles error from a handler."""
+    from wks.api.database.cmd_prune import cmd_prune
+
+    # Mock import_module to return a mock module whose prune() raises Exception
+    mock_module = MagicMock()
+    mock_module.prune.side_effect = Exception("Prune failed")
+
+    with patch("wks.api.database.cmd_prune.import_module", return_value=mock_module):
+        # We need at least one target to trigger the loop
+        result = run_cmd(cmd_prune, database="nodes")
+        assert result.success is True  # It reports as warning, not failure
+        assert "Prune failed" in result.output["warnings"][0]

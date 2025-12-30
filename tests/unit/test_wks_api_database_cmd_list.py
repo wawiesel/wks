@@ -115,3 +115,11 @@ class TestCmdList:
         assert result.output["prefix"] == prefix
         # Should NOT find 'monitor' because it's only in the 'other' database
         assert "monitor" not in result.output["databases"]
+
+
+def test_cmd_list_list_databases_error(tracked_wks_config):
+    """Test error in cmd_list when list_databases fails."""
+    with patch("wks.api.database.cmd_list.Database.list_databases", side_effect=Exception("List error")):
+        result = run_cmd(cmd_list)
+        assert not result.success
+        assert "List error" in result.output["errors"][0]

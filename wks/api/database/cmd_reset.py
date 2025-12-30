@@ -2,8 +2,6 @@
 
 from collections.abc import Iterator
 
-from wks.api.transform._clear_cache import clear_transform_cache
-
 from ..StageResult import StageResult
 from . import DatabaseResetOutput
 from .Database import Database
@@ -48,9 +46,18 @@ def cmd_reset(database: str) -> StageResult:
                     total_deleted += count
                     deleted_details.append(f"{target_db}: {count}")
 
-                    # Per Cache-Database Sync Invariant: reset transform must clear cache files
-                    if target_db == "transform":
-                        clear_transform_cache(config)
+                    deleted_details.append(f"{target_db}: {count}")
+
+                    # Dynamic hook: wks.api.{database}.hooks.post_reset
+                    # This allows domains (like transform) to cleanup related artifacts
+                    try:
+                        from importlib import import_module
+
+                        hook_module = import_module(f"wks.api.{target_db}.hooks")
+                        if hasattr(hook_module, "post_reset"):
+                            hook_module.post_reset(config)
+                    except ImportError:
+                        pass  # No hooks for this domain
 
             except Exception as e:
                 errors.append(f"Failed to reset {target_db}: {e}")
