@@ -61,7 +61,17 @@ def cmd_transform(
         except Exception as e:
             yield (1.0, "Failed")
             result_obj.result = str(e)
-            result_obj.output = {"errors": [str(e)]}
+            result_obj.output = {
+                "source_uri": path_to_uri(file_path.absolute()),
+                "destination_uri": None,
+                "engine": engine,
+                "status": "error",
+                "checksum": None,
+                "output_content": None,
+                "processing_time_ms": None,
+                "errors": [str(e)],
+                "warnings": [],
+            }
             result_obj.success = False
             return
 

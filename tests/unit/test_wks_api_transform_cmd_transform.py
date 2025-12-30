@@ -125,3 +125,29 @@ def test_cmd_transform_caches_result(monkeypatch, tmp_path, minimal_config_dict)
     result2 = run_cmd(cmd_transform, engine="test", file_path=test_file, overrides={}, output=None)
     assert result2.success
     assert result2.output["checksum"] == checksum1
+
+
+def test_cmd_transform_error_structure(monkeypatch, tmp_path, minimal_config_dict):
+    """cmd_transform returns valid structure on error."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # Create config but NOT the file to cause an error
+    cfg = minimal_config_dict
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    test_file = tmp_path / "nonexistent.txt"
+
+    result = run_cmd(cmd_transform, engine="test", file_path=test_file, overrides={}, output=None)
+
+    assert not result.success
+    assert "errors" in result.output
+    assert result.output["status"] == "error"
+
+    # Verify strict schema compliance (None values for required fields)
+    assert result.output["destination_uri"] is None
+    assert result.output["checksum"] is None
+    assert result.output["output_content"] is None
+    assert result.output["processing_time_ms"] is None
+    assert result.output["source_uri"] is not None  # Should still populate source
