@@ -48,6 +48,8 @@ class _DoclingEngine(_TransformEngine):
             # OCR languages (required)
             ocr_languages = options["ocr_languages"]
             if ocr_languages:
+                if isinstance(ocr_languages, list):
+                    ocr_languages = ",".join(ocr_languages)
                 cmd.extend(["--ocr-languages", str(ocr_languages)])
 
             # Image export mode (required)
