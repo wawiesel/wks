@@ -475,14 +475,13 @@ def test_controller_management_ops(monkeypatch, tmp_path, minimal_config_dict):
     # Load full config to get TransformConfig
     from wks.api.config.WKSConfig import WKSConfig
     from wks.api.database.Database import Database
-    from wks.api.transform._TransformConfig import _TransformConfig
     from wks.api.transform._TransformController import _TransformController
 
     wks_config = WKSConfig.load()
-    transform_config = _TransformConfig.from_config_dict(wks_config.model_dump())
+    transform_config = wks_config.transform
 
     with Database(db_config, "transform") as db:
-        controller = _TransformController(db, transform_config)
+        controller = _TransformController(db, transform_config, "test")
 
         # Setup: Add a fake record
         db.get_database()["transform"].insert_one(

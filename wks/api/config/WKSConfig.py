@@ -8,15 +8,15 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError, computed_field
 
+from ..cat.CatConfig import CatConfig
 from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
+from ..log.LogConfig import LogConfig
 from ..mcp.McpConfig import McpConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
+from ..transform.TransformConfig import TransformConfig
 from ..vault.VaultConfig import VaultConfig
-from .CatConfig import CatConfig
-from .LogConfig import LogConfig
-from .TransformConfig import TransformConfig
 
 
 class WKSConfig(BaseModel):

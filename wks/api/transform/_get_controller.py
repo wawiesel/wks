@@ -5,7 +5,6 @@ from contextlib import contextmanager
 
 from ...api.database.Database import Database
 from ..config.WKSConfig import WKSConfig
-from ._TransformConfig import _TransformConfig
 from ._TransformController import _TransformController
 
 
@@ -17,8 +16,9 @@ def _get_controller() -> Iterator[_TransformController]:
         TransformController instance
     """
     wks_config = WKSConfig.load()
-    transform_config = _TransformConfig.from_config_dict(wks_config.model_dump())
+    wks_config = WKSConfig.load()
+    transform_config = wks_config.transform
 
     # We use the 'transform' collection/database name as per spec
     with Database(wks_config.database, "transform") as db:
-        yield _TransformController(db, transform_config)
+        yield _TransformController(db, transform_config, wks_config.cat.default_engine)

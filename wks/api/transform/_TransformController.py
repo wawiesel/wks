@@ -17,21 +17,23 @@ from ._TransformRecord import _TransformRecord
 if TYPE_CHECKING:
     from wks.api.database.Database import Database
 
-    from ._TransformConfig import _TransformConfig
+    from .TransformConfig import TransformConfig
 
 
 class _TransformController:
     """Business logic for transform operations."""
 
-    def __init__(self, db: "Database", config: "_TransformConfig"):
+    def __init__(self, db: "Database", config: "TransformConfig", default_engine: str):
         """Initialize transform controller.
 
         Args:
             db: Database facade
             config: Transform configuration object
+            default_engine: Default engine name (from CatConfig)
         """
         self.db = db
         self.config = config
+        self.default_engine = default_engine
         self.cache_manager = _CacheManager(Path(config.cache.base_dir), config.cache.max_size_bytes, db)
 
     def _compute_file_checksum(self, file_path: Path) -> str:
@@ -561,7 +563,7 @@ class _TransformController:
 
         # Transform it (using default engine/options for now)
         # This ensures we have the content in cache
-        gen = self.transform(file_path, self.config.default_engine, {})
+        gen = self.transform(file_path, self.default_engine, {})
         # Consume generator to get return value
         try:
             while True:
