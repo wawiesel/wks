@@ -14,7 +14,11 @@ if TYPE_CHECKING:
 F = TypeVar("F", bound=Callable)
 
 
-def handle_stage_result(func: F) -> F:
+def _handle_stage_result(
+    func: F,
+    result_printer: Callable[[dict], None] | None = None,
+    suppress_output: bool = False,
+) -> F:
     """Wrap a command function to handle StageResult for CLI display.
 
     This wrapper handles the 4-stage pattern for CLI:
@@ -70,6 +74,6 @@ def handle_stage_result(func: F) -> F:
             # Default to yaml if context missing or format invalid
             display_format = "yaml"
 
-        _run_single_execution(func, args, kwargs, display, display_format)
+        _run_single_execution(func, args, kwargs, display, display_format, result_printer, suppress_output)
 
     return wrapper  # type: ignore[return-value]

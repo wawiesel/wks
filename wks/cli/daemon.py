@@ -8,7 +8,7 @@ from wks.api.daemon.cmd_clear import cmd_clear
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
 from wks.api.daemon.cmd_stop import cmd_stop
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def daemon() -> typer.Typer:
@@ -32,7 +32,7 @@ def daemon() -> typer.Typer:
     @app.command(name="status")
     def status_cmd() -> None:
         """Check daemon status."""
-        handle_stage_result(cmd_status)()
+        _handle_stage_result(cmd_status)()
 
     @app.command(name="start")
     def start_cmd(
@@ -42,16 +42,16 @@ def daemon() -> typer.Typer:
         blocking: bool = typer.Option(False, "--blocking", help="Run in foreground (blocking mode)"),
     ) -> None:
         """Start daemon runtime."""
-        handle_stage_result(cmd_start)(restrict_dir=restrict, blocking=blocking)
+        _handle_stage_result(cmd_start)(restrict_dir=restrict, blocking=blocking)
 
     @app.command(name="stop")
     def stop_cmd() -> None:
         """Stop daemon runtime."""
-        handle_stage_result(cmd_stop)()
+        _handle_stage_result(cmd_stop)()
 
     @app.command(name="clear")
     def clear_cmd() -> None:
         """Clear daemon logs and warnings (only if stopped)."""
-        handle_stage_result(cmd_clear)()
+        _handle_stage_result(cmd_clear)()
 
     return app

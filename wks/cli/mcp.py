@@ -5,7 +5,7 @@ import typer
 from wks.api.mcp.cmd_install import cmd_install
 from wks.api.mcp.cmd_list import cmd_list
 from wks.api.mcp.cmd_uninstall import cmd_uninstall
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 from wks.mcp.client import proxy_stdio_to_socket
 from wks.mcp.paths import mcp_socket_path
 
@@ -31,7 +31,7 @@ def mcp() -> typer.Typer:
     @app.command(name="list")
     def list_cmd() -> None:
         """List MCP installations."""
-        handle_stage_result(cmd_list)()
+        _handle_stage_result(cmd_list)()
 
     @app.command(name="install")
     def install_cmd(
@@ -40,14 +40,14 @@ def mcp() -> typer.Typer:
         settings_path: str | None = typer.Option(None, "--settings-path", help="Path to settings file"),
     ) -> None:
         """Install WKS MCP server for the named installation."""
-        handle_stage_result(cmd_install)(name, install_type, settings_path)
+        _handle_stage_result(cmd_install)(name, install_type, settings_path)
 
     @app.command(name="uninstall")
     def uninstall_cmd(
         name: str = typer.Argument(..., help="Installation name"),
     ) -> None:
         """Uninstall WKS MCP server for the named installation."""
-        handle_stage_result(cmd_uninstall)(name)
+        _handle_stage_result(cmd_uninstall)(name)
 
     @app.command(name="run")
     def run_cmd(

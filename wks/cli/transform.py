@@ -1,15 +1,16 @@
 """Transform Typer app factory."""
 
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 from rich import print
 
-from wks.api.config.WKSConfig import WKSConfig
-from wks.api.transform._get_controller import _get_controller
 from wks.api.transform.cmd_engine import cmd_engine
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.api.transform.cmd_info import cmd_info
+from wks.api.transform.cmd_list import cmd_list
+from wks.cli._handle_stage_result import _handle_stage_result
+from wks.cli._parse_overrides import _parse_overrides
 
 
 def transform() -> typer.Typer:
@@ -40,120 +41,47 @@ def transform() -> typer.Typer:
         """
         # No args - show available engines
         if engine is None:
-            _show_engines()
-            raise typer.Exit()
+
+            def list_printer(output_data: dict) -> None:
+                engines = output_data["engines"]
+                print("[bold]Available engines:[/bold]")
+                for name, data in engines.items():
+                    print(f"  [cyan]{name}[/cyan] ({data['type']})")
+                    print(f"    Supported: {', '.join(data['supported_types'])}")
+                print()
+                print("[dim]Usage: wksc transform <engine> <file>[/dim]")
+
+            _handle_stage_result(cmd_list, result_printer=list_printer, suppress_output=True)()
+            return
 
         # Engine but no file - show engine info
         if file_path is None:
-            _show_engine_info(engine)
-            raise typer.Exit()
 
-        # Both engine and file - run transform
-        _run_transform(engine, file_path, output, raw, ctx.args)
+            def info_printer(output_data: dict) -> None:
+                engine_name = output_data["engine"]
+                config = output_data["config"]
+                print(f"[bold]Engine: {engine_name}[/bold]")
+                print(f"  Type: {config['type']}")
+                print(f"  Supported types: {', '.join(config['supported_types'])}")
+                print(f"  Options: {config['options']}")
+                print()
+                print(f"[dim]Usage: wksc transform {engine_name} <file> [options][/dim]")
 
-    return app
-
-
-def _show_engines() -> None:
-    """Show list of available engines from config."""
-    try:
-        config = WKSConfig.load()
-        engines = config.transform.engines
-
-        print("[bold]Available engines:[/bold]")
-        for name, engine_config in engines.items():
-            engine_type = engine_config.type
-            supported = engine_config.supported_types or ["*"]
-            print(f"  [cyan]{name}[/cyan] ({engine_type})")
-            print(f"    Supported: {', '.join(supported)}")
-        print()
-        print("[dim]Usage: wksc transform <engine> <file>[/dim]")
-    except Exception as e:
-        print(f"[red]Error loading config: {e}[/red]")
-        raise typer.Exit(1) from None
-
-
-def _show_engine_info(engine: str) -> None:
-    """Show info for a specific engine."""
-    try:
-        config = WKSConfig.load()
-        engines = config.transform.engines
-
-        if engine not in engines:
-            print(f"[red]Engine '{engine}' not found.[/red]")
-            print(f"[dim]Available: {', '.join(engines.keys())}[/dim]")
-            raise typer.Exit(1) from None
-
-        engine_config = engines[engine]
-        print(f"[bold]Engine: {engine}[/bold]")
-        print(f"  Type: {engine_config.type}")
-        print(f"  Supported types: {', '.join(engine_config.supported_types or ['*'])}")
-        print(f"  Options: {engine_config.data}")
-        print()
-        print(f"[dim]Usage: wksc transform {engine} <file> [options][/dim]")
-    except typer.Exit:
-        raise
-    except Exception as e:
-        print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1) from None
-
-
-def _run_transform(
-    engine: str,
-    file_path: Path,
-    output: Path | None,
-    raw: bool,
-    extra_args: list[str],
-) -> None:
-    """Run transform with engine and file."""
-    # Parse extra args as overrides
-    overrides = _parse_overrides(extra_args)
-
-    try:
-        if raw:
-            with _get_controller() as controller:
-                gen = controller.transform(file_path, engine, overrides, output)
-                try:
-                    while True:
-                        next(gen)
-                except StopIteration as e:
-                    cache_key, _ = e.value
-                print(cache_key)
+            _handle_stage_result(cmd_info, result_printer=info_printer, suppress_output=True)(engine)
             return
 
-        handle_stage_result(cmd_engine)(engine, file_path, overrides, output)
+        # Both engine and file - run transform
+        overrides = _parse_overrides(ctx.args)
 
-    except Exception as e:
-        print(f"[red]Error: {e}[/red]")
-        raise typer.Exit(1) from None
+        if raw:
 
+            def raw_printer(output_data: dict) -> None:
+                print(output_data["checksum"])
 
-def _parse_overrides(args: list[str]) -> dict:
-    """Parse extra CLI args into override dict."""
-    overrides = {}
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg.startswith("--"):
-            key = arg[2:]
-            value: Any
-            if i + 1 < len(args) and not args[i + 1].startswith("--"):
-                value = args[i + 1]
-                i += 2
-            else:
-                value = True
-                i += 1
-
-            # Auto-convert types
-            if isinstance(value, str):
-                if value.lower() == "true":
-                    value = True
-                elif value.lower() == "false":
-                    value = False
-                elif value.isdigit():
-                    value = int(value)
-
-            overrides[key] = value
+            _handle_stage_result(cmd_engine, result_printer=raw_printer, suppress_output=True)(
+                engine, file_path, overrides, output
+            )
         else:
-            i += 1
-    return overrides
+            _handle_stage_result(cmd_engine)(engine, file_path, overrides, output)
+
+    return app

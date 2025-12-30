@@ -4,6 +4,9 @@ from typing import Annotated
 
 import typer
 
+from wks.api.cat.cmd import cmd
+from wks.cli._handle_stage_result import _handle_stage_result
+
 
 def cat() -> typer.Typer:
     """Create and configure the cat Typer app."""
@@ -32,8 +35,11 @@ def cat() -> typer.Typer:
             typer.echo(ctx.get_help(), err=True)
             raise typer.Exit()
 
-        from ._run_cat import _run_cat
+        # result_printer allows us to print the 'content' field to stdout on success
+        def result_printer(output: dict) -> None:
+            if "content" in output:
+                typer.echo(output["content"])
 
-        _run_cat(target, engine)
+        _handle_stage_result(cmd, result_printer=result_printer)(target, engine=engine)
 
     return app
