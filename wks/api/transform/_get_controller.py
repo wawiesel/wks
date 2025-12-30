@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from ...api.database.Database import Database
-from ..config.WKSConfig import WKSConfig
 from ._TransformController import _TransformController
 
 
@@ -15,7 +14,8 @@ def _get_controller() -> Iterator[_TransformController]:
     Yields:
         TransformController instance
     """
-    wks_config = WKSConfig.load()
+    from ..config.WKSConfig import WKSConfig
+
     wks_config = WKSConfig.load()
     transform_config = wks_config.transform
 

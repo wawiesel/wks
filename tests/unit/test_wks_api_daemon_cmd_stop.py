@@ -46,3 +46,22 @@ def test_cmd_stop_idempotent(monkeypatch, tmp_path):
     second = run_cmd(cmd_stop)
     assert second.success is True
     assert second.output["stopped"] is True
+
+
+@pytest.mark.daemon
+def test_cmd_stop_failure(monkeypatch, tmp_path):
+    """Test cmd_stop behavior on Exception."""
+    from unittest.mock import patch
+
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    with patch("wks.api.daemon.cmd_stop.Daemon") as mock_daemon_class:
+        mock_daemon_instance = mock_daemon_class.return_value
+        mock_daemon_instance.stop.side_effect = Exception("Stop failed")
+
+        res = run_cmd(cmd_stop)
+        assert res.success is False
+        assert "Stop failed" in res.result
+        assert res.output["stopped"] is False

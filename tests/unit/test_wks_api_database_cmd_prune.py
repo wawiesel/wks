@@ -128,3 +128,59 @@ class TestCmdPrune:
 
         assert result.success is True
         assert "Failed to import handler" in result.output["warnings"][0]
+
+
+def test_get_status_path(monkeypatch, tmp_path):
+    """Test status path generation."""
+    from wks.api.database._get_status_path import _get_status_path
+
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    result = _get_status_path()
+    assert result == wks_home / "database.json"
+
+
+def test_set_and_get_prune_timestamp(monkeypatch, tmp_path):
+    """Test setting and getting prune timestamp."""
+    from wks.api.database._get_last_prune_timestamp import get_last_prune_timestamp
+    from wks.api.database._set_last_prune_timestamp import set_last_prune_timestamp
+
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # Initially no timestamp
+    assert get_last_prune_timestamp("transform") is None
+
+    # Set timestamp
+    from datetime import datetime, timezone
+
+    ts = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    set_last_prune_timestamp("transform", ts)
+
+    # Get it back
+    result = get_last_prune_timestamp("transform")
+    assert result is not None
+    assert result.year == 2025
+
+
+def test_should_prune_logic(monkeypatch, tmp_path):
+    """Test should_prune logic."""
+    from wks.api.database._set_last_prune_timestamp import set_last_prune_timestamp
+    from wks.api.database._should_prune import should_prune
+
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # 0 = disabled
+    assert should_prune("transform", 0) is False
+
+    # Never pruned
+    assert should_prune("transform", 3600) is True
+
+    # Recently pruned
+    set_last_prune_timestamp("transform")
+    assert should_prune("transform", 3600) is False

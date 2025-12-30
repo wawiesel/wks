@@ -64,3 +64,37 @@ def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
     assert result.output["total_links"] == 0
     assert result.output["last_sync"] is None
     assert result.success is True
+
+
+def test_cmd_status_config_failure(monkeypatch, tmp_path):
+    """cmd_status handles config load failure."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    # No config file created
+
+    result = run_cmd(cmd_status)
+    assert result.success is False
+    assert "Failed to load config" in result.output["errors"][0]
+
+
+def test_cmd_status_work_failure(monkeypatch, tmp_path, minimal_config_dict):
+    """cmd_status handles runtime failure in work loop."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    from unittest.mock import patch
+
+    with patch("wks.api.database.Database.Database.__enter__") as mock_db:
+        mock_db.side_effect = RuntimeError("DB Failure")
+
+        result = run_cmd(cmd_status)
+        assert result.success is False
+        assert "Vault status failed: DB Failure" in result.result

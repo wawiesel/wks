@@ -79,3 +79,17 @@ def test_validate_output_no_schema(monkeypatch):
     output = {"key": "value"}
     # Should simply return input
     assert validate_output(mock_cmd_func, output) == output
+
+
+def test_normalize_output_logic():
+    """Test the internal normalize_output logic."""
+    from wks.api._normalize_output import normalize_output
+
+    output = {"error": "Something went wrong", "data": "value"}
+    result = normalize_output(output)
+    assert result["errors"] == ["Something went wrong"]
+    assert "error" not in result
+
+    output_with_errors = {"errors": ["e1"]}
+    result2 = normalize_output(output_with_errors)
+    assert result2["errors"] == ["e1"]

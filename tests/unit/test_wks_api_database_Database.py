@@ -12,7 +12,12 @@ from wks.api.database.DatabaseConfig import DatabaseConfig
 def _db_config() -> DatabaseConfig:
     # Use a unique prefix to avoid cross-test contamination via mongomock's in-memory client.
     # DatabaseConfig's validate_and_populate_data validator converts dict to BaseModel
-    return DatabaseConfig(type="mongomock", prefix="wks_test_database_public", data=cast(BaseModel, {}))
+    return DatabaseConfig(
+        type="mongomock",
+        prefix="wks_test_database_public",
+        data=cast(BaseModel, {}),
+        prune_frequency_secs=3600,
+    )
 
 
 def test_database_context_and_operations():

@@ -78,6 +78,7 @@ def test_status_updates_timestamp_when_running(monkeypatch, tmp_path):
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
+    cfg.monitor.filter.include_paths = [str(tmp_path)]
     cfg.save()
 
     run_cmd(cmd_start)
@@ -94,7 +95,7 @@ def test_status_updates_timestamp_when_running(monkeypatch, tmp_path):
     t2 = res2.output["last_sync"]
     assert t2 is not None
 
-    assert t1 != t2, "Timestamp should update on each status check when running"
+    assert t1 != t2, f"Timestamp should update on each status check when running (t1={t1}, t2={t2})"
 
     run_cmd(cmd_stop)
 
@@ -126,3 +127,48 @@ def test_status_preserves_timestamp_when_stopped(monkeypatch, tmp_path):
     # Second status check
     res2 = run_cmd(cmd_status)
     assert res2.output["last_sync"] is None
+
+
+def test_cmd_status_stale_lock(monkeypatch, tmp_path):
+    """Test cmd_status when lock exists but PID is dead."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # Create config
+    cfg = minimal_wks_config()
+    cfg.save()
+
+    # Create stale lock
+    lock_path = wks_home / "daemon.lock"
+    # Use a large PID that is unlikely to exist
+    lock_path.write_text("999999\n")
+
+    result = run_cmd(cmd_status)
+    assert result.success is True
+    assert result.output["running"] is False
+
+
+def test_cmd_status_running_corrupt_json(monkeypatch, tmp_path):
+    """Test cmd_status when running but daemon.json is corrupt."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    cfg = minimal_wks_config()
+    cfg.save()
+
+    # Create running lock
+    import os
+
+    lock_path = wks_home / "daemon.lock"
+    lock_path.write_text(f"{os.getpid()}\n")
+
+    # Create corrupt json
+    status_path = wks_home / "daemon.json"
+    status_path.write_text("corrupt {")
+
+    result = run_cmd(cmd_status)
+    assert result.success is True
+    assert result.output["running"] is True
+    assert result.output["restrict_dir"] == "UNKNOWN"

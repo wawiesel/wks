@@ -8,7 +8,6 @@ from typing import Annotated
 import typer
 
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.transform._get_controller import _get_controller
 
 
 def cat() -> typer.Typer:
@@ -80,43 +79,56 @@ def _select_engine(file_path: Path, override: str | None, config: WKSConfig) -> 
 def _cat_target(target: str, engine_override: str | None) -> None:
     """Cat content to stdout - handles both file paths and checksums."""
     try:
-        with _get_controller() as controller:
-            # Check if target is a checksum
-            if _is_checksum(target):
-                # Direct checksum lookup
-                content = controller.get_content(target)
-                typer.echo(content)
-                return
+        # Check if target is a checksum
+        if _is_checksum(target):
+            from wks.api.cat.cmd import cmd_cat
 
-            from wks.utils.normalize_path import normalize_path
+            res = cmd_cat(target)
+            if res.success:
+                typer.echo(res.output["content"])
+            else:
+                typer.echo(f"Error: {res.result}", err=True)
+                raise typer.Exit(1)
+            return
 
-            file_path = normalize_path(target)
+        from wks.utils.normalize_path import normalize_path
 
-            if not file_path.exists():
-                typer.echo(f"Error: File not found: {file_path}", err=True)
-                raise typer.Exit(1) from None
+        file_path = normalize_path(target)
 
-            config = WKSConfig.load()
-            engine = _select_engine(file_path, engine_override, config)
+        if not file_path.exists():
+            typer.echo(f"Error: File not found: {file_path}", err=True)
+            raise typer.Exit(1) from None
 
-            # Check if engine exists
-            if engine not in config.transform.engines:
-                typer.echo(f"Error: Engine '{engine}' not found.", err=True)
-                typer.echo(f"Available: {', '.join(config.transform.engines.keys())}", err=True)
-                raise typer.Exit(1) from None
+        config = WKSConfig.load()
+        engine = _select_engine(file_path, engine_override, config)
 
-            # Transform file (uses cache if available)
-            gen = controller.transform(file_path, engine, {}, None)
-            try:
-                # Consume generator (ignoring progress) to get cache_key
-                while True:
-                    next(gen)
-            except StopIteration as e:
-                cache_key, _ = e.value
+        # Check if engine exists
+        if engine not in config.transform.engines:
+            typer.echo(f"Error: Engine '{engine}' not found.", err=True)
+            typer.echo(f"Available: {', '.join(config.transform.engines.keys())}", err=True)
+            raise typer.Exit(1) from None
 
-            # Get and print content
-            content = controller.get_content(cache_key)
-            typer.echo(content)
+        # Use cmd_transform for consistency
+        from wks.api.cat.cmd import cmd_cat
+        from wks.api.transform.cmd_engine import cmd_transform
+
+        res_transform = cmd_transform(engine, file_path, {})
+        # Consume generator
+        list(res_transform.progress_callback(res_transform))
+
+        if not res_transform.success:
+            typer.echo(f"Error: {res_transform.result}", err=True)
+            raise typer.Exit(1)
+
+        cache_key = res_transform.output["checksum"]
+
+        # Get and print content via cmd_cat
+        res_cat = cmd_cat(cache_key)
+        if res_cat.success:
+            typer.echo(res_cat.output["content"])
+        else:
+            typer.echo(f"Error: {res_cat.result}", err=True)
+            raise typer.Exit(1)
 
     except typer.Exit:
         raise

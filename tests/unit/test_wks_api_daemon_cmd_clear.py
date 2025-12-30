@@ -1,5 +1,7 @@
 """Unit tests for wks.api.daemon.cmd_clear."""
 
+import json
+
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd
@@ -33,8 +35,6 @@ def test_daemon_clear_when_stopped(monkeypatch, tmp_path):
     assert "Daemon state cleared" in clear_result.result
 
     # Verify status is reset
-    import json
-
     new_status = json.loads(status_path.read_text())
     assert new_status["running"] is False
     assert new_status["errors"] == []
@@ -70,10 +70,26 @@ def test_daemon_clear_blocked_when_running(monkeypatch, tmp_path):
 
     # Verify status still accessible/running
     status_path = wks_home / "daemon.json"
-    import json
-
     status_after = json.loads(status_path.read_text())
     assert status_after["running"] is True
 
     # Cleanup
     run_cmd(cmd_stop)
+
+
+def test_daemon_clear_stale_lock(monkeypatch, tmp_path):
+    """Test that clear proceeds if lock is stale."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    cfg = minimal_wks_config()
+    cfg.save()
+
+    lock_path = wks_home / "daemon.lock"
+    # Use a large PID that is unlikely to exist
+    lock_path.write_text("999999\n")
+
+    result = run_cmd(cmd_clear)
+    assert result.success is True
+    assert not lock_path.exists()
