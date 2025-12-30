@@ -3,7 +3,7 @@
 from pydantic import BaseModel, Field, field_validator
 
 
-class CacheConfig(BaseModel):
+class _CacheConfig(BaseModel):
     """Cache configuration for transform."""
 
     base_dir: str
