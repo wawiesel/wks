@@ -77,9 +77,9 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                 all_warnings.extend(warnings)
 
                 # Update timestamp
-                from ._set_last_prune_timestamp import set_last_prune_timestamp
+                from ._set_last_prune_timestamp import _set_last_prune_timestamp
 
-                set_last_prune_timestamp(target_db)
+                _set_last_prune_timestamp(target_db)
 
             except ImportError:
                 all_warnings.append(f"Failed to import handler {handler_module_name} for {target_db}")

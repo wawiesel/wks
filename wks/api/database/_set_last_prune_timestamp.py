@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from ._get_status_path import _get_status_path
 
 
-def set_last_prune_timestamp(database_name: str, timestamp: datetime | None = None) -> None:
+def _set_last_prune_timestamp(database_name: str, timestamp: datetime | None = None) -> None:
     """Set last prune timestamp for a database.
 
     Args:

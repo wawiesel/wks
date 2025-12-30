@@ -6,7 +6,7 @@ from datetime import datetime
 from ._get_status_path import _get_status_path
 
 
-def get_last_prune_timestamp(database_name: str) -> datetime | None:
+def _get_last_prune_timestamp(database_name: str) -> datetime | None:
     """Get last prune timestamp for a database.
 
     Args:

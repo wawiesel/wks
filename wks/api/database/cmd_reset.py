@@ -46,8 +46,6 @@ def cmd_reset(database: str) -> StageResult:
                     total_deleted += count
                     deleted_details.append(f"{target_db}: {count}")
 
-                    deleted_details.append(f"{target_db}: {count}")
-
                     # Dynamic hook: wks.api.{database}.hooks.post_reset
                     # This allows domains (like transform) to cleanup related artifacts
                     try:
