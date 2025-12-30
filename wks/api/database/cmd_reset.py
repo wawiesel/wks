@@ -2,10 +2,11 @@
 
 from collections.abc import Iterator
 
+from wks.api.transform._clear_cache import clear_transform_cache
+
 from ..StageResult import StageResult
 from . import DatabaseResetOutput
 from .Database import Database
-from .utils.clear_transform_cache import clear_transform_cache
 
 
 def cmd_reset(database: str) -> StageResult:

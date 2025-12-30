@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from .get_last_prune_timestamp import get_last_prune_timestamp
+from ._get_last_prune_timestamp import get_last_prune_timestamp
 
 
 def should_prune(database_name: str, prune_frequency_secs: float) -> bool:

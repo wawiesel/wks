@@ -18,7 +18,7 @@ class TestCmdPrune:
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
-    @patch("wks.api.database.prune.set_last_prune_timestamp.set_last_prune_timestamp")
+    @patch("wks.api.database._set_last_prune_timestamp.set_last_prune_timestamp")
     def test_prune_dispatch_single(self, mock_timestamp, mock_import, mock_load, mock_config):
         """Test dispatching to a single database handler."""
         from wks.api.database.cmd_prune import cmd_prune
@@ -44,7 +44,7 @@ class TestCmdPrune:
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
     @patch("wks.api.database.cmd_prune.Database")
-    @patch("wks.api.database.prune.set_last_prune_timestamp.set_last_prune_timestamp")
+    @patch("wks.api.database._set_last_prune_timestamp.set_last_prune_timestamp")
     def test_prune_dispatch_all(self, mock_timestamp, mock_db, mock_import, mock_load, mock_config):
         """Test dispatching to all known databases."""
         from wks.api.database.cmd_prune import cmd_prune

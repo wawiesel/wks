@@ -74,7 +74,7 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                 all_warnings.extend(warnings)
 
                 # Update timestamp
-                from .prune.set_last_prune_timestamp import set_last_prune_timestamp
+                from ._set_last_prune_timestamp import set_last_prune_timestamp
 
                 set_last_prune_timestamp(target_db)
 
