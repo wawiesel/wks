@@ -111,3 +111,40 @@ def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
     config = WKSConfig.load()
     with Database(config.database, "transform") as db:
         assert db.find_one({"checksum": checksum}) is None
+
+
+@pytest.mark.cat
+def test_cmd_engine_override(wks_home, minimal_config_dict, monkeypatch):
+    """Test retrieving content with an engine override."""
+    watch_dir = Path(wks_home).parent / "watched"
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    test_file = watch_dir / "test.txt"
+    test_file.write_text("Engine Override", encoding="utf-8")
+
+    # Mock _select_engine to verify it's called with the override
+
+    # We can just check the results since our 'test' engine is available
+    res = run_cmd(cmd, target=str(test_file), engine="test")
+    assert res.success is True
+    assert res.output["content"] == "Transformed: Engine Override"
+
+
+@pytest.mark.cat
+def test_cmd_mime_engine_selection(wks_home, minimal_config_dict):
+    """Test engine selection based on mime type in config."""
+    from wks.api.config.WKSConfig import WKSConfig
+
+    config = WKSConfig.load()
+    config.cat.mime_engines = {"text/plain": "test"}
+    config.save()
+
+    watch_dir = Path(wks_home).parent / "watched"
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    test_file = watch_dir / "test.txt"
+    test_file.write_text("Mime Match", encoding="utf-8")
+
+    res = run_cmd(cmd, target=str(test_file))
+    assert res.success is True
+    assert res.output["content"] == "Transformed: Mime Match"

@@ -1,13 +1,8 @@
 """Cat Typer app factory - print file or cached content to stdout."""
 
-import mimetypes
-import re
-from pathlib import Path
 from typing import Annotated
 
 import typer
-
-from wks.api.config.WKSConfig import WKSConfig
 
 
 def cat() -> typer.Typer:
@@ -42,92 +37,23 @@ def cat() -> typer.Typer:
     return app
 
 
-def _is_checksum(target: str) -> bool:
-    """Check if target is a 64-character hex checksum."""
-    return bool(re.match(r"^[a-f0-9]{64}$", target))
-
-
-def _get_mime_type(file_path: Path) -> str:
-    """Get MIME type for file."""
-    mime_type, _ = mimetypes.guess_type(str(file_path))
-    return mime_type or "application/octet-stream"
-
-
-def _select_engine(file_path: Path, override: str | None, config: WKSConfig) -> str:
-    """Select engine based on MIME type or override."""
-    if override:
-        return override
-
-    mime_type = _get_mime_type(file_path)
-    cat_config = config.cat
-
-    # Check mime_engines mapping
-    if hasattr(cat_config, "mime_engines") and cat_config.mime_engines:
-        # Exact match
-        if mime_type in cat_config.mime_engines:
-            return cat_config.mime_engines[mime_type]
-
-        # Wildcard match (e.g., "text/*")
-        base_type = mime_type.split("/")[0] + "/*"
-        if base_type in cat_config.mime_engines:
-            return cat_config.mime_engines[base_type]
-
-    # Fall back to default engine
-    return cat_config.default_engine or "cat"
-
-
 def _cat_target(target: str, engine_override: str | None) -> None:
     """Cat content to stdout - handles both file paths and checksums."""
-    try:
-        # Check if target is a checksum
-        if _is_checksum(target):
-            from wks.api.cat.cmd import cmd
+    from wks.api.cat.cmd import cmd
 
-            res = cmd(target)
-            if res.success:
+    try:
+        res = cmd(target, engine=engine_override)
+        # Consume progress generator
+        list(res.progress_callback(res))
+
+        if res.success:
+            if isinstance(res.output, dict) and "content" in res.output:
                 typer.echo(res.output["content"])
             else:
-                typer.echo(f"Error: {res.result}", err=True)
+                typer.echo(f"Error: No content returned for {target}", err=True)
                 raise typer.Exit(1)
-            return
-
-        from wks.utils.normalize_path import normalize_path
-
-        file_path = normalize_path(target)
-
-        if not file_path.exists():
-            typer.echo(f"Error: File not found: {file_path}", err=True)
-            raise typer.Exit(1) from None
-
-        config = WKSConfig.load()
-        engine = _select_engine(file_path, engine_override, config)
-
-        # Check if engine exists
-        if engine not in config.transform.engines:
-            typer.echo(f"Error: Engine '{engine}' not found.", err=True)
-            typer.echo(f"Available: {', '.join(config.transform.engines.keys())}", err=True)
-            raise typer.Exit(1) from None
-
-        # Use cmd_engine for consistency
-        from wks.api.cat.cmd import cmd
-        from wks.api.transform.cmd_engine import cmd_engine
-
-        res_transform = cmd_engine(engine, file_path, {})
-        # Consume generator
-        list(res_transform.progress_callback(res_transform))
-
-        if not res_transform.success:
-            typer.echo(f"Error: {res_transform.result}", err=True)
-            raise typer.Exit(1)
-
-        cache_key = res_transform.output["checksum"]
-
-        # Get and print content via cmd_cat
-        res_cat = cmd(cache_key)
-        if res_cat.success:
-            typer.echo(res_cat.output["content"])
         else:
-            typer.echo(f"Error: {res_cat.result}", err=True)
+            typer.echo(f"Error: {res.result}", err=True)
             raise typer.Exit(1)
 
     except typer.Exit:
