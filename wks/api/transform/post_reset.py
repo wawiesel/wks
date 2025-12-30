@@ -2,13 +2,16 @@
 
 from typing import Any
 
-from ._clear_cache import clear_transform_cache
-
 
 def post_reset(config: Any) -> None:
-    """Hook called after database reset.
+    """Clear all files in transform cache directory.
 
-    Args:
-        config: WKSConfig object
+    Per Cache-Database Sync Invariant: reset transform must delete cache files.
     """
-    clear_transform_cache(config)
+    from wks.utils.normalize_path import normalize_path
+
+    cache_dir = normalize_path(config.transform.cache.base_dir)
+    if cache_dir.exists():
+        for file in cache_dir.iterdir():
+            if file.is_file() and file.suffix in (".md", ".txt", ".json"):
+                file.unlink()
