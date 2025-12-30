@@ -47,13 +47,9 @@ def _get_actual_exports(domain_module_path: str) -> set[str]:
 @pytest.mark.parametrize(
     "domain_name",
     [
-        "config",
-        "database",
-        "daemon",
-        "mcp",
-        "monitor",
-        "service",
-        # Add other domains as needed
+        p.name
+        for p in (Path(__file__).resolve().parents[2] / "wks" / "api").iterdir()
+        if p.is_dir() and not p.name.startswith("_") and p.name != "utils"
     ],
 )
 def test_domain_init_only_exports_matching_output_classes(domain_name: str) -> None:
