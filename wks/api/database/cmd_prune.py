@@ -5,27 +5,29 @@ MCP: wksm_database_prune
 """
 
 from collections.abc import Iterator
-from pathlib import Path
+from importlib import import_module
 from typing import Any
 
-import requests  # type: ignore
-
-from ...utils.has_internet import has_internet
-from ...utils.uri_to_path import uri_to_path
 from ..StageResult import StageResult
 from . import DatabasePruneOutput
 from .Database import Database
+
+# Mapping of database names to their prune handler modules
+# This allows dynamic discovery while maintaining explicit routing
+DB_HANDLERS = {
+    "nodes": "wks.api.monitor.prune",
+    "edges": "wks.api.link.prune",
+    "transform": "wks.api.transform.prune",
+}
 
 
 def cmd_prune(database: str, remote: bool = False) -> StageResult:
     """Prune stale data from the specified database.
 
     Args:
-        database: "nodes", "edges", or "all".
+        database: "nodes", "edges", "transform" or "all".
         remote: Check remote targets if applicable.
     """
-    # Silencing unused argument warning until implemented
-    _ = remote
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
@@ -33,241 +35,53 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
         yield (0.1, "Loading configuration...")
         config: Any = WKSConfig.load()
 
-        # Decide what to prune
-        targets = []
-        if database in ("all", "nodes", "monitor"):
-            targets.append("nodes")
-        if database in ("all", "edges", "link"):
-            targets.append("edges")
-        if database in ("all", "transform"):
-            targets.append("transform")
-
-        # If 'all' or specific target not recognized (though CLI should handle verification),
-        # but here we allow flexibility. If nothing matched (e.g. unknown), we do nothing.
+        # Determine targets
+        if database == "all":
+            # List all actual databases present in the system
+            # Filter to those we have handlers for (or maybe warn for others?)
+            # For "all", we typically want to prune everything we know about.
+            all_dbs = Database.list_databases(config.database)
+            targets = [db for db in all_dbs if db in DB_HANDLERS]
+        else:
+            # Single target
+            targets = [database]
 
         total_deleted = 0
         total_checked = 0
         all_warnings: list[str] = []
 
-        # We need to maintain state across prune operations if 'all' is used
-        # But StageResult only returns one output object.
-        # The spec says `DatabasePruneOutput` returns specific fields.
-        # If 'all' is run, we might need to aggregate or return a list?
-        # The spec defines `DatabasePruneOutput` with `database`, `deleted_count`, `checked_count`.
-        # If 'all' is run, the CLI/MCP might expect a single result.
-        # However, for 'all', we usually want aggregate stats.
-        # Let's conform to returning the aggregate stats in `DatabasePruneOutput`
-        # but set 'database' to the input argument (e.g. "all").
+        total_targets = len(targets)
+        for i, target_db in enumerate(targets):
+            progress_base = 0.2 + (0.7 * (i / max(1, total_targets)))
+            yield (progress_base, f"Pruning {target_db}...")
 
-        # 1. Prune Nodes (Monitor)
-        valid_nodes: set[str] = set()
+            handler_module_name = DB_HANDLERS.get(target_db)
+            if not handler_module_name:
+                all_warnings.append(f"No prune handler found for database: {target_db}")
+                continue
 
-        if "nodes" in targets:
-            yield (0.2, "Pruning nodes database...")
-            with Database(config.database, "nodes") as nodes_db:
-                # Find all documents with URI
-                start_docs = list(nodes_db.find({}, {"local_uri": 1}))
-                nodes_checked = 0
-                nodes_deleted = 0
-                ids_to_remove = []
+            try:
+                module = import_module(handler_module_name)
+                # Call prune(config, remote=remote, ...)
+                result = module.prune(config, remote=remote)
 
-                for doc in start_docs:
-                    if "local_uri" in doc:
-                        nodes_checked += 1
-                        uri = doc["local_uri"]
-                        # Check filesystem
-                        try:
-                            path = uri_to_path(uri)
-                            if not path.exists():
-                                ids_to_remove.append(doc["_id"])
-                            else:
-                                valid_nodes.add(uri)
-                        except OSError as e:
-                            # Filesystem error - track as warning, keep document
-                            all_warnings.append(f"Filesystem error for {uri}: {e}")
+                deleted = result.get("deleted_count", 0)
+                checked = result.get("checked_count", 0)
+                warnings = result.get("warnings", [])
 
-                if ids_to_remove:
-                    nodes_deleted = nodes_db.delete_many({"_id": {"$in": ids_to_remove}})
+                total_deleted += deleted
+                total_checked += checked
+                all_warnings.extend(warnings)
 
-                total_checked += nodes_checked
-                total_deleted += nodes_deleted
+                # Update timestamp
+                from .prune.set_last_prune_timestamp import set_last_prune_timestamp
 
-                # If we pruned nodes, we must re-populate valid_nodes for edges check
-                # actually, `valid_nodes` checks above already exclude deleted ones.
+                set_last_prune_timestamp(target_db)
 
-        # If we didn't run nodes prune but we need to run edges prune, we MUST load valid nodes first
-        if "edges" in targets and "nodes" not in targets:
-            yield (0.4, "Loading monitor index for integrity check...")
-            with Database(config.database, "nodes") as nodes_db:
-                nodes = nodes_db.find({}, {"local_uri": 1})
-                for node in nodes:
-                    if "local_uri" in node:
-                        valid_nodes.add(node["local_uri"])
-
-        # 2. Prune Edges (Link)
-        if "edges" in targets:
-            yield (0.6, "Pruning edges database...")
-            edges_checked = 0
-            edges_deleted = 0
-            # Check Internet Availability upfront
-            internet_available = False
-            if remote:
-                internet_available = has_internet()
-
-            with Database(config.database, "edges") as edges_db:
-                # Check Sources
-                docs = list(
-                    edges_db.find(
-                        {},
-                        {
-                            "from_local_uri": 1,
-                            "to_local_uri": 1,
-                            "to_remote_uri": 1,
-                            "from_remote_uri": 1,
-                        },
-                    )
-                )
-                edges_checked = len(docs)
-
-                to_delete = []
-                to_unset_to_remote = []
-                to_unset_from_remote = []
-
-                # We can do this in memory or query. Memory is safer for complex logic.
-                for doc in docs:
-                    should_delete = False
-
-                    # 1. Source check
-                    if doc["from_local_uri"] not in valid_nodes:
-                        should_delete = True
-
-                    # 2. Determine Local Status
-                    local_target_broken = False
-                    to_uri = doc["to_local_uri"]
-
-                    if not to_uri:
-                        # Empty local target
-                        local_target_broken = True  # Treated as "broken" for purpose of fallback check
-                    elif to_uri not in valid_nodes:
-                        # Not monitored. Check filesystem.
-                        try:
-                            path_str = uri_to_path(to_uri)
-                            if not Path(path_str).exists():
-                                local_target_broken = True
-                        except ValueError:
-                            local_target_broken = True
-
-                    # 3. Remote Check
-                    remote_uri = doc["to_remote_uri"]
-                    if remote and not should_delete and local_target_broken and remote_uri:
-                        if not internet_available:
-                            # Skip check if offline
-                            pass
-                        else:
-                            try:
-                                # Use HEAD to be efficient
-                                response = requests.head(remote_uri, timeout=5)
-                                if response.status_code in (404, 410):
-                                    to_unset_to_remote.append(doc["_id"])
-                                    remote_uri = None
-
-                            except (requests.RequestException, ValueError):
-                                # Transient error or invalid URL -> Persist safely
-                                pass
-
-                    # 4. From Remote Check
-                    # Check from_remote_uri independently.
-                    if remote and internet_available and (from_remote := doc["from_remote_uri"]):
-                        try:
-                            response = requests.head(from_remote, timeout=5)
-                            if response.status_code in (404, 410):
-                                to_unset_from_remote.append(doc["_id"])
-                        except (requests.RequestException, ValueError):
-                            pass
-
-                    # 5. Final Decision
-                    if not should_delete and local_target_broken and not remote_uri:
-                        should_delete = True
-
-                    if should_delete:
-                        to_delete.append(doc["_id"])
-
-                if to_delete:
-                    # Filter out IDs that are being deleted from unset lists to avoid redundant update
-                    to_unset_to_remote = [uid for uid in to_unset_to_remote if uid not in to_delete]
-                    to_unset_from_remote = [uid for uid in to_unset_from_remote if uid not in to_delete]
-                    edges_deleted = edges_db.delete_many({"_id": {"$in": to_delete}})
-
-                if to_unset_to_remote:
-                    edges_db.update_many({"_id": {"$in": to_unset_to_remote}}, {"$unset": {"to_remote_uri": ""}})
-
-                if to_unset_from_remote:
-                    # Filter: skip already-deleted edges
-                    to_unset_from_remote = [uid for uid in to_unset_from_remote if uid not in to_delete]
-                    if to_unset_from_remote:
-                        edges_db.update_many(
-                            {"_id": {"$in": to_unset_from_remote}}, {"$unset": {"from_remote_uri": ""}}
-                        )
-
-                total_checked += edges_checked
-                total_deleted += edges_deleted
-
-        # 3. Prune Transform (Bidirectional cache sync)
-        if "transform" in targets:
-            yield (0.8, "Pruning transform cache...")
-            transform_deleted = 0
-            transform_checked = 0
-
-            with Database(config.database, "transform") as transform_db:
-                # Get all cache files on disk
-                from wks.utils.normalize_path import normalize_path
-
-                cache_dir = normalize_path(config.transform.cache.base_dir)
-                cache_files: set[str] = set()
-                if cache_dir.exists():
-                    for file in cache_dir.iterdir():
-                        if file.is_file():
-                            # Store just the checksum (filename without extension)
-                            cache_files.add(file.stem)
-
-                # Get all checksums in database
-                docs = list(transform_db.find({}, {"checksum": 1, "cache_uri": 1}))
-                db_checksums: set[str] = set()
-                stale_db_records = []
-
-                for doc in docs:
-                    transform_checked += 1
-                    checksum = doc.get("checksum", "")
-                    cache_uri = doc.get("cache_uri", "")
-                    db_checksums.add(checksum)
-
-                    # Check if cache file exists
-                    try:
-                        cache_path = uri_to_path(cache_uri) if cache_uri else None
-                        if cache_path is None or not cache_path.exists():
-                            stale_db_records.append(doc["_id"])
-                    except (ValueError, OSError):
-                        stale_db_records.append(doc["_id"])
-
-                # Delete stale DB records (no file on disk)
-                if stale_db_records:
-                    transform_deleted += transform_db.delete_many({"_id": {"$in": stale_db_records}})
-
-                # Delete orphaned files (not in database)
-                orphaned_files = cache_files - db_checksums
-                for checksum in orphaned_files:
-                    for file in cache_dir.glob(f"{checksum}.*"):
-                        file.unlink()
-                        transform_deleted += 1
-
-                total_checked += transform_checked
-                total_deleted += transform_deleted
-
-        # Update prune timer
-        from .prune.set_last_prune_timestamp import set_last_prune_timestamp
-
-        for target in targets:
-            set_last_prune_timestamp(target)
+            except ImportError:
+                all_warnings.append(f"Failed to import handler {handler_module_name} for {target_db}")
+            except Exception as e:
+                all_warnings.append(f"Failed to prune {target_db}: {e}")
 
         yield (1.0, "Complete")
 
