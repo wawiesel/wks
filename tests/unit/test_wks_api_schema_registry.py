@@ -1,22 +1,8 @@
-"""Public API tests for schema loading and schema registry."""
+"""Unit tests for wks.api.schema_registry module."""
 
 import pytest
 
-from wks.api.schema_loader import SchemaLoader
 from wks.api.schema_registry import schema_registry
-
-
-def test_schema_loader_loads_config_schema() -> None:
-    schema = SchemaLoader.load_schema("config")
-    assert isinstance(schema, dict)
-    assert "definitions" in schema
-    assert "ConfigListOutput" in schema["definitions"]
-
-
-def test_schema_loader_load_models_returns_output_models() -> None:
-    models = SchemaLoader.load_models("config")
-    assert "ConfigListOutput" in models
-    assert "ConfigShowOutput" in models
 
 
 def test_schema_registry_can_query_for_registered_command() -> None:
