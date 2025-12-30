@@ -174,6 +174,15 @@ def test_mongo_backend_ensure_local_early_connect(monkeypatch):
     import subprocess
     from unittest.mock import MagicMock
 
+    import mongomock
+
+    # Mock MongoClient with mongomock to satisfy _Backend.__enter__
+    monkeypatch.setattr("wks.api.database._mongo._Backend.MongoClient", mongomock.MongoClient)
+
+    # Mock _ensure_local_mongod to avoid any subprocess logic
+    monkeypatch.setattr("wks.api.database._mongo._Backend._Backend._ensure_local_mongod", lambda self, uri: None)
+
+    # Also mock _can_connect to assume success if called elsewhere (defensive)
     monkeypatch.setattr("wks.api.database._mongo._Backend._Backend._can_connect", lambda self, uri: True)
 
     # Mock subprocess to ensure it's NOT called
@@ -199,6 +208,11 @@ def test_mongo_backend_fallback_binary(monkeypatch, tmp_path):
     import subprocess
     from pathlib import Path
     from unittest.mock import MagicMock
+
+    import mongomock
+
+    # Mock MongoClient with mongomock to satisfy _Backend.__enter__
+    monkeypatch.setattr("wks.api.database._mongo._Backend.MongoClient", mongomock.MongoClient)
 
     # Mock shutil.which to fail
     monkeypatch.setattr(shutil, "which", lambda x: None)
