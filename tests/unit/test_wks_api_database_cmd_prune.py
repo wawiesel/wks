@@ -20,10 +20,13 @@ class TestCmdPrune:
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
-    @patch("wks.api.database._set_last_prune_timestamp._set_last_prune_timestamp")
-    def test_prune_dispatch_single(self, mock_timestamp, mock_import, mock_load, mock_config):
+    def test_prune_dispatch_single(self, mock_import, mock_load, mock_config, tmp_path, monkeypatch):
         """Test dispatching to a single database handler."""
         from wks.api.database.cmd_prune import cmd_prune
+
+        wks_home = tmp_path / ".wks"
+        wks_home.mkdir()
+        monkeypatch.setenv("WKS_HOME", str(wks_home))
 
         mock_load.return_value = mock_config
 
@@ -41,15 +44,20 @@ class TestCmdPrune:
         mock_module.prune.assert_called_once()
         assert result.output["deleted_count"] == 5
         assert result.output["checked_count"] == 10
-        mock_timestamp.assert_called_with("nodes")
+
+        # Verify timestamp was written
+        assert (wks_home / "database.json").exists()
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
     @patch("wks.api.database.cmd_prune.Database")
-    @patch("wks.api.database._set_last_prune_timestamp._set_last_prune_timestamp")
-    def test_prune_dispatch_all(self, mock_timestamp, mock_db, mock_import, mock_load, mock_config):
+    def test_prune_dispatch_all(self, mock_db, mock_import, mock_load, mock_config, tmp_path, monkeypatch):
         """Test dispatching to all known databases."""
         from wks.api.database.cmd_prune import cmd_prune
+
+        wks_home = tmp_path / ".wks"
+        wks_home.mkdir()
+        monkeypatch.setenv("WKS_HOME", str(wks_home))
 
         mock_load.return_value = mock_config
 
@@ -88,15 +96,17 @@ class TestCmdPrune:
         assert mock_edges.prune.call_count == 1
         assert mock_transform.prune.call_count == 1
 
-        # Should NOT have tried to prune unknown_db (not in DB_HANDLERS)
-        assert mock_timestamp.call_count == 3
-        mock_timestamp.assert_any_call("nodes")
-        mock_timestamp.assert_any_call("edges")
-        mock_timestamp.assert_any_call("transform")
-
         # Check aggregation
         assert result.output["deleted_count"] == 4  # 1 + 3 + 0
         assert result.output["checked_count"] == 6  # 2 + 4 + 0
+
+        # Verify timestamps were written
+        import json
+
+        data = json.loads((wks_home / "database.json").read_text())
+        assert "nodes" in data["prune_timestamps"]
+        assert "edges" in data["prune_timestamps"]
+        assert "transform" in data["prune_timestamps"]
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
@@ -131,87 +141,33 @@ class TestCmdPrune:
         assert result.success is True
         assert "Failed to import handler" in result.output["warnings"][0]
 
+    @patch("wks.api.config.WKSConfig.WKSConfig.load")
+    @patch("wks.api.database.cmd_prune.import_module")
+    def test_cmd_prune_updates_timestamp(self, mock_import, mock_load, mock_config, tmp_path, monkeypatch):
+        """Test that cmd_prune updates the last prune timestamp on success."""
+        from wks.api.database.cmd_prune import cmd_prune
 
-def test_get_status_path(monkeypatch, tmp_path):
-    """Test status path generation."""
-    from wks.api.database._get_status_path import _get_status_path
+        wks_home = tmp_path / ".wks"
+        wks_home.mkdir()
+        monkeypatch.setenv("WKS_HOME", str(wks_home))
 
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
+        mock_load.return_value = mock_config
+        mock_module = MagicMock()
+        mock_module.prune.return_value = {"deleted_count": 0, "checked_count": 0}
+        mock_import.return_value = mock_module
 
-    result = _get_status_path()
-    assert result == wks_home / "database.json"
+        result = cmd_prune(database="nodes")
+        for _ in result.progress_callback(result):
+            pass
 
+        assert result.success is True
+        status_file = wks_home / "database.json"
+        assert status_file.exists()
+        import json
 
-def test_set_and_get_prune_timestamp(monkeypatch, tmp_path):
-    """Test setting and getting prune timestamp."""
-    from wks.api.database._get_last_prune_timestamp import _get_last_prune_timestamp
-    from wks.api.database._set_last_prune_timestamp import _set_last_prune_timestamp
-
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    # Initially no timestamp
-    assert _get_last_prune_timestamp("transform") is None
-
-    # Set timestamp
-    from datetime import datetime, timezone
-
-    ts = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    _set_last_prune_timestamp("transform", ts)
-
-    # Get it back
-    result = _get_last_prune_timestamp("transform")
-    assert result is not None
-    assert result.year == 2025
-
-
-def test_should_prune_logic(monkeypatch, tmp_path):
-    """Test _should_prune logic."""
-    from wks.api.database._set_last_prune_timestamp import _set_last_prune_timestamp
-    from wks.api.database._should_prune import _should_prune
-
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    # 0 = disabled
-    assert _should_prune("transform", 0) is False
-
-    # Never pruned
-    assert _should_prune("transform", 3600) is True
-
-    # Recently pruned
-    _set_last_prune_timestamp("transform")
-    assert _should_prune("transform", 3600) is False
-
-
-def test_prune_timestamp_recovery_from_corruption(monkeypatch, tmp_path):
-    """Test resilience against corrupted status file (invalid JSON)."""
-    import json
-
-    from wks.api.database._get_status_path import _get_status_path
-    from wks.api.database._set_last_prune_timestamp import _set_last_prune_timestamp
-
-    # Setup environment
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    # Create corrupted status file
-    status_path = _get_status_path()
-    status_path.write_text("THIS IS NOT JSON", encoding="utf-8")
-
-    # Attempt to set timestamp (should catch error and overwrite)
-    _set_last_prune_timestamp("nodes")
-
-    # Verify recovery
-    assert status_path.exists()
-    data = json.loads(status_path.read_text())
-    assert "prune_timestamps" in data
-    assert "nodes" in data["prune_timestamps"]
+        data = json.loads(status_file.read_text())
+        assert "prune_timestamps" in data
+        assert "nodes" in data["prune_timestamps"]
 
 
 def test_cmd_prune_handler_error(tracked_wks_config):
