@@ -169,79 +169,31 @@ def test_mongo_backend_init_error():
         pass
 
 
-def test_mongo_backend_ensure_local_early_connect(monkeypatch):
+def test_mongo_backend_ensure_local_early_connect(mongo_wks_env, monkeypatch):
     """Test skip startup if already connected."""
     import subprocess
     from unittest.mock import MagicMock
 
-    monkeypatch.setattr("wks.api.database._mongo._Backend._Backend._can_connect", lambda self, uri: True)
-
-    # Mock subprocess to ensure it's NOT called
+    # Mock subprocess to ensure it's NOT called (spy)
     mock_popen = MagicMock()
     monkeypatch.setattr(subprocess, "Popen", mock_popen)
 
-    cfg = DatabaseConfig(
-        type="mongo",
-        prefix="test",
-        data=cast(BaseModel, {"uri": "mongodb://localhost:27017", "local": True}),
-        prune_frequency_secs=3600,
-    )
+    config = mongo_wks_env["config"]
 
-    with Database(cfg, "coll"):
+    # Access the database using the real config (which has local=True and points to running DB)
+    # The backend will check _can_connect internally, see it's running, and skip Popen.
+    with Database(config.database, "coll"):
         pass
 
     mock_popen.assert_not_called()
 
 
-def test_mongo_backend_fallback_binary(monkeypatch, tmp_path):
-    """Test fallback binary detection logic via public API."""
-    import shutil
-    import subprocess
-    from pathlib import Path
-    from unittest.mock import MagicMock
+def test_mongo_backend_basic_ops_integration(mongo_wks_env):
+    """Test basic operations with real mongo backend."""
+    config = mongo_wks_env["config"]
 
-    # Mock shutil.which to fail
-    monkeypatch.setattr(shutil, "which", lambda x: None)
-
-    # Mock Path.exists to succeed only for specific path
-    def mock_exists(self):
-        return str(self) == "/usr/local/bin/mongod"
-
-    monkeypatch.setattr(Path, "exists", mock_exists)
-
-    # Mock connection success so we don't actually need a binary running
-    monkeypatch.setattr("wks.api.database._mongo._Backend._Backend._can_connect", lambda *args: True)
-
-    # Mock Popen to track if called (meaning it accepted the binary path)
-    mock_popen = MagicMock()
-    monkeypatch.setattr(subprocess, "Popen", mock_popen)
-
-    cfg = DatabaseConfig(
-        type="mongo",
-        prefix="test",
-        data=cast(BaseModel, {"uri": "mongodb://localhost:27017", "local": True}),
-        prune_frequency_secs=3600,
-    )
-
-    with Database(cfg, "coll"):
-        pass
-
-
-def test_mongo_backend_basic_ops_integration(monkeypatch):
-    """Test basic operations with mongo backend (mocked client)."""
-    import mongomock
-
-    # Patch the class in the module
-    monkeypatch.setattr("wks.api.database._mongo._Backend.MongoClient", mongomock.MongoClient)
-
-    cfg = DatabaseConfig(
-        type="mongo",
-        prefix="test",
-        data=cast(BaseModel, {"uri": "mongodb://localhost:27017", "local": False}),
-        prune_frequency_secs=3600,
-    )
-
-    with Database(cfg, "coll") as db:
+    with Database(config.database, "coll") as db:
+        db.delete_many({})  # Ensure clean state
         db.insert_one({"a": 1})
         assert db.count_documents({"a": 1}) == 1
         assert db.delete_many({}) == 1

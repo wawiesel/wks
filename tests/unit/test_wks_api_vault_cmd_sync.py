@@ -112,20 +112,7 @@ def test_vault_sync_no_config(monkeypatch, tmp_path):
     assert "Failed to load config" in result.output["errors"][0]
 
 
-@pytest.fixture
-def shared_mongo(monkeypatch):
-    from typing import Any
-
-    import mongomock
-
-    import wks.api.database._mongomock._Backend as backend_mod
-
-    client: Any = mongomock.MongoClient()
-    monkeypatch.setattr(backend_mod, "_get_mongomock_client", lambda: client)
-    return client
-
-
-def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_dict, shared_mongo):
+def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_dict):
     """Vault sync should remove links from notes that no longer exist."""
     from wks.api.database.Database import Database
     from wks.api.database.DatabaseConfig import DatabaseConfig
@@ -140,6 +127,8 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
     cfg["vault"]["base_dir"] = str(vault_dir)
     cfg["vault"]["type"] = "obsidian"
     cfg["monitor"]["priority"]["dirs"] = {str(vault_dir): 1.0}
+    # Explicitly use mongomock type ensures it uses the internal backend
+    cfg["database"]["type"] = "mongomock"
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     stale_uri = "vault:///note.md"
@@ -153,7 +142,7 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
         assert db.find_one({"from_local_uri": stale_uri}) is None
 
 
-def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_dict, shared_mongo):
+def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_dict):
     """Partially syncing a folder shouldn't prune links in other folders."""
     from wks.api.database.Database import Database
     from wks.api.database.DatabaseConfig import DatabaseConfig
