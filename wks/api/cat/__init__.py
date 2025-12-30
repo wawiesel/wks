@@ -1,5 +1,5 @@
 """Cat API module."""
 
-from .cmd import cmd_cat
+from .cmd_cat import cmd_cat
 
 __all__ = ["cmd_cat"]
