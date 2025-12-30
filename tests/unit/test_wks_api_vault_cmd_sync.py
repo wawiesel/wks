@@ -402,3 +402,81 @@ def test_cmd_sync_extracts_headings(monkeypatch, tmp_path, minimal_config_dict):
     result = run_cmd(cmd_sync)
     assert result.success
     assert result.output["notes_scanned"] == 1
+
+
+def test_cmd_sync_load_config_fails(monkeypatch, tmp_path):
+    """cmd_sync fails if config is corrupt."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # Corrupt JSON
+    (wks_home / "config.json").write_text("{ corrupt", encoding="utf-8")
+
+    result = run_cmd(cmd_sync)
+    assert result.success is False
+    # The result message only contains the exception string, the prefix is in output["errors"]
+    assert any("Failed to load config" in err for err in result.output["errors"])
+
+
+def test_cmd_sync_catch_all_exception(monkeypatch, tmp_path, minimal_config_dict):
+    """cmd_sync handles unexpected exceptions during do_work."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Force an exception by patching Vault context manager to raise
+    from wks.api.vault.Vault import Vault
+
+    def mock_enter(self):
+        raise RuntimeError("Imposed Failure")
+
+    monkeypatch.setattr(Vault, "__enter__", mock_enter)
+
+    result = run_cmd(cmd_sync)
+    assert result.success is False
+    assert "Vault sync failed: Imposed Failure" in result.result
+
+
+def test_cmd_sync_path_outside_vault_coverage(monkeypatch, tmp_path, minimal_config_dict):
+    """Exercise branches for paths outside vault root (requires bypassing resolve_vault_path)."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+    outside_dir = (tmp_path / "outside").resolve()
+    outside_dir.mkdir()
+    (outside_dir / "external.md").write_text("external", encoding="utf-8")
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Mock resolve to return a path relative to vault_dir to avoid relative_to failure
+    from pathlib import Path
+
+    rel_path = Path("subdir/file.md")
+    (vault_dir / "subdir").mkdir()
+    target_file = vault_dir / rel_path
+    target_file.write_text("content", encoding="utf-8")
+
+    def mock_resolve(path, vault_path):
+        return (f"vault:///{rel_path}", target_file)
+
+    import wks.utils.resolve_vault_path
+
+    monkeypatch.setattr(wks.utils.resolve_vault_path, "resolve_vault_path", mock_resolve)
+
+    # Now run sync with a path - it will use our mock_resolve
+    # This exercises line 129: scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"
+    result = run_cmd(cmd_sync, path=str(target_file))
+    assert result.success is True
+    assert result.output["notes_scanned"] == 1

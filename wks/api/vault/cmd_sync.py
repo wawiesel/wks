@@ -40,9 +40,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
         try:
             config: Any = WKSConfig.load()
             vault_cfg = config.vault
-            base_dir = vault_cfg.base_dir
-            if not base_dir:
-                raise ValueError("vault.base_dir not configured")
+            _ = vault_cfg.base_dir
             wks_home = WKSConfig.get_home_dir()
         except Exception as e:
             result_obj.output = VaultSyncOutput(
@@ -122,28 +120,19 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                 processed_uris = set()
 
                 # Determine scope prefix using vault URIs
-                from ...utils.path_to_uri import path_to_uri
 
                 target_path = input_path if path else vault_path
-
                 if target_path == vault_path:
                     scope_prefix = "vault:///"
-                elif target_path.is_relative_to(vault_path):
-                    # Note: strict posix style, spaces not escaped to match _sync_single_file
-                    scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"
                 else:
-                    scope_prefix = path_to_uri(target_path)
+                    scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"
 
                 if not scope_prefix.endswith("/") and target_path.is_dir():
-                    # If it's a directory, ensure trailing slash for regex matching of children
                     scope_prefix += "/"
 
                 # Collect confirmed URIs
                 for f in files:
-                    if f.is_relative_to(vault_path):
-                        processed_uris.add(f"vault:///{f.relative_to(vault_path)}")
-                    else:
-                        processed_uris.add(path_to_uri(f))
+                    processed_uris.add(f"vault:///{f.relative_to(vault_path)}")
 
                 # Database operations
                 from wks.api.database.Database import Database

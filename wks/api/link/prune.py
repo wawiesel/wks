@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-import requests  # type: ignore
+import requests
 
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database

@@ -98,3 +98,28 @@ def test_cmd_status_work_failure(monkeypatch, tmp_path, minimal_config_dict):
         result = run_cmd(cmd_status)
         assert result.success is False
         assert "Vault status failed: DB Failure" in result.result
+
+
+def test_cmd_status_missing_base_dir(monkeypatch, tmp_path, minimal_config_dict):
+    """Test cmd_status with missing base_dir (line 32)."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    # Create a valid config first so load() succeeds
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(tmp_path / "vault")
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Now muck with the loaded model or re-mock load
+    from wks.api.config.WKSConfig import WKSConfig
+    from wks.api.vault.VaultConfig import VaultConfig
+
+    config = WKSConfig.load()
+    config.vault = VaultConfig.model_construct(base_dir="", type="obsidian")
+
+    monkeypatch.setattr(WKSConfig, "load", lambda: config)
+
+    result = run_cmd(cmd_status)
+    assert result.success is False
+    assert "base_dir not configured" in result.output["errors"][0]

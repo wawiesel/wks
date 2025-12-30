@@ -77,3 +77,11 @@ def test_resolve_remote_uri_value_error_in_loop(monkeypatch):
     path = Path("/tmp/a/file.txt")
     # Should continue loop and return None
     assert resolve_remote_uri(path, config) is None
+
+
+def test_resolve_remote_uri_normalize_failure():
+    """Test resolution when normalize_path fails (hits line 19-21)."""
+    config = RemoteConfig(mappings=[])
+    # Passing an invalid type triggers TypeError in Path constructor
+    # We use type: ignore to satisfy Mypy while testing runtime robustness
+    assert resolve_remote_uri(123, config) is None  # type: ignore

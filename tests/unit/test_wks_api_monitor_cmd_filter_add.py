@@ -99,11 +99,33 @@ def test_cmd_filter_add_validation_error(monkeypatch):
     assert cfg.save_calls == 0
 
 
-def test_cmd_filter_add_duplicate(monkeypatch):
-    """Test cmd_filter_add with duplicate value."""
-    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_paths": ["/tmp/x"]}})
+def test_cmd_filter_add_duplicate_dirname(monkeypatch):
+    """Test cmd_filter_add with duplicate dirname."""
+    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_dirnames": ["testdir"]}})
 
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is False
-    assert "already_exists" in result.output
+    assert result.output["already_exists"] is True
     assert cfg.save_calls == 0
+
+
+def test_cmd_filter_add_duplicate_glob(monkeypatch):
+    """Test cmd_filter_add with duplicate glob."""
+    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_globs": ["*.md"]}})
+
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.md")
+    assert result.output["success"] is False
+    assert result.output["already_exists"] is True
+    assert cfg.save_calls == 0
+
+
+def test_cmd_filter_add_internal_error(monkeypatch):
+    """Test cmd_filter_add throws RuntimeError if validate_value returns (None, None)."""
+    create_tracked_wks_config(monkeypatch)
+
+    import wks.api.monitor.cmd_filter_add as filter_add_mod
+
+    monkeypatch.setattr(filter_add_mod, "validate_value", lambda *args: (None, None))
+
+    with pytest.raises(RuntimeError, match="value_to_store should not be None"):
+        run_cmd(filter_add_mod.cmd_filter_add, list_name="include_paths", value="test")

@@ -14,3 +14,8 @@ def test_daemon_config_valid():
 def test_daemon_config_validation():
     with pytest.raises(ValidationError):
         DaemonConfig(sync_interval_secs=-1.0)
+
+
+def test_daemon_config_invalid_type():
+    with pytest.raises(ValueError, match="daemon config must be a dict"):
+        DaemonConfig.model_validate(["not", "a", "dict"])

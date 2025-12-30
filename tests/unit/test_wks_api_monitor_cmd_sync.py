@@ -126,3 +126,47 @@ def test_monitor_cmd_sync_enforces_limit(wks_home, minimal_config_dict):
     with Database(config.database, "nodes") as db:
         count = db.count_documents({"local_uri": {"$exists": True}})
         assert count <= 2
+
+
+@pytest.mark.monitor
+def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
+    """Trigger exception in monitor sync loop via permission error."""
+    watch_dir = Path(str(wks_home) + "_watched")
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    unreadable = watch_dir / "unreadable.txt"
+    unreadable.write_text("Secret", encoding="utf-8")
+    unreadable.chmod(0o000)
+
+    try:
+        config = WKSConfig.load()
+        config.monitor.filter.include_paths = [str(watch_dir)]
+        config.save()
+
+        res = run_cmd(cmd_sync, path=str(watch_dir), recursive=True)
+        assert res.success is False
+        assert len(res.output["errors"]) == 1
+        assert "unreadable.txt" in res.output["errors"][0]
+    finally:
+        unreadable.chmod(0o644)
+
+
+@pytest.mark.monitor
+def test_monitor_cmd_sync_skips_excluded_file(wks_home, minimal_config_dict):
+    """Test that sync skips files excluded by monitor rules (hits line 110-115)."""
+    watch_dir = Path(str(wks_home) + "_watched")
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    config = WKSConfig.load()
+    config.monitor.filter.include_paths = [str(watch_dir)]
+    # Exclude .tmp files
+    config.monitor.filter.exclude_globs = ["*.tmp"]
+    config.save()
+
+    test_file = watch_dir / "skip_me.tmp"
+    test_file.write_text("Temp Data", encoding="utf-8")
+
+    res = run_cmd(cmd_sync, path=str(test_file))
+    assert res.success is True
+    assert res.output["files_synced"] == 0
+    assert res.output["files_skipped"] == 1

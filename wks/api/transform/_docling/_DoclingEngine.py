@@ -50,7 +50,7 @@ class _DoclingEngine(_TransformEngine):
             if ocr_languages:
                 if isinstance(ocr_languages, list):
                     ocr_languages = ",".join(ocr_languages)
-                cmd.extend(["--ocr-languages", str(ocr_languages)])
+                cmd.extend(["--ocr-lang", str(ocr_languages)])
 
             # Image export mode (required)
             image_export_mode = options["image_export_mode"]

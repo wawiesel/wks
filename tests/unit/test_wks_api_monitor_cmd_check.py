@@ -47,19 +47,23 @@ def test_cmd_check_path_not_exists(monkeypatch, tmp_path, minimal_config_dict):
     assert result.success is False
 
 
-def test_cmd_check_other_trace_message(monkeypatch, tmp_path, minimal_config_dict):
-    """Trace message without included/excluded prefix uses bullet symbol."""
+def test_cmd_check_glob_exclusion(monkeypatch, tmp_path, minimal_config_dict):
+    """Path matching exclude_globs reports '✗' symbol."""
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
-    # Empty include_paths to trigger default exclude trace
+    watch_dir = tmp_path / "watch"
+    watch_dir.mkdir()
+    cfg["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
+    cfg["monitor"]["filter"]["exclude_globs"] = ["*.tmp"]
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-    target = tmp_path / "test.txt"
-    target.write_text("data", encoding="utf-8")
+
+    target = watch_dir / "test.tmp"
+    target.write_text("temp", encoding="utf-8")
 
     result = run_cmd(cmd_check, path=str(target))
 
-    decision_symbols = [d["symbol"] for d in result.output["decisions"]]
-    assert "•" in decision_symbols
     assert result.output["is_monitored"] is False
+    decision_symbols = [d["symbol"] for d in result.output["decisions"]]
+    assert "✗" in decision_symbols

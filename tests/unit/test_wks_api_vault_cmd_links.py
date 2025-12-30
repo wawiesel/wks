@@ -127,3 +127,46 @@ def test_cmd_links_invalid_config(monkeypatch, tmp_path):
     result = run_cmd(cmd_links, path="foo")
     assert result.success is False
     assert "Failed to load config" in result.output["errors"][0]
+
+
+def test_cmd_links_path_error(monkeypatch, tmp_path, minimal_config_dict):
+    """Test cmd_links with invalid vault path (line 56-68)."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    result = run_cmd(cmd_links, path="../../outside.md")
+    assert result.success is False
+    assert "does not exist" in result.result or "not in vault" in result.result.lower()
+
+
+def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
+    """Test cmd_links with database query failure (line 112-123)."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+    # Create the file so resolve_vault_path succeeds
+    (vault_dir / "test.md").touch()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Mock Database to fail
+    from wks.api.database.Database import Database
+
+    def mock_enter(self):
+        raise RuntimeError("DB Error")
+
+    monkeypatch.setattr(Database, "__enter__", mock_enter)
+
+    result = run_cmd(cmd_links, path="test.md")
+    assert result.success is False
+    assert "Query failed" in result.output["errors"][0]

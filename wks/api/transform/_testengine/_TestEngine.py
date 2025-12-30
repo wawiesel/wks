@@ -14,16 +14,19 @@ class _TestEngine(_TransformEngine):
         self,
         input_path: Path,
         output_path: Path,
-        options: dict[str, Any],  # noqa: ARG002
+        options: dict[str, Any],
     ) -> Generator[str, None, list[str]]:
         """Copy input to output."""
+        if options.get("fail_transform"):
+            raise RuntimeError("Simulated transform failure")
+
         yield "Starting transform..."
         content = input_path.read_text()
         yield "Reading content..."
         output_path.write_text(f"Transformed: {content}")
-        output_path.write_text(f"Transformed: {content}")
         yield "Complete"
-        return []
+
+        return options.get("return_refs", [])
 
     def get_extension(self, options: dict[str, Any]) -> str:  # noqa: ARG002
         """Get extension."""

@@ -22,10 +22,10 @@ class MarkdownParser(BaseParser):
                 raw_full = match.group(2).strip()
 
                 # Split alias
-                if "|" in raw_full:
-                    target, alias = raw_full.split("|", 1)
-                elif "\\|" in raw_full:
+                if "\\|" in raw_full:
                     target, alias = raw_full.split("\\|", 1)
+                elif "|" in raw_full:
+                    target, alias = raw_full.split("|", 1)
                 else:
                     target, alias = raw_full, ""
 

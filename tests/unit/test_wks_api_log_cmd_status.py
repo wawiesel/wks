@@ -1,32 +1,83 @@
-"""Unit tests for wks.api.log.cmd_status."""
+from datetime import datetime, timedelta, timezone
 
-from datetime import datetime, timezone
-from unittest.mock import patch
-
-import pytest
-
-from tests.unit.conftest import minimal_wks_config, run_cmd
-from wks.api.config.WKSConfig import WKSConfig
+from tests.unit.conftest import run_cmd
 from wks.api.log.cmd_status import cmd_status
 
 
-@pytest.mark.log
-def test_cmd_status_success(monkeypatch, tmp_path):
-    """Test log status command reads logfile correctly."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
+def test_cmd_status_no_log(tracked_wks_config, monkeypatch, tmp_path):
+    """Test status when log file does not exist (lines 35-43)."""
+    from wks.api.config.WKSConfig import WKSConfig
 
-    logfile = WKSConfig.get_logfile_path()
-    now = datetime.now(timezone.utc).isoformat()
-    logfile.write_text(f"[{now}] [test] INFO: hello\n")
+    log_path = WKSConfig.get_logfile_path()
+    if log_path.exists():
+        log_path.unlink()
 
-    # Mock WKSConfig.load to return a valid config
-    cfg = minimal_wks_config()
-    with patch("wks.api.config.WKSConfig.WKSConfig.load", return_value=cfg):
-        result = run_cmd(cmd_status)
-
+    result = run_cmd(cmd_status)
     assert result.success is True
-    assert result.output["log_path"] == str(logfile)
+    assert result.output["entry_counts"]["info"] == 0
+
+
+def test_cmd_status_success(tracked_wks_config, tmp_path):
+    """Test successful status with entries (lines 45-136)."""
+    from wks.api.config.WKSConfig import WKSConfig
+
+    log_path = WKSConfig.get_logfile_path()
+    if not log_path.parent.exists():
+        log_path.parent.mkdir(parents=True)
+
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(days=10)).isoformat()
+
+    log_path.write_text(
+        f"[{now.isoformat()}] [test] INFO: msg1\n"
+        f"[{now.isoformat()}] [test] ERROR: msg2\n"
+        f"[{old}] [test] INFO: expired\n"
+        "Legacy WARN entry\n"
+        "DEBUG: legacy debug\n",
+        encoding="utf-8",
+    )
+
+    result = run_cmd(cmd_status)
+    assert result.success is True
+    # Info: 1 kept, 1 expired
     assert result.output["entry_counts"]["info"] == 1
+    # Error: 1 kept
+    assert result.output["entry_counts"]["error"] == 1
+    # Warn: 1 legacy kept
+    assert result.output["entry_counts"]["warn"] == 1
+    # Debug: 1 legacy kept
+    assert result.output["entry_counts"]["debug"] == 1
+
     assert result.output["size_bytes"] > 0
+    assert result.output["oldest_entry"] is not None
+
+
+def test_cmd_status_parse_error(tracked_wks_config, tmp_path):
+    """Test unparseable date (lines 84-85)."""
+    from wks.api.config.WKSConfig import WKSConfig
+
+    log_path = WKSConfig.get_logfile_path()
+    log_path.write_text("[BAD_DATE] [test] INFO: msg\n", encoding="utf-8")
+
+    result = run_cmd(cmd_status)
+    assert result.success is True
+    assert result.output["entry_counts"]["info"] == 1
+
+
+def test_cmd_status_read_error(tracked_wks_config, tmp_path, monkeypatch):
+    """Test error during read (lines 61-68)."""
+    from wks.api.config.WKSConfig import WKSConfig
+
+    log_path = WKSConfig.get_logfile_path()
+    log_path.write_text("content", encoding="utf-8")
+
+    from pathlib import Path
+
+    def mock_read_text(*args, **kwargs):
+        raise Exception("read fail")
+
+    monkeypatch.setattr(Path, "read_text", mock_read_text)
+
+    result = run_cmd(cmd_status)
+    assert result.success is False
+    assert "read fail" in result.output["errors"][0]

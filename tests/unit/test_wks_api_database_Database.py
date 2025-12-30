@@ -49,6 +49,15 @@ def test_database_context_and_operations():
 
         # delete_many is a passthrough; ensure it doesn't crash and respects filter
         assert db.delete_many({"path": "/a"}) >= 0
+
+        # New operations coverage (lines 61-70)
+        db.insert_one({"path": "/c", "value": 3})
+        assert db.count_documents({"path": "/c"}) == 1
+        db.insert_many([{"path": "/d"}, {"path": "/e"}])
+        assert db.count_documents({"path": {"$in": ["/d", "/e"]}}) == 2
+        assert db.delete_one({"path": "/c"}) >= 1
+        assert db.count_documents({"path": "/c"}) == 0
+
         assert db.get_client() is not None
         assert db.get_database(cfg.prefix) is not None
     # __exit__ with no _impl should simply return False
