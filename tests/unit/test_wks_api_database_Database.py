@@ -158,13 +158,13 @@ def test_mongo_backend_init_error():
     # if we construct it manually or via partial validation.
 
     # Construct invalid config
-    cfg = DatabaseConfig(
+    cfg = DatabaseConfig.model_construct(
         type="mongo",
         prefix="test",
-        data=cast(BaseModel, {"uri": "mongodb://localhost:27017", "local": True}),
-        prune_frequency_secs=3600,
+        data=cast(BaseModel, None),  # Invalid data
     )
 
+    # Attempt to use it
     with pytest.raises(ValueError, match="MongoDB config data is required"), Database(cfg, "coll"):
         pass
 
