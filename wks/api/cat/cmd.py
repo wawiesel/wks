@@ -26,7 +26,8 @@ def cmd(
     def do_work(result_obj: StageResult) -> Any:
         from ..config.WKSConfig import WKSConfig
         from ..transform.cmd_engine import cmd_engine
-        from ._helpers import _is_checksum, _select_engine
+        from ._is_checksum import _is_checksum
+        from ._select_engine import _select_engine
 
         yield (0.1, f"Processing target: {target}")
 

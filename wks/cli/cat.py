@@ -32,32 +32,8 @@ def cat() -> typer.Typer:
             typer.echo(ctx.get_help(), err=True)
             raise typer.Exit()
 
-        _cat_target(target, engine)
+        from ._run_cat import _run_cat
+
+        _run_cat(target, engine)
 
     return app
-
-
-def _cat_target(target: str, engine_override: str | None) -> None:
-    """Cat content to stdout - handles both file paths and checksums."""
-    from wks.api.cat.cmd import cmd
-
-    try:
-        res = cmd(target, engine=engine_override)
-        # Consume progress generator
-        list(res.progress_callback(res))
-
-        if res.success:
-            if isinstance(res.output, dict) and "content" in res.output:
-                typer.echo(res.output["content"])
-            else:
-                typer.echo(f"Error: No content returned for {target}", err=True)
-                raise typer.Exit(1)
-        else:
-            typer.echo(f"Error: {res.result}", err=True)
-            raise typer.Exit(1)
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from None
