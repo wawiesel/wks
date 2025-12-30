@@ -8,7 +8,7 @@ from rich import print
 
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.transform._get_controller import _get_controller
-from wks.api.transform.cmd_engine import cmd_transform
+from wks.api.transform.cmd_engine import cmd_engine
 from wks.cli._handle_stage_result import handle_stage_result
 
 
@@ -121,7 +121,7 @@ def _run_transform(
                 print(cache_key)
             return
 
-        handle_stage_result(cmd_transform)(engine, file_path, overrides, output)
+        handle_stage_result(cmd_engine)(engine, file_path, overrides, output)
 
     except Exception as e:
         print(f"[red]Error: {e}[/red]")

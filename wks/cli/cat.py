@@ -108,11 +108,11 @@ def _cat_target(target: str, engine_override: str | None) -> None:
             typer.echo(f"Available: {', '.join(config.transform.engines.keys())}", err=True)
             raise typer.Exit(1) from None
 
-        # Use cmd_transform for consistency
+        # Use cmd_engine for consistency
         from wks.api.cat.cmd import cmd
-        from wks.api.transform.cmd_engine import cmd_transform
+        from wks.api.transform.cmd_engine import cmd_engine
 
-        res_transform = cmd_transform(engine, file_path, {})
+        res_transform = cmd_engine(engine, file_path, {})
         # Consume generator
         list(res_transform.progress_callback(res_transform))
 

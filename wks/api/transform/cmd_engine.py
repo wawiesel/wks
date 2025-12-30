@@ -11,7 +11,7 @@ from ._get_controller import _get_controller
 from ._TransformResult import _TransformResult
 
 
-def cmd_transform(
+def cmd_engine(
     engine: str,
     file_path: Path,
     overrides: dict[str, Any],
