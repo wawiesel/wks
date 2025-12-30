@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 
 
-class TransformEngineConfig(BaseModel):
+class EngineConfig(BaseModel):
     """Single engine configuration."""
 
     type: str

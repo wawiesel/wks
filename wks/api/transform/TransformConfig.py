@@ -2,12 +2,12 @@
 
 from pydantic import BaseModel
 
-from .TransformCacheConfig import TransformCacheConfig
-from .TransformEngineConfig import TransformEngineConfig
+from .CacheConfig import CacheConfig
+from .EngineConfig import EngineConfig
 
 
 class TransformConfig(BaseModel):
     """Transform section of WKS configuration."""
 
-    cache: TransformCacheConfig
-    engines: dict[str, TransformEngineConfig]
+    cache: CacheConfig
+    engines: dict[str, EngineConfig]
