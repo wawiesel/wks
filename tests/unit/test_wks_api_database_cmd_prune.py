@@ -169,23 +169,23 @@ def test_set_and_get_prune_timestamp(monkeypatch, tmp_path):
 
 
 def test_should_prune_logic(monkeypatch, tmp_path):
-    """Test should_prune logic."""
+    """Test _should_prune logic."""
     from wks.api.database._set_last_prune_timestamp import set_last_prune_timestamp
-    from wks.api.database._should_prune import should_prune
+    from wks.api.database._should_prune import _should_prune
 
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
 
     # 0 = disabled
-    assert should_prune("transform", 0) is False
+    assert _should_prune("transform", 0) is False
 
     # Never pruned
-    assert should_prune("transform", 3600) is True
+    assert _should_prune("transform", 3600) is True
 
     # Recently pruned
     set_last_prune_timestamp("transform")
-    assert should_prune("transform", 3600) is False
+    assert _should_prune("transform", 3600) is False
 
 
 def test_prune_timestamp_recovery_from_corruption(monkeypatch, tmp_path):
