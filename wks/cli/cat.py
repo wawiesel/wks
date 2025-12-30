@@ -106,7 +106,13 @@ def _cat_target(target: str, engine_override: str | None) -> None:
                 raise typer.Exit(1) from None
 
             # Transform file (uses cache if available)
-            cache_key = controller.transform(file_path, engine, {}, None)
+            gen = controller.transform(file_path, engine, {}, None)
+            try:
+                # Consume generator (ignoring progress) to get cache_key
+                while True:
+                    next(gen)
+            except StopIteration as e:
+                cache_key, _ = e.value
 
             # Get and print content
             content = controller.get_content(cache_key)

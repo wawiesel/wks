@@ -125,6 +125,9 @@ def test_cmd_transform_caches_result(monkeypatch, tmp_path, minimal_config_dict)
     result2 = run_cmd(cmd_transform, engine="test", file_path=test_file, overrides={}, output=None)
     assert result2.success
     assert result2.output["checksum"] == checksum1
+    # Verify cached status
+    assert result1.output["cached"] is False
+    assert result2.output["cached"] is True
 
 
 def test_cmd_transform_error_structure(monkeypatch, tmp_path, minimal_config_dict):
@@ -151,3 +154,42 @@ def test_cmd_transform_error_structure(monkeypatch, tmp_path, minimal_config_dic
     assert result.output["output_content"] is None
     assert result.output["processing_time_ms"] is None
     assert result.output["source_uri"] is not None  # Should still populate source
+
+
+def test_cmd_transform_success_structure(monkeypatch, tmp_path, minimal_config_dict):
+    """cmd_transform returns compliant structure on success."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    cache_dir = tmp_path / "_transform"
+    cache_dir.mkdir()
+
+    cfg = minimal_config_dict
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("Hello World")
+
+    result = run_cmd(cmd_transform, engine="test", file_path=test_file, overrides={}, output=None)
+
+    assert result.success
+    # Strict key check
+    keys = result.output.keys()
+    assert "output_content" in keys
+    assert "processing_time_ms" in keys
+    assert "source_uri" in keys
+    assert "destination_uri" in keys
+    assert "checksum" in keys
+    assert "status" in keys
+    assert "engine" in keys
+
+    # Check types/values
+    assert result.output["processing_time_ms"] is not None
+    assert isinstance(result.output["processing_time_ms"], int)
+    # output_content is None by default in current implementation
+    assert result.output["output_content"] is None
+
+    # Check cached field (should be False for first run)
+    assert "cached" in result.output
+    assert result.output["cached"] is False

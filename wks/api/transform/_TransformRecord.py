@@ -15,6 +15,11 @@ class _TransformRecord:
     created_at: str  # ISO timestamp
     engine: str
     options_hash: str
+    referenced_uris: list[str] | None = None
+
+    def __post_init__(self):
+        if self.referenced_uris is None:
+            self.referenced_uris = []
 
     @classmethod
     def from_dict(cls, data: dict) -> "_TransformRecord":
@@ -41,6 +46,7 @@ class _TransformRecord:
             created_at=data["created_at"],
             engine=data["engine"],
             options_hash=data["options_hash"],
+            referenced_uris=data.get("referenced_uris", []),
         )
 
     def to_dict(self) -> dict:
@@ -54,6 +60,7 @@ class _TransformRecord:
             "created_at": self.created_at,
             "engine": self.engine,
             "options_hash": self.options_hash,
+            "referenced_uris": self.referenced_uris,
         }
 
     def cache_path_from_uri(self) -> str:

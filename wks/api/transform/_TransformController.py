@@ -49,12 +49,13 @@ class _TransformController:
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def _update_graph(self, file_uri: str, output_path: Path):
+    def _update_graph(self, file_uri: str, output_path: Path, referenced_uris: list[str] | None = None):
         """Update Knowledge Graph with new transform edge.
 
         Args:
             file_uri: Source file URI (file://...)
             output_path: Path to the cached output file
+            referenced_uris: List of referenced image URIs
         """
         output_uri = path_to_uri(normalize_path(output_path))
 
@@ -69,12 +70,34 @@ class _TransformController:
             {"uri": output_uri}, {"$set": {"uri": output_uri, "type": "file", "generated": True}}, upsert=True
         )
 
-        # 3. Upsert Edge
+        # 3. Upsert Edge (Source -> Output)
         mongo_db["edges"].update_one(
             {"source": file_uri, "target": output_uri, "type": "transform"},
             {"$set": {"source": file_uri, "target": output_uri, "type": "transform", "created_at": now_iso()}},
             upsert=True,
         )
+
+        # 4. Handle Referenced Images (Output -> Image)
+        if referenced_uris:
+            for image_uri in referenced_uris:
+                # 4a. Upsert Image Node
+                mongo_db["nodes"].update_one(
+                    {"uri": image_uri}, {"$set": {"uri": image_uri, "type": "file", "generated": True}}, upsert=True
+                )
+
+                # 4b. Upsert Edge (Output -> Image)
+                mongo_db["edges"].update_one(
+                    {"source": output_uri, "target": image_uri, "type": "refers_to"},
+                    {
+                        "$set": {
+                            "source": output_uri,
+                            "target": image_uri,
+                            "type": "refers_to",
+                            "created_at": now_iso(),
+                        }
+                    },
+                    upsert=True,
+                )
 
     def _compute_cache_key(self, file_checksum: str, engine_name: str, options_hash: str) -> str:
         """Compute cache key from file, engine, and options.
@@ -147,7 +170,7 @@ class _TransformController:
         engine_name: str,
         options_hash: str,
         output_path: Path | None,
-    ) -> str:
+    ) -> tuple[str, bool]:
         """Handle transform when result is already cached.
 
         Args:
@@ -158,7 +181,7 @@ class _TransformController:
             output_path: Optional output path
 
         Returns:
-            Cache key
+            Tuple of (Cache key, cached_status=True)
         """
         # Update last accessed
         self._update_last_accessed(file_checksum, engine_name, options_hash)
@@ -170,7 +193,8 @@ class _TransformController:
             if cache_path.exists():
                 output_path.write_bytes(cache_path.read_bytes())
 
-        return self._compute_cache_key(file_checksum, engine_name, options_hash)
+        cache_key = self._compute_cache_key(file_checksum, engine_name, options_hash)
+        return cache_key, True
 
     def _perform_new_transform(
         self,
@@ -183,7 +207,7 @@ class _TransformController:
         options: dict[str, Any],
         options_hash: str,
         output_path: Path | None,
-    ) -> Generator[str, None, str]:
+    ) -> Generator[str, None, tuple[str, bool]]:
         """Perform a new transform (not cached).
 
         Args:
@@ -198,7 +222,7 @@ class _TransformController:
             output_path: Optional output path
 
         Returns:
-            Generator yielding progress strings and returning Cache key
+            Generator yielding progress strings and returning (Cache key, cached_status=False)
 
         Raises:
             RuntimeError: If transform fails to create cache file
@@ -214,7 +238,15 @@ class _TransformController:
         self.cache_manager.ensure_space(file_size)
 
         # Perform transform
-        yield from engine.transform(file_path, cache_location, options)
+        # Engine yields progress string, returns referenced_uris (list[str])
+        gen = engine.transform(file_path, cache_location, options)
+        referenced_uris: list[str] = []
+        try:
+            while True:
+                msg = next(gen)
+                yield msg
+        except StopIteration as e:
+            referenced_uris = e.value or []
 
         # Verify file was created
         if not cache_location.exists():
@@ -239,16 +271,30 @@ class _TransformController:
             created_at=now_iso(),
             engine=engine_name,
             options_hash=options_hash,
+            referenced_uris=referenced_uris,
         )
 
         self.db.insert_one(record.to_dict())
+
+        # Update Graph
+        # We need the output path corresponding to the cache file?
+        # Graph updates use the cache URI as the 'output' node.
+        # But wait, original _update_graph isn't called here?
+        # Ah, _update_graph is missing from _perform_new_transform in the original code?
+        # Let me check... I don't see _update_graph called in the view_file of 1.
+        # It seems graph updating was missing or implicit?
+        # Wait, step 3947 view shows _update_graph method existing but NOT CALLED in _perform_new_transform.
+        # This might be a bug or intentional separation.
+        # If I want to update the graph, I should call it here.
+        # The user specifically requested "additional edges".
+        self._update_graph(file_uri, cache_location, referenced_uris)
 
         # Copy to output if requested
         if output_path:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_bytes(cache_location.read_bytes())
 
-        return cache_key
+        return cache_key, False
 
     def transform(
         self,
@@ -256,8 +302,13 @@ class _TransformController:
         engine_name: str,
         options: dict[str, Any] | None = None,
         output_path: Path | None = None,
-    ) -> Generator[str, None, str]:
-        """Transform file using specified engine."""
+    ) -> Generator[str, None, tuple[str, bool]]:
+        """Transform file using specified engine.
+
+        Returns:
+            Generator yielding progress strings.
+            Returns tuple (cache_key, cached_boolean) on completion.
+        """
         file_path = normalize_path(file_path)
 
         if not file_path.exists() or not file_path.is_file():
@@ -514,7 +565,7 @@ class _TransformController:
             while True:
                 next(gen)
         except StopIteration as e:
-            cache_key = e.value
+            cache_key, _ = e.value
 
         # Now recurse to get the content from cache
         return self.get_content(cache_key, output_path)

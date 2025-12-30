@@ -101,6 +101,22 @@ When a transform is successfully executed (or retrieved from cache), the system 
     - This explicitly links the binary source to its text representation.
     - Allows traversal from the original document to its indexable content.
 
+### Image References
+If the transform produces secondary artifacts (e.g., extracted images via `image_export_mode="referenced"`), these MUST also be integrated into the graph:
+
+1.  **Nodes**: Create nodes for each extracted image in the cache (`file://...`).
+2.  **Edges**: Create a directed edge from the **Markdown Output** to each **Image**.
+    - Type: `refers_to`
+    - Direction: `Markdown -> Image`
+    - Chain: `Source --transform--> Markdown --refers_to--> Image`
+
+## Image Handling
+When an engine extracts images (e.g. Docling):
+1.  **Storage**: Images MUST be stored in the transform cache directory.
+2.  **Naming**: Images MUST be named `<checksum>.<ext>` to avoid collisions, just like the primary markdown output.
+3.  **References**: Converting the engine's output to use these cache paths is the responsibility of the Engine adapter.
+4.  **Export**: When using `--output`, only the primary artifact (Markdown) is copied. Images remain in the cache, and the markdown references them via absolute file URI (or logic appropriate for the user's viewer).
+
 ## CLI Interface
 
 ### transform

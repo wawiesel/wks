@@ -112,7 +112,12 @@ def _run_transform(
     try:
         if raw:
             with _get_controller() as controller:
-                cache_key = controller.transform(file_path, engine, overrides, output)
+                gen = controller.transform(file_path, engine, overrides, output)
+                try:
+                    while True:
+                        next(gen)
+                except StopIteration as e:
+                    cache_key, _ = e.value
                 print(cache_key)
             return
 

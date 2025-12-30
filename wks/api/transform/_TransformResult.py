@@ -11,3 +11,6 @@ class _TransformResult(BaseModel):
     engine: str
     status: str
     checksum: str
+    output_content: str | None = None
+    processing_time_ms: int | None = None
+    cached: bool = False

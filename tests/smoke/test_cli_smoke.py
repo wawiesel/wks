@@ -167,3 +167,20 @@ def test_cli_vault_sync(smoke_env):
     assert "notes_scanned" in result.stdout
     assert "links_written" in result.stdout
     assert "success" in result.stdout
+
+
+def test_cli_transform_raw(smoke_env):
+    """Test 'wksc transform --raw' outputs checksum only."""
+    # Ensure test file exists
+    home_dir = smoke_env["home"]
+    test_file = home_dir / "test_raw.txt"
+    test_file.write_text("Hello Raw", encoding="utf-8")
+
+    result = run_wks(["transform", "--raw", "test", str(test_file)], smoke_env)
+
+    # Check output is exactly the checksum (hex string) usually 64 chars
+    output = result.stdout.strip()
+    # Hex string
+    import re
+
+    assert re.match(r"^[a-f0-9]{64}$", output)

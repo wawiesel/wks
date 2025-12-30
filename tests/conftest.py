@@ -118,6 +118,19 @@ def minimal_config_dict() -> dict:
                     "type": "test",
                     "data": {},
                 },
+                # Add docling engine to satisfy strict optional rules
+                # (though usually invoked by name, if default_engine uses it)
+                "docling_test": {
+                    "type": "docling",
+                    "data": {
+                        "ocr": False,
+                        "ocr_languages": ["eng"],
+                        "image_export_mode": "embedded",
+                        "pipeline": "standard",
+                        "timeout_secs": 30,
+                        "to": "md",
+                    },
+                },
             },
         },
         "cat": {
