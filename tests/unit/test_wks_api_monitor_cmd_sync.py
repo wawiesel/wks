@@ -106,26 +106,37 @@ def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
 
 
 @pytest.mark.monitor
-def test_monitor_cmd_sync_enforces_limit(wks_home, minimal_config_dict):
+def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
     """Test that sync enforces max_documents limit."""
-    config = WKSConfig.load()
-    config.monitor.max_documents = 2
+    tracked_wks_config.monitor.max_documents = 2
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
-    config.monitor.filter.include_paths = [str(watch_dir)]
-    config.save()
+    tracked_wks_config.monitor.filter.include_paths = [str(watch_dir)]
 
-    (watch_dir / "1.txt").write_text("1")
-    (watch_dir / "2.txt").write_text("2")
-    (watch_dir / "3.txt").write_text("3")
+    # Create 3 files with explicit priorities
+    with Database(tracked_wks_config.database, "nodes") as db:
+        db.insert_one({"local_uri": "file:///low", "priority": 1.0, "checksum": "abc"})
+        db.insert_one({"local_uri": "file:///mid", "priority": 2.0, "checksum": "def"})
+        db.insert_one({"local_uri": "file:///high", "priority": 100.0, "checksum": "ghi"})
 
-    # Sync all 3
-    run_cmd(cmd_sync, path=str(watch_dir), recursive=True)
+    test_file = watch_dir / "1.txt"
+    test_file.write_text("1")
 
-    # Verify only 2 remain in DB (actually enforcing happens after sync)
-    with Database(config.database, "nodes") as db:
-        count = db.count_documents({"local_uri": {"$exists": True}})
+    # Mock calculate_priority to return high value for 1.txt
+    from unittest.mock import patch
+
+    with patch("wks.api.monitor.cmd_sync.calculate_priority", return_value=200.0):
+        # Run sync to trigger enforcement
+        res = run_cmd(cmd_sync, path=str(test_file))
+        assert res.success is True
+
+    # Verify only 2 remain and 'low' and 'mid' are gone
+    with Database(tracked_wks_config.database, "nodes") as db:
+        count = db.count_documents({"doc_type": {"$ne": "meta"}})
         assert count <= 2
+        assert db.find_one({"local_uri": "file:///low"}) is None
+        assert db.find_one({"local_uri": "file:///mid"}) is None
+        assert db.find_one({"local_uri": "file:///high"}) is not None
 
 
 @pytest.mark.monitor

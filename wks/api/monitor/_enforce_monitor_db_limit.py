@@ -23,13 +23,16 @@ def _enforce_monitor_db_limit(
         if max_docs <= 0:
             return
 
-        count = database.count_documents({})
+        # Exclude metadata documents from limit enforcement
+        query = {"doc_type": {"$ne": "meta"}}
+
+        count = database.count_documents(query)
         if count <= max_docs:
             return
 
         extras = count - max_docs
 
-        lowest_priority_docs = database.find({}, {"_id": 1, "priority": 1}).sort("priority", 1).limit(extras)
+        lowest_priority_docs = database.find(query, {"_id": 1, "priority": 1}).sort("priority", 1).limit(extras)
         ids_to_delete = [doc["_id"] for doc in lowest_priority_docs]
         if ids_to_delete:
             database.delete_many({"_id": {"$in": ids_to_delete}})
