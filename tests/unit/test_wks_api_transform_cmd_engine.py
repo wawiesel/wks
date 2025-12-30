@@ -6,8 +6,8 @@ from pathlib import Path
 from tests.unit.conftest import run_cmd
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
-from wks.api.transform import get_content
 from wks.api.transform.cmd_engine import cmd_transform
+from wks.api.transform.get_content import get_content
 
 
 def test_cmd_transform_path_not_found(tracked_wks_config):

@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from tests.unit.conftest import run_cmd
-from wks.api.transform import get_content
 from wks.api.transform.cmd_engine import cmd_transform
+from wks.api.transform.get_content import get_content
 
 
 @pytest.mark.transform
