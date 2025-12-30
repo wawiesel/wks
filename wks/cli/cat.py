@@ -81,9 +81,9 @@ def _cat_target(target: str, engine_override: str | None) -> None:
     try:
         # Check if target is a checksum
         if _is_checksum(target):
-            from wks.api.cat.cmd import cmd_cat
+            from wks.api.cat.cmd import cmd
 
-            res = cmd_cat(target)
+            res = cmd(target)
             if res.success:
                 typer.echo(res.output["content"])
             else:
@@ -109,7 +109,7 @@ def _cat_target(target: str, engine_override: str | None) -> None:
             raise typer.Exit(1) from None
 
         # Use cmd_transform for consistency
-        from wks.api.cat.cmd import cmd_cat
+        from wks.api.cat.cmd import cmd
         from wks.api.transform.cmd_engine import cmd_transform
 
         res_transform = cmd_transform(engine, file_path, {})
@@ -123,7 +123,7 @@ def _cat_target(target: str, engine_override: str | None) -> None:
         cache_key = res_transform.output["checksum"]
 
         # Get and print content via cmd_cat
-        res_cat = cmd_cat(cache_key)
+        res_cat = cmd(cache_key)
         if res_cat.success:
             typer.echo(res_cat.output["content"])
         else:

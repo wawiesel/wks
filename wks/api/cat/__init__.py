@@ -1,5 +1,10 @@
 """Cat API module."""
 
-from .cmd_cat import cmd_cat
+from pydantic import BaseModel
 
-__all__ = ["cmd_cat"]
+from ..schema_loader import SchemaLoader
+
+_models = SchemaLoader.register_from_schema("cat")
+CatCmdOutput: type[BaseModel] = _models["CatCmdOutput"]
+
+__all__ = ["CatCmdOutput"]
