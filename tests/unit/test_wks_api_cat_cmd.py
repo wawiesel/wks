@@ -7,7 +7,7 @@ import pytest
 from tests.unit.conftest import run_cmd
 from wks.api.cat.cmd import cmd
 from wks.api.database.Database import Database
-from wks.api.transform.cmd_engine import cmd_transform
+from wks.api.transform.cmd_engine import cmd_engine
 
 
 @pytest.mark.cat
@@ -36,7 +36,7 @@ def test_cmd_by_checksum(wks_home, minimal_config_dict):
     test_file.write_text("Checksum Cat", encoding="utf-8")
 
     # 1. Transform to get checksum
-    res_t = run_cmd(cmd_transform, engine="test", file_path=test_file, overrides={})
+    res_t = run_cmd(cmd_engine, engine="test", file_path=test_file, overrides={})
     assert res_t.success is True
     checksum = res_t.output["checksum"]
 
@@ -91,7 +91,7 @@ def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
     test_file.write_text("Stale Content", encoding="utf-8")
 
     # 1. Transform to populate DB and cache
-    res_t = run_cmd(cmd_transform, engine="test", file_path=test_file, overrides={})
+    res_t = run_cmd(cmd_engine, engine="test", file_path=test_file, overrides={})
     assert res_t.success is True
     checksum = res_t.output["checksum"]
 
