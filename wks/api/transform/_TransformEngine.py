@@ -1,6 +1,7 @@
 """Transform engine base class."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,7 @@ class _TransformEngine(ABC):
     """Base class for transform engines."""
 
     @abstractmethod
-    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:
+    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> Iterator[str]:
         """Transform file from input to output.
 
         Args:

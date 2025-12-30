@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -182,7 +183,7 @@ class _TransformController:
         options: dict[str, Any],
         options_hash: str,
         output_path: Path | None,
-    ) -> str:
+    ) -> Generator[str, None, str]:
         """Perform a new transform (not cached).
 
         Args:
@@ -197,7 +198,7 @@ class _TransformController:
             output_path: Optional output path
 
         Returns:
-            Cache key
+            Generator yielding progress strings and returning Cache key
 
         Raises:
             RuntimeError: If transform fails to create cache file
@@ -213,7 +214,7 @@ class _TransformController:
         self.cache_manager.ensure_space(file_size)
 
         # Perform transform
-        engine.transform(file_path, cache_location, options)
+        yield from engine.transform(file_path, cache_location, options)
 
         # Verify file was created
         if not cache_location.exists():
@@ -255,7 +256,7 @@ class _TransformController:
         engine_name: str,
         options: dict[str, Any] | None = None,
         output_path: Path | None = None,
-    ) -> str:
+    ) -> Generator[str, None, str]:
         """Transform file using specified engine."""
         file_path = normalize_path(file_path)
 
@@ -289,16 +290,18 @@ class _TransformController:
             return self._handle_cached_transform(cached, file_checksum, engine_name, options_hash, output_path)
 
         # Perform new transform
-        return self._perform_new_transform(
-            file_path,
-            file_uri,
-            file_checksum,
-            file_size,
-            engine_name,
-            engine,
-            merged_options,
-            options_hash,
-            output_path,
+        return (
+            yield from self._perform_new_transform(
+                file_path,
+                file_uri,
+                file_checksum,
+                file_size,
+                engine_name,
+                engine,
+                merged_options,
+                options_hash,
+                output_path,
+            )
         )
 
     def remove_by_uri(self, file_uri: str) -> int:
@@ -505,7 +508,13 @@ class _TransformController:
 
         # Transform it (using default engine/options for now)
         # This ensures we have the content in cache
-        cache_key = self.transform(file_path, self.config.default_engine, {})
+        gen = self.transform(file_path, self.config.default_engine, {})
+        # Consume generator to get return value
+        try:
+            while True:
+                next(gen)
+        except StopIteration as e:
+            cache_key = e.value
 
         # Now recurse to get the content from cache
         return self.get_content(cache_key, output_path)

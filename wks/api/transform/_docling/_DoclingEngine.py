@@ -2,6 +2,7 @@
 
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,7 @@ from .._TransformEngine import _TransformEngine
 class _DoclingEngine(_TransformEngine):
     """Docling transform engine for PDF, DOCX, PPTX."""
 
-    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> None:
+    def transform(self, input_path: Path, output_path: Path, options: dict[str, Any]) -> Iterator[str]:
         """Transform document using docling.
 
         Args:
@@ -57,8 +58,32 @@ class _DoclingEngine(_TransformEngine):
             # Timeout
             timeout = options.get("timeout_secs", 30)
 
+            # Start process
             try:
-                subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,  # Line buffered
+                )
+
+                # Stream output
+                if process.stdout:
+                    for line in process.stdout:
+                        line = line.strip()
+                        if line:
+                            yield line
+
+                # Wait for completion
+                try:
+                    return_code = process.wait(timeout=timeout)
+                except subprocess.TimeoutExpired as exc:
+                    process.kill()
+                    raise RuntimeError(f"Docling timed out after {timeout}s") from exc
+
+                if return_code != 0:
+                    raise RuntimeError(f"Docling failed with exit code {return_code}")
 
                 # Docling writes <input_stem>.md to output directory
                 expected_output = temp_output / f"{input_path.stem}.md"
@@ -68,11 +93,9 @@ class _DoclingEngine(_TransformEngine):
 
                 output_path.write_bytes(expected_output.read_bytes())
 
-            except subprocess.TimeoutExpired as exc:
-                raise RuntimeError(f"Docling timed out after {timeout}s") from exc
-            except subprocess.CalledProcessError as exc:
-                raise RuntimeError(f"Docling failed: {exc.stderr}") from exc
             except Exception as exc:
+                if isinstance(exc, RuntimeError):
+                    raise
                 raise RuntimeError(f"Docling error: {exc}") from exc
 
     def get_extension(self, options: dict[str, Any]) -> str:

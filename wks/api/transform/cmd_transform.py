@@ -35,7 +35,13 @@ def cmd_transform(
             with _get_controller() as controller:
                 yield (0.3, "Transforming...")
 
-                cache_key = controller.transform(file_path, engine, overrides, output)
+                gen = controller.transform(file_path, engine, overrides, output)
+                try:
+                    while True:
+                        msg = next(gen)
+                        yield (0.5, msg)
+                except StopIteration as e:
+                    cache_key = e.value
 
                 # Get cache location for destination_uri
                 cache_location = controller.cache_manager.cache_dir / f"{cache_key}.md"
