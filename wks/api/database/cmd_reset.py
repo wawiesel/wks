@@ -46,14 +46,14 @@ def cmd_reset(database: str) -> StageResult:
                     total_deleted += count
                     deleted_details.append(f"{target_db}: {count}")
 
-                    # Dynamic hook: wks.api.{database}._post_reset._post_reset
+                    # Dynamic hook: wks.api.{database}.post_reset.post_reset
                     # This allows domains (like transform) to cleanup related artifacts
                     try:
                         from importlib import import_module
 
-                        hook_module = import_module(f"wks.api.{target_db}._post_reset")
-                        if hasattr(hook_module, "_post_reset"):
-                            hook_module._post_reset(config)
+                        hook_module = import_module(f"wks.api.{target_db}.post_reset")
+                        if hasattr(hook_module, "post_reset"):
+                            hook_module.post_reset(config)
                     except ImportError:
                         pass  # No hooks for this domain
 
