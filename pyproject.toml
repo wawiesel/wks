@@ -60,6 +60,7 @@ exclude = [
     ".venv",
     "build",
     "dist",
+    ".cursor/rules",
 ]
 
 [tool.ruff.lint]

@@ -32,11 +32,18 @@
                     "description": "SHA-256 hash of the transform (used as cache key)"
                 },
                 "output_content": {
-                    "type": "string",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "description": "Optional content, if requested"
                 },
                 "processing_time_ms": {
                     "type": "integer"
+                },
+                "cached": {
+                    "type": "boolean",
+                    "description": "Whether the result was served from cache"
                 }
             },
             "required": [
@@ -44,7 +51,10 @@
                 "destination_uri",
                 "engine",
                 "status",
-                "checksum"
+                "checksum",
+                "output_content",
+                "processing_time_ms",
+                "cached"
             ]
         },
         "TransformListOutput": {
