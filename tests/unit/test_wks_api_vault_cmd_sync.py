@@ -346,3 +346,119 @@ def test_scanner_handles_rewrite_errors(monkeypatch, tmp_path, minimal_config_di
         assert result.output is not None
     finally:
         note.chmod(0o644)
+
+
+def test_cmd_sync_parses_markdown_urls(monkeypatch, tmp_path, minimal_config_dict):
+    """Test that markdown URLs are parsed and counted."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    vault_dir = tmp_path / "vault"
+    vault_dir.mkdir()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
+    cfg["monitor"]["priority"]["dirs"] = {str(vault_dir): 1.0}
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Create note with markdown URL
+    (vault_dir / "urls.md").write_text(
+        "[Google](https://google.com)\n[GitHub](https://github.com)",
+        encoding="utf-8",
+    )
+
+    result = run_cmd(cmd_sync)
+    assert result.success
+    assert result.output["notes_scanned"] == 1
+
+
+def test_cmd_sync_handles_long_lines(monkeypatch, tmp_path, minimal_config_dict):
+    """Test that long lines are truncated in raw_line preview."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    vault_dir = tmp_path / "vault"
+    vault_dir.mkdir()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
+    cfg["monitor"]["priority"]["dirs"] = {str(vault_dir): 1.0}
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Create note with very long line containing a wikilink
+    long_prefix = "x" * 500
+    (vault_dir / "long.md").write_text(f"{long_prefix}[[target]]", encoding="utf-8")
+
+    result = run_cmd(cmd_sync)
+    assert result.success
+
+
+def test_cmd_sync_with_mixed_link_types(monkeypatch, tmp_path, minimal_config_dict):
+    """Test syncing notes with wikilinks, embeds, and URLs."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    vault_dir = tmp_path / "vault"
+    vault_dir.mkdir()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
+    cfg["monitor"]["priority"]["dirs"] = {str(vault_dir): 1.0}
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Create target note
+    (vault_dir / "target.md").write_text("# Target", encoding="utf-8")
+
+    # Create note with all link types
+    (vault_dir / "mixed.md").write_text(
+        """# Mixed Links
+[[target]]
+![[target]]
+[Web](https://example.com)
+""",
+        encoding="utf-8",
+    )
+
+    result = run_cmd(cmd_sync)
+    assert result.success
+    assert result.output["notes_scanned"] == 2
+
+
+def test_cmd_sync_extracts_headings(monkeypatch, tmp_path, minimal_config_dict):
+    """Test that headings are extracted from notes with links."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    vault_dir = tmp_path / "vault"
+    vault_dir.mkdir()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    cfg["vault"]["type"] = "obsidian"
+    cfg["monitor"]["priority"]["dirs"] = {str(vault_dir): 1.0}
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Create note with headings
+    (vault_dir / "headings.md").write_text(
+        """# Main Title
+Some intro text
+
+## Section One
+[[link_in_section]]
+
+### Subsection
+[[link_in_subsection]]
+""",
+        encoding="utf-8",
+    )
+
+    result = run_cmd(cmd_sync)
+    assert result.success
+    assert result.output["notes_scanned"] == 1
