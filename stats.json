@@ -1,5 +1,5 @@
 {
-  "coverage_pct": 49.8,
+  "coverage_pct": 79.9,
   "coverage_status": "\u26a0\ufe0f Below Target",
   "docker_freshness": "fresh",
   "mutation_killed": 276,
@@ -7,70 +7,70 @@
   "mutation_survived": 22,
   "sections": {
     "api": {
-      "chars": 372964,
-      "files": 128,
-      "loc": 10489,
-      "tokens": 60043
+      "chars": 401401,
+      "files": 171,
+      "loc": 11324,
+      "tokens": 63785
     },
     "build_config": {
-      "chars": 4678,
+      "chars": 4792,
       "files": 5,
-      "loc": 182,
-      "tokens": 1168
+      "loc": 186,
+      "tokens": 1197
     },
     "cicd": {
-      "chars": 10223,
+      "chars": 10255,
       "files": 4,
-      "loc": 348,
-      "tokens": 2555
+      "loc": 349,
+      "tokens": 2563
     },
     "cli": {
-      "chars": 44652,
-      "files": 15,
-      "loc": 1334,
-      "tokens": 8373
+      "chars": 47576,
+      "files": 19,
+      "loc": 1351,
+      "tokens": 9186
     },
     "dev_docs": {
-      "chars": 121168,
-      "files": 44,
-      "loc": 2821,
-      "tokens": 30285
+      "chars": 110079,
+      "files": 46,
+      "loc": 2745,
+      "tokens": 27512
     },
     "integration": {
-      "chars": 47724,
+      "chars": 49084,
       "files": 12,
-      "loc": 1416,
-      "tokens": 8711
+      "loc": 1449,
+      "tokens": 8862
     },
     "mcp": {
-      "chars": 17050,
+      "chars": 17883,
       "files": 9,
-      "loc": 483,
-      "tokens": 3354
+      "loc": 509,
+      "tokens": 3396
     },
     "scripts": {
-      "chars": 57504,
+      "chars": 58530,
       "files": 13,
-      "loc": 1681,
-      "tokens": 11608
+      "loc": 1703,
+      "tokens": 11715
     },
     "smoke": {
-      "chars": 12747,
+      "chars": 12693,
       "files": 3,
       "loc": 373,
-      "tokens": 1988
+      "tokens": 2011
     },
     "specs": {
-      "chars": 103132,
-      "files": 26,
-      "loc": 2902,
-      "tokens": 25783
+      "chars": 117453,
+      "files": 29,
+      "loc": 3310,
+      "tokens": 29363
     },
     "unit": {
-      "chars": 180374,
-      "files": 54,
-      "loc": 5176,
-      "tokens": 31397
+      "chars": 283262,
+      "files": 82,
+      "loc": 8207,
+      "tokens": 50866
     },
     "user_docs": {
       "chars": 7065,
@@ -79,12 +79,12 @@
       "tokens": 1766
     },
     "utils": {
-      "chars": 19397,
-      "files": 12,
-      "loc": 622,
-      "tokens": 2203
+      "chars": 21309,
+      "files": 20,
+      "loc": 688,
+      "tokens": 2712
     }
   },
-  "test_count": 285,
-  "test_files": 64
+  "test_count": 451,
+  "test_files": 92
 }
