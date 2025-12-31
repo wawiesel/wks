@@ -78,6 +78,7 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 
 | Command Group | Description |
 |---------------|-------------|
+| `wksc cat` | Print content to stdout (file path or checksum) |
 | `wksc monitor` | Filesystem monitoring operations |
 | `wksc vault` | Vault link management (Obsidian-style) |
 | `wksc link` | Resource edge/link operations |
@@ -86,6 +87,8 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 | `wksc config` | Configuration operations |
 | `wksc database` | Database operations |
 | `wksc mcp` | MCP server management |
+| `wksc log` | Log management |
+| `wksc transform` | Document transformation operations |
 
 <details>
 <summary><strong>wksc monitor</strong> - Filesystem monitoring</summary>
@@ -165,13 +168,36 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 <summary><strong>wksc mcp</strong> - MCP server</summary>
 
 - `list` - List MCP installations
-- `install <name> [--type] [--settings-path]` - Install MCP server
-- `uninstall <name>` - Uninstall MCP server
-- `run [--direct]` - Run MCP server
+- `install <name>` - Install WKS MCP server for the named installation
+- `uninstall <name>` - Uninstall WKS MCP server
+- `run` - Run the MCP server
 
 </details>
 
-**Global Options**: `--version` / `-v`, `--display json|yaml` (default: yaml), `--help` / `-h`
+<details>
+<summary><strong>wksc log</strong> - Log management</summary>
+
+- `status` - Show log file status (auto-prunes expired entries)
+- `prune [--level]` - Prune log entries by level
+
+</details>
+
+<details>
+<summary><strong>wksc transform</strong> - Document transformation</summary>
+
+- `<engine> <file_path> [-o output]` - Transform a file using the specified engine
+- `--raw` - Output raw checksum only
+
+</details>
+
+<details>
+<summary><strong>wksc cat</strong> - Content output</summary>
+
+- `<target> [-e engine]` - Print content to stdout (file path or checksum)
+
+</details>
+
+**Global Options**: `--display json|yaml` (default: yaml), `--help` / `-h`
 
 ## Install
 
