@@ -1,0 +1,7 @@
+uid: TST-002
+links:
+  - MON-002
+text: |
+  Monitor status command returns schema-shaped output and handles database issues.
+  References:
+  - tests/unit/test_wks_api_monitor_cmd_status.py

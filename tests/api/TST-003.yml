@@ -1,0 +1,7 @@
+uid: TST-003
+links:
+  - MON-003
+text: |
+  Monitor check command requires a path and returns check output.
+  References:
+  - tests/unit/test_wks_api_monitor_cmd_check.py

@@ -2,6 +2,10 @@
 
 This directory contains the comprehensive test suite for the WKS project, ensuring the quality, correctness, and adherence to architectural principles. The tests are organized into `unit`, `smoke`, and `integration` categories, each serving a distinct purpose in the testing strategy.
 
+## Traceability Items
+
+Doorstop-style test traceability items live in `tests/api/`. Each item links back to a requirement ID and lists `References:` to the test(s) that satisfy it.
+
 ## Testing Strategy
 
 The WKS project employs a layered testing strategy designed to provide thorough coverage at different levels of abstraction:
