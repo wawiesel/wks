@@ -33,7 +33,7 @@
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      82 |  8,207 |      283,262 |   50,866 |      23.7% |
+| **Unit Tests**        |      82 |  8,207 |      283,262 |   50,866 |      23.6% |
 | **Integration Tests** |      12 |  1,449 |       49,084 |    8,862 |       4.1% |
 | **Smoke Tests**       |       3 |    373 |       12,693 |    2,011 |       0.9% |
 | **Total**             |      97 | 10,029 |      345,039 |   61,739 |      28.7% |
@@ -51,10 +51,10 @@
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   349 |       10,255 |    2,563 |       1.2% |
+| **CI/CD**        |       4 |   361 |       10,865 |    2,716 |       1.3% |
 | **Build/Config** |       5 |   186 |        4,792 |    1,197 |       0.6% |
-| **Scripts**      |      13 | 1,703 |       58,530 |   11,715 |       5.5% |
-| **Total**        |      22 | 2,238 |       73,577 |   15,475 |       7.2% |
+| **Scripts**      |      13 | 1,703 |       58,530 |   11,715 |       5.4% |
+| **Total**        |      22 | 2,250 |       74,187 |   15,628 |       7.3% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 92.6% means 92.6% of mutations are killed by our tests, indicating strong test coverage and quality.
 
@@ -78,7 +78,6 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 
 | Command Group | Description |
 |---------------|-------------|
-| `wksc cat` | Print content to stdout (file path or checksum) |
 | `wksc monitor` | Filesystem monitoring operations |
 | `wksc vault` | Vault link management (Obsidian-style) |
 | `wksc link` | Resource edge/link operations |
@@ -87,8 +86,6 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 | `wksc config` | Configuration operations |
 | `wksc database` | Database operations |
 | `wksc mcp` | MCP server management |
-| `wksc log` | Log management |
-| `wksc transform` | Document transformation operations |
 
 <details>
 <summary><strong>wksc monitor</strong> - Filesystem monitoring</summary>
@@ -168,36 +165,13 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 <summary><strong>wksc mcp</strong> - MCP server</summary>
 
 - `list` - List MCP installations
-- `install <name>` - Install WKS MCP server for the named installation
-- `uninstall <name>` - Uninstall WKS MCP server
-- `run` - Run the MCP server
+- `install <name> [--type] [--settings-path]` - Install MCP server
+- `uninstall <name>` - Uninstall MCP server
+- `run [--direct]` - Run MCP server
 
 </details>
 
-<details>
-<summary><strong>wksc log</strong> - Log management</summary>
-
-- `status` - Show log file status (auto-prunes expired entries)
-- `prune [--level]` - Prune log entries by level
-
-</details>
-
-<details>
-<summary><strong>wksc transform</strong> - Document transformation</summary>
-
-- `<engine> <file_path> [-o output]` - Transform a file using the specified engine
-- `--raw` - Output raw checksum only
-
-</details>
-
-<details>
-<summary><strong>wksc cat</strong> - Content output</summary>
-
-- `<target> [-e engine]` - Print content to stdout (file path or checksum)
-
-</details>
-
-**Global Options**: `--display json|yaml` (default: yaml), `--help` / `-h`
+**Global Options**: `--version` / `-v`, `--display json|yaml` (default: yaml), `--help` / `-h`
 
 ## Install
 

@@ -19,10 +19,10 @@
       "tokens": 1197
     },
     "cicd": {
-      "chars": 10255,
+      "chars": 10865,
       "files": 4,
-      "loc": 349,
-      "tokens": 2563
+      "loc": 361,
+      "tokens": 2716
     },
     "cli": {
       "chars": 47576,
