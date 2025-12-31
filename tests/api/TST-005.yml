@@ -1,0 +1,9 @@
+uid: TST-005
+links:
+  - MON-005
+text: |
+  Monitor filter commands (show/add/remove) return the expected outputs.
+  References:
+  - tests/unit/test_wks_api_monitor_cmd_filter_show.py
+  - tests/unit/test_wks_api_monitor_cmd_filter_add.py
+  - tests/unit/test_wks_api_monitor_cmd_filter_remove.py

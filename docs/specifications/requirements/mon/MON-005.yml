@@ -1,0 +1,4 @@
+uid: MON-005
+text: |
+  Filter commands must use their respective outputs: show/add/remove.
+  Source: docs/specifications/monitor.md (MON.5)

@@ -75,6 +75,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref || github.ref }}
+          submodules: recursive
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -149,14 +150,20 @@ jobs:
            pip install tabulate
            python3 scripts/update_readme_stats.py --from-json
 
+      - name: Generate traceability audit report
+        if: steps.docker-tests.outputs.passed == 'true'
+        run: |
+           pip install pyyaml
+           python3 scripts/update_traceability_audit.py
+
       - name: Check for changes
         id: check-changes
         run: |
-          if [ -n "$(git status --porcelain stats.json README.md)" ]; then
+          if [ -n "$(git status --porcelain stats.json README.md docs/traceability/traceability_audit.html)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "::notice::Statistics have been updated by CI"
             echo "::group::Statistics diff"
-            git diff stats.json README.md
+            git diff stats.json README.md docs/traceability/traceability_audit.html
             echo "::endgroup::"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -166,8 +173,8 @@ jobs:
         if: steps.check-changes.outputs.changed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: update statistics [skip ci]"
-          file_pattern: "stats.json README.md"
+          commit_message: "chore: update stats and traceability [skip ci]"
+          file_pattern: "stats.json README.md docs/traceability/traceability_audit.html"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"

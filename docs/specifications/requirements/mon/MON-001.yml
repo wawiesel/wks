@@ -1,0 +1,4 @@
+uid: MON-001
+text: |
+  All monitor config fields are required; no defaults in code.
+  Source: docs/specifications/monitor.md (MON.1)

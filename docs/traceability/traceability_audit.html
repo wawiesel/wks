@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WKS Traceability Audit</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --bg-2: #f0e7da;
+      --panel: #ffffff;
+      --ink: #1f1a17;
+      --muted: #6b5f55;
+      --accent: #2d6f6b;
+      --accent-2: #b25c34;
+      --danger: #b3402a;
+      --ok: #2e6b3d;
+      --warn: #8a6d1f;
+      --border: #e2d6c7;
+      --shadow: 0 10px 30px rgba(35, 23, 15, 0.12);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Avenir Next", "Gill Sans", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(1200px 600px at 10% 0%, #ffffff 0%, var(--bg) 40%, var(--bg-2) 100%);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 36px 20px 64px;
+      position: relative;
+    }
+
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+      animation: fadeUp 0.6s ease-out;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(45,111,107,0.08), transparent 40%),
+                  linear-gradient(-140deg, rgba(178,92,52,0.10), transparent 45%);
+      pointer-events: none;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-family: "Fraunces", "Iowan Old Style", serif;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: 0.2px;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .meta {
+      margin-top: 14px;
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin: 24px 0 20px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      box-shadow: 0 6px 20px rgba(35, 23, 15, 0.08);
+      animation: fadeUp 0.6s ease-out;
+    }
+
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .card .value {
+      font-size: 26px;
+      font-weight: 600;
+    }
+
+    .card .value small {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 14px 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 18px;
+    }
+
+    .toolbar input[type="search"] {
+      flex: 1 1 240px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      background: #fbf8f3;
+    }
+
+    .toolbar select, .toolbar button {
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fbf8f3;
+      font-size: 14px;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .section {
+      margin-top: 26px;
+    }
+
+    .section h2 {
+      font-family: "Fraunces", "Iowan Old Style", serif;
+      font-size: 22px;
+      margin: 0 0 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(35, 23, 15, 0.08);
+    }
+
+    thead {
+      background: #f5eee4;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #fcf9f4;
+    }
+
+    tbody tr:hover {
+      background: #f1e8db;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .badge.ok {
+      background: rgba(46, 107, 61, 0.12);
+      color: var(--ok);
+      border-color: rgba(46, 107, 61, 0.2);
+    }
+
+    .badge.warn {
+      background: rgba(178, 92, 52, 0.12);
+      color: var(--accent-2);
+      border-color: rgba(178, 92, 52, 0.2);
+    }
+
+    .chip {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: rgba(45,111,107,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(45,111,107,0.2);
+      font-size: 12px;
+      margin-right: 6px;
+      margin-bottom: 4px;
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    }
+
+    .refs {
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .muted { color: var(--muted); }
+
+    .detail {
+      margin-top: 18px;
+      padding: 16px 18px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(35, 23, 15, 0.08);
+    }
+
+    .detail pre {
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+      background: #f9f4ec;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .matrix {
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      overflow: auto;
+      max-height: 420px;
+    }
+
+    .matrix table {
+      border: none;
+      box-shadow: none;
+      min-width: 600px;
+    }
+
+    .matrix th, .matrix td {
+      text-align: center;
+      padding: 8px 10px;
+    }
+
+    .matrix th {
+      position: sticky;
+      top: 0;
+      background: #f5eee4;
+      z-index: 2;
+    }
+
+    .matrix .row-head {
+      position: sticky;
+      left: 0;
+      background: #f5eee4;
+      z-index: 1;
+      text-align: left;
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #d7c8b5;
+    }
+
+    .dot.on {
+      background: var(--accent);
+    }
+
+    .footer {
+      margin-top: 32px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 720px) {
+      .hero { padding: 20px; }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>WKS Traceability Audit</h1>
+      <p class="subtitle">Audit-ready traceability from requirements to tests.</p>
+      <div class="meta">
+        <div><strong>Source</strong>: .</div>
+        <div><strong>Generated</strong>: 2025-12-31 22:14:28Z</div>
+      </div>
+    </section>
+
+    <section class="cards" id="summary-cards"></section>
+
+    <section class="toolbar">
+      <input id="search" type="search" placeholder="Search by ID, text, or reference" />
+      <select id="status-filter">
+        <option value="all">All status</option>
+        <option value="linked">Linked</option>
+        <option value="unlinked">Unlinked</option>
+      </select>
+      <label class="toggle"><input id="show-matrix" type="checkbox" /> Show matrix</label>
+      <label class="toggle"><input id="show-tests" type="checkbox" checked /> Show tests table</label>
+      <button id="download-json">Download JSON</button>
+      <button id="download-links">Download Links CSV</button>
+    </section>
+
+    <section class="section">
+      <h2>Requirements Coverage</h2>
+      <div id="req-table"></div>
+      <div class="detail" id="req-detail"></div>
+    </section>
+
+    <section class="section" id="tests-section">
+      <h2>Test Coverage</h2>
+      <div id="test-table"></div>
+    </section>
+
+    <section class="section" id="matrix-section" style="display:none;">
+      <h2>Traceability Matrix</h2>
+      <div class="matrix" id="matrix"></div>
+    </section>
+
+    <div class="footer">Audit view generated from Doorstop item files.</div>
+  </div>
+
+  <script id="data" type="application/json">{"generated_at": "2025-12-31 22:14:28Z", "source_root": ".", "summary": {"requirements_total": 7, "tests_total": 7, "links_total": 7, "requirements_linked": 7, "requirements_unlinked": 0, "tests_linked": 7, "tests_unlinked": 0, "coverage_pct": 100.0}, "requirements": [{"id": "MON-001", "text": "All monitor config fields are required; no defaults in code.\nSource: docs/specifications/monitor.md (MON.1)", "links": [], "path": "docs/specifications/requirements/mon/MON-001.yml", "tests": ["TST-001"], "status": "linked"}, {"id": "MON-002", "text": "wksc monitor status reports status and validation using MonitorStatusOutput.\nSource: docs/specifications/monitor.md (MON.2)", "links": [], "path": "docs/specifications/requirements/mon/MON-002.yml", "tests": ["TST-002"], "status": "linked"}, {"id": "MON-003", "text": "wksc monitor check <path> requires a path and returns MonitorCheckOutput.\nSource: docs/specifications/monitor.md (MON.3)", "links": [], "path": "docs/specifications/requirements/mon/MON-003.yml", "tests": ["TST-003"], "status": "linked"}, {"id": "MON-004", "text": "wksc monitor sync <path> requires a path; --recursive optional; returns MonitorSyncOutput.\nSource: docs/specifications/monitor.md (MON.4)", "links": [], "path": "docs/specifications/requirements/mon/MON-004.yml", "tests": ["TST-004"], "status": "linked"}, {"id": "MON-005", "text": "Filter commands must use their respective outputs: show/add/remove.\nSource: docs/specifications/monitor.md (MON.5)", "links": [], "path": "docs/specifications/requirements/mon/MON-005.yml", "tests": ["TST-005"], "status": "linked"}, {"id": "MON-006", "text": "Priority commands must use their respective outputs: show/add/remove.\nSource: docs/specifications/monitor.md (MON.6)", "links": [], "path": "docs/specifications/requirements/mon/MON-006.yml", "tests": ["TST-006"], "status": "linked"}, {"id": "MON-007", "text": "Schema validation is required; unknown or invalid inputs yield schema-conformant errors;\nno partial success.\nSource: docs/specifications/monitor.md (MON.7)", "links": [], "path": "docs/specifications/requirements/mon/MON-007.yml", "tests": ["TST-007"], "status": "linked"}], "tests": [{"id": "TST-001", "text": "Monitor config validation rejects missing or invalid fields.\nReferences:\n- tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_missing\n- tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_invalid", "links": ["MON-001"], "path": "tests/api/TST-001.yml", "refs": ["tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_missing", "tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_invalid"], "reqs": ["MON-001"], "status": "linked"}, {"id": "TST-002", "text": "Monitor status command returns schema-shaped output and handles database issues.\nReferences:\n- tests/unit/test_wks_api_monitor_cmd_status.py", "links": ["MON-002"], "path": "tests/api/TST-002.yml", "refs": ["tests/unit/test_wks_api_monitor_cmd_status.py"], "reqs": ["MON-002"], "status": "linked"}, {"id": "TST-003", "text": "Monitor check command requires a path and returns check output.\nReferences:\n- tests/unit/test_wks_api_monitor_cmd_check.py", "links": ["MON-003"], "path": "tests/api/TST-003.yml", "refs": ["tests/unit/test_wks_api_monitor_cmd_check.py"], "reqs": ["MON-003"], "status": "linked"}, {"id": "TST-004", "text": "Monitor sync command handles files, directories, missing paths, and limits.\nReferences:\n- tests/unit/test_wks_api_monitor_cmd_sync.py", "links": ["MON-004"], "path": "tests/api/TST-004.yml", "refs": ["tests/unit/test_wks_api_monitor_cmd_sync.py"], "reqs": ["MON-004"], "status": "linked"}, {"id": "TST-005", "text": "Monitor filter commands (show/add/remove) return the expected outputs.\nReferences:\n- tests/unit/test_wks_api_monitor_cmd_filter_show.py\n- tests/unit/test_wks_api_monitor_cmd_filter_add.py\n- tests/unit/test_wks_api_monitor_cmd_filter_remove.py", "links": ["MON-005"], "path": "tests/api/TST-005.yml", "refs": ["tests/unit/test_wks_api_monitor_cmd_filter_show.py", "tests/unit/test_wks_api_monitor_cmd_filter_add.py", "tests/unit/test_wks_api_monitor_cmd_filter_remove.py"], "reqs": ["MON-005"], "status": "linked"}, {"id": "TST-006", "text": "Monitor priority commands (show/add/remove) return the expected outputs.\nReferences:\n- tests/unit/test_wks_api_monitor_cmd_priority_show.py\n- tests/unit/test_wks_api_monitor_cmd_priority_add.py\n- tests/unit/test_wks_api_monitor_cmd_priority_remove.py", "links": ["MON-006"], "path": "tests/api/TST-006.yml", "refs": ["tests/unit/test_wks_api_monitor_cmd_priority_show.py", "tests/unit/test_wks_api_monitor_cmd_priority_add.py", "tests/unit/test_wks_api_monitor_cmd_priority_remove.py"], "reqs": ["MON-006"], "status": "linked"}, {"id": "TST-007", "text": "Error semantics return schema-conformant errors and no partial success.\nReferences:\n- tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_database_error\n- tests/unit/test_wks_api_monitor_cmd_check.py::test_cmd_check_path_not_exists", "links": ["MON-007"], "path": "tests/api/TST-007.yml", "refs": ["tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_database_error", "tests/unit/test_wks_api_monitor_cmd_check.py::test_cmd_check_path_not_exists"], "reqs": ["MON-007"], "status": "linked"}], "links": [{"req": "MON-001", "test": "TST-001"}, {"req": "MON-002", "test": "TST-002"}, {"req": "MON-003", "test": "TST-003"}, {"req": "MON-004", "test": "TST-004"}, {"req": "MON-005", "test": "TST-005"}, {"req": "MON-006", "test": "TST-006"}, {"req": "MON-007", "test": "TST-007"}]}</script>
+  <script>
+    const data = JSON.parse(document.getElementById('data').textContent);
+    const searchInput = document.getElementById('search');
+    const statusFilter = document.getElementById('status-filter');
+    const showMatrix = document.getElementById('show-matrix');
+    const showTests = document.getElementById('show-tests');
+    const testsSection = document.getElementById('tests-section');
+    const matrixSection = document.getElementById('matrix-section');
+
+    const summary = data.summary;
+    const summaryCards = [
+      { label: 'Requirements', value: summary.requirements_total },
+      { label: 'Linked Requirements', value: summary.requirements_linked },
+      { label: 'Unlinked Requirements', value: summary.requirements_unlinked },
+      { label: 'Tests', value: summary.tests_total },
+      { label: 'Coverage', value: summary.coverage_pct + '%', sub: 'requirements linked' },
+      { label: 'Total Links', value: summary.links_total },
+    ];
+
+    function renderCards() {
+      const el = document.getElementById('summary-cards');
+      el.innerHTML = summaryCards.map(card => `
+        <div class="card">
+          <h3>${card.label}</h3>
+          <div class="value">${card.value}${card.sub ? ` <small>${card.sub}</small>` : ''}</div>
+        </div>
+      `).join('');
+    }
+
+    function filterItems(items) {
+      const term = searchInput.value.trim().toLowerCase();
+      const status = statusFilter.value;
+      return items.filter(item => {
+        const matchesStatus = status === 'all' || item.status === status;
+        const related = item.tests || item.reqs || [];
+        const hay = [
+          item.id,
+          item.text,
+          (item.refs || []).join(' '),
+          related.join(' '),
+          (item.links || []).join(' '),
+        ].join(' ').toLowerCase();
+        const matchesTerm = !term || hay.includes(term);
+        return matchesStatus && matchesTerm;
+      });
+    }
+
+    function renderReqTable() {
+      const rows = filterItems(data.requirements);
+      const html = [
+        '<table>',
+        '<thead><tr><th>ID</th><th>Requirement</th><th>Tests</th><th>Status</th></tr></thead>',
+        '<tbody>',
+        ...rows.map(req => {
+          const tests = req.tests.length ? req.tests.map(t => `<span class="chip">${t}</span>`).join('') : '<span class="muted">None</span>';
+          const status = req.status === 'linked' ? '<span class="badge ok">Linked</span>' : '<span class="badge warn">Unlinked</span>';
+          return `<tr data-req="${req.id}"><td><strong>${req.id}</strong></td><td>${req.text.split('\n')[0]}</td><td>${tests}</td><td>${status}</td></tr>`;
+        }),
+        '</tbody></table>'
+      ].join('');
+      document.getElementById('req-table').innerHTML = html;
+
+      const detail = document.getElementById('req-detail');
+      const reqMap = Object.fromEntries(data.requirements.map(r => [r.id, r]));
+      const testMap = Object.fromEntries(data.tests.map(t => [t.id, t]));
+      document.querySelectorAll('#req-table tbody tr').forEach(row => {
+        row.addEventListener('click', () => {
+          const id = row.getAttribute('data-req');
+          const req = reqMap[id];
+          const linked = req.tests.length
+            ? req.tests.map(t => {
+                const refs = (testMap[t].refs || []).map(r => `<div class="refs">${r}</div>`).join('') || '<div class="refs muted">No references</div>';
+                return `<div style="margin-bottom:8px;"><span class="chip">${t}</span>${refs}</div>`;
+              }).join('')
+            : '<span class="muted">None</span>';
+          detail.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div><strong>${req.id}</strong></div>
+              <div>${req.status === 'linked' ? '<span class="badge ok">Linked</span>' : '<span class="badge warn">Unlinked</span>'}</div>
+            </div>
+            <p class="muted">${req.path}</p>
+            <pre>${req.text}</pre>
+            <div><strong>Linked tests</strong>:</div>
+            <div>${linked}</div>
+          `;
+        });
+      });
+
+      if (rows.length) {
+        const first = document.querySelector('#req-table tbody tr');
+        if (first) { first.click(); }
+      } else {
+        detail.innerHTML = '<div class="muted">No matching requirements.</div>';
+      }
+    }
+
+    function renderTestTable() {
+      const rows = filterItems(data.tests);
+      const html = [
+        '<table>',
+        '<thead><tr><th>ID</th><th>Test</th><th>Linked Requirements</th><th>References</th><th>Status</th></tr></thead>',
+        '<tbody>',
+        ...rows.map(test => {
+          const reqs = test.reqs.length ? test.reqs.map(r => `<span class="chip">${r}</span>`).join('') : '<span class="muted">None</span>';
+          const refs = (test.refs || []).length ? test.refs.map(r => `<div class="refs">${r}</div>`).join('') : '<span class="muted">None</span>';
+          const status = test.status === 'linked' ? '<span class="badge ok">Linked</span>' : '<span class="badge warn">Unlinked</span>';
+          return `<tr><td><strong>${test.id}</strong></td><td>${test.text.split('\n')[0]}</td><td>${reqs}</td><td>${refs}</td><td>${status}</td></tr>`;
+        }),
+        '</tbody></table>'
+      ].join('');
+      document.getElementById('test-table').innerHTML = html;
+    }
+
+    function renderMatrix() {
+      const reqs = data.requirements;
+      const tests = data.tests;
+      const linkSet = new Set(data.links.map(l => `${l.req}::${l.test}`));
+      const head = ['<th></th>', ...tests.map(t => `<th>${t.id}</th>`)].join('');
+      const body = reqs.map(r => {
+        const cells = tests.map(t => {
+          const on = linkSet.has(`${r.id}::${t.id}`);
+          return `<td><span class="dot ${on ? 'on' : ''}"></span></td>`;
+        }).join('');
+        return `<tr><th class="row-head">${r.id}</th>${cells}</tr>`;
+      }).join('');
+      document.getElementById('matrix').innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+
+    function wireDownloads() {
+      document.getElementById('download-json').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'traceability-audit.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      document.getElementById('download-links').addEventListener('click', () => {
+        const header = 'requirement_id,test_id\n';
+        const rows = data.links.map(l => `${l.req},${l.test}`).join('\n');
+        const blob = new Blob([header + rows], {type: 'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'traceability-links.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function update() {
+      renderReqTable();
+      renderTestTable();
+    }
+
+    searchInput.addEventListener('input', update);
+    statusFilter.addEventListener('change', update);
+    showMatrix.addEventListener('change', () => {
+      matrixSection.style.display = showMatrix.checked ? 'block' : 'none';
+    });
+    showTests.addEventListener('change', () => {
+      testsSection.style.display = showTests.checked ? 'block' : 'none';
+    });
+
+    renderCards();
+    renderMatrix();
+    wireDownloads();
+    update();
+  </script>
+</body>
+</html>

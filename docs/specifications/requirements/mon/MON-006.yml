@@ -1,0 +1,4 @@
+uid: MON-006
+text: |
+  Priority commands must use their respective outputs: show/add/remove.
+  Source: docs/specifications/monitor.md (MON.6)

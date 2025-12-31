@@ -34,3 +34,6 @@
 [submodule ".cursor/rules/PAPER"]
 	path = .cursor/rules/PAPER
 	url = https://github.com/CursorCult/PAPER.git
+[submodule ".cursor/rules/Hodor"]
+	path = .cursor/rules/Hodor
+	url = https://github.com/CursorCult/Hodor.git
