@@ -154,23 +154,16 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain stats.json README.md)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "::group::Diff of stale statistics"
+            echo "::notice::Statistics have been updated by CI"
+            echo "::group::Statistics diff"
             git diff stats.json README.md
             echo "::endgroup::"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Fail PR if stats are stale
-        if: steps.check-changes.outputs.changed == 'true' && github.event_name == 'pull_request'
-        run: |
-          echo "::error::README statistics are out of date!"
-          echo "Please run: python scripts/update_readme_stats.py"
-          echo "Then commit the updated stats.json and README.md"
-          exit 1
-
-      - name: Commit updated statistics (main branch only)
-        if: steps.check-changes.outputs.changed == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Commit updated statistics
+        if: steps.check-changes.outputs.changed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update statistics [skip ci]"
