@@ -121,6 +121,10 @@ jobs:
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
+          # Generate stats.json inside Docker (has mutmut and all tools)
+          docker exec -u testuser "$CONTAINER_ID" pip3 install --user tabulate --break-system-packages
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/update_readme_stats.py --json-only || true
+
           # Cleanup
           docker rm -f "$CONTAINER_ID"
 
@@ -143,7 +147,7 @@ jobs:
         if: steps.docker-tests.outputs.passed == 'true'
         run: |
            pip install tabulate
-           python3 scripts/update_readme_stats.py
+           python3 scripts/update_readme_stats.py --from-json
 
       - name: Check for changes
         id: check-changes
