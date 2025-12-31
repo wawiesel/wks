@@ -24,11 +24,19 @@
 - [ ] wksm_diff (needs review)
 - [ ] Monitor status must call database API, not MongoClient directly
 
-### Test Coverage
+### Test Coverage Roadmap to 100%
 
-- [ ] Run coverage analysis to identify gaps
-- [ ] Confirm `.coveragerc` has `fail_under = 100`
-- [ ] Ensure all tests pass
+- [x] Achieve 80%+ coverage for `daemon`, `transform`, `monitor`, and `vault`
+- [ ] Implement Subprocess Tracing
+    - Configure `.coveragerc` with `concurrency = multiprocessing`
+    - Use `sitecustomize.py` to ensure all child processes are tracked
+    - Merge coverage data files before reporting
+- [ ] Handle System-Level Error Branches
+    - Use FUSE or LD_PRELOAD to simulate IO failures (disk full, hardware errors)
+    - Refactor system-heavy modules for dependency injection (FS/Process abstractions)
+- [ ] Verify Signal Resilience
+    - Send real SIGTERM/SIGINT in tests with proper synchronization
+- [ ] Confirm `.coveragerc` has `fail_under = 100` once roadmap items are completed
 
 ---
 

@@ -9,7 +9,9 @@ def path_to_uri(path: Path) -> str:
     """
     import socket
 
+    from wks.utils.normalize_path import normalize_path
+
     hostname = socket.gethostname()
-    abs_path = path.resolve()
+    abs_path = normalize_path(path)
     # Build URI: file://hostname + absolute_path
     return f"file://{hostname}{abs_path}"

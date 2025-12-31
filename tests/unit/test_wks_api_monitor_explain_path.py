@@ -197,3 +197,40 @@ def test_explain_path_allowed_when_not_excluded(tmp_path):
 
     assert allowed is True
     assert any("Included by root" in msg for msg in trace)
+
+
+def test_explain_path_directory_itself_excluded(tmp_path):
+    """Test that a directory is excluded if its own name is in exclude_dirnames."""
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+    excluded_dir = include_dir / "target_dir"
+    excluded_dir.mkdir()
+
+    cfg = build_monitor_config(include_paths=[str(include_dir)], exclude_dirnames=["target_dir"])
+    # Check the directory itself
+    allowed, trace = explain_path(cfg, excluded_dir)
+
+    assert allowed is False
+    assert any("Directory 'target_dir' excluded" in msg for msg in trace)
+
+
+def test_explain_path_value_error_handling(tmp_path, monkeypatch):
+    """Test that ValueError in is_relative_to is handled gracefully."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test")
+
+    cfg = build_monitor_config()
+
+    # Mock Path.is_relative_to to raise ValueError
+    from pathlib import Path
+
+    def mock_is_relative_to(self, *args, **kwargs):
+        raise ValueError("Simulated Path Error")
+
+    monkeypatch.setattr(Path, "is_relative_to", mock_is_relative_to)
+
+    allowed, trace = explain_path(cfg, test_file)
+    # It should fall through the try-except-pass block and continue
+    # Without include_paths, it should default to False (No include_paths defined)
+    assert allowed is False
+    assert any("No include_paths defined" in msg for msg in trace)

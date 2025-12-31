@@ -15,6 +15,8 @@ def _run_single_execution(
     kwargs: dict,
     display: Any,
     display_format: str,
+    result_printer: Callable[[dict], None] | None = None,
+    suppress_output: bool = False,
 ) -> None:
     """Run command once and display result.
 
@@ -26,16 +28,18 @@ def _run_single_execution(
     result = func(*args, **kwargs)
 
     # Stage 1: Announce - display IMMEDIATELY (announce is required, no hedging)
-    display.status(result.announce)
+    if not suppress_output:
+        display.status(result.announce)
 
     # Stage 2: Progress - REQUIRED for all commands
     # progress_callback is a generator that yields (progress_percent, message) tuples
     progress_gen = result.progress_callback(result)
     for progress_percent, message in progress_gen:
-        from datetime import datetime
+        if not suppress_output:
+            from datetime import datetime
 
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        display.info(f"[dim]{timestamp}[/dim] Progress: {message} ({progress_percent:.1%})")
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            display.info(f"[dim]{timestamp}[/dim] Progress: {message} ({progress_percent:.1%})")
 
     # Ensure required fields are set after callback completes
     if not result.result:
@@ -51,13 +55,17 @@ def _run_single_execution(
         raise ValueError(f"Output structure validation failed: {e}") from e
 
     # Stage 3: Result
-    if result.success:
-        display.success(result.result)
-    else:
-        display.error(result.result)
+    if not suppress_output:
+        if result.success:
+            display.success(result.result)
+        else:
+            display.error(result.result)
 
     # Stage 4: Output - JSON or YAML based on --display flag
-    display.json_output(result.output, format=display_format)
+    if result_printer:
+        result_printer(result.output)
+    elif not suppress_output:
+        display.json_output(result.output, format=display_format)
 
     # Exit with appropriate code
     sys.exit(0 if result.success else 1)

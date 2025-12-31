@@ -31,13 +31,15 @@ def resolve_vault_path(
     Raises:
         VaultPathError: If path is outside vault or doesn't exist
     """
-    vault_path = vault_path.expanduser().resolve()
-    cwd = (cwd or Path.cwd()).expanduser().resolve()
+    from wks.utils.normalize_path import normalize_path
+
+    vault_path = normalize_path(vault_path)
+    cwd = normalize_path(cwd or Path.cwd())
 
     # Case 1: Already a vault:/// URI
     if input_path.startswith("vault:///"):
         rel_path_str = input_path[9:]  # Strip "vault:///"
-        abs_path: Path = vault_path / rel_path_str
+        abs_path: Path = normalize_path(vault_path / rel_path_str)
         if not abs_path.exists():
             raise VaultPathError(f'"{input_path}" does not exist')
         return (input_path, abs_path)
@@ -46,7 +48,7 @@ def resolve_vault_path(
     if input_path.startswith("file://"):
         from .uri_to_path import uri_to_path
 
-        abs_path = uri_to_path(input_path).resolve()
+        abs_path = normalize_path(uri_to_path(input_path))
         try:
             rel_path = abs_path.relative_to(vault_path)
             vault_uri = f"vault:///{rel_path}"
@@ -57,9 +59,8 @@ def resolve_vault_path(
             raise VaultPathError(f'"{input_path}" is not in the vault') from None
 
     # Case 3: Absolute path
-    path_obj = Path(input_path).expanduser()
-    if path_obj.is_absolute():
-        abs_path = path_obj.resolve()
+    if Path(input_path).is_absolute():
+        abs_path = normalize_path(input_path)
         try:
             rel_path = abs_path.relative_to(vault_path)
             vault_uri = f"vault:///{rel_path}"
@@ -75,10 +76,10 @@ def resolve_vault_path(
     try:
         _ = cwd.relative_to(vault_path)
         # CWD is inside vault - resolve relative to CWD
-        abs_path = (cwd / input_path).resolve()
+        abs_path = normalize_path(cwd / input_path)
     except ValueError:
         # CWD is outside vault - resolve relative to vault root
-        abs_path = (vault_path / input_path).resolve()
+        abs_path = normalize_path(vault_path / input_path)
 
     # Check if resolved path is within vault
     try:

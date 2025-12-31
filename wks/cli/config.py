@@ -5,7 +5,7 @@ import typer
 from wks.api.config.cmd_list import cmd_list
 from wks.api.config.cmd_show import cmd_show
 from wks.api.config.cmd_version import cmd_version
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def config() -> typer.Typer:
@@ -29,18 +29,18 @@ def config() -> typer.Typer:
     @app.command(name="list")
     def list_cmd() -> None:
         """List configuration."""
-        handle_stage_result(cmd_list)()
+        _handle_stage_result(cmd_list)()
 
     @app.command(name="show")
     def show_cmd(
         section: str = typer.Argument(..., help="Configuration section name"),
     ) -> None:
         """Show configuration for a specific section."""
-        handle_stage_result(cmd_show)(section)
+        _handle_stage_result(cmd_show)(section)
 
     @app.command(name="version")
     def version_cmd() -> None:
         """Show WKS version information."""
-        handle_stage_result(cmd_version)()
+        _handle_stage_result(cmd_version)()
 
     return app

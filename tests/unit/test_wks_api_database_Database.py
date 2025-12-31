@@ -12,7 +12,12 @@ from wks.api.database.DatabaseConfig import DatabaseConfig
 def _db_config() -> DatabaseConfig:
     # Use a unique prefix to avoid cross-test contamination via mongomock's in-memory client.
     # DatabaseConfig's validate_and_populate_data validator converts dict to BaseModel
-    return DatabaseConfig(type="mongomock", prefix="wks_test_database_public", data=cast(BaseModel, {}))
+    return DatabaseConfig(
+        type="mongomock",
+        prefix="wks_test_database_public",
+        data=cast(BaseModel, {}),
+        prune_frequency_secs=3600,
+    )
 
 
 def test_database_context_and_operations():
@@ -44,6 +49,15 @@ def test_database_context_and_operations():
 
         # delete_many is a passthrough; ensure it doesn't crash and respects filter
         assert db.delete_many({"path": "/a"}) >= 0
+
+        # New operations coverage (lines 61-70)
+        db.insert_one({"path": "/c", "value": 3})
+        assert db.count_documents({"path": "/c"}) == 1
+        db.insert_many([{"path": "/d"}, {"path": "/e"}])
+        assert db.count_documents({"path": {"$in": ["/d", "/e"]}}) == 2
+        assert db.delete_one({"path": "/c"}) >= 1
+        assert db.count_documents({"path": "/c"}) == 0
+
         assert db.get_client() is not None
         assert db.get_database(cfg.prefix) is not None
     # __exit__ with no _impl should simply return False
@@ -132,3 +146,54 @@ def test_database_exit_passes_exception_info_to_impl() -> None:
     assert isinstance(args[1], ValueError)
     assert str(args[1]) == "boom"
     assert args[2] is not None
+
+
+# Migrated Integration Tests (formerly test_wks_api_database__mongo__Backend.py)
+# Tested via public Database API with type="mongo"
+
+
+def test_mongo_backend_init_error():
+    """Test error when data is missing required fields."""
+    # DatabaseConfig validates 'data' for mongo, but we can try to pass invalid dict
+    # if we construct it manually or via partial validation.
+
+    # Construct invalid config
+    cfg = DatabaseConfig.model_construct(
+        type="mongo",
+        prefix="test",
+        data=cast(BaseModel, None),  # Invalid data
+    )
+
+    # Attempt to use it
+    with pytest.raises(ValueError, match="MongoDB config data is required"), Database(cfg, "coll"):
+        pass
+
+
+def test_mongo_backend_ensure_local_early_connect(mongo_wks_env, monkeypatch):
+    """Test skip startup if already connected."""
+    import subprocess
+    from unittest.mock import MagicMock
+
+    # Mock subprocess to ensure it's NOT called (spy)
+    mock_popen = MagicMock()
+    monkeypatch.setattr(subprocess, "Popen", mock_popen)
+
+    config = mongo_wks_env["config"]
+
+    # Access the database using the real config (which has local=True and points to running DB)
+    # The backend will check _can_connect internally, see it's running, and skip Popen.
+    with Database(config.database, "coll"):
+        pass
+
+    mock_popen.assert_not_called()
+
+
+def test_mongo_backend_basic_ops_integration(mongo_wks_env):
+    """Test basic operations with real mongo backend."""
+    config = mongo_wks_env["config"]
+
+    with Database(config.database, "coll") as db:
+        db.delete_many({})  # Ensure clean state
+        db.insert_one({"a": 1})
+        assert db.count_documents({"a": 1}) == 1
+        assert db.delete_many({}) == 1

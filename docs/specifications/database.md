@@ -9,6 +9,7 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
 - Fields:
   - `type`: `"mongo"` or `"mongomock"`
   - `prefix`: string (collection prefix)
+  - `prune_frequency_secs`: number (seconds between automatic prune runs during daemon sync; 0 disables auto-prune)
   - `data`: backend-specific object
     - For `type: "mongo"`:
       - `uri`: required MongoDB URI (must be reachable)
@@ -50,6 +51,7 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
         - `edges`:
             - Removes edges where `from_local_uri` (source) points to a node not present in the `nodes` database.
             - Removes edges where `to_local_uri` is populated AND `to_remote_uri` is **NOT populated** AND `to_local_uri` is NEITHER in the `nodes` database NOR exists on the filesystem (broken local-only link).
+        - `transform`: Bidirectional sync between database and cache files (see Transform Specification).
     - **Remote Pruning** (`--remote`):
         - `edges`:
             - Requires active internet connection. If offline, remote pruning is skipped.
@@ -60,6 +62,25 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
         - *Note*: Remote pruning is additive; local pruning always runs.
     - If `database` is `all`, runs prune on all databases.
 - Output schema: `DatabasePruneOutput` from `database_output.schema.json`.
+
+### Prune Timer Semantics
+
+The `prune_frequency_secs` configuration controls automatic pruning during daemon sync cycles:
+
+1. **Manual prune** (`wksc database prune`):
+   - Runs immediately.
+   - Resets the prune timer for that database to zero.
+
+2. **Automatic prune** (daemon sync cycle):
+   - Each database maintains its own prune timer (seconds since last prune).
+   - During each daemon sync, the timer is checked against `prune_frequency_secs`.
+   - If elapsed time ≥ `prune_frequency_secs`, prune runs and timer resets.
+   - If `prune_frequency_secs` is 0, automatic pruning is disabled.
+
+3. **Timer persistence**:
+   - Prune timers are maintained in the status file (`{WKS_HOME}/database.json`).
+   - Maps database name → last prune timestamp.
+   - Survives daemon restarts.
 
 ## MCP
 

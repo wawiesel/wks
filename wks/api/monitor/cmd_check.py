@@ -5,7 +5,8 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 """
 
 from collections.abc import Iterator
-from pathlib import Path
+
+from wks.utils.normalize_path import normalize_path
 
 from ..StageResult import StageResult
 from . import MonitorCheckOutput
@@ -49,7 +50,7 @@ def cmd_check(path: str) -> StageResult:
         monitor_cfg = config.monitor
 
         yield (0.4, "Resolving path...")
-        test_path = Path(path).expanduser().resolve()
+        test_path = normalize_path(path)
         path_exists = test_path.exists()
 
         yield (0.6, "Checking monitor rules...")

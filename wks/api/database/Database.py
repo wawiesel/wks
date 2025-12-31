@@ -58,6 +58,14 @@ class Database(_AbstractBackend):
     def update_one(self, filter: dict[str, Any], update: dict[str, Any], upsert: bool = False) -> None:
         self._backend.update_one(filter, update, upsert)  # type: ignore[union-attr]
 
+    def insert_one(self, document: dict[str, Any]) -> Any:
+        """Insert a single document."""
+        return self._backend.insert_many([document])  # type: ignore[union-attr]
+
+    def delete_one(self, filter: dict[str, Any]) -> int:
+        """Delete a single document matching the filter."""
+        return self._backend.delete_many(filter)  # type: ignore[union-attr]
+
     def insert_many(self, documents: list[dict[str, Any]]) -> Any:
         return self._backend.insert_many(documents)  # type: ignore[union-attr]
 

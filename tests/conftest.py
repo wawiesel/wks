@@ -90,6 +90,7 @@ def minimal_config_dict() -> dict:
         "database": {
             "type": "mongomock",
             "prefix": "wks",
+            "prune_frequency_secs": 3600,
             "data": {},
         },
         "service": service_config_dict_for_platform(),
@@ -106,6 +107,34 @@ def minimal_config_dict() -> dict:
             "info_retention_days": 1.0,
             "warning_retention_days": 2.0,
             "error_retention_days": 7.0,
+        },
+        "transform": {
+            "cache": {
+                "base_dir": "/tmp/wks_test_transform",
+                "max_size_bytes": 1073741824,
+            },
+            "engines": {
+                "test": {
+                    "type": "test",
+                    "data": {},
+                },
+                # Add docling engine to satisfy strict optional rules
+                # (though usually invoked by name, if default_engine uses it)
+                "docling_test": {
+                    "type": "docling",
+                    "data": {
+                        "ocr": False,
+                        "ocr_languages": ["eng"],
+                        "image_export_mode": "embedded",
+                        "pipeline": "standard",
+                        "timeout_secs": 30,
+                        "to": "md",
+                    },
+                },
+            },
+        },
+        "cat": {
+            "default_engine": "test",
         },
     }
 
@@ -272,8 +301,9 @@ def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
     pid = os.getpid()
     base_port = 27100
 
-    # Each worker gets 10000 ports, use path hash and pid for uniqueness
-    mongo_port = base_port + (worker_num * 10000) + (path_hash % 9000) + (pid % 100)
+    # Ensure port stays within 1024-65535 range
+    # With 12 workers, we use worker_num * 1000 roughly
+    mongo_port = base_port + (worker_num * 1000) + (path_hash % 900) + (pid % 10)
 
     # Verify port is actually available (in case of rare collision)
     max_attempts = 50
@@ -319,13 +349,11 @@ def mongo_wks_env(tmp_path, monkeypatch):
 
     # Start with minimal config and override for MongoDB
     config_dict = minimal_config_dict()
-    config_dict["database"] = {
-        "type": "mongo",
-        "prefix": "wks_test",
-        "data": {
-            "uri": mongo_uri,
-            "local": is_local,
-        },
+    config_dict["database"]["type"] = "mongo"
+    config_dict["database"]["prefix"] = "wks_test"
+    config_dict["database"]["data"] = {
+        "uri": mongo_uri,
+        "local": is_local,
     }
     config_dict["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
     config_dict["daemon"]["sync_interval_secs"] = 0.1

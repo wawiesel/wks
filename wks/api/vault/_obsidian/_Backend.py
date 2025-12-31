@@ -7,7 +7,7 @@ Implements _AbstractVault for Obsidian-style vaults with symlink-based external 
 from __future__ import annotations
 
 import platform
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from pathlib import Path
 
 from .._AbstractBackend import _AbstractBackend
@@ -47,9 +47,11 @@ class _Backend(_AbstractBackend):
     def links_dir(self) -> Path:
         return self._links_dir
 
-    def iter_markdown_files(self) -> Iterator[Path]:
+    def iter_markdown_files(self) -> Generator[Path, None, None]:
         """Iterate all markdown files in the vault (excludes _links/)."""
         for md in self._vault_path.rglob("*.md"):
+            if not md.is_file():
+                continue
             try:
                 rel_to_vault = md.relative_to(self._vault_path)
                 if rel_to_vault.parts[0] == "_links":

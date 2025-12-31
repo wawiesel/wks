@@ -8,13 +8,15 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError, computed_field
 
+from ..cat.CatConfig import CatConfig
 from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
+from ..log.LogConfig import LogConfig
 from ..mcp.McpConfig import McpConfig
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
+from ..transform.TransformConfig import TransformConfig
 from ..vault.VaultConfig import VaultConfig
-from .LogConfig import LogConfig
 
 
 class WKSConfig(BaseModel):
@@ -29,6 +31,8 @@ class WKSConfig(BaseModel):
     vault: VaultConfig
     log: LogConfig
     mcp: McpConfig = McpConfig()  # Optional, defaults to empty
+    transform: TransformConfig
+    cat: CatConfig
 
     @computed_field
     def path(self) -> Path:
@@ -38,9 +42,11 @@ class WKSConfig(BaseModel):
     @classmethod
     def get_home_dir(cls) -> Path:
         """Get WKS home directory based on WKS_HOME or default to ~/.wks."""
+        from wks.utils.normalize_path import normalize_path
+
         wks_home_env = os.environ.get("WKS_HOME")
         if wks_home_env:
-            return Path(wks_home_env).expanduser().resolve()
+            return normalize_path(wks_home_env)
         return Path.home() / ".wks"
 
     @classmethod
@@ -96,6 +102,8 @@ class WKSConfig(BaseModel):
             "vault": self.vault.model_dump(),
             "log": self.log.model_dump(),
             "mcp": self.mcp.model_dump(),
+            "transform": self.transform.model_dump(),
+            "cat": self.cat.model_dump(),
         }
 
     def save(self) -> None:

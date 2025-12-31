@@ -1,0 +1,152 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Transform Output Schema",
+    "description": "Schema for wks transform command outputs",
+    "definitions": {
+        "TransformEngineOutput": {
+            "type": "object",
+            "properties": {
+                "source_uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URI of the source file"
+                },
+                "destination_uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URI of the cached transformed file"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "success",
+                        "cached",
+                        "error"
+                    ]
+                },
+                "checksum": {
+                    "type": "string",
+                    "description": "SHA-256 hash of the transform (used as cache key)"
+                },
+                "output_content": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Optional content, if requested"
+                },
+                "processing_time_ms": {
+                    "type": "integer"
+                },
+                "cached": {
+                    "type": "boolean",
+                    "description": "Whether the result was served from cache"
+                }
+            },
+            "required": [
+                "source_uri",
+                "destination_uri",
+                "engine",
+                "status",
+                "checksum",
+                "output_content",
+                "processing_time_ms",
+                "cached"
+            ]
+        },
+        "TransformListOutput": {
+            "type": "object",
+            "properties": {
+                "engines": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "supported_types": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "required": [
+                "engines"
+            ]
+        },
+        "TransformInfoOutput": {
+            "type": "object",
+            "properties": {
+                "engine": {
+                    "type": "string"
+                },
+                "config": {
+                    "type": "object"
+                }
+            },
+            "required": [
+                "engine",
+                "config"
+            ]
+        },
+        "TransformDatabaseRecord": {
+            "type": "object",
+            "properties": {
+                "file_uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URI of the source file"
+                },
+                "cache_uri": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "URI of the cached transformed file"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "options_hash": {
+                    "type": "string",
+                    "description": "Hash of engine options used"
+                },
+                "checksum": {
+                    "type": "string",
+                    "description": "SHA-256 hash of transformed content"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "last_accessed": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "required": [
+                "file_uri",
+                "engine",
+                "engine_params_hash",
+                "last_transform_time"
+            ]
+        }
+    },
+    "oneOf": [
+        {
+            "$ref": "#/definitions/TransformEngineOutput"
+        },
+        {
+            "$ref": "#/definitions/TransformDatabaseRecord"
+        }
+    ]
+}

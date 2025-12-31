@@ -97,8 +97,10 @@ def _sync_single_file(
                 elif "://" not in str(to_uri):
                     # Assume relative path from current file
                     try:
+                        from wks.utils.normalize_path import normalize_path
+
                         possible_path = file_path.parent / str(to_uri)
-                        target_path_obj = possible_path.resolve()
+                        target_path_obj = normalize_path(possible_path)
                     except Exception:
                         pass
 

@@ -5,7 +5,7 @@ import typer
 from wks.api.vault.cmd_links import cmd_links
 from wks.api.vault.cmd_status import cmd_status
 from wks.api.vault.cmd_sync import cmd_sync
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def vault() -> typer.Typer:
@@ -28,7 +28,7 @@ def vault() -> typer.Typer:
     @app.command(name="status")
     def status_cmd() -> None:
         """Get vault link health status."""
-        handle_stage_result(cmd_status)()
+        _handle_stage_result(cmd_status)()
 
     @app.command(name="sync")
     def sync_cmd(
@@ -36,7 +36,7 @@ def vault() -> typer.Typer:
         recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively sync directory"),
     ) -> None:
         """Sync vault links to database."""
-        handle_stage_result(cmd_sync)(path, recursive=recursive)
+        _handle_stage_result(cmd_sync)(path, recursive=recursive)
 
     @app.command(name="links")
     def links_cmd(
@@ -47,7 +47,7 @@ def vault() -> typer.Typer:
         if direction not in ("to", "from", "both"):
             typer.echo(f"Invalid direction: {direction}. Must be 'to', 'from', or 'both'", err=True)
             raise typer.Exit(code=1)
-        handle_stage_result(cmd_links)(path, direction)  # type: ignore[arg-type]
+        _handle_stage_result(cmd_links)(path, direction)  # type: ignore[arg-type]
 
     @app.command(name="check")
     def check_cmd(
@@ -56,6 +56,6 @@ def vault() -> typer.Typer:
         """Check vault link health."""
         from wks.api.vault.cmd_check import cmd_check
 
-        handle_stage_result(cmd_check)(path)
+        _handle_stage_result(cmd_check)(path)
 
     return app

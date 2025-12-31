@@ -18,7 +18,7 @@ wksc = "wks.cli:main"
 
 [project]
 name = "wks"
-version = "0.6.0"
+version = "0.7.0"
 requires-python = ">=3.10"
 dependencies = [
     "watchdog",
@@ -60,6 +60,7 @@ exclude = [
     ".venv",
     "build",
     "dist",
+    ".cursor/rules",
 ]
 
 [tool.ruff.lint]

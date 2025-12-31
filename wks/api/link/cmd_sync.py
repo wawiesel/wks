@@ -1,10 +1,10 @@
 """Link sync API command."""
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 from wks.utils.expand_paths import expand_paths
+from wks.utils.normalize_path import normalize_path
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
@@ -30,7 +30,7 @@ def cmd_sync(
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        input_path = Path(path).expanduser().resolve()
+        input_path = normalize_path(path)
 
         if not input_path.exists():
             result_obj.output = LinkSyncOutput(

@@ -59,3 +59,21 @@ def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, 
     assert result.success is True
     # Should count only the file node, not the __meta__ document
     assert result.output["tracked_files"] == 1
+
+
+def test_cmd_status_database_error(monkeypatch, tmp_path, minimal_config_dict):
+    """Status handles database errors by reporting them in output."""
+    monkeypatch.setenv("WKS_HOME", str(tmp_path))
+    cfg = minimal_config_dict
+    (tmp_path / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    from wks.api.monitor.cmd_status import Database
+
+    def mock_enter(self):
+        raise RuntimeError("DB Connection Failed")
+
+    monkeypatch.setattr(Database, "__enter__", mock_enter)
+
+    result = run_cmd(cmd_status)
+    assert result.success is False
+    assert any("DB Connection Failed" in err for err in result.output["errors"])

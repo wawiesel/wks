@@ -34,15 +34,18 @@ from wks.api.monitor._calculate_underscore_multiplier import _calculate_undersco
 
 If you need to test behavior that depends on private classes, use public APIs or create test fixtures that construct the necessary objects through public interfaces.
 
-### File-Level Granularity
+### File-Level Granularity and Naming
 
-Given the extreme file-level granularity in `wks/api/*/` (one function per file), unit tests are organized at the **file level** rather than deeper granularity. Each public function in `wks/api/*/` gets its own test file following the naming convention above.
+Tests strictly follow a **1-to-1 source file to test file correspondence**.
+- **Naming Convention**: `test_wks_api_<package>_<module>.py` corresponds exactly to `wks/api/<package>/<module>.py`.
+- **Strict Mapping**: Every test file must verify the behavior of exactly one source file.
+- **Exception**: `__init__.py` files are considered private implementation details (e.g., tailored for schema registration) and do NOT require corresponding test files.
 
-All test cases for a given function (including edge cases, error paths, and special scenarios like Windows drive handling) belong in the same test file. There's no need for subdirectories or additional file-level organization beyond the `test_wks_api_<package>_<function>.py` pattern.
+All test cases for a given function/class (including edge cases, error paths, etc.) belong in the same 1-to-1 test file.
 
-### Configuration Data
+### Configuration and Shared Code
 
-**All configuration data for unit tests must be centralized in `conftest.py`.**
+**All configuration data and shared utilities for unit tests must be centralized in `conftest.py`.**
 
 Every unit test needs configuration data (WKS config dicts, mock configs, etc.). To avoid duplication and ensure consistency:
 

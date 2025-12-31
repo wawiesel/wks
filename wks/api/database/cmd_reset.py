@@ -45,6 +45,18 @@ def cmd_reset(database: str) -> StageResult:
                     count = database_obj.delete_many({})
                     total_deleted += count
                     deleted_details.append(f"{target_db}: {count}")
+
+                    # Dynamic hook: wks.api.{database}.post_reset.post_reset
+                    # This allows domains (like transform) to cleanup related artifacts
+                    try:
+                        from importlib import import_module
+
+                        hook_module = import_module(f"wks.api.{target_db}.post_reset")
+                        if hasattr(hook_module, "post_reset"):
+                            hook_module.post_reset(config)
+                    except ImportError:
+                        pass  # No hooks for this domain
+
             except Exception as e:
                 errors.append(f"Failed to reset {target_db}: {e}")
 

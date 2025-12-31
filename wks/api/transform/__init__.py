@@ -1,17 +1,16 @@
-"""Transform module - Binary to text conversion with caching."""
+"""Transform API module."""
 
-from ...utils.now_iso import now_iso
-from ._ENGINES import ENGINES
-from .cache import CacheManager
-from .controller import TransformController
-from .get_engine import get_engine
-from .TransformRecord import TransformRecord
+from pydantic import BaseModel
+
+from ..schema_loader import SchemaLoader
+
+_models = SchemaLoader.register_from_schema("transform")
+TransformEngineOutput: type[BaseModel] = _models["TransformEngineOutput"]
+TransformListOutput: type[BaseModel] = _models["TransformListOutput"]
+TransformInfoOutput: type[BaseModel] = _models["TransformInfoOutput"]
 
 __all__ = [
-    "ENGINES",
-    "CacheManager",
-    "TransformController",
-    "TransformRecord",
-    "get_engine",
-    "now_iso",
+    "TransformEngineOutput",
+    "TransformInfoOutput",
+    "TransformListOutput",
 ]

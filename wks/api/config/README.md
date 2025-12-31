@@ -73,7 +73,7 @@ After these three changes: `WKSConfig.load()` validates/constructs automatically
 
 ## Standards
 
-**File Organization:** One file per class, domain modules own their config (`MonitorConfig` in `wks/api/monitor/`), no shared config files.
+**File Organization:** One file per class, domain modules own their config (`MonitorConfig` in `wks/api/monitor/`), no shared config files. Top-level domain configs (referenced in WKSConfig) MUST be public (e.g., `TransformConfig`), but sub-configurations SHOULD be private models prefixed with `_` (e.g., `_CacheConfig`) unless they have independent utility.
 
 **Field Requirements:** All sections and fields required (no `| None`, no `Field(default=...)` or `default_factory`), no manual defaults.
 

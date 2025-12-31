@@ -47,7 +47,9 @@ class _Impl(_AbstractImpl):
         # Build ExecStart command - run 'wksc daemon start --blocking [--restrict PATH]'
         exec_start = f"{wksc_path} daemon start --blocking"
         if restrict_dir is not None:
-            restrict_path = str(restrict_dir.expanduser().resolve())
+            from ....utils.normalize_path import normalize_path
+
+            restrict_path = str(normalize_path(restrict_dir))
             exec_start += f" --restrict {restrict_path}"
 
         unit = f"""[Unit]

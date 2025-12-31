@@ -81,3 +81,11 @@ def create_tracked_wks_config(monkeypatch, monitor_config_data: dict | None = No
 def tracked_wks_config(monkeypatch) -> TrackedConfig:
     """Fixture that patches WKSConfig with default settings and returns TrackedConfig."""
     return create_tracked_wks_config(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def reset_mongomock():
+    """Reset shared mongomock client before each test."""
+    import wks.api.database._mongomock._client as mock_client
+
+    mock_client._shared_mongomock_client = None

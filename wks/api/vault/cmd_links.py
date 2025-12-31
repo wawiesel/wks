@@ -5,7 +5,6 @@ MCP: wksm_vault_links
 """
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any, Literal
 
 from ..database.Database import Database
@@ -48,9 +47,10 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
         yield (0.3, "Resolving vault path...")
         try:
             # Resolve path to vault:/// URI using CWD-aware logic
+            from wks.utils.normalize_path import normalize_path
             from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
 
-            vault_base = Path(config.vault.base_dir).expanduser().resolve()
+            vault_base = normalize_path(config.vault.base_dir)
             try:
                 uri, _abs_path = resolve_vault_path(path, vault_base)
             except VaultPathError as e:

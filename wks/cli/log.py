@@ -4,7 +4,7 @@ import typer
 
 from wks.api.log.cmd_prune import cmd_prune
 from wks.api.log.cmd_status import cmd_status
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def log() -> typer.Typer:
@@ -33,7 +33,7 @@ def log() -> typer.Typer:
         errors: bool = typer.Option(False, "--errors/--no-errors", help="Prune ERROR entries"),
     ) -> None:
         """Prune log entries by level."""
-        handle_stage_result(cmd_prune)(
+        _handle_stage_result(cmd_prune)(
             prune_debug=debug,
             prune_info=info,
             prune_warnings=warnings,
@@ -43,6 +43,6 @@ def log() -> typer.Typer:
     @app.command(name="status")
     def status_cmd() -> None:
         """Show log file status (auto-prunes expired entries)."""
-        handle_stage_result(cmd_status)()
+        _handle_stage_result(cmd_status)()
 
     return app

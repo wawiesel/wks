@@ -213,6 +213,38 @@ Detailed specifications for each component:
 - WKS.5 — No code defaults for configuration: all required values must come from config; missing values MUST fail validation.
 - WKS.6 — Output schemas are normative and MUST be validated before returning any response.
 - WKS.7 — Unknown sections/fields or schema violations MUST return schema-conformant errors; no partial success.
+- WKS.8 — All file URIs stored in the database MUST include the hostname: `file://<hostname>/absolute/path`. URIs without hostnames (`file:///path`) MUST be rejected.
+- WKS.9 — URI generation MUST be centralized through a single utility. No inline `f"file://..."` string formatting in domain code.
+
+## URI Format Requirements
+
+All resource identifiers in WKS use URIs. File URIs MUST include the machine hostname to support distributed systems and remote resources.
+
+### File URI Format
+
+**Required format**: `file://<hostname>/absolute/path`
+
+- `<hostname>`: The machine's hostname where the file resides
+- `/absolute/path`: The absolute path to the file
+
+**Examples**:
+- ✓ `file://macbook-pro/Users/foo/document.pdf`
+- ✓ `file://server01/data/transform/cache.md`
+- ✗ `file:///Users/foo/document.pdf` (missing hostname)
+- ✗ `file://localhost/Users/foo/document.pdf` (use actual hostname, not localhost)
+
+### Validation
+
+Before any database write operation, all URI fields MUST be validated:
+1. URI starts with `file://`
+2. Hostname is present (no `file:///`)
+3. Path is absolute (starts with `/` after hostname)
+
+Invalid URIs MUST cause the operation to fail with a validation error.
+
+### Local vs Remote
+
+A file URI is considered **local** if its hostname matches the current machine's hostname. Remote URIs reference files on other machines and may require resolution through configured remote mappings.
 
 ## What is a Specification?
 

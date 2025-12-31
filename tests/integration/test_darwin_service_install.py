@@ -95,6 +95,7 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
         "database": {
             "type": "mongomock",
             "prefix": "wks",
+            "prune_frequency_secs": 3600,
             "data": {},
         },
         "service": {
@@ -114,6 +115,16 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
             "info_retention_days": 1.0,
             "warning_retention_days": 1.0,
             "error_retention_days": 1.0,
+        },
+        "transform": {
+            "cache": {
+                "base_dir": "~/_transform_cache",
+                "max_size_bytes": 1073741824,
+            },
+            "engines": {},
+        },
+        "cat": {
+            "default_engine": "cat",
         },
     }
 

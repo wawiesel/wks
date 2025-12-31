@@ -82,13 +82,11 @@ def smoke_env(tmp_path_factory):
     # We use the real Database implementation driven by standard configuration.
     # Setting `local: True` tells the backend to manage a local mongod process.
     # We do NOT manually spawn mongod; we let the config drive the system behavior.
-    config_dict["database"] = {
-        "type": "mongo",
-        "prefix": "wks_smoke",
-        "data": {
-            "uri": mongo_uri,
-            "local": True,  # Force local to ensure backend starts it if needed
-        },
+    config_dict["database"]["type"] = "mongo"
+    config_dict["database"]["prefix"] = "wks_smoke"
+    config_dict["database"]["data"] = {
+        "uri": mongo_uri,
+        "local": True,  # Force local to ensure backend starts it if needed
     }
     config_dict["vault"] = {
         "type": "obsidian",
@@ -169,3 +167,20 @@ def test_cli_vault_sync(smoke_env):
     assert "notes_scanned" in result.stdout
     assert "links_written" in result.stdout
     assert "success" in result.stdout
+
+
+def test_cli_transform_raw(smoke_env):
+    """Test 'wksc transform --raw' outputs checksum only."""
+    # Ensure test file exists
+    home_dir = smoke_env["home"]
+    test_file = home_dir / "test_raw.txt"
+    test_file.write_text("Hello Raw", encoding="utf-8")
+
+    result = run_wks(["transform", "--raw", "test", str(test_file)], smoke_env)
+
+    # Check output is exactly the checksum (hex string) usually 64 chars
+    output = result.stdout.strip()
+    # Hex string
+    import re
+
+    assert re.match(r"^[a-f0-9]{64}$", output)

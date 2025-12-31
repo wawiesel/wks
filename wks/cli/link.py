@@ -6,7 +6,7 @@ from wks.api.link.cmd_check import cmd_check
 from wks.api.link.cmd_show import cmd_show
 from wks.api.link.cmd_status import cmd_status
 from wks.api.link.cmd_sync import cmd_sync
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def link() -> typer.Typer:
@@ -29,7 +29,7 @@ def link() -> typer.Typer:
     @app.command(name="status")
     def status_cmd() -> None:
         """Get health and statistics for the links collection."""
-        handle_stage_result(cmd_status)()
+        _handle_stage_result(cmd_status)()
 
     @app.command(name="show")
     def show_cmd(
@@ -37,7 +37,7 @@ def link() -> typer.Typer:
         direction: str = typer.Option("from", help="Direction: to, from, or both"),
     ) -> None:
         """Show edges connected to a specific URI."""
-        handle_stage_result(cmd_show)(uri=uri, direction=direction)
+        _handle_stage_result(cmd_show)(uri=uri, direction=direction)
 
     @app.command(name="check")
     def check_cmd(
@@ -45,7 +45,7 @@ def link() -> typer.Typer:
         parser: str | None = typer.Option(None, help="Parser to use (e.g., 'vault')"),
     ) -> None:
         """Check links in a file and verify monitoring status."""
-        handle_stage_result(cmd_check)(path=path, parser=parser)
+        _handle_stage_result(cmd_check)(path=path, parser=parser)
 
     @app.command(name="sync")
     def sync_cmd(
@@ -55,6 +55,6 @@ def link() -> typer.Typer:
         remote: bool = typer.Option(False, help="Sync and validate remote targets"),
     ) -> None:
         """Sync links from file/directory to database if monitored."""
-        handle_stage_result(cmd_sync)(path=path, parser=parser, recursive=recursive, remote=remote)
+        _handle_stage_result(cmd_sync)(path=path, parser=parser, recursive=recursive, remote=remote)
 
     return app

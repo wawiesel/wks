@@ -1,0 +1,36 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Cat Output Schema",
+    "description": "Schema for wks cat command outputs",
+    "definitions": {
+        "CatCmdOutput": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "The retrieved content"
+                },
+                "target": {
+                    "type": "string",
+                    "description": "The requested target (path or checksum)"
+                },
+                "output_path": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Optional output path to write to"
+                }
+            },
+            "required": [
+                "content",
+                "target"
+            ]
+        }
+    },
+    "oneOf": [
+        {
+            "$ref": "#/definitions/CatCmdOutput"
+        }
+    ]
+}

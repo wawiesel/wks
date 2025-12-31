@@ -11,7 +11,7 @@ from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
 from wks.api.monitor.cmd_priority_show import cmd_priority_show
 from wks.api.monitor.cmd_status import cmd_status
 from wks.api.monitor.cmd_sync import cmd_sync
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def monitor() -> typer.Typer:
@@ -35,12 +35,12 @@ def monitor() -> typer.Typer:
     @app.command(name="status")
     def status_cmd() -> None:
         """Get filesystem monitoring status."""
-        handle_stage_result(cmd_status)()
+        _handle_stage_result(cmd_status)()
 
     @app.command(name="check")
     def check_cmd(path: str = typer.Argument(..., help="File or directory path to check")) -> None:
         """Check if a path would be monitored and calculate its priority."""
-        handle_stage_result(cmd_check)(path)
+        _handle_stage_result(cmd_check)(path)
 
     @app.command(name="sync")
     def sync_cmd(
@@ -48,7 +48,7 @@ def monitor() -> typer.Typer:
         recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
     ) -> None:
         """Force update of file or directory into monitor database."""
-        handle_stage_result(cmd_sync)(path, recursive)
+        _handle_stage_result(cmd_sync)(path, recursive)
 
     # Sub-app for filter commands
     filter_app = typer.Typer(
@@ -72,7 +72,7 @@ def monitor() -> typer.Typer:
         list_name: str | None = typer.Argument(None, help="Name of list to show (leave empty to list available)"),
     ) -> None:
         """Get contents of a monitor configuration list or list available names."""
-        handle_stage_result(cmd_filter_show)(list_name)
+        _handle_stage_result(cmd_filter_show)(list_name)
 
     @filter_app.command(name="add")
     def filter_add_cmd(
@@ -80,7 +80,7 @@ def monitor() -> typer.Typer:
         value: str = typer.Argument(..., help="Value to add"),
     ) -> None:
         """Add a value to a monitor configuration list."""
-        handle_stage_result(cmd_filter_add)(list_name, value)
+        _handle_stage_result(cmd_filter_add)(list_name, value)
 
     @filter_app.command(name="remove")
     def filter_remove_cmd(
@@ -88,7 +88,7 @@ def monitor() -> typer.Typer:
         value: str = typer.Argument(..., help="Value to remove"),
     ) -> None:
         """Remove a value from a monitor configuration list."""
-        handle_stage_result(cmd_filter_remove)(list_name, value)
+        _handle_stage_result(cmd_filter_remove)(list_name, value)
 
     # Sub-app for priority commands
     priority_app = typer.Typer(
@@ -102,7 +102,7 @@ def monitor() -> typer.Typer:
     @priority_app.command(name="show")
     def priority_show_cmd() -> None:
         """List all priority directories."""
-        handle_stage_result(cmd_priority_show)()
+        _handle_stage_result(cmd_priority_show)()
 
     @priority_app.command(name="add")
     def priority_add_cmd(
@@ -110,14 +110,14 @@ def monitor() -> typer.Typer:
         priority: float = typer.Argument(..., help="New priority of the path"),
     ) -> None:
         """Set or update priority for a priority directory."""
-        handle_stage_result(cmd_priority_add)(path, priority)
+        _handle_stage_result(cmd_priority_add)(path, priority)
 
     @priority_app.command(name="remove")
     def priority_remove_cmd(
         path: str = typer.Argument(..., help="Path to unmanage"),
     ) -> None:
         """Remove a priority directory."""
-        handle_stage_result(cmd_priority_remove)(path)
+        _handle_stage_result(cmd_priority_remove)(path)
 
     # Attach sub-apps
     app.add_typer(filter_app, name="filter")

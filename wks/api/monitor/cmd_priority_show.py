@@ -5,8 +5,9 @@ Matches CLI: wksc monitor priority show, MCP: wksm_monitor_priority_show
 """
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
+
+from wks.utils.normalize_path import normalize_path
 
 from ..StageResult import StageResult
 from . import MonitorPriorityShowOutput
@@ -45,7 +46,7 @@ def cmd_priority_show() -> StageResult:
         yield (0.4, "Validating priority directories...")
         validation: dict[str, dict[str, Any]] = {}
         for i, (path, priority) in enumerate(monitor_cfg.priority.dirs.items()):
-            allowed, trace = explain_path(monitor_cfg, Path(path).expanduser().resolve())
+            allowed, trace = explain_path(monitor_cfg, normalize_path(path))
             validation[path] = {
                 "priority": priority,
                 "valid": allowed,

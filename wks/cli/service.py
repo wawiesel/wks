@@ -9,7 +9,7 @@ from wks.api.service.cmd_start import cmd_start
 from wks.api.service.cmd_status import cmd_status
 from wks.api.service.cmd_stop import cmd_stop
 from wks.api.service.cmd_uninstall import cmd_uninstall
-from wks.cli._handle_stage_result import handle_stage_result
+from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def service() -> typer.Typer:
@@ -33,17 +33,17 @@ def service() -> typer.Typer:
     @app.command(name="status")
     def status_cmd() -> None:
         """Check service status."""
-        handle_stage_result(cmd_status)()
+        _handle_stage_result(cmd_status)()
 
     @app.command(name="start")
     def start_cmd() -> None:
         """Start service."""
-        handle_stage_result(cmd_start)()
+        _handle_stage_result(cmd_start)()
 
     @app.command(name="stop")
     def stop_cmd() -> None:
         """Stop service."""
-        handle_stage_result(cmd_stop)()
+        _handle_stage_result(cmd_stop)()
 
     @app.command(name="install")
     def install_cmd(
@@ -52,11 +52,11 @@ def service() -> typer.Typer:
         ),
     ) -> None:
         """Install system service."""
-        handle_stage_result(cmd_install)(restrict_dir=restrict)
+        _handle_stage_result(cmd_install)(restrict_dir=restrict)
 
     @app.command(name="uninstall")
     def uninstall_cmd() -> None:
         """Uninstall system service."""
-        handle_stage_result(cmd_uninstall)()
+        _handle_stage_result(cmd_uninstall)()
 
     return app
