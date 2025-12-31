@@ -143,7 +143,7 @@ jobs:
         if: steps.docker-tests.outputs.passed == 'true'
         run: |
            pip install tabulate
-           python3 scripts/update_readme_stats.py --from-json
+           python3 scripts/update_readme_stats.py
 
       - name: Check for changes
         id: check-changes
