@@ -1,10 +1,10 @@
 {
-  "coverage_pct": 79.9,
+  "coverage_pct": 80.1,
   "coverage_status": "\u26a0\ufe0f Below Target",
   "docker_freshness": "fresh",
-  "mutation_killed": 276,
-  "mutation_score": 92.6,
-  "mutation_survived": 22,
+  "mutation_killed": 0,
+  "mutation_score": 0.0,
+  "mutation_survived": 0,
   "sections": {
     "api": {
       "chars": 401401,
@@ -19,10 +19,10 @@
       "tokens": 1197
     },
     "cicd": {
-      "chars": 10865,
+      "chars": 10470,
       "files": 4,
-      "loc": 361,
-      "tokens": 2716
+      "loc": 354,
+      "tokens": 2617
     },
     "cli": {
       "chars": 47576,
@@ -31,10 +31,10 @@
       "tokens": 9186
     },
     "dev_docs": {
-      "chars": 110079,
-      "files": 46,
-      "loc": 2745,
-      "tokens": 27512
+      "chars": 78462,
+      "files": 22,
+      "loc": 1831,
+      "tokens": 19608
     },
     "integration": {
       "chars": 49084,
