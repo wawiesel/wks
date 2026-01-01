@@ -10,10 +10,10 @@ def test_read_log_entries_no_log(tmp_path):
 
 def test_read_log_entries_success(tmp_path):
     """Test successful reading, filtering and categorization (lines 38-70)."""
-    log_path = tmp_path / "test.log"
     from datetime import datetime, timezone
 
-    now = datetime.now(timezone.utc).isoformat()
+    log_path = tmp_path / "test.log"
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
     old = "2020-01-01T10:00:00+00:00"
 
     log_path.write_text(
