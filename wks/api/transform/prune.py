@@ -39,8 +39,8 @@ def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
 
         for doc in docs:
             transform_checked += 1
-            checksum = doc.get("checksum", "")
-            cache_uri = doc.get("cache_uri", "")
+            checksum = doc["checksum"]
+            cache_uri = doc["cache_uri"]
             db_checksums.add(checksum)
 
             # Check if cache file exists
