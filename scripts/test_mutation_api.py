@@ -1,3 +1,21 @@
+"""
+Orchestrator for mutation testing with strict resource management.
+
+This script prevents temporary directory accumulation from exceeding disk
+limits during large mutation testing runs.
+
+    1.  DO NOT remove PYTEST_ADDOPTS enforcement. Environment variables are
+        required to ensure --basetemp is respected across all testing phases.
+    2.  DO NOT move runner configuration to config files; mutmut discovery
+        logic requires these arguments to be passed at the runner level.
+    3.  DO NOT use print() for logic logs. Use _log() to ensure binary-level
+        synchronization with terminal-aware progress bars.
+    4.  DO NOT enable parallel execution (-j) until concurrency hazards in
+        shared test fixtures (e.g. database port collisions) are resolved.
+
+Usage:
+    python scripts/test_mutation_api.py <domain>
+"""
 import argparse
 import json
 import os
