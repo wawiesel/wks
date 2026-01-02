@@ -116,7 +116,7 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                 # Found carriage return first
                 line = buf[: idx_r + 1]
                 buf = buf[idx_r + 1 :]
-                
+
                 # Check for immediate newline following carriage return (handle \r\n)
                 consumed_newline = False
                 if buf.startswith(b"\n"):
@@ -127,7 +127,9 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                 now = time.time()
                 if now - last_log_time >= log_interval:
                     prefix = f"[{skipped_count}]".encode() if skipped_count > 0 else b""
-                    sys.stdout.buffer.write(prefix + line)
+                    # Convert CR to LF so "snapshot" lines don't swallow subsequent output (e.g. tracebacks)
+                    printed_line = line.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+                    sys.stdout.buffer.write(prefix + printed_line)
                     sys.stdout.buffer.flush()
                     last_log_time = now
                     skipped_count = 0
