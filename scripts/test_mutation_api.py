@@ -16,6 +16,7 @@ limits during large mutation testing runs.
 Usage:
     python scripts/test_mutation_api.py <domain>
 """
+
 import argparse
 import json
 import os
@@ -24,8 +25,8 @@ import re
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 import time
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -113,7 +114,7 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                 buf = buf[idx_n + 1 :]
                 sys.stdout.buffer.write(line)
                 sys.stdout.buffer.flush()
-                
+
                 # Reset counter on regular newlines as requested
                 skipped_count = 0
                 suppress_next_newline = False
@@ -123,9 +124,8 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
             elif idx_r != -1:
                 line = buf[: idx_r + 1]
                 buf = buf[idx_r + 1 :]
-                
+
                 # Check if it's actually \r\n (Standard Log disguised)
-                consumed_newline = False
                 if buf.startswith(b"\n"):
                     # It's \r\n, treat as standard newline
                     line += b"\n"
@@ -140,7 +140,7 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                 # It is a pure \r (Progress update)
                 skipped_count += 1
                 last_skipped_line = line
-                suppress_next_newline = True # Expect a newline eventually that matches this partial line
+                suppress_next_newline = True  # Expect a newline eventually that matches this partial line
 
                 now = time.time()
                 if now - last_log_time >= log_interval:
@@ -149,7 +149,7 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                     printed_line = line.replace(b"\r", b"\n")
                     sys.stdout.buffer.write(prefix + printed_line)
                     sys.stdout.buffer.flush()
-                    
+
                     last_log_time = now
                     # Reset skipped_count since we output the state that superseded previous ones
                     skipped_count = 0
