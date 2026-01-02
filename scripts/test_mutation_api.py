@@ -25,8 +25,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+import time
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+LOG_INTERVAL = 15
 
 
 def _log(msg: str) -> None:
@@ -62,6 +64,54 @@ def _get_mutation_stats(mutmut_bin: str) -> tuple[int, int]:
             survived += 1
 
     return killed, survived
+
+
+def _process_pty_output(master_fd: int) -> None:
+    """Read PTY output line-by-line and throttle progress updates."""
+    buf = b""
+    last_log_time = 0.0
+
+    while True:
+        try:
+            chunk = os.read(master_fd, 4096)
+        except OSError:
+            break
+
+        if not chunk:
+            break
+
+        buf += chunk
+
+        while True:
+            idx_n = buf.find(b"\n")
+            idx_r = buf.find(b"\r")
+
+            # Determine which delimiter comes first
+            if idx_n != -1 and (idx_r == -1 or idx_n < idx_r):
+                # Found newline first: Always print regular lines
+                line = buf[: idx_n + 1]
+                buf = buf[idx_n + 1 :]
+                sys.stdout.buffer.write(line)
+                sys.stdout.buffer.flush()
+            elif idx_r != -1:
+                # Found carriage return first: Loop throttling
+                line = buf[: idx_r + 1]
+                buf = buf[idx_r + 1 :]
+
+                now = time.time()
+                if now - last_log_time >= LOG_INTERVAL:
+                    sys.stdout.buffer.write(line)
+                    sys.stdout.buffer.flush()
+                    last_log_time = now
+            else:
+                # No delimiters found, wait for more data
+                break
+
+    # Flush remaining
+    if buf:
+        sys.stdout.buffer.write(buf)
+        sys.stdout.buffer.flush()
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -145,15 +195,7 @@ def main() -> None:
         os.close(slave_fd)
 
         try:
-            while True:
-                try:
-                    chunk = os.read(master_fd, 1024)
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                sys.stdout.buffer.write(chunk)
-                sys.stdout.buffer.flush()
+            _process_pty_output(master_fd)
         finally:
             p.wait()
             os.close(master_fd)
