@@ -166,8 +166,8 @@ def main() -> None:
         killed, survived = _get_mutation_stats(mutmut_bin)
 
         # Print disk usage after domain completes, then stats
-        _log(f">>> Finished {domain} (available disk: {_get_disk_space()})")
-        _log(f"Stats: Killed={killed}, Survived={survived}")
+        _log(f">>> Finished {domain_path} (available disk: {_get_disk_space()})")
+        _log(f"{domain_path} mutants: Killed={killed}, Survived={survived}")
 
         # Output per-domain stats file
         stats = {"domain": domain, "killed": killed, "survived": survived}
