@@ -1,27 +1,27 @@
 {
-  "coverage_pct": 80.1,
+  "coverage_pct": 79.9,
   "coverage_status": "\u26a0\ufe0f Below Target",
   "docker_freshness": "fresh",
   "domain_stats": {
     "cat": {
-      "coverage": 94.4,
-      "mutation_killed": 80,
-      "mutation_survived": 19
+      "coverage": 94.3,
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "config": {
       "coverage": 100.0,
-      "mutation_killed": 186,
-      "mutation_survived": 78
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "daemon": {
       "coverage": 83.0,
-      "mutation_killed": 242,
-      "mutation_survived": 112
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "database": {
       "coverage": 91.2,
-      "mutation_killed": 459,
-      "mutation_survived": 186
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "diff": {
       "coverage": 0.0,
@@ -30,33 +30,33 @@
     },
     "link": {
       "coverage": 98.4,
-      "mutation_killed": 835,
-      "mutation_survived": 352
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "log": {
       "coverage": 93.9,
-      "mutation_killed": 376,
-      "mutation_survived": 171
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "mcp": {
-      "coverage": 97.1,
-      "mutation_killed": 271,
-      "mutation_survived": 129
+      "coverage": 98.8,
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "monitor": {
       "coverage": 99.4,
-      "mutation_killed": 1096,
-      "mutation_survived": 570
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "service": {
       "coverage": 68.8,
-      "mutation_killed": 24,
-      "mutation_survived": 12
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "transform": {
-      "coverage": 86.7,
-      "mutation_killed": 710,
-      "mutation_survived": 83
+      "coverage": 88.3,
+      "mutation_killed": 0,
+      "mutation_survived": 0
     },
     "utils": {
       "coverage": 100.0,
@@ -65,19 +65,19 @@
     },
     "vault": {
       "coverage": 100.0,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 1197,
+      "mutation_survived": 73
     }
   },
-  "mutation_killed": 4279,
-  "mutation_score": 71.4,
-  "mutation_survived": 1712,
+  "mutation_killed": 1197,
+  "mutation_score": 94.3,
+  "mutation_survived": 73,
   "sections": {
     "api": {
-      "chars": 400915,
+      "chars": 403252,
       "files": 171,
-      "loc": 11311,
-      "tokens": 63739
+      "loc": 11361,
+      "tokens": 63714
     },
     "build_config": {
       "chars": 3906,
@@ -116,10 +116,10 @@
       "tokens": 3396
     },
     "scripts": {
-      "chars": 65737,
+      "chars": 65776,
       "files": 15,
       "loc": 1927,
-      "tokens": 12663
+      "tokens": 12667
     },
     "smoke": {
       "chars": 12693,
@@ -134,10 +134,10 @@
       "tokens": 29507
     },
     "unit": {
-      "chars": 285291,
+      "chars": 285566,
       "files": 83,
-      "loc": 8262,
-      "tokens": 51146
+      "loc": 8270,
+      "tokens": 51149
     },
     "user_docs": {
       "chars": 7065,

@@ -211,9 +211,9 @@ def main() -> None:
 
     domain = args.domain
     domain_path = f"wks/api/{domain}"
-    stats_file = REPO_ROOT / f"mutation_stats_{domain}.json"
-    setup_cfg = REPO_ROOT / "setup.cfg"
     mutants_dir = REPO_ROOT / "mutants"
+    stats_file = mutants_dir / f"mutation_stats_{domain}.json"
+    setup_cfg = REPO_ROOT / "setup.cfg"
 
     disk_msg = _get_disk_space()
 

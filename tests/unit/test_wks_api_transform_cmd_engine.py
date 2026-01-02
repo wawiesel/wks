@@ -1,7 +1,8 @@
 """Integration tests for transform command using public APIs."""
 
-import contextlib
 from pathlib import Path
+
+import pytest
 
 from tests.unit.conftest import run_cmd
 from wks.api.config.WKSConfig import WKSConfig
@@ -157,7 +158,12 @@ def test_cache_permission_error(tracked_wks_config, tmp_path):
 
 
 def test_database_corruption_recovery(tracked_wks_config, tmp_path):
-    """Test recovery when cache file is missing but DB record exists."""
+    """Test recovery when cache file is missing but DB record exists.
+
+    This test verifies that `get_content` enforces the "Database is Sole Authority"
+    invariant by pruning stale database records if the corresponding cache file
+    is missing from disk.
+    """
 
     f1 = tmp_path / "f1.txt"
     f1.write_text("content")
@@ -166,28 +172,28 @@ def test_database_corruption_recovery(tracked_wks_config, tmp_path):
     res = run_cmd(cmd_engine, engine="test", file_path=f1, overrides={})
     checksum = res.output["checksum"]
 
-    # 2. Delete all files in cache dir manually
+    # 2. Delete ALL files in cache dir manually to ensure no candidates remain
     config = WKSConfig.load()
     cache_dir = Path(config.transform.cache.base_dir)
-    found_files = list(cache_dir.glob("*.md"))
-    assert len(found_files) > 0
-    for p in found_files:
-        p.unlink()
+    for p in cache_dir.iterdir():
+        if p.is_file():
+            p.unlink()
 
     # 3. Trigger cleanup via get_content(checksum)
-    # This hits _get_content_by_checksum -> _resolve_cache_file_from_db -> checks exist -> cleanups
-    with contextlib.suppress(ValueError, RuntimeError):
+    # This MUST fail with ValueError because the cache file is gone,
+    # and it MUST delete the database record as a side-effect.
+    with pytest.raises(ValueError, match=r"Cache file missing|not found"):
         get_content(checksum)
 
     # 4. Verify DB is cleaned up using public DB class
     with Database(config.database, "transform") as db:
-        # Should have 0 records now (deleted by cleanup)
+        # Should have 0 records now (pruned by cleanup)
         assert db.get_database()["transform"].count_documents({}) == 0
 
-    # 5. Run again. Should recover (regenerate).
+    # 5. Run again. Should recover by re-transforming.
     res = run_cmd(cmd_engine, engine="test", file_path=f1, overrides={})
     assert res.success is True
-    assert res.output["cached"] is False  # Should have re-run
+    assert res.output["cached"] is False  # Should have re-run because DB was pruned
 
 
 def test_expand_path_fallback(tracked_wks_config, tmp_path, monkeypatch):

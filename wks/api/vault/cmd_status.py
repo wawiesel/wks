@@ -15,7 +15,20 @@ from . import VaultStatusOutput
 
 
 def cmd_status() -> StageResult:
-    """Get vault link health status."""
+    """Get summary statistics for the vault from the edges database.
+
+    Queries the database (not live files) to provide a quick overview:
+    - Total number of links indexed
+    - Timestamp of the last sync operation
+
+    This is useful for checking if the vault index is up to date
+    without running a full sync or check operation.
+
+    Writes status to WKS_HOME/vault.json on completion.
+
+    Returns:
+        StageResult with VaultStatusOutput containing database statistics.
+    """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
