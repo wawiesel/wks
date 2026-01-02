@@ -150,9 +150,17 @@ def minimal_wks_config() -> WKSConfig:
 
 
 @pytest.fixture(name="minimal_config_dict")
-def minimal_config_dict_fixture() -> dict:
-    """Pytest fixture returning a copy of the minimal config dict."""
-    return minimal_config_dict().copy()
+def minimal_config_dict_fixture(tmp_path: Path) -> dict:
+    """Pytest fixture returning a copy of the minimal config dict with isolated paths."""
+    config = minimal_config_dict().copy()
+
+    # Isolate transform cache to valid tmp path
+    # Deep copy needed for nested dictionary if modifying
+    config["transform"] = minimal_config_dict()["transform"].copy()
+    config["transform"]["cache"] = minimal_config_dict()["transform"]["cache"].copy()
+    config["transform"]["cache"]["base_dir"] = str(tmp_path / "transform_cache")
+
+    return config
 
 
 @pytest.fixture(name="minimal_wks_config")
