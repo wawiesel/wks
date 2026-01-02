@@ -97,6 +97,7 @@ def main() -> None:
         else:
             # CI/Standard mode: Stream output directly for visibility
             # We still capture it to a file on failure
+            mutants_dir.mkdir(exist_ok=True)
             mutmut_log = mutants_dir / "mutmut.stdout"
             with mutmut_log.open("wb") as f_log:
                 p = subprocess.Popen(
