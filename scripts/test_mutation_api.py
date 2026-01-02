@@ -11,6 +11,44 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _print_disk_usage(label: str) -> None:
+    """Print disk usage for debugging CI space issues."""
+    print(f"\n=== Disk Usage ({label}) ===")
+
+    # Root partition free space
+    try:
+        statvfs = os.statvfs("/")
+        free_gb = (statvfs.f_frsize * statvfs.f_bavail) / (1024**3)
+        print(f"  Root partition: {free_gb:.1f} GB free")
+    except OSError:
+        print("  Root partition: (unavailable)")
+
+    # Key paths to check (files and directories)
+    paths_to_check = [
+        REPO_ROOT / "mutants",
+        REPO_ROOT / ".pytest_cache",
+        REPO_ROOT / "coverage.xml",
+        Path("/tmp"),
+    ]
+
+    for p in paths_to_check:
+        try:
+            if not p.exists():
+                print(f"  {p}: (not found)")
+                continue
+            result = subprocess.run(
+                ["du", "-sh", str(p)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            size = result.stdout.split()[0] if result.stdout else "?"
+            print(f"  {p}: {size}")
+        except Exception:
+            print(f"  {p}: (error)")
+    print()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("domain", help="Domain to mutate")
@@ -24,7 +62,10 @@ def main() -> None:
 
     print(f">>> Mutating {domain_path}...")
 
-    # 3. Clear artifacts
+    # Print disk usage at start
+    _print_disk_usage(f"before {domain}")
+
+    # Clear artifacts
     mutants_dir = REPO_ROOT / "mutants"
     if mutants_dir.exists():
         shutil.rmtree(mutants_dir) if mutants_dir.is_dir() else mutants_dir.unlink()
@@ -150,6 +191,9 @@ def main() -> None:
         stats = {"domain": domain, "killed": killed, "survived": survived}
         stats_file.write_text(json.dumps(stats))
         setup_cfg.write_text(original_cfg)
+
+        # Print disk usage after domain completes
+        _print_disk_usage(f"after {domain}")
 
     finally:
         setup_cfg.write_text(original_cfg)
