@@ -63,56 +63,67 @@ def main() -> None:
             )
             sys.exit(1)
 
-        # Use pty to trick mutmut into thinking it's running in a real terminal
-        # This ensures it outputs \r for progress bars instead of newlines or buffering
-        master_fd, slave_fd = pty.openpty()
+        if args.progress:
+            # Use pty to trick mutmut into thinking it's running in a real terminal
+            # This ensures it outputs \r for progress bars instead of newlines or buffering
+            master_fd, slave_fd = pty.openpty()
 
-        p = subprocess.Popen(
-            [mutmut_bin, "run"],
-            cwd=str(REPO_ROOT),
-            stdout=slave_fd,
-            stderr=slave_fd,  # Merge stderr into stdout
-            text=False,  # pty works with bytes
-            bufsize=0,
-        )
-        # Close slave fd in parent so we get EOF when child closes it
-        os.close(slave_fd)
+            p = subprocess.Popen(
+                [mutmut_bin, "run"],
+                cwd=str(REPO_ROOT),
+                stdout=slave_fd,
+                stderr=slave_fd,
+                text=False,
+                bufsize=0,
+            )
+            os.close(slave_fd)
 
-        captured_bytes = bytearray()
-
-        # Stream output from master_fd
-        try:
-            while True:
-                # Read chunks (1024 bytes) - blocking read
-                # OSError is raised when the slave process closes the pty
-                try:
-                    chunk = os.read(master_fd, 1024)
-                except OSError:
-                    break
-
-                if not chunk:
-                    break
-
-                captured_bytes.extend(chunk)
-                if args.progress:
+            captured_bytes = bytearray()
+            try:
+                while True:
+                    try:
+                        chunk = os.read(master_fd, 1024)
+                    except OSError:
+                        break
+                    if not chunk:
+                        break
+                    captured_bytes.extend(chunk)
                     sys.stdout.buffer.write(chunk)
                     sys.stdout.buffer.flush()
-        finally:
-            # Ensure process is cleaned up
-            p.wait()
-            os.close(master_fd)
+            finally:
+                p.wait()
+                os.close(master_fd)
+            output = captured_bytes.decode("utf-8", errors="replace")
+        else:
+            # CI/Standard mode: Stream output directly for visibility
+            # We still capture it to a file on failure
+            mutmut_log = mutants_dir / "mutmut.stdout"
+            with mutmut_log.open("wb") as f_log:
+                p = subprocess.Popen(
+                    [mutmut_bin, "run"],
+                    cwd=str(REPO_ROOT),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
 
-        # Decode for stats parsing and logging
-        output = captured_bytes.decode("utf-8", errors="replace")
+                if p.stdout:
+                    for b_line in p.stdout:
+                        f_log.write(b_line)
+                        sys.stdout.buffer.write(b_line)
+                        sys.stdout.buffer.flush()
+                p.wait()
+
+            output = mutmut_log.read_text(errors="replace")
 
         if p.returncode != 0:
-            print("mutmut run failed!")
-            # Print last 20 lines of output for debugging
-            print("\n".join(output.splitlines()[-20:]))
+            print(f"mutmut run failed with return code {p.returncode}!")
+            # Print last 20 lines if not already printed
+            if not args.progress:
+                print("... (see above for full logs)")
+            else:
+                print("\n".join(output.splitlines()[-20:]))
 
-            # Write stdout/stderr to mutants dir
-            # Note: stderr is merged into stdout
-            (mutants_dir / "mutmut.stdout").write_text(output)
+            # Write stderr note
             (mutants_dir / "mutmut.stderr").write_text("See mutmut.stdout (stderr merged)")
             print(f"Full output written to {mutants_dir}/mutmut.stdout")
 
