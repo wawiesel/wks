@@ -134,8 +134,10 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                     last_log_time = now
                     skipped_count = 0
                     suppress_next_newline = False
+                    last_skipped_line = None
                 else:
                     skipped_count += 1
+                    last_skipped_line = line
                     # If we skipped \r but didn't find \n yet, suppress next \n if it appears at start
                     if not consumed_newline:
                         suppress_next_newline = True
@@ -145,9 +147,16 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                 # No delimiters found, wait for more data
                 break
 
-    # Flush remaining
+    # Flush remaining buffer
     if buf:
         sys.stdout.buffer.write(buf)
+        sys.stdout.buffer.flush()
+
+    # Flush last skipped progress line if it wasn't printed
+    if skipped_count > 0 and last_skipped_line:
+        prefix = f"[{skipped_count}]".encode()
+        printed_line = last_skipped_line.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        sys.stdout.buffer.write(prefix + printed_line)
         sys.stdout.buffer.flush()
 
 
