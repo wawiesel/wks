@@ -71,6 +71,7 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
     last_log_time = 0.0
     skipped_count = 0
     suppress_next_newline = False
+    last_skipped_line = None
 
     while True:
         try:
@@ -84,7 +85,11 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
         buf += chunk
 
         while True:
-            # If no throttling, just print everything and clear buffer
+            # Detect delimiters
+            idx_n = buf.find(b"\n")
+            idx_r = buf.find(b"\r")
+
+            # Case: No throttling (print everything immediately)
             if log_interval is None:
                 if buf:
                     sys.stdout.buffer.write(buf)
@@ -92,60 +97,65 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                     buf = b""
                 break
 
-            idx_n = buf.find(b"\n")
-            idx_r = buf.find(b"\r")
+            # No delimiters found, wait for more data
+            if idx_n == -1 and idx_r == -1:
+                break
 
-            # Determine which delimiter comes first
+            # Case 1: Newline found first (Standard Log)
             if idx_n != -1 and (idx_r == -1 or idx_n < idx_r):
-                # Found newline first
-                # Check if this newline is an orphan from a previously skipped \r
+                # Check for "orphaned" newline from previous \r
                 if suppress_next_newline and idx_n == 0:
-                    # Skip this newline
-                    buf = buf[1:]
+                    buf = buf[1:]  # Consume \n
                     suppress_next_newline = False
                     continue
 
-                # Always print regular lines
                 line = buf[: idx_n + 1]
                 buf = buf[idx_n + 1 :]
                 sys.stdout.buffer.write(line)
                 sys.stdout.buffer.flush()
+                
+                # Reset counter on regular newlines as requested
                 skipped_count = 0
                 suppress_next_newline = False
+                last_skipped_line = None
+
+            # Case 2: Carriage Return found first (Progress Log)
             elif idx_r != -1:
-                # Found carriage return first
                 line = buf[: idx_r + 1]
                 buf = buf[idx_r + 1 :]
-
-                # Check for immediate newline following carriage return (handle \r\n)
+                
+                # Check if it's actually \r\n (Standard Log disguised)
                 consumed_newline = False
                 if buf.startswith(b"\n"):
+                    # It's \r\n, treat as standard newline
                     line += b"\n"
                     buf = buf[1:]
-                    consumed_newline = True
-
-                now = time.time()
-                if now - last_log_time >= log_interval:
-                    prefix = f"[{skipped_count}]".encode() if skipped_count > 0 else b""
-                    # Convert CR to LF so "snapshot" lines don't swallow subsequent output (e.g. tracebacks)
-                    printed_line = line.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-                    sys.stdout.buffer.write(prefix + printed_line)
+                    sys.stdout.buffer.write(line)
                     sys.stdout.buffer.flush()
-                    last_log_time = now
                     skipped_count = 0
                     suppress_next_newline = False
                     last_skipped_line = None
+                    continue
+
+                # It is a pure \r (Progress update)
+                skipped_count += 1
+                last_skipped_line = line
+                suppress_next_newline = True # Expect a newline eventually that matches this partial line
+
+                now = time.time()
+                if now - last_log_time >= log_interval:
+                    prefix = f"[{skipped_count}]".encode() if skipped_count > 1 else b""
+                    # Replace \r with \n to commit this line to the log
+                    printed_line = line.replace(b"\r", b"\n")
+                    sys.stdout.buffer.write(prefix + printed_line)
+                    sys.stdout.buffer.flush()
+                    
+                    last_log_time = now
+                    # Reset skipped_count since we output the state that superseded previous ones
+                    skipped_count = 0
                 else:
-                    skipped_count += 1
-                    last_skipped_line = line
-                    # If we skipped \r but didn't find \n yet, suppress next \n if it appears at start
-                    if not consumed_newline:
-                        suppress_next_newline = True
-                    else:
-                        suppress_next_newline = False
-            else:
-                # No delimiters found, wait for more data
-                break
+                    # Do not reset skipped_count, keep accumulating
+                    pass
 
     # Flush remaining buffer
     if buf:
