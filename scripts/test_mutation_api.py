@@ -70,6 +70,7 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
     buf = b""
     last_log_time = 0.0
     skipped_count = 0
+    suppress_next_newline = False
 
     while True:
         try:
@@ -83,35 +84,61 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
         buf += chunk
 
         while True:
+            # If no throttling, just print everything and clear buffer
+            if log_interval is None:
+                if buf:
+                    sys.stdout.buffer.write(buf)
+                    sys.stdout.buffer.flush()
+                    buf = b""
+                break
+
             idx_n = buf.find(b"\n")
             idx_r = buf.find(b"\r")
 
             # Determine which delimiter comes first
             if idx_n != -1 and (idx_r == -1 or idx_n < idx_r):
-                # Found newline first: Always print regular lines
+                # Found newline first
+                # Check if this newline is an orphan from a previously skipped \r
+                if suppress_next_newline and idx_n == 0:
+                    # Skip this newline
+                    buf = buf[1:]
+                    suppress_next_newline = False
+                    continue
+
+                # Always print regular lines
                 line = buf[: idx_n + 1]
                 buf = buf[idx_n + 1 :]
                 sys.stdout.buffer.write(line)
                 sys.stdout.buffer.flush()
                 skipped_count = 0
+                suppress_next_newline = False
             elif idx_r != -1:
-                # Found carriage return first: Loop throttling
+                # Found carriage return first
                 line = buf[: idx_r + 1]
                 buf = buf[idx_r + 1 :]
+                
+                # Check for immediate newline following carriage return (handle \r\n)
+                consumed_newline = False
+                if buf.startswith(b"\n"):
+                    line += b"\n"
+                    buf = buf[1:]
+                    consumed_newline = True
 
                 now = time.time()
-                if log_interval is None:
-                    # No buffering requested, print immediately
-                    sys.stdout.buffer.write(line)
-                    sys.stdout.buffer.flush()
-                elif now - last_log_time >= log_interval:
+                if now - last_log_time >= log_interval:
                     prefix = f"[{skipped_count}]".encode() if skipped_count > 0 else b""
                     sys.stdout.buffer.write(prefix + line)
                     sys.stdout.buffer.flush()
                     last_log_time = now
                     skipped_count = 0
+                    suppress_next_newline = False
                 else:
                     skipped_count += 1
+                    # If we skipped \r but didn't find \n yet, suppress next \n if it appears at start
+                    if not consumed_newline:
+                        suppress_next_newline = True
+                    else:
+                        suppress_next_newline = False
             else:
                 # No delimiters found, wait for more data
                 break
