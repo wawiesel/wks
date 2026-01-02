@@ -11,17 +11,24 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _log(msg: str) -> None:
+    """Write message to stdout buffer to ensure ordering with mutmut output."""
+    sys.stdout.buffer.write(f"{msg}\n".encode())
+    sys.stdout.buffer.flush()
+
+
 def _print_disk_usage(label: str) -> None:
     """Print disk usage for debugging CI space issues."""
-    print(f"\n=== Disk Usage ({label}) ===")
+    output = []
+    output.append(f"\n=== Disk Usage ({label}) ===")
 
     # Root partition free space
     try:
         statvfs = os.statvfs("/")
         free_gb = (statvfs.f_frsize * statvfs.f_bavail) / (1024**3)
-        print(f"  Root partition: {free_gb:.1f} GB free")
+        output.append(f"  Root partition: {free_gb:.1f} GB free")
     except OSError:
-        print("  Root partition: (unavailable)")
+        output.append("  Root partition: (unavailable)")
 
     # Key paths to check (files and directories)
     paths_to_check = [
@@ -29,12 +36,13 @@ def _print_disk_usage(label: str) -> None:
         REPO_ROOT / ".pytest_cache",
         REPO_ROOT / "coverage.xml",
         Path("/tmp"),
+        REPO_ROOT / "tmp",
     ]
 
     for p in paths_to_check:
         try:
             if not p.exists():
-                print(f"  {p}: (not found)")
+                output.append(f"  {p}: (not found)")
                 continue
             result = subprocess.run(
                 ["du", "-sh", str(p)],
@@ -43,29 +51,30 @@ def _print_disk_usage(label: str) -> None:
                 check=False,
             )
             size = result.stdout.split()[0] if result.stdout else "?"
-            print(f"  {p}: {size}")
+            output.append(f"  {p}: {size}")
         except Exception:
-            print(f"  {p}: (error)")
+            output.append(f"  {p}: (error)")
 
-    # Show breakdown of /tmp contents (top consumers)
-    tmp_dir = Path("/tmp")
-    if tmp_dir.exists():
-        try:
-            result = subprocess.run(
-                ["du", "-sh", "--max-depth=1", str(tmp_dir)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.stdout:
-                lines = result.stdout.strip().split("\n")
-                # Sort by size (largest first) and show top 5
-                print("  /tmp breakdown:")
-                for line in sorted(lines, key=lambda x: x.split()[0], reverse=True)[:5]:
-                    print(f"    {line}")
-        except Exception:
-            pass
-    print()
+    # Show breakdown of /tmp and workspace tmp contents
+    for tdir in [Path("/tmp"), REPO_ROOT / "tmp"]:
+        if tdir.exists():
+            try:
+                result = subprocess.run(
+                    ["du", "-sh", "--max-depth=1", str(tdir)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.stdout:
+                    lines = result.stdout.strip().split("\n")
+                    output.append(f"  {tdir} breakdown:")
+                    # Sort by size (largest first) and show top 5
+                    for line in sorted(lines, key=lambda x: x.split()[0], reverse=True)[:5]:
+                        output.append(f"    {line}")
+            except Exception:
+                pass
+
+    _log("\n".join(output))
 
 
 def main() -> None:
@@ -79,22 +88,25 @@ def main() -> None:
     setup_cfg = REPO_ROOT / "setup.cfg"
     mutants_dir = REPO_ROOT / "mutants"
 
-    print(f">>> Mutating {domain_path}...")
-    sys.stdout.flush()
+    _log(f">>> Mutating {domain_path}...")
+
+    # Isolate TMPDIR to workspace
+    ws_tmp = REPO_ROOT / "tmp"
+    ws_tmp.mkdir(exist_ok=True)
+    os.environ["TMPDIR"] = str(ws_tmp)
 
     # Print disk usage at start
     _print_disk_usage(f"before {domain}")
-    sys.stdout.flush()
 
-    # Clear pytest temp directories to prevent accumulation (grows ~1GB per domain)
-    tmp_dir = Path("/tmp")
-    if tmp_dir.exists():
-        for item in tmp_dir.glob("pytest-of-*"):
-            try:
-                shutil.rmtree(item)
-                print(f"  Cleared {item}")
-            except (PermissionError, OSError):
-                pass
+    # Clear pytest temp directories in both /tmp and isolated workspace tmp
+    for tdir in [Path("/tmp"), ws_tmp]:
+        if tdir.exists():
+            for item in tdir.glob("pytest-of-*"):
+                try:
+                    shutil.rmtree(item)
+                    _log(f"  Cleared {item}")
+                except (PermissionError, OSError):
+                    pass
 
     # Clear artifacts
     if mutants_dir.exists():
@@ -126,7 +138,7 @@ def main() -> None:
                 mutmut_bin = str(candidate)
 
         if not mutmut_bin:
-            print("Could not find mutmut. Did you activate the virtual environment?", file=sys.stderr)
+            _log("Could not find mutmut. Did you activate the virtual environment?")
             sys.exit(1)
 
         # Run mutmut with PTY (preserves progress bars locally, shows as lines in CI)
@@ -156,7 +168,7 @@ def main() -> None:
             os.close(master_fd)
 
         if p.returncode != 0:
-            print(f"mutmut run failed with return code {p.returncode}!")
+            _log(f"mutmut run failed with return code {p.returncode}!")
 
         # Parse stats from 'mutmut results --all true' (reliable)
         p_results = subprocess.run(
@@ -175,16 +187,17 @@ def main() -> None:
 
         # Print disk usage after domain completes, then stats
         _print_disk_usage(f"after {domain}")
-        print(f"Stats: Killed={killed}, Survived={survived}")
-        sys.stdout.flush()
+        _log(f"Stats: Killed={killed}, Survived={survived}")
 
         # Clear pytest temp directories after domain to prevent accumulation for next domain
-        for item in tmp_dir.glob("pytest-of-*"):
-            try:
-                shutil.rmtree(item)
-                print(f"  Cleared {item} (post-domain cleanup)")
-            except (PermissionError, OSError):
-                pass
+        for tdir in [Path("/tmp"), ws_tmp]:
+            if tdir.exists():
+                for item in tdir.glob("pytest-of-*"):
+                    try:
+                        shutil.rmtree(item)
+                        _log(f"  Cleared {item} (post-domain cleanup)")
+                    except (PermissionError, OSError):
+                        pass
 
         # Output per-domain stats file
         stats = {"domain": domain, "killed": killed, "survived": survived}
