@@ -45,6 +45,24 @@ def _get_disk_space() -> str:
         return "unavailable"
 
 
+def _get_mutation_stats(mutmut_bin: str) -> tuple[int, int]:
+    """Parse stats from 'mutmut results --all true'."""
+    p_results = subprocess.run(
+        [mutmut_bin, "results", "--all", "true"], cwd=str(REPO_ROOT), text=True, capture_output=True, check=False
+    )
+
+    killed = 0
+    survived = 0
+
+    for line in (p_results.stdout or "").splitlines():
+        line = line.strip()
+        if line.endswith(": killed"):
+            killed += 1
+        elif line.endswith(": survived"):
+            survived += 1
+
+    return killed, survived
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("domain", help="Domain to mutate")
@@ -145,19 +163,7 @@ def main() -> None:
             sys.exit(1)
 
         # Parse stats from 'mutmut results --all true' (reliable)
-        p_results = subprocess.run(
-            [mutmut_bin, "results", "--all", "true"], cwd=str(REPO_ROOT), text=True, capture_output=True, check=False
-        )
-
-        killed = 0
-        survived = 0
-
-        for line in (p_results.stdout or "").splitlines():
-            line = line.strip()
-            if line.endswith(": killed"):
-                killed += 1
-            elif line.endswith(": survived"):
-                survived += 1
+        killed, survived = _get_mutation_stats(mutmut_bin)
 
         # Print disk usage after domain completes, then stats
         _log(f">>> Finished {domain} (available disk: {_get_disk_space()})")
