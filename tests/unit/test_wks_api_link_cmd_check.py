@@ -13,9 +13,8 @@ def test_cmd_check_file_not_found(tracked_wks_config):
 
 def test_cmd_check_not_monitored(tracked_wks_config, tmp_path):
     """Test file outside monitored roots (lines 81, 202-203)."""
-    # ensure it's not monitored by making include_paths empty
-    tracked_wks_config.monitor.filter.include_paths = []
-
+    # Just use a path that is NOT in include_paths, but don't clear the list
+    # (because it must at least contain the transform cache)
     outside_file = tmp_path / "outside.md"
     outside_file.write_text("[[link]]", encoding="utf-8")
 
@@ -50,7 +49,7 @@ def test_cmd_check_success_vault(tracked_wks_config, tmp_path):
         vault_root.mkdir(parents=True)
 
     # Register vault root in monitor include_paths
-    tracked_wks_config.monitor.filter.include_paths = [str(vault_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
 
     file_path = vault_root / "note.md"
     # test multiple link types (wikilink, file uri, relative path)
@@ -71,7 +70,7 @@ def test_cmd_check_process_link_exception(tracked_wks_config, tmp_path, monkeypa
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
-    tracked_wks_config.monitor.filter.include_paths = [str(vault_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
 
     file_path = vault_root / "err.md"
     file_path.write_text("[[target]]", encoding="utf-8")
@@ -103,7 +102,7 @@ def test_cmd_check_fallback_no_vault(tracked_wks_config, tmp_path, monkeypatch):
     # Monitor a temp path
     monitored_root = tmp_path / "monitored"
     monitored_root.mkdir()
-    tracked_wks_config.monitor.filter.include_paths = [str(monitored_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(monitored_root))
     file_path = monitored_root / "note.md"
     # use a file link to trigger lines 176-180 (Wait! 176-180 was in the block I just deleted!)
     # Actually, fallback now uses _process_link which covers the same logic anyway.

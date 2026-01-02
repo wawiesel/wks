@@ -22,7 +22,7 @@ def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
 
     # Must include the path to allow sync
     config = WKSConfig.load()
-    config.monitor.filter.include_paths = [str(watch_dir)]
+    config.monitor.filter.include_paths.append(str(watch_dir))
     config.save()
 
     res = run_cmd(cmd_sync, path=str(test_file))
@@ -48,7 +48,7 @@ def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
 
     # Must include the path to allow sync
     config = WKSConfig.load()
-    config.monitor.filter.include_paths = [str(watch_dir)]
+    config.monitor.filter.include_paths.append(str(watch_dir))
     config.save()
 
     res = run_cmd(cmd_sync, path=str(watch_dir), recursive=True)
@@ -67,7 +67,7 @@ def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_
 
     # 1. Sync it
     config = WKSConfig.load()
-    config.monitor.filter.include_paths = [str(watch_dir)]
+    config.monitor.filter.include_paths.append(str(watch_dir))
     config.save()
     run_cmd(cmd_sync, path=str(test_file))
 
@@ -93,7 +93,7 @@ def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
     config.monitor.min_priority = 50.0
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
-    config.monitor.filter.include_paths = [str(watch_dir)]
+    config.monitor.filter.include_paths.append(str(watch_dir))
     config.save()
 
     test_file = watch_dir / "low_priority.txt"
@@ -111,7 +111,7 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
     tracked_wks_config.monitor.max_documents = 2
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
-    tracked_wks_config.monitor.filter.include_paths = [str(watch_dir)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(watch_dir))
 
     # Create 3 files with explicit priorities
     with Database(tracked_wks_config.database, "nodes") as db:
@@ -151,7 +151,7 @@ def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
 
     try:
         config = WKSConfig.load()
-        config.monitor.filter.include_paths = [str(watch_dir)]
+        config.monitor.filter.include_paths.append(str(watch_dir))
         config.save()
 
         res = run_cmd(cmd_sync, path=str(watch_dir), recursive=True)
@@ -169,7 +169,7 @@ def test_monitor_cmd_sync_skips_excluded_file(wks_home, minimal_config_dict):
     watch_dir.mkdir(parents=True, exist_ok=True)
 
     config = WKSConfig.load()
-    config.monitor.filter.include_paths = [str(watch_dir)]
+    config.monitor.filter.include_paths.append(str(watch_dir))
     # Exclude .tmp files
     config.monitor.filter.exclude_globs = ["*.tmp"]
     config.save()

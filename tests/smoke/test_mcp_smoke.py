@@ -87,7 +87,10 @@ def mcp_process(tmp_path_factory):
         },
     }
     # Ensure monitor has at least one include path so monitor_check can succeed for an in-scope path.
-    config["monitor"]["filter"]["include_paths"] = [str(home_dir)]
+    # ALSO: ensure transform cache is monitored (required by validator)
+    cache_dir = home_dir / "transform_cache"
+    config["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config["monitor"]["filter"]["include_paths"] = [str(home_dir), str(cache_dir)]
 
     (home_dir / ".wks" / "config.json").write_text(json.dumps(config), encoding="utf-8")
 

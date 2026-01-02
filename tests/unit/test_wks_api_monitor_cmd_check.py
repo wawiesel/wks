@@ -12,13 +12,13 @@ pytestmark = pytest.mark.monitor
 
 def test_cmd_check_reports_monitored(monkeypatch, tmp_path, minimal_config_dict):
     """Path under include_paths is monitored with computed priority."""
-    wks_home = tmp_path / ".wks"
+    wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
     watch_dir = tmp_path / "watch"
     watch_dir.mkdir()
-    cfg["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
+    cfg["monitor"]["filter"]["include_paths"].append(str(watch_dir))
     target = watch_dir / "demo.txt"
     target.write_text("hi", encoding="utf-8")
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
@@ -32,7 +32,7 @@ def test_cmd_check_reports_monitored(monkeypatch, tmp_path, minimal_config_dict)
 
 def test_cmd_check_path_not_exists(monkeypatch, tmp_path, minimal_config_dict):
     """Nonexistent path outside include_paths is not monitored and fails."""
-    wks_home = tmp_path / ".wks"
+    wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
@@ -49,13 +49,13 @@ def test_cmd_check_path_not_exists(monkeypatch, tmp_path, minimal_config_dict):
 
 def test_cmd_check_glob_exclusion(monkeypatch, tmp_path, minimal_config_dict):
     """Path matching exclude_globs reports '✗' symbol."""
-    wks_home = tmp_path / ".wks"
+    wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
     watch_dir = tmp_path / "watch"
     watch_dir.mkdir()
-    cfg["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
+    cfg["monitor"]["filter"]["include_paths"].append(str(watch_dir))
     cfg["monitor"]["filter"]["exclude_globs"] = ["*.tmp"]
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 

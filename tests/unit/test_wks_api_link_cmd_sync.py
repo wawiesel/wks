@@ -27,7 +27,7 @@ def test_cmd_sync_success(tracked_wks_config, tmp_path):
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
-    tracked_wks_config.monitor.filter.include_paths = [str(vault_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
 
     file_path = vault_root / "note.md"
     file_path.write_text("[link](file:///etc/hosts)", encoding="utf-8")
@@ -52,7 +52,7 @@ def test_cmd_sync_fallback_no_vault(tracked_wks_config, tmp_path, monkeypatch):
 
     monitored_root = tmp_path / "monitored"
     monitored_root.mkdir()
-    tracked_wks_config.monitor.filter.include_paths = [str(monitored_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(monitored_root))
     file_path = monitored_root / "note.md"
     file_path.write_text("[link](file:///etc/hosts)", encoding="utf-8")
 
@@ -66,7 +66,7 @@ def test_cmd_sync_with_remote_targets(tracked_wks_config, tmp_path):
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
-    tracked_wks_config.monitor.filter.include_paths = [str(vault_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
 
     file_path = vault_root / "remote.md"
     file_path.write_text("[google](https://google.com)", encoding="utf-8")
@@ -100,7 +100,7 @@ def test_sync_single_file_complex_resolutions(tracked_wks_config, tmp_path, monk
     vault_root = tmp_path / "vault"
     vault_root.mkdir()
     tracked_wks_config.vault.base_dir = str(vault_root)
-    tracked_wks_config.monitor.filter.include_paths = [str(vault_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
 
     file_path = vault_root / "complex.md"
     file_path.write_text("[[broken]] [vlt](vault:///some/file.md) [rel](other.md)", encoding="utf-8")
@@ -154,7 +154,7 @@ def test_sync_single_file_remote_error(tracked_wks_config, tmp_path, monkeypatch
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
-    tracked_wks_config.monitor.filter.include_paths = [str(vault_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
 
     file_path = vault_root / "rem_err.md"
     file_path.write_text("[link](file:///etc/hosts)", encoding="utf-8")
@@ -182,7 +182,7 @@ def test_sync_single_file_remote_uri_found(tracked_wks_config, tmp_path):
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
-    tracked_wks_config.monitor.filter.include_paths = [str(vault_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
     tracked_wks_config.monitor.remote.mappings = [RemoteMapping(local_path=str(vault_root), remote_uri="https://rem")]
 
     file_path = vault_root / "rem_found.md"
@@ -220,7 +220,7 @@ def test_parsers_coverage(tracked_wks_config, tmp_path):
     """Test various parsers (HTML, RST, Raw) to reach 100% in link domain."""
     monitored_root = tmp_path / "monitored"
     monitored_root.mkdir()
-    tracked_wks_config.monitor.filter.include_paths = [str(monitored_root)]
+    tracked_wks_config.monitor.filter.include_paths.append(str(monitored_root))
 
     # 1. HTML Parser (edge cases: empty href, fragments + valid link/image)
     html_file = monitored_root / "test.html"

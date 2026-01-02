@@ -11,8 +11,10 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch, tmp_path, minimal_config_dict):
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
-    (tmp_path / "config.json").write_text(json.dumps(minimal_config_dict), encoding="utf-8")
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(minimal_config_dict), encoding="utf-8")
 
     result = run_cmd(cmd_filter_show.cmd_filter_show)
     assert result.output["available_lists"]
@@ -20,25 +22,40 @@ def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch, tmp_path, mini
 
 
 def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict):
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
-    cfg["monitor"]["filter"]["include_paths"] = ["a", "b"]
-    (tmp_path / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    cfg["monitor"]["filter"]["include_paths"].extend(["a", "b"])
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_filter_show.cmd_filter_show, list_name="include_paths")
-    assert result.output["count"] == 2
+    # minimal_config_dict has 2 paths (default + isolated cache) + 2 from extend = 4
+    assert result.output["count"] == 4
     assert "Showing" in result.result
 
     from wks.utils.normalize_path import normalize_path
 
-    expected = [str(normalize_path("a")), str(normalize_path("b"))]
-    assert result.output["items"] == expected
+    # Sort to avoid ordering issues if any
+    items = sorted(result.output["items"])
+    # Should include "a", "b", the isolated cache dir, AND the default "/tmp/wks_test_transform"
+    expected = sorted(
+        [
+            str(normalize_path("a")),
+            str(normalize_path("b")),
+            cfg["transform"]["cache"]["base_dir"],
+            str(normalize_path("/tmp/wks_test_transform")),
+        ]
+    )
+    assert items == expected
 
 
 def test_cmd_filter_show_unknown_list_name(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_filter_show with unknown list_name."""
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
-    (tmp_path / "config.json").write_text(json.dumps(minimal_config_dict), encoding="utf-8")
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(minimal_config_dict), encoding="utf-8")
 
     with pytest.raises(ValueError):
         run_cmd(cmd_filter_show.cmd_filter_show, list_name="unknown_list")
