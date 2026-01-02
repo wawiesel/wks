@@ -5,23 +5,23 @@
   "domain_stats": {
     "cat": {
       "coverage": 94.4,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 72,
+      "mutation_survived": 27
     },
     "config": {
       "coverage": 100.0,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 185,
+      "mutation_survived": 79
     },
     "daemon": {
       "coverage": 83.0,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 225,
+      "mutation_survived": 129
     },
     "database": {
       "coverage": 91.2,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 456,
+      "mutation_survived": 189
     },
     "diff": {
       "coverage": 0.0,
@@ -30,33 +30,33 @@
     },
     "link": {
       "coverage": 98.4,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 783,
+      "mutation_survived": 404
     },
     "log": {
       "coverage": 93.9,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 352,
+      "mutation_survived": 195
     },
     "mcp": {
       "coverage": 97.1,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 237,
+      "mutation_survived": 163
     },
     "monitor": {
       "coverage": 99.4,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 1085,
+      "mutation_survived": 581
     },
     "service": {
       "coverage": 68.8,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 24,
+      "mutation_survived": 12
     },
     "transform": {
       "coverage": 86.6,
-      "mutation_killed": 0,
-      "mutation_survived": 0
+      "mutation_killed": 666,
+      "mutation_survived": 121
     },
     "utils": {
       "coverage": 100.0,
@@ -69,9 +69,9 @@
       "mutation_survived": 0
     }
   },
-  "mutation_killed": 0,
-  "mutation_score": 0.0,
-  "mutation_survived": 0,
+  "mutation_killed": 4085,
+  "mutation_score": 68.3,
+  "mutation_survived": 1900,
   "sections": {
     "api": {
       "chars": 401392,
@@ -116,10 +116,10 @@
       "tokens": 3396
     },
     "scripts": {
-      "chars": 60290,
+      "chars": 61823,
       "files": 15,
-      "loc": 1770,
-      "tokens": 12053
+      "loc": 1827,
+      "tokens": 12468
     },
     "smoke": {
       "chars": 12693,
