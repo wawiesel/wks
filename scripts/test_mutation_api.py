@@ -70,6 +70,7 @@ def _process_pty_output(master_fd: int) -> None:
     """Read PTY output line-by-line and throttle progress updates."""
     buf = b""
     last_log_time = 0.0
+    skipped_count = 0
 
     while True:
         try:
@@ -93,6 +94,7 @@ def _process_pty_output(master_fd: int) -> None:
                 buf = buf[idx_n + 1 :]
                 sys.stdout.buffer.write(line)
                 sys.stdout.buffer.flush()
+                skipped_count = 0
             elif idx_r != -1:
                 # Found carriage return first: Loop throttling
                 line = buf[: idx_r + 1]
@@ -100,9 +102,13 @@ def _process_pty_output(master_fd: int) -> None:
 
                 now = time.time()
                 if now - last_log_time >= LOG_INTERVAL:
-                    sys.stdout.buffer.write(line)
+                    prefix = f"[{skipped_count}]".encode() if skipped_count > 0 else b""
+                    sys.stdout.buffer.write(prefix + line)
                     sys.stdout.buffer.flush()
                     last_log_time = now
+                    skipped_count = 0
+                else:
+                    skipped_count += 1
             else:
                 # No delimiters found, wait for more data
                 break
