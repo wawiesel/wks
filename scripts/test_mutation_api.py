@@ -65,6 +65,16 @@ def main() -> None:
     # Print disk usage at start
     _print_disk_usage(f"before {domain}")
 
+    # Clear pytest temp directories to prevent accumulation (grows ~1GB per domain)
+    tmp_dir = Path("/tmp")
+    if tmp_dir.exists():
+        for item in tmp_dir.glob("pytest-of-*"):
+            try:
+                shutil.rmtree(item)
+                print(f"  Cleared {item}")
+            except (PermissionError, OSError):
+                pass
+
     # Clear artifacts
     if mutants_dir.exists():
         shutil.rmtree(mutants_dir) if mutants_dir.is_dir() else mutants_dir.unlink()
@@ -128,7 +138,6 @@ def main() -> None:
             print(f"mutmut run failed with return code {p.returncode}!")
 
         # Parse stats from 'mutmut results --all true' (reliable)
-        # Usage verified by user: mutmut results --all true
         p_results = subprocess.run(
             [mutmut_bin, "results", "--all", "true"], cwd=str(REPO_ROOT), text=True, capture_output=True, check=False
         )
@@ -143,15 +152,14 @@ def main() -> None:
             elif line.endswith(": survived"):
                 survived += 1
 
+        # Print disk usage after domain completes, then stats
+        _print_disk_usage(f"after {domain}")
         print(f"Stats: Killed={killed}, Survived={survived}")
 
         # Output per-domain stats file
         stats = {"domain": domain, "killed": killed, "survived": survived}
         stats_file.write_text(json.dumps(stats))
         setup_cfg.write_text(original_cfg)
-
-        # Print disk usage after domain completes
-        _print_disk_usage(f"after {domain}")
 
     finally:
         setup_cfg.write_text(original_cfg)
