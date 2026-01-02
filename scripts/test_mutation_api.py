@@ -95,10 +95,14 @@ def main() -> None:
     ws_tmp.mkdir(exist_ok=True)
     os.environ["TMPDIR"] = str(ws_tmp)
 
+    # Stable pytest btemp to prevent accumulation (re-use same dir)
+    pytest_btemp = ws_tmp / "pytest"
+    pytest_btemp.mkdir(exist_ok=True)
+
     # Print disk usage at start
     _print_disk_usage(f"before {domain}")
 
-    # Clear pytest temp directories in both /tmp and isolated workspace tmp
+    # Clear pytest temp directories once at start (clean slate)
     for tdir in [Path("/tmp"), ws_tmp]:
         if tdir.exists():
             for item in tdir.glob("pytest-of-*"):
@@ -107,6 +111,9 @@ def main() -> None:
                     _log(f"  Cleared {item}")
                 except (PermissionError, OSError):
                     pass
+    if pytest_btemp.exists():
+        shutil.rmtree(pytest_btemp)
+        pytest_btemp.mkdir()
 
     # Clear artifacts
     if mutants_dir.exists():
@@ -114,17 +121,24 @@ def main() -> None:
 
     # Inline Config Patching
     if not setup_cfg.exists():
-        print("Error: setup.cfg not found")
+        _log("Error: setup.cfg not found")
         sys.exit(1)
 
     original_cfg = setup_cfg.read_text()
 
     if "[mutmut]" not in original_cfg:
-        print("Error: mutmut directive not found in setup.cfg")
+        _log("Error: mutmut directive not found in setup.cfg")
         sys.exit(1)
 
-    # regex replace the paths_to_mutate line
+    # Patch paths_to_mutate and runner
+    # We force --basetemp to prevent the 63MB-per-mutant accumulation
+    # Note: mutmut 3.0+ uses 'runner' config. Default is 'python3 -m pytest -x --nf'
     patched_cfg = re.sub(r"paths_to_mutate\s*=.*", f"paths_to_mutate={domain_path}", original_cfg, flags=re.MULTILINE)
+    runner_line = f"runner = python3 -m pytest -x --nf --basetemp={pytest_btemp}"
+    if "runner =" in patched_cfg:
+        patched_cfg = re.sub(r"runner\s*=.*", runner_line, patched_cfg, flags=re.MULTILINE)
+    else:
+        patched_cfg = patched_cfg.replace("[mutmut]", f"[mutmut]\n{runner_line}")
 
     try:
         with setup_cfg.open("w") as f:
@@ -188,16 +202,6 @@ def main() -> None:
         # Print disk usage after domain completes, then stats
         _print_disk_usage(f"after {domain}")
         _log(f"Stats: Killed={killed}, Survived={survived}")
-
-        # Clear pytest temp directories after domain to prevent accumulation for next domain
-        for tdir in [Path("/tmp"), ws_tmp]:
-            if tdir.exists():
-                for item in tdir.glob("pytest-of-*"):
-                    try:
-                        shutil.rmtree(item)
-                        _log(f"  Cleared {item} (post-domain cleanup)")
-                    except (PermissionError, OSError):
-                        pass
 
         # Output per-domain stats file
         stats = {"domain": domain, "killed": killed, "survived": survived}
