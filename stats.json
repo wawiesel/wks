@@ -86,10 +86,10 @@
       "tokens": 975
     },
     "cicd": {
-      "chars": 11084,
+      "chars": 11004,
       "files": 4,
-      "loc": 373,
-      "tokens": 2771
+      "loc": 375,
+      "tokens": 2751
     },
     "cli": {
       "chars": 47576,
@@ -116,10 +116,10 @@
       "tokens": 3396
     },
     "scripts": {
-      "chars": 59788,
+      "chars": 60290,
       "files": 15,
-      "loc": 1759,
-      "tokens": 11926
+      "loc": 1770,
+      "tokens": 12053
     },
     "smoke": {
       "chars": 12693,
