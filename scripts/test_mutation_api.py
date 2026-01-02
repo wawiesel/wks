@@ -67,106 +67,139 @@ def _get_mutation_stats(mutmut_bin: str) -> tuple[int, int]:
 
 
 def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
-    """Read PTY output line-by-line and throttle progress updates."""
-    buf = b""
-    last_log_time = 0.0
-    skipped_count = 0
-    suppress_next_newline = False
-    last_skipped_line = None
+    """
+    Read PTY output and optionally throttle progress updates using TTY emulation.
+
+    TTY Emulation Model
+    -------------------
+    Internally maintain a "current line" buffer like a real terminal:
+
+    - `\\r` (carriage return): "Replace" the current line with new content.
+      Increment a replacement counter RR.
+    - `\\n` (newline): "Commit" the current line to output. Reset RR to 0.
+
+    Throttled Output
+    ----------------
+    When log_interval is set (not None):
+
+    - Don't output on every `\\r`. Silently accumulate replacements.
+    - Every N seconds (or on `\\n`), output the current line.
+    - If RR > 0, prepend `[RR]` to show how many replacements were suppressed.
+
+    Example
+    -------
+    Raw input::
+
+        ⠋ Running stats\\r⠙ Running stats\\r⠹ Running stats\\r⠸ Running stats\\n
+
+    TTY buffer progression::
+
+        1. "⠋ Running stats" (RR=0)
+        2. "⠙ Running stats" (RR=1)
+        3. "⠹ Running stats" (RR=2)
+        4. "⠸ Running stats" (RR=3)
+        5. \\n → commit
+
+    Output (if throttle interval elapsed before \\n)::
+
+        [3]⠸ Running stats
+
+    Or if no throttling, outputs every update as-is.
+    """
+    # No throttling: pass through everything directly
+    if log_interval is None:
+        while True:
+            try:
+                chunk = os.read(master_fd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+        return
+
+    # Throttled mode: TTY emulation
+    current_line = b""  # The "screen" buffer for the current line
+    replacement_count = 0  # How many times current_line was replaced via \r
+    last_output_time = 0.0  # When we last emitted output
+    raw_buffer = b""  # Accumulator for incoming bytes
 
     while True:
         try:
             chunk = os.read(master_fd, 4096)
         except OSError:
             break
-
         if not chunk:
             break
 
-        buf += chunk
+        raw_buffer += chunk
 
-        while True:
-            # Detect delimiters
-            idx_n = buf.find(b"\n")
-            idx_r = buf.find(b"\r")
+        # Process the buffer character by character (conceptually)
+        while raw_buffer:
+            # Find the next control character
+            idx_r = raw_buffer.find(b"\r")
+            idx_n = raw_buffer.find(b"\n")
 
-            # Case: No throttling (print everything immediately)
-            if log_interval is None:
-                if buf:
-                    sys.stdout.buffer.write(buf)
-                    sys.stdout.buffer.flush()
-                    buf = b""
+            # No control characters: accumulate into current_line
+            if idx_r == -1 and idx_n == -1:
+                current_line = raw_buffer
+                raw_buffer = b""
                 break
 
-            # No delimiters found, wait for more data
-            if idx_n == -1 and idx_r == -1:
-                break
-
-            # Case 1: Newline found first (Standard Log)
+            # Determine which comes first
             if idx_n != -1 and (idx_r == -1 or idx_n < idx_r):
-                # Check for "orphaned" newline from previous \r
-                if suppress_next_newline and idx_n == 0:
-                    buf = buf[1:]  # Consume \n
-                    suppress_next_newline = False
-                    continue
+                # Newline comes first: commit the line
+                content_before_newline = raw_buffer[:idx_n]
+                raw_buffer = raw_buffer[idx_n + 1 :]
 
-                line = buf[: idx_n + 1]
-                buf = buf[idx_n + 1 :]
-                sys.stdout.buffer.write(line)
+                # Build final line
+                final_line = content_before_newline if content_before_newline else current_line
+                prefix = f"[{replacement_count}]".encode() if replacement_count > 0 else b""
+
+                sys.stdout.buffer.write(prefix + final_line + b"\n")
                 sys.stdout.buffer.flush()
 
-                # Reset counter on regular newlines as requested
-                skipped_count = 0
-                suppress_next_newline = False
-                last_skipped_line = None
+                # Reset state
+                current_line = b""
+                replacement_count = 0
+                last_output_time = time.time()
 
-            # Case 2: Carriage Return found first (Progress Log)
             elif idx_r != -1:
-                line = buf[: idx_r + 1]
-                buf = buf[idx_r + 1 :]
+                # Carriage return comes first: replace current line
+                content_before_cr = raw_buffer[:idx_r]
+                raw_buffer = raw_buffer[idx_r + 1 :]
 
-                # Check if it's actually \r\n (Standard Log disguised)
-                if buf.startswith(b"\n"):
-                    # It's \r\n, treat as standard newline
-                    line += b"\n"
-                    buf = buf[1:]
-                    sys.stdout.buffer.write(line)
+                # Check for \r\n (treat as plain newline)
+                if raw_buffer.startswith(b"\n"):
+                    raw_buffer = raw_buffer[1:]
+                    final_line = content_before_cr if content_before_cr else current_line
+                    prefix = f"[{replacement_count}]".encode() if replacement_count > 0 else b""
+                    sys.stdout.buffer.write(prefix + final_line + b"\n")
                     sys.stdout.buffer.flush()
-                    skipped_count = 0
-                    suppress_next_newline = False
-                    last_skipped_line = None
+                    current_line = b""
+                    replacement_count = 0
+                    last_output_time = time.time()
                     continue
 
-                # It is a pure \r (Progress update)
-                skipped_count += 1
-                last_skipped_line = line
-                suppress_next_newline = True  # Expect a newline eventually that matches this partial line
+                # Pure \r: replace the current line
+                if content_before_cr:
+                    current_line = content_before_cr
+                replacement_count += 1
 
+                # Check if we should emit a throttled update
                 now = time.time()
-                if now - last_log_time >= log_interval:
-                    prefix = f"[{skipped_count}]".encode() if skipped_count > 1 else b""
-                    # Replace \r with \n to commit this line to the log
-                    printed_line = line.replace(b"\r", b"\n")
-                    sys.stdout.buffer.write(prefix + printed_line)
+                if now - last_output_time >= log_interval:
+                    prefix = f"[{replacement_count}]".encode() if replacement_count > 0 else b""
+                    sys.stdout.buffer.write(prefix + current_line + b"\n")
                     sys.stdout.buffer.flush()
+                    last_output_time = now
+                    replacement_count = 0
 
-                    last_log_time = now
-                    # Reset skipped_count since we output the state that superseded previous ones
-                    skipped_count = 0
-                else:
-                    # Do not reset skipped_count, keep accumulating
-                    pass
-
-    # Flush remaining buffer
-    if buf:
-        sys.stdout.buffer.write(buf)
-        sys.stdout.buffer.flush()
-
-    # Flush last skipped progress line if it wasn't printed
-    if skipped_count > 0 and last_skipped_line:
-        prefix = f"[{skipped_count}]".encode()
-        printed_line = last_skipped_line.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-        sys.stdout.buffer.write(prefix + printed_line)
+    # Flush any remaining content
+    if current_line:
+        prefix = f"[{replacement_count}]".encode() if replacement_count > 0 else b""
+        sys.stdout.buffer.write(prefix + current_line + b"\n")
         sys.stdout.buffer.flush()
 
 
