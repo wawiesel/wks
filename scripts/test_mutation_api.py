@@ -61,9 +61,11 @@ def main() -> None:
     mutants_dir = REPO_ROOT / "mutants"
 
     print(f">>> Mutating {domain_path}...")
+    sys.stdout.flush()
 
     # Print disk usage at start
     _print_disk_usage(f"before {domain}")
+    sys.stdout.flush()
 
     # Clear pytest temp directories to prevent accumulation (grows ~1GB per domain)
     tmp_dir = Path("/tmp")
