@@ -120,7 +120,7 @@ jobs:
             for dir in wks/api/*/; do
               domain=$(basename "$dir")
               if [ "$domain" != "__pycache__" ]; then
-                python3 scripts/test_mutation_api.py "$domain" || true
+                python3 scripts/test_mutation_api.py "$domain" --log-interval 15 || true
               fi
             done
           '

@@ -28,7 +28,6 @@ from pathlib import Path
 import time
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-LOG_INTERVAL = 15
 
 
 def _log(msg: str) -> None:
@@ -66,7 +65,7 @@ def _get_mutation_stats(mutmut_bin: str) -> tuple[int, int]:
     return killed, survived
 
 
-def _process_pty_output(master_fd: int) -> None:
+def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
     """Read PTY output line-by-line and throttle progress updates."""
     buf = b""
     last_log_time = 0.0
@@ -101,7 +100,11 @@ def _process_pty_output(master_fd: int) -> None:
                 buf = buf[idx_r + 1 :]
 
                 now = time.time()
-                if now - last_log_time >= LOG_INTERVAL:
+                if log_interval is None:
+                    # No buffering requested, print immediately
+                    sys.stdout.buffer.write(line)
+                    sys.stdout.buffer.flush()
+                elif now - last_log_time >= log_interval:
                     prefix = f"[{skipped_count}]".encode() if skipped_count > 0 else b""
                     sys.stdout.buffer.write(prefix + line)
                     sys.stdout.buffer.flush()
@@ -122,6 +125,7 @@ def _process_pty_output(master_fd: int) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("domain", help="Domain to mutate")
+    parser.add_argument("--log-interval", type=int, default=None, help="Throttle progress logs to every N seconds")
     args = parser.parse_args()
 
     domain = args.domain
@@ -201,7 +205,7 @@ def main() -> None:
         os.close(slave_fd)
 
         try:
-            _process_pty_output(master_fd)
+            _process_pty_output(master_fd, args.log_interval)
         finally:
             p.wait()
             os.close(master_fd)
