@@ -10,6 +10,7 @@ on:
       - 'docker/Dockerfile.ci-runner'
       - 'pyproject.toml'
       - 'setup.py'
+      - 'setup.cfg'
       - '.github/workflows/publish-ci-image.yml'
 
 env:

@@ -63,8 +63,9 @@ class _CacheManager:
         for doc in cursor:
             if total_freed >= bytes_needed:
                 break
-            entries.append((doc["checksum"], doc["size_bytes"], doc["cache_uri"]))
-            total_freed += doc["size_bytes"]
+            size_bytes = doc.get("size_bytes") or 0
+            entries.append((doc["checksum"], size_bytes, doc.get("cache_uri") or ""))
+            total_freed += size_bytes
 
         return entries
 

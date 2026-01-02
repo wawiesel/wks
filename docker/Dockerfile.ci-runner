@@ -29,6 +29,11 @@ RUN useradd -m -s /bin/bash -u 1001 testuser && \
 
 
 
+
+# 4. Pre-install CPU Torch (Optimization)
+# Prevents downloading 2GB+ CUDA binaries during 'pip install .'
+RUN python3 -m pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu --break-system-packages
+
 # 5. Project Dependency Installation (Caching layer)
 WORKDIR /tmp/wks-install
 COPY pyproject.toml setup.py setup.cfg ./
@@ -50,3 +55,5 @@ CMD ["/lib/systemd/systemd"]
 ENV XDG_RUNTIME_DIR=/run/user/1001
 ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
 ENV PATH="/home/testuser/.local/bin:${PATH}"
+
+# Trigger rebuild for mutmut downgrade to v2.5.1 (--paths-to-mutate CLI) - 2026-01-02

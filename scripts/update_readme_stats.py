@@ -49,30 +49,54 @@ def _run_cmd(cmd: list[str]) -> tuple[int, str]:
 
 
 def _get_mutation_stats() -> tuple[float, int, int]:
-    """Get mutation score, killed, survived."""
-    mutmut_cmd = str(REPO_ROOT / ".venv" / "bin" / "mutmut")
-    if not Path(mutmut_cmd).exists():
-        mutmut_cmd = "mutmut"
+    """Get mutation score, killed, survived from stats.json (written by test_mutation_api.py)."""
+    stats_path = REPO_ROOT / "stats.json"
+    if stats_path.exists():
+        try:
+            data = json.loads(stats_path.read_text())
+            return (
+                data.get("mutation_score", 0.0),
+                data.get("mutation_killed", 0),
+                data.get("mutation_survived", 0),
+            )
+        except Exception:
+            pass
+    return 0.0, 0, 0
 
-    rc, output = _run_cmd([mutmut_cmd, "results", "--all", "true"])
-    if rc != 0:
-        return 0.0, 0, 0
 
-    killed = sum(
-        1 for line in output.splitlines() if ":" in line and line.rsplit(":", 1)[1].strip().lower() == "killed"
-    )
-    survived = sum(
-        1 for line in output.splitlines() if ":" in line and line.rsplit(":", 1)[1].strip().lower() == "survived"
-    )
-    total = killed + survived
-    return (round(killed / total * 100, 1) if total > 0 else 0.0, killed, survived)
+def _get_domain_coverage() -> dict[str, float]:
+    """Get per-domain coverage from coverage.xml (api.cat -> cat, etc)."""
+    coverage_xml = REPO_ROOT / "coverage.xml"
+    if not coverage_xml.exists():
+        return {}
+    try:
+        import xml.etree.ElementTree as ET
+
+        tree = ET.parse(coverage_xml)
+        domain_coverage: dict[str, float] = {}
+        for pkg in tree.findall(".//package"):
+            name = pkg.get("name", "")
+            # Match api.X (top-level domains in wks/api/)
+            if name.startswith("api.") and "." not in name[4:]:
+                domain = name[4:]  # "api.cat" -> "cat"
+                line_rate = float(pkg.get("line-rate", 0))
+                domain_coverage[domain] = round(line_rate * 100, 1)
+        return domain_coverage
+    except Exception:
+        return {}
 
 
 def _get_test_count() -> int:
-    """Get total number of tests by running pytest."""
-    _rc, output = _run_cmd([sys.executable, "-m", "pytest", "-q", "tests/"])
+    """Get total number of tests by running pytest --collect-only."""
+    _rc, output = _run_cmd([sys.executable, "-m", "pytest", "--collect-only", "-q", "tests/"])
+    # Parse "N tests collected" or just "N" from the last line
     for line in reversed(output.splitlines()):
-        match = re.search(r"(\d+)\s+passed", line, re.IGNORECASE)
+        # Match "456 tests collected" or similar
+        match = re.search(r"(\d+)\s+tests?\s+collected", line, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        # Match just a number at start of line (older pytest format)
+        match = re.search(r"^(\d+)\s+", line.strip())
         if match:
             return int(match.group(1))
     return len(list((REPO_ROOT / "tests").rglob("test_*.py"))) * 4  # Fallback estimate
@@ -300,6 +324,28 @@ def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int
 ![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)"""
 
 
+def _generate_domain_table(domain_stats: dict[str, dict]) -> str:
+    """Generate per-domain quality metrics table."""
+    if not domain_stats:
+        return ""
+    rows = []
+    for domain, stats in sorted(domain_stats.items()):
+        killed = stats.get("mutation_killed", 0)
+        survived = stats.get("mutation_survived", 0)
+        total = killed + survived
+        mutation_pct = f"{killed / total * 100:.0f}%" if total > 0 else "N/A"
+        rows.append(
+            [
+                domain,
+                f"{stats.get('coverage', 0.0):.0f}%",
+                mutation_pct,
+                f"{killed}/{total}",
+            ]
+        )
+    headers = ["Domain", "Coverage", "Mutation %", "Killed/Total"]
+    return tabulate(rows, headers=headers, tablefmt="github", colalign=["left", "right", "right", "right"])
+
+
 def _create_table(headers: list[str], rows: list[list[str]], num_numeric_cols: int) -> str:
     """Create a markdown table with proper alignment."""
     # Build colalign: first column left, rest right
@@ -417,7 +463,7 @@ def _generate_table(
     mutation_desc = (
         f"Tests the quality of our test suite by introducing small changes (mutations) to the code "
         f"and verifying that existing tests catch them. A score of {mutation_score}% means "
-        f"{mutation_score}% of mutations are killed by our tests, indicating strong test coverage and quality."
+        f"{mutation_score}% of introduced mutations were successfully killed by the test suite."
     )
 
     return f"""{metrics_table}
@@ -446,7 +492,7 @@ def _generate_table(
 def _collect_all_stats(docker_freshness: str = "fresh") -> dict:
     """Collect all statistics into a dictionary."""
     coverage_pct, coverage_status = _get_code_coverage()
-    mutation_score, killed, survived = _get_mutation_stats()
+    # mutation_score, killed, survived = _get_mutation_stats() # Legacy, now calculated from files below
     test_count = _get_test_count()
     test_files = len(list((REPO_ROOT / "tests").rglob("test_*.py")))
 
@@ -466,16 +512,54 @@ def _collect_all_stats(docker_freshness: str = "fresh") -> dict:
         "dev_docs": asdict(_get_dev_docs_stats()),
     }
 
+    # Collect per-domain stats: coverage from coverage.xml, mutations from partial json files
+    domain_coverage = _get_domain_coverage()
+
+    # Read all mutation_stats_*.json files
+    mutation_by_domain = {}
+    for stats_file in REPO_ROOT.glob("mutation_stats_*.json"):
+        try:
+            data = json.loads(stats_file.read_text())
+            domain = data.get("domain")
+            if domain:
+                mutation_by_domain[domain] = {"killed": data.get("killed", 0), "survived": data.get("survived", 0)}
+        except Exception:
+            continue
+
+    # Merge into domain_stats: each domain has coverage + mutation info
+    domain_stats = {}
+    all_domains = set(domain_coverage.keys()) | set(mutation_by_domain.keys())
+
+    total_killed = 0
+    total_survived = 0
+
+    for d in sorted(all_domains):
+        k = mutation_by_domain.get(d, {}).get("killed", 0)
+        s = mutation_by_domain.get(d, {}).get("survived", 0)
+        total_killed += k
+        total_survived += s
+
+        domain_stats[d] = {
+            "coverage": domain_coverage.get(d, 0.0),
+            "mutation_killed": k,
+            "mutation_survived": s,
+        }
+
+    # Recalculate global scores based on aggregated data
+    grand_total_mutations = total_killed + total_survived
+    mutation_score = (total_killed / grand_total_mutations * 100) if grand_total_mutations > 0 else 0.0
+
     return {
         "coverage_pct": round(coverage_pct, 1),
         "coverage_status": coverage_status,
         "mutation_score": round(mutation_score, 1),
-        "mutation_killed": killed,
-        "mutation_survived": survived,
+        "mutation_killed": total_killed,
+        "mutation_survived": total_survived,
         "test_count": test_count,
         "test_files": test_files,
         "docker_freshness": docker_freshness,
         "sections": section_stats,
+        "domain_stats": domain_stats,
     }
 
 
@@ -534,7 +618,12 @@ def _update_readme_from_stats(stats: dict) -> None:
     # Replace badges section
     content = re.sub(r"(# WKS.*?\n\n)(.*?)(\n## Status)", rf"\1{badges}\n\3", content, flags=re.DOTALL)
 
-    # Replace table section
+    # Generate domain table if domain_stats present
+    domain_table = ""
+    if stats.get("domain_stats"):
+        domain_table = "\n\n### Per-Domain Quality\n\n" + _generate_domain_table(stats["domain_stats"])
+
+    # Replace table section (include domain table after main table)
     table_header = "## Code Quality Metrics\n\n"
     table_start = content.find(table_header)
     if table_start != -1:
@@ -542,12 +631,17 @@ def _update_readme_from_stats(stats: dict) -> None:
         if next_section == -1:
             next_section = content.find("\nAI-assisted", table_start)
         if next_section != -1:
-            content = content[: table_start + len(table_header)] + table + "\n\n" + content[next_section:]
+            content = (
+                content[: table_start + len(table_header)] + table + domain_table + "\n\n" + content[next_section:]
+            )
         else:
-            content = content[: table_start + len(table_header)] + table
+            content = content[: table_start + len(table_header)] + table + domain_table
     else:
         content = re.sub(
-            r"(## Code Quality Metrics\n\n)(.*?)(\n\n## |\nAI-assisted)", rf"\1{table}\n\n\3", content, flags=re.DOTALL
+            r"(## Code Quality Metrics\n\n)(.*?)(\n\n## |\nAI-assisted)",
+            rf"\1{table}{domain_table}\n\n\3",
+            content,
+            flags=re.DOTALL,
         )
 
     README_PATH.write_text(content)

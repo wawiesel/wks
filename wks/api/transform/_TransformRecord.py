@@ -1,25 +1,20 @@
 """Transform record model."""
 
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class _TransformRecord:
+class _TransformRecord(BaseModel):
     """Transform cache record from wks.transform collection."""
 
     file_uri: str
-    cache_uri: str  # URI of cached file (file:///path/to/cache.md)
+    cache_uri: str
     checksum: str
-    size_bytes: int
-    last_accessed: str  # ISO timestamp
-    created_at: str  # ISO timestamp
+    size_bytes: int = Field(default=0)
+    last_accessed: str
+    created_at: str
     engine: str
     options_hash: str
-    referenced_uris: list[str] | None = None
-
-    def __post_init__(self):
-        if self.referenced_uris is None:
-            self.referenced_uris = []
+    referenced_uris: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "_TransformRecord":
@@ -41,27 +36,17 @@ class _TransformRecord:
             file_uri=data["file_uri"],
             cache_uri=cache_uri or "",
             checksum=data["checksum"],
-            size_bytes=data["size_bytes"],
+            size_bytes=data.get("size_bytes") or 0,
             last_accessed=data["last_accessed"],
             created_at=data["created_at"],
             engine=data["engine"],
             options_hash=data["options_hash"],
-            referenced_uris=data.get("referenced_uris", []),
+            referenced_uris=data.get("referenced_uris") or [],
         )
 
     def to_dict(self) -> dict:
         """Convert to MongoDB document."""
-        return {
-            "file_uri": self.file_uri,
-            "cache_uri": self.cache_uri,
-            "checksum": self.checksum,
-            "size_bytes": self.size_bytes,
-            "last_accessed": self.last_accessed,
-            "created_at": self.created_at,
-            "engine": self.engine,
-            "options_hash": self.options_hash,
-            "referenced_uris": self.referenced_uris,
-        }
+        return self.model_dump()
 
     def cache_path_from_uri(self) -> str:
         """Get local path from cache_uri using standard URI parsing."""

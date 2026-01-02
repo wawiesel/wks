@@ -12,6 +12,41 @@ import pytest
 
 from wks.api.config.WKSConfig import WKSConfig
 
+# =============================================================================
+# Pytest tmpdir cleanup race condition fix
+# =============================================================================
+# When using --basetemp with rapid sequential runs (like mutmut), pytest's
+# cleanup_dead_symlinks can race with the next run's startup, causing
+# FileNotFoundError. We patch it to gracefully ignore missing directories.
+
+
+def _safe_cleanup_dead_symlinks(root):
+    """Patched cleanup that ignores missing directories."""
+    try:
+        # Import the original implementation
+
+        for left_dir in root.iterdir():
+            try:
+                if left_dir.is_symlink() and not left_dir.resolve().exists():
+                    left_dir.unlink()
+            except OSError:
+                pass
+    except FileNotFoundError:
+        pass
+    except OSError:
+        pass
+
+
+# Apply the patch on module load
+try:
+    from _pytest import pathlib as pytest_pathlib
+    from _pytest import tmpdir as pytest_tmpdir
+
+    pytest_pathlib.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
+    pytest_tmpdir.cleanup_dead_symlinks = _safe_cleanup_dead_symlinks
+except ImportError:
+    pass
+
 
 def pytest_collection_modifyitems(config, items):
     """Automatically apply markers based on test file location."""
@@ -150,9 +185,17 @@ def minimal_wks_config() -> WKSConfig:
 
 
 @pytest.fixture(name="minimal_config_dict")
-def minimal_config_dict_fixture() -> dict:
-    """Pytest fixture returning a copy of the minimal config dict."""
-    return minimal_config_dict().copy()
+def minimal_config_dict_fixture(tmp_path: Path) -> dict:
+    """Pytest fixture returning a copy of the minimal config dict with isolated paths."""
+    config = minimal_config_dict().copy()
+
+    # Isolate transform cache to valid tmp path
+    # Deep copy needed for nested dictionary if modifying
+    config["transform"] = minimal_config_dict()["transform"].copy()
+    config["transform"]["cache"] = minimal_config_dict()["transform"]["cache"].copy()
+    config["transform"]["cache"]["base_dir"] = str(tmp_path / "transform_cache")
+
+    return config
 
 
 @pytest.fixture(name="minimal_wks_config")

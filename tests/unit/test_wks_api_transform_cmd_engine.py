@@ -6,6 +6,7 @@ from pathlib import Path
 from tests.unit.conftest import run_cmd
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
+from wks.api.transform import TransformEngineOutput
 from wks.api.transform.cmd_engine import cmd_engine
 from wks.api.transform.get_content import get_content
 
@@ -200,3 +201,28 @@ def test_expand_path_fallback(tracked_wks_config, tmp_path, monkeypatch):
 
     res = run_cmd(cmd_engine, engine="test", file_path=f1, overrides={})
     assert res.success is True
+
+
+def test_cmd_engine_error_output_schema_conformance(tracked_wks_config, tmp_path):
+    """Test that error output conforms to TransformEngineOutput schema.
+
+    This test validates that error outputs from cmd_engine can be parsed
+    by the TransformEngineOutput schema model, catching issues like missing
+    required fields (e.g., the 'cached' field).
+    """
+    test_f = tmp_path / "test.txt"
+    test_f.touch()
+
+    # Trigger a transform error using the test engine's failure simulation
+    result = run_cmd(
+        cmd_engine,
+        engine="test",
+        file_path=test_f,
+        overrides={"fail_transform": True},
+    )
+
+    assert result.success is False
+
+    # The output must be valid against TransformEngineOutput schema.
+    # This will raise ValidationError if required fields are missing.
+    TransformEngineOutput.model_validate(result.output)
