@@ -130,15 +130,14 @@ def main() -> None:
         _log("Error: mutmut directive not found in setup.cfg")
         sys.exit(1)
 
-    # Patch paths_to_mutate and runner
-    # We force --basetemp to prevent the 63MB-per-mutant accumulation
-    # Note: mutmut 3.0+ uses 'runner' config. Default is 'python3 -m pytest -x --nf'
+    # Patch paths_to_mutate
+    # Note: mutmut 3.4.0 ignores 'runner' key.
     patched_cfg = re.sub(r"paths_to_mutate\s*=.*", f"paths_to_mutate={domain_path}", original_cfg, flags=re.MULTILINE)
-    runner_line = f"runner = python3 -m pytest -x --nf --basetemp={pytest_btemp}"
-    if "runner =" in patched_cfg:
-        patched_cfg = re.sub(r"runner\s*=.*", runner_line, patched_cfg, flags=re.MULTILINE)
-    else:
-        patched_cfg = patched_cfg.replace("[mutmut]", f"[mutmut]\n{runner_line}")
+
+    # Enforce --basetemp via environment variable.
+    # This is the most robust way to ensure directory reuse across all pytest calls
+    # (including stats collection and mutation runs) without complex setup.cfg patching.
+    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp}"
 
     try:
         with setup_cfg.open("w") as f:
