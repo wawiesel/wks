@@ -157,6 +157,15 @@ def main() -> None:
         # Print disk usage after domain completes, then stats
         _print_disk_usage(f"after {domain}")
         print(f"Stats: Killed={killed}, Survived={survived}")
+        sys.stdout.flush()
+
+        # Clear pytest temp directories after domain to prevent accumulation for next domain
+        for item in tmp_dir.glob("pytest-of-*"):
+            try:
+                shutil.rmtree(item)
+                print(f"  Cleared {item} (post-domain cleanup)")
+            except (PermissionError, OSError):
+                pass
 
         # Output per-domain stats file
         stats = {"domain": domain, "killed": killed, "survived": survived}
