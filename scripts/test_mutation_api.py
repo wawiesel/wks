@@ -35,64 +35,14 @@ def _log(msg: str) -> None:
     sys.stdout.buffer.flush()
 
 
-def _print_disk_usage(label: str) -> None:
-    """Print disk usage for debugging CI space issues."""
-    output = []
-    output.append(f"\n=== Disk Usage ({label}) ===")
-
-    # Root partition free space
+def _get_disk_space() -> str:
+    """Return available disk space as string (e.g. '5.4 GB') or 'unavailable'."""
     try:
         statvfs = os.statvfs("/")
         free_gb = (statvfs.f_frsize * statvfs.f_bavail) / (1024**3)
-        output.append(f"  Root partition: {free_gb:.1f} GB free")
+        return f"{free_gb:.1f} GB"
     except OSError:
-        output.append("  Root partition: (unavailable)")
-
-    # Key paths to check (files and directories)
-    paths_to_check = [
-        REPO_ROOT / "mutants",
-        REPO_ROOT / ".pytest_cache",
-        REPO_ROOT / "coverage.xml",
-        Path("/tmp"),
-        REPO_ROOT / "tmp",
-    ]
-
-    for p in paths_to_check:
-        try:
-            if not p.exists():
-                output.append(f"  {p}: (not found)")
-                continue
-            result = subprocess.run(
-                ["du", "-sh", str(p)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            size = result.stdout.split()[0] if result.stdout else "?"
-            output.append(f"  {p}: {size}")
-        except Exception:
-            output.append(f"  {p}: (error)")
-
-    # Show breakdown of /tmp and workspace tmp contents
-    for tdir in [Path("/tmp"), REPO_ROOT / "tmp"]:
-        if tdir.exists():
-            try:
-                result = subprocess.run(
-                    ["du", "-sh", "--max-depth=1", str(tdir)],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if result.stdout:
-                    lines = result.stdout.strip().split("\n")
-                    output.append(f"  {tdir} breakdown:")
-                    # Sort by size (largest first) and show top 5
-                    for line in sorted(lines, key=lambda x: x.split()[0], reverse=True)[:5]:
-                        output.append(f"    {line}")
-            except Exception:
-                pass
-
-    _log("\n".join(output))
+        return "unavailable"
 
 
 def main() -> None:
@@ -106,7 +56,9 @@ def main() -> None:
     setup_cfg = REPO_ROOT / "setup.cfg"
     mutants_dir = REPO_ROOT / "mutants"
 
-    _log(f">>> Mutating {domain_path}...")
+    disk_msg = _get_disk_space()
+
+    _log(f">>> Mutating {domain_path} (available disk: {disk_msg})...")
 
     # Isolate TMPDIR to workspace
     ws_tmp = REPO_ROOT / "tmp"
@@ -115,23 +67,11 @@ def main() -> None:
 
     # Stable pytest btemp to prevent accumulation (re-use same dir)
     pytest_btemp = ws_tmp / "pytest"
-    pytest_btemp.mkdir(exist_ok=True)
 
-    # Print disk usage at start
-    _print_disk_usage(f"before {domain}")
-
-    # Clear pytest temp directories once at start (clean slate)
-    for tdir in [Path("/tmp"), ws_tmp]:
-        if tdir.exists():
-            for item in tdir.glob("pytest-of-*"):
-                try:
-                    shutil.rmtree(item)
-                    _log(f"  Cleared {item}")
-                except (PermissionError, OSError):
-                    pass
+    # Start with a clean slate
     if pytest_btemp.exists():
         shutil.rmtree(pytest_btemp)
-        pytest_btemp.mkdir()
+    pytest_btemp.mkdir()
 
     # Clear artifacts
     if mutants_dir.exists():
@@ -148,9 +88,11 @@ def main() -> None:
         _log("Error: mutmut directive not found in setup.cfg")
         sys.exit(1)
 
-    # Patch paths_to_mutate
-    # Note: mutmut 3.4.0 ignores 'runner' key.
+    # Patch paths_to_mutate.
     patched_cfg = re.sub(r"paths_to_mutate\s*=.*", f"paths_to_mutate={domain_path}", original_cfg, flags=re.MULTILINE)
+    if not patched_cfg:
+        _log("Error: failed to patch paths_to_mutate in setup.cfg")
+        sys.exit(1)
 
     # Enforce --basetemp via environment variable.
     # This is the most robust way to ensure directory reuse across all pytest calls
@@ -200,6 +142,7 @@ def main() -> None:
 
         if p.returncode != 0:
             _log(f"mutmut run failed with return code {p.returncode}!")
+            sys.exit(1)
 
         # Parse stats from 'mutmut results --all true' (reliable)
         p_results = subprocess.run(
@@ -217,7 +160,7 @@ def main() -> None:
                 survived += 1
 
         # Print disk usage after domain completes, then stats
-        _print_disk_usage(f"after {domain}")
+        _log(f">>> Finished {domain} (available disk: {_get_disk_space()})")
         _log(f"Stats: Killed={killed}, Survived={survived}")
 
         # Output per-domain stats file
