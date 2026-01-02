@@ -16,11 +16,6 @@ jobs:
     name: Smoke Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-
       - uses: actions/checkout@v4
 
 
@@ -35,7 +30,7 @@ jobs:
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           export IMAGE_NAME="ghcr.io/${REPO_LOWER}/ci-runner:v1"
-          ./scripts/docker_shell.sh docker "python3 -m venv .venv && source .venv/bin/activate && pip install . --no-cache-dir && python -m pytest tests/smoke/ -v --tb=short"
+          ./scripts/docker_shell.sh docker "python3 -m venv .venv --system-site-packages && source .venv/bin/activate && pip install . --no-cache-dir && python -m pytest tests/smoke/ -v --tb=short"
 
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:
@@ -75,6 +70,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref || github.ref }}
+          submodules: recursive
+
+      - name: Free Disk Space (Ubuntu)
+        run: ./scripts/ci_cleanup_disk.sh
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -87,6 +86,7 @@ jobs:
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           docker pull ghcr.io/${REPO_LOWER}/ci-runner:v1
+          ./scripts/disk_avail.sh "After image pull"
 
       - name: Run tests in Docker
         id: docker-tests
@@ -115,15 +115,23 @@ jobs:
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
-          # Run mutation tests (now finds mutmut in PATH)
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py --max-children 2 || true
+          # Run mutation tests for each domain found in wks/api
+          docker exec -u testuser "$CONTAINER_ID" /bin/bash -c '
+            for dir in wks/api/*/; do
+              domain=$(basename "$dir")
+              if [ "$domain" != "__pycache__" ]; then
+                python3 scripts/test_mutation_api.py "$domain" || true
+              fi
+            done
+          '
 
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate stats.json inside Docker (has mutmut and all tools)
-          docker exec -u testuser "$CONTAINER_ID" pip3 install --user tabulate --break-system-packages
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/update_readme_stats.py --json-only || true
+
+          ./scripts/disk_avail.sh "After tests"
 
           # Cleanup
           docker rm -f "$CONTAINER_ID"
@@ -133,6 +141,17 @@ jobs:
           fi
           echo "passed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
+
+      - name: Upload coverage and mutation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            coverage.xml
+            stats.json
+            mutants/mutmut-stats.json
+          retention-days: 30
 
       - name: Check test result
         id: test-check
@@ -148,6 +167,8 @@ jobs:
         run: |
            pip install tabulate
            python3 scripts/update_readme_stats.py --from-json
+
+
 
       - name: Check for changes
         id: check-changes
@@ -166,7 +187,7 @@ jobs:
         if: steps.check-changes.outputs.changed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: update statistics [skip ci]"
+          commit_message: "chore: update stats [skip ci]"
           file_pattern: "stats.json README.md"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
@@ -185,7 +206,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.10', '3.11', '3.12']
-
     services:
       mongodb:
         image: mongo:7
@@ -198,12 +218,12 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-
       - uses: actions/checkout@v4
+
+      - name: Free Disk Space (Ubuntu)
+        run: |
+          chmod +x scripts/ci_cleanup_disk.sh
+          ./scripts/ci_cleanup_disk.sh
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4

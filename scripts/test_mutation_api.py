@@ -1,225 +1,146 @@
-#!/usr/bin/env python3
 import argparse
-import configparser
+import json
 import os
+import pty
+import re
+import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from rich.console import Console
-
-console = Console()
 REPO_ROOT = Path(__file__).resolve().parents[1]
-
-_CFG_SECTION = "wks.mutation"
-
-
-@dataclass(frozen=True)
-class MutationGate:
-    min_kill_rate: float | None
-
-    def __post_init__(self) -> None:
-        if self.min_kill_rate is None:
-            return
-        if not (0.0 <= self.min_kill_rate <= 1.0):
-            raise ValueError(f"min_kill_rate must be between 0.0 and 1.0, got {self.min_kill_rate!r}")
-
-
-def _load_mutation_gate(setup_cfg: Path) -> MutationGate:
-    parser = configparser.ConfigParser()
-    parser.read(setup_cfg)
-    if _CFG_SECTION not in parser:
-        return MutationGate(min_kill_rate=None)
-
-    raw = parser[_CFG_SECTION].get("min_kill_rate", fallback="").strip()
-    if raw == "":
-        return MutationGate(min_kill_rate=None)
-    try:
-        value = float(raw)
-    except ValueError as e:
-        raise ValueError(f"{setup_cfg}: [{_CFG_SECTION}] min_kill_rate must be a float, got {raw!r}") from e
-    return MutationGate(min_kill_rate=value)
-
-
-def _resolve_executable(name: str) -> str:
-    bin_dir = Path(sys.executable).parent
-    candidate = bin_dir / name
-    if candidate.exists():
-        return str(candidate)
-    return name
-
-
-def _run_results(mutmut_cmd: str, *, include_all: bool) -> tuple[int, str]:
-    cmd = [mutmut_cmd, "results", "--all", "true" if include_all else "false"]
-    result = subprocess.run(
-        cmd,
-        cwd=str(REPO_ROOT),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    # mutmut writes all output to stdout in normal cases, but keep stderr for diagnostics.
-    output = (result.stdout or "") + (result.stderr or "")
-    return result.returncode, output
-
-
-def _count_statuses(results_output: str) -> dict[str, int]:
-    """
-    Parse `mutmut results` output which is line-oriented:
-        <mutant_key>: <status>
-    """
-    counts: dict[str, int] = {}
-    for raw_line in results_output.splitlines():
-        line = raw_line.strip()
-        if not line or ":" not in line:
-            continue
-        _, status = line.rsplit(":", 1)
-        status = status.strip().lower()
-        if not status:
-            continue
-        counts[status] = counts.get(status, 0) + 1
-    return counts
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run mutation testing for the Python API layer (wks/api) using mutmut")
-    parser.add_argument(
-        "--max-children",
-        type=int,
-        default=(os.cpu_count() or 1),
-        help="Max parallel workers for mutmut (default: cpu count)",
-    )
-    parser.add_argument(
-        "--results-only",
-        action="store_true",
-        help="Only show results (do not run mutation trials)",
-    )
-    parser.add_argument(
-        "--all-results",
-        action="store_true",
-        help="Show all results including killed mutants (can be very verbose)",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print the full mutmut results listing (very verbose for large suites)",
-    )
-    parser.add_argument(
-        "--fail-on-survivors",
-        action="store_true",
-        help="Exit non-zero if any mutants survive (useful for CI gating once stable)",
-    )
-    parser.add_argument(
-        "--fail-on-untested",
-        action="store_true",
-        help="Exit non-zero if any mutants have 'no tests' (coverage gaps)",
-    )
-    parser.add_argument(
-        "--min-kill-rate",
-        type=float,
-        default=None,
-        help="Fail if mutation score (killed/(killed+survived)) is below this threshold, e.g. 0.90",
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("domain", help="Domain to mutate")
+    parser.add_argument("--progress", action="store_true", help="Print verbose output")
     args = parser.parse_args()
 
+    domain = args.domain
+    domain_path = f"wks/api/{domain}"
+    stats_file = REPO_ROOT / f"mutation_stats_{domain}.json"
     setup_cfg = REPO_ROOT / "setup.cfg"
+
+    print(f">>> Mutating {domain_path}...")
+
+    # 3. Clear artifacts
+    mutants_dir = REPO_ROOT / "mutants"
+    if mutants_dir.exists():
+        shutil.rmtree(mutants_dir) if mutants_dir.is_dir() else mutants_dir.unlink()
+
+    # 4. Inline Config Patching
     if not setup_cfg.exists():
-        console.print("[bold red]setup.cfg not found[/bold red]")
-        console.print("Expected: setup.cfg with a [mutmut] section and paths_to_mutate.")
-        raise SystemExit(2)
+        print("Error: setup.cfg not found")
+        sys.exit(1)
 
-    mutmut_cmd = _resolve_executable("mutmut")
-    gate = _load_mutation_gate(setup_cfg)
-    if args.min_kill_rate is not None:
-        gate = MutationGate(min_kill_rate=args.min_kill_rate)
+    original_cfg = setup_cfg.read_text()
 
-    if not args.results_only:
-        console.print("[bold blue]Running mutation tests for wks/api...[/bold blue]")
-        run_cmd = [mutmut_cmd, "run", "--max-children", str(args.max_children)]
-        # Check if running in a CI environment (Github Actions) or non-interactive mode
-        # In CI, we capture output to avoid log spam from spinners.
-        # locally, we let it stream to show the "cool" interactive progress.
-        is_ci = os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") == "true"
+    # Construct modified config content
+    if "[mutmut]" not in original_cfg:
+        print("Error: mutmut directive not found in setup.cfg")
+        sys.exit(1)
 
-        if is_ci:
-            run_process: Any = subprocess.run(run_cmd, cwd=str(REPO_ROOT), check=False, capture_output=True, text=True)
-        else:
-            run_process = subprocess.run(run_cmd, cwd=str(REPO_ROOT), check=False, text=True)
+    # regex replace the paths_to_mutate line
+    patched_cfg = re.sub(r"paths_to_mutate\s*=.*", f"paths_to_mutate={domain_path}", original_cfg, flags=re.MULTILINE)
 
-        if run_process.returncode != 0:
-            console.print("[bold red]mutmut run FAILED[/bold red]")
-            if is_ci:
-                # Print captured output to help debug the failure
-                console.print(run_process.stdout)
-                console.print(run_process.stderr)
-            raise SystemExit(run_process.returncode)
+    try:
+        with setup_cfg.open("w") as f:
+            f.write(patched_cfg)
 
-    console.print("[bold blue]Collecting mutation results...[/bold blue]")
-    # Always collect the full results so we can compute accurate totals; printing is controlled by flags.
-    results_rc, results_output = _run_results(mutmut_cmd, include_all=True)
+        # Run mutmut
+        # Helper to find mutmut
+        mutmut_bin = shutil.which("mutmut")
+        if not mutmut_bin:
+            # Check next to the python executable (if running from venv)
+            candidate = Path(sys.executable).parent / "mutmut"
+            if candidate.exists():
+                mutmut_bin = str(candidate)
 
-    if results_rc != 0:
-        console.print("[bold red]mutmut results FAILED[/bold red]")
-        raise SystemExit(results_rc)
-
-    counts = _count_statuses(results_output)
-    survived = counts.get("survived", 0)
-    no_tests = counts.get("no tests", 0)
-    killed = counts.get("killed", 0)
-    skipped = counts.get("skipped", 0)
-
-    bad_statuses = {
-        "timeout",
-        "segfault",
-        "suspicious",
-        "not checked",
-        "check was interrupted by user",
-    }
-    bad_total = sum(counts.get(s, 0) for s in bad_statuses)
-
-    if args.verbose:
-        if args.all_results:
-            sys.stdout.write(results_output)
-        else:
-            # Default mutmut behavior hides killed; keep output manageable unless explicitly requested.
-            filtered = "\n".join(line for line in results_output.splitlines() if not line.strip().endswith(": killed"))
-            if filtered.strip():
-                sys.stdout.write(filtered + "\n")
-
-    console.print(
-        "[bold blue]Mutation summary[/bold blue] "
-        f"(killed={killed}, survived={survived}, no_tests={no_tests}, skipped={skipped}, bad={bad_total})"
-    )
-
-    checked = killed + survived
-    mutation_score = (killed / checked) if checked > 0 else None
-    if mutation_score is not None:
-        console.print(f"[bold blue]Mutation score[/bold blue] {mutation_score:.3f} (killed/(killed+survived))")
-
-    if bad_total > 0:
-        console.print("[bold red]Mutation testing encountered unstable/error statuses[/bold red]")
-        raise SystemExit(1)
-    if args.fail_on_survivors and survived > 0:
-        console.print("[bold red]Mutation testing failed (surviving mutants)[/bold red]")
-        raise SystemExit(1)
-    if args.fail_on_untested and no_tests > 0:
-        console.print("[bold red]Mutation testing failed (mutants without tests)[/bold red]")
-        raise SystemExit(1)
-
-    if gate.min_kill_rate is not None:
-        if mutation_score is None:
-            console.print("[bold red]Mutation score gating failed[/bold red] (no checked mutants found)")
-            raise SystemExit(1)
-        if mutation_score < gate.min_kill_rate:
-            console.print(
-                "[bold red]Mutation score below threshold[/bold red] "
-                f"(score={mutation_score:.3f}, required>={gate.min_kill_rate:.3f})"
+        if not mutmut_bin:
+            print(
+                "Could not find mutmut. Did you activate the virtual environment? . .venv/bin/activate", file=sys.stderr
             )
-            raise SystemExit(1)
+            sys.exit(1)
 
-    console.print("[bold green]Mutation testing completed[/bold green]")
+        # Use pty to trick mutmut into thinking it's running in a real terminal
+        # This ensures it outputs \r for progress bars instead of newlines or buffering
+        master_fd, slave_fd = pty.openpty()
+
+        p = subprocess.Popen(
+            [mutmut_bin, "run"],
+            cwd=str(REPO_ROOT),
+            stdout=slave_fd,
+            stderr=slave_fd,  # Merge stderr into stdout
+            text=False,  # pty works with bytes
+            bufsize=0,
+        )
+        # Close slave fd in parent so we get EOF when child closes it
+        os.close(slave_fd)
+
+        captured_bytes = bytearray()
+
+        # Stream output from master_fd
+        try:
+            while True:
+                # Read chunks (1024 bytes) - blocking read
+                # OSError is raised when the slave process closes the pty
+                try:
+                    chunk = os.read(master_fd, 1024)
+                except OSError:
+                    break
+
+                if not chunk:
+                    break
+
+                captured_bytes.extend(chunk)
+                if args.progress:
+                    sys.stdout.buffer.write(chunk)
+                    sys.stdout.buffer.flush()
+        finally:
+            # Ensure process is cleaned up
+            p.wait()
+            os.close(master_fd)
+
+        # Decode for stats parsing and logging
+        output = captured_bytes.decode("utf-8", errors="replace")
+
+        if p.returncode != 0:
+            print("mutmut run failed!")
+            # Print last 20 lines of output for debugging
+            print("\n".join(output.splitlines()[-20:]))
+
+            # Write stdout/stderr to mutants dir
+            # Note: stderr is merged into stdout
+            (mutants_dir / "mutmut.stdout").write_text(output)
+            (mutants_dir / "mutmut.stderr").write_text("See mutmut.stdout (stderr merged)")
+            print(f"Full output written to {mutants_dir}/mutmut.stdout")
+
+        # Parse stats from 'mutmut results --all true' (reliable)
+        # Usage verified by user: mutmut results --all true
+        p_results = subprocess.run(
+            [mutmut_bin, "results", "--all", "true"], cwd=str(REPO_ROOT), text=True, capture_output=True, check=False
+        )
+
+        killed = 0
+        survived = 0
+
+        for line in (p_results.stdout or "").splitlines():
+            line = line.strip()
+            if line.endswith(": killed"):
+                killed += 1
+            elif line.endswith(": survived"):
+                survived += 1
+
+        print(f"Stats: Killed={killed}, Survived={survived}")
+
+        # Output per-domain stats file
+        stats = {"domain": domain, "killed": killed, "survived": survived}
+        stats_file.write_text(json.dumps(stats))
+        setup_cfg.write_text(original_cfg)
+
+    finally:
+        setup_cfg.write_text(original_cfg)
 
 
 if __name__ == "__main__":

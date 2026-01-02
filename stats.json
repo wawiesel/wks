@@ -2,27 +2,94 @@
   "coverage_pct": 80.1,
   "coverage_status": "\u26a0\ufe0f Below Target",
   "docker_freshness": "fresh",
+  "domain_stats": {
+    "cat": {
+      "coverage": 94.4,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "config": {
+      "coverage": 100.0,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "daemon": {
+      "coverage": 83.0,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "database": {
+      "coverage": 91.2,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "diff": {
+      "coverage": 0.0,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "link": {
+      "coverage": 98.4,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "log": {
+      "coverage": 93.9,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "mcp": {
+      "coverage": 97.1,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "monitor": {
+      "coverage": 99.4,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "service": {
+      "coverage": 68.8,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "transform": {
+      "coverage": 86.6,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "utils": {
+      "coverage": 100.0,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    },
+    "vault": {
+      "coverage": 100.0,
+      "mutation_killed": 0,
+      "mutation_survived": 0
+    }
+  },
   "mutation_killed": 0,
   "mutation_score": 0.0,
   "mutation_survived": 0,
   "sections": {
     "api": {
-      "chars": 401401,
+      "chars": 401392,
       "files": 171,
-      "loc": 11324,
-      "tokens": 63785
+      "loc": 11325,
+      "tokens": 63805
     },
     "build_config": {
-      "chars": 4792,
+      "chars": 3906,
       "files": 5,
-      "loc": 186,
-      "tokens": 1197
+      "loc": 167,
+      "tokens": 975
     },
     "cicd": {
-      "chars": 10470,
+      "chars": 11084,
       "files": 4,
-      "loc": 354,
-      "tokens": 2617
+      "loc": 373,
+      "tokens": 2771
     },
     "cli": {
       "chars": 47576,
@@ -31,10 +98,10 @@
       "tokens": 9186
     },
     "dev_docs": {
-      "chars": 78462,
-      "files": 22,
-      "loc": 1831,
-      "tokens": 19608
+      "chars": 110079,
+      "files": 46,
+      "loc": 2745,
+      "tokens": 27512
     },
     "integration": {
       "chars": 49084,
@@ -49,10 +116,10 @@
       "tokens": 3396
     },
     "scripts": {
-      "chars": 58530,
-      "files": 13,
-      "loc": 1703,
-      "tokens": 11715
+      "chars": 59788,
+      "files": 15,
+      "loc": 1759,
+      "tokens": 11926
     },
     "smoke": {
       "chars": 12693,
@@ -61,16 +128,16 @@
       "tokens": 2011
     },
     "specs": {
-      "chars": 117453,
+      "chars": 118031,
       "files": 29,
-      "loc": 3310,
-      "tokens": 29363
+      "loc": 3326,
+      "tokens": 29507
     },
     "unit": {
-      "chars": 283262,
-      "files": 82,
-      "loc": 8207,
-      "tokens": 50866
+      "chars": 285291,
+      "files": 83,
+      "loc": 8262,
+      "tokens": 51146
     },
     "user_docs": {
       "chars": 7065,
@@ -85,6 +152,6 @@
       "tokens": 2712
     }
   },
-  "test_count": 451,
-  "test_files": 92
+  "test_count": 456,
+  "test_files": 93
 }

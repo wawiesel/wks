@@ -31,10 +31,8 @@ if grep -q "Downloading" "$LOG_FILE" || grep -q "Collecting" "$LOG_FILE"; then
     echo "::error title=Docker Image Stale::Dependencies were downloaded! The ci-runner image is out of date."
 
     rm "$LOG_FILE"
-    # We exit 0 because the build technically succeeded (deps installed),
-    # but we've warned the user.
-    # User can decide if they want to fail on stale image by checking the annotation.
-    exit 0
+    # Exit 1 so the workflow fails and the badge turns red/failure.
+    exit 1
 else
     echo "✅ Docker image is fresh (no dependencies downloaded)."
     rm "$LOG_FILE"
