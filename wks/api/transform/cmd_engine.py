@@ -7,8 +7,8 @@ from typing import Any
 
 from ...api.StageResult import StageResult
 from ...utils.path_to_uri import path_to_uri
+from . import TransformEngineOutput
 from ._get_controller import _get_controller
-from ._TransformResult import _TransformResult
 
 
 def cmd_engine(
@@ -76,8 +76,9 @@ def cmd_engine(
 
                 yield (1.0, "Complete")
 
-                result_data = _TransformResult(
-                    source_uri=path_to_uri(file_path),  # Let path_to_uri handle normalization
+                result_obj.result = f"Transformed {file_path.name} ({cache_key[:8]})"
+                result_obj.output = TransformEngineOutput(
+                    source_uri=path_to_uri(file_path),
                     destination_uri=path_to_uri(cache_location),
                     engine=engine,
                     status="success",
@@ -85,26 +86,26 @@ def cmd_engine(
                     output_content=output_content,
                     processing_time_ms=processing_time_ms,
                     cached=cached,
-                )
-
-                result_obj.result = f"Transformed {file_path.name} ({cache_key[:8]})"
-                result_obj.output = result_data.model_dump()
+                    errors=[],
+                    warnings=[],
+                ).model_dump(mode="python")
                 result_obj.success = True
 
         except Exception as e:
             yield (1.0, "Failed")
             result_obj.result = str(e)
-            result_obj.output = {
-                "source_uri": path_to_uri(file_path),  # Let path_to_uri handle normalization
-                "destination_uri": None,
-                "engine": engine,
-                "status": "error",
-                "checksum": None,
-                "output_content": None,
-                "processing_time_ms": None,
-                "errors": [str(e)],
-                "warnings": [],
-            }
+            result_obj.output = TransformEngineOutput(
+                source_uri=path_to_uri(file_path),
+                destination_uri="",
+                engine=engine,
+                status="error",
+                checksum="",
+                output_content=None,
+                processing_time_ms=0,
+                cached=False,
+                errors=[str(e)],
+                warnings=[],
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 

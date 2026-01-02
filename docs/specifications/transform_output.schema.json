@@ -44,6 +44,20 @@
                 "cached": {
                     "type": "boolean",
                     "description": "Whether the result was served from cache"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of error messages, empty if no errors"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of warning messages, empty if no warnings"
                 }
             },
             "required": [
@@ -54,7 +68,9 @@
                 "checksum",
                 "output_content",
                 "processing_time_ms",
-                "cached"
+                "cached",
+                "errors",
+                "warnings"
             ]
         },
         "TransformListOutput": {
