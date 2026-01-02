@@ -46,6 +46,25 @@ def _print_disk_usage(label: str) -> None:
             print(f"  {p}: {size}")
         except Exception:
             print(f"  {p}: (error)")
+
+    # Show breakdown of /tmp contents (top consumers)
+    tmp_dir = Path("/tmp")
+    if tmp_dir.exists():
+        try:
+            result = subprocess.run(
+                ["du", "-sh", "--max-depth=1", str(tmp_dir)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.stdout:
+                lines = result.stdout.strip().split("\n")
+                # Sort by size (largest first) and show top 5
+                print("  /tmp breakdown:")
+                for line in sorted(lines, key=lambda x: x.split()[0], reverse=True)[:5]:
+                    print(f"    {line}")
+        except Exception:
+            pass
     print()
 
 
