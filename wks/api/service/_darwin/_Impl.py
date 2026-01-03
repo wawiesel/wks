@@ -7,6 +7,9 @@ from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from ..ServiceStatus import ServiceStatus
+
 from ...config.WKSConfig import WKSConfig
 from .._AbstractImpl import _AbstractImpl
 from ..ServiceConfig import ServiceConfig
@@ -239,12 +242,12 @@ class _Impl(_AbstractImpl):
                     check=False,
                 )
                 if result.returncode == 0:
-                    status.running = True
                     # Parse output for PID
                     for line in result.stdout.splitlines():
                         if line.strip().startswith("pid ="):
                             with suppress(ValueError, IndexError):
                                 status.pid = int(line.split("=", 1)[1].strip())
+                                status.running = True
             except Exception:
                 pass
 
