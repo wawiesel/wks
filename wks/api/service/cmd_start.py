@@ -49,10 +49,8 @@ def cmd_start() -> StageResult:
         try:
             with Service(config.service) as service:
                 service_status = service.get_service_status()
-                if "installed" not in service_status:
-                    raise KeyError("get_service_status() result missing required 'installed' field")
 
-                if not service_status["installed"]:
+                if not service_status.installed:
                     yield (1.0, "Complete")
                     error_msg = (
                         "Service is not installed. Use 'wksc service install' to install the service, "

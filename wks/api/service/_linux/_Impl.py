@@ -4,12 +4,15 @@ import shutil
 import subprocess
 from contextlib import suppress
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...config.WKSConfig import WKSConfig
 from .._AbstractImpl import _AbstractImpl
 from ..ServiceConfig import ServiceConfig
 from ._Data import _Data
+
+if TYPE_CHECKING:
+    from ..ServiceStatus import ServiceStatus
 
 
 class _Impl(_AbstractImpl):
@@ -197,16 +200,18 @@ WantedBy=default.target
             "unit_name": self._data.unit_name,
         }
 
-    def get_service_status(self) -> dict[str, Any]:
+    def get_service_status(self) -> "ServiceStatus":
         """Get daemon Linux systemd user service status."""
+        from ..ServiceStatus import ServiceStatus
+
         unit_path = self._get_unit_path(self._data.unit_name)
 
-        status: dict[str, Any] = {
-            "installed": unit_path.exists(),
-            "unit_path": str(unit_path),
-        }
+        status = ServiceStatus(
+            installed=unit_path.exists(),
+            unit_path=str(unit_path),
+        )
 
-        if status["installed"]:
+        if status.installed:
             try:
                 # Check if service is active
                 result = subprocess.run(
@@ -215,10 +220,10 @@ WantedBy=default.target
                     text=True,
                     check=False,
                 )
-                status["running"] = result.returncode == 0
+                status.running = result.returncode == 0
 
                 # Get PID if running
-                if status["running"]:
+                if status.running:
                     pid_result = subprocess.run(
                         ["systemctl", "--user", "show", self._data.unit_name, "--property=MainPID", "--value"],
                         capture_output=True,
@@ -229,7 +234,7 @@ WantedBy=default.target
                         pid_str = pid_result.stdout.strip()
                         if pid_str and pid_str != "0":
                             with suppress(ValueError):
-                                status["pid"] = int(pid_str)
+                                status.pid = int(pid_str)
             except Exception:
                 pass
 
@@ -257,12 +262,12 @@ WantedBy=default.target
 
             time.sleep(0.5)  # Give service a moment to start
             status = self.get_service_status()
-            if status.get("running"):
+            if status.running:
                 return {
                     "success": True,
                     "type": "linux",
                     "unit_name": self._data.unit_name,
-                    "pid": status.get("pid"),
+                    "pid": status.pid,
                 }
             else:
                 log_path = WKSConfig.get_home_dir() / "logs" / "service.log"

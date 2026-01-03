@@ -2,7 +2,10 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .ServiceStatus import ServiceStatus
 
 
 class _AbstractImpl(ABC):
@@ -34,11 +37,11 @@ class _AbstractImpl(ABC):
         pass
 
     @abstractmethod
-    def get_service_status(self) -> dict[str, Any]:
+    def get_service_status(self) -> "ServiceStatus":
         """Get daemon service status.
 
         Returns:
-            Dictionary with service status information (installed, pid, etc.)
+            ServiceStatus object with service status information.
         """
         pass
 

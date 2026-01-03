@@ -34,9 +34,8 @@ def cmd_stop() -> StageResult:
                 # Check if service is installed
                 yield (0.5, "Checking service status...")
                 service_status = service.get_service_status()
-                if "installed" not in service_status:
-                    raise KeyError("get_service_status() result missing required 'installed' field")
-                if not service_status["installed"]:
+
+                if not service_status.installed:
                     yield (1.0, "Complete")
                     result_obj.result = "Error: Service not installed."
                     result_obj.output = ServiceStopOutput(
