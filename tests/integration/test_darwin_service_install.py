@@ -224,6 +224,8 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
         stop_result = service.stop_service()
         assert stop_result["success"] is True
 
+        time.sleep(2)  # Give service time to stop
+
         # 6. Check status (should be installed but not running)
         status = service.get_service_status()
         assert status.installed is True
