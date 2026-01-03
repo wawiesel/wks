@@ -46,6 +46,22 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     This test REQUIRES macOS (Darwin) and launchctl.
     On non-macOS platforms, this test is skipped (we test platform-specific code on the appropriate platform).
     """
+
+    def _wait_for_status(service, running: bool, timeout_sec: int = 10):
+        import time
+
+        start = time.time()
+        while time.time() - start < timeout_sec:
+            status = service.get_service_status()
+            if status.installed and status.running == running:
+                return status
+            time.sleep(0.5)
+        # Final check
+        status = service.get_service_status()
+        assert status.installed is True
+        assert status.running is running, f"Service failed to reach running={running} within {timeout_sec}s"
+        return status
+
     # Only run on macOS - test platform-specific code on the appropriate platform
     if platform.system() != "Darwin":
         pytest.skip(f"macOS service tests only run on macOS (current platform: {platform.system()})")
@@ -214,20 +230,15 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
         assert start_result["pid"] is not None
 
         # 4. Check status again (should be installed and running)
-        time.sleep(2)  # Give it a moment
-        status = service.get_service_status()
-        assert status.installed is True
-        assert status.running is True
+        status = _wait_for_status(service, running=True)
         assert status.pid is not None
 
         # 5. Stop service
         stop_result = service.stop_service()
         assert stop_result["success"] is True
 
-        time.sleep(2)  # Give service time to stop
-
         # 6. Check status (should be installed but not running)
-        status = service.get_service_status()
+        status = _wait_for_status(service, running=False)
         assert status.installed is True
         assert status.running is False
 
