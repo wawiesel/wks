@@ -31,7 +31,9 @@ class MyersEngine(DiffEngine):
             raise ValueError(f"{file2} is not a text file or has unsupported encoding")
 
         # Get context lines option
-        context_lines = options.get("context_lines", 3)
+        context_lines = 3
+        if "context_lines" in options:
+            context_lines = options["context_lines"]
 
         # Run diff command
         cmd = ["diff", f"-U{context_lines}", str(file1), str(file2)]

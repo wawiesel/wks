@@ -35,7 +35,9 @@ class _CacheManager:
         try:
             with self.cache_json.open() as f:
                 data = json.load(f)
-            return data.get("total_size_bytes", 0)
+            if "total_size_bytes" in data:
+                return data["total_size_bytes"]
+            return 0
         except Exception:
             return 0
 
@@ -63,8 +65,10 @@ class _CacheManager:
         for doc in cursor:
             if total_freed >= bytes_needed:
                 break
-            size_bytes = doc.get("size_bytes") or 0
-            entries.append((doc["checksum"], size_bytes, doc.get("cache_uri") or ""))
+            size_bytes = doc["size_bytes"]
+            # Enforce strict access. If these are missing, the DB record is corrupt.
+            # NoHedging: Do not invent 0 or "" for missing data.
+            entries.append((doc["checksum"], size_bytes, doc["cache_uri"]))
             total_freed += size_bytes
 
         return entries

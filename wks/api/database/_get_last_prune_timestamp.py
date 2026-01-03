@@ -21,10 +21,12 @@ def _get_last_prune_timestamp(database_name: str) -> datetime | None:
 
     try:
         data = json.loads(status_path.read_text())
-        timestamps = data.get("prune_timestamps", {})
-        ts_str = timestamps.get(database_name)
-        if ts_str:
-            return datetime.fromisoformat(ts_str)
+        if "prune_timestamps" in data:
+            timestamps = data["prune_timestamps"]
+            if database_name in timestamps:
+                ts_str = timestamps[database_name]
+                if ts_str:
+                    return datetime.fromisoformat(ts_str)
     except Exception:
         pass
     return None

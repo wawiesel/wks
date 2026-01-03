@@ -121,13 +121,18 @@ class _Scanner:
 
         parser = MarkdownParser()
         for link in parser.parse(text):
+            # Resolve heading strictly
+            heading = ""
+            if link.line_number in headings:
+                heading = headings[link.line_number]
+
             if link.link_type == "wikilink":
                 record = self._build_wikilink_record(
                     note_path=note_path,
                     line_number=link.line_number,
                     column_number=link.column_number,
                     raw_line=lines[link.line_number - 1],
-                    heading=headings.get(link.line_number, ""),
+                    heading=heading,
                     target=link.raw_target,
                     alias=link.alias,
                     is_embed=link.is_embed,
@@ -144,7 +149,7 @@ class _Scanner:
                     line_number=link.line_number,
                     column_number=link.column_number,
                     raw_line=lines[link.line_number - 1],
-                    heading=headings.get(link.line_number, ""),
+                    heading=heading,
                     url=link.raw_target,
                     alias=link.alias,
                 )
