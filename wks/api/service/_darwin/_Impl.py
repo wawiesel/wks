@@ -5,12 +5,18 @@ import shutil
 import subprocess
 from contextlib import suppress
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..ServiceStatus import ServiceStatus
 
 from ...config.WKSConfig import WKSConfig
 from .._AbstractImpl import _AbstractImpl
 from ..ServiceConfig import ServiceConfig
 from ._Data import _Data
+
+if TYPE_CHECKING:
+    from ..ServiceStatus import ServiceStatus
 
 
 class _Impl(_AbstractImpl):
@@ -215,17 +221,19 @@ class _Impl(_AbstractImpl):
             "label": self._data.label,
         }
 
-    def get_service_status(self) -> dict[str, Any]:
+    def get_service_status(self) -> "ServiceStatus":
         """Get daemon macOS launchd service status."""
+        from ..ServiceStatus import ServiceStatus
+
         plist_path = self._get_plist_path(self._data.label)
         uid = os.getuid()
 
-        status: dict[str, Any] = {
-            "installed": plist_path.exists(),
-            "plist_path": str(plist_path),
-        }
+        status = ServiceStatus(
+            installed=plist_path.exists(),
+            unit_path=str(plist_path),
+        )
 
-        if status["installed"]:
+        if status.installed:
             try:
                 result = subprocess.run(
                     ["launchctl", "print", f"gui/{uid}/{self._data.label}"],
@@ -234,11 +242,12 @@ class _Impl(_AbstractImpl):
                     check=False,
                 )
                 if result.returncode == 0:
+                    status.running = True
                     # Parse output for PID
                     for line in result.stdout.splitlines():
                         if line.strip().startswith("pid ="):
                             with suppress(ValueError, IndexError):
-                                status["pid"] = int(line.split("=", 1)[1].strip())
+                                status.pid = int(line.split("=", 1)[1].strip())
             except Exception:
                 pass
 
@@ -275,13 +284,13 @@ class _Impl(_AbstractImpl):
 
                 time.sleep(0.5)  # Give service a moment to start
                 status = self.get_service_status()
-                if "pid" in status:
+                if status.pid:
                     return {
                         "success": True,
                         "type": "darwin",
                         "label": self._data.label,
                         "action": "bootstrapped",
-                        "pid": status["pid"],
+                        "pid": status.pid,
                     }
                 else:
                     log_path = WKSConfig.get_home_dir() / "logs" / "service.log"
@@ -309,13 +318,13 @@ class _Impl(_AbstractImpl):
 
             time.sleep(0.5)  # Give service a moment to start
             status = self.get_service_status()
-            if "pid" in status:
+            if status.pid:
                 return {
                     "success": True,
                     "type": "darwin",
                     "label": self._data.label,
                     "action": "kickstarted",
-                    "pid": status["pid"],
+                    "pid": status.pid,
                 }
             else:
                 # Service didn't start - check logs

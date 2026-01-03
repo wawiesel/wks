@@ -13,6 +13,7 @@ from tests.unit.conftest import run_cmd
 from wks.api.service import ServiceStartOutput, cmd_start
 from wks.api.service.Service import Service
 from wks.api.service.ServiceConfig import ServiceConfig
+from wks.api.service.ServiceStatus import ServiceStatus
 
 pytestmark = pytest.mark.daemon
 
@@ -25,7 +26,9 @@ def test_cmd_start_success(tracked_wks_config, monkeypatch):
     )  # type: ignore
     # Mock backend implementation
     mock_impl = MagicMock()
-    mock_impl.get_service_status.return_value = {"installed": True, "running": False}
+    mock_impl.get_service_status.return_value = ServiceStatus(
+        installed=True, unit_path="/tmp/test.plist", running=False
+    )
     mock_impl.start_service.return_value = {"success": True, "label": "com.test.wks"}
 
     mock_impl_class = MagicMock(return_value=mock_impl)
@@ -87,7 +90,7 @@ def test_cmd_start_not_installed(tracked_wks_config, monkeypatch):
 
     # Mock Service context manager and get_service_status
     mock_service = MagicMock()
-    mock_service.get_service_status.return_value = {"installed": False}
+    mock_service.get_service_status.return_value = ServiceStatus(installed=False, unit_path="", running=False)
 
     # We mock Service class constructor to return a context manager that yields mock_service
     mock_service_cls = MagicMock()
