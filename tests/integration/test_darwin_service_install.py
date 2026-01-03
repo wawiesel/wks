@@ -16,7 +16,6 @@ from pathlib import Path
 import pytest
 
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.service.Service import Service
 
 
 def _check_launchctl_available() -> bool:
@@ -176,77 +175,90 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     if not wksc_path:
         pytest.skip("wksc command not found in PATH - install package with 'pip install -e .'")
 
-    # Initialize service
-    with Service(config.service) as service:
-        # 1. Install service
-        install_result = service.install_service()
-        assert install_result["success"] is True
-        assert install_result["type"] == "darwin"
-        assert install_result["label"] == "com.test.wks.integration"
-        assert Path(install_result["plist_path"]).exists()
-        assert plist_path.exists()
+    from tests.conftest import run_cmd
+    from wks.api.service.cmd_install import cmd_install
+    from wks.api.service.cmd_start import cmd_start
+    from wks.api.service.cmd_status import cmd_status
+    from wks.api.service.cmd_stop import cmd_stop
+    from wks.api.service.cmd_uninstall import cmd_uninstall
 
-        # 2. Check status (should be installed but may or may not be running depending on run_at_load)
-        status = service.get_service_status()
-        assert status.installed is True
-        # run_at_load is False, so it should not be running initially
-        assert status.running is False
+    # 1. Install service
+    result = run_cmd(cmd_install)
+    assert result.success is True
+    # ServiceInstallOutput output only has: errors, warnings, message, installed
+    assert result.output["installed"] is True
+    assert plist_path.exists()
 
-        # 3. Start service
-        # Note: The service might fail to actually run the daemon (due to config issues),
-        # but we're testing the service lifecycle, not the daemon functionality
-        start_result = service.start_service()
+    # 2. Check status (should be installed but may or may not be running depending on run_at_load)
+    result = run_cmd(cmd_status)
+    assert result.success is True
+    assert result.output["installed"] is True
+    # run_at_load is False, so it should not be running initially
+    assert result.output["running"] is False
 
-        # Even if start_service reports failure, check if service was loaded in launchctl
-        # The daemon might fail to run, but the service should still be loadable
-        import time
+    # 3. Start service
+    # Note: The service might fail to actually run the daemon (due to config issues),
+    # but we're testing the service lifecycle, not the daemon functionality
+    result = run_cmd(cmd_start)
 
-        time.sleep(0.5)  # Give launchctl time to register the service
+    # Even if start_service reports failure, check if service was loaded in launchctl
+    # The daemon might fail to run, but the service should still be loadable
+    import time
 
-        # Verify service is loaded in launchctl (even if daemon failed to run)
-        result = subprocess.run(
-            ["launchctl", "print", service_domain],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+    time.sleep(0.5)  # Give launchctl time to register the service
 
-        if result.returncode != 0:
-            # Service not loaded - this is a real failure
-            error_msg = (
-                start_result.get("error", "Unknown error") if not start_result.get("success") else "Service not loaded"
-            )
-            log_path = wks_home / "logs" / "service.log"
-            log_content = ""
-            if log_path.exists():
-                log_content = f"\nLog file contents:\n{log_path.read_text()[-500:]}"
-            pytest.fail(f"Service not loaded in launchctl: {error_msg}{log_content}")
+    # Verify service is loaded in launchctl (even if daemon failed to run)
+    proc_result = subprocess.run(
+        ["launchctl", "print", service_domain],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
-        # Service is loaded - that's what we're testing
-        # We don't require a PID since the daemon might fail to start due to config issues
-        status = service.get_service_status()
-        assert status.installed is True
-        assert start_result["success"] is True
-        assert start_result["pid"] is not None
+    if proc_result.returncode != 0:
+        # Service not loaded - this is a real failure
+        error_msg = result.result
+        log_path = wks_home / "logs" / "service.log"
+        log_content = ""
+        if log_path.exists():
+            log_content = f"\nLog file contents:\n{log_path.read_text()[-500:]}"
+        pytest.fail(f"Service not loaded in launchctl: {error_msg}{log_content}")
 
-        # 4. Check status again (should be installed and running)
-        status = _wait_for_status(service, running=True)
-        assert status.pid is not None
+    # Service is loaded - that's what we're testing
+    # We don't require a PID since the daemon might fail to start due to config issues
+    assert result.success is True
 
-        # 5. Stop service
-        stop_result = service.stop_service()
-        assert stop_result["success"] is True
+    # 4. Check status again (should be installed and running)
+    def _wait_for_cmd_status(running: bool, timeout_sec: int = 10):
+        start = time.time()
+        while time.time() - start < timeout_sec:
+            res = run_cmd(cmd_status)
+            if res.output["installed"] and res.output["running"] == running:
+                return res
+            time.sleep(0.5)
+        # Final check
+        res = run_cmd(cmd_status)
+        assert res.output["installed"] is True
+        assert res.output["running"] is running, f"Service failed to reach running={running} within {timeout_sec}s"
+        return res
 
-        # 6. Check status (should be installed but not running)
-        status = _wait_for_status(service, running=False)
-        assert status.installed is True
-        assert status.running is False
+    result = _wait_for_cmd_status(running=True)
+    assert result.output["pid"] is not None
 
-        # 7. Uninstall service
-        uninstall_result = service.uninstall_service()
-        assert uninstall_result["success"] is True
+    # 5. Stop service
+    result = run_cmd(cmd_stop)
+    assert result.success is True
 
-        # 8. Check status (should not be installed)
-        status = service.get_service_status()
-        assert status.installed is False
-        assert not plist_path.exists()
+    # 6. Check status (should be installed but not running)
+    result = _wait_for_cmd_status(running=False)
+    assert result.output["installed"] is True
+    assert result.output["running"] is False
+
+    # 7. Uninstall service
+    result = run_cmd(cmd_uninstall)
+    assert result.success is True
+
+    # 8. Check status (should not be installed)
+    result = run_cmd(cmd_status)
+    assert result.output["installed"] is False
+    assert not plist_path.exists()
