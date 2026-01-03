@@ -11,6 +11,7 @@ from ...utils.get_wks_home import get_wks_home
 from ..cat.CatConfig import CatConfig
 from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
+from ..diff.DiffConfig import DiffConfig
 from ..log.LogConfig import LogConfig
 from ..mcp.McpConfig import McpConfig
 from ..monitor.explain_path import explain_path
@@ -32,6 +33,7 @@ class WKSConfig(BaseModel):
     vault: VaultConfig
     log: LogConfig
     mcp: McpConfig = McpConfig()  # Optional, defaults to empty
+    diff: DiffConfig
     transform: TransformConfig
     cat: CatConfig
 
@@ -112,6 +114,7 @@ class WKSConfig(BaseModel):
             "vault": self.vault.model_dump(),
             "log": self.log.model_dump(),
             "mcp": self.mcp.model_dump(),
+            "diff": self.diff.model_dump(by_alias=True),
             "transform": self.transform.model_dump(),
             "cat": self.cat.model_dump(),
         }
