@@ -167,8 +167,8 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 2. Check status (should be installed but not running)
         status = service.get_service_status()
-        assert status["installed"] is True
-        assert status.get("running", False) is False
+        assert status.installed is True
+        assert status.running is False
 
         # 3. Start service
         start_result = service.start_service()
@@ -235,8 +235,8 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 4. Check status (should be running)
         status = service.get_service_status()
-        assert status["installed"] is True
-        assert status.get("running", False) is True
+        assert status.installed is True
+        assert status.running is True
 
         # 5. Stop service
         stop_result = service.stop_service()
@@ -244,8 +244,8 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 6. Check status (should be installed but not running)
         status = service.get_service_status()
-        assert status["installed"] is True
-        assert status.get("running", False) is False
+        assert status.installed is True
+        assert status.running is False
 
         # 7. Uninstall service
         uninstall_result = service.uninstall_service()
@@ -253,4 +253,4 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 8. Check status (should not be installed)
         status = service.get_service_status()
-        assert status["installed"] is False
+        assert status.installed is False

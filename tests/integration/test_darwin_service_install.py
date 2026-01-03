@@ -172,9 +172,9 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 2. Check status (should be installed but may or may not be running depending on run_at_load)
         status = service.get_service_status()
-        assert status["installed"] is True
+        assert status.installed is True
         # run_at_load is False, so it should not be running initially
-        assert status.get("running", False) is False
+        assert status.running is False
 
         # 3. Start service
         # Note: The service might fail to actually run the daemon (due to config issues),
@@ -209,7 +209,16 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
         # Service is loaded - that's what we're testing
         # We don't require a PID since the daemon might fail to start due to config issues
         status = service.get_service_status()
-        assert status["installed"] is True
+        assert status.installed is True
+        assert start_result["success"] is True
+        assert start_result["pid"] is not None
+
+        # 4. Check status again (should be installed and running)
+        time.sleep(2)  # Give it a moment
+        status = service.get_service_status()
+        assert status.installed is True
+        assert status.running is True
+        assert status.pid is not None
 
         # 5. Stop service
         stop_result = service.stop_service()
@@ -217,8 +226,8 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 6. Check status (should be installed but not running)
         status = service.get_service_status()
-        assert status["installed"] is True
-        assert status.get("running", False) is False
+        assert status.installed is True
+        assert status.running is False
 
         # 7. Uninstall service
         uninstall_result = service.uninstall_service()
@@ -226,5 +235,5 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
 
         # 8. Check status (should not be installed)
         status = service.get_service_status()
-        assert status["installed"] is False
+        assert status.installed is False
         assert not plist_path.exists()
