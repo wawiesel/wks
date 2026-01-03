@@ -1,8 +1,8 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-80.2%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-70.0%25-red)
-![Tests](https://img.shields.io/badge/tests-459_passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-79.9%25-red)
+![Mutation Score](https://img.shields.io/badge/mutation-0.0%25-red)
+![Tests](https://img.shields.io/badge/tests-487_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)
@@ -15,37 +15,37 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   80.2% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   70.0% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |   79.9% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |    0.0% |       ≥90% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
 ### Source Size Statistics
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     171 | 11,371 |      403,779 |   63,761 |      29.4% |
+| **api**   |     171 | 11,431 |      406,471 |   63,931 |      29.1% |
 | **cli**   |      19 |  1,351 |       47,576 |    9,186 |       4.2% |
-| **mcp**   |       9 |    509 |       17,883 |    3,396 |       1.6% |
+| **mcp**   |       9 |    509 |       17,883 |    3,396 |       1.5% |
 | **utils** |      21 |    702 |       21,685 |    2,777 |       1.3% |
-| **Total** |     220 | 13,933 |      490,923 |   79,120 |      36.5% |
+| **Total** |     220 | 13,993 |      493,615 |   79,290 |      36.1% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      84 |  8,369 |      289,540 |   51,764 |      23.9% |
-| **Integration Tests** |      12 |  1,449 |       49,136 |    8,884 |       4.1% |
+| **Unit Tests**        |      86 |  8,814 |      305,586 |   54,430 |      24.8% |
+| **Integration Tests** |      12 |  1,449 |       49,136 |    8,884 |       4.0% |
 | **Smoke Tests**       |       3 |    376 |       12,888 |    2,040 |       0.9% |
-| **Total**             |      99 | 10,194 |      351,564 |   62,688 |      28.9% |
+| **Total**             |     101 | 10,639 |      367,610 |   65,354 |      29.7% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.8% |
-| **Developer Documentation** |      46 | 2,745 |      110,079 |   27,512 |      12.7% |
-| **Specifications**          |      29 | 3,326 |      118,031 |   29,507 |      13.6% |
-| **Total**                   |      82 | 6,299 |      235,175 |   58,785 |      27.1% |
+| **Developer Documentation** |      46 | 2,745 |      110,079 |   27,512 |      12.5% |
+| **Specifications**          |      29 | 3,326 |      118,031 |   29,507 |      13.4% |
+| **Total**                   |      82 | 6,299 |      235,175 |   58,785 |      26.7% |
 
 ### Infrastructure Summary
 
@@ -54,29 +54,29 @@
 | **CI/CD**        |       4 |   375 |       11,022 |    2,755 |       1.3% |
 | **Build/Config** |       5 |   167 |        3,906 |      975 |       0.4% |
 | **Scripts**      |      15 | 1,927 |       65,757 |   12,663 |       5.8% |
-| **Total**        |      24 | 2,469 |       80,685 |   16,393 |       7.6% |
+| **Total**        |      24 | 2,469 |       80,685 |   16,393 |       7.5% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 70.0% means 70.0% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 0.0% means 0.0% of introduced mutations were successfully killed by the test suite.
 
-**Test Statistics**: 459 tests across 94 test files.
+**Test Statistics**: 487 tests across 96 test files.
 
 ### Per-Domain Quality
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          77% |          76/99 |
-| config    |       100% |          69% |        183/264 |
-| daemon    |        84% |          62% |        220/354 |
-| database  |        91% |          71% |        447/631 |
+| cat       |        94% |          N/A |            0/0 |
+| config    |       100% |          N/A |            0/0 |
+| daemon    |        83% |          N/A |            0/0 |
+| database  |        91% |          N/A |            0/0 |
 | diff      |         0% |          N/A |            0/0 |
-| link      |        98% |          70% |       831/1187 |
-| log       |        94% |          66% |        359/547 |
-| mcp       |        97% |          61% |        245/400 |
-| monitor   |        99% |          69% |      1144/1666 |
-| service   |        69% |          67% |          24/36 |
-| transform |        87% |          80% |        620/779 |
+| link      |        98% |          N/A |            0/0 |
+| log       |        94% |          N/A |            0/0 |
+| mcp       |        99% |          N/A |            0/0 |
+| monitor   |        99% |          N/A |            0/0 |
+| service   |        69% |          N/A |            0/0 |
+| transform |        88% |          N/A |            0/0 |
 | utils     |       100% |          N/A |            0/0 |
-| vault     |       100% |          72% |       911/1270 |
+| vault     |       100% |          N/A |            0/0 |
 
 
 ## Overview

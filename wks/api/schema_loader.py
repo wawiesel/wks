@@ -24,11 +24,13 @@ class SchemaLoader:
         props: dict[str, tuple[type[Any], Any]] = {}
 
         def _collect(defn: dict[str, Any]) -> None:
-            for prop_name in defn.get("properties", {}):
-                props[prop_name] = (Any, ...)
-            for sub in defn.get("allOf", []):
-                if isinstance(sub, dict):
-                    _collect(sub)
+            if "properties" in defn:
+                for prop_name in defn["properties"]:
+                    props[prop_name] = (Any, ...)
+            if "allOf" in defn:
+                for sub in defn["allOf"]:
+                    if isinstance(sub, dict):
+                        _collect(sub)
 
         _collect(definition)
 
@@ -44,11 +46,12 @@ class SchemaLoader:
         schema = cls.load_schema(domain)
         prefix = domain.capitalize()
         models: dict[str, type[BaseModel]] = {}
-        for def_name in schema.get("definitions", {}):
-            if not def_name.startswith(prefix) or not def_name.endswith("Output"):
-                continue
-            model = cls.build_model(schema, def_name)
-            models[def_name] = model
+        if "definitions" in schema:
+            for def_name in schema["definitions"]:
+                if not def_name.startswith(prefix) or not def_name.endswith("Output"):
+                    continue
+                model = cls.build_model(schema, def_name)
+                models[def_name] = model
         return models
 
     @classmethod

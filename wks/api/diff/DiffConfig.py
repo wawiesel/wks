@@ -85,11 +85,11 @@ class DiffConfig:
         Raises:
             DiffConfigError: If diff section is missing or field values are invalid
         """
-        diff_config = config.get("diff")
-        if not diff_config:
+        if "diff" not in config:
             raise DiffConfigError(
                 ["diff section is required in config (found: missing, expected: diff section with engines and _router)"]
             )
+        diff_config = config["diff"]
 
         # Extract engines config
         engines_config = diff_config.get("engines")

@@ -19,7 +19,10 @@ class SchemaRegistry:
         self._schemas[key] = schema_class
 
     def get_output_schema(self, domain: str, command_name: str) -> type[BaseModel] | None:
-        return self._schemas.get((domain, command_name))
+        key = (domain, command_name)
+        if key in self._schemas:
+            return self._schemas[key]
+        return None
 
 
 schema_registry = SchemaRegistry()
