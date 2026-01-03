@@ -57,6 +57,8 @@ def test_cmd_status_parse_error(tracked_wks_config, tmp_path):
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
+    if not log_path.parent.exists():
+        log_path.parent.mkdir(parents=True)
     log_path.write_text("[BAD_DATE] [test] INFO: msg\n", encoding="utf-8")
 
     result = run_cmd(cmd_status)
@@ -69,6 +71,8 @@ def test_cmd_status_read_error(tracked_wks_config, tmp_path, monkeypatch):
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
+    if not log_path.parent.exists():
+        log_path.parent.mkdir(parents=True)
     log_path.write_text("content", encoding="utf-8")
 
     from pathlib import Path
