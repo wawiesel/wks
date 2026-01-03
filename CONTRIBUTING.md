@@ -15,6 +15,12 @@ For details on the CI Docker environment and running tests in containers, see **
 
 2. **Dependencies**: Install whatever you need in `.venv`.
 
+3. **Merge Driver for Auto-Generated Files**: Configure the `ours` merge driver to avoid conflicts in CI-regenerated files:
+   ```bash
+   git config merge.ours.driver true
+   ```
+   This allows `stats.json` (which CI regenerates after every merge) to auto-resolve conflicts by keeping the current version—CI will regenerate the correct values.
+
 ## Git Commit Standards
 
 We follow the **Conventional Commits** specification for clear and machine-readable commit history.
