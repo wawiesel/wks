@@ -304,7 +304,7 @@ def monitor_status(display=None):
 
 **Display Object:**
 - `display.status()`, `display.success()`, `display.error()`, `display.warning()` → STDERR
-- `display.table()`, `display.json_output()` → STDOUT
+- `display.json_output()` → STDOUT
 - Progress bars automatically go to STDERR
 
 ## Testing
