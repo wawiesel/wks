@@ -32,7 +32,7 @@ class TestCmdPrune:
 
         # Mock module and prune function
         mock_module = MagicMock()
-        mock_module.prune.return_value = {"deleted_count": 5, "checked_count": 10}
+        mock_module.prune.return_value = {"deleted_count": 5, "checked_count": 10, "warnings": []}
         mock_import.return_value = mock_module
 
         result = cmd_prune(database="nodes")
@@ -66,13 +66,13 @@ class TestCmdPrune:
 
         # Mock modules
         mock_nodes = MagicMock()
-        mock_nodes.prune.return_value = {"deleted_count": 1, "checked_count": 2}
+        mock_nodes.prune.return_value = {"deleted_count": 1, "checked_count": 2, "warnings": []}
 
         mock_edges = MagicMock()
-        mock_edges.prune.return_value = {"deleted_count": 3, "checked_count": 4}
+        mock_edges.prune.return_value = {"deleted_count": 3, "checked_count": 4, "warnings": []}
 
         mock_transform = MagicMock()
-        mock_transform.prune.return_value = {"deleted_count": 0, "checked_count": 0}
+        mock_transform.prune.return_value = {"deleted_count": 0, "checked_count": 0, "warnings": []}
 
         def import_side_effect(name):
             if name == "wks.api.monitor.prune":
@@ -153,7 +153,7 @@ class TestCmdPrune:
 
         mock_load.return_value = mock_config
         mock_module = MagicMock()
-        mock_module.prune.return_value = {"deleted_count": 0, "checked_count": 0}
+        mock_module.prune.return_value = {"deleted_count": 0, "checked_count": 0, "warnings": []}
         mock_import.return_value = mock_module
 
         result = cmd_prune(database="nodes")

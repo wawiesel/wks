@@ -68,9 +68,9 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
                 # Call prune(config, remote=remote, ...)
                 result = module.prune(config, remote=remote)
 
-                deleted = result.get("deleted_count", 0)
-                checked = result.get("checked_count", 0)
-                warnings = result.get("warnings", [])
+                deleted = result["deleted_count"]
+                checked = result["checked_count"]
+                warnings = result["warnings"]
 
                 total_deleted += deleted
                 total_checked += checked
