@@ -19,10 +19,9 @@ def main(argv: list[str] | None = None) -> int:
         result = cmd_version()
         list(result.progress_callback(result))
         if result.success:
-            full_version = result.output.get("full_version", result.output.get("version", "unknown"))
-            print(f"wksc {full_version}")
+            print(f"wksc {result.output['version']}")
         else:
-            print(f"wksc {result.output.get('version', 'unknown')}")
+            print("wksc: failed to retrieve version", file=sys.stderr)
         return 0 if result.success else 1
 
     app = _create_app()
