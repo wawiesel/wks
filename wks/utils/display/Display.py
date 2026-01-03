@@ -58,17 +58,6 @@ class Display(ABC):
         pass
 
     @abstractmethod
-    def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
-        """Display data in table format.
-
-        Args:
-            data: List of rows (dicts mapping column name to value)
-            headers: Optional explicit column headers (if None, infer from data)
-            kwargs: Implementation-specific options (title, etc.)
-        """
-        pass
-
-    @abstractmethod
     def progress_start(self, total: int, description: str = "", **kwargs) -> Any:
         """Start a progress bar/indicator.
 
@@ -139,33 +128,11 @@ class Display(ABC):
         pass
 
     @abstractmethod
-    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:
-        """Display hierarchical data as a tree.
-
-        Args:
-            data: Nested dict/list structure
-            title: Optional title for tree
-            kwargs: Implementation-specific options
-        """
-        pass
-
-    @abstractmethod
     def json_output(self, data: Any, **kwargs) -> None:
         """Output structured data (for MCP, this is the main output method).
 
         Args:
             data: Data to output
             kwargs: Implementation-specific options (indent, etc.)
-        """
-        pass
-
-    @abstractmethod
-    def panel(self, content: str, title: str = "", **kwargs) -> None:
-        """Display content in a panel/box.
-
-        Args:
-            content: Content to display
-            title: Panel title
-            kwargs: Implementation-specific options (border style, etc.)
         """
         pass

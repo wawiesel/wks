@@ -5,7 +5,6 @@ from typing import Any
 
 try:
     from rich.console import Console
-    from rich.panel import Panel
     from rich.progress import (
         BarColumn,
         Progress,
@@ -14,8 +13,6 @@ try:
         TextColumn,
         TimeRemainingColumn,
     )
-    from rich.table import Table
-    from rich.tree import Tree
 
     RICH_AVAILABLE = True
 except ImportError:
@@ -88,35 +85,6 @@ class CLIDisplay(Display):
     def info(self, message: str, **kwargs) -> None:  # noqa: ARG002
         self.stderr_console.print(message)
 
-    def table(self, data: list[dict[str, Any]], headers: list[str] | None = None, **kwargs) -> None:
-        if not data:
-            self.info("No data to display")
-            return
-
-        title = kwargs.get("title", "")
-        column_justify = kwargs.get("column_justify", {})
-        show_header = kwargs.get("show_header", True)
-        width = kwargs.get("width")
-
-        if headers is None:
-            headers = list(data[0].keys())
-
-        table = Table(
-            title=title,
-            show_header=show_header,
-            header_style="bold cyan",
-            width=width,
-        )
-
-        for header in headers:
-            justify = column_justify.get(header, "left")
-            table.add_column(header, justify=justify)
-
-        for row in data:
-            table.add_row(*[str(row.get(h, "")) for h in headers])
-
-        self.console.print(table)
-
     def progress_start(self, total: int, description: str = "", **kwargs) -> Any:  # noqa: ARG002
         progress = Progress(
             SpinnerColumn(),
@@ -176,29 +144,6 @@ class CLIDisplay(Display):
         if message:
             self.info(message)
 
-    def tree(self, data: dict[str, Any], title: str = "", **kwargs) -> None:  # noqa: ARG002
-        tree = Tree(title if title else "Tree")
-        self._build_tree(tree, data)
-        self.console.print(tree)
-
-    def _build_tree(self, tree: Tree, data: Any, key: str = "") -> None:  # noqa: ARG002
-        if isinstance(data, dict):
-            for k, v in data.items():
-                if isinstance(v, (dict, list)):
-                    branch = tree.add(f"[bold]{k}[/bold]")
-                    self._build_tree(branch, v, k)
-                else:
-                    tree.add(f"{k}: {v}")
-        elif isinstance(data, list):
-            for i, item in enumerate(data):
-                if isinstance(item, (dict, list)):
-                    branch = tree.add(f"[dim][{i}][/dim]")
-                    self._build_tree(branch, item)
-                else:
-                    tree.add(str(item))
-        else:
-            tree.add(str(data))
-
     def json_output(self, data: Any, **kwargs) -> None:
         import json
         import sys
@@ -239,14 +184,3 @@ class CLIDisplay(Display):
                     print(json_str, file=sys.stdout)
             else:
                 print(json_str, file=sys.stdout)
-
-    def panel(self, content: Any, title: str = "", **kwargs) -> None:
-        panel_kwargs = dict(kwargs)
-        border_style = panel_kwargs.pop("border_style", "blue")
-        panel = Panel(
-            content,
-            title=title,
-            border_style=border_style,
-            **panel_kwargs,
-        )
-        self.console.print(panel)
