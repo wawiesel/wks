@@ -12,10 +12,20 @@ from . import VaultCheckOutput
 
 
 def cmd_check(path: str | None = None) -> StageResult:
-    """Check vault link health.
+    """Validate link targets in vault markdown files.
+
+    Performs a live scan of the vault (not database lookup) to verify
+    that all markdown link targets resolve to existing files. This detects:
+    - Broken internal links (missing target files)
+    - Malformed link syntax
+    - Links that cannot be resolved
 
     Args:
-        path: Optional file path to check. If None, check entire vault.
+        path: File to check. If None, checks all markdown files in vault.
+
+    Returns:
+        StageResult with VaultCheckOutput containing validation results
+        including list of broken links with file, line number, and status.
     """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:

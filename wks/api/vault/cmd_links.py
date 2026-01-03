@@ -13,11 +13,25 @@ from . import VaultLinksOutput
 
 
 def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> StageResult:
-    """Show edges to/from a specific file.
+    """Query the edges database for links related to a specific file.
+
+    Unlike cmd_check (which scans live files), this queries the database
+    populated by cmd_sync to show existing link relationships. Use this to:
+    - Find what files link TO a given note (backlinks)
+    - Find what files a note links FROM (outlinks)
+    - Explore the link graph around a specific file
+
+    Results are limited to 100 edges per query.
 
     Args:
-        path: File path to query links for (required)
-        direction: Link direction - "to", "from", or "both"
+        path: File path to query. Resolved to vault:/// URI for database lookup.
+        direction: Which links to return:
+            - "to": Only links pointing TO this file (backlinks)
+            - "from": Only links originating FROM this file (outlinks)
+            - "both": All links involving this file (default)
+
+    Returns:
+        StageResult with VaultLinksOutput containing matching edges.
     """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:

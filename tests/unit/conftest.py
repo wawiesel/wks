@@ -4,6 +4,8 @@ Most configuration helpers are in tests/conftest.py.
 This file contains unit-test-specific helpers for mocking/patching.
 """
 
+import copy
+
 import pytest
 
 # Re-export commonly used helpers from root conftest
@@ -50,18 +52,21 @@ class TrackedConfig:
         self.save_calls += 1
 
 
-def create_tracked_wks_config(monkeypatch, monitor_config_data: dict | None = None) -> TrackedConfig:
+def create_tracked_wks_config(
+    monkeypatch, monitor_config_data: dict | None = None, config_dict: dict | None = None
+) -> TrackedConfig:
     """Patch WKSConfig.load to return a TrackedConfig instance.
 
     Args:
         monkeypatch: pytest monkeypatch fixture
         monitor_config_data: Optional dictionary to update monitor config with.
             Can include 'filter' dict to update filter settings.
+        config_dict: Optional configuration dictionary to use. If None, uses default minimal_config_dict().
 
     Returns:
         TrackedConfig instance that tracks save() calls.
     """
-    base_config = minimal_config_dict()
+    base_config = copy.deepcopy(config_dict or minimal_config_dict())
 
     if monitor_config_data:
         # Deep merge monitor config data
@@ -78,9 +83,9 @@ def create_tracked_wks_config(monkeypatch, monitor_config_data: dict | None = No
 
 
 @pytest.fixture
-def tracked_wks_config(monkeypatch) -> TrackedConfig:
+def tracked_wks_config(monkeypatch, minimal_config_dict: dict) -> TrackedConfig:
     """Fixture that patches WKSConfig with default settings and returns TrackedConfig."""
-    return create_tracked_wks_config(monkeypatch)
+    return create_tracked_wks_config(monkeypatch, config_dict=minimal_config_dict)
 
 
 @pytest.fixture(autouse=True)

@@ -78,7 +78,7 @@ def test_status_updates_timestamp_when_running(monkeypatch, tmp_path):
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
-    cfg.monitor.filter.include_paths = [str(tmp_path)]
+    cfg.monitor.filter.include_paths.append(str(tmp_path))
     cfg.save()
 
     run_cmd(cmd_start)

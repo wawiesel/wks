@@ -1,5 +1,6 @@
 """Shared pytest configuration and fixtures for all tests."""
 
+import copy
 import json
 import os
 import platform
@@ -100,7 +101,7 @@ def minimal_config_dict() -> dict:
     return {
         "monitor": {
             "filter": {
-                "include_paths": [],
+                "include_paths": ["/tmp/wks_test_transform"],
                 "exclude_paths": [],
                 "include_dirnames": [],
                 "exclude_dirnames": [],
@@ -187,13 +188,14 @@ def minimal_wks_config() -> WKSConfig:
 @pytest.fixture(name="minimal_config_dict")
 def minimal_config_dict_fixture(tmp_path: Path) -> dict:
     """Pytest fixture returning a copy of the minimal config dict with isolated paths."""
-    config = minimal_config_dict().copy()
+    config = copy.deepcopy(minimal_config_dict())
 
     # Isolate transform cache to valid tmp path
-    # Deep copy needed for nested dictionary if modifying
-    config["transform"] = minimal_config_dict()["transform"].copy()
-    config["transform"]["cache"] = minimal_config_dict()["transform"]["cache"].copy()
-    config["transform"]["cache"]["base_dir"] = str(tmp_path / "transform_cache")
+    cache_dir = str(tmp_path / "transform_cache")
+    config["transform"]["cache"]["base_dir"] = cache_dir
+
+    # NEW RULE: Cache directory must be monitored
+    config["monitor"]["filter"]["include_paths"].append(cache_dir)
 
     return config
 
@@ -209,12 +211,14 @@ def wks_home(tmp_path: Path, monkeypatch, minimal_config_dict: dict) -> Path:
     """Set up WKS_HOME with a minimal config file.
 
     Returns:
-        Path to the WKS home directory (tmp_path)
+        Path to the WKS home directory (tmp_path / "wks_home")
     """
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
-    config_path = tmp_path / "config.json"
+    home_dir = tmp_path / "wks_home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("WKS_HOME", str(home_dir))
+    config_path = home_dir / "config.json"
     config_path.write_text(json.dumps(minimal_config_dict))
-    return tmp_path
+    return home_dir
 
 
 @pytest.fixture
@@ -233,10 +237,8 @@ def wks_env(tmp_path: Path, minimal_config_dict: dict) -> dict:
     watch_dir.mkdir(parents=True, exist_ok=True)
 
     # Update config with watch_dir
-    config = minimal_config_dict.copy()
-    config["monitor"] = minimal_config_dict["monitor"].copy()
-    config["monitor"]["filter"] = minimal_config_dict["monitor"]["filter"].copy()
-    config["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
+    config = copy.deepcopy(minimal_config_dict)
+    config["monitor"]["filter"]["include_paths"].append(str(watch_dir))
 
     # Write config file
     config_file = wks_home / "config.json"
@@ -275,12 +277,14 @@ def wks_home_with_priority(tmp_path: Path, monkeypatch, config_with_priority_dir
     """Set up WKS_HOME with config that includes monitor priority directories.
 
     Returns:
-        Path to the WKS home directory (tmp_path)
+        Path to the WKS home directory (tmp_path / "wks_home")
     """
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
-    config_path = tmp_path / "config.json"
+    home_dir = tmp_path / "wks_home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("WKS_HOME", str(home_dir))
+    config_path = home_dir / "config.json"
     config_path.write_text(json.dumps(config_with_priority_dirs))
-    return tmp_path
+    return home_dir
 
 
 # =============================================================================
@@ -391,14 +395,18 @@ def mongo_wks_env(tmp_path, monkeypatch):
     mongo_uri, mongo_port, is_local = get_mongo_connection_info(tmp_path)
 
     # Start with minimal config and override for MongoDB
-    config_dict = minimal_config_dict()
+    config_dict = copy.deepcopy(minimal_config_dict())
     config_dict["database"]["type"] = "mongo"
     config_dict["database"]["prefix"] = "wks_test"
     config_dict["database"]["data"] = {
         "uri": mongo_uri,
         "local": is_local,
     }
-    config_dict["monitor"]["filter"]["include_paths"] = [str(watch_dir)]
+
+    # Isolate cache and ensure it is monitored
+    cache_dir = str(tmp_path / "transform_cache")
+    config_dict["transform"]["cache"]["base_dir"] = cache_dir
+    config_dict["monitor"]["filter"]["include_paths"] = [str(watch_dir), cache_dir]
     config_dict["daemon"]["sync_interval_secs"] = 0.1
 
     monkeypatch.setenv("WKS_HOME", str(wks_home))

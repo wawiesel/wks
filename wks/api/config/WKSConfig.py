@@ -1,18 +1,19 @@
 """Top-level WKS configuration."""
 
 import json
-import os
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, ValidationError, computed_field
+from pydantic import BaseModel, ConfigDict, ValidationError, computed_field, model_validator
 
+from ...utils.get_wks_home import get_wks_home
 from ..cat.CatConfig import CatConfig
 from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
 from ..log.LogConfig import LogConfig
 from ..mcp.McpConfig import McpConfig
+from ..monitor.explain_path import explain_path
 from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..transform.TransformConfig import TransformConfig
@@ -34,6 +35,20 @@ class WKSConfig(BaseModel):
     transform: TransformConfig
     cat: CatConfig
 
+    @model_validator(mode="after")
+    def validate_transform_cache_monitored(self) -> "WKSConfig":
+        """Verify that transform cache directory is monitored and not excluded."""
+        cache_dir = Path(self.transform.cache.base_dir)
+        is_allowed, trace = explain_path(self.monitor, cache_dir)
+
+        if not is_allowed:
+            reason = trace[-1] if trace else "Excluded by monitor rules"
+            raise ValueError(
+                f"Transform cache directory {cache_dir} is not monitored: {reason}. "
+                "The cache directory must be within a monitored path and not excluded by filters."
+            )
+        return self
+
     @computed_field
     def path(self) -> Path:
         """Path to config file."""
@@ -42,12 +57,7 @@ class WKSConfig(BaseModel):
     @classmethod
     def get_home_dir(cls) -> Path:
         """Get WKS home directory based on WKS_HOME or default to ~/.wks."""
-        from wks.utils.normalize_path import normalize_path
-
-        wks_home_env = os.environ.get("WKS_HOME")
-        if wks_home_env:
-            return normalize_path(wks_home_env)
-        return Path.home() / ".wks"
+        return get_wks_home()
 
     @classmethod
     def get_config_path(cls) -> Path:

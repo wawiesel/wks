@@ -93,7 +93,7 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
     config_dict = {
         "monitor": {
             "filter": {
-                "include_paths": [],
+                "include_paths": [str(tmp_path / "cache")],
                 "exclude_paths": [],
                 "include_dirnames": [],
                 "exclude_dirnames": [],
@@ -143,7 +143,7 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
         },
         "transform": {
             "cache": {
-                "base_dir": "~/_transform_cache",
+                "base_dir": str(tmp_path / "cache"),
                 "max_size_bytes": 1073741824,
             },
             "engines": {},

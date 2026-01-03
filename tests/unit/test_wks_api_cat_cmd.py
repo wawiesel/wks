@@ -103,7 +103,7 @@ def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
     # 3. cmd should fail and clean up DB record
     res = run_cmd(cmd, target=checksum)
     assert res.success is False
-    assert "Cache file not found" in res.result
+    assert "Cache file missing" in res.result
 
     # 4. Verify DB record is gone
     from wks.api.config.WKSConfig import WKSConfig

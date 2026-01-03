@@ -22,11 +22,24 @@ _VAULT_EXTENSIONS = {".md"}
 
 
 def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
-    """Sync vault links to database.
+    """Scan vault markdown files and sync their links to the edges database.
+
+    This is the primary indexing command for the vault. It:
+    1. Resolves the sync scope (single file, directory, or entire vault)
+    2. Delegates to link sync for each markdown file found
+    3. Prunes stale database entries for deleted files
+    4. Updates the meta document with the last sync timestamp
+
+    The command writes a status file to WKS_HOME/vault.json on completion.
 
     Args:
-        path: Optional file/directory path to sync. If None, sync entire vault.
-        recursive: If True and path is directory, recurse into subdirectories.
+        path: File or directory to sync. If None, syncs the entire vault
+            defined by vault.base_dir in config.
+        recursive: When path is a directory, whether to recurse into
+            subdirectories. Ignored when path is None (vault always recursive).
+
+    Returns:
+        StageResult with VaultSyncOutput containing sync statistics.
     """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:

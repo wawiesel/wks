@@ -515,7 +515,7 @@ def _collect_all_stats(docker_freshness: str = "fresh") -> dict:
     # Collect per-domain stats: coverage from coverage.xml, mutations from partial json files
     domain_coverage = _get_domain_coverage()
 
-    # Read all mutation_stats_*.json files
+    # Read all mutation_stats_*.json files from root directory
     mutation_by_domain = {}
     for stats_file in REPO_ROOT.glob("mutation_stats_*.json"):
         try:

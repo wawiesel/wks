@@ -13,9 +13,11 @@ pytestmark = pytest.mark.monitor
 
 def test_cmd_status_success(monkeypatch, tmp_path, minimal_config_dict):
     """Status succeeds with default config and no issues."""
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
-    (tmp_path / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_status)
     assert result.success is True
@@ -25,9 +27,11 @@ def test_cmd_status_success(monkeypatch, tmp_path, minimal_config_dict):
 
 def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, minimal_config_dict):
     """tracked_files count should exclude the __meta__ document."""
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
-    (tmp_path / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # Manually insert a file node and a __meta__ document
     from wks.api.config.WKSConfig import WKSConfig
@@ -63,9 +67,11 @@ def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, 
 
 def test_cmd_status_database_error(monkeypatch, tmp_path, minimal_config_dict):
     """Status handles database errors by reporting them in output."""
-    monkeypatch.setenv("WKS_HOME", str(tmp_path))
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg = minimal_config_dict
-    (tmp_path / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     from wks.api.monitor.cmd_status import Database
 

@@ -459,17 +459,21 @@ class _TransformController:
         return None
 
     def _resolve_cache_file_from_db(self, cache_key: str, matching_record: _TransformRecord) -> Path:
-        """Resolve cache file path from database record.
+        """Resolve cache file path from database record and verify existence.
+
+        This method enforces Cache-Database Sync Invariant #3: All access through
+        database. If the file is missing from the cache directory but a record
+        exists in the database, the record is considered stale and is pruned.
 
         Args:
-            cache_key: Cache key
+            cache_key: Cache key checksum
             matching_record: Matching transform record from database
 
         Returns:
-            Path to cache file
+            Path to existing cache file
 
         Raises:
-            ValueError: If cache file not found and stale record is cleaned up
+            ValueError: If cache file not found; stale record is pruned from DB.
         """
         stored_path = Path(matching_record.cache_path_from_uri())
         extension = stored_path.suffix.lstrip(".") or "md"  # Default to .md if no extension
@@ -491,8 +495,8 @@ class _TransformController:
                 }
             )
             raise ValueError(
-                f"Cache file not found for {cache_key} in cache directory: {self.cache_manager.cache_dir}. "
-                f"Database record existed but file was missing (likely cleaned up). Stale record removed."
+                f"Cache file missing for {cache_key}. Database record existed but "
+                f"file was not found in {self.cache_manager.cache_dir}. Stale record pruned."
             )
 
         return cache_file
@@ -512,7 +516,7 @@ class _TransformController:
             Content as string
 
         Raises:
-            ValueError: If cache entry not found in database
+            ValueError: If cache entry not found in database or cache file is missing.
         """
         # Per spec: Database is sole authority - check DB first
         matching_record = self._find_matching_record_in_db(cache_key)
@@ -520,12 +524,8 @@ class _TransformController:
         if not matching_record:
             raise ValueError(f"Checksum not found in database: {cache_key}")
 
-        # Get cache file path from database record
+        # Get cache file path from database record. This will prune DB if file missing.
         cache_file = self._resolve_cache_file_from_db(cache_key, matching_record)
-
-        if not cache_file.exists():
-            # Stale record - file doesn't exist
-            raise ValueError(f"Cache file missing for checksum: {cache_key}")
 
         self._update_last_accessed(
             matching_record.checksum,
