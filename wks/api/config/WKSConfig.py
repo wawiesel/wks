@@ -96,8 +96,8 @@ class WKSConfig(BaseModel):
         except ValidationError as e:
             error_list = e.errors() or [{"msg": str(e), "loc": (), "type": "value_error", "input": None}]
             first = error_list[0]
-            error_msg = first.get("msg", str(e))
-            loc = first.get("loc", ())
+            error_msg = first["msg"]
+            loc = first["loc"]
             field = ".".join(str(x) for x in loc) if isinstance(loc, (list, tuple)) else ""
             detail = f"{field}: {error_msg}" if field else error_msg
             raise ValueError(f"Configuration validation error: {detail}") from e

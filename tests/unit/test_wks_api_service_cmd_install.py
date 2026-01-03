@@ -20,11 +20,7 @@ def test_cmd_install_success(tracked_wks_config, monkeypatch):
     """Test cmd_install with successful installation."""
     tracked_wks_config.service = ServiceConfig(
         type="darwin",
-        data={  # type: ignore
-            "label": "com.test.wks",
-            "keep_alive": True,
-            "run_at_load": False,
-        },
+        data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore
     )  # type: ignore
     # Mock backend implementation
     mock_impl = MagicMock()
@@ -51,3 +47,71 @@ def test_cmd_install_success(tracked_wks_config, monkeypatch):
     assert result.success is True
     assert "errors" in result.output
     assert "warnings" in result.output
+
+
+def test_cmd_install_validation_failure(tracked_wks_config, monkeypatch):
+    """Test cmd_install validation failure."""
+    tracked_wks_config.service = ServiceConfig(
+        type="darwin",
+        data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore
+    )
+
+    def mock_validate(res_obj, *args):
+        res_obj.success = False
+        res_obj.result = "Validation failed"
+        return False
+
+    monkeypatch.setattr(cmd_install.Service, "validate_backend_type", mock_validate)
+
+    result = run_cmd(cmd_install.cmd_install)
+    assert result.success is False
+    assert result.result == "Validation failed"
+
+
+def test_cmd_install_failure(tracked_wks_config, monkeypatch):
+    """Test cmd_install failure from backend."""
+    tracked_wks_config.service = ServiceConfig(
+        type="darwin",
+        data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore
+    )
+
+    mock_service_cls = MagicMock()
+    mock_service = mock_service_cls.return_value.__enter__.return_value
+    mock_service.install_service.return_value = {"success": False, "error": "Install failed"}
+    monkeypatch.setattr(cmd_install, "Service", mock_service_cls)
+
+    result = run_cmd(cmd_install.cmd_install)
+    assert result.success is False
+    assert result.result == "Install failed"
+
+
+def test_cmd_install_exception(tracked_wks_config, monkeypatch):
+    """Test cmd_install exception."""
+    tracked_wks_config.service = ServiceConfig(
+        type="darwin",
+        data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore
+    )
+
+    mock_service_cls = MagicMock()
+    mock_service_cls.return_value.__enter__.side_effect = Exception("Boom")
+    monkeypatch.setattr(cmd_install, "Service", mock_service_cls)
+
+    result = run_cmd(cmd_install.cmd_install)
+    assert result.success is False
+    assert "Error installing service: Boom" in result.result
+
+
+def test_cmd_install_not_implemented(tracked_wks_config, monkeypatch):
+    """Test cmd_install NotImplementedError."""
+    tracked_wks_config.service = ServiceConfig(
+        type="darwin",
+        data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore
+    )
+
+    mock_service_cls = MagicMock()
+    mock_service_cls.return_value.__enter__.side_effect = NotImplementedError("Not supported")
+    monkeypatch.setattr(cmd_install, "Service", mock_service_cls)
+
+    result = run_cmd(cmd_install.cmd_install)
+    assert result.success is False
+    assert "Error: Service installation not supported" in result.result

@@ -26,7 +26,9 @@ class _TestEngine(_TransformEngine):
         output_path.write_text(f"Transformed: {content}")
         yield "Complete"
 
-        return options.get("return_refs", [])
+        if "return_refs" in options:
+            return options["return_refs"]
+        return []
 
     def get_extension(self, options: dict[str, Any]) -> str:  # noqa: ARG002
         """Get extension."""

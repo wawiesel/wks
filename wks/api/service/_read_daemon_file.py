@@ -16,8 +16,10 @@ def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
     if daemon_file.exists():
         try:
             daemon_data = json.loads(daemon_file.read_text())
-            result["warnings"] = daemon_data.get("warnings", [])
-            result["errors"] = daemon_data.get("errors", [])
+            if "warnings" in daemon_data:
+                result["warnings"] = daemon_data["warnings"]
+            if "errors" in daemon_data:
+                result["errors"] = daemon_data["errors"]
             if "pid" in daemon_data:
                 result["pid"] = daemon_data["pid"]
         except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:

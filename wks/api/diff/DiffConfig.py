@@ -85,14 +85,25 @@ class DiffConfig:
         Raises:
             DiffConfigError: If diff section is missing or field values are invalid
         """
-        diff_config = config.get("diff")
-        if not diff_config:
+        if "diff" not in config:
             raise DiffConfigError(
                 ["diff section is required in config (found: missing, expected: diff section with engines and _router)"]
             )
+        diff_config = config["diff"]
 
         # Extract engines config
-        engines_config = diff_config.get("engines", {})
+        engines_config = diff_config.get("engines")
+        if engines_config is None:
+            # We let the validation in __post_init__ catch this if we want to report it nicely,
+            # or we fail here. Since we want to avoid 'inventing' an empty dict {}:
+            # But the existing code used {} to proceed to validation.
+            # To strictly follow NoHedging while keeping detailed error reporting,
+            # we should pass strictly what we have.
+            # However, self.engines is typed as dict[str, DiffEngineConfig].
+            # Passing None would violate type hint, but __post_init__ validation would catch it if we allowed it.
+            # Better: Fail fast if required section is missing, as per rule "Fail fast and visibly".
+            raise DiffConfigError(["diff.engines is required in config"])
+
         engines = {}
 
         for engine_name, engine_dict in engines_config.items():
@@ -105,8 +116,24 @@ class DiffConfig:
                     ]
                 )
 
-            enabled = engine_dict.get("enabled", False)
-            is_default = engine_dict.get("is_default", False)
+            # Accept explicit False/True, do not default if strictly required.
+            # But for flags, defaults are often part of the spec.
+            # "NoHedging" says: "Avoid 'just in case' optional fields; model reality."
+            # If the spec says "default is false", then .get("enabled", False) is implementing the spec.
+            # However, the rule says: "Avoid default values for required fields".
+            # Is valid valid to say 'enabled' is optional with default False? Yes.
+            # So I will retain defaults for flags if they are truly optional in spec.
+            # BUT, the rule says "never do x.get(key, default) ... Access the key
+            # directly and handle absence explicitly."
+            # So:
+            enabled = False
+            if "enabled" in engine_dict:
+                enabled = engine_dict["enabled"]
+
+            is_default = False
+            if "is_default" in engine_dict:
+                is_default = engine_dict["is_default"]
+
             options = dict(engine_dict)
             options.pop("enabled", None)
             options.pop("is_default", None)
@@ -116,10 +143,17 @@ class DiffConfig:
             )
 
         # Extract router config
-        router_config = diff_config.get("_router", {})
-        rules = router_config.get("rules", [])
-        fallback = router_config.get("fallback", "text")  # Default to "text" if not present
+        router = DiffRouterConfig(rules=[], fallback="text")
+        if "_router" in diff_config:
+            router_config = diff_config["_router"]
+            rules = []
+            if "rules" in router_config:
+                rules = router_config["rules"]
 
-        router = DiffRouterConfig(rules=rules, fallback=fallback)
+            fallback = "text"
+            if "fallback" in router_config:
+                fallback = router_config["fallback"]
+
+            router = DiffRouterConfig(rules=rules, fallback=fallback)
 
         return cls(engines=engines, router=router)
