@@ -1,7 +1,7 @@
 # WKS
 
 ![Coverage](https://img.shields.io/badge/coverage-81.5%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-71.7%25-red)
+![Mutation Score](https://img.shields.io/badge/mutation-70.7%25-red)
 ![Tests](https://img.shields.io/badge/tests-487_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
@@ -16,7 +16,7 @@
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
 | **Code Coverage**    |   81.5% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   71.7% |       ≥90% | ⚠️ Below Target |
+| **Mutation Kill %**  |   70.7% |       ≥90% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
 ### Source Size Statistics
@@ -33,10 +33,10 @@
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      86 |  8,795 |      305,702 |   54,449 |      24.8% |
+| **Unit Tests**        |      86 |  8,799 |      305,864 |   54,497 |      24.8% |
 | **Integration Tests** |      12 |  1,449 |       49,136 |    8,884 |       4.0% |
 | **Smoke Tests**       |       3 |    376 |       12,888 |    2,040 |       0.9% |
-| **Total**             |     101 | 10,620 |      367,726 |   65,373 |      29.7% |
+| **Total**             |     101 | 10,624 |      367,888 |   65,421 |      29.8% |
 
 ### Documentation Size Summary
 
@@ -56,7 +56,7 @@
 | **Scripts**      |      15 | 1,927 |       65,757 |   12,663 |       5.8% |
 | **Total**        |      24 | 2,469 |       80,685 |   16,393 |       7.5% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 71.7% means 71.7% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 70.7% means 70.7% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 487 tests across 96 test files.
 
@@ -64,17 +64,17 @@
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          84% |          83/99 |
-| config    |       100% |          70% |        184/264 |
-| daemon    |        84% |          65% |        232/355 |
+| cat       |        94% |          75% |          74/99 |
+| config    |       100% |          71% |        187/264 |
+| daemon    |        84% |          69% |        244/354 |
 | database  |        90% |          73% |        454/626 |
 | diff      |         0% |          N/A |            0/0 |
-| link      |        98% |          72% |       853/1187 |
-| log       |        94% |          74% |        404/547 |
-| mcp       |        97% |          61% |        243/400 |
-| monitor   |        99% |          70% |      1161/1666 |
+| link      |        98% |          71% |       837/1187 |
+| log       |        94% |          68% |        371/547 |
+| mcp       |        97% |          60% |        238/400 |
+| monitor   |        99% |          69% |      1143/1666 |
 | service   |        91% |          86% |         99/115 |
-| transform |        87% |          80% |        619/770 |
+| transform |        87% |          79% |        610/770 |
 | utils     |       100% |          N/A |            0/0 |
 | vault     |       100% |          71% |       897/1264 |
 

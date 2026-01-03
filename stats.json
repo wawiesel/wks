@@ -5,18 +5,18 @@
   "domain_stats": {
     "cat": {
       "coverage": 94.4,
-      "mutation_killed": 83,
-      "mutation_survived": 16
+      "mutation_killed": 74,
+      "mutation_survived": 25
     },
     "config": {
       "coverage": 100.0,
-      "mutation_killed": 184,
-      "mutation_survived": 80
+      "mutation_killed": 187,
+      "mutation_survived": 77
     },
     "daemon": {
       "coverage": 83.5,
-      "mutation_killed": 232,
-      "mutation_survived": 123
+      "mutation_killed": 244,
+      "mutation_survived": 110
     },
     "database": {
       "coverage": 90.3,
@@ -30,23 +30,23 @@
     },
     "link": {
       "coverage": 98.4,
-      "mutation_killed": 853,
-      "mutation_survived": 334
+      "mutation_killed": 837,
+      "mutation_survived": 350
     },
     "log": {
       "coverage": 93.9,
-      "mutation_killed": 404,
-      "mutation_survived": 143
+      "mutation_killed": 371,
+      "mutation_survived": 176
     },
     "mcp": {
       "coverage": 97.1,
-      "mutation_killed": 243,
-      "mutation_survived": 157
+      "mutation_killed": 238,
+      "mutation_survived": 162
     },
     "monitor": {
       "coverage": 99.4,
-      "mutation_killed": 1161,
-      "mutation_survived": 505
+      "mutation_killed": 1143,
+      "mutation_survived": 523
     },
     "service": {
       "coverage": 91.3,
@@ -55,8 +55,8 @@
     },
     "transform": {
       "coverage": 86.7,
-      "mutation_killed": 619,
-      "mutation_survived": 151
+      "mutation_killed": 610,
+      "mutation_survived": 160
     },
     "utils": {
       "coverage": 100.0,
@@ -69,9 +69,9 @@
       "mutation_survived": 367
     }
   },
-  "mutation_killed": 5229,
-  "mutation_score": 71.7,
-  "mutation_survived": 2064,
+  "mutation_killed": 5154,
+  "mutation_score": 70.7,
+  "mutation_survived": 2138,
   "sections": {
     "api": {
       "chars": 406471,
@@ -134,10 +134,10 @@
       "tokens": 29507
     },
     "unit": {
-      "chars": 305702,
+      "chars": 305864,
       "files": 86,
-      "loc": 8795,
-      "tokens": 54449
+      "loc": 8799,
+      "tokens": 54497
     },
     "user_docs": {
       "chars": 7065,
