@@ -3,18 +3,17 @@
 from collections.abc import Iterator
 from typing import Any
 
-from wks.utils.normalize_path import normalize_path
-
 from ...utils.path_to_uri import path_to_uri
 from ...utils.uri_to_path import uri_to_path
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ..StageResult import StageResult
-from ..vault.Vault import Vault
-from . import LinkCheckOutput
 
 # Accessing private module as we reuse the logic
+from ..types.URI import URI
+from ..vault.Vault import Vault
+from . import LinkCheckOutput
 from ._parsers import get_parser
 
 
@@ -54,7 +53,7 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
 # Accessing private module as we reuse the logic
 
 
-def cmd_check(path: str, parser: str | None = None) -> StageResult:
+def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
     """Check if file is monitored and extract links."""
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
@@ -64,7 +63,14 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        file_path = normalize_path(path)
+        try:
+            file_path = uri.path
+        except ValueError:
+            # Fallback if not a file URI (though CLI validation ensures it mostly)
+            # But cmd_check theoretically could check remote URIs in future? For now assuming file
+            result_obj.result = f"Error: Only file URIs are supported. Got {uri}"
+            result_obj.success = False
+            return
 
         if not file_path.exists():
             result_obj.output = LinkCheckOutput(
@@ -73,7 +79,7 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
                 links=[],
                 errors=["File does not exist"],
             ).model_dump(mode="python")
-            result_obj.result = f"File not found: {path}"
+            result_obj.result = f"File not found: {file_path}"
             result_obj.success = False
             return
 
@@ -196,4 +202,4 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
             result_obj.result = f"Error scanning file: {e}"
             result_obj.success = False
 
-    return StageResult(announce=f"Checking links in {path}...", progress_callback=do_work)
+    return StageResult(announce=f"Checking links in {uri}...", progress_callback=do_work)

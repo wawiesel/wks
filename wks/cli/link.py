@@ -20,8 +20,7 @@ def resolve_uri_arg(value: str) -> URI:
     except ValueError:
         # Not a valid URI, try as path
         p = Path(value)
-        if not p.exists():
-            raise typer.BadParameter(f"Path '{value}' does not exist and is not a valid URI.") from None
+        # We delegate existence check to API
         return URI.from_path(p.expanduser().absolute())
 
 
@@ -57,20 +56,20 @@ def link() -> typer.Typer:
 
     @app.command(name="check")
     def check_cmd(
-        path: str = typer.Argument(..., help="Path to file to check"),
+        path: Annotated[URI, typer.Argument(parser=resolve_uri_arg, help="Path to file to check")],
         parser: str | None = typer.Option(None, help="Parser to use (e.g., 'vault')"),
     ) -> None:
         """Check links in a file and verify monitoring status."""
-        _handle_stage_result(cmd_check)(path=path, parser=parser)
+        _handle_stage_result(cmd_check)(uri=path, parser=parser)
 
     @app.command(name="sync")
     def sync_cmd(
-        path: str = typer.Argument(..., help="Path to file or directory to sync"),
+        path: Annotated[URI, typer.Argument(parser=resolve_uri_arg, help="Path to file or directory to sync")],
         parser: str | None = typer.Option(None, help="Parser to use (e.g., 'vault')"),
         recursive: bool = typer.Option(False, "--recursive", "-r", help="Recursively sync directory"),
         remote: bool = typer.Option(False, help="Sync and validate remote targets"),
     ) -> None:
         """Sync links from file/directory to database if monitored."""
-        _handle_stage_result(cmd_sync)(path=path, parser=parser, recursive=recursive, remote=remote)
+        _handle_stage_result(cmd_sync)(uri=path, parser=parser, recursive=recursive, remote=remote)
 
     return app

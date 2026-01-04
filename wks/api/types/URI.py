@@ -33,3 +33,28 @@ class URI:
         normalized = normalize_path(path)
         hostname = socket.gethostname()
         return cls(f"file://{hostname}{normalized}")
+
+    @property
+    def path(self) -> Path:
+        """Get the local filesystem path from the URI.
+
+        Raises:
+            ValueError: If URI is not a file URI.
+        """
+        from urllib.parse import unquote
+
+        from wks.utils.normalize_path import normalize_path
+
+        if not self.value.startswith("file://"):
+            raise ValueError(f"Cannot extract local path from non-file URI: {self.value}")
+
+        # Strip scheme
+        path_part = self.value[7:]
+
+        # Find start of path after hostname
+        # file://hostname/path -> hostname/path -> find('/')
+        # file:///path -> /path -> find('/')
+        first_slash = path_part.find("/")
+        path_part = "/" if first_slash == -1 else path_part[first_slash:]
+
+        return normalize_path(unquote(path_part))

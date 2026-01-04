@@ -114,8 +114,10 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                     progress = 0.4 + (0.5 * (i / len(files)))
                     yield (progress, f"Syncing {file_path.name}...")
 
+                    from wks.api.types.URI import URI
+
                     # Call link sync for this file
-                    link_result = link_cmd_sync(str(file_path), parser="vault", recursive=False, remote=False)
+                    link_result = link_cmd_sync(URI.from_path(file_path), parser="vault", recursive=False, remote=False)
 
                     # Execute the link sync
                     for _ in link_result.progress_callback(link_result):
