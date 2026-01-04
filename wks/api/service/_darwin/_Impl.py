@@ -242,12 +242,12 @@ class _Impl(_AbstractImpl):
                     check=False,
                 )
                 if result.returncode == 0:
-                    status.running = True
                     # Parse output for PID
                     for line in result.stdout.splitlines():
                         if line.strip().startswith("pid ="):
                             with suppress(ValueError, IndexError):
                                 status.pid = int(line.split("=", 1)[1].strip())
+                                status.running = True
             except Exception:
                 pass
 
