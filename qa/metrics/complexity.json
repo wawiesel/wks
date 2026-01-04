@@ -26,7 +26,7 @@
       "functions": 22
     },
     "link": {
-      "ccn_avg": 7.22,
+      "ccn_avg": 7.33,
       "ccn_max": 36,
       "functions": 18
     },
@@ -41,7 +41,7 @@
       "functions": 7
     },
     "monitor": {
-      "ccn_avg": 4.37,
+      "ccn_avg": 4.42,
       "ccn_max": 27,
       "functions": 43
     },
@@ -51,19 +51,19 @@
       "functions": 53
     },
     "transform": {
-      "ccn_avg": 2.9,
+      "ccn_avg": 2.92,
       "ccn_max": 18,
       "functions": 48
     },
     "vault": {
-      "ccn_avg": 2.83,
+      "ccn_avg": 2.89,
       "ccn_max": 17,
       "functions": 54
     }
   },
   "total": {
-    "ccn_avg": 3.49,
+    "ccn_avg": 3.48,
     "ccn_max": 36,
-    "functions": 386
+    "functions": 397
   }
 }

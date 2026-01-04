@@ -5,10 +5,10 @@
         "wks/api/cat/**/*.py"
       ],
       "stats": {
-        "chars": 4481,
+        "chars": 4535,
         "files": 6,
-        "loc": 140,
-        "tokens": 714
+        "loc": 142,
+        "tokens": 767
       }
     },
     "config": {
@@ -19,7 +19,7 @@
         "chars": 11465,
         "files": 7,
         "loc": 322,
-        "tokens": 1919
+        "tokens": 2005
       }
     },
     "daemon": {
@@ -27,10 +27,10 @@
         "wks/api/daemon/**/*.py"
       ],
       "stats": {
-        "chars": 38741,
+        "chars": 38781,
         "files": 13,
-        "loc": 1051,
-        "tokens": 6541
+        "loc": 1052,
+        "tokens": 6689
       }
     },
     "database": {
@@ -41,7 +41,7 @@
         "chars": 40239,
         "files": 17,
         "loc": 1057,
-        "tokens": 6206
+        "tokens": 6557
       }
     },
     "diff": {
@@ -52,7 +52,7 @@
         "chars": 21373,
         "files": 11,
         "loc": 652,
-        "tokens": 2706
+        "tokens": 3104
       }
     },
     "link": {
@@ -60,10 +60,10 @@
         "wks/api/link/**/*.py"
       ],
       "stats": {
-        "chars": 35480,
+        "chars": 35273,
         "files": 15,
-        "loc": 1034,
-        "tokens": 5747
+        "loc": 1035,
+        "tokens": 5960
       }
     },
     "log": {
@@ -74,7 +74,7 @@
         "chars": 14816,
         "files": 7,
         "loc": 432,
-        "tokens": 2485
+        "tokens": 2557
       }
     },
     "mcp": {
@@ -85,7 +85,7 @@
         "chars": 12747,
         "files": 9,
         "loc": 378,
-        "tokens": 1971
+        "tokens": 2031
       }
     },
     "monitor": {
@@ -93,10 +93,10 @@
         "wks/api/monitor/**/*.py"
       ],
       "stats": {
-        "chars": 58244,
+        "chars": 58828,
         "files": 26,
-        "loc": 1634,
-        "tokens": 8717
+        "loc": 1657,
+        "tokens": 9257
       }
     },
     "service": {
@@ -107,7 +107,7 @@
         "chars": 60015,
         "files": 16,
         "loc": 1631,
-        "tokens": 8291
+        "tokens": 8785
       }
     },
     "transform": {
@@ -115,10 +115,10 @@
         "wks/api/transform/**/*.py"
       ],
       "stats": {
-        "chars": 50970,
+        "chars": 50012,
         "files": 19,
         "loc": 1477,
-        "tokens": 6754
+        "tokens": 7087
       }
     },
     "utils": {
@@ -137,10 +137,10 @@
         "wks/api/vault/**/*.py"
       ],
       "stats": {
-        "chars": 50711,
+        "chars": 50466,
         "files": 18,
-        "loc": 1431,
-        "tokens": 7759
+        "loc": 1433,
+        "tokens": 8105
       }
     }
   },
@@ -150,10 +150,10 @@
         "wks/api/**/*.py"
       ],
       "stats": {
-        "chars": 406377,
-        "files": 172,
-        "loc": 11453,
-        "tokens": 60989
+        "chars": 411290,
+        "files": 174,
+        "loc": 11661,
+        "tokens": 64962
       }
     },
     "build_config": {
@@ -165,10 +165,10 @@
         ".pre-commit-config.yaml"
       ],
       "stats": {
-        "chars": 3893,
+        "chars": 3889,
         "files": 5,
         "loc": 167,
-        "tokens": 971
+        "tokens": 970
       }
     },
     "cicd": {
@@ -188,10 +188,10 @@
         "wks/cli/**/*.py"
       ],
       "stats": {
-        "chars": 45216,
-        "files": 19,
-        "loc": 1284,
-        "tokens": 8395
+        "chars": 46319,
+        "files": 20,
+        "loc": 1313,
+        "tokens": 8790
       }
     },
     "dev_docs": {
@@ -205,10 +205,10 @@
         "wks/**/README.md"
       ],
       "stats": {
-        "chars": 82996,
-        "files": 24,
-        "loc": 1947,
-        "tokens": 20740
+        "chars": 113382,
+        "files": 46,
+        "loc": 2827,
+        "tokens": 28337
       }
     },
     "integration": {
@@ -216,10 +216,10 @@
         "tests/integration/**/*.py"
       ],
       "stats": {
-        "chars": 50117,
-        "files": 12,
-        "loc": 1483,
-        "tokens": 8807
+        "chars": 52098,
+        "files": 13,
+        "loc": 1544,
+        "tokens": 9481
       }
     },
     "mcp": {
@@ -227,10 +227,10 @@
         "wks/mcp/**/*.py"
       ],
       "stats": {
-        "chars": 17883,
+        "chars": 18440,
         "files": 9,
-        "loc": 509,
-        "tokens": 3269
+        "loc": 518,
+        "tokens": 3457
       }
     },
     "scripts": {
@@ -239,10 +239,10 @@
         "scripts/*.sh"
       ],
       "stats": {
-        "chars": 78335,
-        "files": 16,
-        "loc": 2289,
-        "tokens": 14622
+        "chars": 102547,
+        "files": 21,
+        "loc": 2978,
+        "tokens": 19958
       }
     },
     "smoke": {
@@ -250,10 +250,10 @@
         "tests/smoke/**/*.py"
       ],
       "stats": {
-        "chars": 12888,
-        "files": 3,
-        "loc": 376,
-        "tokens": 2002
+        "chars": 11844,
+        "files": 7,
+        "loc": 352,
+        "tokens": 2049
       }
     },
     "specs": {
@@ -273,10 +273,10 @@
         "tests/unit/**/*.py"
       ],
       "stats": {
-        "chars": 308790,
+        "chars": 308621,
         "files": 86,
-        "loc": 9025,
-        "tokens": 54358
+        "loc": 9008,
+        "tokens": 54746
       }
     },
     "user_docs": {
@@ -298,16 +298,16 @@
         "chars": 20623,
         "files": 21,
         "loc": 669,
-        "tokens": 2559
+        "tokens": 2663
       }
     }
   },
-  "test_count": 384,
-  "test_files": 96,
+  "test_count": 491,
+  "test_files": 100,
   "total": {
-    "chars": 406377,
-    "files": 172,
-    "loc": 11453,
-    "tokens": 60989
+    "chars": 411290,
+    "files": 174,
+    "loc": 11661,
+    "tokens": 64962
   }
 }
