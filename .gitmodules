@@ -22,9 +22,6 @@
 [submodule ".cursor/rules/UNO"]
 	path = .cursor/rules/UNO
 	url = https://github.com/CursorCult/UNO.git
-[submodule ".cursor/rules/SpecsFirst"]
-	path = .cursor/rules/SpecsFirst
-	url = https://github.com/CursorCult/SpecsFirst.git
 [submodule ".cursor/rules/DesignToTest"]
 	path = .cursor/rules/DesignToTest
 	url = https://github.com/CursorCult/DesignToTest.git
