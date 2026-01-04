@@ -11,7 +11,7 @@ from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ..StageResult import StageResult
 
 # Accessing private module as we reuse the logic
-from ..types.URI import URI
+from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkCheckOutput
 from ._parsers import get_parser

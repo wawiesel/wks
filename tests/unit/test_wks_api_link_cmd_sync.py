@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from tests.unit.conftest import run_cmd
 from wks.api.link.cmd_sync import cmd_sync
-from wks.api.types.URI import URI
+from wks.api.URI import URI
 
 
 def test_cmd_sync_path_not_found(tracked_wks_config):

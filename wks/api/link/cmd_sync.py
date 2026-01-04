@@ -7,7 +7,7 @@ from wks.utils.expand_paths import expand_paths
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
-from ..types.URI import URI
+from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkSyncOutput
 from ._sync_single_file import _sync_single_file

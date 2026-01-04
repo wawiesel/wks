@@ -5,19 +5,26 @@ MCP: wksm_link_show
 """
 
 from collections.abc import Iterator
+from enum import Enum
 from typing import Any
 
 from ..database.Database import Database
 from ..StageResult import StageResult
-from ..types.URI import URI
+from ..URI import URI
 
 
-def cmd_show(uri: URI, direction: str = "from") -> StageResult:
+class Direction(str, Enum):
+    TO = "to"
+    FROM = "from"
+    BOTH = "both"
+
+
+def cmd_show(uri: URI, direction: Direction = Direction.FROM) -> StageResult:
     """Show edges connected to a specific URI.
 
     Args:
         uri: The candidate URI to search for.
-        direction: 'to', 'from', or 'both'.
+        direction: Direction.TO, Direction.FROM, or Direction.BOTH.
     """
     # Ensure strict type at runtime
     if not isinstance(uri, URI):
@@ -37,11 +44,11 @@ def cmd_show(uri: URI, direction: str = "from") -> StageResult:
 
         query: dict[str, Any] = {}
         uri_str = str(uri)
-        if direction == "from":
+        if direction == Direction.FROM:
             query = {"from_local_uri": uri_str}
-        elif direction == "to":
+        elif direction == Direction.TO:
             query = {"to_local_uri": uri_str}
-        elif direction == "both":
+        elif direction == Direction.BOTH:
             query = {"$or": [{"from_local_uri": uri_str}, {"to_local_uri": uri_str}]}
 
         with Database(config.database, database_name) as database:

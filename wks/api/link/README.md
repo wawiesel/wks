@@ -13,7 +13,7 @@ This directory implements the Link API, serving as the centralized Edge Provider
 ## API Standards
 
 **Strong URI Typing**:
-- All public API commands accepting resource identifiers MUST use `wks.api.types.URI.URI` instead of `str`.
+- All public API commands accepting resource identifiers MUST use `wks.api.URI.URI` instead of `str`.
 - Commands are responsible for existence checks (e.g., `uri.path.exists()`), not the caller (CLI/MCP).
 - This ensures consistent handling of `file://` and `vault://` schemes.
 

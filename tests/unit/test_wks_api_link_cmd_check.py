@@ -2,7 +2,7 @@ from pathlib import Path
 
 from tests.unit.conftest import run_cmd
 from wks.api.link.cmd_check import cmd_check
-from wks.api.types.URI import URI
+from wks.api.URI import URI
 
 
 def test_cmd_check_file_not_found(tracked_wks_config):
