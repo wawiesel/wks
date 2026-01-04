@@ -1,11 +1,5 @@
 """Unit tests for wks.api.monitor.cmd_filter_remove module."""
 
-# HODOR-ID: TST-MON-005-REMOVE
-# HODOR-REQS: MON-005
-# HODOR-TEXT: Monitor filter remove command reports success and not-found cases.
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_remove.py::test_cmd_filter_remove_saves_on_success
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_remove.py::test_cmd_filter_remove_not_found
-
 import pytest
 
 from tests.unit.conftest import create_tracked_wks_config, run_cmd
@@ -15,6 +9,11 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_filter_remove_saves_on_success(monkeypatch, tmp_path):
+    """Remove a filter value successfully.
+
+    Requirements:
+    - MON-005
+    """
     # Isolate WKS_HOME for the tracked config
     h = tmp_path / "wks_home"
     h.mkdir()
@@ -31,7 +30,11 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch, tmp_path):
 
 
 def test_cmd_filter_remove_not_found(monkeypatch, tmp_path):
-    """Test cmd_filter_remove when value is not in the list."""
+    """Test cmd_filter_remove when value is not in the list.
+
+    Requirements:
+    - MON-005
+    """
     h = tmp_path / "wks_home"
     h.mkdir()
     monkeypatch.setenv("WKS_HOME", str(h))
@@ -45,7 +48,11 @@ def test_cmd_filter_remove_not_found(monkeypatch, tmp_path):
 
 
 def test_cmd_filter_remove_dirname_list(monkeypatch, tmp_path):
-    """Test cmd_filter_remove with dirname list (non-path list)."""
+    """Test cmd_filter_remove with dirname list (non-path list).
+
+    Requirements:
+    - MON-005
+    """
     h = tmp_path / "wks_home"
     h.mkdir()
     monkeypatch.setenv("WKS_HOME", str(h))
@@ -58,7 +65,11 @@ def test_cmd_filter_remove_dirname_list(monkeypatch, tmp_path):
 
 
 def test_cmd_filter_remove_unknown_list(monkeypatch, tmp_path):
-    """Unknown list names should produce a validation error and halt."""
+    """Unknown list names should produce a validation error and halt.
+
+    Requirements:
+    - MON-005
+    """
     h = tmp_path / "wks_home"
     h.mkdir()
     monkeypatch.setenv("WKS_HOME", str(h))

@@ -1,13 +1,5 @@
 """Tests for monitor cmd_sync API."""
 
-# HODOR-ID: TST-MON-004
-# HODOR-REQS: MON-004
-# HODOR-TEXT: Monitor sync handles files, directories, missing paths, and limits.
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_file
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_directory_recursive
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_missing_path_removes_from_db
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_enforces_limit
-
 from pathlib import Path
 
 import pytest
@@ -22,7 +14,11 @@ from wks.utils.path_to_uri import path_to_uri
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
-    """Test syncing a single file."""
+    """Test syncing a single file.
+
+    Requirements:
+    - MON-004
+    """
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -47,7 +43,11 @@ def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
-    """Test syncing a directory recursively."""
+    """Test syncing a directory recursively.
+
+    Requirements:
+    - MON-004
+    """
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -67,7 +67,11 @@ def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_dict):
-    """Test that syncing a nonexistent path removes it from the DB."""
+    """Test that syncing a nonexistent path removes it from the DB.
+
+    Requirements:
+    - MON-004
+    """
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -96,7 +100,11 @@ def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
-    """Test that sync skips files below min_priority."""
+    """Test that sync skips files below min_priority.
+
+    Requirements:
+    - MON-004
+    """
     # Set min_priority in config via WKSConfig
     config = WKSConfig.load()
     config.monitor.min_priority = 50.0
@@ -116,7 +124,11 @@ def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
-    """Test that sync enforces max_documents limit."""
+    """Test that sync enforces max_documents limit.
+
+    Requirements:
+    - MON-004
+    """
     tracked_wks_config.monitor.max_documents = 2
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
@@ -150,7 +162,11 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
-    """Trigger exception in monitor sync loop via permission error."""
+    """Trigger exception in monitor sync loop via permission error.
+
+    Requirements:
+    - MON-007
+    """
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -173,7 +189,11 @@ def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_skips_excluded_file(wks_home, minimal_config_dict):
-    """Test that sync skips files excluded by monitor rules (hits line 110-115)."""
+    """Test that sync skips files excluded by monitor rules (hits line 110-115).
+
+    Requirements:
+    - MON-004
+    """
     watch_dir = Path(str(wks_home) + "_watched")
     watch_dir.mkdir(parents=True, exist_ok=True)
 

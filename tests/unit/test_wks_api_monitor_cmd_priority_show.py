@@ -1,10 +1,5 @@
 """Unit tests for wks.api.monitor.cmd_priority_show module."""
 
-# HODOR-ID: TST-MON-006-SHOW
-# HODOR-REQS: MON-006
-# HODOR-TEXT: Monitor priority show command returns expected output.
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_priority_show.py::test_cmd_priority_show_returns_stage_result
-
 import pytest
 
 from tests.unit.conftest import run_cmd
@@ -15,7 +10,11 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_priority_show_returns_stage_result(tracked_wks_config, monkeypatch):
-    """Test cmd_priority_show returns correct output."""
+    """Test cmd_priority_show returns correct output.
+
+    Requirements:
+    - MON-006
+    """
     tracked_wks_config.monitor = MonitorConfig.model_validate(
         {
             "filter": {

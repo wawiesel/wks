@@ -1,11 +1,5 @@
 """Unit tests for wks.api.monitor.cmd_filter_show module (real config)."""
 
-# HODOR-ID: TST-MON-005-SHOW
-# HODOR-REQS: MON-005
-# HODOR-TEXT: Monitor filter show command returns the expected outputs.
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_show.py::test_cmd_filter_show_lists_available_when_no_arg
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_show.py::test_cmd_filter_show_returns_list
-
 import json
 
 import pytest
@@ -17,6 +11,11 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch, tmp_path, minimal_config_dict):
+    """Lists available filter sets when no list name is provided.
+
+    Requirements:
+    - MON-005
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -28,6 +27,11 @@ def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch, tmp_path, mini
 
 
 def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict):
+    """Returns the requested filter list.
+
+    Requirements:
+    - MON-005
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -57,7 +61,11 @@ def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict
 
 
 def test_cmd_filter_show_unknown_list_name(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_filter_show with unknown list_name."""
+    """Test cmd_filter_show with unknown list_name.
+
+    Requirements:
+    - MON-005
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))

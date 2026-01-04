@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
         "--test-scan-dir",
         action="append",
         default=[],
-        help="Directory to scan for in-test HODOR metadata comments (relative to repo).",
+        help="Directory to scan for test docstrings with Requirements blocks (relative to repo).",
     )
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="Output HTML file path.")
     parser.add_argument("--title", default="WKS Traceability Audit", help="Report title.")

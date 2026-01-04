@@ -1,16 +1,5 @@
 """Unit tests for monitor cmd_status (no mocks, real mongomock via config)."""
 
-# HODOR-ID: TST-MON-002
-# HODOR-REQS: MON-002
-# HODOR-TEXT: Monitor status command returns schema-shaped output and handles database issues.
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_success
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_tracked_files_excludes_meta_document
-#
-# HODOR-ID: TST-MON-007-STATUS
-# HODOR-REQS: MON-007
-# HODOR-TEXT: Status reports schema-conformant errors when the database fails.
-# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_database_error
-
 import json
 
 import pytest
@@ -23,7 +12,11 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_status_success(monkeypatch, tmp_path, minimal_config_dict):
-    """Status succeeds with default config and no issues."""
+    """Status succeeds with default config and no issues.
+
+    Requirements:
+    - MON-002
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -37,7 +30,11 @@ def test_cmd_status_success(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, minimal_config_dict):
-    """tracked_files count should exclude the __meta__ document."""
+    """tracked_files count should exclude the __meta__ document.
+
+    Requirements:
+    - MON-002
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -77,7 +74,11 @@ def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, 
 
 
 def test_cmd_status_database_error(monkeypatch, tmp_path, minimal_config_dict):
-    """Status handles database errors by reporting them in output."""
+    """Status handles database errors by reporting them in output.
+
+    Requirements:
+    - MON-007
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
