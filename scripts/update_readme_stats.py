@@ -56,7 +56,6 @@ def _run_cmd(cmd: list[str]) -> tuple[int, str]:
     return result.returncode, (result.stdout or "") + (result.stderr or "")
 
 
-
 def _get_domain_coverage() -> dict[str, float]:
     """Get per-domain coverage from coverage.xml (api.cat -> cat, etc)."""
     coverage_xml = REPO_ROOT / "coverage.xml"
@@ -734,9 +733,7 @@ def _build_readme_stats(loc_stats: dict, coverage_stats: dict, mutation_stats: d
         }
 
     coverage_pct = coverage_stats.get("coverage_pct", 0.0)
-    coverage_status = (
-        "⚠️ No Data" if not coverage_domains else "✅ Pass" if coverage_pct >= 100.0 else "⚠️ Below Target"
-    )
+    coverage_status = "⚠️ No Data" if not coverage_domains else "✅ Pass" if coverage_pct >= 100.0 else "⚠️ Below Target"
 
     return {
         "coverage_pct": coverage_pct,
