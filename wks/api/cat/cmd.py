@@ -46,8 +46,10 @@ def cmd(
                 selected_engine = _select_engine(file_path, engine, config)
                 yield (0.2, f"Transforming {file_path.name} using {selected_engine}...")
 
+                from ..URI import URI
+
                 # Run transform
-                res_transform = cmd_engine(selected_engine, file_path, {})
+                res_transform = cmd_engine(selected_engine, URI.from_path(file_path), {})
                 # Proxy progress from transform
                 for progress, msg in res_transform.progress_callback(res_transform):
                     # Scale transform progress (0.0-1.0) to (0.2-0.8)

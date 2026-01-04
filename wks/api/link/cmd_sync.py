@@ -5,12 +5,12 @@ from typing import Any
 
 from wks.utils.expand_paths import expand_paths
 
+from .._ensure_arg_uri import _ensure_arg_uri
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkSyncOutput
-from ._ensure_file_uri import _ensure_file_uri
 from ._sync_single_file import _sync_single_file
 
 # Supported extensions for link parsing
@@ -31,7 +31,7 @@ def cmd_sync(
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        input_path = _ensure_file_uri(
+        input_path = _ensure_arg_uri(
             uri,
             result_obj,
             LinkSyncOutput,

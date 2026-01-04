@@ -6,15 +6,14 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 
 from collections.abc import Iterator
 
-from wks.utils.normalize_path import normalize_path
-
 from ..StageResult import StageResult
+from ..URI import URI
 from . import MonitorCheckOutput
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path
 
 
-def cmd_check(path: str) -> StageResult:
+def cmd_check(uri: URI) -> StageResult:
     """Check if a path would be monitored and calculate its priority."""
 
     def _build_result(
@@ -50,7 +49,20 @@ def cmd_check(path: str) -> StageResult:
         monitor_cfg = config.monitor
 
         yield (0.4, "Resolving path...")
-        test_path = normalize_path(path)
+        try:
+            test_path = uri.path
+        except ValueError as e:
+            _build_result(
+                result_obj,
+                success=False,
+                message=str(e),
+                path_in=str(uri),
+                is_monitored=False,
+                reason=str(e),
+                decisions=[],
+                priority=None,
+            )
+            return
         path_exists = test_path.exists()
 
         yield (0.6, "Checking monitor rules...")
@@ -108,6 +120,6 @@ def cmd_check(path: str) -> StageResult:
         yield (1.0, "Complete")
 
     return StageResult(
-        announce=f"Checking if path would be monitored: {path}",
+        announce=f"Checking if path would be monitored: {uri}",
         progress_callback=do_work,
     )

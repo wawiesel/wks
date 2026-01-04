@@ -6,6 +6,7 @@ import pytest
 
 from tests.unit.conftest import run_cmd
 from wks.api.monitor.cmd_check import cmd_check
+from wks.api.URI import URI
 
 pytestmark = pytest.mark.monitor
 
@@ -23,7 +24,7 @@ def test_cmd_check_reports_monitored(monkeypatch, tmp_path, minimal_config_dict)
     target.write_text("hi", encoding="utf-8")
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-    result = run_cmd(cmd_check, path=str(target))
+    result = run_cmd(cmd_check, uri=URI.from_path(target))
 
     assert result.output["is_monitored"] is True
     assert result.success is True
@@ -40,7 +41,7 @@ def test_cmd_check_path_not_exists(monkeypatch, tmp_path, minimal_config_dict):
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
     missing = tmp_path / "missing.txt"
 
-    result = run_cmd(cmd_check, path=str(missing))
+    result = run_cmd(cmd_check, uri=URI.from_path(missing))
 
     assert result.output["is_monitored"] is False
     assert result.output["priority"] is None
@@ -62,7 +63,7 @@ def test_cmd_check_glob_exclusion(monkeypatch, tmp_path, minimal_config_dict):
     target = watch_dir / "test.tmp"
     target.write_text("temp", encoding="utf-8")
 
-    result = run_cmd(cmd_check, path=str(target))
+    result = run_cmd(cmd_check, uri=URI.from_path(target))
 
     assert result.output["is_monitored"] is False
     decision_symbols = [d["symbol"] for d in result.output["decisions"]]

@@ -5,6 +5,7 @@ import json
 import pytest
 
 from tests.unit.conftest import run_cmd
+from wks.api.URI import URI
 from wks.api.vault.cmd_sync import cmd_sync
 
 pytestmark = pytest.mark.vault
@@ -67,7 +68,7 @@ def test_cmd_sync_nonexistent_path_fails(monkeypatch, tmp_path, minimal_config_d
     cfg["monitor"]["priority"]["dirs"] = {str(vault_dir): 1.0}
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-    result = run_cmd(cmd_sync, path="/nonexistent/file.md")
+    result = run_cmd(cmd_sync, uri=URI.from_path("/nonexistent/file.md"))
 
     assert result.success is False
     assert len(result.output["errors"]) > 0
@@ -177,7 +178,7 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
             ]
         )
 
-    run_cmd(cmd_sync, path=str(subdir))
+    run_cmd(cmd_sync, uri=URI.from_path(str(subdir)))
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         assert db.find_one({"from_local_uri": root_uri}) is not None
 
@@ -264,7 +265,7 @@ def test_scanner_handles_external_file_paths(monkeypatch, tmp_path, minimal_conf
     external_file = (tmp_path / "external.md").resolve()
     external_file.write_text("[[link]]", encoding="utf-8")
 
-    result = run_cmd(cmd_sync, path=str(external_file))
+    result = run_cmd(cmd_sync, uri=URI.from_path(str(external_file)))
     assert result.success is False
     assert len(result.output["errors"]) > 0
 
@@ -466,6 +467,6 @@ def test_cmd_sync_path_outside_vault_coverage(monkeypatch, tmp_path, minimal_con
 
     # Now run sync with a path - it will use our mock_resolve
     # This exercises line 129: scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"
-    result = run_cmd(cmd_sync, path=str(target_file))
+    result = run_cmd(cmd_sync, uri=URI.from_path(str(target_file)))
     assert result.success is True
     assert result.output["notes_scanned"] == 1

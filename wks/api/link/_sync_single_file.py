@@ -32,7 +32,7 @@ def _sync_single_file(
 
     # Auto-register file with monitor (explicit sync = intent to track)
     try:
-        monitor_result = monitor_sync(str(file_path), recursive=False)
+        monitor_result = monitor_sync(URI.from_path(file_path), recursive=False)
         # Execute the generator
         for _ in monitor_result.progress_callback(monitor_result):
             pass

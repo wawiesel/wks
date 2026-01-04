@@ -11,6 +11,7 @@ import pytest
 
 from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
+from wks.api.URI import URI
 from wks.utils.normalize_path import normalize_path
 from wks.utils.path_to_uri import path_to_uri
 
@@ -73,7 +74,7 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         from tests.conftest import run_cmd
         from wks.api.monitor.cmd_sync import cmd_sync
 
-        sync_result = run_cmd(cmd_sync, str(test_file))
+        sync_result = run_cmd(cmd_sync, URI.from_path(test_file))
         assert sync_result.success
 
         # Verify it's in DB
@@ -122,7 +123,7 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         from tests.conftest import run_cmd
         from wks.api.monitor.cmd_sync import cmd_sync
 
-        res = run_cmd(cmd_sync, str(src_file))
+        res = run_cmd(cmd_sync, URI.from_path(src_file))
         assert res.success, f"Sync failed: {res.output}"
         if res.output["files_synced"] != 1:
             print(f"DEBUG: Sync Output: {res.output}")

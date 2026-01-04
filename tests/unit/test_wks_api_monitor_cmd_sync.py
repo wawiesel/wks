@@ -8,6 +8,7 @@ from tests.unit.conftest import run_cmd
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.monitor.cmd_sync import cmd_sync
+from wks.api.URI import URI
 from wks.utils.path_to_uri import path_to_uri
 
 
@@ -25,7 +26,7 @@ def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
     config.monitor.filter.include_paths.append(str(watch_dir))
     config.save()
 
-    res = run_cmd(cmd_sync, path=str(test_file))
+    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
     assert res.success is True
     assert res.output["files_synced"] == 1
 
@@ -51,7 +52,7 @@ def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
     config.monitor.filter.include_paths.append(str(watch_dir))
     config.save()
 
-    res = run_cmd(cmd_sync, path=str(watch_dir), recursive=True)
+    res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
     assert res.success is True
     assert res.output["files_synced"] == 2
 
@@ -69,13 +70,13 @@ def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_
     config = WKSConfig.load()
     config.monitor.filter.include_paths.append(str(watch_dir))
     config.save()
-    run_cmd(cmd_sync, path=str(test_file))
+    run_cmd(cmd_sync, uri=URI.from_path(test_file))
 
     # 2. Delete it
     test_file.unlink()
 
     # 3. Sync missing path
-    res = run_cmd(cmd_sync, path=str(test_file))
+    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
     assert res.success is True
     assert "Removed" in res.result
 
@@ -99,7 +100,7 @@ def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
     test_file = watch_dir / "low_priority.txt"
     test_file.write_text("Low Priority", encoding="utf-8")
 
-    res = run_cmd(cmd_sync, path=str(test_file))
+    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
     assert res.success is True
     assert res.output["files_synced"] == 0
     assert res.output["files_skipped"] == 1
@@ -127,7 +128,7 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
 
     with patch("wks.api.monitor.cmd_sync.calculate_priority", return_value=200.0):
         # Run sync to trigger enforcement
-        res = run_cmd(cmd_sync, path=str(test_file))
+        res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
         assert res.success is True
 
     # Verify only 2 remain and 'low' and 'mid' are gone
@@ -154,7 +155,7 @@ def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
         config.monitor.filter.include_paths.append(str(watch_dir))
         config.save()
 
-        res = run_cmd(cmd_sync, path=str(watch_dir), recursive=True)
+        res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
         assert res.success is False
         assert len(res.output["errors"]) == 1
         assert "unreadable.txt" in res.output["errors"][0]
@@ -177,7 +178,7 @@ def test_monitor_cmd_sync_skips_excluded_file(wks_home, minimal_config_dict):
     test_file = watch_dir / "skip_me.tmp"
     test_file.write_text("Temp Data", encoding="utf-8")
 
-    res = run_cmd(cmd_sync, path=str(test_file))
+    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
     assert res.success is True
     assert res.output["files_synced"] == 0
     assert res.output["files_skipped"] == 1

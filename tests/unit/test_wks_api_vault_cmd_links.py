@@ -5,6 +5,7 @@ import json
 import pytest
 
 from tests.unit.conftest import run_cmd
+from wks.api.URI import URI
 from wks.api.vault.cmd_links import cmd_links
 
 pytestmark = pytest.mark.vault
@@ -35,7 +36,7 @@ def test_cmd_links_returns_structure(monkeypatch, tmp_path, minimal_config_dict)
     with Database(db_config, "edges") as db:
         db.delete_many({})
 
-    result = run_cmd(cmd_links, path="note.md", direction="both")
+    result = run_cmd(cmd_links, uri=URI("vault:///note.md"), direction="both")
     assert result.success is True
     assert result.output["count"] == 0
     assert result.output["edges"] == []
@@ -73,7 +74,7 @@ def test_cmd_links_finds_outgoing(monkeypatch, tmp_path, minimal_config_dict):
             }
         )
 
-    result = run_cmd(cmd_links, path="note1.md", direction="from")
+    result = run_cmd(cmd_links, uri=URI("vault:///note1.md"), direction="from")
 
     assert result.success is True
     assert result.output["count"] == 1
@@ -112,7 +113,7 @@ def test_cmd_links_finds_incoming(monkeypatch, tmp_path, minimal_config_dict):
             }
         )
 
-    result = run_cmd(cmd_links, path="note2.md", direction="to")
+    result = run_cmd(cmd_links, uri=URI("vault:///note2.md"), direction="to")
 
     assert result.success is True
     assert result.output["count"] == 1
@@ -124,13 +125,13 @@ def test_cmd_links_invalid_config(monkeypatch, tmp_path):
     monkeypatch.setenv("WKS_HOME", str(tmp_path))
     # No config file
 
-    result = run_cmd(cmd_links, path="foo")
+    result = run_cmd(cmd_links, uri=URI("vault:///foo"))
     assert result.success is False
     assert "Failed to load config" in result.output["errors"][0]
 
 
-def test_cmd_links_path_error(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_links with invalid vault path (line 56-68)."""
+def test_cmd_links_path_outside_vault(monkeypatch, tmp_path, minimal_config_dict):
+    """Test cmd_links with path outside vault - still queries DB successfully."""
     wks_home = (tmp_path / ".wks").resolve()
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -140,9 +141,10 @@ def test_cmd_links_path_error(monkeypatch, tmp_path, minimal_config_dict):
     cfg["vault"]["base_dir"] = str(vault_dir)
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-    result = run_cmd(cmd_links, path="../../outside.md")
-    assert result.success is False
-    assert "does not exist" in result.result or "not in vault" in result.result.lower()
+    # Querying for links to a non-existent file is allowed - we're querying the DB
+    result = run_cmd(cmd_links, uri=URI("vault:///../../outside.md"))
+    assert result.success is True  # DB query succeeds
+    assert result.output["count"] == 0  # Just no edges found
 
 
 def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
@@ -167,6 +169,6 @@ def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
 
     monkeypatch.setattr(Database, "__enter__", mock_enter)
 
-    result = run_cmd(cmd_links, path="test.md")
+    result = run_cmd(cmd_links, uri=URI("vault:///test.md"))
     assert result.success is False
     assert "Query failed" in result.output["errors"][0]

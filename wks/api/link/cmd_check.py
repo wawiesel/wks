@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from typing import Any
 
+from .._ensure_arg_uri import _ensure_arg_uri
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
@@ -12,7 +13,6 @@ from ..StageResult import StageResult
 from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkCheckOutput
-from ._ensure_file_uri import _ensure_file_uri
 from ._parsers import get_parser
 
 
@@ -62,7 +62,7 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        file_path = _ensure_file_uri(uri, result_obj, LinkCheckOutput, is_monitored=False, links=[])
+        file_path = _ensure_arg_uri(uri, result_obj, LinkCheckOutput, is_monitored=False, links=[])
         if not file_path:
             return
 

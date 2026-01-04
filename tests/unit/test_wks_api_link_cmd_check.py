@@ -10,7 +10,7 @@ def test_cmd_check_file_not_found(tracked_wks_config):
     # Use URI.from_path for strict URI creation (expands path)
     result = run_cmd(cmd_check, uri=URI.from_path(Path("missing.md").absolute()))
     assert result.success is False
-    assert "Path does not exist" in result.output["errors"]
+    assert "File does not exist" in result.output["errors"]
 
 
 def test_cmd_check_not_monitored(tracked_wks_config, tmp_path):
@@ -132,4 +132,4 @@ def test_cmd_check_non_file_uri(tracked_wks_config):
     result = run_cmd(cmd_check, uri=uri)
     assert result.success is False
     assert result.output is not None
-    assert "Only file URIs are supported" in result.output["errors"][0]
+    assert "Cannot resolve local path from URI" in result.output["errors"][0]

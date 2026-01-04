@@ -99,14 +99,23 @@ class MCPServer:
 
             def make_handler(func: Callable, sig: inspect.Signature, _domain: str) -> Callable:
                 def handler(_config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:
+                    from wks.api.URI import URI
+
                     kwargs = {}
                     for param_name, param in sig.parameters.items():
                         if param_name == "self":
                             continue
+                        # Handle URI conversion: MCP clients pass 'path', but API now expects 'uri'
                         val = args.get(param_name)
+                        if val is None and param_name == "uri":
+                            # Try 'path' as fallback for backward compatibility
+                            val = args.get("path")
                         if val is not None:
                             if param_name == "query" and isinstance(val, dict):
                                 val = json.dumps(val)
+                            # Convert string path to URI for 'uri' parameters
+                            elif param_name == "uri" and isinstance(val, str):
+                                val = URI.from_any(val)
                             kwargs[param_name] = val
                         elif param.default == inspect.Parameter.empty:
                             raise ValueError(f"Missing required argument: {param_name}")

@@ -10,7 +10,7 @@ def test_cmd_sync_path_not_found(tracked_wks_config):
     """Test path not found (lines 35-45)."""
     result = run_cmd(cmd_sync, uri=URI.from_path(Path("missing.md").absolute()))
     assert result.success is False
-    assert "Path does not exist" in result.output["errors"]
+    assert "File does not exist" in result.output["errors"]
 
 
 def test_cmd_sync_no_files(tracked_wks_config, tmp_path):
@@ -277,4 +277,4 @@ def test_cmd_sync_non_file_uri(tracked_wks_config):
     result = run_cmd(cmd_sync, uri=uri)
     assert result.success is False
     assert result.output is not None
-    assert "Only file URIs are supported" in result.output["errors"][0]
+    assert "Cannot resolve local path from URI" in result.output["errors"][0]

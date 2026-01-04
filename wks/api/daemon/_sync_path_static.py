@@ -5,8 +5,9 @@ def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
     """Invoke monitor sync for a single path (child process safe)."""
     try:
         from ..monitor.cmd_sync import cmd_sync
+        from ..URI import URI
 
-        result = cmd_sync(str(path))
+        result = cmd_sync(URI.from_path(path))
         list(result.progress_callback(result))
         out = result.output or {}
         errs = out["errors"]

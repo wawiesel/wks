@@ -7,13 +7,14 @@ from typing import Any
 
 from ...api.StageResult import StageResult
 from ...api.URI import URI
+from .._ensure_arg_uri import _ensure_arg_uri
 from . import TransformEngineOutput
 from ._get_controller import _get_controller
 
 
 def cmd_engine(
     engine: str,
-    file_path: Path,
+    uri: URI,
     overrides: dict[str, Any],
     output: Path | None = None,
 ) -> StageResult:
@@ -21,7 +22,7 @@ def cmd_engine(
 
     Args:
         engine: Engine name
-        file_path: Source file path
+        uri: Source URI
         overrides: Configuration overrides
         output: Optional output path
 
@@ -31,6 +32,24 @@ def cmd_engine(
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Initializing controller...")
+
+        yield (0.2, "Resolving path...")
+        file_path = _ensure_arg_uri(
+            uri,
+            result_obj,
+            TransformEngineOutput,
+            uri_field="source_uri",
+            destination_uri="",
+            engine=engine,
+            status="error",
+            checksum="",
+            output_content=None,
+            processing_time_ms=0,
+            cached=False,
+            warnings=[],
+        )
+        if not file_path:
+            return
 
         try:
             with _get_controller() as controller:
@@ -55,24 +74,7 @@ def cmd_engine(
                     candidates = list(controller.cache_manager.cache_dir.glob(f"{cache_key}.*"))
                     cache_location = candidates[0] if candidates else cache_location
 
-                # Read content if output is not set (typical CLI behavior might want preview?)
-                # Or just leave None. Schema requires the field, but value can be None
-                # if defined as Optional in Pydantic?
-                # The schema validation error said "Field required", implying missing key.
-                # TransformTransformOutput schema definition: "output_content": {"type": "string"} -- wait.
-                # If schema has "type": "string" without "null", it cannot be None.
-                # Let's check schema definition again.
-                # In turn 1 (view_file schema), lines 35: "type": "string".
-                # If the Pydantic model generated from schema doesn't allow None, we must send empty string.
-                # But the error object sent `output_content: null` and that seemingly passed (or failed?).
-                # Wait, step 3653 failed manually. Then step 3663 passed.
-                # Step 3662 used `None`. `test_cmd_transform_error_structure` asserted `is None`.
-                # If Pydantic model allows None, then None is fine.
-                # `_TransformResult` defines `str | None`.
-
                 output_content = None
-                # If the user wants content printed to stdout (maybe via another flag? or just always None for now)
-                # The CLI usually saves to file.
 
                 yield (1.0, "Complete")
 
@@ -110,6 +112,6 @@ def cmd_engine(
             return
 
     return StageResult(
-        announce=f"Transforming {file_path.name}...",
+        announce=f"Transforming {uri}...",
         progress_callback=do_work,
     )
