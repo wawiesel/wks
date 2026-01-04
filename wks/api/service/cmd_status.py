@@ -27,24 +27,22 @@ def cmd_status() -> StageResult:
         try:
             with Service(config.service) as service:
                 service_status = service.get_service_status()
-            if "installed" not in service_status:
-                raise KeyError("get_service_status() result missing required 'installed' field")
-            service_installed = service_status["installed"]
 
             # Always set installed status (True or False) for service-capable backends
-            service_data["installed"] = service_installed
-            if "plist_path" in service_status:
-                service_data["plist_path"] = service_status["plist_path"]
-            if "label" in service_status:
-                service_data["label"] = service_status["label"]
+            service_data["installed"] = service_status.installed
+            if service_status.unit_path:
+                service_data["plist_path"] = service_status.unit_path
 
-            if service_installed and "pid" in service_status:
-                service_pid = service_status["pid"]
+            # Label is not part of ServiceStatus, but was checked before.
+            # If it was needed, we should add it to ServiceStatus,
+            # but it wasn't returned by Linux/Darwin impls in get_service_status previously.
+
+            if service_status.installed and service_status.pid:
+                service_pid = service_status.pid
                 if _pid_running(service_pid):
                     running_as_service = True
                     status_data["running"] = True
                     status_data["pid"] = service_pid
-                    status_data["installed"] = True
         except ValueError as exc:
             # Unsupported backend type - not an error, just no service support
             status_data["warnings"].append(f"Service backend not supported: {exc}")

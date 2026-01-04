@@ -12,6 +12,7 @@ import pytest
 from tests.unit.conftest import run_cmd
 from wks.api.service import cmd_stop
 from wks.api.service.ServiceConfig import ServiceConfig
+from wks.api.service.ServiceStatus import ServiceStatus
 
 pytestmark = pytest.mark.daemon
 
@@ -24,7 +25,7 @@ def test_cmd_stop_not_installed(tracked_wks_config, monkeypatch):
     )  # type: ignore
     # Mock backend implementation
     mock_impl = MagicMock()
-    mock_impl.get_service_status.return_value = {"installed": False}
+    mock_impl.get_service_status.return_value = ServiceStatus(installed=False, unit_path="")
 
     mock_impl_class = MagicMock(return_value=mock_impl)
     mock_module = MagicMock()
@@ -55,7 +56,7 @@ def test_cmd_stop_success(tracked_wks_config, monkeypatch):
 
     # Mock backend
     mock_service = MagicMock()
-    mock_service.get_service_status.return_value = {"installed": True}
+    mock_service.get_service_status.return_value = ServiceStatus(installed=True, unit_path="/tmp/foo")
     mock_service.stop_service.return_value = {"success": True}
 
     mock_service_cls = MagicMock()
@@ -75,7 +76,7 @@ def test_cmd_stop_already_stopped(tracked_wks_config, monkeypatch):
     )
 
     mock_service = MagicMock()
-    mock_service.get_service_status.return_value = {"installed": True}
+    mock_service.get_service_status.return_value = ServiceStatus(installed=True, unit_path="/tmp/foo")
     mock_service.stop_service.return_value = {"success": True, "note": "already stopped"}
 
     mock_service_cls = MagicMock()
@@ -95,7 +96,7 @@ def test_cmd_stop_failure(tracked_wks_config, monkeypatch):
     )
 
     mock_service = MagicMock()
-    mock_service.get_service_status.return_value = {"installed": True}
+    mock_service.get_service_status.return_value = ServiceStatus(installed=True, unit_path="/tmp/foo")
     mock_service.stop_service.return_value = {"success": False, "error": "Stop failed"}
 
     mock_service_cls = MagicMock()

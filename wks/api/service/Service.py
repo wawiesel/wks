@@ -2,7 +2,10 @@
 
 import platform
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .ServiceStatus import ServiceStatus
 
 from pydantic import BaseModel
 
@@ -117,11 +120,11 @@ class Service:
         # Daemon implementations don't need cleanup, but we keep the pattern for consistency
         return False
 
-    def get_service_status(self) -> dict[str, Any]:
+    def get_service_status(self) -> "ServiceStatus":
         """Get daemon service status.
 
         Returns:
-            Dictionary with service status information (installed, pid, etc.)
+            ServiceStatus object.
         """
         if not self._impl:
             raise RuntimeError("Service not initialized. Use as context manager first.")
