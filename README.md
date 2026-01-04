@@ -1,7 +1,7 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-83.0%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-71.3%25-red)
+![Coverage](https://img.shields.io/badge/coverage-82.7%25-yellow)
+![Mutation Score](https://img.shields.io/badge/mutation-72.7%25-red)
 ![Tests](https://img.shields.io/badge/tests-491_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
@@ -15,37 +15,37 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   83.0% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   71.3% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |   82.7% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   72.7% |       ≥90% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
 ### Source Size Statistics
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     173 | 11,549 |      409,345 |   64,514 |      29.2% |
-| **cli**   |      20 |  1,304 |       45,920 |    8,713 |       3.9% |
-| **mcp**   |       9 |    509 |       17,883 |    3,396 |       1.5% |
+| **api**   |     174 | 11,661 |      411,301 |   64,962 |      29.3% |
+| **cli**   |      20 |  1,313 |       46,319 |    8,790 |       4.0% |
+| **mcp**   |       9 |    518 |       18,440 |    3,457 |       1.6% |
 | **utils** |      21 |    669 |       20,623 |    2,663 |       1.2% |
-| **Total** |     223 | 14,031 |      493,771 |   79,286 |      35.9% |
+| **Total** |     224 | 14,161 |      496,683 |   79,872 |      36.0% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      86 |  8,778 |      305,385 |   54,496 |      24.7% |
-| **Integration Tests** |      13 |  1,543 |       52,050 |    9,468 |       4.3% |
+| **Unit Tests**        |      86 |  8,787 |      306,086 |   54,734 |      24.7% |
+| **Integration Tests** |      13 |  1,544 |       52,098 |    9,481 |       4.3% |
 | **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       0.9% |
-| **Total**             |     106 | 10,673 |      369,279 |   66,013 |      29.9% |
+| **Total**             |     106 | 10,683 |      370,028 |   66,264 |      29.9% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.8% |
-| **Developer Documentation** |      46 | 2,765 |      111,061 |   27,758 |      12.6% |
-| **Specifications**          |      29 | 3,326 |      118,031 |   29,507 |      13.4% |
-| **Total**                   |      82 | 6,319 |      236,157 |   59,031 |      26.7% |
+| **Developer Documentation** |      46 | 2,765 |      111,061 |   27,758 |      12.5% |
+| **Specifications**          |      29 | 3,326 |      118,031 |   29,507 |      13.3% |
+| **Total**                   |      82 | 6,319 |      236,157 |   59,031 |      26.6% |
 
 ### Infrastructure Summary
 
@@ -56,7 +56,7 @@
 | **Scripts**      |      15 | 1,927 |       65,757 |   12,663 |       5.7% |
 | **Total**        |      24 | 2,469 |       80,685 |   16,393 |       7.4% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 71.3% means 71.3% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 72.7% means 72.7% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 491 tests across 100 test files.
 
@@ -64,19 +64,19 @@
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          83% |          82/99 |
-| config    |       100% |          69% |        183/264 |
-| daemon    |        84% |          70% |        249/354 |
-| database  |        90% |          73% |        455/626 |
+| cat       |        94% |          83% |         83/100 |
+| config    |       100% |          63% |        167/264 |
+| daemon    |        84% |          75% |        266/354 |
+| database  |        90% |          72% |        451/626 |
 | diff      |         0% |          N/A |            0/0 |
-| link      |        98% |          70% |       847/1218 |
-| log       |        94% |          67% |        369/547 |
-| mcp       |        97% |          59% |        235/400 |
-| monitor   |        99% |          69% |      1151/1667 |
+| link      |        98% |          73% |       846/1162 |
+| log       |        94% |          67% |        366/547 |
+| mcp       |        97% |          75% |        301/400 |
+| monitor   |        98% |          70% |      1173/1665 |
 | service   |        92% |          86% |         99/115 |
-| transform |        87% |          81% |        627/777 |
+| transform |        87% |          81% |        658/812 |
 | utils     |       100% |          N/A |            0/0 |
-| vault     |       100% |          73% |       929/1265 |
+| vault     |        99% |          72% |       885/1235 |
 
 
 ## Overview
