@@ -128,7 +128,8 @@ jobs:
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate qa/metrics/*.json inside Docker (has mutmut and all tools)
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/update_readme_stats.py --json-only || true
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_token_stats.py || true
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/aggregate_mutation_stats.py || true
 
           ./scripts/disk_avail.sh "After tests"
 
@@ -161,16 +162,17 @@ jobs:
             echo "all_passed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Regenerate stats (for verification or update)
-        if: steps.docker-tests.outputs.passed == 'true'
-        run: |
-           pip install tabulate
-           python3 scripts/update_readme_stats.py --from-json
       - name: Generate traceability audit report
         if: steps.docker-tests.outputs.passed == 'true'
         run: |
            pip install pyyaml
            python3 scripts/update_traceability_audit.py
+
+      - name: Regenerate stats (for verification or update)
+        if: steps.docker-tests.outputs.passed == 'true'
+        run: |
+           pip install tabulate
+           python3 scripts/update_readme_stats.py
 
       - name: Check for changes
         id: check-changes

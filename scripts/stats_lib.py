@@ -69,12 +69,15 @@ def _format_row(label: str, stats: "SectionStats", pct: str) -> list[str]:
     return [f"**{label}**", f"{stats.files:,}", f"{stats.loc:,}", f"{stats.chars:,}", f"{stats.tokens:,}", pct]
 
 
-def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int) -> str:
+def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int, traceability_pct: float) -> str:
     """Generate badge markdown."""
     mutation_color = "brightgreen" if mutation_score >= 90.0 else "yellow" if mutation_score >= 80.0 else "red"
     coverage_color = "brightgreen" if coverage_pct >= 100.0 else "yellow" if coverage_pct >= 80.0 else "red"
+    traceability_color = "brightgreen" if traceability_pct >= 100.0 else "yellow" if traceability_pct >= 80.0 else "red"
+
     return f"""![Coverage](https://img.shields.io/badge/coverage-{coverage_pct}%25-{coverage_color})
 ![Mutation Score](https://img.shields.io/badge/mutation-{mutation_score}%25-{mutation_color})
+![Traceability](https://img.shields.io/badge/traceability-{traceability_pct}%25-{traceability_color})
 ![Tests](https://img.shields.io/badge/tests-{test_count}_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
@@ -106,7 +109,10 @@ def generate_domain_table(domain_stats: dict) -> str:
 def generate_badges_md(stats: dict) -> str:
     """Generate badges markdown from stats dict."""
     return _generate_badges(
-        stats.get("coverage_pct", 0.0), stats.get("mutation_score", 0.0), stats.get("test_count", 0)
+        stats.get("coverage_pct", 0.0),
+        stats.get("mutation_score", 0.0),
+        stats.get("test_count", 0),
+        stats.get("traceability_pct", 0.0),
     )
 
 
@@ -117,6 +123,7 @@ def generate_full_report(stats: dict) -> str:
     coverage_status = stats.get("coverage_status", "")
     docker_freshness = stats.get("docker_freshness", "fresh")
     mutation_score = stats.get("mutation_score", 0.0)
+    traceability_pct = stats.get("traceability_pct", 0.0)
     test_count = stats.get("test_count", 0)
     test_files = stats.get("test_files", 0)
 
@@ -124,6 +131,7 @@ def generate_full_report(stats: dict) -> str:
 
     mutation_status = "✅ Pass" if mutation_score >= 90.0 else "⚠️ Below Target"
     freshness_status = "✅ Pass" if docker_freshness == "fresh" else "⚠️ Updates Available"
+    traceability_status = "✅ Pass" if traceability_pct >= 100.0 else "⚠️ Below Target"
 
     # Helper for token calculation
     def get_stats(key: str) -> SectionStats:
@@ -162,6 +170,7 @@ def generate_full_report(stats: dict) -> str:
         [
             ["**Code Coverage**", f"{coverage_pct}%", "100%", coverage_status],
             ["**Mutation Kill %**", f"{mutation_score}%", "≥90%", mutation_status],
+            ["**Traceability**", f"{traceability_pct}%", "100%", traceability_status],
             [
                 "**Docker Freshness**",
                 "v1",
