@@ -121,7 +121,14 @@ Notes:
 
 ## README Statistics
 
-The code quality metrics in `README.md` (mutation score, test counts, etc.) are automatically kept in sync with the codebase and stored in `qa/metrics/*.json`.
+The code quality metrics in `README.md` (mutation score, test counts, etc.) are automatically kept in sync with the codebase
+   - **Stats**: `qa/metrics/*.json` (aggregated statistics)
+   - **Reports**: `mutants/` (detailed mutation results)
+
+   Steps:
+   1. **Generate**: Tools write raw data to `qa/metrics/`.
+   2. **Aggregate**: `scripts/update_readme_stats.py` reads `qa/metrics/` and updates `README.md`.
+ and stored in `qa/metrics/*.json`.
 
 **Automatic Updates**:
 - **Local**: The statistics are updated automatically via a `pre-commit` hook when `README.md` is modified.
@@ -162,6 +169,8 @@ To generate a visual representation of codebase statistics:
 ```bash
 pip install matplotlib  # Required for visualization
 ./scripts/generate_codebase_visualization.py
+   - `scripts/generate_token_stats.py` -> `qa/metrics/tokens.json`
+   - `scripts/aggregate_mutation_stats.py` -> `qa/metrics/mutations.json`
 ```
 
 This creates `docs/codebase_stats.png` with a multi-panel visualization showing:

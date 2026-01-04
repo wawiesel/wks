@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import patch
 
 import wks.mcp.server as server_mod
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.StageResult import StageResult
 from wks.mcp import discover_commands as discover_commands_mod
 from wks.mcp.call_tool import call_tool
@@ -57,7 +58,7 @@ def test_tools_call_happy_path(monkeypatch):
     monkeypatch.setattr(
         server, "build_registry", lambda: {"wksm_dummy_run": lambda cfg, args: {"success": True, "data": args}}
     )
-    monkeypatch.setattr(server_mod.WKSConfig, "load", classmethod(lambda cls: object()))
+    monkeypatch.setattr(WKSConfig, "load", classmethod(lambda cls: object()))
 
     server.handle_request(
         {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "wksm_dummy_run", "arguments": {"a": 1}}}
@@ -98,7 +99,7 @@ def test_tools_call_exception(monkeypatch):
         raise RuntimeError("fail")
 
     monkeypatch.setattr(server, "build_registry", lambda: {"wksm_boom": boom})
-    monkeypatch.setattr(server_mod.WKSConfig, "load", classmethod(lambda cls: object()))
+    monkeypatch.setattr(WKSConfig, "load", classmethod(lambda cls: object()))
 
     server.handle_request(
         {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "wksm_boom", "arguments": {}}}
@@ -175,7 +176,7 @@ def test_call_tool_success_and_failure(monkeypatch):
 
     with (
         patch.object(server_mod.MCPServer, "build_registry", fakebuild_registry),
-        patch.object(server_mod.WKSConfig, "load", return_value=None),
+        patch.object(WKSConfig, "load", return_value=None),
     ):
         result = call_tool("wksm_custom", {"x": 1})
         assert result["success"] is True
