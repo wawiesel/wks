@@ -1,51 +1,6 @@
 {
-  "domains": {
-    "cat": {
-      "killed": 78,
-      "survived": 21
-    },
-    "config": {
-      "killed": 182,
-      "survived": 82
-    },
-    "daemon": {
-      "killed": 248,
-      "survived": 106
-    },
-    "database": {
-      "killed": 448,
-      "survived": 178
-    },
-    "link": {
-      "killed": 826,
-      "survived": 361
-    },
-    "log": {
-      "killed": 362,
-      "survived": 185
-    },
-    "mcp": {
-      "killed": 253,
-      "survived": 147
-    },
-    "monitor": {
-      "killed": 1128,
-      "survived": 538
-    },
-    "service": {
-      "killed": 99,
-      "survived": 16
-    },
-    "transform": {
-      "killed": 611,
-      "survived": 159
-    },
-    "vault": {
-      "killed": 879,
-      "survived": 385
-    }
-  },
-  "mutation_killed": 5114,
-  "mutation_score": 70.1,
-  "mutation_survived": 2178
+  "domains": {},
+  "mutation_killed": 0,
+  "mutation_score": 0.0,
+  "mutation_survived": 0
 }

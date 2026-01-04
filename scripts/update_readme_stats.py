@@ -657,14 +657,24 @@ def _collect_loc_stats() -> dict:
     }
 
     domain_paths = {name: [f"wks/api/{name}/**/*.py"] for name in domain_loc_stats}
+    section_entries = {
+        name: {
+            "paths": section_paths.get(name, []),
+            "stats": section_stats[name],
+        }
+        for name in section_stats
+    }
+    domain_entries = {
+        name: {
+            "paths": domain_paths.get(name, []),
+            "stats": asdict(stats),
+        }
+        for name, stats in domain_loc_stats.items()
+    }
 
     return {
-        "paths": {
-            "sections": section_paths,
-            "domains": domain_paths,
-        },
-        "sections": section_stats,
-        "domains": {name: asdict(stats) for name, stats in domain_loc_stats.items()},
+        "sections": section_entries,
+        "domains": domain_entries,
         "total": asdict(domain_total),
         "test_count": test_count,
         "test_files": test_files,
@@ -774,7 +784,7 @@ def _update_readme_from_stats(stats: dict) -> None:
         sys.exit(1)
 
     # Reconstruct SectionStats objects
-    sections = {k: SectionStats(**v) for k, v in stats["sections"].items()}
+    sections = {k: SectionStats(**v["stats"]) for k, v in stats["sections"].items()}
 
     # Generate content
     badges = _generate_badges(stats["coverage_pct"], stats["mutation_score"], stats["test_count"])
