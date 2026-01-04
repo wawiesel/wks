@@ -12,6 +12,7 @@ from ..StageResult import StageResult
 from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkCheckOutput
+from ._ensure_file_uri import _ensure_file_uri
 from ._parsers import get_parser
 
 
@@ -61,30 +62,8 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        try:
-            file_path = uri.path
-        except ValueError:
-            # Fallback if not a file URI (though CLI validation ensures it mostly)
-            # But cmd_check theoretically could check remote URIs in future? For now assuming file
-            result_obj.output = LinkCheckOutput(
-                path=str(uri),
-                is_monitored=False,
-                links=[],
-                errors=[f"Only file URIs are supported. Got {uri}"],
-            ).model_dump(mode="python")
-            result_obj.result = f"Error: Only file URIs are supported. Got {uri}"
-            result_obj.success = False
-            return
-
-        if not file_path.exists():
-            result_obj.output = LinkCheckOutput(
-                path=str(file_path),
-                is_monitored=False,
-                links=[],
-                errors=["File does not exist"],
-            ).model_dump(mode="python")
-            result_obj.result = f"File not found: {file_path}"
-            result_obj.success = False
+        file_path = _ensure_file_uri(uri, result_obj, LinkCheckOutput, is_monitored=False, links=[])
+        if not file_path:
             return
 
         yield (0.3, "Checking monitor rules...")

@@ -10,6 +10,7 @@ from ..StageResult import StageResult
 from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkSyncOutput
+from ._ensure_file_uri import _ensure_file_uri
 from ._sync_single_file import _sync_single_file
 
 # Supported extensions for link parsing
@@ -30,31 +31,15 @@ def cmd_sync(
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        try:
-            input_path = uri.path
-        except ValueError:
-            # Fallback if not a file URI (though CLI validation ensures it mostly)
-            result_obj.output = LinkSyncOutput(
-                path=str(uri),
-                is_monitored=False,
-                links_found=0,
-                links_synced=0,
-                errors=[f"Only file URIs are supported. Got {uri}"],
-            ).model_dump(mode="python")
-            result_obj.result = f"Error: Only file URIs are supported. Got {uri}"
-            result_obj.success = False
-            return
-
-        if not input_path.exists():
-            result_obj.output = LinkSyncOutput(
-                path=str(input_path),
-                is_monitored=False,
-                links_found=0,
-                links_synced=0,
-                errors=["Path does not exist"],
-            ).model_dump(mode="python")
-            result_obj.result = f"Path not found: {input_path}"
-            result_obj.success = False
+        input_path = _ensure_file_uri(
+            uri,
+            result_obj,
+            LinkSyncOutput,
+            is_monitored=False,
+            links_found=0,
+            links_synced=0,
+        )
+        if not input_path:
             return
 
         yield (0.3, "Expanding paths...")
