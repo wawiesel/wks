@@ -1,0 +1,82 @@
+{
+  "sections": {
+    "api": {
+      "chars": 411301,
+      "files": 174,
+      "loc": 11661,
+      "tokens": 64962
+    },
+    "build_config": {
+      "chars": 3906,
+      "files": 5,
+      "loc": 167,
+      "tokens": 975
+    },
+    "cicd": {
+      "chars": 10994,
+      "files": 4,
+      "loc": 374,
+      "tokens": 2748
+    },
+    "cli": {
+      "chars": 46319,
+      "files": 20,
+      "loc": 1313,
+      "tokens": 8790
+    },
+    "dev_docs": {
+      "chars": 111061,
+      "files": 46,
+      "loc": 2765,
+      "tokens": 27758
+    },
+    "integration": {
+      "chars": 52098,
+      "files": 13,
+      "loc": 1544,
+      "tokens": 9481
+    },
+    "mcp": {
+      "chars": 18440,
+      "files": 9,
+      "loc": 518,
+      "tokens": 3457
+    },
+    "scripts": {
+      "chars": 71700,
+      "files": 15,
+      "loc": 2079,
+      "tokens": 13778
+    },
+    "smoke": {
+      "chars": 11844,
+      "files": 7,
+      "loc": 352,
+      "tokens": 2049
+    },
+    "specs": {
+      "chars": 118031,
+      "files": 29,
+      "loc": 3326,
+      "tokens": 29507
+    },
+    "unit": {
+      "chars": 306086,
+      "files": 86,
+      "loc": 8787,
+      "tokens": 54734
+    },
+    "user_docs": {
+      "chars": 7065,
+      "files": 7,
+      "loc": 228,
+      "tokens": 1766
+    },
+    "utils": {
+      "chars": 20623,
+      "files": 21,
+      "loc": 669,
+      "tokens": 2663
+    }
+  }
+}

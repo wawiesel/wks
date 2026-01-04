@@ -1,0 +1,11 @@
+{
+  "docker_freshness_input": 0,
+  "installs": 1,
+  "python_versions": [
+    "3.10",
+    "3.11",
+    "3.12"
+  ],
+  "test_count": 491,
+  "test_files": 100
+}

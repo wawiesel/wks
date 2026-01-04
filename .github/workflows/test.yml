@@ -149,8 +149,7 @@ jobs:
           name: test-reports
           path: |
             coverage.xml
-            stats.json
-            mutants/mutmut-stats.json
+            qa/metrics/
           retention-days: 30
 
       - name: Check test result
@@ -173,11 +172,11 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
-          if [ -n "$(git status --porcelain stats.json README.md)" ]; then
+          if [ -n "$(git status --porcelain qa/metrics/ README.md)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "::notice::Statistics have been updated by CI"
             echo "::group::Statistics diff"
-            git diff stats.json README.md
+            git diff qa/metrics/ README.md
             echo "::endgroup::"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -188,7 +187,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update stats [skip ci]"
-          file_pattern: "stats.json README.md"
+          file_pattern: "qa/metrics/*.json README.md"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"

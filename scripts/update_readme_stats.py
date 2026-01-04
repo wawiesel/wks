@@ -20,7 +20,7 @@ except ImportError:
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README_PATH = REPO_ROOT / "README.md"
-STATS_JSON_PATH = REPO_ROOT / "stats.json"
+STATS_JSON_PATH = REPO_ROOT / "qa" / "metrics" / "summary.json"
 
 
 @dataclass
@@ -49,8 +49,8 @@ def _run_cmd(cmd: list[str]) -> tuple[int, str]:
 
 
 def _get_mutation_stats() -> tuple[float, int, int]:
-    """Get mutation score, killed, survived from stats.json (written by test_mutation_api.py)."""
-    stats_path = REPO_ROOT / "stats.json"
+    """Get mutation score, killed, survived from summary.json."""
+    stats_path = REPO_ROOT / "qa" / "metrics" / "summary.json"
     if stats_path.exists():
         try:
             data = json.loads(stats_path.read_text())
@@ -515,16 +515,21 @@ def _collect_all_stats(docker_freshness: str = "fresh") -> dict:
     # Collect per-domain stats: coverage from coverage.xml, mutations from partial json files
     domain_coverage = _get_domain_coverage()
 
-    # Read all mutation_stats_*.json files from root directory
+    # Read all mutation_*.json files from mutants (temp) directory
     mutation_by_domain = {}
-    for stats_file in REPO_ROOT.glob("mutation_stats_*.json"):
-        try:
-            data = json.loads(stats_file.read_text())
-            domain = data.get("domain")
-            if domain:
-                mutation_by_domain[domain] = {"killed": data.get("killed", 0), "survived": data.get("survived", 0)}
-        except Exception:
-            continue
+    mutants_dir = REPO_ROOT / "mutants"
+    if mutants_dir.exists():
+        for stats_file in mutants_dir.glob("mutation_*.json"):
+            try:
+                data = json.loads(stats_file.read_text())
+                domain = data.get("domain")
+                if domain:
+                    mutation_by_domain[domain] = {
+                        "killed": data.get("killed", 0),
+                        "survived": data.get("survived", 0),
+                    }
+            except Exception:
+                continue
 
     # Merge into domain_stats: each domain has coverage + mutation info
     domain_stats = {}
@@ -564,17 +569,107 @@ def _collect_all_stats(docker_freshness: str = "fresh") -> dict:
 
 
 def _save_stats_json(stats: dict) -> None:
-    """Save stats to JSON file with fixed precision."""
-    STATS_JSON_PATH.write_text(json.dumps(stats, indent=2, sort_keys=True) + "\n")
-    print(f"✅ Saved stats to {STATS_JSON_PATH}")
+    """Save stats to split JSON files in qa/metrics/.
+
+    Files:
+      - coverage.json: pct, domains (pct)
+      - mutations.json: score, killed, survived, domains (killed, survived)
+      - loc.json: sections (files, loc, chars, tokens)
+      - ci.json: test_count, test_files, docker_freshness (0/1), installs, python_versions
+    """
+    metrics_dir = REPO_ROOT / "qa" / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Coverage
+    domain_coverage = {}
+    if "domain_stats" in stats:
+        for d, s in stats["domain_stats"].items():
+            domain_coverage[d] = s.get("coverage", 0.0)
+
+    coverage_data = {"pct": stats.get("coverage_pct", 0), "domains": domain_coverage}
+    (metrics_dir / "coverage.json").write_text(json.dumps(coverage_data, indent=2, sort_keys=True) + "\n")
+
+    # 2. Mutations
+    domain_mutations = {}
+    if "domain_stats" in stats:
+        for d, s in stats["domain_stats"].items():
+            domain_mutations[d] = {"killed": s.get("mutation_killed", 0), "survived": s.get("mutation_survived", 0)}
+
+    mutations_data = {
+        "score": stats.get("mutation_score", 0),
+        "killed": stats.get("mutation_killed", 0),
+        "survived": stats.get("mutation_survived", 0),
+        "domains": domain_mutations,
+    }
+    (metrics_dir / "mutations.json").write_text(json.dumps(mutations_data, indent=2, sort_keys=True) + "\n")
+
+    # 3. LOC (Source Stats)
+    loc_data = {
+        "sections": stats.get("sections", {}),
+    }
+    (metrics_dir / "loc.json").write_text(json.dumps(loc_data, indent=2, sort_keys=True) + "\n")
+
+    # 4. CI Stats
+    # Convert docker freshness "fresh" -> 0, else -> 1 (metrics only)
+    freshness_val = 0 if stats.get("docker_freshness") == "fresh" else 1
+    ci_data = {
+        "test_count": stats.get("test_count", 0),
+        "test_files": stats.get("test_files", 0),
+        "docker_freshness_input": freshness_val,
+        # TODO: Collect python_versions and installs dynamically if possible
+        "python_versions": ["3.10", "3.11", "3.12"],
+        "installs": 1,
+    }
+    (metrics_dir / "ci.json").write_text(json.dumps(ci_data, indent=2, sort_keys=True) + "\n")
+
+    print(f"✅ Saved split metrics to {metrics_dir}")
 
 
 def _load_stats_json() -> dict:
-    """Load stats from JSON file."""
-    if not STATS_JSON_PATH.exists():
-        print(f"Error: {STATS_JSON_PATH} not found", file=sys.stderr)
+    """Load stats from split JSON files and aggregate."""
+    metrics_dir = REPO_ROOT / "qa" / "metrics"
+
+    try:
+        mutations = json.loads((metrics_dir / "mutations.json").read_text())
+        coverage = json.loads((metrics_dir / "coverage.json").read_text())
+        loc_stats = json.loads((metrics_dir / "loc.json").read_text())
+        ci_stats = json.loads((metrics_dir / "ci.json").read_text())
+    except FileNotFoundError:
+        print(f"Error: metrics files not found in {metrics_dir}", file=sys.stderr)
         sys.exit(1)
-    return json.loads(STATS_JSON_PATH.read_text())
+
+    # Reconstruct domain_stats
+    domain_stats = {}
+    all_domains = set(coverage.get("domains", {}).keys()) | set(mutations.get("domains", {}).keys())
+
+    for d in all_domains:
+        domain_stats[d] = {
+            "coverage": coverage.get("domains", {}).get(d, 0.0),
+            "mutation_killed": mutations.get("domains", {}).get(d, {}).get("killed", 0),
+            "mutation_survived": mutations.get("domains", {}).get(d, {}).get("survived", 0),
+        }
+
+    # Interpret status from metrics
+    cov_pct = coverage.get("pct", 0)
+    cov_status = "✅ Pass" if cov_pct >= 100.0 else "⚠️ Below Target"
+
+    mut_score = mutations.get("score", 0)
+    # Status calculation moved to display time usually, but here needed for dict compat
+
+    freshness = "fresh" if ci_stats.get("docker_freshness_input", 0) == 0 else "stale"
+
+    return {
+        "mutation_score": mut_score,
+        "mutation_killed": mutations.get("killed", 0),
+        "mutation_survived": mutations.get("survived", 0),
+        "domain_stats": domain_stats,
+        "coverage_pct": cov_pct,
+        "coverage_status": cov_status,
+        "test_count": ci_stats.get("test_count", 0),
+        "test_files": ci_stats.get("test_files", 0),
+        "docker_freshness": freshness,
+        "sections": loc_stats.get("sections", {}),
+    }
 
 
 def _update_readme_from_stats(stats: dict) -> None:
