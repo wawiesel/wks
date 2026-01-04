@@ -57,4 +57,4 @@ def test_link_check_cli_wiring(tracked_wks_config, tmp_path):
     # Missing file -> API enforces existence -> Error (exit 1)
     result = runner.invoke(link(), ["check", "missing.md"])
     assert result.exit_code == 1
-    assert "File does not exist" in result.stdout
+    assert "Path does not exist" in result.stdout
