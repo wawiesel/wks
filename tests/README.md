@@ -18,25 +18,26 @@ The WKS project employs a layered testing strategy designed to provide thorough 
 
 ### Integration Tests (`tests/integration/`)
 
-**Purpose**: Integration tests are designed to verify the functionality and interaction of **cross-module components** and **external systems**. This includes the **MCP layer** (`wks/mcp/*`) and **system-level operations** (like service installation on OS). They ensure that components are correctly registered, handle input/output, and properly interact with the underlying API layer and OS.
+**Purpose**: Integration tests verify the functionality and interaction of **cross-module components** and **external systems**. This includes:
+- **CLI Logic**: Testing `Typer` commands and argument resolution (`test_wks_cli_<domain>.py`).
+- **MCP Layer**: Verifying tool registration and JSON-RPC handling.
+- **System Ops**: Testing service installation and OS interactions.
 
 **Principles**:
--   **Real Behavior**: Avoid using mocks where possible. Integration tests should interact with real components (e.g., `MCPServer`, underlying API functions).
--   **Local Configuration**: Utilize temporary directories and real (or mockable, e.g., `mongomock`) local configurations to simulate realistic environments without affecting the system.
--   **Coverage Focus**: Aim for 100% coverage of the `wks/mcp/*` components by exercising them in real-world scenarios.
--   **No CLI Paths**: Keep CLI coverage out of integration; CLI entrypoints are validated by the smoke suite.
--   **Naming Convention**: `test_mcp_*.py` (e.g., `test_mcp_server.py`).
+-   **Wiring Focus**: Verify that layers connect correctly (CLI -> API, MCP -> API).
+-   **Execution**: Use `TyperRunner` for CLI, or direct component instantiation.
+-   **Real & Validated**: Use real configurations and validation logic.
+-   **Naming**: `test_wks_cli_<domain>.py`, `test_mcp_<domain>.py`.
 
 ### Smoke Tests (`tests/smoke/`)
 
-**Purpose**: Smoke tests are quick, high-level checks to ensure the **CLI layer** (`wks/cli/*`) is fundamentally working. They are designed to provide rapid feedback on the health of the CLI application, ensuring that key commands execute without crashing and produce expected outputs.
+**Purpose**: Smoke tests verify that the **`wksc` binary** is installed and executable by a user. They provide an end-to-end "smoke check" of the deployed application.
 
 **Principles**:
--   **CLI Layer Verification**: Verify the CLI wrapper logic, argument parsing, and output formatting.
--   **Execution Methods**: Use `TyperRunner` for fast, in-process testing of command logic, or subprocesses for full binary validation.
--   **Speed**: Tests must be fast to execute, providing an immediate "all clear" or "something is broken" signal.
--   **No Mocks (mostly)**: Avoid mocking the business logic if possible to test the full stack, but mocking external systems (like databases via `mongomock`) is acceptable for hermeticity.
--   **Naming Convention**: `test_wks_cli_<module>.py` (e.g., `test_wks_cli_link.py`) or `test_cli_*.py`.
+-   **Binary Execution**: Invoke `wksc` via subprocesses. `wksc` must be in PATH or venv.
+-   **User Perspective**: Test arguments, exit codes, and standard I/O as a user sees them.
+-   **End-to-End**: No internal mocking if possible; rely on the actual installed environment (or simulated home dir).
+-   **Naming Convention**: `test_wksc_<domain>.py`.
 
 ## Running Tests
 
