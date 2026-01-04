@@ -6,7 +6,7 @@ from wks.api.URI import URI
 
 
 def test_cmd_check_file_not_found(tracked_wks_config):
-    """Test file not found (lines 69-78)."""
+    """Test file not found."""
     # Use URI.from_path for strict URI creation (expands path)
     result = run_cmd(cmd_check, uri=URI.from_path(Path("missing.md").absolute()))
     assert result.success is False
@@ -14,7 +14,7 @@ def test_cmd_check_file_not_found(tracked_wks_config):
 
 
 def test_cmd_check_not_monitored(tracked_wks_config, tmp_path):
-    """Test file outside monitored roots (lines 81, 202-203)."""
+    """Test file outside monitored roots."""
     # Just use a path that is NOT in include_paths, but don't clear the list
     # (because it must at least contain the transform cache)
     outside_file = tmp_path / "outside.md"
@@ -27,7 +27,7 @@ def test_cmd_check_not_monitored(tracked_wks_config, tmp_path):
 
 
 def test_cmd_check_read_error(tracked_wks_config, tmp_path, monkeypatch):
-    """Test read error (lines 91-94)."""
+    """Test read error."""
     unreadable = tmp_path / "unreadable.md"
     unreadable.touch()
     unreadable.chmod(0o000)
@@ -43,7 +43,7 @@ def test_cmd_check_read_error(tracked_wks_config, tmp_path, monkeypatch):
 
 
 def test_cmd_check_success_vault(tracked_wks_config, tmp_path):
-    """Test successful link check within vault (lines 115-150)."""
+    """Test successful link check within vault."""
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
@@ -66,7 +66,7 @@ def test_cmd_check_success_vault(tracked_wks_config, tmp_path):
 
 
 def test_cmd_check_process_link_exception(tracked_wks_config, tmp_path, monkeypatch):
-    """Test exception in _process_link handles gracefully (line 36-38)."""
+    """Test exception in _process_link handles gracefully."""
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
@@ -94,7 +94,7 @@ def test_cmd_check_process_link_exception(tracked_wks_config, tmp_path, monkeypa
 
 
 def test_cmd_check_fallback_no_vault(tracked_wks_config, tmp_path, monkeypatch):
-    """Test fallback when vault is not configured or fails (lines 151-200)."""
+    """Test fallback when vault is not configured or fails."""
     from wks.api.vault.Vault import Vault
 
     monkeypatch.setattr(Vault, "__enter__", lambda self: exec("raise Exception('vault fail')"))
@@ -104,7 +104,7 @@ def test_cmd_check_fallback_no_vault(tracked_wks_config, tmp_path, monkeypatch):
     monitored_root.mkdir()
     tracked_wks_config.monitor.filter.include_paths.append(str(monitored_root))
     file_path = monitored_root / "note.md"
-    # use a file link to trigger lines 176-180
+    # use a file link to trigger file protocol link handling
     file_path.write_text("[link](file:///etc/hosts)", encoding="utf-8")
 
     result = run_cmd(cmd_check, uri=URI.from_path(file_path))
@@ -115,7 +115,7 @@ def test_cmd_check_fallback_no_vault(tracked_wks_config, tmp_path, monkeypatch):
 
 
 def test_cmd_check_parser_error(tracked_wks_config, tmp_path, monkeypatch):
-    """Test parser error (lines 216-225)."""
+    """Test parser error."""
     file_path = tmp_path / "exists.md"
     file_path.touch()
 
