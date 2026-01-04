@@ -5,9 +5,9 @@
 ### Refactor to Strong URI Type
 
 - [x] Establish `URI` value object and update `link show` boundary
-- [ ] Refactor all API functions to use `URI` type instead of `str`
-- [ ] Implement canonical existence checks on `URI` (e.g., `uri.path.exists()`) where applicable
-- [ ] Update `cmd_check`, `cmd_sync`, etc. to enforce `URI` strictness
+- [x] Refactor all API functions to use `URI` type instead of `str`
+- [x] Implement canonical existence checks on `URI` (e.g., `uri.path.exists()`) where applicable
+- [x] Update `cmd_check`, `cmd_sync`, etc. to enforce `URI` strictness
 
 ### Complete 2025-12-04 Campaign
 
