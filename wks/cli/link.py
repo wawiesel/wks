@@ -11,7 +11,6 @@ from wks.api.link.cmd_status import cmd_status
 from wks.api.link.cmd_sync import cmd_sync
 from wks.api.types.URI import URI
 from wks.cli._handle_stage_result import _handle_stage_result
-from wks.utils.path_to_uri import path_to_uri
 
 
 def resolve_uri_arg(value: str) -> URI:
@@ -23,7 +22,7 @@ def resolve_uri_arg(value: str) -> URI:
         p = Path(value)
         if not p.exists():
             raise typer.BadParameter(f"Path '{value}' does not exist and is not a valid URI.") from None
-        return URI(path_to_uri(p.expanduser().absolute()))
+        return URI.from_path(p.expanduser().absolute())
 
 
 def link() -> typer.Typer:

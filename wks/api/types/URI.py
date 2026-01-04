@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -21,3 +22,14 @@ class URI:
 
     def __repr__(self):
         return f"URI('{self.value}')"
+
+    @classmethod
+    def from_path(cls, path: str | Path) -> "URI":
+        """Create a URI from a file path."""
+        import socket
+
+        from wks.utils.normalize_path import normalize_path
+
+        normalized = normalize_path(path)
+        hostname = socket.gethostname()
+        return cls(f"file://{hostname}{normalized}")
