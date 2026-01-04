@@ -68,6 +68,12 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
         except ValueError:
             # Fallback if not a file URI (though CLI validation ensures it mostly)
             # But cmd_check theoretically could check remote URIs in future? For now assuming file
+            result_obj.output = LinkCheckOutput(
+                path=str(uri),
+                is_monitored=False,
+                links=[],
+                errors=[f"Only file URIs are supported. Got {uri}"],
+            ).model_dump(mode="python")
             result_obj.result = f"Error: Only file URIs are supported. Got {uri}"
             result_obj.success = False
             return

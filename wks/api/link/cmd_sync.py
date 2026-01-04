@@ -34,6 +34,13 @@ def cmd_sync(
             input_path = uri.path
         except ValueError:
             # Fallback if not a file URI (though CLI validation ensures it mostly)
+            result_obj.output = LinkSyncOutput(
+                path=str(uri),
+                is_monitored=False,
+                links_found=0,
+                links_synced=0,
+                errors=[f"Only file URIs are supported. Got {uri}"],
+            ).model_dump(mode="python")
             result_obj.result = f"Error: Only file URIs are supported. Got {uri}"
             result_obj.success = False
             return

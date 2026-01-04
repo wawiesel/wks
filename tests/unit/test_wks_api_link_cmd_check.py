@@ -124,3 +124,12 @@ def test_cmd_check_parser_error(tracked_wks_config, tmp_path, monkeypatch):
     result = run_cmd(cmd_check, uri=URI.from_path(file_path))
     assert result.success is False
     assert "parser fail" in result.output["errors"][0]
+
+
+def test_cmd_check_non_file_uri(tracked_wks_config):
+    """Test non-file URI returns structured error instead of crashing (Codex P1)."""
+    uri = URI("http://example.com")
+    result = run_cmd(cmd_check, uri=uri)
+    assert result.success is False
+    assert result.output is not None
+    assert "Only file URIs are supported" in result.output["errors"][0]
