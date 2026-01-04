@@ -5,67 +5,67 @@
       "chars": 4481,
       "files": 6,
       "loc": 140,
-      "tokens": 714
+      "tokens": 754
     },
     "config": {
       "chars": 11465,
       "files": 7,
       "loc": 322,
-      "tokens": 1919
+      "tokens": 2005
     },
     "daemon": {
       "chars": 38741,
       "files": 13,
       "loc": 1051,
-      "tokens": 6541
+      "tokens": 6680
     },
     "database": {
       "chars": 40239,
       "files": 17,
       "loc": 1057,
-      "tokens": 6206
+      "tokens": 6557
     },
     "diff": {
       "chars": 21373,
       "files": 11,
       "loc": 652,
-      "tokens": 2706
+      "tokens": 3104
     },
     "link": {
       "chars": 35480,
       "files": 15,
       "loc": 1034,
-      "tokens": 5747
+      "tokens": 5951
     },
     "log": {
       "chars": 14816,
       "files": 7,
       "loc": 432,
-      "tokens": 2485
+      "tokens": 2557
     },
     "mcp": {
       "chars": 12747,
       "files": 9,
       "loc": 378,
-      "tokens": 1971
+      "tokens": 2031
     },
     "monitor": {
       "chars": 58244,
       "files": 26,
       "loc": 1634,
-      "tokens": 8717
+      "tokens": 9129
     },
     "service": {
       "chars": 60015,
       "files": 16,
       "loc": 1631,
-      "tokens": 8291
+      "tokens": 8785
     },
     "transform": {
       "chars": 50970,
       "files": 19,
       "loc": 1477,
-      "tokens": 6754
+      "tokens": 7003
     },
     "utils": {
       "chars": 0,
@@ -77,16 +77,16 @@
       "chars": 50711,
       "files": 18,
       "loc": 1431,
-      "tokens": 7759
+      "tokens": 8115
     }
   },
-  "generated_at": "2026-01-04 17:28:34Z",
+  "generated_at": "2026-01-04 17:50:42Z",
   "sections": {
     "api": {
       "chars": 406377,
       "files": 172,
       "loc": 11453,
-      "tokens": 60989
+      "tokens": 63893
     },
     "build_config": {
       "chars": 3893,
@@ -104,37 +104,37 @@
       "chars": 45216,
       "files": 19,
       "loc": 1284,
-      "tokens": 8395
+      "tokens": 8575
     },
     "dev_docs": {
-      "chars": 82996,
-      "files": 24,
-      "loc": 1947,
-      "tokens": 20740
+      "chars": 112642,
+      "files": 46,
+      "loc": 2812,
+      "tokens": 28152
     },
     "integration": {
       "chars": 50117,
       "files": 12,
       "loc": 1483,
-      "tokens": 8807
+      "tokens": 9120
     },
     "mcp": {
       "chars": 17883,
       "files": 9,
       "loc": 509,
-      "tokens": 3269
+      "tokens": 3396
     },
     "scripts": {
-      "chars": 76873,
+      "chars": 76874,
       "files": 16,
-      "loc": 2238,
-      "tokens": 14404
+      "loc": 2239,
+      "tokens": 14954
     },
     "smoke": {
       "chars": 12888,
       "files": 3,
       "loc": 376,
-      "tokens": 2002
+      "tokens": 2040
     },
     "specs": {
       "chars": 117888,
@@ -146,7 +146,7 @@
       "chars": 308188,
       "files": 86,
       "loc": 8982,
-      "tokens": 54358
+      "tokens": 54580
     },
     "user_docs": {
       "chars": 7065,
@@ -158,7 +158,7 @@
       "chars": 20623,
       "files": 21,
       "loc": 669,
-      "tokens": 2559
+      "tokens": 2663
     }
   },
   "test_count": 487,
@@ -167,6 +167,6 @@
     "chars": 406377,
     "files": 172,
     "loc": 11453,
-    "tokens": 60989
+    "tokens": 63893
   }
 }
