@@ -2,4 +2,4 @@ uid: MON-007
 text: |
   Schema validation is required; unknown or invalid inputs yield schema-conformant errors;
   no partial success.
-  Source: docs/specifications/monitor.md (MON.7)
+  Source: qa/specs/monitor.md (MON.7)

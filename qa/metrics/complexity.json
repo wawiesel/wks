@@ -1,7 +1,72 @@
 {
-  "avg_ccn": 0.0,
-  "avg_nloc": 0.0,
-  "avg_token": 0.0,
-  "function_count": 0,
-  "nloc": 0
+  "domains": {
+    "cat": {
+      "ccn_avg": 3.6,
+      "ccn_max": 7,
+      "functions": 5
+    },
+    "config": {
+      "ccn_avg": 1.94,
+      "ccn_max": 8,
+      "functions": 16
+    },
+    "daemon": {
+      "ccn_avg": 4.19,
+      "ccn_max": 29,
+      "functions": 37
+    },
+    "database": {
+      "ccn_avg": 2.27,
+      "ccn_max": 18,
+      "functions": 67
+    },
+    "diff": {
+      "ccn_avg": 3.77,
+      "ccn_max": 10,
+      "functions": 22
+    },
+    "link": {
+      "ccn_avg": 7.22,
+      "ccn_max": 36,
+      "functions": 18
+    },
+    "log": {
+      "ccn_avg": 10.33,
+      "ccn_max": 26,
+      "functions": 6
+    },
+    "mcp": {
+      "ccn_avg": 3.86,
+      "ccn_max": 12,
+      "functions": 7
+    },
+    "monitor": {
+      "ccn_avg": 4.37,
+      "ccn_max": 27,
+      "functions": 43
+    },
+    "service": {
+      "ccn_avg": 3.36,
+      "ccn_max": 9,
+      "functions": 53
+    },
+    "transform": {
+      "ccn_avg": 2.9,
+      "ccn_max": 18,
+      "functions": 48
+    },
+    "vault": {
+      "ccn_avg": 2.83,
+      "ccn_max": 17,
+      "functions": 54
+    }
+  },
+  "generated_at": "2026-01-04 17:28:34Z",
+  "source": "lizard",
+  "status": "ok",
+  "total": {
+    "ccn_avg": 3.49,
+    "ccn_max": 36,
+    "functions": 386
+  }
 }

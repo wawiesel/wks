@@ -18,7 +18,7 @@ Database commands (list/show/reset) with consistent schemas across CLI and MCP.
       - `data`: `{}` (ignored)
 
 ## Normative Schema
-- Canonical output schema: `docs/specifications/database_output.schema.json`.
+- Canonical output schema: `qa/specs/database_output.schema.json`.
 - Implementations MUST validate outputs against this schema; unknown fields are rejected.
 
 ## CLI

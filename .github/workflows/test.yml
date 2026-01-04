@@ -127,7 +127,7 @@ jobs:
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
-          # Generate stats.json inside Docker (has mutmut and all tools)
+          # Generate qa/metrics/*.json inside Docker (has mutmut and all tools)
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/update_readme_stats.py --json-only || true
 
           ./scripts/disk_avail.sh "After tests"
@@ -148,7 +148,7 @@ jobs:
           name: test-reports
           path: |
             coverage.xml
-            stats.json
+            qa/metrics/*.json
             mutants/mutmut-stats.json
           retention-days: 30
 
@@ -175,11 +175,11 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
-          if [ -n "$(git status --porcelain stats.json README.md docs/traceability/traceability_audit.html)" ]; then
+          if [ -n "$(git status --porcelain qa/metrics README.md docs/traceability/traceability_audit.html)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "::notice::Statistics have been updated by CI"
             echo "::group::Statistics diff"
-            git diff stats.json README.md docs/traceability/traceability_audit.html
+            git diff qa/metrics README.md docs/traceability/traceability_audit.html
             echo "::endgroup::"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -190,7 +190,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update stats and traceability [skip ci]"
-          file_pattern: "stats.json README.md docs/traceability/traceability_audit.html"
+          file_pattern: "qa/metrics/*.json README.md docs/traceability/traceability_audit.html"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"

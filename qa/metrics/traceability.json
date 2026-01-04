@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-01-04 17:28:13Z",
+  "report_path": "docs/traceability/traceability_audit.html",
+  "source_root": ".",
+  "summary": {
+    "coverage_pct": 100.0,
+    "links_total": 13,
+    "requirements_linked": 7,
+    "requirements_total": 7,
+    "requirements_unlinked": 0,
+    "tests_linked": 10,
+    "tests_total": 96,
+    "tests_unlinked": 86
+  }
+}

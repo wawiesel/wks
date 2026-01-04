@@ -83,7 +83,7 @@ After these three changes: `WKSConfig.load()` validates/constructs automatically
 
 **Commands:** `cmd_show` automatic (`to_dict().keys()`), no special cases, all sections handled identically.
 
-**Output schemas:** All commands use registered output schemas from normative JSON schemas in `docs/specifications/config_output.schema.json`. Schemas are auto-registered via `schema_loader.register_from_schema("config")` in `__init__.py`. Import the schema class (e.g., `ConfigListOutput`), instantiate it with output data, and call `.model_dump(mode="python")` to convert to dict. This ensures type safety and consistent structure. The JSON schema is the single source of truth - Pydantic models are dynamically generated from it.
+**Output schemas:** All commands use registered output schemas from normative JSON schemas in `qa/specs/config_output.schema.json`. Schemas are auto-registered via `schema_loader.register_from_schema("config")` in `__init__.py`. Import the schema class (e.g., `ConfigListOutput`), instantiate it with output data, and call `.model_dump(mode="python")` to convert to dict. This ensures type safety and consistent structure. The JSON schema is the single source of truth - Pydantic models are dynamically generated from it.
 
 ## Anti-Patterns
 

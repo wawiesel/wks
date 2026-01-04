@@ -57,6 +57,7 @@ env/
 htmlcov/
 coverage.xml
 coverage.json
+!qa/metrics/coverage.json
 *.cover
 .hypothesis/
 .tox/

@@ -1,4 +1,4 @@
 uid: MON-002
 text: |
   wksc monitor status reports status and validation using MonitorStatusOutput.
-  Source: docs/specifications/monitor.md (MON.2)
+  Source: qa/specs/monitor.md (MON.2)

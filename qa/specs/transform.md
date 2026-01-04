@@ -62,7 +62,7 @@ Users define **Named Engines** in `config.json`.
 - `max_size_bytes`: (Required) LRU eviction limit in bytes.
 
 ## Normative Schema
-- Canonical output schema: `docs/specifications/transform_output.schema.json`.
+- Canonical output schema: `qa/specs/transform_output.schema.json`.
 - Implementations MUST validate outputs against this schema.
 
 ## Cache-Database Sync Invariant

@@ -1,11 +1,60 @@
 {
   "domains": {
+    "cat": {
+      "killed": 80,
+      "survived": 19
+    },
+    "config": {
+      "killed": 193,
+      "survived": 71
+    },
+    "daemon": {
+      "killed": 243,
+      "survived": 111
+    },
+    "database": {
+      "killed": 443,
+      "survived": 183
+    },
+    "diff": {
+      "killed": 0,
+      "survived": 0
+    },
+    "link": {
+      "killed": 851,
+      "survived": 336
+    },
+    "log": {
+      "killed": 361,
+      "survived": 186
+    },
+    "mcp": {
+      "killed": 252,
+      "survived": 148
+    },
+    "monitor": {
+      "killed": 1162,
+      "survived": 504
+    },
+    "service": {
+      "killed": 99,
+      "survived": 16
+    },
+    "transform": {
+      "killed": 600,
+      "survived": 168
+    },
+    "utils": {
+      "killed": 0,
+      "survived": 0
+    },
     "vault": {
-      "killed": 878,
-      "survived": 357
+      "killed": 918,
+      "survived": 346
     }
   },
-  "killed": 878,
-  "score": 71.1,
-  "survived": 357
+  "generated_at": "2026-01-04 17:28:34Z",
+  "mutation_killed": 5202,
+  "mutation_score": 71.4,
+  "mutation_survived": 2088
 }

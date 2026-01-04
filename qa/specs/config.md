@@ -5,11 +5,11 @@ Single JSON configuration consumed uniformly by CLI and MCP.
 
 ## Configuration File Structure
 - Location: `{WKS_HOME}/config.json` (override with `export WKS_HOME=/custom/path`, default `~/.wks`)
-- Composition: The file is the aggregation of the normative schemas of its constituent config blocks. It MUST include each required top-level block as defined in the top-level specification (`docs/specifications/wks.md`); do not duplicate the list here.
+- Composition: The file is the aggregation of the normative schemas of its constituent config blocks. It MUST include each required top-level block as defined in the top-level specification (`qa/specs/wks.md`); do not duplicate the list here.
 - All sections and fields defined by those block schemas are required; missing anything fails validation.
 
 ## Normative Schema
-- The authoritative definition is the composition of the constituent block schemas (see `docs/specifications/wks.md` for the set of blocks). Implementations MUST validate against that composition; avoid hand-maintained duplicate definitions. Unknown fields MUST be rejected.
+- The authoritative definition is the composition of the constituent block schemas (see `qa/specs/wks.md` for the set of blocks). Implementations MUST validate against that composition; avoid hand-maintained duplicate definitions. Unknown fields MUST be rejected.
 
 ## CLI
 
@@ -19,22 +19,22 @@ Single JSON configuration consumed uniformly by CLI and MCP.
 ### list
 - Command: `wksc config list`
 - Behavior: Lists all configuration section names.
-- Output schema (normative): `ConfigShowOutput` defined in the canonical output schema artifact `docs/specifications/config_output.schema.json`. Implementations MUST consume/generate from that artifact; do not redefine fields in code.
+- Output schema (normative): `ConfigShowOutput` defined in the canonical output schema artifact `qa/specs/config_output.schema.json`. Implementations MUST consume/generate from that artifact; do not redefine fields in code.
 
 ### show
 - Command: `wksc config show <section>`
 - Behavior: Shows the configuration for the specified section.
-- Output schema (normative): `ConfigShowOutput` defined in `docs/specifications/config_output.schema.json`. Implementations MUST consume/generate from that artifact; the schema file is the single source of truth.
+- Output schema (normative): `ConfigShowOutput` defined in `qa/specs/config_output.schema.json`. Implementations MUST consume/generate from that artifact; the schema file is the single source of truth.
 
 ### version
 - Command: `wksc config version`
 - Behavior: Shows the current version string only.
-- Output schema (normative): `ConfigVersionOutput` defined in `docs/specifications/config_output.schema.json`. Implementations MUST consume/generate from that artifact; the schema file is the single source of truth.
+- Output schema (normative): `ConfigVersionOutput` defined in `qa/specs/config_output.schema.json`. Implementations MUST consume/generate from that artifact; the schema file is the single source of truth.
 
 ### detect-remote
 - Command: `wksc config detect-remote`
 - Behavior: Scans the user's environment for known cloud storage locations (e.g., OneDrive, SharePoint, iCloud) and updates the `monitor.remote` configuration block with discovered mappings.
-- Output schema (normative): `ConfigDetectRemoteOutput` defined in `docs/specifications/config_output.schema.json`.
+- Output schema (normative): `ConfigDetectRemoteOutput` defined in `qa/specs/config_output.schema.json`.
 
 ## MCP
 - Commands mirror CLI:

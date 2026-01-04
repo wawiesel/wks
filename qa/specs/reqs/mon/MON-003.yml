@@ -1,4 +1,4 @@
 uid: MON-003
 text: |
   wksc monitor check <path> requires a path and returns MonitorCheckOutput.
-  Source: docs/specifications/monitor.md (MON.3)
+  Source: qa/specs/monitor.md (MON.3)

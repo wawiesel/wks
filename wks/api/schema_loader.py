@@ -13,7 +13,7 @@ from .schema_registry import schema_registry
 class SchemaLoader:
     @classmethod
     def load_schema(cls, domain: str) -> dict[str, Any]:
-        root = resources.files("docs.specifications")
+        root = resources.files("qa.specs")
         path = root.joinpath(f"{domain}_output.schema.json")
         with cast(Any, path).open("r") as fh:
             return json.load(fh)

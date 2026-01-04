@@ -12,7 +12,7 @@ This directory implements the monitor API following a strict one-file-per-functi
 
 **StageResult pattern**: All commands return `StageResult` with four stages: announce → progress → result → output. This provides consistent structure for CLI and MCP layers while separating work execution from display.
 
-**Pydantic for input, schemas for output**: Pydantic models validate configuration input. Command outputs use registered output schemas from normative JSON schemas in `docs/specifications/monitor_output.schema.json`. Schemas are auto-registered via `schema_loader.register_from_schema("monitor")` in `__init__.py`. Commands instantiate schema classes (e.g., `MonitorStatusOutput`) and call `.model_dump(mode="python")` to convert to dicts. The JSON schema is the single source of truth - Pydantic models are dynamically generated from it.
+**Pydantic for input, schemas for output**: Pydantic models validate configuration input. Command outputs use registered output schemas from normative JSON schemas in `qa/specs/monitor_output.schema.json`. Schemas are auto-registered via `schema_loader.register_from_schema("monitor")` in `__init__.py`. Commands instantiate schema classes (e.g., `MonitorStatusOutput`) and call `.model_dump(mode="python")` to convert to dicts. The JSON schema is the single source of truth - Pydantic models are dynamically generated from it.
 
 **Inline when used once**: Helper functions are kept separate only if used multiple times or substantial enough to warrant separation. Functions used once are inlined into their callers to reduce unnecessary abstraction.
 

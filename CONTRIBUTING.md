@@ -19,7 +19,7 @@ For details on the CI Docker environment and running tests in containers, see **
    ```bash
    git config merge.ours.driver true
    ```
-   This allows `stats.json` (which CI regenerates after every merge) to auto-resolve conflicts by keeping the current version—CI will regenerate the correct values.
+   This allows `qa/metrics/*.json` (which CI regenerates after every merge) to auto-resolve conflicts by keeping the current version—CI will regenerate the correct values.
 
 ## Git Commit Standards
 
@@ -121,7 +121,7 @@ Notes:
 
 ## README Statistics
 
-The code quality metrics in `README.md` (mutation score, test counts, etc.) are automatically kept in sync with the codebase.
+The code quality metrics in `README.md` (mutation score, test counts, etc.) are automatically kept in sync with the codebase and stored in `qa/metrics/*.json`.
 
 **Automatic Updates**:
 - **Local**: The statistics are updated automatically via a `pre-commit` hook when `README.md` is modified.
@@ -143,6 +143,8 @@ The script collects:
   - Lines of code (LOC)
   - Characters
   - Python tokens (using `tokenize` module)
+
+Metrics outputs are stored under `qa/metrics/` for CI and tooling.
 
 **CI Workflow**:
 The `.github/workflows/update-stats.yml` workflow:

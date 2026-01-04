@@ -13,48 +13,48 @@
 
 ## Code Quality Metrics
 
-| Metric               |   Value |     Target | Status          |
-|----------------------|--------:|-----------:|----------------:|
+| Metric               |   Value |     Target | Status         |
+|----------------------|--------:|-----------:|---------------:|
 | **Code Coverage**    |   82.0% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |   71.4% |       ≥90% | ⚠️ Below Target |
-| **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
+| **Docker Freshness** |      v1 | Up to date | ✅ Pass        |
 
 ### Source Size Statistics
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     172 | 11,453 |      406,388 |   63,893 |      29.0% |
-| **cli**   |      19 |  1,284 |       45,216 |    8,575 |       3.9% |
-| **mcp**   |       9 |    509 |       17,883 |    3,396 |       1.5% |
-| **utils** |      21 |    669 |       20,623 |    2,663 |       1.2% |
-| **Total** |     221 | 13,915 |      490,110 |   78,527 |      35.6% |
+| **api**   |     172 | 11,453 |      406,377 |   60,989 |      29.0% |
+| **cli**   |      19 |  1,284 |       45,216 |    8,395 |       4.0% |
+| **mcp**   |       9 |    509 |       17,883 |    3,269 |       1.6% |
+| **utils** |      21 |    669 |       20,623 |    2,559 |       1.2% |
+| **Total** |     221 | 13,915 |      490,099 |   75,212 |      35.7% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      86 |  8,982 |      308,188 |   54,580 |      24.7% |
-| **Integration Tests** |      12 |  1,483 |       50,117 |    9,120 |       4.1% |
-| **Smoke Tests**       |       3 |    376 |       12,888 |    2,040 |       0.9% |
-| **Total**             |     101 | 10,841 |      371,193 |   65,740 |      29.8% |
+| **Unit Tests**        |      86 |  8,982 |      308,188 |   54,358 |      25.8% |
+| **Integration Tests** |      12 |  1,483 |       50,117 |    8,807 |       4.2% |
+| **Smoke Tests**       |       3 |    376 |       12,888 |    2,002 |       1.0% |
+| **Total**             |     101 | 10,841 |      371,193 |   65,167 |      30.9% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.8% |
-| **Developer Documentation** |      46 | 2,810 |      112,588 |   28,140 |      12.8% |
-| **Specifications**          |      29 | 3,326 |      118,031 |   29,507 |      13.4% |
-| **Total**                   |      82 | 6,364 |      237,684 |   59,413 |      26.9% |
+| **Developer Documentation** |      24 | 1,947 |       82,996 |   20,740 |       9.8% |
+| **Specifications**          |      29 | 3,326 |      117,888 |   29,472 |      14.0% |
+| **Total**                   |      60 | 5,501 |      207,949 |   51,978 |      24.7% |
 
 ### Infrastructure Summary
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   377 |       11,368 |    2,842 |       1.3% |
-| **Build/Config** |       5 |   167 |        3,906 |      975 |       0.4% |
-| **Scripts**      |      16 | 2,008 |       68,423 |   13,139 |       6.0% |
-| **Total**        |      25 | 2,552 |       83,697 |   16,956 |       7.7% |
+| **CI/CD**        |       4 |   377 |       11,389 |    2,847 |       1.4% |
+| **Build/Config** |       5 |   167 |        3,893 |      971 |       0.5% |
+| **Scripts**      |      16 | 2,238 |       76,873 |   14,404 |       6.8% |
+| **Total**        |      25 | 2,782 |       92,155 |   18,222 |       8.7% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 71.4% means 71.4% of introduced mutations were successfully killed by the test suite.
 
@@ -241,13 +241,13 @@ wksc mcp install  # Install for all clients
 wksc mcp install --client cursor --client claude
 ```
 
-Available tools: `wksm_*` (see [docs/specifications/wks.md](docs/specifications/wks.md) for details)
+Available tools: `wksm_*` (see [qa/specs/wks.md](qa/specs/wks.md) for details)
 
 ## Architecture
 
 The system's architecture is designed in layers, with core functionality currently implemented and under revision up to the **Indexing Layer** as described in the specifications.
 
-See [docs/specifications/wks.md](docs/specifications/wks.md) for the complete system specification.
+See [qa/specs/wks.md](qa/specs/wks.md) for the complete system specification.
 
 **Key Layers (Implemented & Under Revision)**:
 - **Monitor Layer**: Filesystem state tracking
@@ -261,7 +261,7 @@ See [docs/specifications/wks.md](docs/specifications/wks.md) for the complete sy
 
 -   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Development & Testing Guide
 -   **[docker/README.md](docker/README.md)**: CI Docker Image Guide
--   **[docs/specifications/wks.md](docs/specifications/wks.md)**: The complete system specification and architectural overview.
+-   **[qa/specs/wks.md](qa/specs/wks.md)**: The complete system specification and architectural overview.
 -   **[docs/campaigns/NEXT.md](docs/campaigns/NEXT.md)**: Current development priorities and high-level roadmap.
 -   **[AGENTS.md](AGENTS.md)**: Specific directives and guidelines for AI agents working on this project.
 -   **[LICENSE.txt](LICENSE.txt)**: Project license details.
