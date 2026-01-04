@@ -1,7 +1,7 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-79.9%25-red)
-![Mutation Score](https://img.shields.io/badge/mutation-0.0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-82.7%25-yellow)
+![Mutation Score](https://img.shields.io/badge/mutation-71.1%25-red)
 ![Tests](https://img.shields.io/badge/tests-491_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
@@ -15,8 +15,8 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   79.9% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |    0.0% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |   82.7% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   71.1% |       ≥90% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
 ### Source Size Statistics
@@ -52,11 +52,11 @@
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   378 |       11,445 |    2,861 |       1.3% |
-| **Build/Config** |       5 |   167 |        3,906 |      975 |       0.4% |
+| **Build/Config** |       5 |   167 |        3,902 |      974 |       0.4% |
 | **Scripts**      |      20 | 2,068 |       69,762 |   13,686 |       6.1% |
-| **Total**        |      29 | 2,613 |       85,113 |   17,522 |       7.9% |
+| **Total**        |      29 | 2,613 |       85,109 |   17,521 |       7.9% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 0.0% means 0.0% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 71.1% means 71.1% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 491 tests across 100 test files.
 
@@ -66,17 +66,17 @@
 |-----------|------------|--------------|----------------|
 | cat       |        94% |          N/A |            0/0 |
 | config    |       100% |          N/A |            0/0 |
-| daemon    |        83% |          N/A |            0/0 |
-| database  |        91% |          N/A |            0/0 |
+| daemon    |        84% |          N/A |            0/0 |
+| database  |        90% |          N/A |            0/0 |
 | diff      |         0% |          N/A |            0/0 |
 | link      |        98% |          N/A |            0/0 |
 | log       |        94% |          N/A |            0/0 |
-| mcp       |        99% |          N/A |            0/0 |
-| monitor   |        99% |          N/A |            0/0 |
-| service   |        69% |          N/A |            0/0 |
-| transform |        88% |          N/A |            0/0 |
+| mcp       |        97% |          N/A |            0/0 |
+| monitor   |        98% |          N/A |            0/0 |
+| service   |        92% |          N/A |            0/0 |
+| transform |        87% |          N/A |            0/0 |
 | utils     |       100% |          N/A |            0/0 |
-| vault     |       100% |          N/A |            0/0 |
+| vault     |        99% |          71% |       878/1235 |
 
 
 ## Overview
