@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Update code statistics in README.md from current codebase metrics."""
 
+from __future__ import annotations
+
 import argparse
 import contextlib
 import csv
@@ -14,7 +16,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
-from typing import Optional
 
 try:
     from tabulate import tabulate  # type: ignore[import-untyped]
@@ -40,7 +41,7 @@ class SectionStats:
     chars: int
     tokens: int
 
-    def __add__(self, other: "SectionStats") -> "SectionStats":
+    def __add__(self, other: SectionStats) -> SectionStats:
         """Add two SectionStats together."""
         return SectionStats(
             files=self.files + other.files,
@@ -326,7 +327,7 @@ def _get_infrastructure_scripts_stats() -> SectionStats:
     return stats
 
 
-def _resolve_lizard_cmd() -> Optional[str]:
+def _resolve_lizard_cmd() -> str | None:
     """Resolve lizard binary if available."""
     lizard_cmd = shutil.which("lizard")
     if lizard_cmd:
