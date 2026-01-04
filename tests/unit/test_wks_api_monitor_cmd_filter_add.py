@@ -1,5 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_filter_add module."""
 
+# HODOR-ID: TST-MON-005-ADD
+# HODOR-REQS: MON-005
+# HODOR-TEXT: Monitor filter add command stores values and reports errors.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_add.py::test_cmd_filter_add_saves_on_success
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_add.py::test_cmd_filter_add_unknown_list_name
+
 import pytest
 
 from tests.unit.conftest import create_tracked_wks_config, run_cmd

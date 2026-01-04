@@ -1,8 +1,0 @@
-uid: TST-007
-links:
-  - MON-007
-text: |
-  Error semantics return schema-conformant errors and no partial success.
-  References:
-  - tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_database_error
-  - tests/unit/test_wks_api_monitor_cmd_check.py::test_cmd_check_path_not_exists

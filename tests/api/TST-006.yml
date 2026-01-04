@@ -1,9 +1,0 @@
-uid: TST-006
-links:
-  - MON-006
-text: |
-  Monitor priority commands (show/add/remove) return the expected outputs.
-  References:
-  - tests/unit/test_wks_api_monitor_cmd_priority_show.py
-  - tests/unit/test_wks_api_monitor_cmd_priority_add.py
-  - tests/unit/test_wks_api_monitor_cmd_priority_remove.py

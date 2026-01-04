@@ -1,5 +1,13 @@
 """Tests for monitor cmd_sync API."""
 
+# HODOR-ID: TST-MON-004
+# HODOR-REQS: MON-004
+# HODOR-TEXT: Monitor sync handles files, directories, missing paths, and limits.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_file
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_directory_recursive
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_missing_path_removes_from_db
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_sync.py::test_monitor_cmd_sync_enforces_limit
+
 from pathlib import Path
 
 import pytest

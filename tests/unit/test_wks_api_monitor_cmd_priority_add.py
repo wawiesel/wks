@@ -1,5 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_priority_add module."""
 
+# HODOR-ID: TST-MON-006-ADD
+# HODOR-REQS: MON-006
+# HODOR-TEXT: Monitor priority add command stores and updates priorities.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_priority_add.py::test_cmd_priority_add_existing_returns_flag
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_priority_add.py::test_cmd_priority_add_stores_and_saves
+
 import pytest
 
 from tests.unit.conftest import run_cmd

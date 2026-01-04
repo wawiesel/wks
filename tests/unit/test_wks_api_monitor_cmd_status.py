@@ -1,5 +1,16 @@
 """Unit tests for monitor cmd_status (no mocks, real mongomock via config)."""
 
+# HODOR-ID: TST-MON-002
+# HODOR-REQS: MON-002
+# HODOR-TEXT: Monitor status command returns schema-shaped output and handles database issues.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_success
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_tracked_files_excludes_meta_document
+#
+# HODOR-ID: TST-MON-007-STATUS
+# HODOR-REQS: MON-007
+# HODOR-TEXT: Status reports schema-conformant errors when the database fails.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_database_error
+
 import json
 
 import pytest

@@ -1,5 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_filter_show module (real config)."""
 
+# HODOR-ID: TST-MON-005-SHOW
+# HODOR-REQS: MON-005
+# HODOR-TEXT: Monitor filter show command returns the expected outputs.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_show.py::test_cmd_filter_show_lists_available_when_no_arg
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_show.py::test_cmd_filter_show_returns_list
+
 import json
 
 import pytest

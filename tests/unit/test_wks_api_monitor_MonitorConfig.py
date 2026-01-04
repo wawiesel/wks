@@ -1,5 +1,11 @@
 """Unit tests for wks.api.monitor.MonitorConfig module."""
 
+# HODOR-ID: TST-MON-001
+# HODOR-REQS: MON-001
+# HODOR-TEXT: Monitor config validation rejects missing or invalid fields.
+# HODOR-REF: tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_missing
+# HODOR-REF: tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_invalid
+
 import pytest
 from pydantic import ValidationError
 

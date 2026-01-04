@@ -4,7 +4,16 @@ This directory contains the comprehensive test suite for the WKS project, ensuri
 
 ## Traceability Items
 
-Doorstop-style test traceability items live in `tests/api/`. Each item links back to a requirement ID and lists `References:` to the test(s) that satisfy it.
+Tests embed HODOR metadata comments that link them to requirement IDs. The traceability audit scanner reads these comment blocks and generates `docs/traceability/traceability_audit.html`.
+
+Example:
+
+```
+# HODOR-ID: TST-MON-002
+# HODOR-REQS: MON-002
+# HODOR-TEXT: Monitor status command returns schema-shaped output and handles database issues.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_status.py::test_cmd_status_success
+```
 
 ## Testing Strategy
 

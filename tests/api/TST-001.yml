@@ -1,8 +1,0 @@
-uid: TST-001
-links:
-  - MON-001
-text: |
-  Monitor config validation rejects missing or invalid fields.
-  References:
-  - tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_missing
-  - tests/unit/test_wks_api_monitor_MonitorConfig.py::test_monitor_config_from_config_dict_invalid

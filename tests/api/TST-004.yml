@@ -1,7 +1,0 @@
-uid: TST-004
-links:
-  - MON-004
-text: |
-  Monitor sync command handles files, directories, missing paths, and limits.
-  References:
-  - tests/unit/test_wks_api_monitor_cmd_sync.py

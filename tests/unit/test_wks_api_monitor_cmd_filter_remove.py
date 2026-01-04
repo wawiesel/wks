@@ -1,5 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_filter_remove module."""
 
+# HODOR-ID: TST-MON-005-REMOVE
+# HODOR-REQS: MON-005
+# HODOR-TEXT: Monitor filter remove command reports success and not-found cases.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_remove.py::test_cmd_filter_remove_saves_on_success
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_filter_remove.py::test_cmd_filter_remove_not_found
+
 import pytest
 
 from tests.unit.conftest import create_tracked_wks_config, run_cmd

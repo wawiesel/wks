@@ -1,5 +1,16 @@
 """Unit tests for monitor cmd_check (no mocks, real mongomock via config)."""
 
+# HODOR-ID: TST-MON-003
+# HODOR-REQS: MON-003
+# HODOR-TEXT: Monitor check command requires a path and returns check output.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_check.py::test_cmd_check_reports_monitored
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_check.py::test_cmd_check_glob_exclusion
+#
+# HODOR-ID: TST-MON-007-CHECK
+# HODOR-REQS: MON-007
+# HODOR-TEXT: Check reports schema-conformant errors for invalid paths.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_check.py::test_cmd_check_path_not_exists
+
 import json
 
 import pytest

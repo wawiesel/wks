@@ -95,7 +95,7 @@ Runs mutation testing on the API layer.
 Updates code statistics in README.md.
 
 ### `update_traceability_audit.py`
-Generates the traceability audit HTML report using the Hodor rule tooling.
+Generates the traceability audit HTML report using the Hodor rule tooling (requirements + in-test HODOR annotations).
 
 ### `generate_codebase_visualization.py`
 Generates visualization of codebase statistics.

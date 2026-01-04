@@ -11,7 +11,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HODOR_SCRIPT = REPO_ROOT / ".cursor" / "rules" / "Hodor" / "scripts" / "build_traceability_audit.py"
 DEFAULT_REQ_DIRS = ["docs/specifications/requirements/mon"]
-DEFAULT_TEST_DIRS = ["tests/api"]
+DEFAULT_TEST_ITEM_DIRS: list[str] = []
+DEFAULT_TEST_SCAN_DIRS = ["tests/unit", "tests/integration", "tests/smoke"]
 DEFAULT_OUT = REPO_ROOT / "docs" / "traceability" / "traceability_audit.html"
 
 
@@ -22,6 +23,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--req-dir", action="append", default=[], help="Requirement item directory (relative to repo).")
     parser.add_argument("--test-dir", action="append", default=[], help="Test item directory (relative to repo).")
+    parser.add_argument(
+        "--test-scan-dir",
+        action="append",
+        default=[],
+        help="Directory to scan for in-test HODOR metadata comments (relative to repo).",
+    )
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="Output HTML file path.")
     parser.add_argument("--title", default="WKS Traceability Audit", help="Report title.")
     parser.add_argument(
@@ -35,7 +42,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     req_dirs = args.req_dir or DEFAULT_REQ_DIRS
-    test_dirs = args.test_dir or DEFAULT_TEST_DIRS
+    test_item_dirs = args.test_dir or DEFAULT_TEST_ITEM_DIRS
+    test_scan_dirs = args.test_scan_dir or DEFAULT_TEST_SCAN_DIRS
 
     if not HODOR_SCRIPT.exists():
         print(
@@ -60,8 +68,10 @@ def main() -> int:
     ]
     for path in req_dirs:
         cmd.extend(["--req-dir", path])
-    for path in test_dirs:
+    for path in test_item_dirs:
         cmd.extend(["--test-dir", path])
+    for path in test_scan_dirs:
+        cmd.extend(["--test-scan-dir", path])
 
     subprocess.run(cmd, check=True)
     return 0

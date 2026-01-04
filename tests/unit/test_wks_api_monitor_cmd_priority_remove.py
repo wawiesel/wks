@@ -1,5 +1,11 @@
 """Unit tests for wks.api.monitor.cmd_priority_remove module."""
 
+# HODOR-ID: TST-MON-006-REMOVE
+# HODOR-REQS: MON-006
+# HODOR-TEXT: Monitor priority remove command reports success and not-found cases.
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_priority_remove.py::test_cmd_priority_remove_not_found
+# HODOR-REF: tests/unit/test_wks_api_monitor_cmd_priority_remove.py::test_cmd_priority_remove_success
+
 import pytest
 
 from tests.unit.conftest import create_tracked_wks_config, run_cmd
