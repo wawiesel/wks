@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from wks.utils.normalize_path import normalize_path
 
 from ...utils.now_iso import now_iso
-from ...utils.path_to_uri import path_to_uri
+from ..URI import URI
 from ._CacheManager import _CacheManager
 from ._get_engine_by_type import _get_engine_by_type
 from ._TransformRecord import _TransformRecord
@@ -59,7 +59,7 @@ class _TransformController:
             output_path: Path to the cached output file
             referenced_uris: List of referenced image URIs
         """
-        output_uri = path_to_uri(normalize_path(output_path))
+        output_uri = str(URI.from_path(normalize_path(output_path)))
 
         # Get raw database object for accessing other collections
         mongo_db: Any = self.db.get_database()
@@ -266,7 +266,7 @@ class _TransformController:
         # Store in database
         record = _TransformRecord(
             file_uri=file_uri,
-            cache_uri=path_to_uri(cache_location),
+            cache_uri=str(URI.from_path(cache_location)),
             checksum=file_checksum,
             size_bytes=output_size,
             last_accessed=now_iso(),
@@ -331,7 +331,7 @@ class _TransformController:
         merged_options = {**engine_config.data, **(options or {})}
 
         # Compute file info
-        file_uri = path_to_uri(file_path)
+        file_uri = str(URI.from_path(file_path))
         file_checksum = self._compute_file_checksum(file_path)
         file_size = file_path.stat().st_size
         options_hash = engine.compute_options_hash(merged_options)
@@ -372,9 +372,7 @@ class _TransformController:
         count = 0
         for doc in docs:
             # Remove cache file
-            from ...utils.uri_to_path import uri_to_path
-
-            cache_path = uri_to_path(doc["cache_uri"])
+            cache_path = URI(doc["cache_uri"]).path
             if cache_path.exists():
                 cache_path.unlink()
                 self.cache_manager.remove_file(doc["size_bytes"])

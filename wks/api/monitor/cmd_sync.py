@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from wks.api.config.write_status_file import write_status_file
+from wks.api.URI import URI
 from wks.utils.expand_paths import expand_paths
 from wks.utils.normalize_path import normalize_path
-from wks.utils.path_to_uri import path_to_uri
 
 from ..database.Database import Database
 from ..StageResult import StageResult
@@ -77,7 +77,7 @@ def cmd_sync(
 
             with Database(config.database, database_name) as database:
                 try:
-                    database.delete_many({"local_uri": path_to_uri(path_obj)})
+                    database.delete_many({"local_uri": str(URI.from_path(path_obj))})
                 finally:
                     pass
 
@@ -133,7 +133,7 @@ def cmd_sync(
                             )
                             continue
 
-                        path_uri = path_to_uri(file_path)
+                        path_uri = str(URI.from_path(file_path))
 
                         # Use file's last modified time (st_mtime)
                         timestamp = datetime.fromtimestamp(stat.st_mtime).isoformat()

@@ -38,9 +38,9 @@ class _Scanner:
             return f"vault:///{rel_path}"
         except ValueError:
             # Path is outside vault, fall back to file:// URI
-            from ....utils.path_to_uri import path_to_uri
+            from wks.api.URI import URI
 
-            return path_to_uri(note_path)
+            return str(URI.from_path(note_path))
 
     def scan(self, files: list[Path] | None = None) -> list[EdgeRecord]:
         """Scan vault for links."""

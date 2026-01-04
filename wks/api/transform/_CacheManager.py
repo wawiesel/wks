@@ -5,8 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from wks.api.database.Database import Database
-
-from ...utils.uri_to_path import uri_to_path
+from wks.api.URI import URI
 
 
 class _CacheManager:
@@ -105,7 +104,7 @@ class _CacheManager:
         # Evict entries
         for checksum, size_bytes, cache_uri in entries_to_evict:
             # Delete file from cache
-            cache_path = uri_to_path(cache_uri)
+            cache_path = URI(cache_uri).path
             if cache_path.exists():
                 cache_path.unlink()
 

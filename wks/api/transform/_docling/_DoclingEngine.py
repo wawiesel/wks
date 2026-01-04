@@ -145,9 +145,10 @@ class _DoclingEngine(_TransformEngine):
                             shutil.copy2(img_file, cache_image_path)
 
                         # Record for return value
-                        from wks.utils.path_to_uri import path_to_uri
+                        from wks.api.URI import URI
 
-                        referenced_images.append(path_to_uri(cache_image_path))
+                        img_uri = str(URI.from_path(cache_image_path))
+                        referenced_images.append(img_uri)
 
                         # Rewrite content: replace relative path with absolute cache URI
                         # Docling likely uses relative path in markdown: ![](stem_page_1.png)
@@ -158,7 +159,7 @@ class _DoclingEngine(_TransformEngine):
 
                         # Simple replacement of filename
                         # This assumes docling uses just the filename in the link, which is standard for same-dir output
-                        content = content.replace(img_file.name, path_to_uri(cache_image_path))
+                        content = content.replace(img_file.name, img_uri)
 
                     # Write updated content back to expected_output so it gets copied to output_path next
                     expected_output.write_text(content, encoding="utf-8")

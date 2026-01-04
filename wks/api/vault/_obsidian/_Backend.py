@@ -117,12 +117,12 @@ class _Backend(_AbstractBackend):
         resolved_exists = resolved.exists()
         status = STATUS_MISSING_TARGET if not resolved_exists else STATUS_OK
 
-        # Use path_to_uri for resolved filesystem path
+        # Use URI.from_path for resolved filesystem path
         try:
-            from wks.utils.path_to_uri import path_to_uri
+            from wks.api.URI import URI
 
-            target_uri = path_to_uri(resolved)
-        except (ValueError, OSError):
+            target_uri = str(URI.from_path(resolved))
+        except (ValueError, OSError, ImportError):
             # Fallback to absolute file path string if URI conversion fails
             target_uri = f"file://{resolved}"
 

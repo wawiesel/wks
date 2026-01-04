@@ -4,8 +4,8 @@ from typing import Any
 
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
+from wks.api.URI import URI
 from wks.utils.normalize_path import normalize_path
-from wks.utils.uri_to_path import uri_to_path
 
 
 def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
@@ -45,7 +45,7 @@ def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
 
             # Check if cache file exists
             try:
-                cache_path = uri_to_path(cache_uri) if cache_uri else None
+                cache_path = URI(cache_uri).path if cache_uri else None
                 if cache_path is None or not cache_path.exists():
                     stale_db_records.append(doc["_id"])
             except (ValueError, OSError) as e:

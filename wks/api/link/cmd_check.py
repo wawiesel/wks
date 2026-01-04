@@ -3,8 +3,6 @@
 from collections.abc import Iterator
 from typing import Any
 
-from ...utils.path_to_uri import path_to_uri
-from ...utils.uri_to_path import uri_to_path
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
@@ -28,7 +26,7 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
                 rel_part = to_uri[11:]
                 target_path_obj = vault_root / rel_part
         elif to_uri.startswith("file://"):
-            target_path_obj = uri_to_path(to_uri)
+            target_path_obj = URI(to_uri).path
 
         if target_path_obj:
             remote_uri = resolve_remote_uri(target_path_obj, monitor_cfg.remote)
@@ -137,7 +135,7 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
                         relative_path = file_path.relative_to(vault_root)
                         from_uri = f"vault:///{relative_path}"
                     else:
-                        from_uri = path_to_uri(file_path)
+                        from_uri = str(URI.from_path(file_path))
 
                     # Calculate from_remote_uri once
                     from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
@@ -166,7 +164,7 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
 
             except Exception:
                 # Vault failed or not configured - fall back to basic processing
-                from_uri = path_to_uri(file_path)
+                from_uri = str(URI.from_path(file_path))
                 from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
                 for ref in link_refs:
                     _process_link(

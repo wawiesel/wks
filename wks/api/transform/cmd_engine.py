@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ...api.StageResult import StageResult
-from ...utils.path_to_uri import path_to_uri
+from ...api.URI import URI
 from . import TransformEngineOutput
 from ._get_controller import _get_controller
 
@@ -78,8 +78,8 @@ def cmd_engine(
 
                 result_obj.result = f"Transformed {file_path.name} ({cache_key[:8]})"
                 result_obj.output = TransformEngineOutput(
-                    source_uri=path_to_uri(file_path),
-                    destination_uri=path_to_uri(cache_location),
+                    source_uri=str(URI.from_path(file_path)),
+                    destination_uri=str(URI.from_path(cache_location)),
                     engine=engine,
                     status="success",
                     checksum=cache_key,
@@ -95,7 +95,7 @@ def cmd_engine(
             yield (1.0, "Failed")
             result_obj.result = str(e)
             result_obj.output = TransformEngineOutput(
-                source_uri=path_to_uri(file_path),
+                source_uri=str(URI.from_path(file_path)),
                 destination_uri="",
                 engine=engine,
                 status="error",

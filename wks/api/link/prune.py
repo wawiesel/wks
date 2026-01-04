@@ -1,14 +1,13 @@
 """Prune handler for edges database (link)."""
 
-from pathlib import Path
 from typing import Any
 
 import requests
 
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
+from wks.api.URI import URI
 from wks.utils.has_internet import has_internet
-from wks.utils.uri_to_path import uri_to_path
 
 
 def prune(config: WKSConfig, remote: bool = False, **_kwargs: Any) -> dict[str, Any]:
@@ -80,8 +79,9 @@ def prune(config: WKSConfig, remote: bool = False, **_kwargs: Any) -> dict[str, 
             elif to_uri not in valid_nodes:
                 # Not monitored. Check filesystem.
                 try:
-                    path_str = uri_to_path(to_uri)
-                    if not Path(path_str).exists():
+                    if URI(to_uri).path.exists():
+                        pass
+                    else:
                         local_target_broken = True
                 except ValueError:
                     local_target_broken = True
