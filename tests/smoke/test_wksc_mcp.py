@@ -183,3 +183,9 @@ def test_mcp_call_monitor_check(mcp_process):
     content = json.loads(response["result"]["content"][0]["text"])
     assert "data" in content
     assert "is_monitored" in content["data"]
+
+
+def test_cli_mcp_list(wksc):
+    """Test 'wksc mcp list' shows MCP installation info."""
+    result = wksc(["mcp", "list"])
+    assert "installations" in result.stdout
