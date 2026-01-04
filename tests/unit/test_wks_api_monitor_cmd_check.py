@@ -15,7 +15,8 @@ def test_cmd_check_reports_monitored(monkeypatch, tmp_path, minimal_config_dict)
     """Path under include_paths is monitored with computed priority.
 
     Requirements:
-    - MON-003
+    - MON-001
+    - MON-004
     """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
@@ -39,7 +40,8 @@ def test_cmd_check_path_not_exists(monkeypatch, tmp_path, minimal_config_dict):
     """Nonexistent path outside include_paths is not monitored and fails.
 
     Requirements:
-    - MON-007
+    - MON-001
+    - MON-008
     """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
@@ -60,7 +62,8 @@ def test_cmd_check_glob_exclusion(monkeypatch, tmp_path, minimal_config_dict):
     """Path matching exclude_globs reports '✗' symbol.
 
     Requirements:
-    - MON-003
+    - MON-001
+    - MON-004
     """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()

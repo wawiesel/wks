@@ -1,15 +1,28 @@
 {
-  "generated_at": "2026-01-04 17:50:47Z",
-  "report_path": "docs/traceability/traceability_audit.html",
-  "source_root": ".",
+  "sources": {
+    "report": "docs/traceability/traceability_audit.html",
+    "requirements": [
+      "qa/reqs/mon"
+    ],
+    "test_items": [],
+    "test_scan": [
+      "tests/unit",
+      "tests/integration",
+      "tests/smoke"
+    ]
+  },
   "summary": {
     "coverage_pct": 100.0,
-    "links_total": 13,
-    "requirements_linked": 7,
-    "requirements_total": 7,
-    "requirements_unlinked": 0,
-    "tests_linked": 10,
-    "tests_total": 96,
-    "tests_unlinked": 86
+    "links_total": 23,
+    "requirements": {
+      "linked": 8,
+      "total": 8,
+      "unlinked": 0
+    },
+    "tests": {
+      "linked": 10,
+      "total": 96,
+      "unlinked": 86
+    }
   }
 }

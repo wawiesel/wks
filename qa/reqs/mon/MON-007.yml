@@ -1,4 +1,3 @@
-uid: MON-006
+uid: MON-007
 text: |
   Priority commands must use their respective outputs: show/add/remove.
-  Source: qa/specs/monitor.md (MON.6)

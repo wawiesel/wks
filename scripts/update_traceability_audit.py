@@ -8,12 +8,11 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HODOR_SCRIPT = REPO_ROOT / ".cursor" / "rules" / "Hodor" / "scripts" / "build_traceability_audit.py"
-DEFAULT_REQ_DIRS = ["qa/specs/reqs/mon"]
+DEFAULT_REQ_DIRS = ["qa/reqs/mon"]
 DEFAULT_TEST_ITEM_DIRS: list[str] = []
 DEFAULT_TEST_SCAN_DIRS = ["tests/unit", "tests/integration", "tests/smoke"]
 DEFAULT_OUT = REPO_ROOT / "docs" / "traceability" / "traceability_audit.html"
@@ -50,11 +49,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
-
-
-def _write_traceability_metrics(html_path: Path, metrics_path: Path) -> None:
+def _write_traceability_metrics(
+    html_path: Path,
+    metrics_path: Path,
+    req_dirs: list[str],
+    test_item_dirs: list[str],
+    test_scan_dirs: list[str],
+) -> None:
     if not html_path.exists():
         print(f"Error: traceability report not found at {html_path}", file=sys.stderr)
         raise SystemExit(1)
@@ -74,10 +75,26 @@ def _write_traceability_metrics(html_path: Path, metrics_path: Path) -> None:
         report_path = str(html_path)
 
     payload = {
-        "generated_at": data.get("generated_at", _utc_now()),
-        "summary": summary,
-        "report_path": report_path,
-        "source_root": data.get("source_root", "."),
+        "sources": {
+            "requirements": req_dirs,
+            "test_items": test_item_dirs,
+            "test_scan": test_scan_dirs,
+            "report": report_path,
+        },
+        "summary": {
+            "requirements": {
+                "total": summary.get("requirements_total", 0),
+                "linked": summary.get("requirements_linked", 0),
+                "unlinked": summary.get("requirements_unlinked", 0),
+            },
+            "tests": {
+                "total": summary.get("tests_total", 0),
+                "linked": summary.get("tests_linked", 0),
+                "unlinked": summary.get("tests_unlinked", 0),
+            },
+            "links_total": summary.get("links_total", 0),
+            "coverage_pct": summary.get("coverage_pct", 0.0),
+        },
     }
 
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +138,7 @@ def main() -> int:
         cmd.extend(["--test-scan-dir", path])
 
     subprocess.run(cmd, check=True)
-    _write_traceability_metrics(Path(args.out), metrics_out)
+    _write_traceability_metrics(Path(args.out), metrics_out, req_dirs, test_item_dirs, test_scan_dirs)
     return 0
 
 

@@ -1,0 +1,4 @@
+uid: MON-001
+text: |
+  Monitor implementation adheres to the monitor specification.
+  Monitor tests achieve 100% coverage, and the domain contains no dead code.

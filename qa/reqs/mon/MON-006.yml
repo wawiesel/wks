@@ -1,4 +1,3 @@
-uid: MON-005
+uid: MON-006
 text: |
   Filter commands must use their respective outputs: show/add/remove.
-  Source: qa/specs/monitor.md (MON.5)

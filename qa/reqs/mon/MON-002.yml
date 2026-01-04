@@ -1,4 +1,3 @@
-uid: MON-001
+uid: MON-002
 text: |
   All monitor config fields are required; no defaults in code.
-  Source: qa/specs/monitor.md (MON.1)

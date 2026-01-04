@@ -14,7 +14,8 @@ def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch, tmp_path, mini
     """Lists available filter sets when no list name is provided.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
@@ -30,7 +31,8 @@ def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict
     """Returns the requested filter list.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
@@ -64,7 +66,8 @@ def test_cmd_filter_show_unknown_list_name(monkeypatch, tmp_path, minimal_config
     """Test cmd_filter_show with unknown list_name.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()

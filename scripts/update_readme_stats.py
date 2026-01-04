@@ -13,7 +13,6 @@ import subprocess
 import sys
 import tokenize
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 
@@ -49,11 +48,6 @@ class SectionStats:
             chars=self.chars + other.chars,
             tokens=self.tokens + other.tokens,
         )
-
-
-def _utc_now() -> str:
-    """Return current UTC timestamp for metrics files."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
 
 def _run_cmd(cmd: list[str]) -> tuple[int, str]:
@@ -341,23 +335,16 @@ def _resolve_lizard_cmd() -> str | None:
 def _collect_complexity_stats() -> dict:
     """Collect cyclomatic complexity metrics by domain using lizard CSV output."""
     payload: dict[str, object] = {
-        "generated_at": _utc_now(),
-        "source": "lizard",
-        "status": "ok",
         "domains": {},
         "total": {"functions": 0, "ccn_avg": 0.0, "ccn_max": 0},
     }
 
     lizard_cmd = _resolve_lizard_cmd()
     if not lizard_cmd:
-        payload["status"] = "unavailable"
-        payload["reason"] = "lizard not found"
         return payload
 
     rc, output = _run_cmd([lizard_cmd, "--csv", "wks/api"])
     if rc != 0:
-        payload["status"] = "error"
-        payload["reason"] = output.strip()[:500] if output else "lizard failed"
         return payload
 
     domain_accum: dict[str, dict[str, int]] = {}
@@ -612,7 +599,7 @@ def _generate_table(
 **Test Statistics**: {test_count:,} tests across {test_files:,} test files."""
 
 
-def _collect_loc_stats(docker_freshness: str = "fresh") -> dict:
+def _collect_loc_stats() -> dict:
     """Collect LOC-focused metrics for qa/metrics/loc.json."""
     test_count = _get_test_count()
     test_files = len(list((REPO_ROOT / "tests").rglob("test_*.py")))
@@ -639,24 +626,56 @@ def _collect_loc_stats(docker_freshness: str = "fresh") -> dict:
     for stats in domain_loc_stats.values():
         domain_total += stats
 
+    section_paths = {
+        "api": ["wks/api/**/*.py"],
+        "cli": ["wks/cli/**/*.py"],
+        "mcp": ["wks/mcp/**/*.py"],
+        "utils": ["wks/utils/**/*.py"],
+        "unit": ["tests/unit/**/*.py"],
+        "integration": ["tests/integration/**/*.py"],
+        "smoke": ["tests/smoke/**/*.py"],
+        "cicd": [".github/workflows/**/*.yml", ".github/workflows/**/*.yaml"],
+        "build_config": [
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "pytest.ini",
+            ".pre-commit-config.yaml",
+        ],
+        "scripts": ["scripts/*.py", "scripts/*.sh"],
+        "specs": ["qa/specs/**/*.md", "qa/specs/**/*.json"],
+        "user_docs": ["docs/patterns/**/*.md"],
+        "dev_docs": [
+            "CONTRIBUTING.md",
+            "AGENTS.md",
+            ".cursor/rules/**/*.md",
+            ".cursor/rules/**/*.txt",
+            "docs/other/**/*.md",
+            "docs/campaigns/**/*.md",
+            "wks/**/README.md",
+        ],
+    }
+
+    domain_paths = {name: [f"wks/api/{name}/**/*.py"] for name in domain_loc_stats}
+
     return {
-        "generated_at": _utc_now(),
+        "paths": {
+            "sections": section_paths,
+            "domains": domain_paths,
+        },
         "sections": section_stats,
         "domains": {name: asdict(stats) for name, stats in domain_loc_stats.items()},
         "total": asdict(domain_total),
         "test_count": test_count,
         "test_files": test_files,
-        "docker_freshness": docker_freshness,
     }
 
 
 def _collect_coverage_stats() -> dict:
     """Collect coverage metrics for qa/metrics/coverage.json."""
-    coverage_pct, coverage_status = _get_code_coverage()
+    coverage_pct, _coverage_status = _get_code_coverage()
     return {
-        "generated_at": _utc_now(),
         "coverage_pct": round(coverage_pct, 1),
-        "coverage_status": coverage_status,
         "domains": _get_domain_coverage(),
     }
 
@@ -682,7 +701,6 @@ def _collect_mutation_stats() -> dict:
     mutation_score = (total_killed / grand_total * 100) if grand_total > 0 else 0.0
 
     return {
-        "generated_at": _utc_now(),
         "mutation_score": round(mutation_score, 1),
         "mutation_killed": total_killed,
         "mutation_survived": total_survived,
@@ -690,7 +708,7 @@ def _collect_mutation_stats() -> dict:
     }
 
 
-def _build_readme_stats(loc_stats: dict, coverage_stats: dict, mutation_stats: dict) -> dict:
+def _build_readme_stats(loc_stats: dict, coverage_stats: dict, mutation_stats: dict, docker_freshness: str) -> dict:
     """Merge metrics JSON into the README stats structure."""
     domain_stats = {}
     coverage_domains = coverage_stats.get("domains", {}) or {}
@@ -705,15 +723,20 @@ def _build_readme_stats(loc_stats: dict, coverage_stats: dict, mutation_stats: d
             "mutation_survived": mutation_domain.get("survived", 0),
         }
 
+    coverage_pct = coverage_stats.get("coverage_pct", 0.0)
+    coverage_status = (
+        "⚠️ No Data" if not coverage_domains else "✅ Pass" if coverage_pct >= 100.0 else "⚠️ Below Target"
+    )
+
     return {
-        "coverage_pct": coverage_stats.get("coverage_pct", 0.0),
-        "coverage_status": coverage_stats.get("coverage_status", "⚠️ No Data"),
+        "coverage_pct": coverage_pct,
+        "coverage_status": coverage_status,
         "mutation_score": mutation_stats.get("mutation_score", 0.0),
         "mutation_killed": mutation_stats.get("mutation_killed", 0),
         "mutation_survived": mutation_stats.get("mutation_survived", 0),
         "test_count": loc_stats.get("test_count", 0),
         "test_files": loc_stats.get("test_files", 0),
-        "docker_freshness": loc_stats.get("docker_freshness", "fresh"),
+        "docker_freshness": docker_freshness,
         "sections": loc_stats.get("sections", {}),
         "domain_stats": domain_stats,
     }
@@ -817,12 +840,12 @@ def _update_readme_from_stats(stats: dict) -> None:
 
 def _update_readme(docker_freshness: str = "fresh") -> None:
     """Collect stats, save metrics JSON, update README."""
-    loc_stats = _collect_loc_stats(docker_freshness)
+    loc_stats = _collect_loc_stats()
     coverage_stats = _collect_coverage_stats()
     mutation_stats = _collect_mutation_stats()
     complexity_stats = _collect_complexity_stats()
     _save_metrics_json(loc_stats, coverage_stats, mutation_stats, complexity_stats)
-    readme_stats = _build_readme_stats(loc_stats, coverage_stats, mutation_stats)
+    readme_stats = _build_readme_stats(loc_stats, coverage_stats, mutation_stats, docker_freshness)
     _update_readme_from_stats(readme_stats)
 
 
@@ -846,10 +869,10 @@ def main() -> None:
 
     if args.from_json:
         loc_stats, coverage_stats, mutation_stats, _complexity_stats = _load_metrics_json()
-        readme_stats = _build_readme_stats(loc_stats, coverage_stats, mutation_stats)
+        readme_stats = _build_readme_stats(loc_stats, coverage_stats, mutation_stats, args.docker_freshness)
         _update_readme_from_stats(readme_stats)
     elif args.json_only:
-        loc_stats = _collect_loc_stats(args.docker_freshness)
+        loc_stats = _collect_loc_stats()
         coverage_stats = _collect_coverage_stats()
         mutation_stats = _collect_mutation_stats()
         complexity_stats = _collect_complexity_stats()

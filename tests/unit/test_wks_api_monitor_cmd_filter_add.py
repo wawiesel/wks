@@ -12,7 +12,8 @@ def test_cmd_filter_add_saves_on_success(monkeypatch):
     """Add filter values successfully.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
@@ -25,7 +26,8 @@ def test_cmd_filter_add_unknown_list_name(monkeypatch):
     """Test cmd_filter_add with unknown list_name.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     create_tracked_wks_config(monkeypatch)
 
@@ -37,7 +39,8 @@ def test_cmd_filter_add_empty_dirname(monkeypatch):
     """Test cmd_filter_add with empty dirname.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
@@ -51,7 +54,8 @@ def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
     """Test cmd_filter_add with wildcard in dirname.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
@@ -65,7 +69,8 @@ def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
     """Test cmd_filter_add when dirname already in opposite list.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch, {"filter": {"exclude_dirnames": ["testdir"]}})
 
@@ -79,7 +84,8 @@ def test_cmd_filter_add_dirname_no_error(monkeypatch):
     """Test cmd_filter_add with valid dirname.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
@@ -92,7 +98,8 @@ def test_cmd_filter_add_empty_glob(monkeypatch):
     """Test cmd_filter_add with empty glob.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
@@ -106,7 +113,8 @@ def test_cmd_filter_add_glob_validation_success(monkeypatch):
     """Test cmd_filter_add with valid glob.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
@@ -119,7 +127,8 @@ def test_cmd_filter_add_else_branch(monkeypatch):
     """Test cmd_filter_add with non-path, non-dirname, non-glob list.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     # This shouldn't happen with current filter lists, but test the else branch anyway
     pass
@@ -129,7 +138,8 @@ def test_cmd_filter_add_validation_error(monkeypatch):
     """Test cmd_filter_add with validation error.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
@@ -144,7 +154,8 @@ def test_cmd_filter_add_duplicate_dirname(monkeypatch):
     """Test cmd_filter_add with duplicate dirname.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_dirnames": ["testdir"]}})
 
@@ -158,7 +169,8 @@ def test_cmd_filter_add_duplicate_glob(monkeypatch):
     """Test cmd_filter_add with duplicate glob.
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_globs": ["*.md"]}})
 
@@ -172,7 +184,8 @@ def test_cmd_filter_add_internal_error(monkeypatch):
     """Test cmd_filter_add throws RuntimeError if validate_value returns (None, None).
 
     Requirements:
-    - MON-005
+    - MON-001
+    - MON-006
     """
     create_tracked_wks_config(monkeypatch)
 
