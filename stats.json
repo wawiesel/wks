@@ -5,23 +5,23 @@
   "domain_stats": {
     "cat": {
       "coverage": 94.4,
-      "mutation_killed": 83,
-      "mutation_survived": 17
+      "mutation_killed": 78,
+      "mutation_survived": 22
     },
     "config": {
       "coverage": 100.0,
-      "mutation_killed": 167,
-      "mutation_survived": 97
+      "mutation_killed": 181,
+      "mutation_survived": 83
     },
     "daemon": {
       "coverage": 83.5,
-      "mutation_killed": 266,
-      "mutation_survived": 88
+      "mutation_killed": 224,
+      "mutation_survived": 130
     },
     "database": {
       "coverage": 90.3,
-      "mutation_killed": 451,
-      "mutation_survived": 175
+      "mutation_killed": 448,
+      "mutation_survived": 178
     },
     "diff": {
       "coverage": 0.0,
@@ -30,23 +30,23 @@
     },
     "link": {
       "coverage": 97.6,
-      "mutation_killed": 846,
-      "mutation_survived": 316
+      "mutation_killed": 790,
+      "mutation_survived": 372
     },
     "log": {
       "coverage": 93.9,
-      "mutation_killed": 366,
-      "mutation_survived": 181
+      "mutation_killed": 363,
+      "mutation_survived": 184
     },
     "mcp": {
       "coverage": 97.1,
-      "mutation_killed": 301,
-      "mutation_survived": 99
+      "mutation_killed": 259,
+      "mutation_survived": 141
     },
     "monitor": {
       "coverage": 98.4,
-      "mutation_killed": 1173,
-      "mutation_survived": 492
+      "mutation_killed": 1162,
+      "mutation_survived": 503
     },
     "service": {
       "coverage": 92.2,
@@ -55,8 +55,8 @@
     },
     "transform": {
       "coverage": 87.3,
-      "mutation_killed": 658,
-      "mutation_survived": 154
+      "mutation_killed": 641,
+      "mutation_survived": 171
     },
     "utils": {
       "coverage": 100.0,
@@ -65,13 +65,13 @@
     },
     "vault": {
       "coverage": 98.7,
-      "mutation_killed": 885,
-      "mutation_survived": 350
+      "mutation_killed": 906,
+      "mutation_survived": 329
     }
   },
-  "mutation_killed": 5295,
-  "mutation_score": 72.7,
-  "mutation_survived": 1985,
+  "mutation_killed": 5151,
+  "mutation_score": 70.8,
+  "mutation_survived": 2129,
   "sections": {
     "api": {
       "chars": 411301,
