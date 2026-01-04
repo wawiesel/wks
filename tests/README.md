@@ -18,7 +18,7 @@ The WKS project employs a layered testing strategy designed to provide thorough 
 
 ### Integration Tests (`tests/integration/`)
 
-**Purpose**: Integration tests are designed to verify the functionality and interaction of components within the **MCP layer** (`wks/mcp/*`). They ensure that MCP tools are correctly registered, handle input/output, and properly interact with the underlying API layer.
+**Purpose**: Integration tests are designed to verify the functionality and interaction of **cross-module components** and **external systems**. This includes the **MCP layer** (`wks/mcp/*`) and **system-level operations** (like service installation on OS). They ensure that components are correctly registered, handle input/output, and properly interact with the underlying API layer and OS.
 
 **Principles**:
 -   **Real Behavior**: Avoid using mocks where possible. Integration tests should interact with real components (e.g., `MCPServer`, underlying API functions).
@@ -32,11 +32,11 @@ The WKS project employs a layered testing strategy designed to provide thorough 
 **Purpose**: Smoke tests are quick, high-level checks to ensure the **CLI layer** (`wks/cli/*`) is fundamentally working. They are designed to provide rapid feedback on the health of the CLI application, ensuring that key commands execute without crashing and produce expected outputs.
 
 **Principles**:
--   **Real CLI Execution**: Invoke the `wksc` command directly via subprocesses, just as a user would.
+-   **CLI Layer Verification**: Verify the CLI wrapper logic, argument parsing, and output formatting.
+-   **Execution Methods**: Use `TyperRunner` for fast, in-process testing of command logic, or subprocesses for full binary validation.
 -   **Speed**: Tests must be fast to execute, providing an immediate "all clear" or "something is broken" signal.
--   **Basic Functionality**: Focus on whether essential commands work and provide output, rather than exhaustive coverage of every code path.
--   **No Mocks**: Completely avoid mocks. Smoke tests should simulate the end-user experience as closely as possible, using temporary local configurations.
--   **Naming Convention**: `test_cli_*.py` (e.g., `test_cli_smoke.py`).
+-   **No Mocks (mostly)**: Avoid mocking the business logic if possible to test the full stack, but mocking external systems (like databases via `mongomock`) is acceptable for hermeticity.
+-   **Naming Convention**: `test_wks_cli_<module>.py` (e.g., `test_wks_cli_link.py`) or `test_cli_*.py`.
 
 ## Running Tests
 
