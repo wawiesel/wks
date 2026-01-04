@@ -1,6 +1,11 @@
 {
-  "domains": {},
-  "killed": 0,
-  "score": 0.0,
-  "survived": 0
+  "domains": {
+    "vault": {
+      "killed": 887,
+      "survived": 348
+    }
+  },
+  "killed": 887,
+  "score": 71.8,
+  "survived": 348
 }
