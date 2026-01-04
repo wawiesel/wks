@@ -188,8 +188,8 @@ def main():
     metrics_dir = REPO_ROOT / "qa" / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    (metrics_dir / "loc.json").write_text(json.dumps(stats, indent=2, sort_keys=True) + "\n")
-    print(f"✅ Generated {metrics_dir}/loc.json")
+    (metrics_dir / "tokens.json").write_text(json.dumps(stats, indent=2, sort_keys=True) + "\n")
+    print(f"✅ Generated {metrics_dir}/tokens.json")
 
 
 if __name__ == "__main__":

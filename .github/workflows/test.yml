@@ -131,7 +131,7 @@ jobs:
           # Generate split stats JSONs inside Docker
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_coverage_stats.py || true
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_ci_stats.py || true
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_loc_stats.py || true
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_token_stats.py || true
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/aggregate_mutation_stats.py || true
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/check_complexity.py || true
 
@@ -191,7 +191,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update stats [skip ci]"
-          file_pattern: "qa/metrics/*.json README.md"
+          file_pattern: "qa/metrics/coverage.json qa/metrics/mutations.json qa/metrics/tokens.json qa/metrics/complexity.json qa/metrics/ci.json README.md"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"

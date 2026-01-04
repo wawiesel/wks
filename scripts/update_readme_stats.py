@@ -31,7 +31,7 @@ def _load_stats_json() -> dict:
     try:
         mutations = json.loads((metrics_dir / "mutations.json").read_text())
         coverage = json.loads((metrics_dir / "coverage.json").read_text())
-        loc_stats = json.loads((metrics_dir / "loc.json").read_text())
+        loc_stats = json.loads((metrics_dir / "tokens.json").read_text())
         ci_stats = json.loads((metrics_dir / "ci.json").read_text())
     except FileNotFoundError as e:
         print(f"Error: metrics files not found in {metrics_dir}: {e}", file=sys.stderr)
