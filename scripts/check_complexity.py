@@ -105,11 +105,61 @@ def main():
             console.print(result.stderr)
             sys.exit(result.returncode)
 
+        _save_complexity_json(result.stdout)
+
         console.print("[bold green]PASSED: Lizard Complexity Analysis[/bold green]")
 
     except Exception as e:
         console.print(f"[bold red]Error running complexity check: {e}[/bold red]")
         sys.exit(1)
+
+
+def _save_complexity_json(stdout: str) -> None:
+    """Parse lizard output and save complexity.json."""
+    import json
+    import re
+
+    # Parse Total line: "Total nloc   Avg.NLOC  AvgCCN  Avg.token   function_cnt"
+    # Example format: "Total nloc: 11661   Avg.NLOC: 9.6   AvgCCN: 2.3   Avg.token: 62.9   function_cnt: 1209"
+    metrics = {"nloc": 0, "avg_nloc": 0.0, "avg_ccn": 0.0, "avg_token": 0.0, "function_count": 0}
+
+    for line in stdout.splitlines():
+        if line.strip().startswith("Total nloc"):
+            # Clean up the line: remove labels, keep numbers
+            # "Total nloc: 123  Avg.NLOC: 4.5 ..." -> ["123", "4.5", ...]
+            # Using regex to find key-value pairs
+
+            # nloc
+            m = re.search(r"Total nloc[:\s]+(\d+)", line, re.IGNORECASE)
+            if m:
+                metrics["nloc"] = int(m.group(1))
+
+            # Avg NLOC
+            m = re.search(r"Avg\.NLOC[:\s]+([\d\.]+)", line, re.IGNORECASE)
+            if m:
+                metrics["avg_nloc"] = float(m.group(1))
+
+            # Avg CCN
+            m = re.search(r"AvgCCN[:\s]+([\d\.]+)", line, re.IGNORECASE)
+            if m:
+                metrics["avg_ccn"] = float(m.group(1))
+
+            # Avg token
+            m = re.search(r"Avg\.token[:\s]+([\d\.]+)", line, re.IGNORECASE)
+            if m:
+                metrics["avg_token"] = float(m.group(1))
+
+            # Function count
+            m = re.search(r"fun(?:ction)?_cnt[:\s]+(\d+)", line, re.IGNORECASE)
+            if m:
+                metrics["function_count"] = int(m.group(1))
+
+            break
+
+    metrics_dir = Path(__file__).resolve().parents[1] / "qa" / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    (metrics_dir / "complexity.json").write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n")
+    console.print(f"[green]Saved complexity metrics to {metrics_dir}/complexity.json[/green]")
 
 
 if __name__ == "__main__":

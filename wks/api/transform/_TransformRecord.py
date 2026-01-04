@@ -37,9 +37,9 @@ class _TransformRecord(BaseModel):
 
     def cache_path_from_uri(self) -> str:
         """Get local path from cache_uri using standard URI parsing."""
-        from ...utils.uri_to_path import uri_to_path
+        from ..URI import URI
 
         try:
-            return str(uri_to_path(self.cache_uri))
+            return str(URI(self.cache_uri).path)
         except Exception:
             return self.cache_uri

@@ -8,9 +8,8 @@ from wks.api.database.Database import Database
 from wks.api.log.append_log import append_log
 from wks.api.vault._constants import DOC_TYPE_LINK
 
-from ...utils.path_to_uri import path_to_uri
-from ...utils.uri_to_path import uri_to_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
+from ..URI import URI
 from ._identity import _identity
 from ._parsers import get_parser
 
@@ -33,7 +32,7 @@ def _sync_single_file(
 
     # Auto-register file with monitor (explicit sync = intent to track)
     try:
-        monitor_result = monitor_sync(str(file_path), recursive=False)
+        monitor_result = monitor_sync(URI.from_path(file_path), recursive=False)
         # Execute the generator
         for _ in monitor_result.progress_callback(monitor_result):
             pass
@@ -57,7 +56,7 @@ def _sync_single_file(
             relative_path = file_path.relative_to(vault_root)
             from_uri = f"vault:///{relative_path}"
         else:
-            from_uri = path_to_uri(file_path)
+            from_uri = str(URI.from_path(file_path))
 
         # Determine from_remote_uri
         from_remote_uri = resolve_remote_uri(file_path, config.monitor.remote)
@@ -93,7 +92,7 @@ def _sync_single_file(
                     if vault_root:
                         target_path_obj = vault_root / str(to_uri)[11:]
                 elif str(to_uri).startswith("file://"):
-                    target_path_obj = uri_to_path(str(to_uri))
+                    target_path_obj = URI(str(to_uri)).path
                 elif "://" not in str(to_uri):
                     # Assume relative path from current file
                     try:

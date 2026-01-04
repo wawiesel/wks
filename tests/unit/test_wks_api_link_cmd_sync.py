@@ -3,20 +3,21 @@ from unittest.mock import MagicMock, patch
 
 from tests.unit.conftest import run_cmd
 from wks.api.link.cmd_sync import cmd_sync
+from wks.api.URI import URI
 
 
 def test_cmd_sync_path_not_found(tracked_wks_config):
     """Test path not found (lines 35-45)."""
-    result = run_cmd(cmd_sync, path="missing.md")
+    result = run_cmd(cmd_sync, uri=URI.from_path(Path("missing.md").absolute()))
     assert result.success is False
-    assert "Path does not exist" in result.output["errors"]
+    assert "File does not exist" in result.output["errors"]
 
 
 def test_cmd_sync_no_files(tracked_wks_config, tmp_path):
     """Test no matching files found (lines 62-72)."""
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
-    result = run_cmd(cmd_sync, path=str(empty_dir))
+    result = run_cmd(cmd_sync, uri=URI.from_path(empty_dir))
     assert result.success is True
     assert result.output["links_synced"] == 0
     assert "No matching files found" in result.output["errors"]
@@ -32,7 +33,7 @@ def test_cmd_sync_success(tracked_wks_config, tmp_path):
     file_path = vault_root / "note.md"
     file_path.write_text("[link](file:///etc/hosts)", encoding="utf-8")
 
-    result = run_cmd(cmd_sync, path=str(file_path))
+    result = run_cmd(cmd_sync, uri=URI.from_path(file_path))
     assert result.success is True
     assert result.output["links_synced"] == 1
 
@@ -56,7 +57,7 @@ def test_cmd_sync_fallback_no_vault(tracked_wks_config, tmp_path, monkeypatch):
     file_path = monitored_root / "note.md"
     file_path.write_text("[link](file:///etc/hosts)", encoding="utf-8")
 
-    result = run_cmd(cmd_sync, path=str(file_path))
+    result = run_cmd(cmd_sync, uri=URI.from_path(file_path))
     assert result.success is True
     assert result.output["links_synced"] == 1
 
@@ -71,7 +72,7 @@ def test_cmd_sync_with_remote_targets(tracked_wks_config, tmp_path):
     file_path = vault_root / "remote.md"
     file_path.write_text("[google](https://google.com)", encoding="utf-8")
 
-    result = run_cmd(cmd_sync, path=str(file_path), remote=True)
+    result = run_cmd(cmd_sync, uri=URI.from_path(file_path), remote=True)
     assert result.success is True
     assert result.output["links_synced"] == 1
 
@@ -90,7 +91,7 @@ def test_sync_single_file_monitor_error(tracked_wks_config, tmp_path, monkeypatc
     file_path = vault_root / "mon_err.md"
     file_path.write_text("[link](file:///etc/hosts)", encoding="utf-8")
 
-    result = run_cmd(cmd_sync, path=str(file_path))
+    result = run_cmd(cmd_sync, uri=URI.from_path(file_path))
     assert result.success is True
     assert result.output["links_synced"] == 1
 
@@ -115,7 +116,7 @@ def test_sync_single_file_complex_resolutions(tracked_wks_config, tmp_path, monk
         return mock_meta
 
     with patch("wks.api.vault.Vault.Vault.resolve_link", side_effect=mock_resolver):
-        result = run_cmd(cmd_sync, path=str(file_path))
+        result = run_cmd(cmd_sync, uri=URI.from_path(file_path))
         assert result.success is True
         assert result.output["links_synced"] == 2
 
@@ -130,7 +131,7 @@ def test_cmd_sync_expand_error(tracked_wks_config, tmp_path, monkeypatch):
         lambda *args, **kwargs: exec("raise FileNotFoundError('missing folder')"),
     )
 
-    result = run_cmd(cmd_sync, path=str(tmp_path))
+    result = run_cmd(cmd_sync, uri=URI.from_path(tmp_path))
     assert result.success is False
     assert "missing folder" in result.output["errors"][0]
 
@@ -144,7 +145,7 @@ def test_sync_single_file_fatal_error(tracked_wks_config, tmp_path, monkeypatch)
     file_path = tmp_path / "note.md"
     file_path.touch()
 
-    result = run_cmd(cmd_sync, path=str(file_path))
+    result = run_cmd(cmd_sync, uri=URI.from_path(file_path))
     assert result.success is True
     assert "fatal sync" in result.output["errors"][0]
 
@@ -170,7 +171,7 @@ def test_sync_single_file_remote_error(tracked_wks_config, tmp_path, monkeypatch
 
     monkeypatch.setattr("wks.api.link._sync_single_file.resolve_remote_uri", selective_resolver)
 
-    result = run_cmd(cmd_sync, path=str(file_path))
+    result = run_cmd(cmd_sync, uri=URI.from_path(file_path))
     assert result.success is True
     assert result.output["links_synced"] == 1
 
@@ -189,7 +190,7 @@ def test_sync_single_file_remote_uri_found(tracked_wks_config, tmp_path):
     file_path.write_text(f"[link](file://{vault_root}/target.md)", encoding="utf-8")
     (vault_root / "target.md").touch()
 
-    result = run_cmd(cmd_sync, path=str(file_path))
+    result = run_cmd(cmd_sync, uri=URI.from_path(file_path))
     assert result.success is True
     assert result.output["links_synced"] == 1
 
@@ -207,12 +208,20 @@ def test_sync_single_file_normalize_error(tracked_wks_config, tmp_path, monkeypa
     file_path = tmp_path / "note.md"
     file_path.write_text("[link](target.md)", encoding="utf-8")
 
-    monkeypatch.setattr(
-        "wks.utils.normalize_path.normalize_path",
-        lambda *args: exec("raise RuntimeError('norm fail')"),
-    )
+    test_uri = URI.from_path(file_path)
 
-    result = run_cmd(cmd_sync, path=str(file_path))
+    # We can't easily capture original if we haven't imported it, but we can assume it works if we don't patch
+    # Actually, we need to import it to wrap it
+    from wks.utils.normalize_path import normalize_path as real_norm
+
+    def mock_norm(p):
+        if "target.md" in str(p):
+            raise RuntimeError("norm fail")
+        return real_norm(p)
+
+    monkeypatch.setattr("wks.utils.normalize_path.normalize_path", mock_norm)
+
+    result = run_cmd(cmd_sync, uri=test_uri)
     assert result.success is True
 
 
@@ -243,7 +252,7 @@ def test_parsers_coverage(tracked_wks_config, tmp_path):
     md_file.write_text(md_content, encoding="utf-8")
 
     # Sync all
-    result = run_cmd(cmd_sync, path=str(monitored_root), recursive=True)
+    result = run_cmd(cmd_sync, uri=URI.from_path(monitored_root), recursive=True)
     assert result.success is True
     assert result.output["links_found"] >= 7
 
@@ -260,3 +269,12 @@ def test_get_parser_invalid(tracked_wks_config):
 
     with pytest.raises(ValueError, match="Unknown parser: invalid"):
         get_parser("invalid", Path("test.md"))
+
+
+def test_cmd_sync_non_file_uri(tracked_wks_config):
+    """Test non-file URI returns structured error instead of crashing (Codex P1)."""
+    uri = URI("http://example.com")
+    result = run_cmd(cmd_sync, uri=uri)
+    assert result.success is False
+    assert result.output is not None
+    assert "Cannot resolve local path from URI" in result.output["errors"][0]

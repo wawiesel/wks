@@ -11,6 +11,7 @@ from wks.api.transform.cmd_info import cmd_info
 from wks.api.transform.cmd_list import cmd_list
 from wks.cli._handle_stage_result import _handle_stage_result
 from wks.cli._parse_overrides import _parse_overrides
+from wks.cli._resolve_uri_arg import _resolve_uri_arg
 
 
 def transform() -> typer.Typer:
@@ -28,7 +29,7 @@ def transform() -> typer.Typer:
     def callback(
         ctx: typer.Context,
         engine: Annotated[str | None, typer.Argument(help="Engine name")] = None,
-        file_path: Annotated[Path | None, typer.Argument(help="File to transform")] = None,
+        path: Annotated[str | None, typer.Argument(help="File or URI to transform")] = None,
         output: Annotated[Path | None, typer.Option("--output", "-o", help="Output file path")] = None,
         raw: Annotated[bool, typer.Option("--raw", help="Output raw checksum only")] = False,
     ) -> None:
@@ -55,7 +56,7 @@ def transform() -> typer.Typer:
             return
 
         # Engine but no file - show engine info
-        if file_path is None:
+        if path is None:
 
             def info_printer(output_data: dict) -> None:
                 engine_name = output_data["engine"]
@@ -71,6 +72,7 @@ def transform() -> typer.Typer:
             return
 
         # Both engine and file - run transform
+        uri = _resolve_uri_arg(path)
         overrides = _parse_overrides(ctx.args)
 
         if raw:
@@ -79,9 +81,9 @@ def transform() -> typer.Typer:
                 print(output_data["checksum"])
 
             _handle_stage_result(cmd_engine, result_printer=raw_printer, suppress_output=True)(
-                engine, file_path, overrides, output
+                engine, uri, overrides, output
             )
         else:
-            _handle_stage_result(cmd_engine)(engine, file_path, overrides, output)
+            _handle_stage_result(cmd_engine)(engine, uri, overrides, output)
 
     return app

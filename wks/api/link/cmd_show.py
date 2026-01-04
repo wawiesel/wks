@@ -5,19 +5,33 @@ MCP: wksm_link_show
 """
 
 from collections.abc import Iterator
+from enum import Enum
 from typing import Any
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..URI import URI
 
 
-def cmd_show(uri: str, direction: str = "from") -> StageResult:
+class Direction(str, Enum):
+    TO = "to"
+    FROM = "from"
+    BOTH = "both"
+
+
+def cmd_show(uri: URI, direction: Direction = Direction.FROM) -> StageResult:
     """Show edges connected to a specific URI.
 
     Args:
         uri: The candidate URI to search for.
-        direction: 'to', 'from', or 'both'.
+        direction: Direction.TO, Direction.FROM, or Direction.BOTH.
     """
+    # Ensure strict type at runtime
+    if not isinstance(uri, URI):
+        try:
+            uri = URI(uri)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid input: {e}") from e
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
@@ -29,12 +43,13 @@ def cmd_show(uri: str, direction: str = "from") -> StageResult:
         yield (0.3, f"Searching for links {direction} {uri}...")
 
         query: dict[str, Any] = {}
-        if direction == "from":
-            query = {"from_local_uri": uri}
-        elif direction == "to":
-            query = {"to_local_uri": uri}
-        elif direction == "both":
-            query = {"$or": [{"from_local_uri": uri}, {"to_local_uri": uri}]}
+        uri_str = str(uri)
+        if direction == Direction.FROM:
+            query = {"from_local_uri": uri_str}
+        elif direction == Direction.TO:
+            query = {"to_local_uri": uri_str}
+        elif direction == Direction.BOTH:
+            query = {"$or": [{"from_local_uri": uri_str}, {"to_local_uri": uri_str}]}
 
         with Database(config.database, database_name) as database:
             links = list(database.find(query))

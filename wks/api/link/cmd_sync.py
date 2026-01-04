@@ -4,10 +4,11 @@ from collections.abc import Iterator
 from typing import Any
 
 from wks.utils.expand_paths import expand_paths
-from wks.utils.normalize_path import normalize_path
 
+from .._ensure_arg_uri import _ensure_arg_uri
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
+from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkSyncOutput
 from ._sync_single_file import _sync_single_file
@@ -17,7 +18,7 @@ _LINK_EXTENSIONS = {".md", ".html", ".htm", ".rst", ".txt"}
 
 
 def cmd_sync(
-    path: str,
+    uri: URI,
     parser: str | None = None,
     recursive: bool = False,
     remote: bool = False,
@@ -30,18 +31,15 @@ def cmd_sync(
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        input_path = normalize_path(path)
-
-        if not input_path.exists():
-            result_obj.output = LinkSyncOutput(
-                path=str(input_path),
-                is_monitored=False,
-                links_found=0,
-                links_synced=0,
-                errors=["Path does not exist"],
-            ).model_dump(mode="python")
-            result_obj.result = f"Path not found: {path}"
-            result_obj.success = False
+        input_path = _ensure_arg_uri(
+            uri,
+            result_obj,
+            LinkSyncOutput,
+            is_monitored=False,
+            links_found=0,
+            links_synced=0,
+        )
+        if not input_path:
             return
 
         yield (0.3, "Expanding paths...")
@@ -124,4 +122,4 @@ def cmd_sync(
         result_obj.result = f"Synced {total_synced} links from {len(files)} {file_word}"
         result_obj.success = True
 
-    return StageResult(announce=f"Syncing links for {path}...", progress_callback=do_work)
+    return StageResult(announce=f"Syncing links for {uri}...", progress_callback=do_work)

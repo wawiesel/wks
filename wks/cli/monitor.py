@@ -12,6 +12,7 @@ from wks.api.monitor.cmd_priority_show import cmd_priority_show
 from wks.api.monitor.cmd_status import cmd_status
 from wks.api.monitor.cmd_sync import cmd_sync
 from wks.cli._handle_stage_result import _handle_stage_result
+from wks.cli._resolve_uri_arg import _resolve_uri_arg
 
 
 def monitor() -> typer.Typer:
@@ -40,7 +41,8 @@ def monitor() -> typer.Typer:
     @app.command(name="check")
     def check_cmd(path: str = typer.Argument(..., help="File or directory path to check")) -> None:
         """Check if a path would be monitored and calculate its priority."""
-        _handle_stage_result(cmd_check)(path)
+        uri = _resolve_uri_arg(path)
+        _handle_stage_result(cmd_check)(uri)
 
     @app.command(name="sync")
     def sync_cmd(
@@ -48,7 +50,8 @@ def monitor() -> typer.Typer:
         recursive: bool = typer.Option(False, "--recursive", help="Recursively process directory"),
     ) -> None:
         """Force update of file or directory into monitor database."""
-        _handle_stage_result(cmd_sync)(path, recursive)
+        uri = _resolve_uri_arg(path)
+        _handle_stage_result(cmd_sync)(uri, recursive)
 
     # Sub-app for filter commands
     filter_app = typer.Typer(

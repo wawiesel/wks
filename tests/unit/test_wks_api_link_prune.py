@@ -183,7 +183,7 @@ def test_prune_uri_to_path_error(tracked_wks_config, monkeypatch):
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_many([{"local_uri": "a"}])
 
-    monkeypatch.setattr("wks.api.link.prune.uri_to_path", lambda x: exec("raise ValueError('bad uri')"))
+    # No mock needed as URI class will raise ValueError for 'faulty://' when .path is accessed
 
     result = prune(tracked_wks_config)
     # Target is broken -> delete

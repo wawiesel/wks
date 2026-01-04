@@ -39,9 +39,9 @@ repos:
 
       - id: update-readme-stats
         name: Update README Statistics
-        entry: scripts/update_readme_stats.py --from-json
+        entry: scripts/update_readme_stats.py
         language: script
-        files: ^(stats\.json|README\.md)$
+        files: ^(qa/metrics/.*\.json|README\.md)$
         pass_filenames: false
         always_run: false
         stages: [pre-commit]

@@ -6,6 +6,7 @@ import platform
 import pytest
 
 from tests.unit.conftest import run_cmd
+from wks.api.URI import URI
 from wks.api.vault.cmd_check import cmd_check
 
 pytestmark = pytest.mark.vault
@@ -66,7 +67,7 @@ def test_cmd_check_nonexistent_path_fails(monkeypatch, tmp_path, minimal_config_
     cfg["vault"]["type"] = "obsidian"
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-    result = run_cmd(cmd_check, path="/nonexistent/file.md")
+    result = run_cmd(cmd_check, uri=URI.from_path("/nonexistent/file.md"))
 
     assert result.success is False
     assert len(result.output["errors"]) > 0
@@ -195,7 +196,7 @@ def test_cmd_check_path_valid(monkeypatch, tmp_path, minimal_config_dict):
     note = vault_dir / "valid.md"
     note.write_text("# Valid", encoding="utf-8")
 
-    result = run_cmd(cmd_check, path="valid.md")
+    result = run_cmd(cmd_check, uri=URI("vault:///valid.md"))
     assert result.success is True
     assert result.output["notes_checked"] == 1
 
@@ -213,9 +214,9 @@ def test_cmd_check_path_invalid_vault_path(monkeypatch, tmp_path, minimal_config
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # Path outside vault
-    result = run_cmd(cmd_check, path="../../outside.md")
+    result = run_cmd(cmd_check, uri=URI("vault:///../../outside.md"))
     assert result.success is False
-    assert "does not exist" in result.result or "not in vault" in result.result.lower()
+    assert "File does not exist" in result.output["errors"] or "not found" in result.result.lower()
 
 
 def test_cmd_check_missing_base_dir(monkeypatch, tmp_path, minimal_config_dict):

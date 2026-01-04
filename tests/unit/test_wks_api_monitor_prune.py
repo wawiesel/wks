@@ -37,7 +37,16 @@ def test_monitor_prune_removes_missing_files(monkeypatch):
             return mock_path_missing
         return mock_path_exists
 
-    monkeypatch.setattr("wks.api.monitor.prune.uri_to_path", side_effect)
+    mock_uri = MagicMock()
+
+    def uri_side_effect(uri_str):
+        m = MagicMock()
+        m.path = side_effect(uri_str)
+        return m
+
+    mock_uri.side_effect = uri_side_effect
+
+    monkeypatch.setattr("wks.api.monitor.prune.URI", mock_uri)
 
     result = prune(mock_config)
 
@@ -56,7 +65,9 @@ def test_monitor_prune_handles_os_error(monkeypatch):
 
     mock_collection.find.return_value = [{"_id": "1", "local_uri": "file:///error"}]
 
-    monkeypatch.setattr("wks.api.monitor.prune.uri_to_path", MagicMock(side_effect=OSError("Disk error")))
+    mock_uri = MagicMock()
+    mock_uri.return_value.path.exists.side_effect = OSError("Disk error")
+    monkeypatch.setattr("wks.api.monitor.prune.URI", mock_uri)
 
     result = prune(mock_config)
 

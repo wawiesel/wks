@@ -9,10 +9,11 @@ from typing import Any, Literal
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..URI import URI
 from . import VaultLinksOutput
 
 
-def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> StageResult:
+def cmd_links(uri: URI, direction: Literal["to", "from", "both"] = "both") -> StageResult:
     """Query the edges database for links related to a specific file.
 
     Unlike cmd_check (which scans live files), this queries the database
@@ -46,7 +47,7 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
             result_obj.output = VaultLinksOutput(
                 errors=[f"Failed to load config: {e}"],
                 warnings=[],
-                path=path,
+                path=str(uri),
                 direction=direction,
                 edges=[],
                 count=0,
@@ -60,24 +61,22 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
         database_name = "edges"
         yield (0.3, "Resolving vault path...")
         try:
-            # Resolve path to vault:/// URI using CWD-aware logic
             from wks.utils.normalize_path import normalize_path
-            from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
 
             vault_base = normalize_path(config.vault.base_dir)
-            try:
-                uri, _abs_path = resolve_vault_path(path, vault_base)
-            except VaultPathError as e:
+            canonical_uri = URI.from_any(str(uri), vault_path=vault_base)
+
+            if not canonical_uri.is_vault:
                 result_obj.output = VaultLinksOutput(
-                    errors=[str(e)],
+                    errors=[f"Target is not in the vault: {uri}"],
                     warnings=[],
-                    path=path,
+                    path=str(uri),
                     direction=direction,
                     edges=[],
                     count=0,
                     success=False,
                 ).model_dump(mode="python")
-                result_obj.result = str(e)
+                result_obj.result = f"Target is not in the vault: {uri}"
                 result_obj.success = False
                 return
 
@@ -88,12 +87,16 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
 
                 # Build query based on direction
                 query: dict[str, Any] = {}
+                db_uri_str = str(canonical_uri)
                 if direction == "from":
-                    query = {**vault_filter, "from_local_uri": uri}
+                    query = {**vault_filter, "from_local_uri": db_uri_str}
                 elif direction == "to":
-                    query = {**vault_filter, "to_local_uri": uri}
+                    query = {**vault_filter, "to_local_uri": db_uri_str}
                 elif direction == "both":
-                    query = {**vault_filter, "$or": [{"from_local_uri": uri}, {"to_local_uri": uri}]}
+                    query = {
+                        **vault_filter,
+                        "$or": [{"from_local_uri": db_uri_str}, {"to_local_uri": db_uri_str}],
+                    }
 
                 yield (0.6, "Fetching edges...")
                 cursor = database.find(
@@ -114,20 +117,20 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
             result_obj.output = VaultLinksOutput(
                 errors=[],
                 warnings=[],
-                path=path,
+                path=str(uri),
                 direction=direction,
                 edges=edges,
                 count=len(edges),
                 success=True,
             ).model_dump(mode="python")
-            result_obj.result = f"Found {len(edges)} edge(s) for {path}"
+            result_obj.result = f"Found {len(edges)} edge(s) for {uri}"
             result_obj.success = True
 
         except Exception as e:
             result_obj.output = VaultLinksOutput(
                 errors=[f"Query failed: {e}"],
                 warnings=[],
-                path=path,
+                path=str(uri),
                 direction=direction,
                 edges=[],
                 count=0,
@@ -137,6 +140,6 @@ def cmd_links(path: str, direction: Literal["to", "from", "both"] = "both") -> S
             result_obj.success = False
 
     return StageResult(
-        announce=f"Finding links for {path}...",
+        announce=f"Finding links for {uri}...",
         progress_callback=do_work,
     )

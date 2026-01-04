@@ -14,14 +14,16 @@ from typing import Any
 from wks.api.config.write_status_file import write_status_file
 from wks.utils.expand_paths import expand_paths
 
+from .._ensure_arg_uri import _ensure_arg_uri
 from ..StageResult import StageResult
+from ..URI import URI
 from . import VaultSyncOutput
 
 # Vault only processes markdown files
 _VAULT_EXTENSIONS = {".md"}
 
 
-def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
+def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
     """Scan vault markdown files and sync their links to the edges database.
 
     This is the primary indexing command for the vault. It:
@@ -33,7 +35,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
     The command writes a status file to WKS_HOME/vault.json on completion.
 
     Args:
-        path: File or directory to sync. If None, syncs the entire vault
+        uri: URI to sync (file:// or vault:///). If None, syncs the entire vault
             defined by vault.base_dir in config.
         recursive: When path is a directory, whether to recurse into
             subdirectories. Ignored when path is None (vault always recursive).
@@ -78,28 +80,25 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
 
                 yield (0.3, "Resolving vault path...")
                 # Determine sync scope using vault path resolution
-                if path:
-                    from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
-
-                    try:
-                        _uri, input_path = resolve_vault_path(path, vault_path)
-                    except VaultPathError as e:
-                        result_obj.output = VaultSyncOutput(
-                            errors=[str(e)],
-                            warnings=[],
-                            notes_scanned=0,
-                            links_written=0,
-                            links_deleted=0,
-                            sync_duration_ms=0,
-                            success=False,
-                        ).model_dump(mode="python")
-                        result_obj.result = str(e)
-                        result_obj.success = False
+                if uri:
+                    input_path = _ensure_arg_uri(
+                        uri,
+                        result_obj,
+                        VaultSyncOutput,
+                        vault_path=vault_path,
+                        uri_field=None,
+                        notes_scanned=0,
+                        links_written=0,
+                        links_deleted=0,
+                        sync_duration_ms=0,
+                    )
+                    if not input_path:
                         return
                     # Use resolved path
                     files = list(expand_paths(input_path, recursive=recursive, extensions=_VAULT_EXTENSIONS))
                 else:
                     # No path = entire vault (always recursive)
+                    input_path = vault_path
                     files = list(expand_paths(vault_path, recursive=True, extensions=_VAULT_EXTENSIONS))
 
                 # if not files: block removed to allow pruning of deleted files
@@ -114,8 +113,10 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
                     progress = 0.4 + (0.5 * (i / len(files)))
                     yield (progress, f"Syncing {file_path.name}...")
 
+                    from wks.api.URI import URI
+
                     # Call link sync for this file
-                    link_result = link_cmd_sync(str(file_path), parser="vault", recursive=False, remote=False)
+                    link_result = link_cmd_sync(URI.from_path(file_path), parser="vault", recursive=False, remote=False)
 
                     # Execute the link sync
                     for _ in link_result.progress_callback(link_result):
@@ -134,7 +135,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
 
                 # Determine scope prefix using vault URIs
 
-                target_path = input_path if path else vault_path
+                target_path = input_path if uri else vault_path
                 if target_path == vault_path:
                     scope_prefix = "vault:///"
                 else:
@@ -213,7 +214,7 @@ def cmd_sync(path: str | None = None, recursive: bool = False) -> StageResult:
             result_obj.success = False
             return
 
-    path_info = f" ({path})" if path else ""
+    path_info = f" ({uri})" if uri else ""
     announce = f"Syncing vault{path_info}..."
     return StageResult(
         announce=announce,

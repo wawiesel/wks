@@ -4,7 +4,7 @@ from typing import Any
 
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
-from wks.utils.uri_to_path import uri_to_path
+from wks.api.URI import URI
 
 
 def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
@@ -32,8 +32,7 @@ def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
                 uri = doc["local_uri"]
                 # Check filesystem
                 try:
-                    path = uri_to_path(uri)
-                    if not path.exists():
+                    if not URI(uri).path.exists():
                         ids_to_remove.append(doc["_id"])
                 except OSError as e:
                     # Filesystem error - track as warning, keep document

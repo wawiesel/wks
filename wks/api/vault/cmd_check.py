@@ -7,11 +7,13 @@ MCP: wksm_vault_check
 from collections.abc import Iterator
 from typing import Any
 
+from .._ensure_arg_uri import _ensure_arg_uri
 from ..StageResult import StageResult
+from ..URI import URI
 from . import VaultCheckOutput
 
 
-def cmd_check(path: str | None = None) -> StageResult:
+def cmd_check(uri: URI | None = None) -> StageResult:
     """Validate link targets in vault markdown files.
 
     Performs a live scan of the vault (not database lookup) to verify
@@ -21,7 +23,7 @@ def cmd_check(path: str | None = None) -> StageResult:
     - Links that cannot be resolved
 
     Args:
-        path: File to check. If None, checks all markdown files in vault.
+        uri: URI to check. If None, checks all markdown files in vault.
 
     Returns:
         StageResult with VaultCheckOutput containing validation results
@@ -44,7 +46,7 @@ def cmd_check(path: str | None = None) -> StageResult:
             result_obj.output = VaultCheckOutput(
                 errors=[f"Failed to load config: {e}"],
                 warnings=[],
-                path=path,
+                path=str(uri) if uri else None,
                 notes_checked=0,
                 links_checked=0,
                 broken_count=0,
@@ -61,27 +63,23 @@ def cmd_check(path: str | None = None) -> StageResult:
             with Vault(config.vault) as vault:
                 scanner = _Scanner(vault)
                 yield (0.3, "Scanning vault for links...")
-                # If path specified, scan only that file
+                # If uri specified, scan only that file
                 files_to_scan = None
-                if path:
-                    from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
-
-                    try:
-                        _uri, file_path = resolve_vault_path(path, vault.vault_path)
-                    except VaultPathError as e:
-                        result_obj.success = False
-                        result_obj.output = VaultCheckOutput(
-                            errors=[str(e)],
-                            warnings=[],
-                            path=path,
-                            notes_checked=0,
-                            links_checked=0,
-                            broken_count=0,
-                            issues=[],
-                            is_valid=False,
-                            success=False,
-                        ).model_dump(mode="python")
-                        result_obj.result = str(e)
+                if uri:
+                    file_path = _ensure_arg_uri(
+                        uri,
+                        result_obj,
+                        VaultCheckOutput,
+                        vault_path=vault.vault_path,
+                        uri_field="path",
+                        notes_checked=0,
+                        links_checked=0,
+                        broken_count=0,
+                        issues=[],
+                        is_valid=False,
+                        success=False,
+                    )
+                    if not file_path:
                         return
                     files_to_scan = [file_path]
 
@@ -111,7 +109,7 @@ def cmd_check(path: str | None = None) -> StageResult:
 
                 result_obj.success = len(all_errors) == 0
                 result_obj.output = VaultCheckOutput(
-                    path=path,
+                    path=str(uri) if uri else None,
                     notes_checked=stats.notes_scanned,
                     links_checked=stats.edge_total,
                     broken_count=broken_count,
@@ -132,7 +130,7 @@ def cmd_check(path: str | None = None) -> StageResult:
             result_obj.output = VaultCheckOutput(
                 errors=[f"Failed to check vault: {e}"],
                 warnings=[],
-                path=path,
+                path=str(uri) if uri else None,
                 notes_checked=0,
                 links_checked=0,
                 broken_count=0,
@@ -143,7 +141,7 @@ def cmd_check(path: str | None = None) -> StageResult:
             result_obj.result = f"Vault check failed: {e}"
             result_obj.success = False
 
-    announce = f"Checking vault links{f' ({path})' if path else ''}..."
+    announce = f"Checking vault links{f' ({uri})' if uri else ''}..."
     return StageResult(
         announce=announce,
         progress_callback=do_work,

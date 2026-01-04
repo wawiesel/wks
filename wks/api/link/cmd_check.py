@@ -3,18 +3,16 @@
 from collections.abc import Iterator
 from typing import Any
 
-from wks.utils.normalize_path import normalize_path
-
-from ...utils.path_to_uri import path_to_uri
-from ...utils.uri_to_path import uri_to_path
+from .._ensure_arg_uri import _ensure_arg_uri
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
 from ..StageResult import StageResult
-from ..vault.Vault import Vault
-from . import LinkCheckOutput
 
 # Accessing private module as we reuse the logic
+from ..URI import URI
+from ..vault.Vault import Vault
+from . import LinkCheckOutput
 from ._parsers import get_parser
 
 
@@ -29,7 +27,7 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
                 rel_part = to_uri[11:]
                 target_path_obj = vault_root / rel_part
         elif to_uri.startswith("file://"):
-            target_path_obj = uri_to_path(to_uri)
+            target_path_obj = URI(to_uri).path
 
         if target_path_obj:
             remote_uri = resolve_remote_uri(target_path_obj, monitor_cfg.remote)
@@ -54,7 +52,7 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
 # Accessing private module as we reuse the logic
 
 
-def cmd_check(path: str, parser: str | None = None) -> StageResult:
+def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
     """Check if file is monitored and extract links."""
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
@@ -64,17 +62,8 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        file_path = normalize_path(path)
-
-        if not file_path.exists():
-            result_obj.output = LinkCheckOutput(
-                path=str(file_path),
-                is_monitored=False,
-                links=[],
-                errors=["File does not exist"],
-            ).model_dump(mode="python")
-            result_obj.result = f"File not found: {path}"
-            result_obj.success = False
+        file_path = _ensure_arg_uri(uri, result_obj, LinkCheckOutput, is_monitored=False, links=[])
+        if not file_path:
             return
 
         yield (0.3, "Checking monitor rules...")
@@ -125,7 +114,7 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
                         relative_path = file_path.relative_to(vault_root)
                         from_uri = f"vault:///{relative_path}"
                     else:
-                        from_uri = path_to_uri(file_path)
+                        from_uri = str(URI.from_path(file_path))
 
                     # Calculate from_remote_uri once
                     from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
@@ -154,7 +143,7 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
 
             except Exception:
                 # Vault failed or not configured - fall back to basic processing
-                from_uri = path_to_uri(file_path)
+                from_uri = str(URI.from_path(file_path))
                 from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
                 for ref in link_refs:
                     _process_link(
@@ -196,4 +185,4 @@ def cmd_check(path: str, parser: str | None = None) -> StageResult:
             result_obj.result = f"Error scanning file: {e}"
             result_obj.success = False
 
-    return StageResult(announce=f"Checking links in {path}...", progress_callback=do_work)
+    return StageResult(announce=f"Checking links in {uri}...", progress_callback=do_work)

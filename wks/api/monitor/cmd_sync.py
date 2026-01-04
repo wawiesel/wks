@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from wks.api.config.write_status_file import write_status_file
+from wks.api.URI import URI
 from wks.utils.expand_paths import expand_paths
-from wks.utils.normalize_path import normalize_path
-from wks.utils.path_to_uri import path_to_uri
 
 from ..database.Database import Database
 from ..StageResult import StageResult
@@ -23,13 +22,13 @@ from .resolve_remote_uri import resolve_remote_uri
 
 
 def cmd_sync(
-    path: str,
+    uri: URI,
     recursive: bool = False,
 ) -> StageResult:
     """Force update of file or directory into monitor database.
 
     Args:
-        path: File or directory path to sync
+        uri: URI to sync (file://)
         recursive: Whether to recursively process directories
 
     Returns:
@@ -71,13 +70,26 @@ def cmd_sync(
         wks_home = WKSConfig.get_home_dir()
 
         yield (0.2, "Resolving path...")
-        path_obj = normalize_path(path)
+        try:
+            path_obj = uri.path
+        except ValueError:
+            yield (1.0, "Failed")
+            _build_result(
+                result_obj,
+                success=False,
+                message=f"Only file URIs are supported. Got {uri}",
+                files_synced=0,
+                files_skipped=0,
+                errors=[f"Only file URIs are supported. Got {uri}"],
+            )
+            return
+
         if not path_obj.exists():
             yield (0.3, "Path missing; removing from monitor DB...")
 
             with Database(config.database, database_name) as database:
                 try:
-                    database.delete_many({"local_uri": path_to_uri(path_obj)})
+                    database.delete_many({"local_uri": str(URI.from_path(path_obj))})
                 finally:
                     pass
 
@@ -133,7 +145,7 @@ def cmd_sync(
                             )
                             continue
 
-                        path_uri = path_to_uri(file_path)
+                        path_uri = str(URI.from_path(file_path))
 
                         # Use file's last modified time (st_mtime)
                         timestamp = datetime.fromtimestamp(stat.st_mtime).isoformat()
@@ -206,6 +218,6 @@ def cmd_sync(
         write_status_file(output, wks_home=wks_home, filename="monitor.json")
 
     return StageResult(
-        announce=f"Syncing {path}...",
+        announce=f"Syncing {uri}...",
         progress_callback=do_work,
     )
