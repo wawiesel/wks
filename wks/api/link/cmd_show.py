@@ -5,49 +5,44 @@ MCP: wksm_link_show
 """
 
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
-
-from wks.utils.path_to_uri import path_to_uri
 
 from ..database.Database import Database
 from ..StageResult import StageResult
+from ..types.URI import URI
 
 
-def cmd_show(uri: str, direction: str = "from") -> StageResult:
+def cmd_show(uri: URI, direction: str = "from") -> StageResult:
     """Show edges connected to a specific URI.
 
     Args:
         uri: The candidate URI to search for.
         direction: 'to', 'from', or 'both'.
     """
+    # Ensure strict type at runtime
+    if not isinstance(uri, URI):
+        try:
+            uri = URI(uri)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid input: {e}") from e
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
-
-        # Resolve URI if it looks like a local file path
-        search_uri = uri
-        if "://" not in uri:
-            try:
-                p = Path(uri).resolve()
-                if p.exists():
-                    search_uri = path_to_uri(p)
-            except Exception:
-                pass
 
         yield (0.1, "Loading configuration...")
         config: Any = WKSConfig.load()
         database_name = "edges"
 
-        yield (0.3, f"Searching for links {direction} {search_uri}...")
+        yield (0.3, f"Searching for links {direction} {uri}...")
 
         query: dict[str, Any] = {}
+        uri_str = str(uri)
         if direction == "from":
-            query = {"from_local_uri": search_uri}
+            query = {"from_local_uri": uri_str}
         elif direction == "to":
-            query = {"to_local_uri": search_uri}
+            query = {"to_local_uri": uri_str}
         elif direction == "both":
-            query = {"$or": [{"from_local_uri": search_uri}, {"to_local_uri": search_uri}]}
+            query = {"$or": [{"from_local_uri": uri_str}, {"to_local_uri": uri_str}]}
 
         with Database(config.database, database_name) as database:
             links = list(database.find(query))
@@ -67,7 +62,7 @@ def cmd_show(uri: str, direction: str = "from") -> StageResult:
                 )
 
             result = {
-                "uri": search_uri,
+                "uri": uri,
                 "direction": direction,
                 "links": formatted_links,
             }

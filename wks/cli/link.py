@@ -1,12 +1,29 @@
 """Link Typer app factory."""
 
+from pathlib import Path
+from typing import Annotated
+
 import typer
 
 from wks.api.link.cmd_check import cmd_check
 from wks.api.link.cmd_show import cmd_show
 from wks.api.link.cmd_status import cmd_status
 from wks.api.link.cmd_sync import cmd_sync
+from wks.api.types.URI import URI
 from wks.cli._handle_stage_result import _handle_stage_result
+from wks.utils.path_to_uri import path_to_uri
+
+
+def resolve_uri_arg(value: str) -> URI:
+    """Resolve CLI argument to strict URI."""
+    try:
+        return URI(value)
+    except ValueError:
+        # Not a valid URI, try as path
+        p = Path(value)
+        if not p.exists():
+            raise typer.BadParameter(f"Path '{value}' does not exist and is not a valid URI.") from None
+        return URI(path_to_uri(p.expanduser().absolute()))
 
 
 def link() -> typer.Typer:
@@ -33,7 +50,7 @@ def link() -> typer.Typer:
 
     @app.command(name="show")
     def show_cmd(
-        uri: str = typer.Argument(..., help="URI to search for connected edges"),
+        uri: Annotated[URI, typer.Argument(parser=resolve_uri_arg, help="URI to search for connected edges")],
         direction: str = typer.Option("from", help="Direction: to, from, or both"),
     ) -> None:
         """Show edges connected to a specific URI."""
