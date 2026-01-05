@@ -97,7 +97,9 @@ class _Backend(_AbstractBackend):
     def _resolve_symlink(self, target: str) -> LinkMetadata:
         """Resolve _links/ symlink target.
 
-        Returns file:// URI for resolved symlink target, or vault:// fallback if missing.
+        Returns a file:// URI for the resolved symlink target.
+        If the symlink does not exist, the link is treated as missing
+        and resolved as a vault note with appropriate status.
         """
         rel = target[len("_links/") :]
         symlink_path = self.links_dir / rel
