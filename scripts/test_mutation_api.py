@@ -232,22 +232,6 @@ def main() -> None:
         shutil.rmtree(pytest_btemp)
     pytest_btemp.mkdir()
 
-    # Clear mutmut artifacts but preserve per-domain JSON files
-    if mutants_dir.exists():
-        # Preserve per-domain mutation_*.json files
-        preserved_files = {}
-        for json_file in mutants_dir.glob("mutation_*.json"):
-            preserved_files[json_file.name] = json_file.read_text()
-
-        # Clear the directory
-        shutil.rmtree(mutants_dir) if mutants_dir.is_dir() else mutants_dir.unlink()
-
-        # Restore preserved files
-        if preserved_files:
-            mutants_dir.mkdir(parents=True, exist_ok=True)
-            for name, content in preserved_files.items():
-                (mutants_dir / name).write_text(content)
-
     # Inline Config Patching
     if not setup_cfg.exists():
         _log("Error: setup.cfg not found")
@@ -321,12 +305,11 @@ def main() -> None:
 
         # Incrementally update mutations.json after each domain
         aggregate_script = REPO_ROOT / "scripts" / "aggregate_mutation_stats.py"
-        if aggregate_script.exists():
-            subprocess.run(
-                [sys.executable, str(aggregate_script)],
-                cwd=str(REPO_ROOT),
-                check=False,
-            )
+        subprocess.run(
+            [sys.executable, str(aggregate_script)],
+            cwd=str(REPO_ROOT),
+            check=False,
+        )
 
         setup_cfg.write_text(original_cfg)
 
