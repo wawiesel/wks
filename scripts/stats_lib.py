@@ -93,13 +93,19 @@ def generate_domain_table(domain_stats: dict) -> str:
         killed = stats.get("mutation_killed", 0)
         survived = stats.get("mutation_survived", 0)
         total = killed + survived
-        mutation_pct = f"{killed / total * 100:.0f}%" if total > 0 else "N/A"
+        # Only show mutation data if mutations were actually tested (total > 0)
+        if total > 0:
+            mutation_pct = f"{killed / total * 100:.0f}%"
+            killed_total = f"{killed}/{total}"
+        else:
+            mutation_pct = "—"
+            killed_total = "—"
         rows.append(
             [
                 domain,
                 f"{stats.get('coverage', 0.0):.0f}%",
                 mutation_pct,
-                f"{killed}/{total}",
+                killed_total,
             ]
         )
     headers = ["Domain", "Coverage", "Mutation %", "Killed/Total"]

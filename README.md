@@ -67,18 +67,18 @@
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
 | cat       |        94% |          76% |         76/100 |
-| config    |       100% |          N/A |            0/0 |
-| daemon    |        83% |          N/A |            0/0 |
-| database  |        91% |          N/A |            0/0 |
-| diff      |         0% |          N/A |            0/0 |
-| link      |        98% |          N/A |            0/0 |
-| log       |        94% |          N/A |            0/0 |
-| mcp       |        99% |          N/A |            0/0 |
-| monitor   |        99% |          N/A |            0/0 |
-| service   |        69% |          N/A |            0/0 |
-| transform |        88% |          N/A |            0/0 |
-| utils     |       100% |          N/A |            0/0 |
-| vault     |       100% |          N/A |            0/0 |
+| config    |       100% |            — |              — |
+| daemon    |        83% |            — |              — |
+| database  |        91% |            — |              — |
+| diff      |         0% |            — |              — |
+| link      |        98% |            — |              — |
+| log       |        94% |            — |              — |
+| mcp       |        99% |            — |              — |
+| monitor   |        99% |            — |              — |
+| service   |        69% |            — |              — |
+| transform |        88% |            — |              — |
+| utils     |       100% |            — |              — |
+| vault     |       100% |            — |              — |
 
 
 ## Overview
