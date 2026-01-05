@@ -1,0 +1,201 @@
+{
+  "domains": {
+    "config": {
+      "files": {
+        "wks/api/config/WKSConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "validate_transform_cache_monitored"
+            },
+            {
+              "kind": "function",
+              "lineno": 53,
+              "name": "path"
+            },
+            {
+              "kind": "function",
+              "lineno": 58,
+              "name": "get_home_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 63,
+              "name": "get_config_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 68,
+              "name": "get_logfile_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 73,
+              "name": "load"
+            },
+            {
+              "kind": "function",
+              "lineno": 105,
+              "name": "to_dict"
+            },
+            {
+              "kind": "function",
+              "lineno": 119,
+              "name": "save"
+            }
+          ]
+        },
+        "wks/api/config/__init__.py": {
+          "defs": []
+        },
+        "wks/api/config/cmd_list.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_list"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_list.do_work"
+            }
+          ]
+        },
+        "wks/api/config/cmd_show.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_show"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_show.do_work"
+            }
+          ]
+        },
+        "wks/api/config/cmd_version.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_version"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_version.do_work"
+            }
+          ]
+        },
+        "wks/api/config/expand_paths.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "expand_paths"
+            }
+          ]
+        },
+        "wks/api/config/file_checksum.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "file_checksum"
+            }
+          ]
+        },
+        "wks/api/config/find_matching_path_key.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "find_matching_path_key"
+            }
+          ]
+        },
+        "wks/api/config/get_package_version.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "get_package_version"
+            }
+          ]
+        },
+        "wks/api/config/get_wks_home.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "get_wks_home"
+            }
+          ]
+        },
+        "wks/api/config/has_internet.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "has_internet"
+            }
+          ]
+        },
+        "wks/api/config/load_config_with_output.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "load_config_with_output"
+            }
+          ]
+        },
+        "wks/api/config/normalize_path.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "normalize_path"
+            }
+          ]
+        },
+        "wks/api/config/now_iso.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "now_iso"
+            }
+          ]
+        },
+        "wks/api/config/uri_to_string.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "uri_to_string"
+            }
+          ]
+        },
+        "wks/api/config/write_status_file.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "write_status_file"
+            }
+          ]
+        }
+      },
+      "multi": 4,
+      "single": 11
+    }
+  },
+  "multi": 4,
+  "schema": "cursorcult.defs.v1",
+  "single": 11
+}

@@ -7,7 +7,7 @@ MCP: wksm_vault_check
 from collections.abc import Iterator
 from typing import Any
 
-from .._ensure_arg_uri import _ensure_arg_uri
+from .._EnsureArgUri import _EnsureArgUri
 from ..StageResult import StageResult
 from ..URI import URI
 from . import VaultCheckOutput
@@ -66,7 +66,7 @@ def cmd_check(uri: URI | None = None) -> StageResult:
                 # If uri specified, scan only that file
                 files_to_scan = None
                 if uri:
-                    file_path = _ensure_arg_uri(
+                    file_path = _EnsureArgUri.ensure(
                         uri,
                         result_obj,
                         VaultCheckOutput,

@@ -3,7 +3,7 @@
 import pytest
 from pydantic import BaseModel
 
-from wks.api.validate_output import validate_output
+from wks.api.ValidateOutput import ValidateOutput
 
 
 class MockOutput(BaseModel):
@@ -29,7 +29,7 @@ def test_validate_output_success(monkeypatch):
     monkeypatch.setattr(schema_registry, "get_output_schema", lambda d, c: MockOutput)
 
     output = {"key": "value"}
-    validated = validate_output(mock_cmd_func, output)
+    validated = ValidateOutput.validate(mock_cmd_func, output)
 
     assert validated == {"key": "value", "optional": "default"}
 
@@ -45,7 +45,7 @@ def test_validate_output_failure(monkeypatch):
     output = {"wrong": "value"}
 
     with pytest.raises(ValueError, match="Output validation failed"):
-        validate_output(mock_cmd_func, output)
+        ValidateOutput.validate(mock_cmd_func, output)
 
 
 def test_validate_output_skip_non_api():
@@ -56,7 +56,7 @@ def test_validate_output_skip_non_api():
 
     non_api_func.__module__ = "other.module"
     output = {"foo": "bar"}
-    assert validate_output(non_api_func, output) == output
+    assert ValidateOutput.validate(non_api_func, output) == output
 
 
 def test_validate_output_skip_non_cmd():
@@ -67,7 +67,7 @@ def test_validate_output_skip_non_cmd():
 
     mock_helper.__module__ = "wks.api.test_domain"
     output = {"foo": "bar"}
-    assert validate_output(mock_helper, output) == output
+    assert ValidateOutput.validate(mock_helper, output) == output
 
 
 def test_validate_output_no_schema(monkeypatch):
@@ -78,18 +78,18 @@ def test_validate_output_no_schema(monkeypatch):
 
     output = {"key": "value"}
     # Should simply return input
-    assert validate_output(mock_cmd_func, output) == output
+    assert ValidateOutput.validate(mock_cmd_func, output) == output
 
 
 def test_normalize_output_logic():
     """Test the internal normalize_output logic."""
-    from wks.api._normalize_output import normalize_output
+    from wks.api._NormalizeOutput import _NormalizeOutput
 
     output = {"error": "Something went wrong", "data": "value"}
-    result = normalize_output(output)
+    result = _NormalizeOutput.normalize(output)
     assert result["errors"] == ["Something went wrong"]
     assert "error" not in result
 
     output_with_errors = {"errors": ["e1"]}
-    result2 = normalize_output(output_with_errors)
+    result2 = _NormalizeOutput.normalize(output_with_errors)
     assert result2["errors"] == ["e1"]

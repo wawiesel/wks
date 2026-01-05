@@ -14,7 +14,7 @@ from typing import Any
 from wks.api.config.expand_paths import expand_paths
 from wks.api.config.write_status_file import write_status_file
 
-from .._ensure_arg_uri import _ensure_arg_uri
+from .._EnsureArgUri import _EnsureArgUri
 from ..StageResult import StageResult
 from ..URI import URI
 from . import VaultSyncOutput
@@ -81,7 +81,7 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
                 yield (0.3, "Resolving vault path...")
                 # Determine sync scope using vault path resolution
                 if uri:
-                    input_path = _ensure_arg_uri(
+                    input_path = _EnsureArgUri.ensure(
                         uri,
                         result_obj,
                         VaultSyncOutput,

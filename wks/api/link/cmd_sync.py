@@ -5,7 +5,7 @@ from typing import Any
 
 from wks.api.config.expand_paths import expand_paths
 
-from .._ensure_arg_uri import _ensure_arg_uri
+from .._EnsureArgUri import _EnsureArgUri
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from ..URI import URI
@@ -31,7 +31,7 @@ def cmd_sync(
         vault_cfg = config.vault
 
         yield (0.2, "Resolving path...")
-        input_path = _ensure_arg_uri(
+        input_path = _EnsureArgUri.ensure(
             uri,
             result_obj,
             LinkSyncOutput,

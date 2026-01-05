@@ -7,7 +7,7 @@ from typing import Any
 
 from ...api.StageResult import StageResult
 from ...api.URI import URI
-from .._ensure_arg_uri import _ensure_arg_uri
+from .._EnsureArgUri import _EnsureArgUri
 from . import TransformEngineOutput
 from ._get_controller import _get_controller
 
@@ -34,7 +34,7 @@ def cmd_engine(
         yield (0.1, "Initializing controller...")
 
         yield (0.2, "Resolving path...")
-        file_path = _ensure_arg_uri(
+        file_path = _EnsureArgUri.ensure(
             uri,
             result_obj,
             TransformEngineOutput,

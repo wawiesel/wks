@@ -1,0 +1,2 @@
+python3 .cursor/rules/UNO/scripts/generate.py --glob "wks/api/config/**/*.py" --domain config --output defs.json
+python3 .cursor/rules/UNO/scripts/evaluate.py --input defs.json
