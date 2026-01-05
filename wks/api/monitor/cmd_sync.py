@@ -151,7 +151,9 @@ def cmd_sync(
                         timestamp = datetime.fromtimestamp(stat.st_mtime).isoformat()
 
                         # Resolve remote URI
-                        remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
+                        file_uri = URI.from_path(file_path)
+                        remote_uri_obj = resolve_remote_uri(file_uri, monitor_cfg.remote)
+                        remote_uri = str(remote_uri_obj) if remote_uri_obj else None
 
                         doc = {
                             "local_uri": path_uri,

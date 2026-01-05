@@ -133,3 +133,67 @@ def test_cmd_check_non_file_uri(tracked_wks_config):
     assert result.success is False
     assert result.output is not None
     assert "Cannot resolve local path from URI" in result.output["errors"][0]
+
+
+def test_cmd_check_relative_path_link(tracked_wks_config, tmp_path):
+    """Test cmd_check handles relative path links (tests line 135-138)."""
+    vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
+    if not vault_root.exists():
+        vault_root.mkdir(parents=True)
+    tracked_wks_config.monitor.filter.include_paths.append(str(vault_root))
+
+    file_path = vault_root / "note.md"
+    # Relative path link (no ://)
+    file_path.write_text("[link](other.md)", encoding="utf-8")
+
+    result = run_cmd(cmd_check, uri=URI.from_path(file_path))
+    assert result.success is True
+    # Relative path should be in links
+    assert any(link["to_local_uri"] == "other.md" for link in result.output["links"])
+
+
+def test_cmd_check_vault_exception_fallback(tracked_wks_config, tmp_path, monkeypatch):
+    """Test cmd_check fallback when vault raises exception (tests line 151-169)."""
+    monitored_root = tmp_path / "monitored"
+    monitored_root.mkdir()
+    tracked_wks_config.monitor.filter.include_paths.append(str(monitored_root))
+
+    file_path = monitored_root / "note.md"
+    file_path.write_text("[link](http://example.com)", encoding="utf-8")
+
+    # Mock Vault to raise exception
+    def failing_enter(self):
+        raise RuntimeError("Vault init failed")
+
+    import wks.api.link.cmd_check as cmd_check_mod
+
+    monkeypatch.setattr(cmd_check_mod.Vault, "__enter__", failing_enter)
+
+    result = run_cmd(cmd_check, uri=URI.from_path(file_path))
+    # Should fall back to basic processing without vault
+    assert result.success is True
+    assert len(result.output["links"]) == 1
+
+
+def test_cmd_check_process_link_vault_uri_without_root(tracked_wks_config, tmp_path, monkeypatch):
+    """Test _process_link handles vault:/// URI when vault_root is None (tests line 25)."""
+    monitored_root = tmp_path / "monitored"
+    monitored_root.mkdir()
+    tracked_wks_config.monitor.filter.include_paths.append(str(monitored_root))
+
+    file_path = monitored_root / "note.md"
+    file_path.write_text("[link](vault:///target.md)", encoding="utf-8")
+
+    # Mock Vault to fail so we get fallback path with vault_root=None
+    def failing_enter(self):
+        raise RuntimeError("Vault init failed")
+
+    import wks.api.link.cmd_check as cmd_check_mod
+
+    monkeypatch.setattr(cmd_check_mod.Vault, "__enter__", failing_enter)
+
+    result = run_cmd(cmd_check, uri=URI.from_path(file_path))
+    # Should fall back to basic processing without vault
+    assert result.success is True
+    # Vault URI won't be resolved but should still be in links
+    assert any("vault:///target.md" in str(link.get("to_local_uri", "")) for link in result.output["links"])

@@ -97,3 +97,58 @@ class TestResolveVaultPath:
         cwd.mkdir()
         uri, _ = resolve_vault_path("./Projects/2025-WKS.md", vault_dir, cwd=cwd)
         assert uri == "vault:///Projects/2025-WKS.md"
+
+    def test_absolute_path_in_vault_nonexistent(self, vault_dir):
+        """Test absolute path in vault that doesn't exist raises error."""
+        abs_path = vault_dir / "Nonexistent.md"
+        with pytest.raises(VaultPathError, match="does not exist"):
+            resolve_vault_path(str(abs_path), vault_dir)
+
+    def test_file_uri_outside_vault_raises_valueerror(self, vault_dir, tmp_path):
+        """Test file:// URI outside vault raises ValueError (tests line 92)."""
+        import socket
+
+        hostname = socket.gethostname()
+        outside_file = tmp_path / "outside.md"
+        outside_file.write_text("# Outside", encoding="utf-8")
+
+        file_uri = f"file://{hostname}{outside_file}"
+        with pytest.raises(VaultPathError, match="is not in the vault"):
+            resolve_vault_path(file_uri, vault_dir)
+
+    def test_file_uri_in_vault(self, vault_dir):
+        """Test file:// URI inside vault is converted to vault:///."""
+        import socket
+
+        hostname = socket.gethostname()
+        test_file = vault_dir / "note.md"
+        test_file.write_text("# Note", encoding="utf-8")
+
+        file_uri = f"file://{hostname}{test_file}"
+        uri_str, abs_path = resolve_vault_path(file_uri, vault_dir)
+
+        assert uri_str == "vault:///note.md"
+        assert abs_path == test_file
+
+    def test_file_uri_in_vault_nonexistent(self, vault_dir):
+        """Test file:// URI in vault for non-existent file raises error."""
+        import socket
+
+        hostname = socket.gethostname()
+        nonexistent_file = vault_dir / "nonexistent.md"
+
+        file_uri = f"file://{hostname}{nonexistent_file}"
+        with pytest.raises(VaultPathError, match="does not exist"):
+            resolve_vault_path(file_uri, vault_dir)
+
+    def test_file_uri_outside_vault(self, vault_dir, tmp_path):
+        """Test file:// URI outside vault raises error."""
+        import socket
+
+        hostname = socket.gethostname()
+        outside_file = tmp_path / "outside.md"
+        outside_file.write_text("# Outside", encoding="utf-8")
+
+        file_uri = f"file://{hostname}{outside_file}"
+        with pytest.raises(VaultPathError, match="is not in the vault"):
+            resolve_vault_path(file_uri, vault_dir)

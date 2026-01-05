@@ -1,16 +1,16 @@
 # NEXT priorities for WKS: A Roadmap of Sorts
 
-## Use URI Consistently Everywhere [P1]
 
-**Why**: Consistent use of the `URI` type throughout the codebase ensures type safety, prevents URI format errors, and makes the codebase more maintainable. It eliminates the risk of string-based URI handling bugs and provides a single source of truth for URI validation and manipulation.
+## Consolidate Utils into Config Domain [P1]
 
-- [ ] Audit all `wks/` source code for string-based path/URI handling
-- [ ] Replace all `str` path parameters with `URI` type in API functions
-- [ ] Update internal functions to use `URI` instead of `Path` or `str` where appropriate
-- [ ] Ensure all database operations use `URI` type for URI fields
-- [ ] Update utility functions (`convert_to_uri`, `uri_to_path`, etc.) to work with `URI` type
-- [ ] Remove any remaining inline URI string formatting (`f"file://..."`)
-- [ ] Add type hints and validation to enforce `URI` usage throughout the codebase
+**Why**: Move all `wks/utils` and `wks/api/utils` code to `wks/api/config` to achieve strict `wks/api/<domain>` behavior and better structure. This ensures all API code follows the domain-based organization pattern and eliminates the top-level utils directory.
+
+- [ ] Audit all files in `wks/utils/` and `wks/api/utils/`
+- [ ] Move utility functions to `wks/api/config/` (or appropriate domain if domain-specific)
+- [ ] Update all imports across the codebase
+- [ ] Remove `wks/utils/` and `wks/api/utils/` directories
+- [ ] Update documentation to reflect new structure
+- [ ] Verify all tests still pass after migration
 
 ## Implement Diff (bsdiff and Meyers) [P1]
 

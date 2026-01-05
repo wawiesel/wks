@@ -187,8 +187,8 @@ def test_sync_writes_correct_uri_scheme(monkeypatch, tmp_path, minimal_config_di
     """Verify that sync writes vault:/// URIs for files within the vault."""
     from wks.api.database.Database import Database
     from wks.api.database.DatabaseConfig import DatabaseConfig
+    from wks.api.URI import URI
     from wks.api.vault.cmd_status import cmd_status
-    from wks.utils.path_to_uri import path_to_uri
 
     wks_home = (tmp_path / ".wks").resolve()
     wks_home.mkdir()
@@ -210,7 +210,7 @@ def test_sync_writes_correct_uri_scheme(monkeypatch, tmp_path, minimal_config_di
     assert res.success
 
     expected_uri = "vault:///note.md"
-    file_uri = path_to_uri(vault_dir / "note.md")
+    file_uri = str(URI.from_path(vault_dir / "note.md"))
 
     with Database(DatabaseConfig(**cfg["database"]), "edges") as db:
         doc = db.find_one({"from_local_uri": expected_uri})

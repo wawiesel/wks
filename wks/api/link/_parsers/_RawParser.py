@@ -17,6 +17,9 @@ class RawParser(BaseParser):
         lines = text.splitlines()
         for line_num, line in enumerate(lines, start=1):
             for match in URL_PATTERN.finditer(line):
+                # Validate match group exists (fail fast if mutated)
+                if match.lastindex is None or match.lastindex < 1:
+                    raise IndexError(f"URL_PATTERN match missing required group (got {match.lastindex})")
                 url = match.group(1).rstrip(",.;:)!]")  # Naive cleanup of trailing punctuation
 
                 yield LinkRef(

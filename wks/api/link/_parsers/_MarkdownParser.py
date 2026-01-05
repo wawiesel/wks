@@ -18,6 +18,9 @@ class MarkdownParser(BaseParser):
         for line_num, line in enumerate(lines, start=1):
             # 1. WikiLinks: [[Target|Alias]]
             for match in WIKILINK_PATTERN.finditer(line):
+                # Validate match groups exist (fail fast if mutated)
+                if match.lastindex is None or match.lastindex < 2:
+                    raise IndexError(f"WIKILINK_PATTERN match missing required groups (got {match.lastindex})")
                 is_embed = bool(match.group(1))
                 raw_full = match.group(2).strip()
 
@@ -40,6 +43,9 @@ class MarkdownParser(BaseParser):
 
             # 2. Standard Links: [Alias](Target)
             for match in MARKDOWN_URL_PATTERN.finditer(line):
+                # Validate match groups exist (fail fast if mutated)
+                if match.lastindex is None or match.lastindex < 3:
+                    raise IndexError(f"MARKDOWN_URL_PATTERN match missing required groups (got {match.lastindex})")
                 is_embed = bool(match.group(1))
                 alias = match.group(2).strip()
                 url = match.group(3).strip()

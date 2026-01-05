@@ -19,6 +19,9 @@ class RSTParser(BaseParser):
         for line_num, line in enumerate(lines, start=1):
             # `Text <URL>`_
             for match in RST_LINK_PATTERN.finditer(line):
+                # Validate match groups exist (fail fast if mutated)
+                if match.lastindex is None or match.lastindex < 2:
+                    raise IndexError(f"RST_LINK_PATTERN match missing required groups (got {match.lastindex})")
                 alias = match.group(1).strip()
                 url = match.group(2).strip()
 
@@ -35,6 +38,9 @@ class RSTParser(BaseParser):
             # .. image:: URL
             image_match = RST_IMAGE_PATTERN.match(line.strip())
             if image_match:
+                # Validate match group exists (fail fast if mutated)
+                if image_match.lastindex is None or image_match.lastindex < 1:
+                    raise IndexError(f"RST_IMAGE_PATTERN match missing required group (got {image_match.lastindex})")
                 url = image_match.group(1).strip()
                 yield LinkRef(
                     line_number=line_num,

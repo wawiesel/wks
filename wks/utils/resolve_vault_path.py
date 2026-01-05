@@ -46,9 +46,9 @@ def resolve_vault_path(
 
     # Case 2: file:// URI - extract path and check if in vault
     if input_path.startswith("file://"):
-        from .uri_to_path import uri_to_path
+        from wks.api.URI import URI
 
-        abs_path = normalize_path(uri_to_path(input_path))
+        abs_path = normalize_path(URI(input_path).path)
         try:
             rel_path = abs_path.relative_to(vault_path)
             vault_uri = f"vault:///{rel_path}"

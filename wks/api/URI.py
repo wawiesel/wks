@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,7 +26,7 @@ class URI:
         return f"URI('{self.value}')"
 
     @classmethod
-    def from_path(cls, path: str | Path) -> "URI":
+    def from_path(cls, path: str | Path) -> URI:
         """Create a URI from a file path."""
         import socket
 
@@ -35,15 +37,20 @@ class URI:
         return cls(f"file://{hostname}{normalized}")
 
     @classmethod
-    def from_any(cls, path_or_uri: str | Path, vault_path: Path | None = None) -> "URI":
-        """Convert any path or URI string to a URI object.
+    def from_any(cls, path_or_uri: str | Path | URI, vault_path: Path | None = None) -> URI:
+        """Convert any path or URI to a URI object.
 
         Handles:
+        - URI objects - returns as-is
         - Already-formatted URIs (vault:///, file:///)
         - File paths (normalized and hostname-prefixed)
         - Vault path awareness (converts to vault:/// if within vault_path)
         """
         from wks.utils.normalize_path import normalize_path
+
+        # Already a URI object - return as-is
+        if isinstance(path_or_uri, URI):
+            return path_or_uri
 
         # Already a URI string?
         if isinstance(path_or_uri, str) and "://" in path_or_uri:

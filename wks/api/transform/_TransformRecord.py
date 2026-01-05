@@ -1,20 +1,46 @@
 """Transform record model."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer, field_validator
+
+from ..URI import URI
 
 
 class _TransformRecord(BaseModel):
     """Transform cache record from wks.transform collection."""
 
-    file_uri: str
-    cache_uri: str
+    file_uri: URI
+    cache_uri: URI
     checksum: str
     size_bytes: int
     last_accessed: str
     created_at: str
     engine: str
     options_hash: str
-    referenced_uris: list[str]
+    referenced_uris: list[URI]
+
+    @field_validator("file_uri", "cache_uri", mode="before")
+    @classmethod
+    def validate_uri(cls, v: str | URI) -> URI:
+        """Convert string to URI if needed."""
+        return URI(v) if isinstance(v, str) else v
+
+    @field_validator("referenced_uris", mode="before")
+    @classmethod
+    def validate_referenced_uris(cls, v: list[str] | list[URI]) -> list[URI]:
+        """Convert list of strings to list of URIs if needed."""
+        if not v:
+            return []
+        return [URI(item) if isinstance(item, str) else item for item in v]
+
+    @field_serializer("file_uri", "cache_uri")
+    def serialize_uri(self, uri: URI) -> str:
+        """Serialize URI to string for MongoDB storage."""
+        return str(uri)
+
+    @field_serializer("referenced_uris")
+    def serialize_referenced_uris(self, uris: list[URI]) -> list[str]:
+        """Serialize list of URIs to list of strings for MongoDB storage."""
+        return [str(uri) for uri in uris]
 
     @classmethod
     def from_dict(cls, data: dict) -> "_TransformRecord":
@@ -37,9 +63,7 @@ class _TransformRecord(BaseModel):
 
     def cache_path_from_uri(self) -> str:
         """Get local path from cache_uri using standard URI parsing."""
-        from ..URI import URI
-
         try:
-            return str(URI(self.cache_uri).path)
+            return str(self.cache_uri.path)
         except Exception:
-            return self.cache_uri
+            return str(self.cache_uri)

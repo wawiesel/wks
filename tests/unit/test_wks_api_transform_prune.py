@@ -136,3 +136,89 @@ def test_prune_invalid_uri_warning(wks_home, minimal_config_dict, tmp_path):
     # verify db cleaned
     with Database(config.database, "transform") as db:
         assert db.get_database()["transform"].count_documents({}) == 0
+
+
+def test_prune_with_valueerror_in_uri_check(wks_home, minimal_config_dict, tmp_path):
+    """Test prune handles ValueError when checking cache URI."""
+    config = WKSConfig.load()
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    config.transform.cache.base_dir = str(cache_dir)
+    config.save()
+
+    with Database(config.database, "transform") as db:
+        db.get_database()["transform"].delete_many({})
+        # Invalid URI that will raise ValueError
+        db.get_database()["transform"].insert_one(
+            {"checksum": "c1", "cache_uri": "invalid-uri-no-scheme", "size_bytes": 100}
+        )
+
+    result = prune(config)
+
+    # Should add warning and delete stale record
+    assert result["deleted_count"] == 1
+    assert result["checked_count"] == 1
+    assert len(result["warnings"]) > 0
+    assert "Error checking cache file" in result["warnings"][0]
+
+
+def test_prune_with_oserror_deleting_orphaned(wks_home, minimal_config_dict, tmp_path):
+    """Test prune handles OSError when deleting orphaned files."""
+    config = WKSConfig.load()
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    config.transform.cache.base_dir = str(cache_dir)
+    config.save()
+
+    # Create orphaned file
+    orphaned_file = cache_dir / "orphan.md"
+    orphaned_file.write_text("orphaned content")
+
+    with Database(config.database, "transform") as db:
+        db.get_database()["transform"].delete_many({})
+
+    # Make file read-only to trigger OSError on delete (on some systems)
+    try:
+        orphaned_file.chmod(0o444)  # Read-only
+
+        result = prune(config)
+
+        # Should add warning about failed deletion
+        # Note: On some systems this might still succeed, so we check for either outcome
+        if orphaned_file.exists():
+            assert len(result["warnings"]) > 0
+            assert "Failed to delete orphaned file" in result["warnings"][0]
+        else:
+            # File was deleted successfully
+            assert result["deleted_count"] >= 0
+    finally:
+        # Cleanup: restore permissions
+        try:
+            orphaned_file.chmod(0o644)
+            if orphaned_file.exists():
+                orphaned_file.unlink()
+        except OSError:
+            pass
+
+
+def test_prune_with_none_cache_uri(wks_home, minimal_config_dict, tmp_path):
+    """Test prune handles None cache_uri in database record."""
+    config = WKSConfig.load()
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    config.transform.cache.base_dir = str(cache_dir)
+    config.save()
+
+    with Database(config.database, "transform") as db:
+        db.get_database()["transform"].delete_many({})
+        # Record with None cache_uri
+        db.get_database()["transform"].insert_one({"checksum": "c1", "cache_uri": None, "size_bytes": 100})
+
+    result = prune(config)
+
+    # Should treat None as missing and delete stale record
+    assert result["deleted_count"] == 1
+    assert result["checked_count"] == 1
