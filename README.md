@@ -1,6 +1,6 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-79.9%25-red)
 ![Mutation Score](https://img.shields.io/badge/mutation-0.0%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-100.0%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-491_passing-brightgreen)
@@ -16,7 +16,7 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |      0% |       100% | ⚠️ Below Target |
+| **Code Coverage**    |   79.9% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |    0.0% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |  100.0% |       100% | ✅ Pass          |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
