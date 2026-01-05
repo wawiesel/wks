@@ -1,6 +1,6 @@
 # Next Steps
 
-## Highest Priority
+## P1 (Highest Priority)
 
 ### Use URI Consistently Everywhere
 
@@ -12,7 +12,7 @@
 - [ ] Remove any remaining inline URI string formatting (`f"file://..."`)
 - [ ] Add type hints and validation to enforce `URI` usage throughout the codebase
 
-## Priority 1
+## P1
 
 ### Implement Diff (bsdiff and Meyers)
 
@@ -80,7 +80,7 @@
 
 ---
 
-## Priority 2
+## P2
 
 ### Refactor Monitor Module
 
@@ -96,7 +96,7 @@
 
 ---
 
-## Priority 3
+## P3 (Lowest Priority)
 
 ### Link Module Improvements
 
@@ -111,18 +111,9 @@
 ### MCP Schema Generation
 
 - [ ] Implement full Typer command parameter parsing in `_get_typer_command_schema.py`
-
 - [ ] Implement index and search commands
 
----
-
-## Priority 4
-
 - [ ] Implement patterns capability
-
----
-
-## Priority 5
 
 ### Tutorial Completion
 
