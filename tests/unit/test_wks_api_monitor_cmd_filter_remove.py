@@ -8,18 +8,13 @@ from wks.api.monitor import cmd_filter_remove
 pytestmark = pytest.mark.monitor
 
 
-def test_cmd_filter_remove_saves_on_success(monkeypatch, tmp_path):
+def test_cmd_filter_remove_saves_on_success(monkeypatch, isolated_wks_home):
     """Remove a filter value successfully.
 
     Requirements:
     - MON-001
     - MON-006
     """
-    # Isolate WKS_HOME for the tracked config
-    h = tmp_path / "wks_home"
-    h.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(h))
-
     # create_tracked_wks_config uses minimal_config_dict which already contains the transform cache in include_paths.
     # We add /tmp/x to it.
     cfg = create_tracked_wks_config(monkeypatch)
@@ -30,16 +25,13 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch, tmp_path):
     assert cfg.save_calls == 1
 
 
-def test_cmd_filter_remove_not_found(monkeypatch, tmp_path):
+def test_cmd_filter_remove_not_found(monkeypatch, isolated_wks_home):
     """Test cmd_filter_remove when value is not in the list.
 
     Requirements:
     - MON-001
     - MON-006
     """
-    h = tmp_path / "wks_home"
-    h.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(h))
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_dirnames", value="nonexistent")
@@ -49,16 +41,13 @@ def test_cmd_filter_remove_not_found(monkeypatch, tmp_path):
     assert cfg.save_calls == 0
 
 
-def test_cmd_filter_remove_dirname_list(monkeypatch, tmp_path):
+def test_cmd_filter_remove_dirname_list(monkeypatch, isolated_wks_home):
     """Test cmd_filter_remove with dirname list (non-path list).
 
     Requirements:
     - MON-001
     - MON-006
     """
-    h = tmp_path / "wks_home"
-    h.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(h))
     cfg = create_tracked_wks_config(monkeypatch)
     cfg.monitor.filter.include_dirnames.append("testdir")
 
@@ -67,16 +56,13 @@ def test_cmd_filter_remove_dirname_list(monkeypatch, tmp_path):
     assert cfg.save_calls == 1
 
 
-def test_cmd_filter_remove_unknown_list(monkeypatch, tmp_path):
+def test_cmd_filter_remove_unknown_list(monkeypatch, isolated_wks_home):
     """Unknown list names should produce a validation error and halt.
 
     Requirements:
     - MON-001
     - MON-006
     """
-    h = tmp_path / "wks_home"
-    h.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(h))
     create_tracked_wks_config(monkeypatch)
 
     result = cmd_filter_remove.cmd_filter_remove(list_name="not_a_list", value="x")

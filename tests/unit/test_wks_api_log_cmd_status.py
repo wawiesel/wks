@@ -4,7 +4,7 @@ from tests.unit.conftest import run_cmd
 from wks.api.log.cmd_status import cmd_status
 
 
-def test_cmd_status_no_log(tracked_wks_config, monkeypatch, tmp_path):
+def test_cmd_status_no_log(tracked_wks_config, isolated_wks_home):
     """Test status when log file does not exist (lines 35-43)."""
     from wks.api.config.WKSConfig import WKSConfig
 
@@ -17,13 +17,13 @@ def test_cmd_status_no_log(tracked_wks_config, monkeypatch, tmp_path):
     assert result.output["entry_counts"]["info"] == 0
 
 
-def test_cmd_status_success(tracked_wks_config, tmp_path):
+def test_cmd_status_success(tracked_wks_config, isolated_wks_home):
     """Test successful status with entries (lines 45-136)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
     if not log_path.parent.exists():
-        log_path.parent.mkdir(parents=True)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
 
     now = datetime.now(timezone.utc)
     old = (now - timedelta(days=10)).isoformat()
@@ -52,13 +52,13 @@ def test_cmd_status_success(tracked_wks_config, tmp_path):
     assert result.output["oldest_entry"] is not None
 
 
-def test_cmd_status_parse_error(tracked_wks_config, tmp_path):
+def test_cmd_status_parse_error(tracked_wks_config, isolated_wks_home):
     """Test unparseable date (lines 84-85)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
     if not log_path.parent.exists():
-        log_path.parent.mkdir(parents=True)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text("[BAD_DATE] [test] INFO: msg\n", encoding="utf-8")
 
     result = run_cmd(cmd_status)
@@ -66,13 +66,13 @@ def test_cmd_status_parse_error(tracked_wks_config, tmp_path):
     assert result.output["entry_counts"]["info"] == 1
 
 
-def test_cmd_status_read_error(tracked_wks_config, tmp_path, monkeypatch):
+def test_cmd_status_read_error(tracked_wks_config, isolated_wks_home, monkeypatch):
     """Test error during read (lines 61-68)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
     if not log_path.parent.exists():
-        log_path.parent.mkdir(parents=True)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text("content", encoding="utf-8")
 
     from pathlib import Path

@@ -207,6 +207,22 @@ def minimal_wks_config_fixture() -> WKSConfig:
 
 
 @pytest.fixture
+def isolated_wks_home(tmp_path: Path, monkeypatch) -> Path:
+    """Set up isolated WKS_HOME without config file.
+
+    Use this fixture when you need WKS_HOME isolation but are using tracked_wks_config
+    (which patches WKSConfig.load() and doesn't need a config file).
+
+    Returns:
+        Path to the isolated WKS home directory (tmp_path / "wks_home")
+    """
+    home_dir = tmp_path / "wks_home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("WKS_HOME", str(home_dir))
+    return home_dir
+
+
+@pytest.fixture
 def wks_home(tmp_path: Path, monkeypatch, minimal_config_dict: dict) -> Path:
     """Set up WKS_HOME with a minimal config file.
 
