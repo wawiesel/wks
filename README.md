@@ -1,7 +1,7 @@
 # WKS
 
 ![Coverage](https://img.shields.io/badge/coverage-79.9%25-red)
-![Mutation Score](https://img.shields.io/badge/mutation-0.0%25-red)
+![Mutation Score](https://img.shields.io/badge/mutation-76.0%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-100.0%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-491_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -17,7 +17,7 @@
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
 | **Code Coverage**    |   79.9% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |    0.0% |       ≥90% | ⚠️ Below Target |
+| **Mutation Kill %**  |   76.0% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |  100.0% |       100% | ✅ Pass          |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -55,10 +55,10 @@
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   378 |       11,367 |    2,841 |       1.5% |
 | **Build/Config** |       5 |   168 |        3,898 |      972 |       0.5% |
-| **Scripts**      |      20 | 2,200 |       74,842 |   14,593 |       7.5% |
-| **Total**        |      29 | 2,746 |       90,107 |   18,406 |       9.4% |
+| **Scripts**      |      20 | 2,202 |       75,122 |   14,593 |       7.5% |
+| **Total**        |      29 | 2,748 |       90,387 |   18,406 |       9.4% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 0.0% means 0.0% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 76.0% means 76.0% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 491 tests across 100 test files.
 
@@ -66,7 +66,7 @@
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          N/A |            0/0 |
+| cat       |        94% |          76% |         76/100 |
 | config    |       100% |          N/A |            0/0 |
 | daemon    |        83% |          N/A |            0/0 |
 | database  |        91% |          N/A |            0/0 |
