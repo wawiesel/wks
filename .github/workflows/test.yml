@@ -71,7 +71,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref || github.ref }}
           submodules: recursive
-
       - name: Free Disk Space (Ubuntu)
         run: ./scripts/ci_cleanup_disk.sh
 
@@ -128,12 +127,9 @@ jobs:
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
-          # Generate split stats JSONs inside Docker
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_coverage_stats.py || true
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_ci_stats.py || true
+          # Generate qa/metrics/*.json inside Docker (has mutmut and all tools)
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_token_stats.py || true
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/aggregate_mutation_stats.py || true
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/check_complexity.py || true
 
           ./scripts/disk_avail.sh "After tests"
 
@@ -153,7 +149,8 @@ jobs:
           name: test-reports
           path: |
             coverage.xml
-            qa/metrics/
+            qa/metrics/*.json
+            mutants/mutmut-stats.json
           retention-days: 30
 
       - name: Check test result
@@ -165,22 +162,26 @@ jobs:
             echo "all_passed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Generate traceability audit report
+        if: steps.docker-tests.outputs.passed == 'true'
+        run: |
+           pip install pyyaml
+           python3 scripts/update_traceability_audit.py
+
       - name: Regenerate stats (for verification or update)
         if: steps.docker-tests.outputs.passed == 'true'
         run: |
            pip install tabulate
            python3 scripts/update_readme_stats.py
 
-
-
       - name: Check for changes
         id: check-changes
         run: |
-          if [ -n "$(git status --porcelain qa/metrics/ README.md)" ]; then
+          if [ -n "$(git status --porcelain qa/metrics README.md docs/traceability/traceability_audit.html)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "::notice::Statistics have been updated by CI"
             echo "::group::Statistics diff"
-            git diff qa/metrics/ README.md
+            git diff qa/metrics README.md docs/traceability/traceability_audit.html
             echo "::endgroup::"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -190,8 +191,8 @@ jobs:
         if: steps.check-changes.outputs.changed == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: update stats [skip ci]"
-          file_pattern: "qa/metrics/coverage.json qa/metrics/mutations.json qa/metrics/tokens.json qa/metrics/complexity.json qa/metrics/ci.json README.md"
+          commit_message: "chore: update stats and traceability [skip ci]"
+          file_pattern: "qa/metrics/*.json README.md docs/traceability/traceability_audit.html"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"

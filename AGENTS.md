@@ -68,6 +68,7 @@ If you are an AI agent doing coding, here is some help for you. For **all contri
 
 When asked to address PR comments or check a PR:
 1.  **Do not rely on `gh pr view <id>` alone**: It often hides inline code comments, leading to missed feedback.
-2.  **Use `gh pr view <id> --json reviews,comments`**: This fetches the full raw data including all inline comments on specific lines.
-3.  **Use `gh api repos/{owner}/{repo}/pulls/{number}/comments`**: This is the most reliable way to get every single comment, including those that might be resolved but still relevant context.
-4.  **Check for "Files changed"**: Verify if files tagged for deletion are actually deleted in the git index (`git ls-files`).
+2.  **Use `gh pr view <id> --json reviews,comments`**: This fetches review summaries and top-level comments.
+3.  **Use `gh api repos/{owner}/{repo}/pulls/{number}/reviews`**: This lists all review events and their states (COMMENTED/CHANGES_REQUESTED/APPROVED).
+4.  **Use `gh api repos/{owner}/{repo}/pulls/{number}/comments`**: This is the most reliable way to get inline code comments, including resolved ones.
+5.  **Check for "Files changed"**: Verify if files tagged for deletion are actually deleted in the git index (`git ls-files`).

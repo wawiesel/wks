@@ -1,0 +1,4 @@
+uid: MON-008
+text: |
+  Schema validation is required; unknown or invalid inputs yield schema-conformant errors;
+  no partial success.

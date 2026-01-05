@@ -1,0 +1,3 @@
+uid: MON-004
+text: |
+  wksc monitor check <path> requires a path and returns MonitorCheckOutput.

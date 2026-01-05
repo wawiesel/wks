@@ -9,7 +9,7 @@ The **Link** domain is the system's centralized **Edge Provider**. It extracts, 
 This separation of concerns allows the Link domain to operate on any valid node provided by the Monitor, regardless of the underlying content type (e.g., Markdown, HTML, RST), provided a parser exists.
 
 ## Database Schema
-See `docs/specifications/database_edges.md`.
+See `qa/specs/database_edges.md`.
 
 ## URI Standard
 

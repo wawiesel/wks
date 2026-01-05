@@ -16,7 +16,7 @@ This directory implements the daemon runtime (filesystem watcher). It follows th
 - Daemon loads `WKSConfig` from `WKS_HOME`, uses `daemon` config.
 - Filesystem watching via `watchdog` observer; events accumulated and retrievable via `get_filesystem_events()`.
 - `restrict_dir` is required in config; empty string means fall back to monitor include paths.
-- All outputs must match `docs/specifications/daemon_output.schema.json`.
+- All outputs must match `qa/specs/daemon_output.schema.json`.
 
 ## Testing
 - See `tests/unit/test_wks_api_daemon_Daemon.py` for TDD scaffold exercising the public API with real filesystem events.

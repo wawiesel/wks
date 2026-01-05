@@ -1,5 +1,3 @@
-"""MCP Server for WKS - auto-discovers cmd_* functions and exposes them as MCP tools."""
-
 import inspect
 import json
 import sys

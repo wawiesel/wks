@@ -12,7 +12,12 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_status_success(monkeypatch, tmp_path, minimal_config_dict):
-    """Status succeeds with default config and no issues."""
+    """Status succeeds with default config and no issues.
+
+    Requirements:
+    - MON-001
+    - MON-003
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -26,7 +31,12 @@ def test_cmd_status_success(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, minimal_config_dict):
-    """tracked_files count should exclude the __meta__ document."""
+    """tracked_files count should exclude the __meta__ document.
+
+    Requirements:
+    - MON-001
+    - MON-003
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -66,7 +76,12 @@ def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, 
 
 
 def test_cmd_status_database_error(monkeypatch, tmp_path, minimal_config_dict):
-    """Status handles database errors by reporting them in output."""
+    """Status handles database errors by reporting them in output.
+
+    Requirements:
+    - MON-001
+    - MON-008
+    """
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))

@@ -65,11 +65,23 @@ def test_monitor_config_from_config_dict():
 
 
 def test_monitor_config_from_config_dict_missing():
+    """Reject missing monitor config section.
+
+    Requirements:
+    - MON-001
+    - MON-002
+    """
     with pytest.raises(KeyError, match="monitor section is required"):
         MonitorConfig.from_config_dict({})
 
 
 def test_monitor_config_from_config_dict_invalid():
+    """Reject invalid monitor config values.
+
+    Requirements:
+    - MON-001
+    - MON-002
+    """
     raw = {"monitor": {"max_documents": -1}}
     with pytest.raises(ValidationError):
         MonitorConfig.from_config_dict(raw)

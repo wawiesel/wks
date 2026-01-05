@@ -33,6 +33,11 @@ def _load_stats_json() -> dict:
         coverage = json.loads((metrics_dir / "coverage.json").read_text())
         loc_stats = json.loads((metrics_dir / "tokens.json").read_text())
         ci_stats = json.loads((metrics_dir / "ci.json").read_text())
+
+        traceability = {}
+        traceability_file = metrics_dir / "traceability.json"
+        if traceability_file.exists():
+            traceability = json.loads(traceability_file.read_text())
     except FileNotFoundError as e:
         print(f"Error: metrics files not found in {metrics_dir}: {e}", file=sys.stderr)
         sys.exit(1)
@@ -53,6 +58,7 @@ def _load_stats_json() -> dict:
     cov_status = "✅ Pass" if cov_pct >= 100.0 else "⚠️ Below Target"
 
     mut_score = mutations.get("score", 0)
+    traceability_pct = traceability.get("summary", {}).get("coverage_pct", 0.0)
 
     freshness = "fresh" if ci_stats.get("docker_freshness_input", 0) == 0 else "stale"
 
@@ -60,6 +66,7 @@ def _load_stats_json() -> dict:
         "mutation_score": mut_score,
         "mutation_killed": mutations.get("killed", 0),
         "mutation_survived": mutations.get("survived", 0),
+        "traceability_pct": traceability_pct,
         "domain_stats": domain_stats,
         "coverage_pct": cov_pct,
         "coverage_status": cov_status,

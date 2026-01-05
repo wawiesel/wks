@@ -9,6 +9,12 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_filter_add_saves_on_success(monkeypatch):
+    """Add filter values successfully.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
@@ -17,7 +23,12 @@ def test_cmd_filter_add_saves_on_success(monkeypatch):
 
 
 def test_cmd_filter_add_unknown_list_name(monkeypatch):
-    """Test cmd_filter_add with unknown list_name."""
+    """Test cmd_filter_add with unknown list_name.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     create_tracked_wks_config(monkeypatch)
 
     with pytest.raises(ValueError):
@@ -25,7 +36,12 @@ def test_cmd_filter_add_unknown_list_name(monkeypatch):
 
 
 def test_cmd_filter_add_empty_dirname(monkeypatch):
-    """Test cmd_filter_add with empty dirname."""
+    """Test cmd_filter_add with empty dirname.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="   ")
@@ -35,7 +51,12 @@ def test_cmd_filter_add_empty_dirname(monkeypatch):
 
 
 def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
-    """Test cmd_filter_add with wildcard in dirname."""
+    """Test cmd_filter_add with wildcard in dirname.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="test*")
@@ -45,7 +66,12 @@ def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
 
 
 def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
-    """Test cmd_filter_add when dirname already in opposite list."""
+    """Test cmd_filter_add when dirname already in opposite list.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch, {"filter": {"exclude_dirnames": ["testdir"]}})
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
@@ -55,7 +81,12 @@ def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
 
 
 def test_cmd_filter_add_dirname_no_error(monkeypatch):
-    """Test cmd_filter_add with valid dirname."""
+    """Test cmd_filter_add with valid dirname.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
@@ -64,7 +95,12 @@ def test_cmd_filter_add_dirname_no_error(monkeypatch):
 
 
 def test_cmd_filter_add_empty_glob(monkeypatch):
-    """Test cmd_filter_add with empty glob."""
+    """Test cmd_filter_add with empty glob.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="   ")
@@ -74,7 +110,12 @@ def test_cmd_filter_add_empty_glob(monkeypatch):
 
 
 def test_cmd_filter_add_glob_validation_success(monkeypatch):
-    """Test cmd_filter_add with valid glob."""
+    """Test cmd_filter_add with valid glob.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.py")
@@ -83,13 +124,23 @@ def test_cmd_filter_add_glob_validation_success(monkeypatch):
 
 
 def test_cmd_filter_add_else_branch(monkeypatch):
-    """Test cmd_filter_add with non-path, non-dirname, non-glob list."""
+    """Test cmd_filter_add with non-path, non-dirname, non-glob list.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     # This shouldn't happen with current filter lists, but test the else branch anyway
     pass
 
 
 def test_cmd_filter_add_validation_error(monkeypatch):
-    """Test cmd_filter_add with validation error."""
+    """Test cmd_filter_add with validation error.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch)
 
     # Try to add invalid dirname (with path separator)
@@ -100,7 +151,12 @@ def test_cmd_filter_add_validation_error(monkeypatch):
 
 
 def test_cmd_filter_add_duplicate_dirname(monkeypatch):
-    """Test cmd_filter_add with duplicate dirname."""
+    """Test cmd_filter_add with duplicate dirname.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_dirnames": ["testdir"]}})
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
@@ -110,7 +166,12 @@ def test_cmd_filter_add_duplicate_dirname(monkeypatch):
 
 
 def test_cmd_filter_add_duplicate_glob(monkeypatch):
-    """Test cmd_filter_add with duplicate glob."""
+    """Test cmd_filter_add with duplicate glob.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_globs": ["*.md"]}})
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.md")
@@ -120,7 +181,12 @@ def test_cmd_filter_add_duplicate_glob(monkeypatch):
 
 
 def test_cmd_filter_add_internal_error(monkeypatch):
-    """Test cmd_filter_add throws RuntimeError if validate_value returns (None, None)."""
+    """Test cmd_filter_add throws RuntimeError if validate_value returns (None, None).
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     create_tracked_wks_config(monkeypatch)
 
     import wks.api.monitor.cmd_filter_add as filter_add_mod

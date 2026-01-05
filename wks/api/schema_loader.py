@@ -13,8 +13,9 @@ from .schema_registry import schema_registry
 class SchemaLoader:
     @classmethod
     def load_schema(cls, domain: str) -> dict[str, Any]:
-        root = resources.files("docs.specifications")
-        path = root.joinpath(f"{domain}_output.schema.json")
+        root = resources.files(f"wks.api.{domain}")
+
+        path = root.joinpath("schema.json")
         with cast(Any, path).open("r") as fh:
             return json.load(fh)
 
@@ -56,9 +57,32 @@ class SchemaLoader:
 
     @classmethod
     def register_from_schema(cls, domain: str) -> dict[str, type[BaseModel]]:
-        models = cls.load_models(domain)
-        prefix = domain.capitalize()
+        # Backward compatibility or if we still need domain-based lookup
+        package = f"wks.api.{domain}"
+        return cls.register_from_package(package)
+
+    @classmethod
+    def register_from_package(cls, package_name: str) -> dict[str, type[BaseModel]]:
+        # Load schema from the package
+        root = resources.files(package_name)
+        path = root.joinpath("schema.json")
+        with cast(Any, path).open("r") as fh:
+            schema = json.load(fh)
+
+        # Build models
+        prefix = package_name.split(".")[-1].capitalize()
+        models: dict[str, type[BaseModel]] = {}
+        if "definitions" in schema:
+            for def_name in schema["definitions"]:
+                if not def_name.startswith(prefix) or not def_name.endswith("Output"):
+                    continue
+                model = cls.build_model(schema, def_name)
+                models[def_name] = model
+
+        # Register in registry
+        domain = package_name.split(".")[-1]  # infer domain from package last part
         for def_name, model in models.items():
             cmd_name = def_name[len(prefix) : -len("Output")].lower()
             schema_registry.register_output_schema(domain, cmd_name, model)
+
         return models

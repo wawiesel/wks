@@ -1,0 +1,3 @@
+uid: MON-002
+text: |
+  All monitor config fields are required; no defaults in code.

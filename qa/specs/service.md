@@ -41,7 +41,7 @@ Example (darwin):
 > **Note**: The `--restrict` flag on `wksc service install` is passed to the daemon at launch time via an environment variable; it is not stored in the config.
 
 ## Normative Schema
-- Canonical output schema: `docs/specifications/service_output.schema.json`.
+- Canonical output schema: `qa/specs/service_output.schema.json`.
 - Implementations MUST validate outputs against this schema; unknown fields are rejected.
 
 ## CLI

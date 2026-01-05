@@ -6,11 +6,11 @@ build-backend = "setuptools.build_meta"
 include-package-data = true
 
 [tool.setuptools.package-data]
-"docs.specifications" = ["*.json"]
+"wks" = ["**/*.json"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["wks*", "docs*"]
+include = ["wks*"]
 exclude = ["docker*", "tests*", "scripts*"]
 
 [project.scripts]

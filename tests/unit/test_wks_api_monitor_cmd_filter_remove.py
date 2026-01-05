@@ -9,6 +9,12 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_filter_remove_saves_on_success(monkeypatch, tmp_path):
+    """Remove a filter value successfully.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     # Isolate WKS_HOME for the tracked config
     h = tmp_path / "wks_home"
     h.mkdir()
@@ -25,7 +31,12 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch, tmp_path):
 
 
 def test_cmd_filter_remove_not_found(monkeypatch, tmp_path):
-    """Test cmd_filter_remove when value is not in the list."""
+    """Test cmd_filter_remove when value is not in the list.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     h = tmp_path / "wks_home"
     h.mkdir()
     monkeypatch.setenv("WKS_HOME", str(h))
@@ -39,7 +50,12 @@ def test_cmd_filter_remove_not_found(monkeypatch, tmp_path):
 
 
 def test_cmd_filter_remove_dirname_list(monkeypatch, tmp_path):
-    """Test cmd_filter_remove with dirname list (non-path list)."""
+    """Test cmd_filter_remove with dirname list (non-path list).
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     h = tmp_path / "wks_home"
     h.mkdir()
     monkeypatch.setenv("WKS_HOME", str(h))
@@ -52,7 +68,12 @@ def test_cmd_filter_remove_dirname_list(monkeypatch, tmp_path):
 
 
 def test_cmd_filter_remove_unknown_list(monkeypatch, tmp_path):
-    """Unknown list names should produce a validation error and halt."""
+    """Unknown list names should produce a validation error and halt.
+
+    Requirements:
+    - MON-001
+    - MON-006
+    """
     h = tmp_path / "wks_home"
     h.mkdir()
     monkeypatch.setenv("WKS_HOME", str(h))

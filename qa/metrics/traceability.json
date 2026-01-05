@@ -1,0 +1,28 @@
+{
+  "sources": {
+    "report": "docs/traceability/traceability_audit.html",
+    "requirements": [
+      "qa/reqs/mon"
+    ],
+    "test_items": [],
+    "test_scan": [
+      "tests/unit",
+      "tests/integration",
+      "tests/smoke"
+    ]
+  },
+  "summary": {
+    "coverage_pct": 100.0,
+    "links_total": 23,
+    "requirements": {
+      "linked": 8,
+      "total": 8,
+      "unlinked": 0
+    },
+    "tests": {
+      "linked": 10,
+      "total": 100,
+      "unlinked": 90
+    }
+  }
+}

@@ -1,0 +1,3 @@
+uid: MON-005
+text: |
+  wksc monitor sync <path> requires a path; --recursive optional; returns MonitorSyncOutput.

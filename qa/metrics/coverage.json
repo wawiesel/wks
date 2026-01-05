@@ -1,18 +1,18 @@
 {
+  "coverage_pct": 79.9,
   "domains": {
-    "cat": 94.4,
+    "cat": 94.3,
     "config": 100.0,
-    "daemon": 83.5,
-    "database": 90.3,
+    "daemon": 83.0,
+    "database": 91.2,
     "diff": 0.0,
-    "link": 97.6,
+    "link": 98.4,
     "log": 93.9,
-    "mcp": 97.1,
-    "monitor": 98.4,
-    "service": 92.2,
-    "transform": 87.3,
+    "mcp": 98.8,
+    "monitor": 99.4,
+    "service": 68.8,
+    "transform": 88.3,
     "utils": 100.0,
-    "vault": 98.7
-  },
-  "pct": 82.7
+    "vault": 100.0
+  }
 }

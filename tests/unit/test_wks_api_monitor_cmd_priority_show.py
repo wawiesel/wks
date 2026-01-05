@@ -10,7 +10,12 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_priority_show_returns_stage_result(tracked_wks_config, monkeypatch):
-    """Test cmd_priority_show returns correct output."""
+    """Test cmd_priority_show returns correct output.
+
+    Requirements:
+    - MON-001
+    - MON-007
+    """
     tracked_wks_config.monitor = MonitorConfig.model_validate(
         {
             "filter": {

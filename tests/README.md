@@ -2,6 +2,21 @@
 
 This directory contains the comprehensive test suite for the WKS project, ensuring the quality, correctness, and adherence to architectural principles. The tests are organized into `unit`, `smoke`, and `integration` categories, each serving a distinct purpose in the testing strategy.
 
+## Traceability
+
+Tests list requirement IDs in their docstrings under a `Requirements:` block. The traceability audit scans these docstrings and uses the test file path as the test identifier (no extra metadata files or HODOR-specific comments).
+
+Example:
+
+```
+def test_cmd_status_success():
+    """Status succeeds with default config and no issues.
+
+    Requirements:
+    - MON-003
+    """
+```
+
 ## Testing Strategy
 
 The WKS project employs a layered testing strategy designed to provide thorough coverage at different levels of abstraction:

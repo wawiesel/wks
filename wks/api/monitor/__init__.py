@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from ..schema_loader import SchemaLoader
 
-_models = SchemaLoader.register_from_schema("monitor")
+_models = SchemaLoader.register_from_package(__package__)
 MonitorCheckOutput: type[BaseModel] = _models["MonitorCheckOutput"]
 MonitorSyncOutput: type[BaseModel] = _models["MonitorSyncOutput"]
 MonitorStatusOutput: type[BaseModel] = _models["MonitorStatusOutput"]
