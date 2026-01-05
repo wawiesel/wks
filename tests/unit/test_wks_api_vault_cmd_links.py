@@ -172,3 +172,26 @@ def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
     result = run_cmd(cmd_links, uri=URI("vault:///test.md"))
     assert result.success is False
     assert "Query failed" in result.output["errors"][0]
+
+
+def test_cmd_links_non_vault_uri_error(monkeypatch, tmp_path, minimal_config_dict):
+    """Test cmd_links with non-vault URI (tests line 69-81)."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Use a file:// URI which should fail is_vault check
+    outside_file = tmp_path / "outside.md"
+    outside_file.touch()
+    file_uri = URI.from_path(outside_file)
+
+    result = run_cmd(cmd_links, uri=file_uri)
+    assert result.success is False
+    assert "Target is not in the vault" in result.output["errors"][0]
+    assert result.output["count"] == 0
