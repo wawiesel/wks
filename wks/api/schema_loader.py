@@ -13,11 +13,7 @@ from .schema_registry import schema_registry
 class SchemaLoader:
     @classmethod
     def load_schema(cls, domain: str) -> dict[str, Any]:
-        if domain == "mcp":
-            # MCCP is top-level
-            root = resources.files("wks.mcp")
-        else:
-            root = resources.files(f"wks.api.{domain}")
+        root = resources.files(f"wks.api.{domain}")
 
         path = root.joinpath("schema.json")
         with cast(Any, path).open("r") as fh:
@@ -62,10 +58,7 @@ class SchemaLoader:
     @classmethod
     def register_from_schema(cls, domain: str) -> dict[str, type[BaseModel]]:
         # Backward compatibility or if we still need domain-based lookup
-        if domain == "mcp":
-            package = "wks.mcp"
-        else:
-            package = f"wks.api.{domain}"
+        package = f"wks.api.{domain}"
         return cls.register_from_package(package)
 
     @classmethod
@@ -87,7 +80,7 @@ class SchemaLoader:
                 models[def_name] = model
 
         # Register in registry
-        domain = package_name.split(".")[-1] # infer domain from package last part
+        domain = package_name.split(".")[-1]  # infer domain from package last part
         for def_name, model in models.items():
             cmd_name = def_name[len(prefix) : -len("Output")].lower()
             schema_registry.register_output_schema(domain, cmd_name, model)

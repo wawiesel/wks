@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from ..schema_loader import SchemaLoader
 
-_models = SchemaLoader.register_from_schema("mcp")
+_models = SchemaLoader.register_from_package(__package__)
 McpListOutput: type[BaseModel] = _models["McpListOutput"]
 McpInstallOutput: type[BaseModel] = _models["McpInstallOutput"]
 McpUninstallOutput: type[BaseModel] = _models["McpUninstallOutput"]

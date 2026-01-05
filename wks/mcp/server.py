@@ -1,11 +1,10 @@
-"""MCP Server for WKS - auto-discovers cmd_* functions and exposes them as MCP tools."""
-
 import inspect
 import json
 import sys
 from collections.abc import Callable
 from typing import Any
 
+from wks.api.config.WKSConfig import WKSConfig
 from wks.api.StageResult import StageResult
 from wks.cli._get_typer_command_schema import get_typer_command_schema
 from wks.utils import get_package_version
@@ -92,8 +91,6 @@ class MCPServer:
 
     def build_registry(self) -> dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]]:
         """Build a registry of tool handlers mapped by name."""
-        from wks.api.config.WKSConfig import WKSConfig
-
         registry: dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]] = {}
         for (domain, cmd_name), cmd_func in discover_commands().items():
             sig = inspect.signature(cmd_func)
@@ -216,8 +213,6 @@ class MCPServer:
                         }
                     )
                     return
-                from wks.api.config.WKSConfig import WKSConfig
-
                 result = registry[tool_name](WKSConfig.load(), arguments)
                 self.write_message(
                     {
