@@ -58,9 +58,11 @@ def _get_mutation_stats(mutmut_bin: str) -> tuple[int, int]:
 
     for line in (p_results.stdout or "").splitlines():
         line = line.strip()
-        if line.endswith(": killed"):
+        # Format is: "mutant_name: status" where status can be "killed", "survived", or "no tests"
+        # "no tests" mutations are considered survived (not killed by tests)
+        if ": killed" in line:
             killed += 1
-        elif line.endswith(": survived"):
+        elif ": survived" in line or ": no tests" in line:
             survived += 1
 
     return killed, survived
@@ -218,6 +220,12 @@ def main() -> None:
 
     _log(f">>> Mutating {domain_path} (available disk: {disk_msg})...")
 
+    # Clear mutmut's database (mutants directory) before each domain run
+    # This ensures mutmut results only show mutations for the current domain
+    mutants_dir = REPO_ROOT / "mutants"
+    if mutants_dir.exists():
+        shutil.rmtree(mutants_dir)
+
     # Isolate TMPDIR to workspace
     ws_tmp = REPO_ROOT / "tmp"
     ws_tmp.mkdir(exist_ok=True)
@@ -292,6 +300,7 @@ def main() -> None:
             _log(f"mutmut run completed with return code {p.returncode} (may still have results)")
 
         # Parse stats from 'mutmut results --all true' (reliable)
+        # Since we cleared mutants/ before this run, results are only for this domain
         # Get stats even if mutmut exited with non-zero code (e.g., forced fail test issues)
         killed, survived = _get_mutation_stats(mutmut_bin)
 

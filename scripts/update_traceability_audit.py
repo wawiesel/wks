@@ -15,7 +15,7 @@ HODOR_SCRIPT = REPO_ROOT / ".cursor" / "rules" / "Hodor" / "scripts" / "build_tr
 DEFAULT_REQ_DIRS = ["qa/reqs/mon"]
 DEFAULT_TEST_ITEM_DIRS: list[str] = []
 DEFAULT_TEST_SCAN_DIRS = ["tests/unit", "tests/integration", "tests/smoke"]
-DEFAULT_OUT = REPO_ROOT / "docs" / "traceability" / "traceability_audit.html"
+DEFAULT_OUT = REPO_ROOT / "qa" / "traceability_audit.html"
 DEFAULT_METRICS_OUT = REPO_ROOT / "qa" / "metrics" / "traceability.json"
 
 DATA_JSON_RE = re.compile(r'<script id="data" type="application/json">(.*?)</script>', re.DOTALL)

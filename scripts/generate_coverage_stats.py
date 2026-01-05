@@ -66,7 +66,7 @@ def main():
     pct = _get_code_coverage()
     domains = _get_domain_coverage()
 
-    stats = {"pct": pct, "domains": domains}
+    stats = {"coverage_pct": pct, "domains": domains}
 
     metrics_dir = REPO_ROOT / "qa" / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)

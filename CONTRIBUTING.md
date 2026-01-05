@@ -136,7 +136,23 @@ The code quality metrics in `README.md` (mutation score, test counts, etc.) are 
 - **PRs**: Pull requests will fail CI if the README statistics are out of date, ensuring stats stay current.
 
 **Manual Update**:
-If you need to manually update the statistics (e.g., after running mutation tests):
+To generate all statistics locally (matching CI workflow):
+```bash
+./scripts/generate_all_stats.py
+```
+
+This script replicates what CI does:
+1. Runs tests with coverage
+2. Runs mutation tests for all domains
+3. Generates all statistics files (coverage.json, ci.json, tokens.json, mutations.json)
+4. Updates traceability audit
+5. Updates README
+
+Options:
+- `--skip-tests`: Skip running tests (use if you've already run them)
+- `--skip-mutations`: Skip mutation testing (faster, but mutations.json won't be updated)
+
+To update just the README from existing statistics:
 ```bash
 ./scripts/update_readme_stats.py
 ```

@@ -1,7 +1,7 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-79.9%25-red)
-![Mutation Score](https://img.shields.io/badge/mutation-76.0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-82.7%25-yellow)
+![Mutation Score](https://img.shields.io/badge/mutation-70.1%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-100.0%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-491_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -10,14 +10,14 @@
 
 ## Status
 - Alpha: monitor, vault, transform, diff layers are under active development; CLI and MCP may change without notice.
-- Upcoming priorities and ideas: [docs/campaigns/NEXT.md](docs/campaigns/NEXT.md).
+- Upcoming priorities and ideas: [NEXT.md](NEXT.md).
 
 ## Code Quality Metrics
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   79.9% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   76.0% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |   82.7% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   70.1% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |  100.0% |       100% | ✅ Pass          |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -25,7 +25,7 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     174 | 11,687 |      412,381 |   65,151 |      33.4% |
+| **api**   |     174 | 11,687 |      412,381 |   65,151 |      33.5% |
 | **cli**   |      20 |  1,313 |       46,319 |    8,790 |       4.5% |
 | **mcp**   |       9 |    516 |       18,358 |    3,454 |       1.8% |
 | **utils** |      21 |    669 |       20,623 |    2,663 |       1.4% |
@@ -35,30 +35,30 @@
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      86 |  9,008 |      308,621 |   54,746 |      28.1% |
+| **Unit Tests**        |      86 |  8,994 |      308,377 |   54,659 |      28.1% |
 | **Integration Tests** |      13 |  1,545 |       52,112 |    9,486 |       4.9% |
 | **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       1.1% |
-| **Total**             |     106 | 10,905 |      372,577 |   66,281 |      34.0% |
+| **Total**             |     106 | 10,891 |      372,333 |   66,194 |      34.0% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.9% |
-| **Developer Documentation** |      46 | 2,836 |      113,838 |   28,451 |      14.6% |
+| **Developer Documentation** |      44 | 2,730 |      109,611 |   27,396 |      14.1% |
 | **Specifications**          |       0 |     0 |            0 |        0 |       0.0% |
-| **Total**                   |      53 | 3,064 |      120,903 |   30,217 |      15.5% |
+| **Total**                   |      51 | 2,958 |      116,676 |   29,162 |      15.0% |
 
 ### Infrastructure Summary
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   378 |       11,367 |    2,841 |       1.5% |
+| **CI/CD**        |       4 |   380 |       11,456 |    2,864 |       1.5% |
 | **Build/Config** |       5 |   168 |        3,898 |      972 |       0.5% |
-| **Scripts**      |      20 | 2,202 |       75,122 |   14,593 |       7.5% |
-| **Total**        |      29 | 2,748 |       90,387 |   18,406 |       9.4% |
+| **Scripts**      |      21 | 2,322 |       79,779 |   15,333 |       7.9% |
+| **Total**        |      30 | 2,870 |       95,133 |   19,169 |       9.9% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 76.0% means 76.0% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 70.1% means 70.1% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 491 tests across 100 test files.
 
@@ -66,19 +66,19 @@
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          76% |         76/100 |
-| config    |       100% |          N/A |            0/0 |
-| daemon    |        83% |          N/A |            0/0 |
-| database  |        91% |          N/A |            0/0 |
-| diff      |         0% |          N/A |            0/0 |
-| link      |        98% |          N/A |            0/0 |
-| log       |        94% |          N/A |            0/0 |
-| mcp       |        99% |          N/A |            0/0 |
-| monitor   |        99% |          N/A |            0/0 |
-| service   |        69% |          N/A |            0/0 |
-| transform |        88% |          N/A |            0/0 |
-| utils     |       100% |          N/A |            0/0 |
-| vault     |       100% |          N/A |            0/0 |
+| cat       |        94% |          81% |         81/100 |
+| config    |       100% |          68% |        179/264 |
+| daemon    |        84% |          68% |        241/355 |
+| database  |        90% |          74% |        461/627 |
+| diff      |         0% |            — |              — |
+| link      |        98% |          70% |       812/1162 |
+| log       |        94% |          64% |        350/547 |
+| mcp       |        97% |          59% |        235/400 |
+| monitor   |        98% |          68% |      1125/1665 |
+| service   |        92% |          86% |         99/115 |
+| transform |        87% |          80% |        647/812 |
+| utils     |       100% |            — |              — |
+| vault     |        99% |          71% |       873/1235 |
 
 
 ## Overview
@@ -264,6 +264,6 @@ See [qa/specs/wks.md](qa/specs/wks.md) for the complete system specification.
 -   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Development & Testing Guide
 -   **[docker/README.md](docker/README.md)**: CI Docker Image Guide
 -   **[qa/specs/wks.md](qa/specs/wks.md)**: The complete system specification and architectural overview.
--   **[docs/campaigns/NEXT.md](docs/campaigns/NEXT.md)**: Current development priorities and high-level roadmap.
+-   **[NEXT.md](NEXT.md)**: Current development priorities and high-level roadmap.
 -   **[AGENTS.md](AGENTS.md)**: Specific directives and guidelines for AI agents working on this project.
 -   **[LICENSE.txt](LICENSE.txt)**: Project license details.

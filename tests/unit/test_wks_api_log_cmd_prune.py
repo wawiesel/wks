@@ -4,7 +4,7 @@ from tests.unit.conftest import run_cmd
 from wks.api.log.cmd_prune import cmd_prune
 
 
-def test_cmd_prune_no_log(tracked_wks_config, monkeypatch, tmp_path):
+def test_cmd_prune_no_log(tracked_wks_config, isolated_wks_home):
     """Test prune when no log file exists (lines 38-51)."""
     from wks.api.config.WKSConfig import WKSConfig
 
@@ -17,7 +17,7 @@ def test_cmd_prune_no_log(tracked_wks_config, monkeypatch, tmp_path):
     assert result.output["pruned_debug"] == 0
 
 
-def test_cmd_prune_success(tracked_wks_config, tmp_path):
+def test_cmd_prune_success(tracked_wks_config, isolated_wks_home):
     """Test successful pruning (lines 53-150)."""
     from wks.api.config.WKSConfig import WKSConfig
 
@@ -39,7 +39,7 @@ def test_cmd_prune_success(tracked_wks_config, tmp_path):
     assert "old" not in log_path.read_text()
 
 
-def test_cmd_prune_all_levels(tracked_wks_config, tmp_path):
+def test_cmd_prune_all_levels(tracked_wks_config, isolated_wks_home):
     """Test pruning all levels (lines 100-112)."""
     from wks.api.config.WKSConfig import WKSConfig
 
@@ -61,7 +61,7 @@ def test_cmd_prune_all_levels(tracked_wks_config, tmp_path):
     assert log_path.read_text() == ""
 
 
-def test_cmd_prune_write_error(tracked_wks_config, tmp_path, monkeypatch):
+def test_cmd_prune_write_error(tracked_wks_config, isolated_wks_home, monkeypatch):
     """Test error during write (lines 121-134)."""
     from wks.api.config.WKSConfig import WKSConfig
 
@@ -80,13 +80,13 @@ def test_cmd_prune_write_error(tracked_wks_config, tmp_path, monkeypatch):
     assert "write fail" in result.output["errors"][0]
 
 
-def test_cmd_prune_os_error_read(tracked_wks_config, tmp_path, monkeypatch):
+def test_cmd_prune_os_error_read(tracked_wks_config, isolated_wks_home, monkeypatch):
     """Test OSError handling (lines 55-57)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
     if not log_path.parent.exists():
-        log_path.parent.mkdir(parents=True)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text("some content", encoding="utf-8")
 
     from pathlib import Path
