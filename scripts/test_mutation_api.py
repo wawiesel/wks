@@ -211,9 +211,8 @@ def main() -> None:
 
     domain = args.domain
     domain_path = f"wks/api/{domain}"
-    mutants_dir = REPO_ROOT / "mutants"
-    stats_file = mutants_dir / f"mutation_{domain}.json"
     setup_cfg = REPO_ROOT / "setup.cfg"
+    mutations_json = REPO_ROOT / "qa" / "metrics" / "mutations.json"
 
     disk_msg = _get_disk_space()
 
@@ -298,18 +297,36 @@ def main() -> None:
         _log(f">>> Finished {domain_path} (available disk: {_get_disk_space()})")
         _log(f"{domain_path} mutants: Killed={killed}, Survived={survived}")
 
-        # Output per-domain stats file
-        mutants_dir.mkdir(parents=True, exist_ok=True)
-        stats = {"domain": domain, "killed": killed, "survived": survived}
-        stats_file.write_text(json.dumps(stats))
+        # Update mutations.json directly
+        mutations_json.parent.mkdir(parents=True, exist_ok=True)
 
-        # Incrementally update mutations.json after each domain
-        aggregate_script = REPO_ROOT / "scripts" / "aggregate_mutation_stats.py"
-        subprocess.run(
-            [sys.executable, str(aggregate_script)],
-            cwd=str(REPO_ROOT),
-            check=False,
-        )
+        # Load existing data or initialize
+        if mutations_json.exists():
+            try:
+                existing_data = json.loads(mutations_json.read_text())
+                domains = existing_data.get("domains", {})
+            except Exception:
+                domains = {}
+        else:
+            domains = {}
+
+        # Update this domain's stats
+        domains[domain] = {"killed": killed, "survived": survived}
+
+        # Recalculate totals
+        total_killed = sum(d["killed"] for d in domains.values())
+        total_survived = sum(d["survived"] for d in domains.values())
+        grand_total = total_killed + total_survived
+        score = (total_killed / grand_total * 100) if grand_total > 0 else 0.0
+
+        # Write updated mutations.json (sort domains for stability)
+        stats = {
+            "score": round(score, 1),
+            "killed": total_killed,
+            "survived": total_survived,
+            "domains": dict(sorted(domains.items())),
+        }
+        mutations_json.write_text(json.dumps(stats, indent=2, sort_keys=True) + "\n")
 
         setup_cfg.write_text(original_cfg)
 
