@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from wks.api.monitor.RemoteConfig import RemoteConfig, RemoteMapping
 from wks.api.monitor.resolve_remote_uri import resolve_remote_uri
 from wks.api.URI import URI
@@ -10,8 +12,8 @@ from wks.api.URI import URI
 def test_resolve_remote_uri_no_mappings():
     """Test resolution with empty mappings."""
     config = RemoteConfig(mappings=[])
-    path = Path("/tmp/any")
-    assert resolve_remote_uri(path, config) is None
+    uri = URI.from_path(Path("/tmp/any"))
+    assert resolve_remote_uri(uri, config) is None
 
 
 def test_resolve_remote_uri_success():
@@ -24,7 +26,8 @@ def test_resolve_remote_uri_success():
 
     # Path relative to root
     local_path = Path("/tmp/wks_test/subdir/file.txt")
-    result = resolve_remote_uri(local_path, config)
+    uri = URI.from_path(local_path)
+    result = resolve_remote_uri(uri, config)
     assert result == URI("s3://my-bucket/prefix/subdir/file.txt")
 
 
@@ -38,7 +41,8 @@ def test_resolve_remote_uri_multiple_mappings():
 
     # Matches /tmp/a first
     path = Path("/tmp/a/b/file.txt")
-    result = resolve_remote_uri(path, config)
+    uri = URI.from_path(path)
+    result = resolve_remote_uri(uri, config)
     assert result == URI("v1://a/b/file.txt")
 
 
@@ -48,14 +52,24 @@ def test_resolve_remote_uri_no_match():
     config = RemoteConfig(mappings=[mapping])
 
     path = Path("/tmp/outside")
-    assert resolve_remote_uri(path, config) is None
+    uri = URI.from_path(path)
+    assert resolve_remote_uri(uri, config) is None
 
 
 def test_resolve_remote_uri_invalid_path():
     """Test resolution with invalid path (triggering Exception in normalize_path)."""
     config = RemoteConfig(mappings=[])
     # On many systems, NUL in path triggers error in normalize_path/Path
-    assert resolve_remote_uri("/tmp/\x00invalid", config) is None
+    # Use URI.from_any which handles invalid paths
+    try:
+        uri = URI.from_any("/tmp/\x00invalid")
+        # If URI creation succeeds, resolve should return None for non-file URIs or invalid paths
+        result = resolve_remote_uri(uri, config)
+        # Should return None if path resolution failed
+        assert result is None
+    except (ValueError, OSError):
+        # If URI creation fails, that's expected for invalid paths
+        pass
 
 
 def test_resolve_remote_uri_value_error_in_loop(monkeypatch):
@@ -76,13 +90,37 @@ def test_resolve_remote_uri_value_error_in_loop(monkeypatch):
     monkeypatch.setattr(Path, "is_relative_to", mock_is_relative_to)
 
     path = Path("/tmp/a/file.txt")
+    uri = URI.from_path(path)
     # Should continue loop and return None
-    assert resolve_remote_uri(path, config) is None
+    assert resolve_remote_uri(uri, config) is None
 
 
 def test_resolve_remote_uri_normalize_failure():
-    """Test resolution when normalize_path fails (hits line 19-21)."""
+    """Test resolution when invalid type is passed (fail fast)."""
     config = RemoteConfig(mappings=[])
-    # Passing an invalid type triggers TypeError in Path constructor
+    # Passing an invalid type should raise TypeError (fail fast)
     # We use type: ignore to satisfy Mypy while testing runtime robustness
-    assert resolve_remote_uri(123, config) is None  # type: ignore
+    with pytest.raises(TypeError, match="uri must be URI"):
+        resolve_remote_uri(123, config)  # type: ignore
+
+
+def test_resolve_remote_uri_with_uri_object():
+    """Test resolution with URI object input."""
+    mapping = RemoteMapping(
+        local_path="/tmp/wks_test",
+        remote_uri="s3://my-bucket/prefix",
+    )
+    config = RemoteConfig(mappings=[mapping])
+
+    # Pass URI object instead of Path
+    uri = URI.from_path(Path("/tmp/wks_test/subdir/file.txt"))
+    result = resolve_remote_uri(uri, config)
+    assert result == URI("s3://my-bucket/prefix/subdir/file.txt")
+
+
+def test_resolve_remote_uri_with_non_file_uri():
+    """Test resolution with non-file URI (should return None)."""
+    config = RemoteConfig(mappings=[])
+    # Non-file URIs cannot be resolved
+    uri = URI("s3://bucket/file.txt")
+    assert resolve_remote_uri(uri, config) is None

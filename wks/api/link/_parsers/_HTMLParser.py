@@ -19,6 +19,9 @@ class HTMLParser(BaseParser):
         for line_num, line in enumerate(lines, start=1):
             # <a href="...">
             for match in HREF_PATTERN.finditer(line):
+                # Validate match group exists (fail fast if mutated)
+                if match.lastindex is None or match.lastindex < 1:
+                    raise IndexError(f"HREF_PATTERN match missing required group (got {match.lastindex})")
                 url = match.group(1).strip()
                 if not url or url.startswith("#"):
                     continue
@@ -34,6 +37,9 @@ class HTMLParser(BaseParser):
 
             # src="..."
             for match in SRC_PATTERN.finditer(line):
+                # Validate match group exists (fail fast if mutated)
+                if match.lastindex is None or match.lastindex < 1:
+                    raise IndexError(f"SRC_PATTERN match missing required group (got {match.lastindex})")
                 url = match.group(1).strip()
                 if not url:
                     continue

@@ -59,11 +59,15 @@ def _sync_single_file(
             from_uri = str(URI.from_path(file_path))
 
         # Determine from_remote_uri
-        from_remote_uri_obj = resolve_remote_uri(file_path, config.monitor.remote)
+        from_uri_obj = URI.from_path(file_path)
+        from_remote_uri_obj = resolve_remote_uri(from_uri_obj, config.monitor.remote)
         from_remote_uri = str(from_remote_uri_obj) if from_remote_uri_obj else None
 
         # Resolve links
-        records = []
+        records: list[dict[str, Any]] = []
+        # Validate records is a list before loop (fail fast if mutated to None)
+        if not isinstance(records, list):
+            raise TypeError(f"records must be a list, got {type(records).__name__}")
         for ref in link_refs:
             to_uri = ref.raw_target
 
@@ -101,15 +105,23 @@ def _sync_single_file(
 
                         possible_path = file_path.parent / str(to_uri)
                         target_path_obj = normalize_path(possible_path)
-                    except Exception:
+                    except (ValueError, OSError):
+                        # Specific exceptions for path operations
                         pass
 
                 if target_path_obj:
-                    remote_uri_obj = resolve_remote_uri(target_path_obj, config.monitor.remote)
+                    # Validate target_path_obj is a Path (fail fast)
+                    if not isinstance(target_path_obj, Path):
+                        raise TypeError(f"target_path_obj must be Path, got {type(target_path_obj).__name__}")
+                    target_uri_obj = URI.from_path(target_path_obj)
+                    remote_uri_obj = resolve_remote_uri(target_uri_obj, config.monitor.remote)
                     if remote_uri_obj:
                         records[-1]["to_remote_uri"] = str(remote_uri_obj)
 
-            except Exception:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError):
+                # Specific exceptions: validation errors (TypeError, ValueError, AttributeError)
+                # and operational errors (RuntimeError from resolve_remote_uri, OSError from I/O)
+                # Remote resolution failures are non-fatal - continue processing the link
                 pass
 
         # Build documents

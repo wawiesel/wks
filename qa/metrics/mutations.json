@@ -21,8 +21,8 @@
       "survived": 0
     },
     "link": {
-      "killed": 818,
-      "survived": 359
+      "killed": 1076,
+      "survived": 139
     },
     "log": {
       "killed": 343,
@@ -33,8 +33,8 @@
       "survived": 148
     },
     "monitor": {
-      "killed": 1102,
-      "survived": 567
+      "killed": 1361,
+      "survived": 322
     },
     "service": {
       "killed": 99,
@@ -53,7 +53,7 @@
       "survived": 392
     }
   },
-  "killed": 5101,
-  "score": 69.0,
-  "survived": 2293
+  "killed": 5618,
+  "score": 75.4,
+  "survived": 1828
 }

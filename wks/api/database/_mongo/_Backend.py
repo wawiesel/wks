@@ -24,6 +24,15 @@ class _Backend(_AbstractBackend):
         """
         if not isinstance(database_config.data, _DatabaseConfigData):
             raise ValueError("MongoDB config data is required")
+        # Validate arguments (fail fast to prevent hangs)
+        if not database_name or not isinstance(database_name, str):
+            raise ValueError(
+                f"database_name must be a non-empty string, got {type(database_name).__name__}: {database_name!r}"
+            )
+        if not collection_name or not isinstance(collection_name, str):
+            raise ValueError(
+                f"collection_name must be a non-empty string, got {type(collection_name).__name__}: {collection_name!r}"
+            )
         self.local = database_config.data.local
         self.uri = database_config.data.uri
 

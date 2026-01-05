@@ -1,25 +1,29 @@
-from pathlib import Path
-
 from wks.api.monitor.RemoteConfig import RemoteConfig
 from wks.api.URI import URI
 from wks.utils.normalize_path import normalize_path
 
 
-def resolve_remote_uri(path: Path | str, remote_config: RemoteConfig) -> URI | None:
+def resolve_remote_uri(uri: URI, remote_config: RemoteConfig) -> URI | None:
     """Resolve a local path to a remote URI if a mapping exists.
 
     Args:
-        path: Local path (Path object or string).
+        uri: Local file URI to resolve.
         remote_config: Configuration containing mappings.
 
     Returns:
         Remote URI object or None if no mapping matches.
     """
-    try:
-        resolved_path = normalize_path(path)
-    except Exception:
-        # If path resolution fails, return None
+    # Validate arguments (fail fast to prevent hangs)
+    if not isinstance(uri, URI):
+        raise TypeError(f"uri must be URI, got {type(uri).__name__}")
+    if not isinstance(remote_config, RemoteConfig):
+        raise TypeError(f"remote_config must be RemoteConfig, got {type(remote_config).__name__}")
+
+    # Only file:// URIs can be resolved
+    if not uri.is_file:
         return None
+
+    resolved_path = uri.path
 
     for mapping in remote_config.mappings:
         try:

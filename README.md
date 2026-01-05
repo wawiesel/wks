@@ -1,7 +1,7 @@
 # WKS
 
 ![Coverage](https://img.shields.io/badge/coverage-84.0%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-69.0%25-red)
+![Mutation Score](https://img.shields.io/badge/mutation-75.4%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-100.0%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-543_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -17,7 +17,7 @@
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
 | **Code Coverage**    |   84.0% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   69.0% |       ≥90% | ⚠️ Below Target |
+| **Mutation Kill %**  |   75.4% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |  100.0% |       100% | ✅ Pass          |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -58,7 +58,7 @@
 | **Scripts**      |      21 | 2,322 |       79,779 |   15,333 |       7.7% |
 | **Total**        |      30 | 2,870 |       95,139 |   19,171 |       9.6% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 69.0% means 69.0% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 75.4% means 75.4% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 543 tests across 102 test files.
 
@@ -71,10 +71,10 @@
 | daemon    |        84% |          60% |        212/355 |
 | database  |        90% |          70% |        442/627 |
 | diff      |         0% |            — |              — |
-| link      |        98% |          69% |       818/1177 |
+| link      |        98% |          89% |      1076/1215 |
 | log       |        94% |          63% |        343/547 |
 | mcp       |        97% |          63% |        252/400 |
-| monitor   |        98% |          66% |      1102/1669 |
+| monitor   |        98% |          81% |      1361/1683 |
 | service   |        92% |          86% |         99/115 |
 | transform |        95% |          82% |        735/897 |
 | utils     |       100% |            — |              — |

@@ -18,6 +18,9 @@ class Database(_AbstractBackend):
         self.prefix = database_config.prefix
         # Allow overriding database name (for tests or multi-tenant scenarios)
         self.name = database_name or self.prefix
+        # Validate database_name is not empty string (fail fast)
+        if self.name == "":
+            raise ValueError("database_name cannot be empty string (use None for default)")
         self.type = database_config.type
         self._backend: _AbstractBackend | None = None
 

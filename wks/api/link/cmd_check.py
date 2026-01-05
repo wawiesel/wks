@@ -30,7 +30,8 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
             target_path_obj = URI(to_uri).path
 
         if target_path_obj:
-            remote_uri_obj = resolve_remote_uri(target_path_obj, monitor_cfg.remote)
+            target_uri = URI.from_path(target_path_obj)
+            remote_uri_obj = resolve_remote_uri(target_uri, monitor_cfg.remote)
             remote_uri = str(remote_uri_obj) if remote_uri_obj else None
     except Exception:
         # Failures in remote resolution checks shouldn't fail the link check
@@ -118,12 +119,13 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
                     # Determine from_uri: use vault:/// if within vault, otherwise file://
                     if vault_root and file_path.is_relative_to(vault_root):
                         relative_path = file_path.relative_to(vault_root)
-                        from_uri = f"vault:///{relative_path}"
+                        from_uri_str = f"vault:///{relative_path}"
                     else:
-                        from_uri = str(URI.from_path(file_path))
+                        from_uri_str = str(URI.from_path(file_path))
 
                     # Calculate from_remote_uri once
-                    from_remote_uri_obj = resolve_remote_uri(file_path, monitor_cfg.remote)
+                    from_uri_obj = URI.from_path(file_path)
+                    from_remote_uri_obj = resolve_remote_uri(from_uri_obj, monitor_cfg.remote)
                     from_remote_uri = from_remote_uri_obj  # Pass URI object to _process_link
 
                     for ref in link_refs:
@@ -139,7 +141,7 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
 
                         _process_link(
                             ref,
-                            from_uri,
+                            from_uri_str,
                             to_uri,
                             vault_root,
                             monitor_cfg,
@@ -151,7 +153,8 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
             except Exception:
                 # Vault failed or not configured - fall back to basic processing
                 from_uri = str(URI.from_path(file_path))
-                from_remote_uri_obj = resolve_remote_uri(file_path, monitor_cfg.remote)
+                from_uri_obj = URI.from_path(file_path)
+                from_remote_uri_obj = resolve_remote_uri(from_uri_obj, monitor_cfg.remote)
                 from_remote_uri = from_remote_uri_obj  # Pass URI object to _process_link
                 for ref in link_refs:
                     _process_link(
