@@ -1,8 +1,8 @@
 {
   "domains": {
     "cat": {
-      "killed": 76,
-      "survived": 24
+      "killed": 72,
+      "survived": 28
     },
     "config": {
       "killed": 0,
@@ -53,7 +53,7 @@
       "survived": 0
     }
   },
-  "killed": 76,
-  "score": 76.0,
-  "survived": 24
+  "killed": 72,
+  "score": 72.0,
+  "survived": 28
 }
