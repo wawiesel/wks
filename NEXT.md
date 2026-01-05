@@ -1,8 +1,54 @@
 # Next Steps
 
+## Highest Priority
+
+### Use URI Consistently Everywhere
+
+- [ ] Audit all `wks/` source code for string-based path/URI handling
+- [ ] Replace all `str` path parameters with `URI` type in API functions
+- [ ] Update internal functions to use `URI` instead of `Path` or `str` where appropriate
+- [ ] Ensure all database operations use `URI` type for URI fields
+- [ ] Update utility functions (`convert_to_uri`, `uri_to_path`, etc.) to work with `URI` type
+- [ ] Remove any remaining inline URI string formatting (`f"file://..."`)
+- [ ] Add type hints and validation to enforce `URI` usage throughout the codebase
+
 ## Priority 1
 
-### Refactor to Strong URI Type
+### Implement Diff (bsdiff and Meyers)
+
+- [ ] Implement bsdiff algorithm for binary diff operations
+- [ ] Implement Myers diff algorithm for text diff operations
+- [ ] Create `wks/api/diff/` domain with proper API structure
+- [ ] Add CLI commands for diff operations
+- [ ] Add MCP support for diff operations
+- [ ] Write comprehensive tests for diff algorithms
+- [ ] Document diff capabilities and use cases
+
+### Fully Implement Requirements Traceability for All Domains
+
+- [ ] Create requirement files (`qa/reqs/*.yml`) for all domains
+- [ ] Add Requirements blocks to all test docstrings
+- [ ] Ensure all requirements are linked to tests
+- [ ] Update traceability audit to show 100% coverage for all domains
+- [ ] Document traceability workflow in CONTRIBUTING.md
+- [ ] Automate traceability validation in CI
+
+### Increase Test and Mutation Coverage
+
+- [ ] Achieve 100% test coverage for all domains
+- [ ] Achieve ≥90% mutation score for all domains
+- [ ] Implement Subprocess Tracing for coverage
+    - Configure `.coveragerc` with `concurrency = multiprocessing`
+    - Use `sitecustomize.py` to ensure all child processes are tracked
+    - Merge coverage data files before reporting
+- [ ] Handle System-Level Error Branches
+    - Use FUSE or LD_PRELOAD to simulate IO failures (disk full, hardware errors)
+    - Refactor system-heavy modules for dependency injection (FS/Process abstractions)
+- [ ] Verify Signal Resilience
+    - Send real SIGTERM/SIGINT in tests with proper synchronization
+- [ ] Confirm `.coveragerc` has `fail_under = 100` once roadmap items are completed
+
+### Refactor to Strong URI Type (Legacy - Mostly Complete)
 
 - [x] Establish `URI` value object and update `link show` boundary
 - [x] Refactor all API functions to use `URI` type instead of `str`
@@ -31,19 +77,6 @@
 - [ ] wksm_diff (needs review)
 - [ ] Monitor status must call database API, not MongoClient directly
 
-### Test Coverage Roadmap to 100%
-
-- [x] Achieve 80%+ coverage for `daemon`, `transform`, `monitor`, and `vault`
-- [ ] Implement Subprocess Tracing
-    - Configure `.coveragerc` with `concurrency = multiprocessing`
-    - Use `sitecustomize.py` to ensure all child processes are tracked
-    - Merge coverage data files before reporting
-- [ ] Handle System-Level Error Branches
-    - Use FUSE or LD_PRELOAD to simulate IO failures (disk full, hardware errors)
-    - Refactor system-heavy modules for dependency injection (FS/Process abstractions)
-- [ ] Verify Signal Resilience
-    - Send real SIGTERM/SIGINT in tests with proper synchronization
-- [ ] Confirm `.coveragerc` has `fail_under = 100` once roadmap items are completed
 
 ---
 
@@ -64,11 +97,6 @@
 ---
 
 ## Priority 3
-
-### Implement Diff and Transform CLI/MCP
-
-- [ ] Create `wks/api/diff/app.py` and expose via CLI
-- [ ] Create `wks/api/transform/app.py` and expose via CLI
 
 ### Link Module Improvements
 
