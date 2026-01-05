@@ -25,11 +25,11 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     174 | 11,685 |      412,276 |   65,151 |      33.4% |
+| **api**   |     174 | 11,687 |      412,381 |   65,151 |      33.4% |
 | **cli**   |      20 |  1,313 |       46,319 |    8,790 |       4.5% |
 | **mcp**   |       9 |    516 |       18,358 |    3,454 |       1.8% |
 | **utils** |      21 |    669 |       20,623 |    2,663 |       1.4% |
-| **Total** |     224 | 14,183 |      497,576 |   80,058 |      41.0% |
+| **Total** |     224 | 14,185 |      497,681 |   80,058 |      41.0% |
 
 ### Testing Statistics
 
@@ -55,8 +55,8 @@
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   379 |       11,469 |    2,867 |       1.5% |
 | **Build/Config** |       5 |   168 |        3,898 |      972 |       0.5% |
-| **Scripts**      |      21 | 2,230 |       75,523 |   14,762 |       7.6% |
-| **Total**        |      30 | 2,777 |       90,890 |   18,601 |       9.5% |
+| **Scripts**      |      21 | 2,230 |       75,532 |   14,762 |       7.6% |
+| **Total**        |      30 | 2,777 |       90,899 |   18,601 |       9.5% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 0.0% means 0.0% of introduced mutations were successfully killed by the test suite.
 
