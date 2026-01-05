@@ -9,7 +9,6 @@ from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.monitor.cmd_sync import cmd_sync
 from wks.api.URI import URI
-from wks.utils.path_to_uri import path_to_uri
 
 
 @pytest.mark.monitor
@@ -37,7 +36,7 @@ def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
 
     # Verify in DB
     with Database(config.database, "nodes") as db:
-        doc = db.find_one({"local_uri": path_to_uri(test_file)})
+        doc = db.find_one({"local_uri": str(URI.from_path(test_file))})
         assert doc is not None
         assert doc["checksum"] is not None
 
@@ -97,7 +96,7 @@ def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_
 
     # 4. Verify gone from DB
     with Database(config.database, "nodes") as db:
-        doc = db.find_one({"local_uri": path_to_uri(test_file)})
+        doc = db.find_one({"local_uri": str(URI.from_path(test_file))})
         assert doc is None
 
 

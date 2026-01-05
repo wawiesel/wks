@@ -8,7 +8,7 @@ from tests.unit.conftest import run_cmd
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_stop import cmd_stop
 from wks.api.database.Database import Database
-from wks.utils.path_to_uri import path_to_uri
+from wks.api.URI import URI
 
 
 @pytest.mark.daemon
@@ -29,7 +29,7 @@ def test_daemon_background_watch_restrict(mongo_wks_env):
         # Create a file in watch_dir
         test_file = watch_dir / "test.txt"
         test_file.write_text("Hello Daemon", encoding="utf-8")
-        test_uri = path_to_uri(test_file).strip()
+        test_uri = str(URI.from_path(test_file))
 
         deadline = time.time() + 15.0
         found = False
@@ -95,8 +95,8 @@ def test_daemon_ignore_internal_files(mongo_wks_env):
         # Verify it didn't sync internal files to 'nodes'
         config = mongo_wks_env["config"]
         with Database(config.database, "nodes") as db:
-            daemon_json_uri = path_to_uri(wks_home / "daemon.json")
-            logfile_uri = path_to_uri(wks_home / "logfile")
+            daemon_json_uri = str(URI.from_path(wks_home / "daemon.json"))
+            logfile_uri = str(URI.from_path(wks_home / "logfile"))
 
             assert db.find_one({"local_uri": daemon_json_uri}) is None
             assert db.find_one({"local_uri": logfile_uri}) is None

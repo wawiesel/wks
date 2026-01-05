@@ -30,15 +30,21 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
             target_path_obj = URI(to_uri).path
 
         if target_path_obj:
-            remote_uri = resolve_remote_uri(target_path_obj, monitor_cfg.remote)
+            remote_uri_obj = resolve_remote_uri(target_path_obj, monitor_cfg.remote)
+            remote_uri = str(remote_uri_obj) if remote_uri_obj else None
     except Exception:
         # Failures in remote resolution checks shouldn't fail the link check
         pass
 
+    # Convert from_remote_uri to string if it's a URI object
+    from wks.utils.uri_to_string import uri_to_string
+
+    from_remote_uri_str = uri_to_string(from_remote_uri)
+
     links_out.append(
         {
             "from_local_uri": from_uri,
-            "from_remote_uri": from_remote_uri,
+            "from_remote_uri": from_remote_uri_str,
             "to_local_uri": to_uri,
             "to_remote_uri": remote_uri,
             "line_number": ref.line_number,
@@ -117,7 +123,8 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
                         from_uri = str(URI.from_path(file_path))
 
                     # Calculate from_remote_uri once
-                    from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
+                    from_remote_uri_obj = resolve_remote_uri(file_path, monitor_cfg.remote)
+                    from_remote_uri = from_remote_uri_obj  # Pass URI object to _process_link
 
                     for ref in link_refs:
                         to_uri = ref.raw_target
@@ -144,7 +151,8 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
             except Exception:
                 # Vault failed or not configured - fall back to basic processing
                 from_uri = str(URI.from_path(file_path))
-                from_remote_uri = resolve_remote_uri(file_path, monitor_cfg.remote)
+                from_remote_uri_obj = resolve_remote_uri(file_path, monitor_cfg.remote)
+                from_remote_uri = from_remote_uri_obj  # Pass URI object to _process_link
                 for ref in link_refs:
                     _process_link(
                         ref,

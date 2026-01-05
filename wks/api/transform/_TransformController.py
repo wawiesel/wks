@@ -51,7 +51,7 @@ class _TransformController:
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def _update_graph(self, file_uri: str, output_path: Path, referenced_uris: list[str] | None = None):
+    def _update_graph(self, file_uri: URI, output_path: Path, referenced_uris: list[URI] | None = None):
         """Update Knowledge Graph with new transform edge.
 
         Args:
@@ -59,41 +59,48 @@ class _TransformController:
             output_path: Path to the cached output file
             referenced_uris: List of referenced image URIs
         """
-        output_uri = str(URI.from_path(normalize_path(output_path)))
+        output_uri = URI.from_path(normalize_path(output_path))
+        file_uri_str = str(file_uri)
+        output_uri_str = str(output_uri)
 
         # Get raw database object for accessing other collections
         mongo_db: Any = self.db.get_database()
 
         # 1. Upsert Source Node
-        mongo_db["nodes"].update_one({"uri": file_uri}, {"$set": {"uri": file_uri, "type": "file"}}, upsert=True)
+        mongo_db["nodes"].update_one(
+            {"uri": file_uri_str}, {"$set": {"uri": file_uri_str, "type": "file"}}, upsert=True
+        )
 
         # 2. Upsert Output Node
         mongo_db["nodes"].update_one(
-            {"uri": output_uri}, {"$set": {"uri": output_uri, "type": "file", "generated": True}}, upsert=True
+            {"uri": output_uri_str}, {"$set": {"uri": output_uri_str, "type": "file", "generated": True}}, upsert=True
         )
 
         # 3. Upsert Edge (Source -> Output)
         mongo_db["edges"].update_one(
-            {"source": file_uri, "target": output_uri, "type": "transform"},
-            {"$set": {"source": file_uri, "target": output_uri, "type": "transform", "created_at": now_iso()}},
+            {"source": file_uri_str, "target": output_uri_str, "type": "transform"},
+            {"$set": {"source": file_uri_str, "target": output_uri_str, "type": "transform", "created_at": now_iso()}},
             upsert=True,
         )
 
         # 4. Handle Referenced Images (Output -> Image)
         if referenced_uris:
             for image_uri in referenced_uris:
+                image_uri_str = str(image_uri)
                 # 4a. Upsert Image Node
                 mongo_db["nodes"].update_one(
-                    {"uri": image_uri}, {"$set": {"uri": image_uri, "type": "file", "generated": True}}, upsert=True
+                    {"uri": image_uri_str},
+                    {"$set": {"uri": image_uri_str, "type": "file", "generated": True}},
+                    upsert=True,
                 )
 
                 # 4b. Upsert Edge (Output -> Image)
                 mongo_db["edges"].update_one(
-                    {"source": output_uri, "target": image_uri, "type": "refers_to"},
+                    {"source": output_uri_str, "target": image_uri_str, "type": "refers_to"},
                     {
                         "$set": {
-                            "source": output_uri,
-                            "target": image_uri,
+                            "source": output_uri_str,
+                            "target": image_uri_str,
                             "type": "refers_to",
                             "created_at": now_iso(),
                         }
@@ -201,7 +208,7 @@ class _TransformController:
     def _perform_new_transform(
         self,
         file_path: Path,
-        file_uri: str,
+        file_uri: URI,
         file_checksum: str,
         file_size: int,
         engine_name: str,
@@ -242,13 +249,16 @@ class _TransformController:
         # Perform transform
         # Engine yields progress string, returns referenced_uris (list[str])
         gen = engine.transform(file_path, cache_location, options)
-        referenced_uris: list[str] = []
+        referenced_uris_str: list[str] = []
         try:
             while True:
                 msg = next(gen)
                 yield msg
         except StopIteration as e:
-            referenced_uris = e.value or []
+            referenced_uris_str = e.value or []
+
+        # Convert referenced URIs to URI objects
+        referenced_uris = [URI(uri_str) for uri_str in referenced_uris_str]
 
         # Verify file was created
         if not cache_location.exists():
@@ -266,7 +276,7 @@ class _TransformController:
         # Store in database
         record = _TransformRecord(
             file_uri=file_uri,
-            cache_uri=str(URI.from_path(cache_location)),
+            cache_uri=URI.from_path(cache_location),
             checksum=file_checksum,
             size_bytes=output_size,
             last_accessed=now_iso(),
@@ -331,7 +341,7 @@ class _TransformController:
         merged_options = {**engine_config.data, **(options or {})}
 
         # Compute file info
-        file_uri = str(URI.from_path(file_path))
+        file_uri = URI.from_path(file_path)
         file_checksum = self._compute_file_checksum(file_path)
         file_size = file_path.stat().st_size
         options_hash = engine.compute_options_hash(merged_options)
@@ -357,45 +367,6 @@ class _TransformController:
             )
         )
 
-    def remove_by_uri(self, file_uri: str) -> int:
-        """Remove all transforms for a file URI.
-
-        Args:
-            file_uri: File URI to remove
-
-        Returns:
-            Number of records removed
-        """
-        # Find all transforms for this URI
-        docs: list[dict[str, Any]] = list(self.db.find({"file_uri": file_uri}))
-
-        count = 0
-        for doc in docs:
-            # Remove cache file
-            cache_path = URI(doc["cache_uri"]).path
-            if cache_path.exists():
-                cache_path.unlink()
-                self.cache_manager.remove_file(doc["size_bytes"])
-
-            # Remove from database
-            self.db.delete_one({"_id": doc["_id"]})
-            count += 1
-
-        return count
-
-    def update_uri(self, old_uri: str, new_uri: str) -> int:
-        """Update file URI in all transform records.
-
-        Args:
-            old_uri: Old file URI
-            new_uri: New file URI
-
-        Returns:
-            Number of records updated
-        """
-        result: Any = self.db.update_many({"file_uri": old_uri}, {"$set": {"file_uri": new_uri}})
-        return result
-
     def _copy_cache_file_to_output(self, cache_file: Path, output_path: Path) -> None:
         """Copy cache file to output path.
 
@@ -417,25 +388,6 @@ class _TransformController:
             os.link(cache_file, output_path)
         except (OSError, AttributeError):
             output_path.write_bytes(cache_file.read_bytes())
-
-    def get_record(self, cache_key: str) -> _TransformRecord | None:
-        """Get transform record by cache key.
-
-        Args:
-            cache_key: Cache key checksum
-
-        Returns:
-            TransformRecord if found, None otherwise
-        """
-        # First try direct find by checksum (if key == file checksum)
-        # Note: Cache key != file checksum usually.
-        # But our DB stores file checksum.
-        # Wait, the DB stores `checksum` (file content), `engine`, `options_hash`.
-        # The `cache_key` is a hash of those three.
-        # To find by cache_key, we must iterate matching records or query if we stored cache_key inside DB.
-        # We don't store cache_key in DB (per current schema).
-        # _find_matching_record_in_db does the iteration.
-        return self._find_matching_record_in_db(cache_key)
 
     def _find_matching_record_in_db(self, cache_key: str) -> _TransformRecord | None:
         """Find matching transform record in database by cache key.
@@ -551,10 +503,7 @@ class _TransformController:
         """
         from ...utils import expand_path
 
-        try:
-            file_path = expand_path(target)
-        except Exception:
-            file_path = normalize_path(target)
+        file_path = expand_path(target)
 
         if not file_path.exists():
             raise ValueError(f"File not found: {file_path}")

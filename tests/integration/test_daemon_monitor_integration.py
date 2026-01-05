@@ -13,7 +13,6 @@ from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
 from wks.api.URI import URI
 from wks.utils.normalize_path import normalize_path
-from wks.utils.path_to_uri import path_to_uri
 
 # Mark all tests in this module
 pytestmark = [
@@ -46,7 +45,7 @@ def test_daemon_sync_creates_db_record(mongo_wks_env):
         # Check database
         db_name = "nodes"
         with Database(config.database, db_name) as db:
-            record = db.find_one({"local_uri": path_to_uri(normalize_path(test_file))})
+            record = db.find_one({"local_uri": str(URI.from_path(test_file))})
         assert record is not None, f"File should be in database: {test_file}"
 
     finally:
@@ -80,7 +79,7 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         # Verify it's in DB
         db_name = "nodes"
         with Database(config.database, db_name) as db:
-            record = db.find_one({"local_uri": path_to_uri(normalize_path(test_file))})
+            record = db.find_one({"local_uri": str(URI.from_path(test_file))})
             assert record is not None, "File should be in database before deletion"
 
         # Delete the file
@@ -90,7 +89,7 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
         deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
             with Database(config.database, db_name) as db:
-                record = db.find_one({"local_uri": path_to_uri(normalize_path(test_file))})
+                record = db.find_one({"local_uri": str(URI.from_path(test_file))})
             if record is None:
                 break
             if time.time() > deadline:
@@ -132,10 +131,10 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         # Verify source is in DB
         db_name = "nodes"
         with Database(config.database, db_name) as db:
-            if db.find_one({"local_uri": path_to_uri(normalize_path(src_file))}) is None:
+            if db.find_one({"local_uri": str(URI.from_path(src_file))}) is None:
                 print(f"DEBUG: DB docs: {list(db.find({}, {'local_uri': 1}))}")
-                print(f"DEBUG: Looking for: {path_to_uri(normalize_path(src_file))}")
-            assert db.find_one({"local_uri": path_to_uri(normalize_path(src_file))}) is not None
+                print(f"DEBUG: Looking for: {URI.from_path(src_file)!s}")
+            assert db.find_one({"local_uri": str(URI.from_path(src_file))}) is not None
 
         # Move the file
         src_file.rename(dst_file)
@@ -147,8 +146,8 @@ def test_daemon_sync_handles_move(mongo_wks_env):
         deadline = time.time() + 30.0  # Increased timeout for CI
         while True:
             with Database(config.database, db_name) as db:
-                old_rec = db.find_one({"local_uri": path_to_uri(normalize_path(src_file))})
-                new_rec = db.find_one({"local_uri": path_to_uri(normalize_path(dst_file))})
+                old_rec = db.find_one({"local_uri": str(URI.from_path(src_file))})
+                new_rec = db.find_one({"local_uri": str(URI.from_path(dst_file))})
             if old_rec is None and new_rec is not None:
                 break
             if time.time() > deadline:

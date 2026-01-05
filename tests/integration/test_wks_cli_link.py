@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
 from wks.api.database.Database import Database
+from wks.api.URI import URI
 from wks.cli.link import link
-from wks.utils.path_to_uri import path_to_uri
 
 runner = CliRunner()
 
@@ -11,7 +11,7 @@ def test_link_show_cli_resolves_path(tracked_wks_config, tmp_path):
     # Setup DB
     dummy_file = tmp_path / "README.md"
     dummy_file.touch()
-    expected_uri = path_to_uri(dummy_file)
+    expected_uri = str(URI.from_path(dummy_file))
 
     with Database(tracked_wks_config.database, "edges") as db:
         db.insert_one(

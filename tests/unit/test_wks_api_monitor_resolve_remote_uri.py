@@ -4,6 +4,7 @@ from pathlib import Path
 
 from wks.api.monitor.RemoteConfig import RemoteConfig, RemoteMapping
 from wks.api.monitor.resolve_remote_uri import resolve_remote_uri
+from wks.api.URI import URI
 
 
 def test_resolve_remote_uri_no_mappings():
@@ -24,7 +25,7 @@ def test_resolve_remote_uri_success():
     # Path relative to root
     local_path = Path("/tmp/wks_test/subdir/file.txt")
     result = resolve_remote_uri(local_path, config)
-    assert result == "s3://my-bucket/prefix/subdir/file.txt"
+    assert result == URI("s3://my-bucket/prefix/subdir/file.txt")
 
 
 def test_resolve_remote_uri_multiple_mappings():
@@ -38,7 +39,7 @@ def test_resolve_remote_uri_multiple_mappings():
     # Matches /tmp/a first
     path = Path("/tmp/a/b/file.txt")
     result = resolve_remote_uri(path, config)
-    assert result == "v1://a/b/file.txt"
+    assert result == URI("v1://a/b/file.txt")
 
 
 def test_resolve_remote_uri_no_match():

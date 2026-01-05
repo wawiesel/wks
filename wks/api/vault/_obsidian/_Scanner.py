@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.link._parsers._MarkdownParser import MarkdownParser
 from wks.api.log.append_log import append_log
+from wks.api.URI import URI
 
 from .._AbstractBackend import _AbstractBackend
 from .._constants import (
@@ -31,16 +32,16 @@ class _Scanner:
         self.vault = vault
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []
 
-    def _note_to_uri(self, note_path: Path) -> str:
+    def _note_to_uri(self, note_path: Path) -> URI:
         """Convert note path to vault:/// URI."""
+        from wks.api.URI import URI
+
         try:
             rel_path = note_path.relative_to(self.vault.vault_path)
-            return f"vault:///{rel_path}"
+            return URI(f"vault:///{rel_path}")
         except ValueError:
             # Path is outside vault, fall back to file:// URI
-            from wks.api.URI import URI
-
-            return str(URI.from_path(note_path))
+            return URI.from_path(note_path)
 
     def scan(self, files: list[Path] | None = None) -> list[EdgeRecord]:
         """Scan vault for links."""
@@ -187,7 +188,7 @@ class _Scanner:
         metadata = self.vault.resolve_link(target)
         return EdgeRecord(
             note_path=note_rel,
-            from_uri=self._note_to_uri(note_path),
+            from_uri=str(self._note_to_uri(note_path)),
             line_number=line_number,
             column_number=column_number,
             source_heading=heading,
@@ -255,7 +256,7 @@ class _Scanner:
                 metadata = self.vault.resolve_link(symlink_target)
                 return EdgeRecord(
                     note_path=note_rel,
-                    from_uri=self._note_to_uri(note_path),
+                    from_uri=str(self._note_to_uri(note_path)),
                     line_number=line_number,
                     column_number=column_number,
                     source_heading=heading,
@@ -269,7 +270,7 @@ class _Scanner:
 
         return EdgeRecord(
             note_path=note_rel,
-            from_uri=self._note_to_uri(note_path),
+            from_uri=str(self._note_to_uri(note_path)),
             line_number=line_number,
             column_number=column_number,
             source_heading=heading,

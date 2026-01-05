@@ -4,13 +4,7 @@
 
 **Why**: Consistent use of the `URI` type throughout the codebase ensures type safety, prevents URI format errors, and makes the codebase more maintainable. It eliminates the risk of string-based URI handling bugs and provides a single source of truth for URI validation and manipulation.
 
-- [ ] Audit all `wks/` source code for string-based path/URI handling
-- [ ] Replace all `str` path parameters with `URI` type in API functions
-- [ ] Update internal functions to use `URI` instead of `Path` or `str` where appropriate
-- [ ] Ensure all database operations use `URI` type for URI fields
-- [ ] Update utility functions (`convert_to_uri`, `uri_to_path`, etc.) to work with `URI` type
-- [ ] Remove any remaining inline URI string formatting (`f"file://..."`)
-- [ ] Add type hints and validation to enforce `URI` usage throughout the codebase
+**Status**: In progress (PR #54). See PR description for detailed progress and remaining work.
 
 ## Implement Diff (bsdiff and Meyers) [P1]
 

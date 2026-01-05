@@ -59,7 +59,8 @@ def _sync_single_file(
             from_uri = str(URI.from_path(file_path))
 
         # Determine from_remote_uri
-        from_remote_uri = resolve_remote_uri(file_path, config.monitor.remote)
+        from_remote_uri_obj = resolve_remote_uri(file_path, config.monitor.remote)
+        from_remote_uri = str(from_remote_uri_obj) if from_remote_uri_obj else None
 
         # Resolve links
         records = []
@@ -104,9 +105,9 @@ def _sync_single_file(
                         pass
 
                 if target_path_obj:
-                    remote_uri = resolve_remote_uri(target_path_obj, config.monitor.remote)
-                    if remote_uri:
-                        records[-1]["to_remote_uri"] = remote_uri
+                    remote_uri_obj = resolve_remote_uri(target_path_obj, config.monitor.remote)
+                    if remote_uri_obj:
+                        records[-1]["to_remote_uri"] = str(remote_uri_obj)
 
             except Exception:
                 pass

@@ -56,7 +56,7 @@ def test_prune_remote(tracked_wks_config, monkeypatch):
         )
 
     # Ensure exists.txt exists so it's not deleted due to local
-    from wks.utils.path_to_uri import path_to_uri
+    from wks.api.URI import URI
 
     exists_path = Path(tracked_wks_config.vault.base_dir).expanduser() / "exists.txt"
     exists_path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,7 +64,7 @@ def test_prune_remote(tracked_wks_config, monkeypatch):
 
     # Correct the edge in DB to use the actual URI of exists.txt
     with Database(tracked_wks_config.database, "edges") as db:
-        db.update_one({"_id": "e1"}, {"$set": {"to_local_uri": path_to_uri(exists_path)}})
+        db.update_one({"_id": "e1"}, {"$set": {"to_local_uri": str(URI.from_path(exists_path))}})
 
     # Break the local target (make it missing on disk)
     if exists_path.exists():
