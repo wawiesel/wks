@@ -1,7 +1,7 @@
 # WKS
 
 ![Coverage](https://img.shields.io/badge/coverage-0%25-red)
-![Mutation Score](https://img.shields.io/badge/mutation-71.8%25-red)
+![Mutation Score](https://img.shields.io/badge/mutation-0.0%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-100.0%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-491_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -17,7 +17,7 @@
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
 | **Code Coverage**    |      0% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   71.8% |       ≥90% | ⚠️ Below Target |
+| **Mutation Kill %**  |    0.0% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |  100.0% |       100% | ✅ Pass          |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -25,68 +25,40 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-<<<<<<< HEAD
-| **api**   |     174 | 11,661 |      411,290 |   64,962 |      33.3% |
+| **api**   |     174 | 11,685 |      412,276 |   65,151 |      33.4% |
 | **cli**   |      20 |  1,313 |       46,319 |    8,790 |       4.5% |
-| **mcp**   |       9 |    518 |       18,440 |    3,457 |       1.8% |
+| **mcp**   |       9 |    516 |       18,358 |    3,454 |       1.8% |
 | **utils** |      21 |    669 |       20,623 |    2,663 |       1.4% |
-| **Total** |     224 | 14,161 |      496,672 |   79,872 |      41.0% |
-=======
-| **api**   |     174 | 11,661 |      411,294 |   64,962 |      33.4% |
-| **cli**   |      20 |  1,313 |       46,319 |    8,790 |       4.5% |
-| **mcp**   |       9 |    518 |       18,440 |    3,457 |       1.8% |
-| **utils** |      21 |    669 |       20,623 |    2,663 |       1.4% |
-| **Total** |     224 | 14,161 |      496,676 |   79,872 |      41.1% |
->>>>>>> 26c01ab (Update)
+| **Total** |     224 | 14,183 |      497,576 |   80,058 |      41.0% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-<<<<<<< HEAD
 | **Unit Tests**        |      86 |  9,008 |      308,621 |   54,746 |      28.1% |
-| **Integration Tests** |      13 |  1,544 |       52,098 |    9,481 |       4.9% |
-| **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       1.1% |
-| **Total**             |     106 | 10,904 |      372,563 |   66,276 |      34.0% |
-=======
-| **Unit Tests**        |      86 |  9,008 |      308,621 |   54,746 |      28.2% |
-| **Integration Tests** |      13 |  1,544 |       52,098 |    9,481 |       4.9% |
-| **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       1.1% |
-| **Total**             |     106 | 10,904 |      372,563 |   66,276 |      34.1% |
->>>>>>> 26c01ab (Update)
+| **Integration Tests** |      13 |  1,545 |       52,112 |    9,486 |       4.9% |
+| **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       1.0% |
+| **Total**             |     106 | 10,905 |      372,577 |   66,281 |      34.0% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.9% |
-<<<<<<< HEAD
-| **Developer Documentation** |      46 | 2,827 |      113,382 |   28,337 |      14.5% |
+| **Developer Documentation** |      46 | 2,836 |      113,810 |   28,444 |      14.6% |
 | **Specifications**          |       0 |     0 |            0 |        0 |       0.0% |
-| **Total**                   |      53 | 3,055 |      120,447 |   30,103 |      15.4% |
-=======
-| **Developer Documentation** |      46 | 2,768 |      111,199 |   27,791 |      14.3% |
-| **Specifications**          |       0 |     0 |            0 |        0 |       0.0% |
-| **Total**                   |      53 | 2,996 |      118,264 |   29,557 |      15.2% |
->>>>>>> 26c01ab (Update)
+| **Total**                   |      53 | 3,064 |      120,875 |   30,210 |      15.5% |
 
 ### Infrastructure Summary
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-<<<<<<< HEAD
 | **CI/CD**        |       4 |   379 |       11,469 |    2,867 |       1.5% |
-| **Build/Config** |       5 |   167 |        3,889 |      970 |       0.5% |
+| **Build/Config** |       5 |   168 |        3,898 |      972 |       0.5% |
 | **Scripts**      |      21 | 2,230 |       75,523 |   14,762 |       7.6% |
-| **Total**        |      30 | 2,776 |       90,881 |   18,599 |       9.5% |
-=======
-| **CI/CD**        |       4 |   379 |       11,489 |    2,872 |       1.5% |
-| **Build/Config** |       5 |   167 |        3,890 |      971 |       0.5% |
-| **Scripts**      |      21 | 2,230 |       75,571 |   14,774 |       7.6% |
-| **Total**        |      30 | 2,776 |       90,950 |   18,617 |       9.6% |
->>>>>>> 26c01ab (Update)
+| **Total**        |      30 | 2,777 |       90,890 |   18,601 |       9.5% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 71.8% means 71.8% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 0.0% means 0.0% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 491 tests across 100 test files.
 
@@ -106,7 +78,7 @@
 | service   |        69% |          N/A |            0/0 |
 | transform |        88% |          N/A |            0/0 |
 | utils     |       100% |          N/A |            0/0 |
-| vault     |       100% |          72% |       887/1235 |
+| vault     |       100% |          N/A |            0/0 |
 
 
 ## Overview
