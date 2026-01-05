@@ -98,7 +98,7 @@ def main() -> None:
     for json_file in sorted(metrics_dir.glob("*.json")):
         print(f"  - {json_file.relative_to(REPO_ROOT)}")
     print("\n  - README.md (updated)")
-    print("  - docs/traceability/traceability_audit.html (updated)")
+    print("  - qa/traceability_audit.html (updated)")
 
 
 if __name__ == "__main__":
