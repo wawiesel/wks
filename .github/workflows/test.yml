@@ -129,7 +129,6 @@ jobs:
 
           # Generate qa/metrics/*.json inside Docker (has mutmut and all tools)
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_token_stats.py || true
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/aggregate_mutation_stats.py || true
 
           ./scripts/disk_avail.sh "After tests"
 

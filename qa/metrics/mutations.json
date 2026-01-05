@@ -1,6 +1,59 @@
 {
-  "domains": {},
-  "killed": 0,
-  "score": 0.0,
-  "survived": 0
+  "domains": {
+    "cat": {
+      "killed": 76,
+      "survived": 24
+    },
+    "config": {
+      "killed": 0,
+      "survived": 0
+    },
+    "daemon": {
+      "killed": 0,
+      "survived": 0
+    },
+    "database": {
+      "killed": 0,
+      "survived": 0
+    },
+    "diff": {
+      "killed": 0,
+      "survived": 0
+    },
+    "link": {
+      "killed": 0,
+      "survived": 0
+    },
+    "log": {
+      "killed": 0,
+      "survived": 0
+    },
+    "mcp": {
+      "killed": 0,
+      "survived": 0
+    },
+    "monitor": {
+      "killed": 0,
+      "survived": 0
+    },
+    "service": {
+      "killed": 0,
+      "survived": 0
+    },
+    "transform": {
+      "killed": 0,
+      "survived": 0
+    },
+    "utils": {
+      "killed": 0,
+      "survived": 0
+    },
+    "vault": {
+      "killed": 0,
+      "survived": 0
+    }
+  },
+  "killed": 76,
+  "score": 76.0,
+  "survived": 24
 }

@@ -170,7 +170,7 @@ To generate a visual representation of codebase statistics:
 pip install matplotlib  # Required for visualization
 ./scripts/generate_codebase_visualization.py
    - `scripts/generate_token_stats.py` -> `qa/metrics/tokens.json`
-   - `scripts/aggregate_mutation_stats.py` -> `qa/metrics/mutations.json`
+   - `scripts/test_mutation_api.py` -> `qa/metrics/mutations.json` (updates incrementally per domain)
 ```
 
 This creates `docs/codebase_stats.png` with a multi-panel visualization showing:

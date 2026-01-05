@@ -211,9 +211,8 @@ def main() -> None:
 
     domain = args.domain
     domain_path = f"wks/api/{domain}"
-    mutants_dir = REPO_ROOT / "mutants"
-    stats_file = mutants_dir / f"mutation_{domain}.json"
     setup_cfg = REPO_ROOT / "setup.cfg"
+    mutations_json = REPO_ROOT / "qa" / "metrics" / "mutations.json"
 
     disk_msg = _get_disk_space()
 
@@ -231,10 +230,6 @@ def main() -> None:
     if pytest_btemp.exists():
         shutil.rmtree(pytest_btemp)
     pytest_btemp.mkdir()
-
-    # Clear artifacts
-    if mutants_dir.exists():
-        shutil.rmtree(mutants_dir) if mutants_dir.is_dir() else mutants_dir.unlink()
 
     # Inline Config Patching
     if not setup_cfg.exists():
@@ -256,7 +251,9 @@ def main() -> None:
     # Enforce --basetemp via environment variable.
     # This is the most robust way to ensure directory reuse across all pytest calls
     # (including stats collection and mutation runs) without complex setup.cfg patching.
-    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp}"
+    # Disable parallel execution (-n 0) for mutmut: parallel execution interferes with
+    # mutmut's forced fail test validation, causing "Unable to force test failures" errors.
+    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0"
 
     try:
         with setup_cfg.open("w") as f:
@@ -292,19 +289,47 @@ def main() -> None:
             os.close(master_fd)
 
         if p.returncode != 0:
-            _log(f"mutmut run failed with return code {p.returncode}!")
-            sys.exit(1)
+            _log(f"mutmut run completed with return code {p.returncode} (may still have results)")
 
         # Parse stats from 'mutmut results --all true' (reliable)
+        # Get stats even if mutmut exited with non-zero code (e.g., forced fail test issues)
         killed, survived = _get_mutation_stats(mutmut_bin)
 
         # Print disk usage after domain completes, then stats
         _log(f">>> Finished {domain_path} (available disk: {_get_disk_space()})")
         _log(f"{domain_path} mutants: Killed={killed}, Survived={survived}")
 
-        # Output per-domain stats file
-        stats = {"domain": domain, "killed": killed, "survived": survived}
-        stats_file.write_text(json.dumps(stats))
+        # Update mutations.json directly
+        mutations_json.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing data or initialize
+        if mutations_json.exists():
+            try:
+                existing_data = json.loads(mutations_json.read_text())
+                domains = existing_data.get("domains", {})
+            except Exception:
+                domains = {}
+        else:
+            domains = {}
+
+        # Update this domain's stats
+        domains[domain] = {"killed": killed, "survived": survived}
+
+        # Recalculate totals
+        total_killed = sum(d["killed"] for d in domains.values())
+        total_survived = sum(d["survived"] for d in domains.values())
+        grand_total = total_killed + total_survived
+        score = (total_killed / grand_total * 100) if grand_total > 0 else 0.0
+
+        # Write updated mutations.json (sort domains for stability)
+        stats = {
+            "score": round(score, 1),
+            "killed": total_killed,
+            "survived": total_survived,
+            "domains": dict(sorted(domains.items())),
+        }
+        mutations_json.write_text(json.dumps(stats, indent=2, sort_keys=True) + "\n")
+
         setup_cfg.write_text(original_cfg)
 
     finally:

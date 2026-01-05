@@ -54,7 +54,7 @@ def _load_stats_json() -> dict:
         }
 
     # Interpret status from metrics
-    cov_pct = coverage.get("pct", 0)
+    cov_pct = coverage.get("coverage_pct", 0)
     cov_status = "✅ Pass" if cov_pct >= 100.0 else "⚠️ Below Target"
 
     mut_score = mutations.get("score", 0)
