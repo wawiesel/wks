@@ -10,7 +10,7 @@
 
 ## Status
 - Alpha: monitor, vault, transform, diff layers are under active development; CLI and MCP may change without notice.
-- Upcoming priorities and ideas: [docs/campaigns/NEXT.md](docs/campaigns/NEXT.md).
+- Upcoming priorities and ideas: [NEXT.md](NEXT.md).
 
 ## Code Quality Metrics
 
@@ -264,6 +264,6 @@ See [qa/specs/wks.md](qa/specs/wks.md) for the complete system specification.
 -   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Development & Testing Guide
 -   **[docker/README.md](docker/README.md)**: CI Docker Image Guide
 -   **[qa/specs/wks.md](qa/specs/wks.md)**: The complete system specification and architectural overview.
--   **[docs/campaigns/NEXT.md](docs/campaigns/NEXT.md)**: Current development priorities and high-level roadmap.
+-   **[NEXT.md](NEXT.md)**: Current development priorities and high-level roadmap.
 -   **[AGENTS.md](AGENTS.md)**: Specific directives and guidelines for AI agents working on this project.
 -   **[LICENSE.txt](LICENSE.txt)**: Project license details.
