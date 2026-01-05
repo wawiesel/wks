@@ -1,7 +1,7 @@
 """Tests for uri_to_string helper."""
 
+from wks.api.config.uri_to_string import uri_to_string
 from wks.api.URI import URI
-from wks.utils.uri_to_string import uri_to_string
 
 
 def test_uri_to_string_with_uri_object():

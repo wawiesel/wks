@@ -8,7 +8,7 @@ def post_reset(config: Any) -> None:
 
     Per Cache-Database Sync Invariant: reset transform must delete cache files.
     """
-    from wks.utils.normalize_path import normalize_path
+    from wks.api.config.normalize_path import normalize_path
 
     cache_dir = normalize_path(config.transform.cache.base_dir)
     if cache_dir.exists():

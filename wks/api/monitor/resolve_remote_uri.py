@@ -1,6 +1,6 @@
+from wks.api.config.normalize_path import normalize_path
 from wks.api.monitor.RemoteConfig import RemoteConfig
 from wks.api.URI import URI
-from wks.utils.normalize_path import normalize_path
 
 
 def resolve_remote_uri(uri: URI, remote_config: RemoteConfig) -> URI | None:

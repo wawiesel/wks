@@ -3,15 +3,15 @@
 import argparse
 import sys
 
-from wks.cli.display import CLIDisplay
-from wks.utils.display.display_context import display_context
+from wks.cli.display.CLIDisplay import CLIDisplay
+from wks.cli.display.display_context import display_context
 
 
 def test_get_display_returns_cli_for_all_modes():
     """get_display always returns CLI display (MCP bypasses display layer)."""
-    assert isinstance(display_context.get_display("cli"), CLIDisplay)
-    assert isinstance(display_context.get_display("mcp"), CLIDisplay)
-    assert isinstance(display_context.get_display(), CLIDisplay)
+    assert isinstance(display_context.get_display("cli"), CLIDisplay)  # type: ignore[arg-type]
+    assert isinstance(display_context.get_display("mcp"), CLIDisplay)  # type: ignore[arg-type]
+    assert isinstance(display_context.get_display(), CLIDisplay)  # type: ignore[arg-type]
 
 
 def test_is_mcp_context_env_var_detection(monkeypatch):

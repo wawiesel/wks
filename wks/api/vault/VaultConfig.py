@@ -20,7 +20,7 @@ class VaultConfig(BaseModel):
     @field_validator("base_dir")
     @classmethod
     def _normalize_base_dir(cls, v: str) -> str:
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         return str(normalize_path(v))
 

@@ -4,7 +4,8 @@ import json
 from collections.abc import Iterator
 from pathlib import Path
 
-from ...utils.expand_path import expand_path
+from wks.api.config.expand_path import expand_path
+
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import McpUninstallOutput

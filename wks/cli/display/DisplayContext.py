@@ -25,7 +25,7 @@ class DisplayContext:
 
     @staticmethod
     def _build_factories() -> dict[DisplayMode, Callable[[], Display]]:
-        from wks.cli.display import CLIDisplay
+        from .CLIDisplay import CLIDisplay
 
         return {"cli": CLIDisplay, "mcp": CLIDisplay}
 

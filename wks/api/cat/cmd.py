@@ -37,7 +37,7 @@ def cmd(
 
             # If not a checksum, it must be a path that needs transforming
             if not _is_checksum(target):
-                from ...utils.normalize_path import normalize_path
+                from wks.api.config.normalize_path import normalize_path
 
                 file_path = normalize_path(target)
                 if not file_path.exists():

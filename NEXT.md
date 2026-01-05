@@ -1,7 +1,7 @@
 # NEXT priorities for WKS: A Roadmap of Sorts
 
 
-## Consolidate Utils into Config Domain [P1]
+## Consolidate Utils into Config Domain [P0]
 
 **Why**: Move all `wks/utils` and `wks/api/utils` code to `wks/api/config` to achieve strict `wks/api/<domain>` behavior and better structure. This ensures all API code follows the domain-based organization pattern and eliminates the top-level utils directory.
 

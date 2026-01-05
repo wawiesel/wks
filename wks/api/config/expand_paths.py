@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from pathlib import Path
 
-from wks.utils.normalize_path import normalize_path
+from .normalize_path import normalize_path
 
 
 def expand_paths(

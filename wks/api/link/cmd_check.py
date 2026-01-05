@@ -38,7 +38,7 @@ def _process_link(ref, from_uri, to_uri, vault_root, monitor_cfg, parser_name, f
         pass
 
     # Convert from_remote_uri to string if it's a URI object
-    from wks.utils.uri_to_string import uri_to_string
+    from wks.api.config.uri_to_string import uri_to_string
 
     from_remote_uri_str = uri_to_string(from_remote_uri)
 

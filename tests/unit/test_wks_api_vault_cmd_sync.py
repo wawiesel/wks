@@ -461,9 +461,9 @@ def test_cmd_sync_path_outside_vault_coverage(monkeypatch, tmp_path, minimal_con
     def mock_resolve(path, vault_path):
         return (f"vault:///{rel_path}", target_file)
 
-    import wks.utils.resolve_vault_path
+    import wks.api.vault.resolve_vault_path
 
-    monkeypatch.setattr(wks.utils.resolve_vault_path, "resolve_vault_path", mock_resolve)
+    monkeypatch.setattr(wks.api.vault.resolve_vault_path, "resolve_vault_path", mock_resolve)
 
     # Now run sync with a path - it will use our mock_resolve
     # This exercises line 129: scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"

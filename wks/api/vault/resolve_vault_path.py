@@ -31,7 +31,7 @@ def resolve_vault_path(
     Raises:
         VaultPathError: If path is outside vault or doesn't exist
     """
-    from wks.utils.normalize_path import normalize_path
+    from wks.api.config.normalize_path import normalize_path
 
     vault_path = normalize_path(vault_path)
     cwd = normalize_path(cwd or Path.cwd())

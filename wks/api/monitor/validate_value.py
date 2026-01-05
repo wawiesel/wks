@@ -4,7 +4,7 @@ import fnmatch
 from pathlib import Path
 from typing import Any
 
-from ...utils import canonicalize_path
+from wks.api.config.canonicalize_path import canonicalize_path
 
 
 def validate_value(list_name: str, value: str, monitor_cfg: Any) -> tuple[str | None, str | None]:

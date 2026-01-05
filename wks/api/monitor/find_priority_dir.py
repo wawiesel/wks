@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from wks.utils.normalize_path import normalize_path
+from wks.api.config.normalize_path import normalize_path
 
 
 def find_priority_dir(path: Path, priority_dirs: dict[str, float]) -> tuple[Path | None, float]:

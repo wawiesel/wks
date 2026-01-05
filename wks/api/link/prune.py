@@ -4,10 +4,10 @@ from typing import Any
 
 import requests
 
+from wks.api.config.has_internet import has_internet
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.URI import URI
-from wks.utils.has_internet import has_internet
 
 
 def prune(config: WKSConfig, remote: bool = False, **_kwargs: Any) -> dict[str, Any]:

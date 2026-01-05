@@ -43,7 +43,9 @@ def cmd_priority_remove(path: str) -> StageResult:
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from ...utils import canonicalize_path, find_matching_path_key
+        from wks.api.config.canonicalize_path import canonicalize_path
+        from wks.api.config.find_matching_path_key import find_matching_path_key
+
         from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")

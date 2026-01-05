@@ -6,7 +6,8 @@ Matches CLI: wksc monitor filter add <list-name> <value>, MCP: wksm_monitor_filt
 
 from collections.abc import Iterator
 
-from ...utils import canonicalize_path
+from wks.api.config.canonicalize_path import canonicalize_path
+
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
 from . import MonitorFilterAddOutput

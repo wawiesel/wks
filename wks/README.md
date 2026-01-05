@@ -4,12 +4,11 @@ Developer entry point for the core layers used by MCP and CLI. Business logic li
 
 ## Directory Structure
 
-The `wks` package contains exactly 4 top-level directories:
+The `wks` package contains exactly 3 top-level directories:
 
-- **`api/`** - Domain-specific API modules (config, db, monitor, etc.) following the 4-stage pattern
-- **`cli/`** - CLI routing layer that delegates to domain apps
+- **`api/`** - Domain-specific API modules (config, db, monitor, etc.) following the 4-stage pattern. Shared utilities used by multiple domains are in `api/config/`.
+- **`cli/`** - CLI routing layer that delegates to domain apps. Display utilities are in `cli/display/`.
 - **`mcp/`** - MCP (Model Context Protocol) server implementation
-- **`utils/`** - Basic utility functions following single file == function/class rule, used by multiple API domains
 
 ## Architecture: API-First Design
 

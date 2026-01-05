@@ -2,7 +2,21 @@
 
 Follow `.cursor/rules/*`.
 
-## Development Setup
+## Development Workflow
+
+### Working on Tasks from NEXT.md
+
+When starting work on a task from `NEXT.md`:
+
+1. **Mark task as in-progress**: Change the priority from `P1` to `P0` in `NEXT.md` to indicate the task is actively being worked on.
+2. **Create branch**: Create a branch named after the task (e.g., `refactor/utils`, `feat/diff-algorithms`).
+3. **Create PR**: Open a pull request with a descriptive title and detailed description of the work.
+4. **Update NEXT.md**: Add a status line in the task section pointing to the PR: `**Status**: In progress (PR #XX). See PR description for detailed progress and remaining work.`
+5. **When complete**: Change priority back to `P1` or remove the task if fully completed, and merge the PR.
+
+This convention helps track which tasks are actively being worked on and prevents duplicate work.
+
+### Development Setup
 
 For details on the CI Docker environment and running tests in containers, see **[docker/README.md](docker/README.md)**.
 
@@ -209,6 +223,16 @@ The visualization automatically reads statistics from the README.md tables. The 
   - **CCN (Cyclomatic Complexity Number)**: Must be ≤ 10 per function.
   - **NLOC (Non-Comment Lines of Code)**: Must be ≤ 100 per function.
 - **File Size**: If a file exceeds 900 lines, break it up (includes tests).
+
+### Import Conventions
+- **Public Imports**: Use full absolute paths for all public (non-underscore) symbols.
+  - ✅ Correct: `from wks.api.config.normalize_path import normalize_path`
+  - ❌ Wrong: `from .normalize_path import normalize_path` (if `normalize_path` is public)
+- **Private Imports**: Use relative paths for all private (underscore-prefixed) symbols.
+  - ✅ Correct: `from ._CacheManager import _CacheManager`
+  - ✅ Correct: `from ..config import _PrivateHelper`
+  - ❌ Wrong: `from wks.api.transform._CacheManager import _CacheManager` (if importing from same package)
+- **Scope**: This applies to imports across the codebase. Public symbols must be importable via full paths; private symbols should only be imported relatively within their package hierarchy.
 
 ### Type Safety & Data Structures
 - **Strong Typing**: Favor strong typing over dynamic typing.

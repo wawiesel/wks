@@ -4,6 +4,8 @@ Expands user home directory (~) and returns an absolute path WITHOUT
 resolving symlinks. This ensures consistency with WKS monitor rules.
 """
 
+from .normalize_path import normalize_path
+
 
 def canonicalize_path(path_str: str) -> str:
     """Normalize a path string for comparison.
@@ -24,7 +26,5 @@ def canonicalize_path(path_str: str) -> str:
         >>> canonicalize_path("/tmp/symlink")
         "/tmp/symlink"
     """
-    from wks.utils.normalize_path import normalize_path
-
     path_obj = normalize_path(path_str)
     return str(path_obj)

@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from typing import Any
 
-from wks.utils.expand_paths import expand_paths
+from wks.api.config.expand_paths import expand_paths
 
 from .._ensure_arg_uri import _ensure_arg_uri
 from ..config.WKSConfig import WKSConfig

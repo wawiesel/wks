@@ -212,14 +212,14 @@ def test_sync_single_file_normalize_error(tracked_wks_config, tmp_path, monkeypa
 
     # We can't easily capture original if we haven't imported it, but we can assume it works if we don't patch
     # Actually, we need to import it to wrap it
-    from wks.utils.normalize_path import normalize_path as real_norm
+    from wks.api.config.normalize_path import normalize_path as real_norm
 
     def mock_norm(p):
         if "target.md" in str(p):
             raise RuntimeError("norm fail")
         return real_norm(p)
 
-    monkeypatch.setattr("wks.utils.normalize_path.normalize_path", mock_norm)
+    monkeypatch.setattr("wks.api.config.normalize_path.normalize_path", mock_norm)
 
     result = run_cmd(cmd_sync, uri=test_uri)
     assert result.success is True

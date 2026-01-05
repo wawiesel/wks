@@ -108,6 +108,6 @@ class DiffController:
 
         else:
             # Assume file path
-            from wks.utils.normalize_path import normalize_path
+            from wks.api.config.normalize_path import normalize_path
 
             return normalize_path(target)

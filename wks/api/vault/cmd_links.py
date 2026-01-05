@@ -61,7 +61,7 @@ def cmd_links(uri: URI, direction: Literal["to", "from", "both"] = "both") -> St
         database_name = "edges"
         yield (0.3, "Resolving vault path...")
         try:
-            from wks.utils.normalize_path import normalize_path
+            from wks.api.config.normalize_path import normalize_path
 
             vault_base = normalize_path(config.vault.base_dir)
             canonical_uri = URI.from_any(str(uri), vault_path=vault_base)

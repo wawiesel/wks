@@ -1,7 +1,7 @@
 import hashlib
 
+from wks.api.config.uri_to_string import uri_to_string
 from wks.api.URI import URI
-from wks.utils.uri_to_string import uri_to_string
 
 
 def _identity(
