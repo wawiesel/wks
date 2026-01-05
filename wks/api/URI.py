@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,7 +26,7 @@ class URI:
         return f"URI('{self.value}')"
 
     @classmethod
-    def from_path(cls, path: str | Path) -> "URI":
+    def from_path(cls, path: str | Path) -> URI:
         """Create a URI from a file path."""
         import socket
 
@@ -35,7 +37,7 @@ class URI:
         return cls(f"file://{hostname}{normalized}")
 
     @classmethod
-    def from_any(cls, path_or_uri: str | Path | "URI", vault_path: Path | None = None) -> "URI":
+    def from_any(cls, path_or_uri: str | Path | URI, vault_path: Path | None = None) -> URI:
         """Convert any path or URI to a URI object.
 
         Handles:
