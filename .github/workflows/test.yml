@@ -128,6 +128,9 @@ jobs:
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate qa/metrics/*.json inside Docker (has mutmut and all tools)
+          # CI is the single source of truth for all statistics
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_coverage_stats.py || true
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_ci_stats.py || true
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_token_stats.py || true
 
           ./scripts/disk_avail.sh "After tests"
@@ -192,6 +195,7 @@ jobs:
         with:
           commit_message: "chore: update stats and traceability [skip ci]"
           file_pattern: "qa/metrics/*.json README.md docs/traceability/traceability_audit.html"
+          skip_dirty_check: true
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
