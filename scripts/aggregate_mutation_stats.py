@@ -2,48 +2,9 @@
 """Aggregate mutation statistics (mutations.json)."""
 
 import json
-import shutil
-import subprocess
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _get_mutation_stats_from_mutmut() -> tuple[int, int]:
-    """Fallback: Parse stats from 'mutmut results --all true' if files don't exist."""
-    mutmut_bin = shutil.which("mutmut")
-    if not mutmut_bin:
-        candidate = Path(sys.executable).parent / "mutmut"
-        if candidate.exists():
-            mutmut_bin = str(candidate)
-
-    if not mutmut_bin:
-        return 0, 0
-
-    try:
-        p_results = subprocess.run(
-            [mutmut_bin, "results", "--all", "true"],
-            cwd=str(REPO_ROOT),
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=30,
-        )
-
-        killed = 0
-        survived = 0
-
-        for line in (p_results.stdout or "").splitlines():
-            line = line.strip()
-            if line.endswith(": killed"):
-                killed += 1
-            elif line.endswith(": survived"):
-                survived += 1
-
-        return killed, survived
-    except Exception:
-        return 0, 0
 
 
 def main():
@@ -70,10 +31,6 @@ def main():
     for d in sorted(mutation_by_domain.keys()):
         total_killed += mutation_by_domain[d]["killed"]
         total_survived += mutation_by_domain[d]["survived"]
-
-    # Fallback: if no per-domain files found, try to get stats from mutmut directly
-    if total_killed == 0 and total_survived == 0:
-        total_killed, total_survived = _get_mutation_stats_from_mutmut()
 
     grand_total = total_killed + total_survived
     score = (total_killed / grand_total * 100) if grand_total > 0 else 0.0
