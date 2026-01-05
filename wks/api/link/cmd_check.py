@@ -152,14 +152,14 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
 
             except Exception:
                 # Vault failed or not configured - fall back to basic processing
-                from_uri = str(URI.from_path(file_path))
+                from_uri_str = str(URI.from_path(file_path))
                 from_uri_obj = URI.from_path(file_path)
                 from_remote_uri_obj = resolve_remote_uri(from_uri_obj, monitor_cfg.remote)
                 from_remote_uri = from_remote_uri_obj  # Pass URI object to _process_link
                 for ref in link_refs:
                     _process_link(
                         ref,
-                        from_uri,
+                        from_uri_str,
                         ref.raw_target,
                         None,
                         monitor_cfg,
