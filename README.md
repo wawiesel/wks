@@ -29,7 +29,7 @@
 | **cli**   |      20 |  1,313 |       46,319 |    8,790 |       4.5% |
 | **mcp**   |       9 |    516 |       18,358 |    3,454 |       1.8% |
 | **utils** |      21 |    669 |       20,623 |    2,663 |       1.4% |
-| **Total** |     224 | 14,185 |      497,681 |   80,058 |      41.0% |
+| **Total** |     224 | 14,185 |      497,681 |   80,058 |      41.1% |
 
 ### Testing Statistics
 
@@ -37,7 +37,7 @@
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
 | **Unit Tests**        |      86 |  9,008 |      308,621 |   54,746 |      28.1% |
 | **Integration Tests** |      13 |  1,545 |       52,112 |    9,486 |       4.9% |
-| **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       1.0% |
+| **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       1.1% |
 | **Total**             |     106 | 10,905 |      372,577 |   66,281 |      34.0% |
 
 ### Documentation Size Summary
@@ -45,18 +45,18 @@
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.9% |
-| **Developer Documentation** |      46 | 2,836 |      113,810 |   28,444 |      14.6% |
+| **Developer Documentation** |      46 | 2,836 |      113,838 |   28,451 |      14.6% |
 | **Specifications**          |       0 |     0 |            0 |        0 |       0.0% |
-| **Total**                   |      53 | 3,064 |      120,875 |   30,210 |      15.5% |
+| **Total**                   |      53 | 3,064 |      120,903 |   30,217 |      15.5% |
 
 ### Infrastructure Summary
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   379 |       11,469 |    2,867 |       1.5% |
+| **CI/CD**        |       4 |   378 |       11,367 |    2,841 |       1.5% |
 | **Build/Config** |       5 |   168 |        3,898 |      972 |       0.5% |
-| **Scripts**      |      21 | 2,230 |       75,532 |   14,762 |       7.6% |
-| **Total**        |      30 | 2,777 |       90,899 |   18,601 |       9.5% |
+| **Scripts**      |      20 | 2,200 |       74,842 |   14,593 |       7.5% |
+| **Total**        |      29 | 2,746 |       90,107 |   18,406 |       9.4% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 0.0% means 0.0% of introduced mutations were successfully killed by the test suite.
 
