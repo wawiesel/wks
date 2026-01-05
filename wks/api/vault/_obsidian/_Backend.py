@@ -24,12 +24,12 @@ class _Backend(_AbstractBackend):
     """Obsidian vault implementation for link maintenance."""
 
     def __init__(self, vault_config: VaultConfig):
-        from wks.api.config.expand_path import expand_path
+        from wks.api.config.normalize_path import normalize_path
 
         if not vault_config.base_dir:
             raise ValueError("vault.base_dir is required")
 
-        self._vault_path = expand_path(vault_config.base_dir)
+        self._vault_path = normalize_path(vault_config.base_dir)
         self.machine = (platform.node().split(".")[0]).strip()
         self._links_dir = self._vault_path / "_links"
 

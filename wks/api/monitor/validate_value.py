@@ -4,14 +4,14 @@ import fnmatch
 from pathlib import Path
 from typing import Any
 
-from wks.api.config.canonicalize_path import canonicalize_path
+from wks.api.config.normalize_path import normalize_path
 
 
 def validate_value(list_name: str, value: str, monitor_cfg: Any) -> tuple[str | None, str | None]:
     """Validate and normalize a value for a filter list."""
     value = value.strip()
     if list_name in ("include_paths", "exclude_paths"):
-        value_resolved = canonicalize_path(value)
+        value_resolved = str(normalize_path(value))
         home_dir = str(Path.home())
         if value_resolved.startswith(home_dir):
             return "~" + value_resolved[len(home_dir) :], None

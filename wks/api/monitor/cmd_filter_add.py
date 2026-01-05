@@ -6,7 +6,7 @@ Matches CLI: wksc monitor filter add <list-name> <value>, MCP: wksm_monitor_filt
 
 from collections.abc import Iterator
 
-from wks.api.config.canonicalize_path import canonicalize_path
+from wks.api.config.normalize_path import normalize_path
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
@@ -80,11 +80,11 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
 
         # For paths, we compare canonicalized versions. For others, direct string comparison.
         # value_to_store is already normalized/canonicalized by validate_value for paths.
-        cmp_value = canonicalize_path(value_to_store) if resolve_path else value_to_store
+        cmp_value = str(normalize_path(value_to_store)) if resolve_path else value_to_store
 
         existing = None
         for item in items:
-            cmp_item = canonicalize_path(item) if resolve_path else item
+            cmp_item = str(normalize_path(item)) if resolve_path else item
             if cmp_item == cmp_value:
                 existing = item
                 break

@@ -2,9 +2,8 @@
 
 import json
 from collections.abc import Iterator
-from pathlib import Path
 
-from wks.api.config.expand_path import expand_path
+from wks.api.config.normalize_path import normalize_path
 
 from ..config.WKSConfig import WKSConfig
 from ..StageResult import StageResult
@@ -66,7 +65,7 @@ def cmd_install(name: str, install_type: str = "mcpServersJson", settings_path: 
             # Perform actual installation based on type
             if install_type == "mcpServersJson":
                 assert settings_path is not None  # Checked at line 27
-                settings_file = Path(expand_path(settings_path))
+                settings_file = normalize_path(settings_path)
                 settings_file.parent.mkdir(parents=True, exist_ok=True)
 
                 # Load or create settings file

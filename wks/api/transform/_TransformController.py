@@ -501,9 +501,9 @@ class _TransformController:
         Raises:
             ValueError: If file not found
         """
-        from wks.api.config.expand_path import expand_path
+        from wks.api.config.normalize_path import normalize_path
 
-        file_path = expand_path(target)
+        file_path = normalize_path(target)
 
         if not file_path.exists():
             raise ValueError(f"File not found: {file_path}")

@@ -48,8 +48,8 @@ def cmd_priority_add(path: str, priority: float) -> StageResult:
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from wks.api.config.canonicalize_path import canonicalize_path
         from wks.api.config.find_matching_path_key import find_matching_path_key
+        from wks.api.config.normalize_path import normalize_path
 
         from ..config.WKSConfig import WKSConfig
 
@@ -58,7 +58,7 @@ def cmd_priority_add(path: str, priority: float) -> StageResult:
 
         # Resolve path
         yield (0.4, "Resolving path...")
-        path_resolved = canonicalize_path(path)
+        path_resolved = str(normalize_path(path))
         existing_key = find_matching_path_key(config.monitor.priority.dirs, path_resolved)
 
         # If not present, create with given priority
