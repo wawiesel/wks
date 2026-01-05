@@ -4,7 +4,7 @@ This function is useful for finding dictionary keys that represent paths,
 even if the key and candidate use different path representations (e.g., ~ vs absolute).
 """
 
-from .canonicalize_path import canonicalize_path
+from .normalize_path import normalize_path
 
 
 def find_matching_path_key(path_map: dict, candidate: str) -> str | None:
@@ -29,8 +29,8 @@ def find_matching_path_key(path_map: dict, candidate: str) -> str | None:
         >>> find_matching_path_key(path_map, "/nonexistent")
         None
     """
-    candidate_norm = canonicalize_path(candidate)
+    candidate_norm = str(normalize_path(candidate))
     for key in path_map:
-        if canonicalize_path(key) == candidate_norm:
+        if str(normalize_path(key)) == candidate_norm:
             return key
     return None
