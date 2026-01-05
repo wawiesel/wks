@@ -1,7 +1,7 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-82.7%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-72.0%25-red)
+![Coverage](https://img.shields.io/badge/coverage-82.6%25-yellow)
+![Mutation Score](https://img.shields.io/badge/mutation-69.6%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-100.0%25-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-491_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -16,8 +16,8 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   82.7% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   72.0% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |   82.6% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   69.6% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |  100.0% |       100% | ✅ Pass          |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -28,8 +28,8 @@
 | **api**   |     174 | 11,687 |      412,381 |   65,151 |      33.5% |
 | **cli**   |      20 |  1,313 |       46,319 |    8,790 |       4.5% |
 | **mcp**   |       9 |    516 |       18,358 |    3,454 |       1.8% |
-| **utils** |      21 |    669 |       20,623 |    2,663 |       1.4% |
-| **Total** |     224 | 14,185 |      497,681 |   80,058 |      41.1% |
+| **utils** |      21 |    689 |       21,205 |    2,752 |       1.4% |
+| **Total** |     224 | 14,205 |      498,263 |   80,147 |      41.2% |
 
 ### Testing Statistics
 
@@ -56,9 +56,9 @@
 | **CI/CD**        |       4 |   380 |       11,456 |    2,864 |       1.5% |
 | **Build/Config** |       5 |   168 |        3,898 |      972 |       0.5% |
 | **Scripts**      |      21 | 2,322 |       79,779 |   15,333 |       7.9% |
-| **Total**        |      30 | 2,870 |       95,133 |   19,169 |       9.9% |
+| **Total**        |      30 | 2,870 |       95,133 |   19,169 |       9.8% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 72.0% means 72.0% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 69.6% means 69.6% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 491 tests across 100 test files.
 
@@ -66,17 +66,17 @@
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          81% |         81/100 |
-| config    |       100% |          68% |        179/264 |
-| daemon    |        84% |          68% |        241/355 |
-| database  |        90% |          74% |        461/627 |
+| cat       |        94% |          73% |         73/100 |
+| config    |       100% |          69% |        183/264 |
+| daemon    |        84% |          64% |        228/355 |
+| database  |        90% |          71% |        446/627 |
 | diff      |         0% |            — |              — |
-| link      |        98% |          70% |       812/1162 |
+| link      |        98% |          69% |       804/1162 |
 | log       |        94% |          64% |        350/547 |
-| mcp       |        97% |          59% |        235/400 |
-| monitor   |        98% |          68% |      1125/1665 |
+| mcp       |        97% |          64% |        255/400 |
+| monitor   |        98% |          66% |      1105/1665 |
 | service   |        92% |          86% |         99/115 |
-| transform |        87% |          95% |        848/894 |
+| transform |        87% |          81% |        655/813 |
 | utils     |       100% |            — |              — |
 | vault     |        99% |          71% |       873/1235 |
 
@@ -197,7 +197,7 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 
 ### Requirements
 
-- Python 3.10+
+- Python 3.12, 3.13, or 3.14
 - MongoDB 4.0+
 - macOS/Linux
 
