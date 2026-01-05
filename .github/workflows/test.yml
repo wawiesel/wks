@@ -127,11 +127,9 @@ jobs:
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
-          # Generate qa/metrics/*.json inside Docker (has mutmut and all tools)
-          # CI is the single source of truth for all statistics
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_coverage_stats.py || true
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_ci_stats.py || true
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_token_stats.py || true
+          # Generate all statistics using the same script as local development
+          # This ensures CI and local are guaranteed to be the same (DRY)
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/generate_all_stats.py --skip-tests --skip-mutations || true
 
           ./scripts/disk_avail.sh "After tests"
 
