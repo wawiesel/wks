@@ -1,6 +1,6 @@
 {
   "sources": {
-    "report": "docs/traceability/traceability_audit.html",
+    "report": "qa/traceability_audit.html",
     "requirements": [
       "qa/reqs/mon"
     ],

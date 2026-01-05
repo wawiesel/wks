@@ -1,59 +1,59 @@
 {
   "domains": {
     "cat": {
-      "killed": 72,
-      "survived": 28
+      "killed": 81,
+      "survived": 19
     },
     "config": {
-      "killed": 0,
-      "survived": 0
+      "killed": 179,
+      "survived": 85
     },
     "daemon": {
-      "killed": 0,
-      "survived": 0
+      "killed": 241,
+      "survived": 114
     },
     "database": {
-      "killed": 0,
-      "survived": 0
+      "killed": 461,
+      "survived": 166
     },
     "diff": {
       "killed": 0,
       "survived": 0
     },
     "link": {
-      "killed": 0,
-      "survived": 0
+      "killed": 812,
+      "survived": 350
     },
     "log": {
-      "killed": 0,
-      "survived": 0
+      "killed": 350,
+      "survived": 197
     },
     "mcp": {
-      "killed": 0,
-      "survived": 0
+      "killed": 235,
+      "survived": 165
     },
     "monitor": {
-      "killed": 0,
-      "survived": 0
+      "killed": 1125,
+      "survived": 540
     },
     "service": {
-      "killed": 0,
-      "survived": 0
+      "killed": 99,
+      "survived": 16
     },
     "transform": {
-      "killed": 0,
-      "survived": 0
+      "killed": 647,
+      "survived": 165
     },
     "utils": {
       "killed": 0,
       "survived": 0
     },
     "vault": {
-      "killed": 0,
-      "survived": 0
+      "killed": 873,
+      "survived": 362
     }
   },
-  "killed": 72,
-  "score": 72.0,
-  "survived": 28
+  "killed": 5103,
+  "score": 70.1,
+  "survived": 2179
 }
