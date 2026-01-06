@@ -4,7 +4,7 @@ import sys
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from wks.api.ValidateOutput import ValidateOutput
+from wks.api.config.validate_output import validate_output
 
 F = TypeVar("F", bound=Callable)
 
@@ -49,7 +49,7 @@ def _run_single_execution(
 
     # Validate output structure against schema (enforces consistent structure)
     try:
-        result.output = ValidateOutput.validate(func, result.output)
+        result.output = validate_output(func, result.output)
     except ValueError as e:
         # Validation failure is a programming error - fail loudly
         raise ValueError(f"Output structure validation failed: {e}") from e
