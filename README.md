@@ -14,8 +14,8 @@
 
 ## Code Quality Metrics
 
-| Metric               |   Value |     Target | Status          |
-|----------------------|--------:|-----------:|----------------:|
+| Metric               |   Value |     Target | Status         |
+|----------------------|--------:|-----------:|---------------:|
 | **Code Coverage**    |   84.0% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |   72.4% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |  100.0% |       100% | ✅ Pass          |

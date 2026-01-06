@@ -5,18 +5,13 @@ MCP: wksm_link_show
 """
 
 from collections.abc import Iterator
-from enum import Enum
 from typing import Any
+
+from wks.api.link.Direction import Direction
 
 from ..config.StageResult import StageResult
 from ..config.URI import URI
 from ..database.Database import Database
-
-
-class Direction(str, Enum):
-    TO = "to"
-    FROM = "from"
-    BOTH = "both"
 
 
 def cmd_show(uri: URI, direction: Direction = Direction.FROM) -> StageResult:
