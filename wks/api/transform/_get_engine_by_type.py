@@ -1,7 +1,7 @@
 from ._docling._DoclingEngine import _DoclingEngine
-from ._treesitter._TreeSitterEngine import _TreeSitterEngine
 from ._testengine._TestEngine import _TestEngine
 from ._TransformEngine import _TransformEngine
+from ._treesitter._TreeSitterEngine import _TreeSitterEngine
 
 
 def _get_engine_by_type(engine_type: str) -> _TransformEngine:

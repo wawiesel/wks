@@ -65,16 +65,13 @@ class _TreeSitterEngine(_TransformEngine):
 
         yield "Serializing AST..."
 
-        if hasattr(root, "sexp") and callable(getattr(root, "sexp")):
-            ast_text = root.sexp()
-        else:
-            ast_text = self._node_to_sexp(root)
+        ast_text = root.sexp() if hasattr(root, "sexp") and callable(root.sexp) else self._node_to_sexp(root)
 
         output_path.write_text(ast_text + "\n", encoding="utf-8")
 
         return []
 
-    def get_extension(self, options: dict[str, Any]) -> str:
+    def get_extension(self, _options: dict[str, Any]) -> str:
         """Get output file extension."""
         return "ast"
 

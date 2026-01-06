@@ -3,8 +3,8 @@
 import pytest
 
 from wks.api.config.URI import URI
-from wks.api.transform.cmd_engine import cmd_engine
 from wks.api.transform._EngineConfig import _EngineConfig
+from wks.api.transform.cmd_engine import cmd_engine
 
 
 @pytest.mark.transform
