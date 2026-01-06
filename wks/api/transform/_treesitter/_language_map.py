@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import mimetypes
 from pathlib import Path
 from typing import Any
+
+from wks.api.transform.mime import guess_mime_type, normalize_extension
 
 _EXTENSION_TO_LANGUAGE: dict[str, str] = {
     ".py": "python",
@@ -73,14 +74,14 @@ def resolve_language(input_path: Path, options: dict[str, Any]) -> str:
     if mime_override is not None and not isinstance(mime_override, str):
         raise ValueError("treesitter 'mime_type' must be a string when provided.")
 
-    mime_type = mime_override or mimetypes.guess_type(str(input_path))[0]
+    mime_type = mime_override or guess_mime_type(input_path)
     if mime_type:
         normalized = mime_type.lower()
         lang = _MIME_TO_LANGUAGE.get(normalized)
         if lang:
             return lang
 
-    extension = input_path.suffix.lower()
+    extension = normalize_extension(input_path.suffix)
     if extension in _EXTENSION_TO_LANGUAGE:
         return _EXTENSION_TO_LANGUAGE[extension]
 
