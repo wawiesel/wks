@@ -1,0 +1,22 @@
+documents:
+  - name: diff
+    prefix: WKS-DIFF
+    level: 1.0
+    text: "Requirements for the WKS Diff Layer"
+
+items:
+  - uid: WKS-DIFF-001
+    level: 1.1
+    text: "The system SHALL support pluggable diff engines including 'binary' (bsdiff4), 'text' (myers), and 'code' (AST-based)."
+  - uid: WKS-DIFF-002
+    level: 1.1
+    text: "The diff operation SHALL return a strongly-typed result object containing status, delta, and metadata (e.g., checksums, encoding, file type, engine used)."
+  - uid: WKS-DIFF-003
+    level: 1.1
+    text: "The system SHALL explicitly validate all inputs and configuration, failing loudly with specific errors for missing or invalid data, in adherence to the NoHedging rule."
+  - uid: WKS-DIFF-004
+    level: 1.1
+    text: "The diff layer SHALL support diffing of transformed content via checksums provided by the Transform Layer."
+  - uid: WKS-DIFF-005
+    level: 1.1
+    text: "The diff layer SHALL support diffing of indices (e.g., Code AST, Document Embeddings) to identify semantic or structural changes."
