@@ -68,7 +68,8 @@ def resolve_language(input_path: Path, options: dict[str, Any]) -> str:
     if explicit is not None:
         if not isinstance(explicit, str) or not explicit.strip():
             raise ValueError("treesitter 'language' must be a non-empty string when provided.")
-        return explicit.strip()
+        if explicit.strip().lower() != "auto":
+            return explicit.strip()
 
     mime_override = options.get("mime_type")
     if mime_override is not None and not isinstance(mime_override, str):
@@ -86,7 +87,7 @@ def resolve_language(input_path: Path, options: dict[str, Any]) -> str:
         return _EXTENSION_TO_LANGUAGE[extension]
 
     raise ValueError(
-        "treesitter requires an explicit 'language' or a recognizable MIME/extension "
+        "treesitter requires a recognizable MIME/extension when language is 'auto' "
         f"(mime={mime_type!r}, extension={extension!r})"
     )
 

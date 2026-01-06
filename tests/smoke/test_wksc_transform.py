@@ -5,7 +5,7 @@ def test_cli_transform_raw(wksc, smoke_env):
     test_file = home_dir / "test_raw.txt"
     test_file.write_text("Hello Raw", encoding="utf-8")
 
-    result = wksc(["transform", "--raw", "test", str(test_file)])
+    result = wksc(["transform", "--raw", "textpass", str(test_file)])
 
     # Check output is exactly the checksum (hex string) usually 64 chars
     output = result.stdout.strip()

@@ -12,5 +12,5 @@ def test_cmd_list_engines(tracked_wks_config):
     result = run_cmd(cmd_list)
     assert result.success is True
     assert "Found" in result.result
-    assert "test" in result.output["engines"]
-    assert result.output["engines"]["test"]["type"] == "test"
+    assert "textpass" in result.output["engines"]
+    assert result.output["engines"]["textpass"]["type"] == "textpass"

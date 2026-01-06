@@ -8,14 +8,7 @@ from typing import Any
 
 from .._TransformEngine import _TransformEngine
 from ._language_map import resolve_language
-
-try:
-    from tree_sitter_languages import get_parser
-
-    TREESITTER_AVAILABLE = True
-except ImportError:
-    TREESITTER_AVAILABLE = False
-    get_parser = None
+from ._language_registry import UnsupportedTreeSitterLanguageError, get_parser_for_language
 
 
 class _TreeSitterEngine(_TransformEngine):
@@ -35,8 +28,11 @@ class _TreeSitterEngine(_TransformEngine):
             RuntimeError: If tree-sitter is unavailable or parse fails
             ValueError: If options are invalid
         """
-        if not TREESITTER_AVAILABLE or get_parser is None:
-            raise RuntimeError("tree-sitter support is unavailable. Install tree_sitter_languages to enable.")
+        language_option = options.get("language")
+        if language_option is None:
+            raise ValueError("treesitter requires 'language' (use 'auto' to infer).")
+        if not isinstance(language_option, str) or not language_option.strip():
+            raise ValueError("treesitter 'language' must be a non-empty string.")
 
         format_name = options.get("format", "sexp")
         if not isinstance(format_name, str):
@@ -48,9 +44,13 @@ class _TreeSitterEngine(_TransformEngine):
 
         language = resolve_language(input_path, options)
         try:
-            parser = get_parser(language)
-        except Exception as exc:
+            parser = get_parser_for_language(language)
+        except UnsupportedTreeSitterLanguageError as exc:
             raise ValueError(f"Unsupported tree-sitter language: {language}") from exc
+        except ImportError as exc:
+            raise RuntimeError(str(exc)) from exc
+        except Exception as exc:
+            raise RuntimeError(f"Tree-sitter parser initialization failed: {exc}") from exc
 
         try:
             source_bytes = input_path.read_bytes()
@@ -73,6 +73,9 @@ class _TreeSitterEngine(_TransformEngine):
 
     def get_extension(self, _options: dict[str, Any]) -> str:
         """Get output file extension."""
+        format_name = _options.get("format", "sexp")
+        if format_name == "sexp":
+            return "sexp"
         return "ast"
 
     def _node_to_sexp(self, node: Any) -> str:

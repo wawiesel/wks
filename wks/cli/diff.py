@@ -31,7 +31,9 @@ def diff() -> typer.Typer:
         ctx: typer.Context,
         target_a: Annotated[str | None, typer.Argument(help="First target path or checksum")] = None,
         target_b: Annotated[str | None, typer.Argument(help="Second target path or checksum")] = None,
-        engine: Annotated[str | None, typer.Option("--engine", "-e", help="Engine: bsdiff4, myers, ast")] = None,
+        engine: Annotated[
+            str | None, typer.Option("--engine", "-e", help="Engine: bsdiff3, myers, sexp, or auto")
+        ] = None,
         context_lines: Annotated[int, typer.Option("--context-lines", help="Unified diff context lines")] = 3,
         ignore_whitespace: Annotated[
             bool, typer.Option("--ignore-whitespace", help="Ignore whitespace differences")

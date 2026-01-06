@@ -46,7 +46,7 @@ class _CacheManager:
             json.dump({"total_size_bytes": total_size_bytes}, f)
 
     def _get_lru_entries(self, bytes_needed: int) -> list[tuple[str, int, str]]:
-        """Query database for oldest entries to evict.
+        """Query database for oldest entries to evict, prioritizing *.bin then *.txt.
 
         Args:
             bytes_needed: Number of bytes to free
@@ -58,16 +58,48 @@ class _CacheManager:
         entries: list[tuple[str, int, str]] = []
         total_freed = 0
 
-        # Query oldest entries sorted by last_accessed
-        cursor: Any = collection.find().sort("last_accessed", 1)
+        # First pass: Get all *.bin files sorted by last_accessed
+        cursor_bin: Any = collection.find().sort("last_accessed", 1)
+        bin_entries: list[tuple[str, int, str, str]] = []
+        for doc in cursor_bin:
+            cache_uri = doc["cache_uri"]
+            cache_path = URI(cache_uri).path
+            if cache_path.suffix == ".bin":
+                size_bytes = doc["size_bytes"]
+                bin_entries.append((doc["checksum"], size_bytes, cache_uri, doc.get("last_accessed", "")))
 
-        for doc in cursor:
+        # Second pass: Get all *.txt files sorted by last_accessed
+        cursor_txt: Any = collection.find().sort("last_accessed", 1)
+        txt_entries: list[tuple[str, int, str, str]] = []
+        for doc in cursor_txt:
+            cache_uri = doc["cache_uri"]
+            cache_path = URI(cache_uri).path
+            if cache_path.suffix == ".txt":
+                size_bytes = doc["size_bytes"]
+                txt_entries.append((doc["checksum"], size_bytes, cache_uri, doc.get("last_accessed", "")))
+
+        # Third pass: Get all other files sorted by last_accessed
+        cursor_other: Any = collection.find().sort("last_accessed", 1)
+        other_entries: list[tuple[str, int, str, str]] = []
+        for doc in cursor_other:
+            cache_uri = doc["cache_uri"]
+            cache_path = URI(cache_uri).path
+            if cache_path.suffix not in (".bin", ".txt"):
+                size_bytes = doc["size_bytes"]
+                other_entries.append((doc["checksum"], size_bytes, cache_uri, doc.get("last_accessed", "")))
+
+        # Sort each category by last_accessed (oldest first)
+        bin_entries.sort(key=lambda x: x[3])
+        txt_entries.sort(key=lambda x: x[3])
+        other_entries.sort(key=lambda x: x[3])
+
+        # Evict in priority order: *.bin first, then *.txt, then others
+        all_entries = bin_entries + txt_entries + other_entries
+
+        for checksum, size_bytes, cache_uri, _ in all_entries:
             if total_freed >= bytes_needed:
                 break
-            size_bytes = doc["size_bytes"]
-            # Enforce strict access. If these are missing, the DB record is corrupt.
-            # NoHedging: Do not invent 0 or "" for missing data.
-            entries.append((doc["checksum"], size_bytes, doc["cache_uri"]))
+            entries.append((checksum, size_bytes, cache_uri))
             total_freed += size_bytes
 
         return entries

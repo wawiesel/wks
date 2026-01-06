@@ -23,7 +23,7 @@ def test_cmd_by_path(wks_home, minimal_config_dict):
     # cmd by path
     res = run_cmd(cmd, target=str(test_file))
     assert res.success is True
-    assert res.output["content"] == "Transformed: Hello Cat"
+    assert res.output["content"] == "Hello Cat"
     assert "target" in res.output
 
 
@@ -37,14 +37,14 @@ def test_cmd_by_checksum(wks_home, minimal_config_dict):
     test_file.write_text("Checksum Cat", encoding="utf-8")
 
     # 1. Transform to get checksum
-    res_t = run_cmd(cmd_engine, engine="test", uri=URI.from_path(test_file), overrides={})
+    res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
     assert res_t.success is True
     checksum = res_t.output["checksum"]
 
     # 2. cmd by checksum
     res = run_cmd(cmd, target=checksum)
     assert res.success is True
-    assert res.output["content"] == "Transformed: Checksum Cat"
+    assert res.output["content"] == "Checksum Cat"
 
 
 @pytest.mark.cat
@@ -62,7 +62,7 @@ def test_cmd_to_output_file(wks_home, minimal_config_dict):
     res = run_cmd(cmd, target=str(test_file), output_path=out_file)
     assert res.success is True
     assert out_file.exists()
-    assert out_file.read_text() == "Transformed: Output File Content"
+    assert out_file.read_text() == "Output File Content"
 
 
 @pytest.mark.cat
@@ -92,7 +92,7 @@ def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
     test_file.write_text("Stale Content", encoding="utf-8")
 
     # 1. Transform to populate DB and cache
-    res_t = run_cmd(cmd_engine, engine="test", uri=URI.from_path(test_file), overrides={})
+    res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
     assert res_t.success is True
     checksum = res_t.output["checksum"]
 
@@ -126,9 +126,9 @@ def test_cmd_engine_override(wks_home, minimal_config_dict, monkeypatch):
     # Mock _select_engine to verify it's called with the override
 
     # We can just check the results since our 'test' engine is available
-    res = run_cmd(cmd, target=str(test_file), engine="test")
+    res = run_cmd(cmd, target=str(test_file), engine="textpass")
     assert res.success is True
-    assert res.output["content"] == "Transformed: Engine Override"
+    assert res.output["content"] == "Engine Override"
 
 
 @pytest.mark.cat
@@ -137,7 +137,7 @@ def test_cmd_mime_engine_selection(wks_home, minimal_config_dict):
     from wks.api.config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
-    config.cat.mime_engines = {"text/plain": "test"}
+    config.cat.mime_engines = {"text/plain": "textpass"}
     config.save()
 
     watch_dir = Path(wks_home).parent / "watched"
@@ -148,4 +148,4 @@ def test_cmd_mime_engine_selection(wks_home, minimal_config_dict):
 
     res = run_cmd(cmd, target=str(test_file))
     assert res.success is True
-    assert res.output["content"] == "Transformed: Mime Match"
+    assert res.output["content"] == "Mime Match"
