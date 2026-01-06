@@ -6,6 +6,7 @@ from wks.cli.cat import cat
 from wks.cli.config import config
 from wks.cli.daemon import daemon
 from wks.cli.database import database
+from wks.cli.diff import diff
 from wks.cli.link import link
 from wks.cli.log import log
 from wks.cli.mcp import mcp
@@ -34,6 +35,7 @@ def _create_app() -> typer.Typer:
     app.add_typer(service(), name="service")
     app.add_typer(config(), name="config")
     app.add_typer(database(), name="database")
+    app.add_typer(diff(), name="diff")
     app.add_typer(mcp(), name="mcp")
     app.add_typer(log(), name="log")
     app.add_typer(transform(), name="transform")

@@ -87,6 +87,19 @@ class MCPServer:
                 else f"{domain} {cmd_name} operation"
             )
             tools[f"wksm_{domain}_{cmd_name}"] = {"description": description, "inputSchema": schema}
+
+        tools["wksm_diff"] = {
+            "description": "Compute a diff between two targets",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "config": {"type": "object"},
+                    "target_a": {"type": "string"},
+                    "target_b": {"type": "string"},
+                },
+                "required": ["config", "target_a", "target_b"],
+            },
+        }
         return tools
 
     def build_registry(self) -> dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]]:
@@ -126,6 +139,30 @@ class MCPServer:
                 return handler
 
             registry[f"wksm_{domain}_{cmd_name}"] = make_handler(cmd_func, sig, domain)
+
+        def diff_handler(_config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:
+            from wks.api.diff.cmd_diff import cmd_diff
+
+            config = args.get("config")
+            target_a = args.get("target_a")
+            target_b = args.get("target_b")
+            errors: list[str] = []
+            if not isinstance(config, dict):
+                errors.append(f"config must be an object (found: {type(config).__name__})")
+            if not isinstance(target_a, str) or not target_a:
+                errors.append("target_a must be a non-empty string")
+            if not isinstance(target_b, str) or not target_b:
+                errors.append("target_b must be a non-empty string")
+            if errors:
+                return {"success": False, "data": {}, "error": "; ".join(errors)}
+            assert isinstance(config, dict)
+            assert isinstance(target_a, str)
+            assert isinstance(target_b, str)
+            result = cmd_diff(config, target_a, target_b)
+            list(result.progress_callback(result))
+            return {"success": result.success, "data": result.output}
+
+        registry["wksm_diff"] = diff_handler
         return registry
 
     def read_message(self) -> dict[str, Any] | None:
