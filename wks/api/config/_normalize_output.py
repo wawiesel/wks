@@ -3,7 +3,7 @@
 from typing import Any
 
 
-def normalize_output(output: dict[str, Any]) -> dict[str, Any]:
+def _normalize_output(output: dict[str, Any]) -> dict[str, Any]:
     """Normalize output dict to use errors and warnings lists.
 
     Converts:

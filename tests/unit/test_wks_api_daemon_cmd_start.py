@@ -5,10 +5,10 @@ import time
 import pytest
 
 from tests.unit.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_stop import cmd_stop
 from wks.api.database.Database import Database
-from wks.api.URI import URI
 
 
 @pytest.mark.daemon

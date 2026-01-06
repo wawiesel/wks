@@ -94,4 +94,4 @@ Link parsers are registered in `wks/api/link/parsers/`. Selection is automatic b
 - **LNK.4**: Parsers are selected by extension or explicit `--parser` flag.
 - **LNK.5**: `vault:///` URIs are used for files within the vault; `file://` for external.
 - **LNK.6**: `sync` uses replace strategy: deletes all edges from source, inserts new.
-- **LNK.7**: Path expansion uses shared `wks.utils.path_expansion.expand_paths()` utility.
+- **LNK.7**: Path expansion uses shared `wks.api.config.expand_paths()` utility.

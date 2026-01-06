@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from wks.utils.has_internet import has_internet
+from wks.api.config.has_internet import has_internet
 
 
 def test_has_internet_returns_true_on_success():

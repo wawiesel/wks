@@ -14,6 +14,6 @@ class _FilterConfig(BaseModel):
     @field_validator("include_paths", "exclude_paths")
     @classmethod
     def _normalize_paths(cls, v: list[str]) -> list[str]:
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         return [str(normalize_path(p)) for p in v]

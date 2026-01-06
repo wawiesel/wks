@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from wks.api.config.WKSConfig import WKSConfig
-from wks.mcp import mcp_socket_path
+from wks.mcp.paths import mcp_socket_path
 
 
 def test_mcp_socket_path_uses_wks_home(monkeypatch, tmp_path):

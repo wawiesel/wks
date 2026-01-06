@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 from tests.unit.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.transform import TransformEngineOutput
 from wks.api.transform.cmd_engine import cmd_engine
 from wks.api.transform.get_content import get_content
-from wks.api.URI import URI
 
 
 def test_cmd_engine_path_not_found(tracked_wks_config):

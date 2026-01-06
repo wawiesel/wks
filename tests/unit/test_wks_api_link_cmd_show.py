@@ -1,7 +1,7 @@
 from tests.unit.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.database.Database import Database
 from wks.api.link.cmd_show import Direction, cmd_show
-from wks.api.URI import URI
 
 
 def test_cmd_show_directions(tracked_wks_config):

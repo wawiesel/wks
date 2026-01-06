@@ -5,7 +5,7 @@ import json
 import pytest
 
 from tests.unit.conftest import run_cmd
-from wks.api.URI import URI
+from wks.api.config.URI import URI
 from wks.api.vault.cmd_sync import cmd_sync
 
 pytestmark = pytest.mark.vault
@@ -185,9 +185,9 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
 
 def test_sync_writes_correct_uri_scheme(monkeypatch, tmp_path, minimal_config_dict):
     """Verify that sync writes vault:/// URIs for files within the vault."""
+    from wks.api.config.URI import URI
     from wks.api.database.Database import Database
     from wks.api.database.DatabaseConfig import DatabaseConfig
-    from wks.api.URI import URI
     from wks.api.vault.cmd_status import cmd_status
 
     wks_home = (tmp_path / ".wks").resolve()
@@ -461,9 +461,9 @@ def test_cmd_sync_path_outside_vault_coverage(monkeypatch, tmp_path, minimal_con
     def mock_resolve(path, vault_path):
         return (f"vault:///{rel_path}", target_file)
 
-    import wks.utils.resolve_vault_path
+    import wks.api.vault.resolve_vault_path
 
-    monkeypatch.setattr(wks.utils.resolve_vault_path, "resolve_vault_path", mock_resolve)
+    monkeypatch.setattr(wks.api.vault.resolve_vault_path, "resolve_vault_path", mock_resolve)
 
     # Now run sync with a path - it will use our mock_resolve
     # This exercises line 129: scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"

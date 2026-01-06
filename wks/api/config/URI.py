@@ -30,7 +30,7 @@ class URI:
         """Create a URI from a file path."""
         import socket
 
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         normalized = normalize_path(path)
         hostname = socket.gethostname()
@@ -46,7 +46,7 @@ class URI:
         - File paths (normalized and hostname-prefixed)
         - Vault path awareness (converts to vault:/// if within vault_path)
         """
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         # Already a URI object - return as-is
         if isinstance(path_or_uri, URI):
@@ -93,7 +93,7 @@ class URI:
         Raises:
             ValueError: If URI is not a supported type or vault_path is missing for vault URIs.
         """
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         if self.is_file:
             return self.path
@@ -118,7 +118,7 @@ class URI:
         """
         from urllib.parse import unquote
 
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         if not self.is_file:
             raise ValueError(f"Cannot extract local path from non-file URI: {self.value}")

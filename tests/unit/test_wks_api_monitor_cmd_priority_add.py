@@ -65,7 +65,7 @@ def test_cmd_priority_add_stores_and_saves(tracked_wks_config):
     assert result.output["success"] is True
     assert result.output["created"] is True
     assert tracked_wks_config.save_calls == 1
-    from wks.utils.normalize_path import normalize_path
+    from wks.api.config.normalize_path import normalize_path
 
     resolved = str(normalize_path("/tmp/new"))
     assert resolved in tracked_wks_config.monitor.priority.dirs
@@ -84,7 +84,7 @@ def test_cmd_priority_add_not_found_creates(tracked_wks_config):
     result = run_cmd(cmd_priority_add.cmd_priority_add, path="/tmp/a", priority=5)
     assert result.output["success"] is True
     assert result.output["created"] is True
-    from wks.utils.normalize_path import normalize_path
+    from wks.api.config.normalize_path import normalize_path
 
     resolved = str(normalize_path("/tmp/a"))
     assert tracked_wks_config.monitor.priority.dirs[resolved] == 5

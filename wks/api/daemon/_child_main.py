@@ -6,7 +6,7 @@ from pathlib import Path
 
 from watchdog.observers import Observer
 
-from wks.utils.normalize_path import normalize_path
+from wks.api.config.normalize_path import normalize_path
 
 from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file

@@ -2,11 +2,11 @@
 
 import json
 from collections.abc import Iterator
-from pathlib import Path
 
-from ...utils.expand_path import expand_path
+from wks.api.config.normalize_path import normalize_path
+
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..StageResult import StageResult
 from . import McpUninstallOutput
 
 
@@ -47,7 +47,7 @@ def cmd_uninstall(name: str) -> StageResult:
             # Perform actual uninstallation based on type
             if install.type == "mcpServersJson":
                 settings_path = install.data.settings_path
-                settings_file = Path(expand_path(settings_path))
+                settings_file = normalize_path(settings_path)
                 if settings_file.exists():
                     try:
                         with settings_file.open("r") as fh:

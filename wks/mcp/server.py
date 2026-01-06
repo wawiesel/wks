@@ -4,10 +4,10 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from wks.api.config.get_package_version import get_package_version
+from wks.api.config.StageResult import StageResult
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.StageResult import StageResult
 from wks.cli._get_typer_command_schema import get_typer_command_schema
-from wks.utils import get_package_version
 
 from .discover_commands import discover_commands
 from .get_app import get_app
@@ -97,7 +97,7 @@ class MCPServer:
 
             def make_handler(func: Callable, sig: inspect.Signature, _domain: str) -> Callable:
                 def handler(_config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:
-                    from wks.api.URI import URI
+                    from wks.api.config.URI import URI
 
                     kwargs = {}
                     for param_name, param in sig.parameters.items():

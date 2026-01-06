@@ -57,7 +57,7 @@ def test_validate_backend_type_invalid():
     """Test validate_backend_type with invalid backend."""
     from pydantic import BaseModel
 
-    from wks.api.StageResult import StageResult
+    from wks.api.config.StageResult import StageResult
 
     class MockOutput(BaseModel):
         errors: list[str]

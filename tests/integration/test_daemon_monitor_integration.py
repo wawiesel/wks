@@ -9,10 +9,10 @@ import time
 
 import pytest
 
+from wks.api.config.normalize_path import normalize_path
+from wks.api.config.URI import URI
 from wks.api.daemon.Daemon import Daemon
 from wks.api.database.Database import Database
-from wks.api.URI import URI
-from wks.utils.normalize_path import normalize_path
 
 # Mark all tests in this module
 pytestmark = [

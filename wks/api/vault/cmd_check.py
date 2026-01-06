@@ -7,9 +7,9 @@ MCP: wksm_vault_check
 from collections.abc import Iterator
 from typing import Any
 
-from .._ensure_arg_uri import _ensure_arg_uri
-from ..StageResult import StageResult
-from ..URI import URI
+from ..config._ensure_arg_uri import _ensure_arg_uri
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from . import VaultCheckOutput
 
 

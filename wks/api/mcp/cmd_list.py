@@ -2,8 +2,8 @@
 
 from collections.abc import Iterator
 
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..StageResult import StageResult
 from . import McpListOutput
 
 

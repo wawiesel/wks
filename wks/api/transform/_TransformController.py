@@ -6,10 +6,10 @@ from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from wks.utils.normalize_path import normalize_path
+from wks.api.config.normalize_path import normalize_path
+from wks.api.config.now_iso import now_iso
 
-from ...utils.now_iso import now_iso
-from ..URI import URI
+from ..config.URI import URI
 from ._CacheManager import _CacheManager
 from ._get_engine_by_type import _get_engine_by_type
 from ._TransformRecord import _TransformRecord
@@ -501,9 +501,9 @@ class _TransformController:
         Raises:
             ValueError: If file not found
         """
-        from ...utils import expand_path
+        from wks.api.config.normalize_path import normalize_path
 
-        file_path = expand_path(target)
+        file_path = normalize_path(target)
 
         if not file_path.exists():
             raise ValueError(f"File not found: {file_path}")

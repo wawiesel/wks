@@ -217,7 +217,7 @@ The MCP server automatically:
 
 Test the tool using an MCP client or the `call_tool()` function:
 ```python
-from wks.mcp import call_tool
+from wks.mcp.call_tool import call_tool
 result = call_tool("wksm_<domain>_<name>", {"param1": "value", "param2": 42})
 ```
 

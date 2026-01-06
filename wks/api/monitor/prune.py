@@ -2,9 +2,9 @@
 
 from typing import Any
 
+from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
-from wks.api.URI import URI
 
 
 def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:

@@ -11,12 +11,12 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any
 
+from wks.api.config.expand_paths import expand_paths
 from wks.api.config.write_status_file import write_status_file
-from wks.utils.expand_paths import expand_paths
 
-from .._ensure_arg_uri import _ensure_arg_uri
-from ..StageResult import StageResult
-from ..URI import URI
+from ..config._ensure_arg_uri import _ensure_arg_uri
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from . import VaultSyncOutput
 
 # Vault only processes markdown files
@@ -113,7 +113,7 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
                     progress = 0.4 + (0.5 * (i / len(files)))
                     yield (progress, f"Syncing {file_path.name}...")
 
-                    from wks.api.URI import URI
+                    from wks.api.config.URI import URI
 
                     # Call link sync for this file
                     link_result = link_cmd_sync(URI.from_path(file_path), parser="vault", recursive=False, remote=False)

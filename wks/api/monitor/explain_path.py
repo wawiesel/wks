@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from wks.utils.get_wks_home import get_wks_home
-from wks.utils.normalize_path import normalize_path
+from wks.api.config.get_wks_home import get_wks_home
+from wks.api.config.normalize_path import normalize_path
 
 from ._evaluate_roots import _evaluate_roots
 from .matches_glob import matches_glob

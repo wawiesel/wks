@@ -7,10 +7,10 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
+from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.link._parsers._MarkdownParser import MarkdownParser
 from wks.api.log.append_log import append_log
-from wks.api.URI import URI
 
 from .._AbstractBackend import _AbstractBackend
 from .._constants import (
@@ -34,7 +34,7 @@ class _Scanner:
 
     def _note_to_uri(self, note_path: Path) -> URI:
         """Convert note path to vault:/// URI."""
-        from wks.api.URI import URI
+        from wks.api.config.URI import URI
 
         try:
             rel_path = note_path.relative_to(self.vault.vault_path)

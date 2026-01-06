@@ -4,7 +4,7 @@ import sys
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from wks.api.validate_output import validate_output
+from wks.api.config.validate_output import validate_output
 
 F = TypeVar("F", bound=Callable)
 

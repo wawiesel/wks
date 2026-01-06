@@ -5,9 +5,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-from ...api.StageResult import StageResult
-from ...api.URI import URI
-from .._ensure_arg_uri import _ensure_arg_uri
+from ..config._ensure_arg_uri import _ensure_arg_uri
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from . import TransformEngineOutput
 from ._get_controller import _get_controller
 

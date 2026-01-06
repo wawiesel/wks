@@ -8,8 +8,8 @@ from wks.api.database.Database import Database
 from wks.api.log.append_log import append_log
 from wks.api.vault._constants import DOC_TYPE_LINK
 
+from ..config.URI import URI
 from ..monitor.resolve_remote_uri import resolve_remote_uri
-from ..URI import URI
 from ._identity import _identity
 from ._parsers import get_parser
 
@@ -101,7 +101,7 @@ def _sync_single_file(
                 elif "://" not in str(to_uri):
                     # Assume relative path from current file
                     try:
-                        from wks.utils.normalize_path import normalize_path
+                        from wks.api.config.normalize_path import normalize_path
 
                         possible_path = file_path.parent / str(to_uri)
                         target_path_obj = normalize_path(possible_path)

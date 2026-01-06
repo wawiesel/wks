@@ -18,7 +18,7 @@ try:
 except ImportError:
     RICH_AVAILABLE = False
 
-from wks.utils.display.Display import Display
+from .Display import Display
 
 
 class CLIDisplay(Display):

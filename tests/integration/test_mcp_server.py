@@ -7,8 +7,8 @@ from typing import Any
 from unittest.mock import patch
 
 import wks.mcp.server as server_mod
+from wks.api.config.StageResult import StageResult
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.StageResult import StageResult
 from wks.mcp import discover_commands as discover_commands_mod
 from wks.mcp.call_tool import call_tool
 from wks.mcp.discover_commands import discover_commands
@@ -252,7 +252,9 @@ def testdiscover_commands_handles_none_command_and_group(monkeypatch, tmp_path):
     fake_cli_file = tmp_path / "dummy.py"
     fake_cli_file.write_text("# dummy cli")
 
-    cli_root = discover_commands_mod.Path(discover_commands_mod.__file__).parent.parent / "cli"
+    from pathlib import Path
+
+    cli_root = Path(discover_commands_mod.__file__).parent.parent / "cli"
 
     def fake_glob(self, pattern):
         if self == cli_root:
@@ -269,8 +271,10 @@ def testdiscover_commands_handles_none_command_and_group(monkeypatch, tmp_path):
             self.registered_commands = [DummyCmd(None)]
             self.registered_groups = [type("Group", (), {})()]
 
+    import importlib
+
     module = SimpleNamespace(dummy_app=DummyApp())
-    monkeypatch.setattr(discover_commands_mod.Path, "glob", fake_glob)
-    monkeypatch.setattr(discover_commands_mod.importlib, "import_module", lambda name: module)
+    monkeypatch.setattr(Path, "glob", fake_glob)
+    monkeypatch.setattr(importlib, "import_module", lambda name: module)
 
     assert discover_commands() == {}

@@ -7,9 +7,9 @@ Matches CLI: wksc monitor priority show, MCP: wksm_monitor_priority_show
 from collections.abc import Iterator
 from typing import Any
 
-from wks.utils.normalize_path import normalize_path
+from wks.api.config.normalize_path import normalize_path
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import MonitorPriorityShowOutput
 from .explain_path import explain_path
 

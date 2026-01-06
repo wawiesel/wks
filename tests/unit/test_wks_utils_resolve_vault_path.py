@@ -1,8 +1,8 @@
-"""Tests for wks.utils.resolve_vault_path."""
+"""Tests for wks.api.vault.resolve_vault_path."""
 
 import pytest
 
-from wks.utils.resolve_vault_path import VaultPathError, resolve_vault_path
+from wks.api.vault.resolve_vault_path import VaultPathError, resolve_vault_path
 
 
 @pytest.fixture

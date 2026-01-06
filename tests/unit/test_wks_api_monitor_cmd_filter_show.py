@@ -46,7 +46,7 @@ def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict
     assert result.output["count"] == 4
     assert "Showing" in result.result
 
-    from wks.utils.normalize_path import normalize_path
+    from wks.api.config.normalize_path import normalize_path
 
     # Sort to avoid ordering issues if any
     items = sorted(result.output["items"])

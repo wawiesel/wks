@@ -11,6 +11,6 @@ class McpServersJsonData(BaseModel):
     @field_validator("settings_path")
     @classmethod
     def _normalize_settings_path(cls, v: str) -> str:
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         return str(normalize_path(v))

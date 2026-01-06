@@ -7,7 +7,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError, computed_field, model_validator
 
-from ...utils.get_wks_home import get_wks_home
 from ..cat.CatConfig import CatConfig
 from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
@@ -18,6 +17,7 @@ from ..monitor.MonitorConfig import MonitorConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..transform.TransformConfig import TransformConfig
 from ..vault.VaultConfig import VaultConfig
+from .get_wks_home import get_wks_home
 
 
 class WKSConfig(BaseModel):

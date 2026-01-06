@@ -12,6 +12,6 @@ class _PriorityConfig(BaseModel):
     @field_validator("dirs")
     @classmethod
     def _normalize_dirs(cls, v: dict[str, float]) -> dict[str, float]:
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         return {str(normalize_path(k)): val for k, val in v.items()}

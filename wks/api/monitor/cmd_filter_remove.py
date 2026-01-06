@@ -6,7 +6,7 @@ Matches CLI: wksc monitor filter remove <list-name> <value>, MCP: wksm_monitor_f
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import MonitorFilterRemoveOutput
 from .MonitorConfig import MonitorConfig
 
@@ -36,7 +36,8 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from ...utils import canonicalize_path
+        from wks.api.config.normalize_path import normalize_path
+
         from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
@@ -55,14 +56,14 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
 
         yield (0.4, "Resolving value...")
         resolve_path = list_name in ("include_paths", "exclude_paths")
-        value_resolved = canonicalize_path(value) if resolve_path else value.strip()
+        value_resolved = str(normalize_path(value)) if resolve_path else value.strip()
 
         yield (0.6, "Searching for value...")
         items = getattr(monitor_cfg.filter, list_name)
 
         removed_value = None
         for idx, item in enumerate(list(items)):
-            cmp_item = canonicalize_path(item) if resolve_path else item
+            cmp_item = str(normalize_path(item)) if resolve_path else item
             if cmp_item == value_resolved:
                 removed_value = item
                 del items[idx]

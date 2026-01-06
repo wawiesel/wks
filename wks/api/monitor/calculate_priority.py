@@ -12,7 +12,7 @@ Priority Calculation (from spec):
 from pathlib import Path
 from typing import Any
 
-from wks.utils.normalize_path import normalize_path
+from wks.api.config.normalize_path import normalize_path
 
 from ._calculate_underscore_multiplier import _calculate_underscore_multiplier
 from .find_priority_dir import find_priority_dir

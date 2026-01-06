@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, field_serializer, field_validator
 
-from ..URI import URI
+from ..config.URI import URI
 
 
 class _TransformRecord(BaseModel):

@@ -39,7 +39,7 @@ class Daemon:
 
     def _resolve_watch_paths(self, restrict_dir: Path | None) -> list[Path]:
         # Priority: explicit restrict_dir -> monitor include_paths
-        from wks.utils.normalize_path import normalize_path
+        from wks.api.config.normalize_path import normalize_path
 
         paths: list[Path] = []
         if restrict_dir is not None:

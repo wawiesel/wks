@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from pydantic import BaseModel
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import ServiceStartOutput
 from ._AbstractImpl import _AbstractImpl
 from .ServiceConfig import _BACKEND_REGISTRY, ServiceConfig

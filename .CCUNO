@@ -1,0 +1,15 @@
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/cat/**/*.py" --domain cat --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/config/**/*.py" --domain config --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/daemon/**/*.py" --domain daemon --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/database/**/*.py" --domain database --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/diff/**/*.py" --domain diff --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/link/**/*.py" --domain link --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/log/**/*.py" --domain log --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/mcp/**/*.py" --domain mcp --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/monitor/**/*.py" --domain monitor --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/service/**/*.py" --domain service --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/transform/**/*.py" --domain transform --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/api/vault/**/*.py" --domain vault --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/cli/**/*.py" --domain wksc --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/generate.py --glob "wks/mcp/**/*.py" --domain wksm --output qa/metrics/defs.json
+python .cursor/rules/UNO/scripts/evaluate.py --input qa/metrics/defs.json

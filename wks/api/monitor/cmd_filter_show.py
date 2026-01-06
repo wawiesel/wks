@@ -7,7 +7,7 @@ Matches CLI: wksc monitor filter show [<list-name>], MCP: wksm_monitor_filter_sh
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import MonitorFilterShowOutput
 from .MonitorConfig import MonitorConfig
 

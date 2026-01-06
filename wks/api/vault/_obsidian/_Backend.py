@@ -24,12 +24,12 @@ class _Backend(_AbstractBackend):
     """Obsidian vault implementation for link maintenance."""
 
     def __init__(self, vault_config: VaultConfig):
-        from wks.utils.expand_path import expand_path
+        from wks.api.config.normalize_path import normalize_path
 
         if not vault_config.base_dir:
             raise ValueError("vault.base_dir is required")
 
-        self._vault_path = expand_path(vault_config.base_dir)
+        self._vault_path = normalize_path(vault_config.base_dir)
         self.machine = (platform.node().split(".")[0]).strip()
         self._links_dir = self._vault_path / "_links"
 
@@ -121,7 +121,7 @@ class _Backend(_AbstractBackend):
 
         # Use URI.from_path for resolved filesystem path
         try:
-            from wks.api.URI import URI
+            from wks.api.config.URI import URI
 
             target_uri = str(URI.from_path(resolved))
         except (ValueError, OSError, ImportError):

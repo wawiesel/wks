@@ -1,6 +1,6 @@
 """Unit tests for wks.api.schema_loader module."""
 
-from wks.api.schema_loader import SchemaLoader
+from wks.api.config.schema_loader import SchemaLoader
 
 
 def test_schema_loader_loads_config_schema() -> None:

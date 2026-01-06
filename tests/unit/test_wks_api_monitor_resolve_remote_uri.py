@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from wks.api.config.URI import URI
 from wks.api.monitor.RemoteConfig import RemoteConfig, RemoteMapping
 from wks.api.monitor.resolve_remote_uri import resolve_remote_uri
-from wks.api.URI import URI
 
 
 def test_resolve_remote_uri_no_mappings():
