@@ -1,0 +1,3 @@
+uid: WKS-DIFF-001
+text: |
+  The system SHALL support pluggable diff engines including 'binary' (bsdiff4), 'text' (myers), and 'code' (AST-based).

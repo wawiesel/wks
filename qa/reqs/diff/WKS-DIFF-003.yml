@@ -1,0 +1,3 @@
+uid: WKS-DIFF-003
+text: |
+  The system SHALL explicitly validate all inputs and configuration, failing loudly with specific errors for missing or invalid data, in adherence to the NoHedging rule.

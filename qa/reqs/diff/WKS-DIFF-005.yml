@@ -1,0 +1,3 @@
+uid: WKS-DIFF-005
+text: |
+  The diff layer SHALL support diffing of indices (e.g., Code AST, Document Embeddings) to identify semantic or structural changes.
