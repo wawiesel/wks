@@ -1,11 +1,12 @@
 """Diff engine registry."""
 
-from .Bsdiff3Engine import Bsdiff3Engine
+from .AstEngine import AstEngine
+from .Bsdiff4Engine import Bsdiff4Engine
 from .MyersEngine import MyersEngine
 
 # Registry of available engines
 ENGINES = {
-    "bsdiff3": Bsdiff3Engine(),
+    "ast": AstEngine(),
+    "bsdiff4": Bsdiff4Engine(),
     "myers": MyersEngine(),
-    "unified": MyersEngine(),
 }
