@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from wks.api.config.normalize_path import normalize_path
 from wks.api.config.now_iso import now_iso
 
-from ..URI import URI
+from ..config.URI import URI
 from ._CacheManager import _CacheManager
 from ._get_engine_by_type import _get_engine_by_type
 from ._TransformRecord import _TransformRecord

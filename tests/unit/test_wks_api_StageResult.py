@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 
-from wks.api.StageResult import StageResult
+from wks.api.config.StageResult import StageResult
 
 
 def test_stage_result_initialization():

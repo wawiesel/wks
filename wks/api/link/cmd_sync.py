@@ -6,9 +6,9 @@ from typing import Any
 from wks.api.config.expand_paths import expand_paths
 
 from ..config._ensure_arg_uri import _ensure_arg_uri
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from ..config.WKSConfig import WKSConfig
-from ..StageResult import StageResult
-from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkSyncOutput
 from ._sync_single_file import _sync_single_file

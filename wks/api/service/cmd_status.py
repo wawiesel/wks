@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 from typing import Any
 
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..StageResult import StageResult
 from . import ServiceStatusOutput
 from ._pid_running import _pid_running
 from ._read_daemon_file import _read_daemon_file

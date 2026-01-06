@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 from pathlib import Path
 
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..StageResult import StageResult
 from . import ServiceInstallOutput
 from .Service import Service
 

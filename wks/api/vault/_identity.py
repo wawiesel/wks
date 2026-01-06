@@ -2,8 +2,8 @@
 
 import hashlib
 
+from wks.api.config.URI import URI
 from wks.api.config.uri_to_string import uri_to_string
-from wks.api.URI import URI
 
 
 def _identity(note_path: URI | str, line_number: int, column_number: int, target_uri: URI | str) -> str:

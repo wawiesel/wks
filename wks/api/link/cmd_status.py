@@ -7,8 +7,8 @@ MCP: wksm_links_status
 from collections.abc import Iterator
 from typing import Any
 
+from ..config.StageResult import StageResult
 from ..database.Database import Database
-from ..StageResult import StageResult
 
 
 def cmd_status() -> StageResult:

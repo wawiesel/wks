@@ -4,13 +4,13 @@ from collections.abc import Iterator
 from typing import Any
 
 from ..config._ensure_arg_uri import _ensure_arg_uri
+from ..config.StageResult import StageResult
+
+# Accessing private module as we reuse the logic
+from ..config.URI import URI
 from ..config.WKSConfig import WKSConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.resolve_remote_uri import resolve_remote_uri
-from ..StageResult import StageResult
-
-# Accessing private module as we reuse the logic
-from ..URI import URI
 from ..vault.Vault import Vault
 from . import LinkCheckOutput
 from ._parsers import get_parser

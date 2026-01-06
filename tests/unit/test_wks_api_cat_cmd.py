@@ -6,9 +6,9 @@ import pytest
 
 from tests.unit.conftest import run_cmd
 from wks.api.cat.cmd import cmd
+from wks.api.config.URI import URI
 from wks.api.database.Database import Database
 from wks.api.transform.cmd_engine import cmd_engine
-from wks.api.URI import URI
 
 
 @pytest.mark.cat

@@ -6,7 +6,7 @@ Matches CLI: wksc monitor priority remove <path>, MCP: wksm_monitor_priority_rem
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import MonitorPriorityRemoveOutput
 
 

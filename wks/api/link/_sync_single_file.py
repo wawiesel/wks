@@ -8,8 +8,8 @@ from wks.api.database.Database import Database
 from wks.api.log.append_log import append_log
 from wks.api.vault._constants import DOC_TYPE_LINK
 
+from ..config.URI import URI
 from ..monitor.resolve_remote_uri import resolve_remote_uri
-from ..URI import URI
 from ._identity import _identity
 from ._parsers import get_parser
 

@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import TransformListOutput
 
 

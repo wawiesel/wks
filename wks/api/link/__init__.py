@@ -3,7 +3,7 @@
 from pydantic import BaseModel
 
 # Registers the domain's output schemas
-from ..schema_loader import SchemaLoader
+from ..config.schema_loader import SchemaLoader
 
 _models = SchemaLoader.register_from_package(__package__)
 LinkCheckOutput: type[BaseModel] = _models["LinkCheckOutput"]

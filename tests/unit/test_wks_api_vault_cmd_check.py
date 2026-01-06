@@ -6,7 +6,7 @@ import platform
 import pytest
 
 from tests.unit.conftest import run_cmd
-from wks.api.URI import URI
+from wks.api.config.URI import URI
 from wks.api.vault.cmd_check import cmd_check
 
 pytestmark = pytest.mark.vault

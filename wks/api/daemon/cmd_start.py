@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import DaemonStartOutput
 from .Daemon import Daemon
 

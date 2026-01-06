@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import Any
 
-from ..StageResult import StageResult
-from ..URI import URI
+from .StageResult import StageResult
+from .URI import URI
 
 
 def _ensure_arg_uri(

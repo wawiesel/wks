@@ -8,8 +8,8 @@ from collections.abc import Iterator
 
 from wks.api.config.normalize_path import normalize_path
 
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..StageResult import StageResult
 from . import MonitorFilterAddOutput
 from .MonitorConfig import MonitorConfig
 from .validate_value import validate_value

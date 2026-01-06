@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from wks.api.config.URI import URI
 from wks.api.database.Database import Database
-from wks.api.URI import URI
 
 
 class _CacheManager:

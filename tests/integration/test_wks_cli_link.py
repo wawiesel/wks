@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
+from wks.api.config.URI import URI
 from wks.api.database.Database import Database
-from wks.api.URI import URI
 from wks.cli.link import link
 
 runner = CliRunner()

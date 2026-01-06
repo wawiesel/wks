@@ -23,7 +23,7 @@ mock_cmd_func.__name__ = "cmd_mock_command"
 
 def test_validate_output_success(monkeypatch):
     """Test successful validation."""
-    from wks.api.schema_registry import schema_registry
+    from wks.api.config.schema_registry import schema_registry
 
     # Register mock schema
     monkeypatch.setattr(schema_registry, "get_output_schema", lambda d, c: MockOutput)
@@ -36,7 +36,7 @@ def test_validate_output_success(monkeypatch):
 
 def test_validate_output_failure(monkeypatch):
     """Test validation failure."""
-    from wks.api.schema_registry import schema_registry
+    from wks.api.config.schema_registry import schema_registry
 
     # Register mock schema
     monkeypatch.setattr(schema_registry, "get_output_schema", lambda d, c: MockOutput)
@@ -72,7 +72,7 @@ def test_validate_output_skip_non_cmd():
 
 def test_validate_output_no_schema(monkeypatch):
     """Test validation when no schema is registered."""
-    from wks.api.schema_registry import schema_registry
+    from wks.api.config.schema_registry import schema_registry
 
     monkeypatch.setattr(schema_registry, "get_output_schema", lambda d, c: None)
 

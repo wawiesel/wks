@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from importlib import import_module
 from typing import Any
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import DatabasePruneOutput
 from .Database import Database
 

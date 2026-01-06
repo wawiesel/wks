@@ -1,6 +1,6 @@
 """Helper function for converting URI objects to strings."""
 
-from wks.api.URI import URI
+from wks.api.config.URI import URI
 
 
 def uri_to_string(uri: URI | str) -> str:

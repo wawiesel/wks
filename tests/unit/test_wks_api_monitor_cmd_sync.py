@@ -5,10 +5,10 @@ from pathlib import Path
 import pytest
 
 from tests.unit.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.monitor.cmd_sync import cmd_sync
-from wks.api.URI import URI
 
 
 @pytest.mark.monitor

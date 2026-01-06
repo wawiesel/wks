@@ -9,8 +9,8 @@ from typing import Any
 
 from wks.api.config.write_status_file import write_status_file
 
+from ..config.StageResult import StageResult
 from ..database.Database import Database
-from ..StageResult import StageResult
 from . import VaultStatusOutput
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from wks.api.URI import URI
+from wks.api.config.URI import URI
 
 
 def test_uri_creation_valid():

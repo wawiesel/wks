@@ -2,10 +2,10 @@
 
 from collections.abc import Iterator
 
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file
 from ..log.read_log_entries import read_log_entries
-from ..StageResult import StageResult
 from . import DaemonStatusOutput
 
 

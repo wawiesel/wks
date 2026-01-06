@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-from ...api.StageResult import StageResult
+from ..config.StageResult import StageResult
 from ..transform.get_content import get_content
 
 
@@ -46,7 +46,7 @@ def cmd(
                 selected_engine = _select_engine(file_path, engine, config)
                 yield (0.2, f"Transforming {file_path.name} using {selected_engine}...")
 
-                from ..URI import URI
+                from ..config.URI import URI
 
                 # Run transform
                 res_transform = cmd_engine(selected_engine, URI.from_path(file_path), {})

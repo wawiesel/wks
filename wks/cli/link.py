@@ -4,11 +4,11 @@ from typing import Annotated
 
 import typer
 
+from wks.api.config.URI import URI
 from wks.api.link.cmd_check import cmd_check
 from wks.api.link.cmd_show import Direction, cmd_show
 from wks.api.link.cmd_status import cmd_status
 from wks.api.link.cmd_sync import cmd_sync
-from wks.api.URI import URI
 from wks.cli._handle_stage_result import _handle_stage_result
 from wks.cli._resolve_uri_arg import _resolve_uri_arg
 

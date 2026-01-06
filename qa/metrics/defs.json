@@ -1,0 +1,3655 @@
+{
+  "domains": {
+    "cat": {
+      "files": {
+        "wks/api/cat/CatConfig.py": {
+          "defs": []
+        },
+        "wks/api/cat/__init__.py": {
+          "defs": []
+        },
+        "wks/api/cat/_get_mime_type.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 5,
+              "name": "_get_mime_type"
+            }
+          ]
+        },
+        "wks/api/cat/_is_checksum.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 4,
+              "name": "_is_checksum"
+            }
+          ]
+        },
+        "wks/api/cat/_select_engine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "_select_engine"
+            }
+          ]
+        },
+        "wks/api/cat/cmd.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "cmd.do_work"
+            }
+          ]
+        }
+      },
+      "multi": 1,
+      "single": 3
+    },
+    "config": {
+      "files": {
+        "wks/api/config/BaseOutputSchema.py": {
+          "defs": []
+        },
+        "wks/api/config/StageResult.py": {
+          "defs": []
+        },
+        "wks/api/config/URI.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "__post_init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 22,
+              "name": "__str__"
+            },
+            {
+              "kind": "function",
+              "lineno": 25,
+              "name": "__repr__"
+            },
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "from_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 40,
+              "name": "from_any"
+            },
+            {
+              "kind": "function",
+              "lineno": 75,
+              "name": "is_file"
+            },
+            {
+              "kind": "function",
+              "lineno": 80,
+              "name": "is_vault"
+            },
+            {
+              "kind": "function",
+              "lineno": 84,
+              "name": "to_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 111,
+              "name": "path"
+            }
+          ]
+        },
+        "wks/api/config/WKSConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "validate_transform_cache_monitored"
+            },
+            {
+              "kind": "function",
+              "lineno": 53,
+              "name": "path"
+            },
+            {
+              "kind": "function",
+              "lineno": 58,
+              "name": "get_home_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 63,
+              "name": "get_config_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 68,
+              "name": "get_logfile_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 73,
+              "name": "load"
+            },
+            {
+              "kind": "function",
+              "lineno": 105,
+              "name": "to_dict"
+            },
+            {
+              "kind": "function",
+              "lineno": 119,
+              "name": "save"
+            }
+          ]
+        },
+        "wks/api/config/__init__.py": {
+          "defs": []
+        },
+        "wks/api/config/_ensure_arg_uri.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "_ensure_arg_uri"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "_ensure_arg_uri._populate_error"
+            }
+          ]
+        },
+        "wks/api/config/_normalize_output.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "_normalize_output"
+            }
+          ]
+        },
+        "wks/api/config/cmd_list.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_list"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_list.do_work"
+            }
+          ]
+        },
+        "wks/api/config/cmd_show.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_show"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_show.do_work"
+            }
+          ]
+        },
+        "wks/api/config/cmd_version.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_version"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_version.do_work"
+            }
+          ]
+        },
+        "wks/api/config/expand_paths.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "expand_paths"
+            }
+          ]
+        },
+        "wks/api/config/file_checksum.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "file_checksum"
+            }
+          ]
+        },
+        "wks/api/config/find_matching_path_key.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "find_matching_path_key"
+            }
+          ]
+        },
+        "wks/api/config/get_package_version.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "get_package_version"
+            }
+          ]
+        },
+        "wks/api/config/get_wks_home.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "get_wks_home"
+            }
+          ]
+        },
+        "wks/api/config/has_internet.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "has_internet"
+            }
+          ]
+        },
+        "wks/api/config/load_config_with_output.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "load_config_with_output"
+            }
+          ]
+        },
+        "wks/api/config/normalize_path.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "normalize_path"
+            }
+          ]
+        },
+        "wks/api/config/now_iso.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "now_iso"
+            }
+          ]
+        },
+        "wks/api/config/schema_loader.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "load_schema"
+            },
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "build_model"
+            },
+            {
+              "kind": "function",
+              "lineno": 27,
+              "name": "build_model._collect"
+            },
+            {
+              "kind": "function",
+              "lineno": 46,
+              "name": "load_models"
+            },
+            {
+              "kind": "function",
+              "lineno": 59,
+              "name": "register_from_schema"
+            },
+            {
+              "kind": "function",
+              "lineno": 65,
+              "name": "register_from_package"
+            }
+          ]
+        },
+        "wks/api/config/schema_registry.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "register_output_schema"
+            },
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "get_output_schema"
+            }
+          ]
+        },
+        "wks/api/config/uri_to_string.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "uri_to_string"
+            }
+          ]
+        },
+        "wks/api/config/validate_output.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "validate_output"
+            }
+          ]
+        },
+        "wks/api/config/write_status_file.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "write_status_file"
+            }
+          ]
+        }
+      },
+      "multi": 8,
+      "single": 13
+    },
+    "daemon": {
+      "files": {
+        "wks/api/daemon/Daemon.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 28,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 36,
+              "name": "_load_config"
+            },
+            {
+              "kind": "function",
+              "lineno": 40,
+              "name": "_resolve_watch_paths"
+            },
+            {
+              "kind": "function",
+              "lineno": 59,
+              "name": "_pid_running"
+            },
+            {
+              "kind": "function",
+              "lineno": 67,
+              "name": "start"
+            },
+            {
+              "kind": "function",
+              "lineno": 138,
+              "name": "run_foreground"
+            },
+            {
+              "kind": "function",
+              "lineno": 186,
+              "name": "stop"
+            },
+            {
+              "kind": "function",
+              "lineno": 217,
+              "name": "status"
+            },
+            {
+              "kind": "function",
+              "lineno": 234,
+              "name": "get_filesystem_events"
+            },
+            {
+              "kind": "function",
+              "lineno": 242,
+              "name": "clear_events"
+            },
+            {
+              "kind": "function",
+              "lineno": 249,
+              "name": "_write_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 278,
+              "name": "_append_log"
+            }
+          ]
+        },
+        "wks/api/daemon/DaemonConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "validate_fields"
+            }
+          ]
+        },
+        "wks/api/daemon/FilesystemEvents.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "is_empty"
+            },
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "total_count"
+            }
+          ]
+        },
+        "wks/api/daemon/_EventHandler.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "on_modified"
+            },
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "on_created"
+            },
+            {
+              "kind": "function",
+              "lineno": 31,
+              "name": "on_deleted"
+            },
+            {
+              "kind": "function",
+              "lineno": 36,
+              "name": "on_moved"
+            },
+            {
+              "kind": "function",
+              "lineno": 41,
+              "name": "get_and_clear_events"
+            }
+          ]
+        },
+        "wks/api/daemon/__init__.py": {
+          "defs": []
+        },
+        "wks/api/daemon/_child_main.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 20,
+              "name": "_child_main"
+            },
+            {
+              "kind": "function",
+              "lineno": 60,
+              "name": "_child_main.append_log"
+            },
+            {
+              "kind": "function",
+              "lineno": 110,
+              "name": "_child_main.handle_sigterm"
+            },
+            {
+              "kind": "function",
+              "lineno": 133,
+              "name": "_child_main.write_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 168,
+              "name": "_child_main.process_events"
+            }
+          ]
+        },
+        "wks/api/daemon/_child_runner.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "main"
+            }
+          ]
+        },
+        "wks/api/daemon/_daemon_log_with_path.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "_daemon_log_with_path"
+            }
+          ]
+        },
+        "wks/api/daemon/_sync_path_static.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 4,
+              "name": "_sync_path_static"
+            }
+          ]
+        },
+        "wks/api/daemon/cmd_clear.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "cmd_clear"
+            },
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "cmd_clear.do_work"
+            }
+          ]
+        },
+        "wks/api/daemon/cmd_start.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "cmd_start"
+            },
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "cmd_start.do_work"
+            }
+          ]
+        },
+        "wks/api/daemon/cmd_status.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "cmd_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "cmd_status.do_work"
+            }
+          ]
+        },
+        "wks/api/daemon/cmd_stop.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_stop"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_stop.do_work"
+            }
+          ]
+        }
+      },
+      "multi": 8,
+      "single": 4
+    },
+    "database": {
+      "files": {
+        "wks/api/database/Database.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 27,
+              "name": "__enter__"
+            },
+            {
+              "kind": "function",
+              "lineno": 49,
+              "name": "__exit__"
+            },
+            {
+              "kind": "function",
+              "lineno": 55,
+              "name": "count_documents"
+            },
+            {
+              "kind": "function",
+              "lineno": 58,
+              "name": "find_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 61,
+              "name": "update_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 64,
+              "name": "insert_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 68,
+              "name": "delete_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 72,
+              "name": "insert_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 75,
+              "name": "update_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 83,
+              "name": "delete_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 86,
+              "name": "find"
+            },
+            {
+              "kind": "function",
+              "lineno": 90,
+              "name": "list_databases"
+            },
+            {
+              "kind": "function",
+              "lineno": 116,
+              "name": "query"
+            },
+            {
+              "kind": "function",
+              "lineno": 154,
+              "name": "get_client"
+            },
+            {
+              "kind": "function",
+              "lineno": 160,
+              "name": "get_database"
+            }
+          ]
+        },
+        "wks/api/database/DatabaseConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 27,
+              "name": "validate_and_populate_data"
+            },
+            {
+              "kind": "function",
+              "lineno": 45,
+              "name": "model_dump"
+            }
+          ]
+        },
+        "wks/api/database/_AbstractBackend.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "__enter__"
+            },
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "__exit__"
+            },
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "count_documents"
+            },
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "find_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 25,
+              "name": "update_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "insert_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "update_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 42,
+              "name": "delete_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 46,
+              "name": "find"
+            },
+            {
+              "kind": "function",
+              "lineno": 49,
+              "name": "list_collection_names"
+            }
+          ]
+        },
+        "wks/api/database/__init__.py": {
+          "defs": []
+        },
+        "wks/api/database/_get_last_prune_timestamp.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "_get_last_prune_timestamp"
+            }
+          ]
+        },
+        "wks/api/database/_get_status_path.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "_get_status_path"
+            }
+          ]
+        },
+        "wks/api/database/_mongo/_Backend.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 49,
+              "name": "__enter__"
+            },
+            {
+              "kind": "function",
+              "lineno": 58,
+              "name": "__exit__"
+            },
+            {
+              "kind": "function",
+              "lineno": 69,
+              "name": "count_documents"
+            },
+            {
+              "kind": "function",
+              "lineno": 72,
+              "name": "find_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 75,
+              "name": "update_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 78,
+              "name": "insert_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 81,
+              "name": "update_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 85,
+              "name": "delete_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 88,
+              "name": "find"
+            },
+            {
+              "kind": "function",
+              "lineno": 91,
+              "name": "list_collection_names"
+            },
+            {
+              "kind": "function",
+              "lineno": 97,
+              "name": "_ensure_local_mongod"
+            },
+            {
+              "kind": "function",
+              "lineno": 193,
+              "name": "_can_connect"
+            },
+            {
+              "kind": "function",
+              "lineno": 203,
+              "name": "_parse_host_port"
+            }
+          ]
+        },
+        "wks/api/database/_mongo/_Data.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 20,
+              "name": "validate_fields"
+            }
+          ]
+        },
+        "wks/api/database/_mongomock/_Backend.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "__enter__"
+            },
+            {
+              "kind": "function",
+              "lineno": 28,
+              "name": "__exit__"
+            },
+            {
+              "kind": "function",
+              "lineno": 35,
+              "name": "count_documents"
+            },
+            {
+              "kind": "function",
+              "lineno": 38,
+              "name": "find_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 41,
+              "name": "update_one"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "insert_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 47,
+              "name": "update_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 51,
+              "name": "delete_many"
+            },
+            {
+              "kind": "function",
+              "lineno": 54,
+              "name": "find"
+            },
+            {
+              "kind": "function",
+              "lineno": 57,
+              "name": "list_collection_names"
+            }
+          ]
+        },
+        "wks/api/database/_mongomock/_Data.py": {
+          "defs": []
+        },
+        "wks/api/database/_mongomock/_client.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "_get_mongomock_client"
+            }
+          ]
+        },
+        "wks/api/database/_set_last_prune_timestamp.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "_set_last_prune_timestamp"
+            }
+          ]
+        },
+        "wks/api/database/_should_prune.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "_should_prune"
+            }
+          ]
+        },
+        "wks/api/database/cmd_list.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_list"
+            },
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "cmd_list.do_work"
+            }
+          ]
+        },
+        "wks/api/database/cmd_prune.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 24,
+              "name": "cmd_prune"
+            },
+            {
+              "kind": "function",
+              "lineno": 32,
+              "name": "cmd_prune.do_work"
+            }
+          ]
+        },
+        "wks/api/database/cmd_reset.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_reset"
+            },
+            {
+              "kind": "function",
+              "lineno": 20,
+              "name": "cmd_reset.do_work"
+            }
+          ]
+        },
+        "wks/api/database/cmd_show.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "cmd_show"
+            },
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "cmd_show.do_work"
+            }
+          ]
+        }
+      },
+      "multi": 9,
+      "single": 6
+    },
+    "diff": {
+      "files": {
+        "wks/api/diff/Bsdiff3Engine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "diff"
+            }
+          ]
+        },
+        "wks/api/diff/DiffConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "_validate_engines"
+            },
+            {
+              "kind": "function",
+              "lineno": 49,
+              "name": "_validate_router"
+            },
+            {
+              "kind": "function",
+              "lineno": 62,
+              "name": "__post_init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 76,
+              "name": "from_config_dict"
+            }
+          ]
+        },
+        "wks/api/diff/DiffConfigError.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "__init__"
+            }
+          ]
+        },
+        "wks/api/diff/DiffEngine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "diff"
+            }
+          ]
+        },
+        "wks/api/diff/DiffEngineConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 18,
+              "name": "_validate_name"
+            },
+            {
+              "kind": "function",
+              "lineno": 31,
+              "name": "_validate_enabled"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "_validate_is_default"
+            },
+            {
+              "kind": "function",
+              "lineno": 57,
+              "name": "_validate_options"
+            },
+            {
+              "kind": "function",
+              "lineno": 70,
+              "name": "__post_init__"
+            }
+          ]
+        },
+        "wks/api/diff/DiffRouterConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "_validate_rules"
+            },
+            {
+              "kind": "function",
+              "lineno": 38,
+              "name": "_validate_fallback"
+            },
+            {
+              "kind": "function",
+              "lineno": 51,
+              "name": "__post_init__"
+            }
+          ]
+        },
+        "wks/api/diff/MyersEngine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "diff"
+            },
+            {
+              "kind": "function",
+              "lineno": 63,
+              "name": "_is_text_file"
+            }
+          ]
+        },
+        "wks/api/diff/_ENGINES.py": {
+          "defs": []
+        },
+        "wks/api/diff/__init__.py": {
+          "defs": []
+        },
+        "wks/api/diff/controller.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 25,
+              "name": "_validate_engine"
+            },
+            {
+              "kind": "function",
+              "lineno": 41,
+              "name": "diff"
+            },
+            {
+              "kind": "function",
+              "lineno": 78,
+              "name": "_resolve_target"
+            }
+          ]
+        },
+        "wks/api/diff/get_engine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "get_engine"
+            }
+          ]
+        }
+      },
+      "multi": 5,
+      "single": 4
+    },
+    "link": {
+      "files": {
+        "wks/api/link/__init__.py": {
+          "defs": []
+        },
+        "wks/api/link/_identity.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "_identity"
+            }
+          ]
+        },
+        "wks/api/link/_parsers/LinkRef.py": {
+          "defs": []
+        },
+        "wks/api/link/_parsers/_BaseParser.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "parse"
+            }
+          ]
+        },
+        "wks/api/link/_parsers/_HTMLParser.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "parse"
+            }
+          ]
+        },
+        "wks/api/link/_parsers/_MarkdownParser.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "parse"
+            }
+          ]
+        },
+        "wks/api/link/_parsers/_RSTParser.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "parse"
+            }
+          ]
+        },
+        "wks/api/link/_parsers/_RawParser.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "parse"
+            }
+          ]
+        },
+        "wks/api/link/_parsers/__init__.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "get_parser"
+            }
+          ]
+        },
+        "wks/api/link/_sync_single_file.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "_sync_single_file"
+            }
+          ]
+        },
+        "wks/api/link/cmd_check.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "_process_link"
+            },
+            {
+              "kind": "function",
+              "lineno": 62,
+              "name": "cmd_check"
+            },
+            {
+              "kind": "function",
+              "lineno": 65,
+              "name": "cmd_check.do_work"
+            }
+          ]
+        },
+        "wks/api/link/cmd_show.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 22,
+              "name": "cmd_show"
+            },
+            {
+              "kind": "function",
+              "lineno": 36,
+              "name": "cmd_show.do_work"
+            }
+          ]
+        },
+        "wks/api/link/cmd_status.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "cmd_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "cmd_status.do_work"
+            }
+          ]
+        },
+        "wks/api/link/cmd_sync.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 20,
+              "name": "cmd_sync"
+            },
+            {
+              "kind": "function",
+              "lineno": 28,
+              "name": "cmd_sync.do_work"
+            }
+          ]
+        },
+        "wks/api/link/prune.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "prune"
+            }
+          ]
+        }
+      },
+      "multi": 4,
+      "single": 9
+    },
+    "log": {
+      "files": {
+        "wks/api/log/LOG_PATTERN.py": {
+          "defs": []
+        },
+        "wks/api/log/LogConfig.py": {
+          "defs": []
+        },
+        "wks/api/log/__init__.py": {
+          "defs": []
+        },
+        "wks/api/log/append_log.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 5,
+              "name": "append_log"
+            }
+          ]
+        },
+        "wks/api/log/cmd_prune.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "cmd_prune"
+            },
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "cmd_prune.do_work"
+            }
+          ]
+        },
+        "wks/api/log/cmd_status.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "cmd_status.do_work"
+            }
+          ]
+        },
+        "wks/api/log/read_log_entries.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "read_log_entries"
+            }
+          ]
+        }
+      },
+      "multi": 2,
+      "single": 2
+    },
+    "mcp": {
+      "files": {
+        "wks/api/mcp/InstallResult.py": {
+          "defs": []
+        },
+        "wks/api/mcp/McpConfig.py": {
+          "defs": []
+        },
+        "wks/api/mcp/McpInstallation.py": {
+          "defs": []
+        },
+        "wks/api/mcp/McpServersJsonData.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "_normalize_settings_path"
+            }
+          ]
+        },
+        "wks/api/mcp/McpServersJsonInstall.py": {
+          "defs": []
+        },
+        "wks/api/mcp/__init__.py": {
+          "defs": []
+        },
+        "wks/api/mcp/cmd_install.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_install"
+            },
+            {
+              "kind": "function",
+              "lineno": 25,
+              "name": "cmd_install.do_work"
+            }
+          ]
+        },
+        "wks/api/mcp/cmd_list.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_list"
+            },
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "cmd_list.do_work"
+            }
+          ]
+        },
+        "wks/api/mcp/cmd_uninstall.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_uninstall"
+            },
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "cmd_uninstall.do_work"
+            }
+          ]
+        }
+      },
+      "multi": 3,
+      "single": 1
+    },
+    "monitor": {
+      "files": {
+        "wks/api/monitor/MonitorConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 24,
+              "name": "from_config_dict"
+            },
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "get_filter_list_names"
+            },
+            {
+              "kind": "function",
+              "lineno": 43,
+              "name": "get_rules"
+            }
+          ]
+        },
+        "wks/api/monitor/RemoteConfig.py": {
+          "defs": []
+        },
+        "wks/api/monitor/RemoteMapping.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "_normalize_local_path"
+            }
+          ]
+        },
+        "wks/api/monitor/_FilterConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "_normalize_paths"
+            }
+          ]
+        },
+        "wks/api/monitor/_PriorityConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "_normalize_dirs"
+            }
+          ]
+        },
+        "wks/api/monitor/_PriorityWeightsConfig.py": {
+          "defs": []
+        },
+        "wks/api/monitor/__init__.py": {
+          "defs": []
+        },
+        "wks/api/monitor/_calculate_underscore_multiplier.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 4,
+              "name": "_calculate_underscore_multiplier"
+            }
+          ]
+        },
+        "wks/api/monitor/_enforce_monitor_db_limit.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "_enforce_monitor_db_limit"
+            }
+          ]
+        },
+        "wks/api/monitor/_evaluate_roots.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "_evaluate_roots"
+            }
+          ]
+        },
+        "wks/api/monitor/calculate_priority.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "calculate_priority"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_check.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "cmd_check"
+            },
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "cmd_check._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 43,
+              "name": "cmd_check.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_filter_add.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 18,
+              "name": "cmd_filter_add"
+            },
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "cmd_filter_add._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 43,
+              "name": "cmd_filter_add.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_filter_remove.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "cmd_filter_remove"
+            },
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "cmd_filter_remove._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 37,
+              "name": "cmd_filter_remove.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_filter_show.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "cmd_filter_show"
+            },
+            {
+              "kind": "function",
+              "lineno": 18,
+              "name": "cmd_filter_show._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "cmd_filter_show.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_priority_add.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_priority_add"
+            },
+            {
+              "kind": "function",
+              "lineno": 24,
+              "name": "cmd_priority_add._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 49,
+              "name": "cmd_priority_add.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_priority_remove.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "cmd_priority_remove"
+            },
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "cmd_priority_remove._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "cmd_priority_remove.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_priority_show.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "cmd_priority_show"
+            },
+            {
+              "kind": "function",
+              "lineno": 20,
+              "name": "cmd_priority_show._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 38,
+              "name": "cmd_priority_show.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_status.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 18,
+              "name": "cmd_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "cmd_status._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 52,
+              "name": "cmd_status.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/cmd_sync.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 24,
+              "name": "cmd_sync"
+            },
+            {
+              "kind": "function",
+              "lineno": 38,
+              "name": "cmd_sync._build_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 59,
+              "name": "cmd_sync.do_work"
+            }
+          ]
+        },
+        "wks/api/monitor/explain_path.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "explain_path"
+            }
+          ]
+        },
+        "wks/api/monitor/find_priority_dir.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "find_priority_dir"
+            }
+          ]
+        },
+        "wks/api/monitor/matches_glob.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "matches_glob"
+            }
+          ]
+        },
+        "wks/api/monitor/prune.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "prune"
+            }
+          ]
+        },
+        "wks/api/monitor/resolve_remote_uri.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "resolve_remote_uri"
+            }
+          ]
+        },
+        "wks/api/monitor/validate_value.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "validate_value"
+            }
+          ]
+        }
+      },
+      "multi": 10,
+      "single": 13
+    },
+    "service": {
+      "files": {
+        "wks/api/service/Service.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "detect_os"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "validate_backend_type"
+            },
+            {
+              "kind": "function",
+              "lineno": 76,
+              "name": "start_via_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 105,
+              "name": "__enter__"
+            },
+            {
+              "kind": "function",
+              "lineno": 119,
+              "name": "__exit__"
+            },
+            {
+              "kind": "function",
+              "lineno": 123,
+              "name": "get_service_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 133,
+              "name": "install_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 148,
+              "name": "uninstall_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 158,
+              "name": "start_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 168,
+              "name": "stop_service"
+            }
+          ]
+        },
+        "wks/api/service/ServiceConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 27,
+              "name": "validate_and_populate_data"
+            },
+            {
+              "kind": "function",
+              "lineno": 45,
+              "name": "model_dump"
+            }
+          ]
+        },
+        "wks/api/service/ServiceStatus.py": {
+          "defs": []
+        },
+        "wks/api/service/_AbstractImpl.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "install_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 31,
+              "name": "uninstall_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 40,
+              "name": "get_service_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 49,
+              "name": "start_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 58,
+              "name": "stop_service"
+            }
+          ]
+        },
+        "wks/api/service/__init__.py": {
+          "defs": []
+        },
+        "wks/api/service/_darwin/_Data.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "validate_label"
+            }
+          ]
+        },
+        "wks/api/service/_darwin/_Impl.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "_get_launch_agents_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 31,
+              "name": "_get_plist_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 36,
+              "name": "_create_plist_content"
+            },
+            {
+              "kind": "function",
+              "lineno": 108,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 123,
+              "name": "install_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 183,
+              "name": "uninstall_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 224,
+              "name": "get_service_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 256,
+              "name": "start_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 342,
+              "name": "stop_service"
+            }
+          ]
+        },
+        "wks/api/service/_linux/_Data.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "validate_unit_name"
+            }
+          ]
+        },
+        "wks/api/service/_linux/_Impl.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 22,
+              "name": "_get_systemd_user_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 27,
+              "name": "_get_unit_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 32,
+              "name": "_create_unit_content"
+            },
+            {
+              "kind": "function",
+              "lineno": 78,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 93,
+              "name": "install_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 148,
+              "name": "uninstall_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 203,
+              "name": "get_service_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 243,
+              "name": "start_service"
+            },
+            {
+              "kind": "function",
+              "lineno": 285,
+              "name": "stop_service"
+            }
+          ]
+        },
+        "wks/api/service/_pid_running.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "_pid_running"
+            }
+          ]
+        },
+        "wks/api/service/_read_daemon_file.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "_read_daemon_file"
+            }
+          ]
+        },
+        "wks/api/service/cmd_install.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "cmd_install"
+            },
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "cmd_install.do_work"
+            }
+          ]
+        },
+        "wks/api/service/cmd_start.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "cmd_start"
+            },
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "cmd_start.do_work"
+            }
+          ]
+        },
+        "wks/api/service/cmd_status.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "cmd_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "cmd_status._check_service_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 56,
+              "name": "cmd_status._check_direct_run_indicators"
+            },
+            {
+              "kind": "function",
+              "lineno": 90,
+              "name": "cmd_status._build_result_message"
+            },
+            {
+              "kind": "function",
+              "lineno": 103,
+              "name": "cmd_status.do_work"
+            }
+          ]
+        },
+        "wks/api/service/cmd_stop.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "cmd_stop"
+            },
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "cmd_stop.do_work"
+            }
+          ]
+        },
+        "wks/api/service/cmd_uninstall.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "cmd_uninstall"
+            },
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "cmd_uninstall.do_work"
+            }
+          ]
+        }
+      },
+      "multi": 10,
+      "single": 4
+    },
+    "transform": {
+      "files": {
+        "wks/api/transform/TransformConfig.py": {
+          "defs": []
+        },
+        "wks/api/transform/_CacheConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "_normalize_base_dir"
+            }
+          ]
+        },
+        "wks/api/transform/_CacheManager.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "_load_cache_size"
+            },
+            {
+              "kind": "function",
+              "lineno": 43,
+              "name": "_save_cache_size"
+            },
+            {
+              "kind": "function",
+              "lineno": 48,
+              "name": "_get_lru_entries"
+            },
+            {
+              "kind": "function",
+              "lineno": 75,
+              "name": "ensure_space"
+            },
+            {
+              "kind": "function",
+              "lineno": 123,
+              "name": "add_file"
+            },
+            {
+              "kind": "function",
+              "lineno": 132,
+              "name": "remove_file"
+            },
+            {
+              "kind": "function",
+              "lineno": 141,
+              "name": "get_current_size"
+            }
+          ]
+        },
+        "wks/api/transform/_EngineConfig.py": {
+          "defs": []
+        },
+        "wks/api/transform/_TransformController.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "_compute_file_checksum"
+            },
+            {
+              "kind": "function",
+              "lineno": 54,
+              "name": "_update_graph"
+            },
+            {
+              "kind": "function",
+              "lineno": 111,
+              "name": "_compute_cache_key"
+            },
+            {
+              "kind": "function",
+              "lineno": 125,
+              "name": "_find_cached_transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 162,
+              "name": "_update_last_accessed"
+            },
+            {
+              "kind": "function",
+              "lineno": 175,
+              "name": "_handle_cached_transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 208,
+              "name": "_perform_new_transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 311,
+              "name": "transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 370,
+              "name": "_copy_cache_file_to_output"
+            },
+            {
+              "kind": "function",
+              "lineno": 392,
+              "name": "_find_matching_record_in_db"
+            },
+            {
+              "kind": "function",
+              "lineno": 411,
+              "name": "_resolve_cache_file_from_db"
+            },
+            {
+              "kind": "function",
+              "lineno": 454,
+              "name": "_get_content_by_checksum"
+            },
+            {
+              "kind": "function",
+              "lineno": 491,
+              "name": "_get_content_by_file_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 524,
+              "name": "get_content"
+            }
+          ]
+        },
+        "wks/api/transform/_TransformEngine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "get_extension"
+            },
+            {
+              "kind": "function",
+              "lineno": 41,
+              "name": "compute_options_hash"
+            }
+          ]
+        },
+        "wks/api/transform/_TransformRecord.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "validate_uri"
+            },
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "validate_referenced_uris"
+            },
+            {
+              "kind": "function",
+              "lineno": 36,
+              "name": "serialize_uri"
+            },
+            {
+              "kind": "function",
+              "lineno": 41,
+              "name": "serialize_referenced_uris"
+            },
+            {
+              "kind": "function",
+              "lineno": 46,
+              "name": "from_dict"
+            },
+            {
+              "kind": "function",
+              "lineno": 60,
+              "name": "to_dict"
+            },
+            {
+              "kind": "function",
+              "lineno": 64,
+              "name": "cache_path_from_uri"
+            }
+          ]
+        },
+        "wks/api/transform/_TransformResult.py": {
+          "defs": []
+        },
+        "wks/api/transform/__init__.py": {
+          "defs": []
+        },
+        "wks/api/transform/_docling/_DoclingEngine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 176,
+              "name": "get_extension"
+            }
+          ]
+        },
+        "wks/api/transform/_get_controller.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "_get_controller"
+            }
+          ]
+        },
+        "wks/api/transform/_get_engine_by_type.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "_get_engine_by_type"
+            }
+          ]
+        },
+        "wks/api/transform/_testengine/_TestEngine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "get_extension"
+            }
+          ]
+        },
+        "wks/api/transform/cmd_engine.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "cmd_engine"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "cmd_engine.do_work"
+            }
+          ]
+        },
+        "wks/api/transform/cmd_info.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "cmd_info"
+            },
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "cmd_info.do_work"
+            }
+          ]
+        },
+        "wks/api/transform/cmd_list.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "cmd_list"
+            },
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "cmd_list.do_work"
+            }
+          ]
+        },
+        "wks/api/transform/get_content.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "get_content"
+            }
+          ]
+        },
+        "wks/api/transform/post_reset.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "post_reset"
+            }
+          ]
+        },
+        "wks/api/transform/prune.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "prune"
+            }
+          ]
+        }
+      },
+      "multi": 9,
+      "single": 6
+    },
+    "vault": {
+      "files": {
+        "wks/api/vault/EdgeRecord.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "identity"
+            },
+            {
+              "kind": "function",
+              "lineno": 36,
+              "name": "to_document"
+            }
+          ]
+        },
+        "wks/api/vault/LinkMetadata.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "to_dict"
+            }
+          ]
+        },
+        "wks/api/vault/ScanStats.py": {
+          "defs": []
+        },
+        "wks/api/vault/SyncResult.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "to_meta_document"
+            }
+          ]
+        },
+        "wks/api/vault/Vault.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 18,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 35,
+              "name": "__enter__"
+            },
+            {
+              "kind": "function",
+              "lineno": 54,
+              "name": "__exit__"
+            },
+            {
+              "kind": "function",
+              "lineno": 58,
+              "name": "vault_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 65,
+              "name": "links_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 70,
+              "name": "iter_markdown_files"
+            },
+            {
+              "kind": "function",
+              "lineno": 76,
+              "name": "find_broken_links"
+            },
+            {
+              "kind": "function",
+              "lineno": 81,
+              "name": "resolve_link"
+            }
+          ]
+        },
+        "wks/api/vault/VaultConfig.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 22,
+              "name": "_normalize_base_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 28,
+              "name": "from_config_dict"
+            }
+          ]
+        },
+        "wks/api/vault/VaultPathError.py": {
+          "defs": []
+        },
+        "wks/api/vault/_AbstractBackend.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "vault_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 22,
+              "name": "resolve_link"
+            },
+            {
+              "kind": "function",
+              "lineno": 28,
+              "name": "links_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "iter_markdown_files"
+            }
+          ]
+        },
+        "wks/api/vault/__init__.py": {
+          "defs": []
+        },
+        "wks/api/vault/_constants.py": {
+          "defs": []
+        },
+        "wks/api/vault/_identity.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "_identity"
+            }
+          ]
+        },
+        "wks/api/vault/_obsidian/_Backend.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 43,
+              "name": "vault_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 47,
+              "name": "links_dir"
+            },
+            {
+              "kind": "function",
+              "lineno": 50,
+              "name": "iter_markdown_files"
+            },
+            {
+              "kind": "function",
+              "lineno": 68,
+              "name": "find_broken_links"
+            },
+            {
+              "kind": "function",
+              "lineno": 78,
+              "name": "resolve_link"
+            },
+            {
+              "kind": "function",
+              "lineno": 87,
+              "name": "_is_symlink"
+            },
+            {
+              "kind": "function",
+              "lineno": 90,
+              "name": "_is_attachment"
+            },
+            {
+              "kind": "function",
+              "lineno": 93,
+              "name": "_is_external_url"
+            },
+            {
+              "kind": "function",
+              "lineno": 97,
+              "name": "_resolve_symlink"
+            },
+            {
+              "kind": "function",
+              "lineno": 136,
+              "name": "_resolve_attachment"
+            },
+            {
+              "kind": "function",
+              "lineno": 146,
+              "name": "_resolve_external_url"
+            },
+            {
+              "kind": "function",
+              "lineno": 153,
+              "name": "_resolve_vault_note"
+            }
+          ]
+        },
+        "wks/api/vault/_obsidian/_Scanner.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 31,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 35,
+              "name": "_note_to_uri"
+            },
+            {
+              "kind": "function",
+              "lineno": 46,
+              "name": "scan"
+            },
+            {
+              "kind": "function",
+              "lineno": 89,
+              "name": "_apply_file_url_rewrites"
+            },
+            {
+              "kind": "function",
+              "lineno": 108,
+              "name": "stats"
+            },
+            {
+              "kind": "function",
+              "lineno": 112,
+              "name": "_ensure_type_keys"
+            },
+            {
+              "kind": "function",
+              "lineno": 117,
+              "name": "_parse_note"
+            },
+            {
+              "kind": "function",
+              "lineno": 162,
+              "name": "_record_counts"
+            },
+            {
+              "kind": "function",
+              "lineno": 166,
+              "name": "_note_path"
+            },
+            {
+              "kind": "function",
+              "lineno": 169,
+              "name": "_preview_line"
+            },
+            {
+              "kind": "function",
+              "lineno": 175,
+              "name": "_build_wikilink_record"
+            },
+            {
+              "kind": "function",
+              "lineno": 203,
+              "name": "_convert_file_url_to_symlink"
+            },
+            {
+              "kind": "function",
+              "lineno": 241,
+              "name": "_build_url_record"
+            }
+          ]
+        },
+        "wks/api/vault/_obsidian/__init__.py": {
+          "defs": []
+        },
+        "wks/api/vault/_obsidian/extract_headings.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 4,
+              "name": "extract_headings"
+            }
+          ]
+        },
+        "wks/api/vault/cmd_check.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "cmd_check"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "cmd_check.do_work"
+            }
+          ]
+        },
+        "wks/api/vault/cmd_links.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "cmd_links"
+            },
+            {
+              "kind": "function",
+              "lineno": 38,
+              "name": "cmd_links.do_work"
+            }
+          ]
+        },
+        "wks/api/vault/cmd_status.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "cmd_status"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "cmd_status.do_work"
+            }
+          ]
+        },
+        "wks/api/vault/cmd_sync.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "cmd_sync"
+            },
+            {
+              "kind": "function",
+              "lineno": 47,
+              "name": "cmd_sync.do_work"
+            }
+          ]
+        },
+        "wks/api/vault/resolve_vault_path.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "resolve_vault_path"
+            }
+          ]
+        }
+      },
+      "multi": 10,
+      "single": 5
+    },
+    "wksc": {
+      "files": {
+        "wks/cli/__init__.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "main"
+            }
+          ]
+        },
+        "wks/cli/__main__.py": {
+          "defs": []
+        },
+        "wks/cli/_create_app.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 18,
+              "name": "_create_app"
+            },
+            {
+              "kind": "function",
+              "lineno": 42,
+              "name": "_create_app.main_callback"
+            }
+          ]
+        },
+        "wks/cli/_get_typer_command_schema.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 9,
+              "name": "get_typer_command_schema"
+            },
+            {
+              "kind": "function",
+              "lineno": 20,
+              "name": "get_typer_command_schema.extract_non_none_type"
+            },
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "get_typer_command_schema.check_type_match"
+            },
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "get_typer_command_schema.get_param_type"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "get_typer_command_schema.get_param_description"
+            },
+            {
+              "kind": "function",
+              "lineno": 52,
+              "name": "get_typer_command_schema.build_callback_schema"
+            }
+          ]
+        },
+        "wks/cli/_handle_stage_result.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "_handle_stage_result"
+            },
+            {
+              "kind": "function",
+              "lineno": 37,
+              "name": "_handle_stage_result._extract_display_format"
+            },
+            {
+              "kind": "function",
+              "lineno": 66,
+              "name": "_handle_stage_result.wrapper"
+            }
+          ]
+        },
+        "wks/cli/_parse_overrides.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "_parse_overrides"
+            }
+          ]
+        },
+        "wks/cli/_resolve_uri_arg.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "_resolve_uri_arg"
+            }
+          ]
+        },
+        "wks/cli/_run_single_execution.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "_run_single_execution"
+            }
+          ]
+        },
+        "wks/cli/cat.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "cat"
+            },
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "cat.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "cat.cat.callback.result_printer"
+            }
+          ]
+        },
+        "wks/cli/config.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "config"
+            },
+            {
+              "kind": "function",
+              "lineno": 23,
+              "name": "config.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "config.list_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 35,
+              "name": "config.show_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 42,
+              "name": "config.version_cmd"
+            }
+          ]
+        },
+        "wks/cli/daemon.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 14,
+              "name": "daemon"
+            },
+            {
+              "kind": "function",
+              "lineno": 26,
+              "name": "daemon.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "daemon.status_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 38,
+              "name": "daemon.start_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 48,
+              "name": "daemon.stop_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 53,
+              "name": "daemon.clear_cmd"
+            }
+          ]
+        },
+        "wks/cli/database.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "database"
+            },
+            {
+              "kind": "function",
+              "lineno": 24,
+              "name": "database.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "database.list_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 35,
+              "name": "database.show_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "database.reset_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 51,
+              "name": "database.prune_cmd"
+            }
+          ]
+        },
+        "wks/cli/display/CLIDisplay.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 36,
+              "name": "__enter__"
+            },
+            {
+              "kind": "function",
+              "lineno": 40,
+              "name": "__exit__"
+            },
+            {
+              "kind": "function",
+              "lineno": 45,
+              "name": "update"
+            },
+            {
+              "kind": "function",
+              "lineno": 50,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 59,
+              "name": "status"
+            },
+            {
+              "kind": "function",
+              "lineno": 65,
+              "name": "success"
+            },
+            {
+              "kind": "function",
+              "lineno": 71,
+              "name": "error"
+            },
+            {
+              "kind": "function",
+              "lineno": 82,
+              "name": "warning"
+            },
+            {
+              "kind": "function",
+              "lineno": 85,
+              "name": "info"
+            },
+            {
+              "kind": "function",
+              "lineno": 88,
+              "name": "progress_start"
+            },
+            {
+              "kind": "function",
+              "lineno": 105,
+              "name": "progress_update"
+            },
+            {
+              "kind": "function",
+              "lineno": 117,
+              "name": "progress_finish"
+            },
+            {
+              "kind": "function",
+              "lineno": 128,
+              "name": "progress"
+            },
+            {
+              "kind": "function",
+              "lineno": 132,
+              "name": "spinner_start"
+            },
+            {
+              "kind": "function",
+              "lineno": 137,
+              "name": "spinner_update"
+            },
+            {
+              "kind": "function",
+              "lineno": 141,
+              "name": "spinner_finish"
+            },
+            {
+              "kind": "function",
+              "lineno": 147,
+              "name": "json_output"
+            }
+          ]
+        },
+        "wks/cli/display/Display.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 11,
+              "name": "status"
+            },
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "success"
+            },
+            {
+              "kind": "function",
+              "lineno": 31,
+              "name": "error"
+            },
+            {
+              "kind": "function",
+              "lineno": 41,
+              "name": "warning"
+            },
+            {
+              "kind": "function",
+              "lineno": 51,
+              "name": "info"
+            },
+            {
+              "kind": "function",
+              "lineno": 61,
+              "name": "progress_start"
+            },
+            {
+              "kind": "function",
+              "lineno": 75,
+              "name": "progress_update"
+            },
+            {
+              "kind": "function",
+              "lineno": 86,
+              "name": "progress_finish"
+            },
+            {
+              "kind": "function",
+              "lineno": 96,
+              "name": "spinner_start"
+            },
+            {
+              "kind": "function",
+              "lineno": 109,
+              "name": "spinner_update"
+            },
+            {
+              "kind": "function",
+              "lineno": 120,
+              "name": "spinner_finish"
+            },
+            {
+              "kind": "function",
+              "lineno": 131,
+              "name": "json_output"
+            }
+          ]
+        },
+        "wks/cli/display/DisplayContext.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 21,
+              "name": "__post_init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 27,
+              "name": "_build_factories"
+            },
+            {
+              "kind": "function",
+              "lineno": 32,
+              "name": "is_mcp_context"
+            },
+            {
+              "kind": "function",
+              "lineno": 43,
+              "name": "_resolve_mode"
+            },
+            {
+              "kind": "function",
+              "lineno": 50,
+              "name": "get_display"
+            },
+            {
+              "kind": "function",
+              "lineno": 59,
+              "name": "add_display_argument"
+            }
+          ]
+        },
+        "wks/cli/display/DisplayMode.py": {
+          "defs": []
+        },
+        "wks/cli/display/__init__.py": {
+          "defs": []
+        },
+        "wks/cli/display/display_context.py": {
+          "defs": []
+        },
+        "wks/cli/link.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 16,
+              "name": "link"
+            },
+            {
+              "kind": "function",
+              "lineno": 28,
+              "name": "link.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 34,
+              "name": "link.status_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "link.show_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 47,
+              "name": "link.check_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 55,
+              "name": "link.sync_cmd"
+            }
+          ]
+        },
+        "wks/cli/log.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "log"
+            },
+            {
+              "kind": "function",
+              "lineno": 22,
+              "name": "log.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "log.prune_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "log.status_cmd"
+            }
+          ]
+        },
+        "wks/cli/mcp.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "mcp"
+            },
+            {
+              "kind": "function",
+              "lineno": 25,
+              "name": "mcp.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 32,
+              "name": "mcp.list_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 37,
+              "name": "mcp.install_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 46,
+              "name": "mcp.uninstall_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 53,
+              "name": "mcp.run_cmd"
+            }
+          ]
+        },
+        "wks/cli/monitor.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 18,
+              "name": "monitor"
+            },
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "monitor.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 37,
+              "name": "monitor.status_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 42,
+              "name": "monitor.check_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 48,
+              "name": "monitor.sync_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 67,
+              "name": "monitor.filter_callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 74,
+              "name": "monitor.filter_show_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 81,
+              "name": "monitor.filter_add_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 89,
+              "name": "monitor.filter_remove_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 106,
+              "name": "monitor.priority_show_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 111,
+              "name": "monitor.priority_add_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 119,
+              "name": "monitor.priority_remove_cmd"
+            }
+          ]
+        },
+        "wks/cli/service.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 15,
+              "name": "service"
+            },
+            {
+              "kind": "function",
+              "lineno": 27,
+              "name": "service.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 34,
+              "name": "service.status_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 39,
+              "name": "service.start_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "service.stop_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 49,
+              "name": "service.install_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 58,
+              "name": "service.uninstall_cmd"
+            }
+          ]
+        },
+        "wks/cli/transform.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 17,
+              "name": "transform"
+            },
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "transform.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 46,
+              "name": "transform.transform.callback.list_printer"
+            },
+            {
+              "kind": "function",
+              "lineno": 61,
+              "name": "transform.transform.callback.info_printer"
+            },
+            {
+              "kind": "function",
+              "lineno": 80,
+              "name": "transform.transform.callback.raw_printer"
+            }
+          ]
+        },
+        "wks/cli/vault.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 12,
+              "name": "vault"
+            },
+            {
+              "kind": "function",
+              "lineno": 24,
+              "name": "vault.callback"
+            },
+            {
+              "kind": "function",
+              "lineno": 30,
+              "name": "vault.status_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 35,
+              "name": "vault.sync_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "vault.links_cmd"
+            },
+            {
+              "kind": "function",
+              "lineno": 56,
+              "name": "vault.check_cmd"
+            }
+          ]
+        }
+      },
+      "multi": 17,
+      "single": 4
+    },
+    "wksm": {
+      "files": {
+        "wks/mcp/__init__.py": {
+          "defs": []
+        },
+        "wks/mcp/call_tool.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "call_tool"
+            }
+          ]
+        },
+        "wks/mcp/client.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 13,
+              "name": "proxy_stdio_to_socket"
+            },
+            {
+              "kind": "function",
+              "lineno": 33,
+              "name": "proxy_stdio_to_socket.upstream"
+            },
+            {
+              "kind": "function",
+              "lineno": 44,
+              "name": "proxy_stdio_to_socket.downstream"
+            }
+          ]
+        },
+        "wks/mcp/discover_commands.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 10,
+              "name": "discover_commands"
+            }
+          ]
+        },
+        "wks/mcp/extract_api_function_from_command.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "extract_api_function_from_command"
+            }
+          ]
+        },
+        "wks/mcp/get_app.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 7,
+              "name": "get_app"
+            }
+          ]
+        },
+        "wks/mcp/main.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 8,
+              "name": "main"
+            }
+          ]
+        },
+        "wks/mcp/paths.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 6,
+              "name": "mcp_socket_path"
+            }
+          ]
+        },
+        "wks/mcp/server.py": {
+          "defs": [
+            {
+              "kind": "function",
+              "lineno": 19,
+              "name": "__init__"
+            },
+            {
+              "kind": "function",
+              "lineno": 29,
+              "name": "_find_command_in_app"
+            },
+            {
+              "kind": "function",
+              "lineno": 37,
+              "name": "_find_command_in_groups"
+            },
+            {
+              "kind": "function",
+              "lineno": 51,
+              "name": "_get_command_and_schema"
+            },
+            {
+              "kind": "function",
+              "lineno": 71,
+              "name": "define_tools"
+            },
+            {
+              "kind": "function",
+              "lineno": 92,
+              "name": "build_registry"
+            },
+            {
+              "kind": "function",
+              "lineno": 98,
+              "name": "build_registry.make_handler"
+            },
+            {
+              "kind": "function",
+              "lineno": 99,
+              "name": "build_registry.build_registry.make_handler.handler"
+            },
+            {
+              "kind": "function",
+              "lineno": 131,
+              "name": "read_message"
+            },
+            {
+              "kind": "function",
+              "lineno": 153,
+              "name": "write_message"
+            },
+            {
+              "kind": "function",
+              "lineno": 164,
+              "name": "handle_request"
+            },
+            {
+              "kind": "function",
+              "lineno": 241,
+              "name": "run"
+            }
+          ]
+        }
+      },
+      "multi": 2,
+      "single": 6
+    }
+  },
+  "multi": 98,
+  "schema": "cursorcult.defs.v1",
+  "single": 80
+}

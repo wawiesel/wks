@@ -8,8 +8,8 @@ from collections.abc import Iterator
 from typing import Any
 
 from ..config._ensure_arg_uri import _ensure_arg_uri
-from ..StageResult import StageResult
-from ..URI import URI
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from . import VaultCheckOutput
 
 

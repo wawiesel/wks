@@ -6,7 +6,7 @@ Matches CLI: wksc monitor priority add <path> <priority>, MCP: wksm_monitor_prio
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import MonitorPriorityAddOutput
 
 

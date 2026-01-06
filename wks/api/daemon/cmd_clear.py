@@ -3,9 +3,9 @@
 from collections.abc import Iterator
 from typing import Any
 
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file
-from ..StageResult import StageResult
 from . import DaemonClearOutput
 
 

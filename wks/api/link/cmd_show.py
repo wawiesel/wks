@@ -8,9 +8,9 @@ from collections.abc import Iterator
 from enum import Enum
 from typing import Any
 
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from ..database.Database import Database
-from ..StageResult import StageResult
-from ..URI import URI
 
 
 class Direction(str, Enum):

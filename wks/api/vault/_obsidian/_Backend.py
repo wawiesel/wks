@@ -121,7 +121,7 @@ class _Backend(_AbstractBackend):
 
         # Use URI.from_path for resolved filesystem path
         try:
-            from wks.api.URI import URI
+            from wks.api.config.URI import URI
 
             target_uri = str(URI.from_path(resolved))
         except (ValueError, OSError, ImportError):

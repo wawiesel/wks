@@ -4,8 +4,8 @@ from collections.abc import Iterator
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 
+from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..StageResult import StageResult
 from . import LogStatusOutput
 from .LOG_PATTERN import LOG_PATTERN
 

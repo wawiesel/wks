@@ -7,8 +7,8 @@ from typing import Any
 from unittest.mock import patch
 
 import wks.mcp.server as server_mod
+from wks.api.config.StageResult import StageResult
 from wks.api.config.WKSConfig import WKSConfig
-from wks.api.StageResult import StageResult
 from wks.mcp import discover_commands as discover_commands_mod
 from wks.mcp.call_tool import call_tool
 from wks.mcp.discover_commands import discover_commands

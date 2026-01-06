@@ -7,7 +7,7 @@ All fields must always be present (even if empty/null) to ensure consistency.
 from collections.abc import Callable
 from typing import Any
 
-from ..schema_registry import schema_registry
+from .schema_registry import schema_registry
 
 
 def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:

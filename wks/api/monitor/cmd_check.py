@@ -6,8 +6,8 @@ Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
 
 from collections.abc import Iterator
 
-from ..StageResult import StageResult
-from ..URI import URI
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from . import MonitorCheckOutput
 from .calculate_priority import calculate_priority
 from .explain_path import explain_path

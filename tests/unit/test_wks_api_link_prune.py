@@ -56,7 +56,7 @@ def test_prune_remote(tracked_wks_config, monkeypatch):
         )
 
     # Ensure exists.txt exists so it's not deleted due to local
-    from wks.api.URI import URI
+    from wks.api.config.URI import URI
 
     exists_path = Path(tracked_wks_config.vault.base_dir).expanduser() / "exists.txt"
     exists_path.parent.mkdir(parents=True, exist_ok=True)

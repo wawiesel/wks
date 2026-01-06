@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from wks.api.URI import URI
+from wks.api.config.URI import URI
 
 
 def _resolve_uri_arg(value: str) -> URI:

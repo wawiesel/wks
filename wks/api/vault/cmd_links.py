@@ -7,9 +7,9 @@ MCP: wksm_vault_links
 from collections.abc import Iterator
 from typing import Any, Literal
 
+from ..config.StageResult import StageResult
+from ..config.URI import URI
 from ..database.Database import Database
-from ..StageResult import StageResult
-from ..URI import URI
 from . import VaultLinksOutput
 
 

@@ -9,7 +9,7 @@ from typing import Any
 
 from wks.api.config.normalize_path import normalize_path
 
-from ..StageResult import StageResult
+from ..config.StageResult import StageResult
 from . import MonitorPriorityShowOutput
 from .explain_path import explain_path
 

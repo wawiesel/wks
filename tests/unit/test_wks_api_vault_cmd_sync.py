@@ -5,7 +5,7 @@ import json
 import pytest
 
 from tests.unit.conftest import run_cmd
-from wks.api.URI import URI
+from wks.api.config.URI import URI
 from wks.api.vault.cmd_sync import cmd_sync
 
 pytestmark = pytest.mark.vault
@@ -185,9 +185,9 @@ def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_
 
 def test_sync_writes_correct_uri_scheme(monkeypatch, tmp_path, minimal_config_dict):
     """Verify that sync writes vault:/// URIs for files within the vault."""
+    from wks.api.config.URI import URI
     from wks.api.database.Database import Database
     from wks.api.database.DatabaseConfig import DatabaseConfig
-    from wks.api.URI import URI
     from wks.api.vault.cmd_status import cmd_status
 
     wks_home = (tmp_path / ".wks").resolve()

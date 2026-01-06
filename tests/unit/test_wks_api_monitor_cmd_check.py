@@ -5,8 +5,8 @@ import json
 import pytest
 
 from tests.unit.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.monitor.cmd_check import cmd_check
-from wks.api.URI import URI
 
 pytestmark = pytest.mark.monitor
 
