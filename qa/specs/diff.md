@@ -3,7 +3,7 @@
 **Purpose**: To provide a robust, pluggable mechanism for calculating and presenting differences between various forms of content, adhering strictly to WKS-DIFF requirements and NoHedging principles.
 
 **Referenced Requirements**:
-This specification fulfills the requirements outlined in `docs/specifications/diff.yaml`.
+This specification fulfills the requirements outlined in `qa/reqs/diff/`.
 
 ## 1. Configuration (Config-First Approach)
 

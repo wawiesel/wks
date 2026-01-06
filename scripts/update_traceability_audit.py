@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HODOR_SCRIPT = REPO_ROOT / ".cursor" / "rules" / "Hodor" / "scripts" / "build_traceability_audit.py"
-DEFAULT_REQ_DIRS = ["qa/reqs/mon"]
+DEFAULT_REQ_DIRS = ["qa/reqs/mon", "qa/reqs/diff"]
 DEFAULT_TEST_ITEM_DIRS: list[str] = []
 DEFAULT_TEST_SCAN_DIRS = ["tests/unit", "tests/integration", "tests/smoke"]
 DEFAULT_OUT = REPO_ROOT / "qa" / "traceability_audit.html"
