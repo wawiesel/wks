@@ -63,3 +63,28 @@ class TestSexpDiffer:
         engine = SexpDiffer()
         with pytest.raises((ValueError, RuntimeError), match="UTF-8"):
             engine.diff(file_a, file_b, {})
+
+    def test_diff_file2_invalid_extension(self, tmp_path):
+        """Test diff fails when file2 is not *.sexp."""
+        file_a = tmp_path / "a.sexp"
+        file_b = tmp_path / "b.txt"
+        file_a.write_text("(module)")
+        file_b.write_text("text")
+
+        engine = SexpDiffer()
+        with pytest.raises(ValueError, match=r"requires.*sexp"):
+            engine.diff(file_a, file_b, {})
+
+    def test_diff_read_error_handling(self, tmp_path):
+        """Test diff handles file read errors."""
+        file_a = tmp_path / "a.sexp"
+        file_b = tmp_path / "b.sexp"
+        file_a.write_text("(module)")
+
+        # Remove file_b to cause read error
+        file_b.write_text("(module)")
+        file_b.unlink()
+
+        engine = SexpDiffer()
+        with pytest.raises(RuntimeError, match="Failed to read files"):
+            engine.diff(file_a, file_b, {})
