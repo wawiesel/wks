@@ -2,7 +2,8 @@
   "sources": {
     "report": "qa/traceability_audit.html",
     "requirements": [
-      "qa/reqs/mon"
+      "qa/reqs/mon",
+      "qa/reqs/diff"
     ],
     "test_items": [],
     "test_scan": [
@@ -12,17 +13,17 @@
     ]
   },
   "summary": {
-    "coverage_pct": 100.0,
+    "coverage_pct": 61.5,
     "links_total": 23,
     "requirements": {
       "linked": 8,
-      "total": 8,
-      "unlinked": 0
+      "total": 13,
+      "unlinked": 5
     },
     "tests": {
       "linked": 10,
-      "total": 102,
-      "unlinked": 92
+      "total": 103,
+      "unlinked": 93
     }
   }
 }
