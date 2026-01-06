@@ -52,7 +52,8 @@ Engines declared in `config.json`:
 {
   "transform": {
     "engines": {
-      "dx": { "type": "docling", "data": {} }
+      "dx": { "type": "docling", "data": {} },
+      "ast": { "type": "treesitter", "data": { } }
     }
   }
 }
@@ -72,6 +73,8 @@ transform/
 ├── _get_engine_by_type.py
 ├── _docling/
 │   └── _DoclingEngine.py
+├── _treesitter/
+│   └── _TreeSitterEngine.py
 └── _testengine/
     └── _TestEngine.py
 ```
