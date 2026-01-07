@@ -31,7 +31,7 @@ cmd_engine ──→ _get_controller() ──→ _TransformController
                           │
                ┌──────────┴──────────┐
                ↓                     ↓
-       _DoclingEngine          _TestEngine
+       _DoclingEngine          _TextPassEngine
 ```
 
 ## Core Concepts
@@ -52,10 +52,24 @@ Engines declared in `config.json`:
 {
   "transform": {
     "engines": {
-      "dx": { "type": "docling", "data": {} }
+      "dx": { "type": "docling", "data": {} },
+      "ast": {
+        "type": "treesitter",
+        "data": {
+          "language": "auto",
+          "format": "sexp"
+        }
+      }
     }
   }
 }
+
+### Tree-sitter Engine Options
+
+The `treesitter` transform engine accepts the following options under `data`:
+
+- `language`: Required. Use `"auto"` to infer from MIME/extension (see `transform/mime.py`) or set a specific tree-sitter grammar name.
+- `format`: Output representation. `"sexp"` (S-expression) is the default and currently the only supported format; sets the `.sexp` extension.
 ```
 
 ## Directory Layout
@@ -72,8 +86,12 @@ transform/
 ├── _get_engine_by_type.py
 ├── _docling/
 │   └── _DoclingEngine.py
-└── _testengine/
-    └── _TestEngine.py
+├── _treesitter/
+│   └── _TreeSitterEngine.py
+├── _textpass/
+│   └── _TextPassEngine.py
+└── _binarypass/
+    └── _BinaryPassEngine.py
 ```
 
 ## Testing

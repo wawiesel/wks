@@ -1,0 +1,3 @@
+uid: WKS-DIFF-004
+text: |
+  The diff layer SHALL support diffing of transformed content via checksums provided by the Transform Layer.

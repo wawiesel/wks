@@ -1,0 +1,86 @@
+"""Tree-sitter transform engine."""
+
+from __future__ import annotations
+
+from collections.abc import Generator
+from pathlib import Path
+from typing import Any
+
+from .._TransformEngine import _TransformEngine
+from ._language_map import resolve_language
+from ._language_registry import UnsupportedTreeSitterLanguageError, get_parser_for_language
+
+
+class _TreeSitterEngine(_TransformEngine):
+    """Tree-sitter transform engine for AST extraction."""
+
+    def transform(
+        self, input_path: Path, output_path: Path, options: dict[str, Any]
+    ) -> Generator[str, None, list[str]]:
+        """Transform source file into a tree-sitter AST representation.
+
+        Args:
+            input_path: Source file path
+            output_path: Destination file path
+            options: Engine options (requires "language"; optional "format")
+
+        Raises:
+            RuntimeError: If tree-sitter is unavailable or parse fails
+            ValueError: If options are invalid
+        """
+        language_option = options.get("language")
+        if language_option is None:
+            raise ValueError("treesitter requires 'language' (use 'auto' to infer).")
+        if not isinstance(language_option, str) or not language_option.strip():
+            raise ValueError("treesitter 'language' must be a non-empty string.")
+
+        format_name = options.get("format", "sexp")
+        if not isinstance(format_name, str):
+            raise ValueError("treesitter 'format' must be a string")
+        if format_name != "sexp":
+            raise ValueError(f"treesitter format must be 'sexp' (found: {format_name!r})")
+
+        yield f"Parsing {input_path.name} with tree-sitter..."
+
+        language = resolve_language(input_path, options)
+        try:
+            parser = get_parser_for_language(language)
+        except UnsupportedTreeSitterLanguageError as exc:
+            raise ValueError(f"Unsupported tree-sitter language: {language}") from exc
+        except ImportError as exc:
+            raise RuntimeError(str(exc)) from exc
+        except Exception as exc:
+            raise RuntimeError(f"Tree-sitter parser initialization failed: {exc}") from exc
+
+        try:
+            source_bytes = input_path.read_bytes()
+        except Exception as exc:
+            raise RuntimeError(f"Failed to read input file: {exc}") from exc
+
+        try:
+            tree = parser.parse(source_bytes)
+            root = tree.root_node
+        except Exception as exc:
+            raise RuntimeError(f"Tree-sitter parse failed: {exc}") from exc
+
+        yield "Serializing AST..."
+
+        ast_text = root.sexp() if hasattr(root, "sexp") and callable(root.sexp) else self._node_to_sexp(root)
+
+        output_path.write_text(ast_text + "\n", encoding="utf-8")
+
+        return []
+
+    def get_extension(self, _options: dict[str, Any]) -> str:
+        """Get output file extension."""
+        format_name = _options.get("format", "sexp")
+        if format_name == "sexp":
+            return "sexp"
+        return "ast"
+
+    def _node_to_sexp(self, node: Any) -> str:
+        """Serialize node to a simple S-expression."""
+        children = [self._node_to_sexp(child) for child in node.children]
+        if not children:
+            return f"({node.type})"
+        return f"({node.type} {' '.join(children)})"

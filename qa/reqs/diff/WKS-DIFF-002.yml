@@ -1,0 +1,3 @@
+uid: WKS-DIFF-002
+text: |
+  The diff operation SHALL return a strongly-typed result object containing status, delta, and metadata (e.g., checksums, encoding, file type, engine used).

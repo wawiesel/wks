@@ -20,10 +20,10 @@ def test_get_content_file(wks_home, minimal_config_dict):
     test_file.write_text("Get Content", encoding="utf-8")
 
     # First transform it to ensure it's in the system
-    run_cmd(cmd_engine, engine="test", uri=URI.from_path(test_file), overrides={})
+    run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
 
     content = get_content(str(test_file))
-    assert content == "Transformed: Get Content"
+    assert content == "Get Content"
 
 
 @pytest.mark.transform
@@ -35,12 +35,12 @@ def test_get_content_checksum(wks_home, minimal_config_dict):
     test_file = watch_dir / "checksum_me.txt"
     test_file.write_text("Checksum Content", encoding="utf-8")
 
-    res = run_cmd(cmd_engine, engine="test", uri=URI.from_path(test_file), overrides={})
+    res = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
     assert res.success is True
     checksum = res.output["checksum"]
 
     content = get_content(checksum)
-    assert content == "Transformed: Checksum Content"
+    assert content == "Checksum Content"
 
 
 @pytest.mark.transform
@@ -67,9 +67,9 @@ def test_get_content_to_output_file(wks_home, minimal_config_dict, tmp_path):
 
     test_file = watch_dir / "output_me.txt"
     test_file.write_text("Output Content", encoding="utf-8")
-    run_cmd(cmd_engine, engine="test", uri=URI.from_path(test_file), overrides={})
+    run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
 
     out_file = tmp_path / "out.md"
     get_content(str(test_file), output_path=out_file)
     assert out_file.exists()
-    assert out_file.read_text() == "Transformed: Output Content"
+    assert out_file.read_text() == "Output Content"

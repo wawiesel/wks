@@ -326,19 +326,31 @@ class _TransformController:
         if not file_path.exists() or not file_path.is_file():
             raise ValueError(f"File not found: {file_path}")
 
-        # Get engine config
-        if engine_name not in self.config.engines:
-            raise ValueError(
-                f"Engine '{engine_name}' not found in config. Available engines: {list(self.config.engines.keys())}"
-            )
+        # Handle "auto" engine selection
+        if engine_name == "auto":
+            from ._auto_engine import select_auto_engine
 
-        engine_config = self.config.engines[engine_name]
+            auto_engine_type = select_auto_engine(file_path)
+            # Create a temporary engine config for auto mode
+            # Auto mode doesn't need to be in config, it's a special mode
+            engine = _get_engine_by_type(auto_engine_type)
+            # Use auto_engine_type as the engine name for cache key purposes
+            engine_name_for_cache = f"auto_{auto_engine_type}"
+        else:
+            # Get engine config
+            if engine_name not in self.config.engines:
+                raise ValueError(
+                    f"Engine '{engine_name}' not found in config. Available engines: {list(self.config.engines.keys())}"
+                )
 
-        # Get engine instance
-        engine = _get_engine_by_type(engine_config.type)
+            engine_config = self.config.engines[engine_name]
 
-        # Merge base options with overrides
-        merged_options = {**engine_config.data, **(options or {})}
+            # Get engine instance
+            engine = _get_engine_by_type(engine_config.type)
+            engine_name_for_cache = engine_name
+
+        # Merge base options with overrides (skip if auto mode)
+        merged_options = options or {} if engine_name == "auto" else {**engine_config.data, **(options or {})}
 
         # Compute file info
         file_uri = URI.from_path(file_path)
@@ -346,11 +358,13 @@ class _TransformController:
         file_size = file_path.stat().st_size
         options_hash = engine.compute_options_hash(merged_options)
 
-        # Check cache
-        cached = self._find_cached_transform(file_checksum, engine_name, options_hash)
+        # Check cache (use engine_name_for_cache for auto mode)
+        cached = self._find_cached_transform(file_checksum, engine_name_for_cache, options_hash)
 
         if cached:
-            return self._handle_cached_transform(cached, file_checksum, engine_name, options_hash, output_path)
+            return self._handle_cached_transform(
+                cached, file_checksum, engine_name_for_cache, options_hash, output_path
+            )
 
         # Perform new transform
         return (
@@ -359,7 +373,7 @@ class _TransformController:
                 file_uri,
                 file_checksum,
                 file_size,
-                engine_name,
+                engine_name_for_cache,
                 engine,
                 merged_options,
                 options_hash,

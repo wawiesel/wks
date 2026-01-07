@@ -150,8 +150,8 @@ def minimal_config_dict() -> dict:
                 "max_size_bytes": 1073741824,
             },
             "engines": {
-                "test": {
-                    "type": "test",
+                "textpass": {
+                    "type": "textpass",
                     "data": {},
                 },
                 # Add docling engine to satisfy strict optional rules
@@ -170,7 +170,7 @@ def minimal_config_dict() -> dict:
             },
         },
         "cat": {
-            "default_engine": "test",
+            "default_engine": "textpass",
         },
     }
 

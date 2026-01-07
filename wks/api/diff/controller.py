@@ -44,7 +44,7 @@ class DiffController:
         Args:
             target1: First file path or cache checksum
             target2: Second file path or cache checksum
-            engine_name: Diff engine name (e.g., "bsdiff3", "myers")
+            engine_name: Diff engine name (e.g., "bsdiff3", "myers", "sexp")
             options: Engine-specific options
 
         Returns:
