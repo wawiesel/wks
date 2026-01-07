@@ -213,8 +213,8 @@ def main() -> None:
     parser.add_argument(
         "--timeout",
         type=int,
-        default=14400,
-        help="Timeout in seconds for entire mutation run (default: 14400 = 4 hours). Per-test timeout is 2 hours.",
+        default=1800,
+        help="Timeout in seconds for entire mutation run (default: 1800 = 30 minutes). Per-test timeout is 2 hours.",
     )
     args = parser.parse_args()
 
