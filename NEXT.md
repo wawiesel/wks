@@ -1,17 +1,5 @@
 # NEXT priorities for WKS: A Roadmap of Sorts
 
-## Implement Diff (bsdiff and Meyers) [P1]
-
-**Why**: Diff capabilities are essential for tracking changes, comparing versions, and understanding file evolution. Binary diff (bsdiff) enables efficient storage and transfer of binary file changes, while text diff (Myers) provides human-readable change tracking for text files.
-
-- [ ] Implement bsdiff algorithm for binary diff operations
-- [ ] Implement Myers diff algorithm for text diff operations
-- [ ] Create `wks/api/diff/` domain with proper API structure
-- [ ] Add CLI commands for diff operations
-- [ ] Add MCP support for diff operations
-- [ ] Write comprehensive tests for diff algorithms
-- [ ] Document diff capabilities and use cases
-
 ## Fully Implement Requirements Traceability for All Domains [P1]
 
 **Why**: Requirements traceability ensures that every requirement is tested and verified, providing confidence that the system meets its specifications. It enables auditability, helps identify gaps in test coverage, and makes it clear which tests validate which requirements.
