@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -209,6 +210,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("domain", help="Domain to mutate")
     parser.add_argument("--log-interval", type=int, default=None, help="Throttle progress logs to every N seconds")
+    parser.add_argument(
+        "--timeout", type=int, default=3600, help="Timeout in seconds for mutation testing (default: 3600)"
+    )
     args = parser.parse_args()
 
     domain = args.domain
@@ -261,7 +265,8 @@ def main() -> None:
     # (including stats collection and mutation runs) without complex setup.cfg patching.
     # Disable parallel execution (-n 0) for mutmut: parallel execution interferes with
     # mutmut's forced fail test validation, causing "Unable to force test failures" errors.
-    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0"
+    # Add timeout to prevent hanging tests: default 30 minutes per test
+    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0 --timeout=1800"
 
     try:
         with setup_cfg.open("w") as f:
@@ -279,6 +284,7 @@ def main() -> None:
             sys.exit(1)
 
         # Run mutmut with PTY (preserves progress bars locally, shows as lines in CI)
+        # Add timeout to prevent indefinite hangs
         master_fd, slave_fd = pty.openpty()
         p = subprocess.Popen(
             [mutmut_bin, "run"],
@@ -290,10 +296,47 @@ def main() -> None:
         )
         os.close(slave_fd)
 
+        # Use a threading event to coordinate between output reader and timeout checker
+        output_complete = threading.Event()
+
+        def read_output():
+            """Read PTY output in a separate thread."""
+            try:
+                _process_pty_output(master_fd, args.log_interval)
+            finally:
+                output_complete.set()
+
+        start_time = time.time()
+        reader_thread = threading.Thread(target=read_output, daemon=True)
+        reader_thread.start()
+
+        # Wait for output to complete or timeout
+        timeout_reached = False
+        while not output_complete.is_set() and p.poll() is None:
+            elapsed = time.time() - start_time
+            if elapsed >= args.timeout:
+                timeout_reached = True
+                _log(f"Mutation test timeout after {args.timeout}s, terminating...")
+                p.terminate()
+                break
+            time.sleep(0.1)  # Check every 100ms
+
+        # Wait for output thread to finish (or timeout)
+        reader_thread.join(timeout=5)
+
+        # Wait for process to complete or force termination
         try:
-            _process_pty_output(master_fd, args.log_interval)
+            if timeout_reached:
+                # Give it a moment to clean up
+                try:
+                    p.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    _log("Process did not terminate gracefully, killing...")
+                    p.kill()
+                    p.wait()
+            else:
+                p.wait()
         finally:
-            p.wait()
             os.close(master_fd)
 
         if p.returncode != 0:
