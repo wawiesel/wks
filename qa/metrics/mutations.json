@@ -1,40 +1,40 @@
 {
   "domains": {
     "cat": {
-      "killed": 80,
-      "survived": 20
+      "killed": 83,
+      "survived": 17
     },
     "config": {
-      "killed": 299,
-      "survived": 124
+      "killed": 294,
+      "survived": 129
     },
     "daemon": {
-      "killed": 257,
-      "survived": 98
+      "killed": 225,
+      "survived": 130
     },
     "database": {
-      "killed": 462,
-      "survived": 173
+      "killed": 463,
+      "survived": 172
     },
     "diff": {
-      "killed": 412,
-      "survived": 194
+      "killed": 377,
+      "survived": 229
     },
     "link": {
-      "killed": 876,
-      "survived": 341
+      "killed": 859,
+      "survived": 358
     },
     "log": {
-      "killed": 354,
-      "survived": 193
+      "killed": 360,
+      "survived": 187
     },
     "mcp": {
-      "killed": 243,
-      "survived": 155
+      "killed": 244,
+      "survived": 154
     },
     "monitor": {
-      "killed": 1167,
-      "survived": 535
+      "killed": 1154,
+      "survived": 548
     },
     "service": {
       "killed": 99,
@@ -53,7 +53,7 @@
       "survived": 376
     }
   },
-  "killed": 5905,
-  "score": 71.0,
-  "survived": 2409
+  "killed": 5814,
+  "score": 69.9,
+  "survived": 2500
 }
