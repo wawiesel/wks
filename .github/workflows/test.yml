@@ -94,21 +94,17 @@ jobs:
         id: docker-tests
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          # Run container in background with systemd as init (PID 1)
+          # TEMP: Run container WITHOUT systemd to test if systemd is sending SIGTERM
+          # Use tail -f /dev/null as a simple init instead of systemd
           CONTAINER_ID=$(docker run -d \
-            --privileged \
-            --cgroupns=host \
-            --tmpfs /run \
-            --tmpfs /run/lock \
-            -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -e GITHUB_ACTIONS=true \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            /lib/systemd/systemd)
+            tail -f /dev/null)
 
-          # Wait for systemd to settle (now bootstraps user session automatically)
-          sleep 5
+          # No systemd, no need to wait for it
+          sleep 2
 
           # Install package as testuser
           docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
@@ -127,8 +123,8 @@ jobs:
           MUTATION_EXIT=$?
           echo ">>> Mutation test exited with code: $MUTATION_EXIT"
 
-          # Run Linux service installation test (now has systemd)
-          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
+          # TEMP: Skip Linux service test - requires systemd which we removed for this test
+          # docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate all statistics using the same script as local development
           # This ensures CI and local are guaranteed to be the same (DRY)
