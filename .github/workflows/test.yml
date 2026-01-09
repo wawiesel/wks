@@ -109,8 +109,8 @@ jobs:
           # Install package as testuser
           docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
 
-          # Run full test suite with coverage
-          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
+          # Run full test suite with coverage (exclude linux_service which needs systemd)
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short -m 'not linux_service'
           TEST_RESULT=$?
 
           # TEMP: Run only transform mutations to isolate the issue
