@@ -288,9 +288,10 @@ def main() -> None:
 
         # Run mutmut with PTY (preserves progress bars locally, shows as lines in CI)
         # Add timeout to prevent indefinite hangs
+        # Use --max-children=1 to disable mutmut parallelism (test for exit 143)
         master_fd, slave_fd = pty.openpty()
         p = subprocess.Popen(
-            [mutmut_bin, "run"],
+            [mutmut_bin, "run", "--max-children=1"],
             cwd=str(REPO_ROOT),
             stdout=slave_fd,
             stderr=slave_fd,
