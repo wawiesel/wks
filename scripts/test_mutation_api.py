@@ -23,6 +23,7 @@ import os
 import pty
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -30,6 +31,22 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _signal_handler(signum: int, _frame) -> None:
+    """Log received signals for debugging exit 143 issue."""
+    sig_name = signal.Signals(signum).name
+    # Use print to stderr directly since _log may not be defined yet
+    print(f">>> PYTHON SIGNAL RECEIVED: {sig_name} ({signum})", file=sys.stderr, flush=True)
+    # Re-raise to allow normal termination behavior
+    if signum == signal.SIGTERM:
+        sys.exit(128 + signum)
+
+
+# Register signal handlers for debugging
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT, _signal_handler)
+signal.signal(signal.SIGHUP, _signal_handler)
 
 
 def _log(msg: str) -> None:

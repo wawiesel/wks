@@ -118,7 +118,14 @@ jobs:
           TEST_RESULT=$?
 
           # TEMP: Run only transform mutations to isolate the issue
+          # Add signal trap to log when signals are received
+          echo ">>> Starting mutation test with signal logging"
+          trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
+          trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
+          trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform --log-interval 15
+          MUTATION_EXIT=$?
+          echo ">>> Mutation test exited with code: $MUTATION_EXIT"
 
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
