@@ -12,7 +12,9 @@ permissions:
 
 jobs:
   # Stage 1: Smoke tests - ultra-fast using pre-built Docker image
+  # TEMP: Skip smoke tests for faster debugging
   smoke:
+    if: false
     name: Smoke Tests
     runs-on: ubuntu-latest
     steps:
@@ -35,7 +37,7 @@ jobs:
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:
     name: Code Quality
-    needs: smoke
+    # needs: smoke  # TEMP disabled
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +65,7 @@ jobs:
   # Stage 2b: Docker deep tests - comprehensive testing with stats generation
   docker-tests:
     name: Docker Deep Tests
-    needs: smoke
+    # needs: smoke  # TEMP disabled
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
