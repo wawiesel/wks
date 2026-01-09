@@ -214,7 +214,7 @@ def main() -> None:
         "--timeout",
         type=int,
         default=1800,
-        help="Timeout in seconds for entire mutation run (default: 1800 = 30 minutes). Per-test timeout is 2 hours.",
+        help="Timeout in seconds for entire mutation run (default: 1800 = 30 minutes). Per-test timeout is 5 minutes.",
     )
     args = parser.parse_args()
 
@@ -268,9 +268,11 @@ def main() -> None:
     # (including stats collection and mutation runs) without complex setup.cfg patching.
     # Disable parallel execution (-n 0) for mutmut: parallel execution interferes with
     # mutmut's forced fail test validation, causing "Unable to force test failures" errors.
-    # Add timeout to prevent hanging tests: default 2 hours per test (7200s)
-    # This is intentionally long since mutation tests can be slow, but prevents indefinite hangs
-    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0 --timeout=7200"
+    # Add timeout to prevent hanging tests: 5 minutes per test (300s)
+    # CRITICAL: Use --timeout-method=thread, NOT signal (default). The signal method uses
+    # SIGALRM which kills the PARENT process (mutmut) when a timeout fires, causing exit
+    # code 143. Thread method is safe for subprocess execution.
+    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0 --timeout=300 --timeout-method=thread"
 
     try:
         with setup_cfg.open("w") as f:
