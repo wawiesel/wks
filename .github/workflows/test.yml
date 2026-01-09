@@ -115,16 +115,15 @@ jobs:
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
-          # Run mutation tests for each domain
-          # NOTE: Run each domain as a SEPARATE docker exec to ensure proper signal forwarding.
-          # A single 'docker exec /bin/bash -c "for loop"' doesn't forward SIGTERM to the
-          # Python subprocess, causing exit code 143 when GHA or Docker sends termination signals.
-          for dir in wks/api/*/; do
-            domain=$(basename "$dir")
-            if [ "$domain" != "__pycache__" ]; then
-              docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py "$domain" --log-interval 15 || true
-            fi
-          done
+          # Run mutation tests for each domain found in wks/api
+          docker exec -u testuser "$CONTAINER_ID" /bin/bash -c '
+            for dir in wks/api/*/; do
+              domain=$(basename "$dir")
+              if [ "$domain" != "__pycache__" ]; then
+                python3 scripts/test_mutation_api.py "$domain" --log-interval 15 || true
+              fi
+            done
+          '
 
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true

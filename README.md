@@ -1,7 +1,7 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-86.5%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-68.6%25-red)
+![Coverage](https://img.shields.io/badge/coverage-0.0%25-red)
+![Mutation Score](https://img.shields.io/badge/mutation-69.4%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
 ![Tests](https://img.shields.io/badge/tests-648_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -16,8 +16,8 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   86.5% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   68.6% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |    0.0% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   69.4% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -53,12 +53,12 @@
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   382 |       11,699 |    2,924 |       1.3% |
-| **Build/Config** |       5 |   187 |        4,381 |    1,093 |       0.5% |
-| **Scripts**      |      21 | 2,371 |       81,819 |   15,586 |       7.2% |
-| **Total**        |      30 | 2,940 |       97,899 |   19,603 |       9.0% |
+| **CI/CD**        |       4 |   381 |       11,481 |    2,870 |       1.3% |
+| **Build/Config** |       5 |   187 |        4,385 |    1,094 |       0.5% |
+| **Scripts**      |      21 | 2,369 |       81,654 |   15,582 |       7.2% |
+| **Total**        |      30 | 2,937 |       97,520 |   19,546 |       9.0% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 68.6% means 68.6% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 69.4% means 69.4% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 648 tests across 112 test files.
 
@@ -66,19 +66,19 @@
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          72% |         72/100 |
-| config    |        98% |          68% |        289/423 |
-| daemon    |        84% |          62% |        220/355 |
-| database  |        90% |          70% |        446/635 |
-| diff      |        86% |          63% |        380/606 |
-| link      |        97% |          67% |       817/1217 |
-| log       |        94% |          62% |        340/547 |
-| mcp       |        97% |          62% |        246/398 |
-| monitor   |        99% |          67% |      1136/1702 |
-| service   |        92% |          86% |         99/115 |
-| transform |        89% |          80% |        716/900 |
+| cat       |         0% |          76% |         76/100 |
+| config    |         0% |          71% |        299/423 |
+| daemon    |         0% |          67% |        239/355 |
+| database  |         0% |          70% |        444/635 |
+| diff      |         0% |          65% |        394/606 |
+| link      |         0% |          68% |       825/1217 |
+| log       |         0% |          64% |        350/547 |
+| mcp       |         0% |          61% |        242/398 |
+| monitor   |         0% |          67% |      1142/1702 |
+| service   |         0% |          86% |         99/115 |
+| transform |         0% |          80% |        716/900 |
 | utils     |         0% |            — |              — |
-| vault     |       100% |          71% |       940/1316 |
+| vault     |         0% |          71% |       940/1316 |
 
 
 ## Overview
