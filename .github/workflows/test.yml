@@ -12,9 +12,7 @@ permissions:
 
 jobs:
   # Stage 1: Smoke tests - ultra-fast using pre-built Docker image
-  # TEMP: Skip smoke tests for faster debugging
   smoke:
-    if: false
     name: Smoke Tests
     runs-on: ubuntu-latest
     steps:
@@ -37,7 +35,7 @@ jobs:
   # Stage 2a: Code Quality - runs in parallel with Docker Tests
   quality:
     name: Code Quality
-    # needs: smoke  # TEMP disabled
+    needs: smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +63,7 @@ jobs:
   # Stage 2b: Docker deep tests - comprehensive testing with stats generation
   docker-tests:
     name: Docker Deep Tests
-    # needs: smoke  # TEMP disabled
+    needs: smoke
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -94,37 +92,45 @@ jobs:
         id: docker-tests
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          # TEMP: Run container WITHOUT systemd to test if systemd is sending SIGTERM
-          # Use tail -f /dev/null as a simple init instead of systemd
+          # Run container in background with systemd as init (PID 1)
           CONTAINER_ID=$(docker run -d \
+            --privileged \
+            --cgroupns=host \
+            --tmpfs /run \
+            --tmpfs /run/lock \
+            -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -e GITHUB_ACTIONS=true \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            tail -f /dev/null)
+            /lib/systemd/systemd)
 
-          # No systemd, no need to wait for it
-          sleep 2
+          # Wait for systemd to settle (now bootstraps user session automatically)
+          sleep 5
 
           # Install package as testuser
           docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
 
-          # Run full test suite with coverage (exclude linux_service which needs systemd)
-          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short -m 'not linux_service'
+          # Run full test suite with coverage
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
-          # TEMP: Run only transform mutations to isolate the issue
-          # Add signal trap to log when signals are received
-          echo ">>> Starting mutation test with signal logging"
+          # Run mutation tests for each domain found in wks/api
+          # Signal traps added to debug exit 143 issue
           trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
           trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
           trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform --log-interval 15
-          MUTATION_EXIT=$?
-          echo ">>> Mutation test exited with code: $MUTATION_EXIT"
+          docker exec -u testuser "$CONTAINER_ID" /bin/bash -c '
+            for dir in wks/api/*/; do
+              domain=$(basename "$dir")
+              if [ "$domain" != "__pycache__" ]; then
+                python3 scripts/test_mutation_api.py "$domain" --log-interval 15 || true
+              fi
+            done
+          '
 
-          # TEMP: Skip Linux service test - requires systemd which we removed for this test
-          # docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
+          # Run Linux service installation test (now has systemd)
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate all statistics using the same script as local development
           # This ensures CI and local are guaranteed to be the same (DRY)
