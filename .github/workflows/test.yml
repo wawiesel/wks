@@ -111,8 +111,8 @@ jobs:
           # Install package as testuser
           docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
 
-          # Run full test suite with coverage
-          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
+          # Run full test suite with coverage (excluding linux_service since no systemd)
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short --ignore=tests/integration/test_linux_service_install.py
           TEST_RESULT=$?
 
           # TEST: Run ONLY transform to see if something specific triggers SIGTERM
