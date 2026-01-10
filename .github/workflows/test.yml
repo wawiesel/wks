@@ -115,19 +115,12 @@ jobs:
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
-          # Run mutation tests for each domain found in wks/api
-          # Signal traps added to debug exit 143 issue
+          # TEST: Run ONLY transform to see if something specific triggers SIGTERM
+          # Hypothesis: Not runtime-based but transform-specific
           trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
           trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
           trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
-          docker exec -u testuser "$CONTAINER_ID" /bin/bash -c '
-            for dir in wks/api/*/; do
-              domain=$(basename "$dir")
-              if [ "$domain" != "__pycache__" ]; then
-                python3 scripts/test_mutation_api.py "$domain" --log-interval 15 || true
-              fi
-            done
-          '
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform --log-interval 15
 
           # Run Linux service installation test (now has systemd)
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
