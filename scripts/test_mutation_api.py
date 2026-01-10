@@ -156,11 +156,11 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
 
         [3]⠸ Running stats
 
-    Or if no throttling, outputs every update as-is.
+    Or if no throttling (log_interval=None), outputs every update as-is without processing.
+    If log_interval=0, outputs every line but with resource logging via throttled path.
     """
-    # No throttling: pass through everything directly, with memory on each mutation line
+    # No throttling specified: raw passthrough mode
     if log_interval is None:
-        buffer = b""
         while True:
             try:
                 chunk = os.read(master_fd, 4096)
@@ -168,44 +168,7 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                 break
             if not chunk:
                 break
-            buffer += chunk
-            # Process complete lines
-            while b"\n" in buffer or b"\r" in buffer:
-                # Find first line terminator
-                nl_pos = buffer.find(b"\n")
-                cr_pos = buffer.find(b"\r")
-                if nl_pos == -1:
-                    nl_pos = len(buffer)
-                if cr_pos == -1:
-                    cr_pos = len(buffer)
-                pos = min(nl_pos, cr_pos)
-                line = buffer[:pos]
-                term = buffer[pos : pos + 1]
-                buffer = buffer[pos + 1 :]
-
-                # Check if this looks like a mutation progress line (e.g. "⠸ 123/456")
-                # Braille spinner characters used by mutmut for progress
-                spinners = "⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⠒⠓⠔⠕⠖⠗⠘⠙⠚⠛⠜⠝⠞⠟"
-                spinners += "⠠⠡⠢⠣⠤⠥⠦⠧⠨⠩⠪⠫⠬⠭⠮⠯⠰⠱⠲⠳⠴⠵⠶⠷⠸⠹⠺⠻⠼⠽⠾⠿"
-                line_str = line.decode("utf-8", errors="replace")
-                if "/" in line_str and any(c in line_str for c in spinners):
-                    # Append memory info
-                    try:
-                        with Path("/proc/meminfo").open() as f:
-                            for mem_line in f:
-                                if mem_line.startswith("MemAvailable:"):
-                                    mem_mb = int(mem_line.split()[1]) // 1024
-                                    line_str = f"{line_str} [mem:{mem_mb}MB]"
-                                    break
-                    except Exception:
-                        pass
-                    sys.stdout.buffer.write(line_str.encode() + term)
-                else:
-                    sys.stdout.buffer.write(line + term)
-                sys.stdout.buffer.flush()
-        # Flush remaining
-        if buffer:
-            sys.stdout.buffer.write(buffer)
+            sys.stdout.buffer.write(chunk)
             sys.stdout.buffer.flush()
         return
 
