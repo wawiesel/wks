@@ -123,7 +123,7 @@ jobs:
           trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
           trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
           trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform || true
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform --log-interval 0 || true
 
           # Dump final journal state
           echo ">>> FINAL JOURNALCTL OUTPUT:"
