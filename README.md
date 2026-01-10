@@ -53,10 +53,10 @@
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   386 |       11,739 |    2,934 |       1.3% |
+| **CI/CD**        |       4 |   386 |       11,756 |    2,939 |       1.3% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
-| **Scripts**      |      21 | 2,420 |       83,585 |   15,957 |       7.3% |
-| **Total**        |      30 | 2,993 |       99,701 |   19,983 |       9.2% |
+| **Scripts**      |      21 | 2,421 |       83,710 |   15,957 |       7.3% |
+| **Total**        |      30 | 2,994 |       99,843 |   19,988 |       9.2% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 58.4% means 58.4% of introduced mutations were successfully killed by the test suite.
 
