@@ -92,7 +92,7 @@ jobs:
         id: docker-tests
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          # Run container WITHOUT systemd (test: does mutation complete?)
+          # Run container WITH systemd to investigate what triggers SIGTERM
           CONTAINER_ID=$(docker run -d \
             --privileged \
             --cgroupns=host \
@@ -103,27 +103,34 @@ jobs:
             -w /workspace \
             -e GITHUB_ACTIONS=true \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            tail -f /dev/null)
+            /lib/systemd/systemd)
 
-          # Brief wait for container to start
-          sleep 2
+          # Wait for systemd to settle
+          sleep 5
 
           # Install package as testuser
           docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
 
-          # Run full test suite with coverage (excluding linux_service since no systemd)
-          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short --ignore=tests/integration/test_linux_service_install.py
+          # Run full test suite with coverage
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
-          # TEST: Run ONLY transform to see if something specific triggers SIGTERM
-          # Hypothesis: Not runtime-based but transform-specific
+          # Start journalctl in background to capture systemd activity
+          docker exec "$CONTAINER_ID" bash -c "journalctl -f --no-pager &" &
+          JOURNAL_PID=$!
+
+          # Run mutation test with signal traps
           trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
           trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
           trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform
+          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform || true
 
-          # Linux service test skipped (no systemd in this test)
-          # docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
+          # Dump final journal state
+          echo ">>> FINAL JOURNALCTL OUTPUT:"
+          docker exec "$CONTAINER_ID" journalctl --no-pager -n 100 || true
+
+          # Run Linux service installation test
+          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate all statistics using the same script as local development
           # This ensures CI and local are guaranteed to be the same (DRY)
