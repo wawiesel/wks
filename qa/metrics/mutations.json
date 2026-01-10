@@ -41,8 +41,8 @@
       "survived": 16
     },
     "transform": {
-      "killed": 680,
-      "survived": 471
+      "killed": 683,
+      "survived": 481
     },
     "utils": {
       "killed": 0,
@@ -53,7 +53,7 @@
       "survived": 376
     }
   },
-  "killed": 5001,
+  "killed": 5004,
   "score": 58.4,
-  "survived": 3561
+  "survived": 3571
 }
