@@ -1,6 +1,6 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-86.7%25-yellow)
+![Coverage](https://img.shields.io/badge/coverage-86.5%25-yellow)
 ![Mutation Score](https://img.shields.io/badge/mutation-58.4%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
 ![Tests](https://img.shields.io/badge/tests-648_passing-brightgreen)
@@ -16,7 +16,7 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   86.7% |       100% | ⚠️ Below Target |
+| **Code Coverage**    |   86.5% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |   58.4% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
@@ -53,10 +53,10 @@
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   379 |       11,619 |    2,904 |       1.3% |
+| **CI/CD**        |       4 |   386 |       11,739 |    2,934 |       1.3% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
 | **Scripts**      |      21 | 2,420 |       83,585 |   15,957 |       7.3% |
-| **Total**        |      30 | 2,986 |       99,581 |   19,953 |       9.2% |
+| **Total**        |      30 | 2,993 |       99,701 |   19,983 |       9.2% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 58.4% means 58.4% of introduced mutations were successfully killed by the test suite.
 
