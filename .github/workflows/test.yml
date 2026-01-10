@@ -92,7 +92,7 @@ jobs:
         id: docker-tests
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          # Run container in background with systemd as init (PID 1)
+          # Run container WITHOUT systemd (test: does mutation complete?)
           CONTAINER_ID=$(docker run -d \
             --privileged \
             --cgroupns=host \
@@ -103,10 +103,10 @@ jobs:
             -w /workspace \
             -e GITHUB_ACTIONS=true \
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
-            /lib/systemd/systemd)
+            tail -f /dev/null)
 
-          # Wait for systemd to settle (now bootstraps user session automatically)
-          sleep 5
+          # Brief wait for container to start
+          sleep 2
 
           # Install package as testuser
           docker exec -u testuser "$CONTAINER_ID" pip3 install --user -e . --no-cache-dir --break-system-packages
@@ -122,8 +122,8 @@ jobs:
           trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform
 
-          # Run Linux service installation test (now has systemd)
-          docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
+          # Linux service test skipped (no systemd in this test)
+          # docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate all statistics using the same script as local development
           # This ensures CI and local are guaranteed to be the same (DRY)
