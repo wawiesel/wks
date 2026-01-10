@@ -78,9 +78,17 @@ class _TreeSitterEngine(_TransformEngine):
             return "sexp"
         return "ast"
 
-    def _node_to_sexp(self, node: Any) -> str:
-        """Serialize node to a simple S-expression."""
-        children = [self._node_to_sexp(child) for child in node.children]
+    def _node_to_sexp(self, node: Any, depth: int = 0, max_depth: int = 100) -> str:
+        """Serialize node to a simple S-expression.
+
+        Args:
+            node: Tree-sitter node to serialize
+            depth: Current recursion depth
+            max_depth: Maximum recursion depth (default 100) to prevent hangs
+        """
+        if depth >= max_depth:
+            return f"({node.type} ...)"  # Truncate deep nodes
+        children = [self._node_to_sexp(child, depth + 1, max_depth) for child in node.children]
         if not children:
             return f"({node.type})"
         return f"({node.type} {' '.join(children)})"
