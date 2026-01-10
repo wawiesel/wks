@@ -55,6 +55,38 @@ def _log(msg: str) -> None:
     sys.stdout.buffer.flush()
 
 
+def _log_resources() -> None:
+    """Log current resource usage for debugging CI exit 143."""
+    try:
+        import subprocess
+
+        # Count processes owned by current user
+        ps = subprocess.run(["ps", "-u", str(os.getuid()), "--no-headers"], capture_output=True, text=True, timeout=5)
+        proc_count = len(ps.stdout.strip().split("\n")) if ps.stdout.strip() else 0
+
+        # Count zombie processes
+        zombie_count = 0
+        for line in ps.stdout.strip().split("\n"):
+            if "<defunct>" in line or " Z " in line:
+                zombie_count += 1
+
+        # Memory usage from /proc/meminfo (Linux only)
+        mem_info = "N/A"
+        try:
+            with Path("/proc/meminfo").open() as f:
+                for line in f:
+                    if line.startswith("MemAvailable:"):
+                        mem_mb = int(line.split()[1]) // 1024
+                        mem_info = f"{mem_mb}MB"
+                        break
+        except FileNotFoundError:
+            pass
+
+        _log(f">>> RESOURCES: procs={proc_count} zombies={zombie_count} mem_avail={mem_info}")
+    except Exception as e:
+        _log(f">>> RESOURCES: error={e}")
+
+
 def _get_disk_space() -> str:
     """Return available disk space as string (e.g. '5.4 GB') or 'unavailable'."""
     try:
@@ -214,6 +246,8 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                     sys.stdout.buffer.write(prefix + current_line + b"\n")
                     sys.stdout.buffer.flush()
                     last_output_time = now
+                    # Log resource usage periodically for CI debugging
+                    _log_resources()
                     replacement_count = 0
 
     # Flush any remaining content
