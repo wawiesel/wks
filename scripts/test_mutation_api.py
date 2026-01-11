@@ -56,98 +56,33 @@ def _log(msg: str) -> None:
 
 
 def _log_resources() -> None:
-    """Log current resource usage for debugging CI exit 143.
-
-    Uses cgroup memory metrics when available (CI container) instead of
-    /proc/meminfo (which shows host memory, not container limits).
-    """
+    """Log mutmut worker RSS memory for OOM debugging."""
     try:
         import subprocess
 
-        # Count processes owned by current user
-        ps = subprocess.run(["ps", "-u", str(os.getuid()), "--no-headers"], capture_output=True, text=True, timeout=5)
-        proc_count = len(ps.stdout.strip().split("\n")) if ps.stdout.strip() else 0
-
-        # Count zombie processes
-        zombie_count = 0
-        for line in ps.stdout.strip().split("\n"):
-            if "<defunct>" in line or " Z " in line:
-                zombie_count += 1
-
-        # Cgroup memory usage - discover path from /proc/self/cgroup
-        cgroup_mem = "N/A"
-        cgroup_limit = "N/A"
-        cgroup_path = "N/A"
-        try:
-            # Read process's cgroup membership
-            proc_cgroup = Path("/proc/self/cgroup")
-            if proc_cgroup.exists():
-                cgroup_content = proc_cgroup.read_text()
-                # Cgroup v2 format: "0::/path/to/cgroup"
-                # Cgroup v1 format: "12:memory:/path/to/cgroup"
-                for line in cgroup_content.strip().split("\n"):
-                    parts = line.split(":")
-                    if len(parts) >= 3:
-                        # Cgroup v2 (unified) has empty controller field
-                        if parts[0] == "0" and parts[1] == "":
-                            cgroup_path = parts[2]
-                            break
-                        # Cgroup v1 memory controller
-                        if "memory" in parts[1]:
-                            cgroup_path = parts[2]
-                            break
-
-            if cgroup_path != "N/A":
-                # Try cgroup v2 path
-                v2_base = Path("/sys/fs/cgroup") / cgroup_path.lstrip("/")
-                v2_current = v2_base / "memory.current"
-                v2_max = v2_base / "memory.max"
-
-                if v2_current.exists():
-                    current_bytes = int(v2_current.read_text().strip())
-                    cgroup_mem = f"{current_bytes // (1024 * 1024)}MB"
-
-                    if v2_max.exists():
-                        max_text = v2_max.read_text().strip()
-                        if max_text != "max":
-                            limit_bytes = int(max_text)
-                            cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB"
-                        else:
-                            cgroup_limit = "unlimited"
-                else:
-                    # Cgroup v1 fallback
-                    v1_base = Path("/sys/fs/cgroup/memory") / cgroup_path.lstrip("/")
-                    v1_usage = v1_base / "memory.usage_in_bytes"
-                    v1_limit = v1_base / "memory.limit_in_bytes"
-
-                    if v1_usage.exists():
-                        current_bytes = int(v1_usage.read_text().strip())
-                        cgroup_mem = f"{current_bytes // (1024 * 1024)}MB"
-
-                    if v1_limit.exists():
-                        limit_bytes = int(v1_limit.read_text().strip())
-                        cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB" if limit_bytes < 2**62 else "unlimited"
-        except (FileNotFoundError, ValueError, PermissionError):
-            pass
-
-        # Also get host memory for comparison (to show discrepancy)
-        host_mem = "N/A"
-        try:
-            with Path("/proc/meminfo").open() as f:
-                for line in f:
-                    if line.startswith("MemAvailable:"):
-                        mem_mb = int(line.split()[1]) // 1024
-                        host_mem = f"{mem_mb}MB"
-                        break
-        except FileNotFoundError:
-            pass
-
-        _log(
-            f">>> RESOURCES: procs={proc_count} zombies={zombie_count} "
-            f"cgroup_mem={cgroup_mem} cgroup_limit={cgroup_limit} host_mem={host_mem}"
+        # Find mutmut worker process RSS (this is the process that OOMs)
+        # ps output: RSS(KB) COMMAND
+        ps = subprocess.run(
+            ["ps", "-eo", "rss,args", "--no-headers"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
+
+        # Find "mutmut: wks.api" process (the forked worker)
+        worker_rss_mb = 0
+        for line in ps.stdout.strip().split("\n"):
+            if "mutmut: wks.api" in line:
+                try:
+                    rss_kb = int(line.strip().split()[0])
+                    worker_rss_mb = rss_kb // 1024
+                except (ValueError, IndexError):
+                    pass
+                break
+
+        _log(f">>> MUTMUT_WORKER_RSS: {worker_rss_mb}MB")
     except Exception as e:
-        _log(f">>> RESOURCES: error={e}")
+        _log(f">>> MUTMUT_WORKER_RSS: error={e}")
 
 
 def _get_disk_space() -> str:
