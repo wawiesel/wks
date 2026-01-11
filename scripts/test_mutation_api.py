@@ -74,39 +74,59 @@ def _log_resources() -> None:
             if "<defunct>" in line or " Z " in line:
                 zombie_count += 1
 
-        # Cgroup memory usage (correct for containers)
-        # Try cgroup v2 first, then v1
+        # Cgroup memory usage - discover path from /proc/self/cgroup
         cgroup_mem = "N/A"
         cgroup_limit = "N/A"
+        cgroup_path = "N/A"
         try:
-            # Cgroup v2 paths
-            v2_current = Path("/sys/fs/cgroup/memory.current")
-            v2_max = Path("/sys/fs/cgroup/memory.max")
+            # Read process's cgroup membership
+            proc_cgroup = Path("/proc/self/cgroup")
+            if proc_cgroup.exists():
+                cgroup_content = proc_cgroup.read_text()
+                # Cgroup v2 format: "0::/path/to/cgroup"
+                # Cgroup v1 format: "12:memory:/path/to/cgroup"
+                for line in cgroup_content.strip().split("\n"):
+                    parts = line.split(":")
+                    if len(parts) >= 3:
+                        # Cgroup v2 (unified) has empty controller field
+                        if parts[0] == "0" and parts[1] == "":
+                            cgroup_path = parts[2]
+                            break
+                        # Cgroup v1 memory controller
+                        if "memory" in parts[1]:
+                            cgroup_path = parts[2]
+                            break
 
-            if v2_current.exists():
-                current_bytes = int(v2_current.read_text().strip())
-                cgroup_mem = f"{current_bytes // (1024 * 1024)}MB"
+            if cgroup_path != "N/A":
+                # Try cgroup v2 path
+                v2_base = Path("/sys/fs/cgroup") / cgroup_path.lstrip("/")
+                v2_current = v2_base / "memory.current"
+                v2_max = v2_base / "memory.max"
 
-                if v2_max.exists():
-                    max_text = v2_max.read_text().strip()
-                    if max_text != "max":
-                        limit_bytes = int(max_text)
-                        cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB"
-                    else:
-                        cgroup_limit = "unlimited"
-            else:
-                # Cgroup v1 fallback
-                v1_usage = Path("/sys/fs/cgroup/memory/memory.usage_in_bytes")
-                v1_limit = Path("/sys/fs/cgroup/memory/memory.limit_in_bytes")
-
-                if v1_usage.exists():
-                    current_bytes = int(v1_usage.read_text().strip())
+                if v2_current.exists():
+                    current_bytes = int(v2_current.read_text().strip())
                     cgroup_mem = f"{current_bytes // (1024 * 1024)}MB"
 
-                if v1_limit.exists():
-                    limit_bytes = int(v1_limit.read_text().strip())
-                    # Check for "unlimited" (very large number)
-                    cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB" if limit_bytes < 2**62 else "unlimited"
+                    if v2_max.exists():
+                        max_text = v2_max.read_text().strip()
+                        if max_text != "max":
+                            limit_bytes = int(max_text)
+                            cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB"
+                        else:
+                            cgroup_limit = "unlimited"
+                else:
+                    # Cgroup v1 fallback
+                    v1_base = Path("/sys/fs/cgroup/memory") / cgroup_path.lstrip("/")
+                    v1_usage = v1_base / "memory.usage_in_bytes"
+                    v1_limit = v1_base / "memory.limit_in_bytes"
+
+                    if v1_usage.exists():
+                        current_bytes = int(v1_usage.read_text().strip())
+                        cgroup_mem = f"{current_bytes // (1024 * 1024)}MB"
+
+                    if v1_limit.exists():
+                        limit_bytes = int(v1_limit.read_text().strip())
+                        cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB" if limit_bytes < 2**62 else "unlimited"
         except (FileNotFoundError, ValueError, PermissionError):
             pass
 
