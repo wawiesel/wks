@@ -29,7 +29,7 @@
 | **cli**   |      26 |  1,670 |       58,603 |   10,665 |       4.9% |
 | **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     237 | 15,332 |      542,748 |   87,860 |      40.3% |
+| **Total** |     237 | 15,332 |      542,748 |   87,860 |      40.2% |
 
 ### Testing Statistics
 
@@ -55,8 +55,8 @@
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   386 |       11,756 |    2,939 |       1.3% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
-| **Scripts**      |      21 | 2,464 |       85,539 |   16,235 |       7.4% |
-| **Total**        |      30 | 3,037 |      101,672 |   20,266 |       9.3% |
+| **Scripts**      |      21 | 2,484 |       86,585 |   16,387 |       7.5% |
+| **Total**        |      30 | 3,057 |      102,718 |   20,418 |       9.4% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 58.4% means 58.4% of introduced mutations were successfully killed by the test suite.
 
