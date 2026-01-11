@@ -56,7 +56,11 @@ def _log(msg: str) -> None:
 
 
 def _log_resources() -> None:
-    """Log current resource usage for debugging CI exit 143."""
+    """Log current resource usage for debugging CI exit 143.
+
+    Uses cgroup memory metrics when available (CI container) instead of
+    /proc/meminfo (which shows host memory, not container limits).
+    """
     try:
         import subprocess
 
@@ -70,19 +74,58 @@ def _log_resources() -> None:
             if "<defunct>" in line or " Z " in line:
                 zombie_count += 1
 
-        # Memory usage from /proc/meminfo (Linux only)
-        mem_info = "N/A"
+        # Cgroup memory usage (correct for containers)
+        # Try cgroup v2 first, then v1
+        cgroup_mem = "N/A"
+        cgroup_limit = "N/A"
+        try:
+            # Cgroup v2 paths
+            v2_current = Path("/sys/fs/cgroup/memory.current")
+            v2_max = Path("/sys/fs/cgroup/memory.max")
+
+            if v2_current.exists():
+                current_bytes = int(v2_current.read_text().strip())
+                cgroup_mem = f"{current_bytes // (1024 * 1024)}MB"
+
+                if v2_max.exists():
+                    max_text = v2_max.read_text().strip()
+                    if max_text != "max":
+                        limit_bytes = int(max_text)
+                        cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB"
+                    else:
+                        cgroup_limit = "unlimited"
+            else:
+                # Cgroup v1 fallback
+                v1_usage = Path("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+                v1_limit = Path("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+
+                if v1_usage.exists():
+                    current_bytes = int(v1_usage.read_text().strip())
+                    cgroup_mem = f"{current_bytes // (1024 * 1024)}MB"
+
+                if v1_limit.exists():
+                    limit_bytes = int(v1_limit.read_text().strip())
+                    # Check for "unlimited" (very large number)
+                    cgroup_limit = f"{limit_bytes // (1024 * 1024)}MB" if limit_bytes < 2**62 else "unlimited"
+        except (FileNotFoundError, ValueError, PermissionError):
+            pass
+
+        # Also get host memory for comparison (to show discrepancy)
+        host_mem = "N/A"
         try:
             with Path("/proc/meminfo").open() as f:
                 for line in f:
                     if line.startswith("MemAvailable:"):
                         mem_mb = int(line.split()[1]) // 1024
-                        mem_info = f"{mem_mb}MB"
+                        host_mem = f"{mem_mb}MB"
                         break
         except FileNotFoundError:
             pass
 
-        _log(f">>> RESOURCES: procs={proc_count} zombies={zombie_count} mem_avail={mem_info}")
+        _log(
+            f">>> RESOURCES: procs={proc_count} zombies={zombie_count} "
+            f"cgroup_mem={cgroup_mem} cgroup_limit={cgroup_limit} host_mem={host_mem}"
+        )
     except Exception as e:
         _log(f">>> RESOURCES: error={e}")
 

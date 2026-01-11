@@ -116,6 +116,69 @@ Total swap = 4194300kB
 
 ---
 
+### Step 7: Analyze Mutation Rate Over Time
+
+**Action:** Extracted timestamps from CI log (run 20874385343) to measure mutation throughput over time.
+
+**Evidence:**
+
+| Timestamp | Mutation | Rate |
+|-----------|----------|------|
+| 06:44:26 | 0 | (start) |
+| 06:44:30 | 37 | ~9 mutations/sec |
+| 06:50:30 | 835 | ~2.2 mutations/sec average |
+| 06:55:02 | 1040 | ~0.75 mutations/sec (last 205 mutations) |
+| 06:55:43 | 1041 | **41 seconds for 1 mutation** |
+
+Raw log lines:
+```
+2026-01-10T06:44:26.5601676Z Running mutation testing
+2026-01-10T06:44:26.6801403Z ⠇ 0/1166  🎉 0 🫥 0  ⏰ 0  🤔 0  🙁 0  🔇 0
+2026-01-10T06:50:30.5104081Z ⠸ 835/1166  🎉 457 🫥 0  ⏰ 0  🤔 0  🙁 378  🔇 0
+2026-01-10T06:55:02.8126073Z ⠇ 1040/1166  🎉 610 🫥 0  ⏰ 1  🤔 0  🙁 429  🔇 0
+2026-01-10T06:55:43.9558812Z >>> PYTHON SIGNAL RECEIVED: SIGTERM (15)
+2026-01-10T06:55:44.2599962Z ⠏ 1041/1166  🎉 611 🫥 0  ⏰ 1  🤔 0  🙁 429  🔇 0
+```
+
+**Finding:** Mutation rate degrades dramatically over time: from ~9/sec at start to taking 41 seconds for a single mutation at failure. This slowdown pattern is characteristic of **swap thrashing** from gradual memory exhaustion, not a sudden spike.
+
+---
+
+### Step 8: Local vs CI Context
+
+**Action:** Documented environmental differences between local development and CI.
+
+**Evidence:**
+
+| Environment | Mutation Tests | Memory Issues |
+|-------------|----------------|---------------|
+| Local (macOS) | ✅ Complete successfully | None observed |
+| CI with systemd | ❌ OOM at ~1040 | Yes |
+| CI without systemd | ✅ Complete successfully | None observed |
+
+**Observations:**
+- Local development machines typically have 32-64 GB RAM
+- GitHub Actions `ubuntu-latest` runners have ~16 GB RAM for public repos
+- Local testing cannot reproduce the CI memory constraint
+
+**Finding:** The issue is specific to CI environment memory constraints. Local testing is not a valid reproduction environment.
+
+---
+
+### Step 9: Investigate MemAvailable Discrepancy
+
+**Action:** Analyzed why Step 3 showed stable ~14 GB memory while OOM occurred.
+
+**Evidence:**
+- Step 3 RESOURCES logs: `mem_avail=14844MB` → `14668MB` → `14781MB` (stable)
+- Step 5 OOM: Process killed with 15.5 GB RSS + 3.8 GB swap = 19.3 GB
+
+**Observation:** The ~14 GB MemAvailable from `/proc/meminfo` represents **host memory**, while the OOM occurred in a container with cgroup limits. When systemd runs as init, it creates `/system.slice/docker-.../init.scope` cgroup hierarchy which enforces memory accounting.
+
+**Finding:** The RESOURCES monitoring was measuring the wrong metric. Container-level memory consumption was invisible to our monitoring.
+
+---
+
 ## Collected Evidence Summary
 
 ### What changes between working and failing runs:
@@ -132,11 +195,22 @@ Total swap = 4194300kB
 - Same mutation test code
 - Same transform domain
 - Same `--max-children=1` setting
-- Reported available memory stable at ~14 GB
+- Reported available memory stable at ~14 GB (host memory)
+
+### Key Observations:
+
+1. **Mutation rate degrades over time** (9/sec → 41 sec/mutation)
+2. **Worker allocates ~20 GB** at time of OOM
+3. **Swap nearly exhausted** when OOM occurs
+4. **Works without systemd** in same container otherwise
+5. **Works locally** with no memory issues
+6. **MemAvailable monitoring shows host, not container memory**
 
 ---
 
-## Unresolved Questions
+## Original Unresolved Questions (Historical Record)
+
+*These questions were documented before Steps 7-9. They are now addressed by the hypotheses below.*
 
 1. **Why does `mutmut: wks.api` allocate ~20 GB?**
    - Is this normal for mutmut running 1166 mutations?
@@ -152,6 +226,113 @@ Total swap = 4194300kB
    - Available memory stayed stable at ~14 GB throughout monitoring
    - No observed gradual decline
    - Worker may have allocated large amount early
+
+---
+
+## Hypotheses (Not Yet Proven)
+
+### H1: Memory Accumulates Gradually Over 1040 Mutations
+
+**Supporting evidence:**
+- Dramatic slowdown pattern (9/sec → 41 sec/1 mutation)
+- Slowdown characteristic of swap thrashing
+
+**Counter-evidence:**
+- MemAvailable showed stable ~14 GB (but this was host memory, not container)
+- No per-mutation memory samples exist
+
+**Status:** Plausible, but needs per-mutation memory profiling in CI
+
+---
+
+### H2: Systemd Cgroup Memory Accounting Causes Stricter OOM
+
+**Supporting evidence:**
+- Same tests pass without systemd
+- OOM message shows `task_memcg=/system.slice/docker-.../init.scope`
+
+**Counter-evidence:**
+- None found
+
+**Status:** Likely true, but doesn't explain why 20 GB is allocated
+
+---
+
+### H3: Tree-sitter Addition Pushed Baseline Over Edge
+
+**Supporting evidence:**
+- Issue started after `feat: enable transform (#38)` which added tree-sitter
+- 17 tree-sitter language packages in dependencies
+- Tree-sitter `_CACHE` persists loaded languages
+
+**Counter-evidence:**
+- Languages loaded lazily, not all 17 at once
+- Docling existed before without issues
+
+**Status:** Possible contributing factor, needs verification
+
+---
+
+### H4: Single Specific Mutation Causes Large Memory Spike
+
+**Supporting evidence:**
+- None
+
+**Counter-evidence:**
+- Slowdown is gradual, not sudden
+- Failure occurs at consistent mutation number (~1040) across runs
+
+**Status:** Unlikely based on timing pattern
+
+---
+
+## Next Steps (CI Experiments Needed)
+
+### Experiment 1: Measure Cgroup Memory (Not Host Memory)
+
+**Goal:** Get accurate container memory readings in CI.
+
+**Method:** Replace `/proc/meminfo` reading with cgroup-aware measurement:
+```python
+# Cgroup v2
+cat /sys/fs/cgroup/memory.current  # Current usage in bytes
+cat /sys/fs/cgroup/memory.max      # Limit in bytes
+
+# Cgroup v1 (fallback)
+cat /sys/fs/cgroup/memory/memory.usage_in_bytes
+```
+
+**Expected outcome:** See actual container memory consumption over time.
+
+---
+
+### Experiment 2: Per-Mutation Memory Logging
+
+**Goal:** Identify whether memory grows per mutation or stays flat.
+
+**Method:** Modify mutmut or wrapper to log cgroup memory after each mutation.
+
+**Expected outcome:** Graph of memory vs mutation number to confirm accumulation pattern.
+
+---
+
+### Experiment 3: Binary Search for Memory Growth Trigger
+
+**Goal:** Identify which mutation range causes most memory growth.
+
+**Method:** Run mutations in ranges (0-500, 500-1000, etc.) and compare final memory.
+
+**Expected outcome:** Identify if specific files/mutations cause growth.
+
+---
+
+### Experiment 4: Compare Before/After Tree-sitter
+
+**Goal:** Confirm whether tree-sitter addition correlates with OOM.
+
+**Method:** Checkout commit before `feat: enable transform (#38)` and run same CI mutation tests.
+
+**Expected outcome:** If OOM doesn't occur, tree-sitter is confirmed as contributing factor.
 
 ---
 
