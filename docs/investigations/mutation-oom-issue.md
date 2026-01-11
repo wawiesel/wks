@@ -179,7 +179,103 @@ Raw log lines:
 
 ---
 
-## Collected Evidence Summary
+### Step 10: Experiment 1 - Implement Cgroup Memory Measurement
+
+**Action:** Modified `_log_resources()` in `test_mutation_api.py` to read cgroup v2/v1 memory metrics instead of host `/proc/meminfo`. Added logging of `cgroup_mem`, `cgroup_limit`, and `host_mem` for comparison.
+
+**Evidence from run [20898439660](https://github.com/wawiesel/wks/actions/runs/20898439660):**
+
+Run configuration:
+- Docker flags: `--cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw`
+- Container init: `/lib/systemd/systemd`
+- Same setup as runs that OOM killed
+
+Log output:
+```
+>>> RESOURCES: procs=5 zombies=0 cgroup_mem=N/A cgroup_limit=N/A host_mem=14803MB
+>>> RESOURCES: procs=5 zombies=0 cgroup_mem=N/A cgroup_limit=N/A host_mem=14815MB
+...
+Running mutation testing
+[1]⠇ 0/1166  🎉 0 🫥 0  ⏰ 0  🤔 0  🙁 0  🔇 0
+[1]⠏ 1/1166  🎉 1 🫥 0  ⏰ 0  🤔 0  🙁 0  🔇 0
+...
+✅ All 1166 mutations completed successfully
+Run completed in 13m48s with NO OOM
+```
+
+**Observations:**
+1. `cgroup_mem=N/A` - Cgroup v2 paths (`/sys/fs/cgroup/memory.current`) don't exist inside container
+2. `host_mem=14803MB` - Host memory stable at ~14.8 GB throughout
+3. **All 1166 mutations completed successfully** - NO OOM kill
+4. Run time: 13m48s (faster than previous 15+ min before OOM)
+
+**Unexpected Finding:** This run used the **same systemd configuration** that previously caused OOM kills, yet it succeeded. This contradicts earlier evidence from Step 2.
+
+**Questions Raised:**
+1. Why did this run succeed when previous runs with identical config OOM'd?
+2. Is there variance in GitHub Actions runner memory availability?
+3. Were there code changes between runs that affected memory usage?
+4. Why don't cgroup paths exist inside the container?
+
+---
+
+### Step 11: Analyze CI Run History and Code Changes
+
+**Action:** Examined CI run history and code diffs between OOM and non-OOM runs.
+
+**Evidence - CI Run History:**
+
+| Run ID | Commit | OOM in logs? | Result |
+|--------|--------|--------------|--------|
+| 20898439660 | 1373e78 | NO | success (genuine) |
+| 20874385343 | fa7825c | YES | success (workflow continued) |
+| 20874029042 | 1b32570 | NO | success (no systemd) |
+| 20873648465 | c5853ba | YES | failure |
+
+**Important clarification:** Run `20874385343` shows "success" in GitHub UI but **did have OOM kill** inside:
+```
+Jan 10 06:55:43 kernel: oom-kill:...task=mutmut: wks.api,pid=7115
+Jan 10 06:55:43 systemd[1]: init.scope: A process killed by OOM killer
+```
+The workflow uses `|| true` so it continues despite OOM and commits stats.
+
+**Code changes between fa7825c (OOM) and 1373e78 (no OOM):**
+```
+scripts/test_mutation_api.py | 58 ++++++++++++++++++++++++++++++++------
+ 1 file changed, 51 insertions(+), 7 deletions(-)
+```
+Only logging changes - no functional code changes.
+
+**Finding:** The OOM occurrence varies **between identical code runs** on different GitHub runners. This strongly suggests the issue is runner memory variance, not code-caused.
+
+---
+
+## System Mental Model
+
+### How Mutmut Uses Memory
+
+1. **Parent process**: Loads Python interpreter, all imports, pytest infrastructure, mutmut state
+2. **Fork on each mutation**: Creates child worker via `os.fork()`
+3. **Copy-on-Write (CoW)**: Initially shares parent memory pages
+4. **Python refcounting problem**: Even "read" operations increment refcounts, causing page copies
+5. **Memory growth**: Over 1000+ mutations, duplicated pages accumulate
+
+This explains why memory grows over time (observed in Step 7 timing analysis).
+
+### How Container Memory Limits Work
+
+1. **GitHub Actions runners**: ~16 GB RAM for public repos
+2. **Docker container**: Inherits host cgroup limits
+3. **With systemd as init**: Creates additional cgroup hierarchy that enforces accounting
+4. **Without systemd**: Looser memory enforcement, may allow overcommit
+
+### Why OOM is Intermittent
+
+The 20 GB peak memory usage is **on the edge of available resources**:
+- 16 GB host RAM + 4 GB swap = 20 GB total
+- Mutmut worker peak: ~19.3 GB (per Step 6)
+- Variance in available RAM per runner: possibly ±1-2 GB
+- Same code succeeds on "good" runners, OOM's on "bad" runners
 
 ### What changes between working and failing runs:
 
