@@ -25,20 +25,20 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     202 | 13,109 |      464,125 |   73,415 |      33.6% |
+| **api**   |     202 | 13,109 |      464,125 |   73,415 |      33.7% |
 | **cli**   |      26 |  1,670 |       58,603 |   10,665 |       4.9% |
 | **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     237 | 15,332 |      542,748 |   87,860 |      40.2% |
+| **Total** |     237 | 15,332 |      542,748 |   87,860 |      40.3% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      98 | 11,282 |      391,605 |   68,346 |      31.3% |
+| **Unit Tests**        |      98 | 11,282 |      391,605 |   68,346 |      31.4% |
 | **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.4% |
 | **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
-| **Total**             |     118 | 13,182 |      455,538 |   79,911 |      36.6% |
+| **Total**             |     118 | 13,182 |      455,538 |   79,911 |      36.7% |
 
 ### Documentation Size Summary
 
@@ -55,8 +55,8 @@
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   386 |       11,756 |    2,939 |       1.3% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
-| **Scripts**      |      21 | 2,484 |       86,585 |   16,387 |       7.5% |
-| **Total**        |      30 | 3,057 |      102,718 |   20,418 |       9.4% |
+| **Scripts**      |      21 | 2,419 |       83,491 |   15,877 |       7.3% |
+| **Total**        |      30 | 2,992 |       99,624 |   19,908 |       9.1% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 58.4% means 58.4% of introduced mutations were successfully killed by the test suite.
 
