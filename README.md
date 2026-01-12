@@ -1,7 +1,7 @@
 # WKS
 
 ![Coverage](https://img.shields.io/badge/coverage-86.5%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-58.4%25-red)
+![Mutation Score](https://img.shields.io/badge/mutation-56.2%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
 ![Tests](https://img.shields.io/badge/tests-648_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -17,7 +17,7 @@
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
 | **Code Coverage**    |   86.5% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   58.4% |       ≥90% | ⚠️ Below Target |
+| **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -53,12 +53,12 @@
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   404 |       12,534 |    3,133 |       1.4% |
+| **CI/CD**        |       4 |   413 |       12,809 |    3,202 |       1.5% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
 | **Scripts**      |      21 | 2,419 |       83,491 |   15,877 |       7.3% |
-| **Total**        |      30 | 3,010 |      100,402 |   20,102 |       9.2% |
+| **Total**        |      30 | 3,019 |      100,677 |   20,171 |       9.2% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 58.4% means 58.4% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 648 tests across 112 test files.
 
@@ -78,7 +78,7 @@
 | service   |        92% |          86% |         99/115 |
 | transform |        89% |          59% |       688/1172 |
 | utils     |         0% |            — |              — |
-| vault     |       100% |          71% |       940/1316 |
+| vault     |       100% |          57% |       756/1316 |
 
 
 ## Overview

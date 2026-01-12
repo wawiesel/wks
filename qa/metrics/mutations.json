@@ -49,11 +49,11 @@
       "survived": 0
     },
     "vault": {
-      "killed": 940,
-      "survived": 376
+      "killed": 756,
+      "survived": 560
     }
   },
-  "killed": 5009,
-  "score": 58.4,
-  "survived": 3574
+  "killed": 4825,
+  "score": 56.2,
+  "survived": 3758
 }
