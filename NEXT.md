@@ -32,4 +32,4 @@
 
 **Why**: Complete tutorials help new users and contributors understand the system quickly. They serve as both documentation and examples of best practices, making the system more accessible and easier to adopt.
 
-- [ ] Complete `docs/tutorials/01-walkthrough/walkthrough.md`
+- [/] Complete `docs/tutorials/01-walkthrough/walkthrough.md` (adding Transform and Diff sections)
