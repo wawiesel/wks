@@ -119,11 +119,26 @@ jobs:
           docker exec "$CONTAINER_ID" bash -c "journalctl -f --no-pager &" &
           JOURNAL_PID=$!
 
+          # Start background memory monitor (logs RSS every second)
+          docker exec "$CONTAINER_ID" bash -c '
+            while true; do
+              echo "=== $(date +%H:%M:%S) ===" >> /tmp/memory.log
+              ps -eo rss,args --sort=-rss | head -5 >> /tmp/memory.log
+              sleep 1
+            done
+          ' &
+          MEM_MONITOR_PID=$!
+
           # Run mutation test with signal traps
           trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
           trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
           trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
           docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform --log-interval 0 || true
+
+          # Kill memory monitor and dump results
+          kill $MEM_MONITOR_PID 2>/dev/null || true
+          echo ">>> MEMORY LOG (top RSS samples):"
+          docker exec "$CONTAINER_ID" cat /tmp/memory.log | grep -A1 "===" | grep -v "^--$" | head -200
 
           # Dump final journal state
           echo ">>> FINAL JOURNALCTL OUTPUT:"
