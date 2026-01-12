@@ -35,10 +35,10 @@
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      98 | 11,282 |      391,605 |   68,346 |      31.4% |
+| **Unit Tests**        |      98 | 11,282 |      391,605 |   68,346 |      31.3% |
 | **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.4% |
 | **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
-| **Total**             |     118 | 13,182 |      455,538 |   79,911 |      36.7% |
+| **Total**             |     118 | 13,182 |      455,538 |   79,911 |      36.6% |
 
 ### Documentation Size Summary
 
@@ -53,10 +53,10 @@
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   401 |       12,376 |    3,094 |       1.4% |
+| **CI/CD**        |       4 |   404 |       12,534 |    3,133 |       1.4% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
 | **Scripts**      |      21 | 2,419 |       83,491 |   15,877 |       7.3% |
-| **Total**        |      30 | 3,007 |      100,244 |   20,063 |       9.2% |
+| **Total**        |      30 | 3,010 |      100,402 |   20,102 |       9.2% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 58.4% means 58.4% of introduced mutations were successfully killed by the test suite.
 
