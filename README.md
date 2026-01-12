@@ -1,6 +1,6 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-86.5%25-yellow)
+![Coverage](https://img.shields.io/badge/coverage-86.4%25-yellow)
 ![Mutation Score](https://img.shields.io/badge/mutation-56.2%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
 ![Tests](https://img.shields.io/badge/tests-648_passing-brightgreen)
@@ -16,7 +16,7 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   86.5% |       100% | ⚠️ Below Target |
+| **Code Coverage**    |   86.4% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
@@ -25,11 +25,11 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     202 | 13,119 |      464,822 |   73,468 |      33.7% |
+| **api**   |     202 | 13,125 |      465,117 |   73,490 |      33.7% |
 | **cli**   |      26 |  1,670 |       58,603 |   10,665 |       4.9% |
 | **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     237 | 15,342 |      543,445 |   87,913 |      40.3% |
+| **Total** |     237 | 15,348 |      543,740 |   87,935 |      40.3% |
 
 ### Testing Statistics
 
@@ -55,8 +55,8 @@
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   413 |       12,809 |    3,202 |       1.5% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
-| **Scripts**      |      21 | 2,419 |       83,491 |   15,877 |       7.3% |
-| **Total**        |      30 | 3,019 |      100,677 |   20,171 |       9.2% |
+| **Scripts**      |      21 | 2,418 |       83,398 |   15,875 |       7.3% |
+| **Total**        |      30 | 3,018 |      100,584 |   20,169 |       9.2% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
 
@@ -76,7 +76,7 @@
 | mcp       |        97% |          51% |        204/398 |
 | monitor   |        99% |          58% |       995/1702 |
 | service   |        92% |          86% |         99/115 |
-| transform |        89% |          59% |       688/1172 |
+| transform |        88% |          59% |       685/1166 |
 | utils     |         0% |            — |              — |
 | vault     |       100% |          57% |       756/1316 |
 

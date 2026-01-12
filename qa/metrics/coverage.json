@@ -1,5 +1,5 @@
 {
-  "coverage_pct": 86.5,
+  "coverage_pct": 86.4,
   "domains": {
     "cat": 94.4,
     "config": 97.8,
@@ -11,7 +11,7 @@
     "mcp": 97.1,
     "monitor": 98.7,
     "service": 92.2,
-    "transform": 88.8,
+    "transform": 88.3,
     "vault": 99.6
   }
 }
