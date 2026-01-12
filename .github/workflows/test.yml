@@ -92,7 +92,7 @@ jobs:
         id: docker-tests
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          # Run container WITH systemd to investigate what triggers SIGTERM
+          # Run container with systemd as init (required for daemon/service tests)
           CONTAINER_ID=$(docker run -d \
             --privileged \
             --cgroupns=host \
