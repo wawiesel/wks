@@ -340,14 +340,15 @@ Transform files between formats using configured engines.
 ### Check available engines
 
 ```bash
-wksc transform list
+wksc transform
 ```
 
 ```yaml
-engines:
-- name: dx
-  description: Docling-based document transformer
-  supported_formats: [pdf, docx, pptx, html, md, csv, xlsx]
+Available engines:
+  dx (docling)
+    Supported: *
+
+Usage: wksc transform <engine> <file>
 ```
 
 ### Transform a document
@@ -402,12 +403,12 @@ diff_output:
 message: Text diff generated.
 ```
 
-### AST-aware diff (S-expression)
+### AST-aware diff
 
-For code files, use the `sexp` engine for structural diffs:
+For code files, use the `ast` engine for structural diffs:
 
 ```bash
-wksc diff -e sexp --language python file_v1.py file_v2.py
+wksc diff -e ast --language python file_v1.py file_v2.py
 ```
 
 This compares the abstract syntax tree rather than raw text, ignoring formatting changes.
