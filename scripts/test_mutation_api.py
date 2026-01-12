@@ -318,8 +318,7 @@ def main() -> None:
     # (including stats collection and mutation runs) without complex setup.cfg patching.
     # Disable parallel execution (-n 0) for mutmut: parallel execution interferes with
     # mutmut's forced fail test validation, causing "Unable to force test failures" errors.
-    # TESTING: Disable pytest-timeout entirely (timeout=0) to test if timeout is causing crash
-    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0 --timeout=0"
+    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0 --timeout=300"
 
     try:
         with setup_cfg.open("w") as f:
