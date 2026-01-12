@@ -15,9 +15,8 @@
 
 ### Known Issues Found During Testing
 
-1. **Transform dx engine** - Document conversion has issues with certain file types:
-   - Markdown files fail with "Is a directory" error when Docling creates artifact directories
-   - Need to investigate `wks/api/transform/_docling/_DoclingEngine.py`
+1. ~~**Transform dx engine** - Document conversion has issues with certain file types~~
+   - ✅ **FIXED** - Added `is_file()` check in `_DoclingEngine.py` to skip artifact directories
 
 ### PR #60 Status
 
@@ -51,4 +50,3 @@ Status: Ready for review - documentation complete, bugs fixed
 - [ ] Verify Signal Resilience
     - Send real SIGTERM/SIGINT in tests with proper synchronization
 - [ ] Confirm `.coveragerc` has `fail_under = 100` once roadmap items are completed
-
