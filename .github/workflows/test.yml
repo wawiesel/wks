@@ -115,24 +115,10 @@ jobs:
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
-          # Start journalctl in background to capture systemd activity (debug only)
+          # Start debug monitors (memory + journalctl) if DEBUG_MEMORY=true
           if [ "${DEBUG_MEMORY:-false}" = "true" ]; then
             docker exec "$CONTAINER_ID" bash -c "journalctl -f --no-pager &" &
-            JOURNAL_PID=$!
-
-            # Start background memory monitor inside container (detached)
-            docker exec -d "$CONTAINER_ID" bash -c '
-              while true; do
-                ts=$(date +%H:%M:%S)
-                # Get top 3 RSS consumers with numeric values
-                top3=$(ps -eo rss=,args= --sort=-rss 2>/dev/null | head -3 | while read rss args; do
-                  mb=$((rss / 1024))
-                  echo "${mb}MB ${args:0:40}"
-                done | tr "\n" " | ")
-                echo "$ts $top3" >> /tmp/memory.log
-                sleep 1
-              done
-            '
+            docker exec -d "$CONTAINER_ID" /workspace/scripts/debug_memory_monitor.sh
           fi
 
           # Run mutation test with signal traps
