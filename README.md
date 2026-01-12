@@ -25,20 +25,20 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     202 | 13,125 |      465,117 |   73,490 |      33.7% |
-| **cli**   |      26 |  1,670 |       58,603 |   10,665 |       4.9% |
+| **api**   |     202 | 13,131 |      465,389 |   73,546 |      33.6% |
+| **cli**   |      26 |  1,676 |       58,825 |   10,703 |       4.9% |
 | **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     237 | 15,348 |      543,740 |   87,935 |      40.3% |
+| **Total** |     237 | 15,360 |      544,234 |   88,029 |      40.2% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      98 | 11,282 |      391,605 |   68,346 |      31.3% |
-| **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.4% |
+| **Unit Tests**        |      98 | 11,282 |      391,605 |   68,346 |      31.2% |
+| **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.3% |
 | **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
-| **Total**             |     118 | 13,182 |      455,538 |   79,911 |      36.6% |
+| **Total**             |     118 | 13,182 |      455,538 |   79,911 |      36.5% |
 
 ### Documentation Size Summary
 
@@ -53,10 +53,10 @@
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   401 |       12,424 |    3,106 |       1.4% |
+| **CI/CD**        |       4 |   401 |       12,431 |    3,107 |       1.4% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
-| **Scripts**      |      22 | 2,437 |       83,982 |   16,021 |       7.3% |
-| **Total**        |      31 | 3,025 |      100,783 |   20,219 |       9.3% |
+| **Scripts**      |      23 | 2,560 |       87,689 |   16,629 |       7.6% |
+| **Total**        |      32 | 3,148 |      104,497 |   20,828 |       9.5% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
 
@@ -76,7 +76,7 @@
 | mcp       |        97% |          51% |        204/398 |
 | monitor   |        99% |          58% |       995/1702 |
 | service   |        92% |          86% |         99/115 |
-| transform |        88% |          59% |       685/1166 |
+| transform |        88% |          59% |       690/1179 |
 | utils     |         0% |            — |              — |
 | vault     |       100% |          57% |       756/1316 |
 
