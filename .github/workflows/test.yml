@@ -65,6 +65,7 @@ jobs:
     name: Docker Deep Tests
     needs: smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -91,7 +92,7 @@ jobs:
         id: docker-tests
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          # Run container in background with systemd as init (PID 1)
+          # Run container with systemd as init (required for daemon/service tests)
           CONTAINER_ID=$(docker run -d \
             --privileged \
             --cgroupns=host \
@@ -104,7 +105,7 @@ jobs:
             ghcr.io/${REPO_LOWER}/ci-runner:v1 \
             /lib/systemd/systemd)
 
-          # Wait for systemd to settle (now bootstraps user session automatically)
+          # Wait for systemd to settle
           sleep 5
 
           # Install package as testuser
@@ -113,6 +114,17 @@ jobs:
           # Run full test suite with coverage
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
+
+          # Start debug monitors (memory + journalctl) if DEBUG_MEMORY=true
+          if [ "${DEBUG_MEMORY:-false}" = "true" ]; then
+            docker exec "$CONTAINER_ID" bash -c "journalctl -f --no-pager &" &
+            docker exec -d "$CONTAINER_ID" /workspace/scripts/debug_memory_monitor.sh
+          fi
+
+          # Run mutation test with signal traps
+          trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
+          trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
+          trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
 
           # Run mutation tests for each domain found in wks/api
           docker exec -u testuser "$CONTAINER_ID" /bin/bash -c '
@@ -124,7 +136,17 @@ jobs:
             done
           '
 
-          # Run Linux service installation test (now has systemd)
+          # Dump memory log results (debug only)
+          if [ "${DEBUG_MEMORY:-false}" = "true" ]; then
+            echo ">>> MEMORY LOG (1s samples during mutation tests):"
+            docker exec "$CONTAINER_ID" cat /tmp/memory.log 2>/dev/null | tail -100 || echo "No memory log found"
+
+            # Dump final journal state
+            echo ">>> FINAL JOURNALCTL OUTPUT:"
+            docker exec "$CONTAINER_ID" journalctl --no-pager -n 100 || true
+          fi
+
+          # Run Linux service installation test
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
 
           # Generate all statistics using the same script as local development

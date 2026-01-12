@@ -10,6 +10,7 @@ from wks.api.config.normalize_path import normalize_path
 from wks.api.config.now_iso import now_iso
 
 from ..config.URI import URI
+from . import MAX_GENERATOR_ITERATIONS
 from ._CacheManager import _CacheManager
 from ._get_engine_by_type import _get_engine_by_type
 from ._TransformRecord import _TransformRecord
@@ -251,9 +252,12 @@ class _TransformController:
         gen = engine.transform(file_path, cache_location, options)
         referenced_uris_str: list[str] = []
         try:
-            while True:
+            for _ in range(MAX_GENERATOR_ITERATIONS):
                 msg = next(gen)
                 yield msg
+            # Loop completed - check if generator is actually exhausted
+            next(gen)
+            raise RuntimeError("Transform engine exceeded MAX_GENERATOR_ITERATIONS")
         except StopIteration as e:
             referenced_uris_str = e.value or []
 
@@ -527,8 +531,11 @@ class _TransformController:
         gen = self.transform(file_path, self.default_engine, {})
         # Consume generator to get return value
         try:
-            while True:
+            for _ in range(MAX_GENERATOR_ITERATIONS):
                 next(gen)
+            # Loop completed - check if generator is actually exhausted
+            next(gen)
+            raise RuntimeError("Transform generator exceeded MAX_GENERATOR_ITERATIONS")
         except StopIteration as e:
             cache_key, _ = e.value
 

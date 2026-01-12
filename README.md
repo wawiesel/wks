@@ -1,9 +1,9 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-81.2%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-70.3%25-red)
+![Coverage](https://img.shields.io/badge/coverage-86.4%25-yellow)
+![Mutation Score](https://img.shields.io/badge/mutation-56.2%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
-![Tests](https://img.shields.io/badge/tests-560_passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-648_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)
@@ -16,8 +16,8 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   81.2% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   70.3% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |   86.4% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -25,60 +25,60 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     197 | 12,763 |      451,145 |   71,583 |      34.4% |
-| **cli**   |      26 |  1,668 |       58,571 |   10,663 |       5.1% |
-| **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.8% |
+| **api**   |     202 | 13,125 |      465,117 |   73,490 |      33.7% |
+| **cli**   |      26 |  1,670 |       58,603 |   10,665 |       4.9% |
+| **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     232 | 14,984 |      529,736 |   86,026 |      41.3% |
+| **Total** |     237 | 15,348 |      543,740 |   87,935 |      40.3% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      90 | 10,199 |      351,524 |   61,498 |      29.5% |
-| **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.6% |
-| **Smoke Tests**       |       7 |    352 |       11,844 |    2,049 |       1.0% |
-| **Total**             |     110 | 12,099 |      415,453 |   73,063 |      35.1% |
+| **Unit Tests**        |      98 | 11,282 |      391,605 |   68,346 |      31.3% |
+| **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.4% |
+| **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
+| **Total**             |     118 | 13,182 |      455,538 |   79,911 |      36.6% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.8% |
-| **Developer Documentation** |      43 | 2,812 |      113,121 |   28,274 |      13.6% |
+| **Developer Documentation** |      43 | 2,827 |      113,651 |   28,406 |      13.0% |
 | **Specifications**          |       0 |     0 |            0 |        0 |       0.0% |
-| **Total**                   |      50 | 3,040 |      120,186 |   30,040 |      14.4% |
+| **Total**                   |      50 | 3,055 |      120,716 |   30,172 |      13.8% |
 
 ### Infrastructure Summary
 
 | Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   380 |       11,456 |    2,864 |       1.4% |
-| **Build/Config** |       5 |   168 |        3,904 |      974 |       0.5% |
-| **Scripts**      |      21 | 2,322 |       79,795 |   15,335 |       7.4% |
-| **Total**        |      30 | 2,870 |       95,155 |   19,173 |       9.2% |
+| **CI/CD**        |       4 |   401 |       12,424 |    3,106 |       1.4% |
+| **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
+| **Scripts**      |      22 | 2,437 |       83,982 |   16,021 |       7.3% |
+| **Total**        |      31 | 3,025 |      100,783 |   20,219 |       9.3% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 70.3% means 70.3% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
 
-**Test Statistics**: 560 tests across 104 test files.
+**Test Statistics**: 648 tests across 112 test files.
 
 ### Per-Domain Quality
 
 | Domain    |   Coverage |   Mutation % |   Killed/Total |
 |-----------|------------|--------------|----------------|
-| cat       |        94% |          75% |         75/100 |
-| config    |        98% |          72% |        305/423 |
-| daemon    |        84% |          69% |        244/355 |
-| database  |        90% |          73% |        464/636 |
-| diff      |        24% |            — |              — |
-| link      |        97% |          69% |       843/1217 |
-| log       |        94% |          65% |        356/547 |
-| mcp       |        97% |          60% |        240/398 |
-| monitor   |        99% |          67% |      1138/1702 |
+| cat       |        94% |          60% |         60/100 |
+| config    |        98% |          60% |        255/423 |
+| daemon    |        84% |          37% |        131/355 |
+| database  |        90% |          62% |        393/632 |
+| diff      |        86% |          52% |        315/606 |
+| link      |        97% |          52% |       630/1217 |
+| log       |        94% |          55% |        299/547 |
+| mcp       |        97% |          51% |        204/398 |
+| monitor   |        99% |          58% |       995/1702 |
 | service   |        92% |          86% |         99/115 |
-| transform |        91% |          80% |        716/900 |
+| transform |        88% |          59% |       685/1166 |
 | utils     |         0% |            — |              — |
-| vault     |       100% |          71% |       940/1316 |
+| vault     |       100% |          57% |       756/1316 |
 
 
 ## Overview

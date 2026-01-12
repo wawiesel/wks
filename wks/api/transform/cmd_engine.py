@@ -8,7 +8,7 @@ from typing import Any
 from ..config._ensure_arg_uri import _ensure_arg_uri
 from ..config.StageResult import StageResult
 from ..config.URI import URI
-from . import TransformEngineOutput
+from . import MAX_GENERATOR_ITERATIONS, TransformEngineOutput
 from ._get_controller import _get_controller
 
 
@@ -59,9 +59,13 @@ def cmd_engine(
                 start_time = time.time()
                 gen = controller.transform(file_path, engine, overrides, output)
                 try:
-                    while True:
+                    for _ in range(MAX_GENERATOR_ITERATIONS):
                         msg = next(gen)
                         yield (0.5, msg)
+                    # Loop completed - check if generator is actually exhausted
+                    # If next() raises StopIteration, we're done; otherwise we hit the limit
+                    next(gen)
+                    raise RuntimeError("Transform generator exceeded MAX_GENERATOR_ITERATIONS")
                 except StopIteration as e:
                     cache_key, cached = e.value
 

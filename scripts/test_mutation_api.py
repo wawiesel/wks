@@ -23,18 +23,66 @@ import os
 import pty
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _signal_handler(signum: int, _frame) -> None:
+    """Log received signals for debugging exit 143 issue."""
+    sig_name = signal.Signals(signum).name
+    # Use print to stderr directly since _log may not be defined yet
+    print(f">>> PYTHON SIGNAL RECEIVED: {sig_name} ({signum})", file=sys.stderr, flush=True)
+    # Re-raise to allow normal termination behavior
+    if signum == signal.SIGTERM:
+        sys.exit(128 + signum)
+
+
+# Register signal handlers for debugging
+signal.signal(signal.SIGTERM, _signal_handler)
+signal.signal(signal.SIGINT, _signal_handler)
+signal.signal(signal.SIGHUP, _signal_handler)
+
+
 def _log(msg: str) -> None:
     """Write message to stdout buffer to ensure ordering with mutmut output."""
     sys.stdout.buffer.write(f"{msg}\n".encode())
     sys.stdout.buffer.flush()
+
+
+def _log_resources() -> None:
+    """Log mutmut worker RSS memory for OOM debugging."""
+    try:
+        import subprocess
+
+        # Find mutmut worker process RSS (this is the process that OOMs)
+        # ps output: RSS(KB) COMMAND
+        ps = subprocess.run(
+            ["ps", "-eo", "rss,args", "--no-headers"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        # Find "mutmut: wks.api" process (the forked worker)
+        worker_rss_mb = 0
+        for line in ps.stdout.strip().split("\n"):
+            if "mutmut: wks.api" in line:
+                try:
+                    rss_kb = int(line.strip().split()[0])
+                    worker_rss_mb = rss_kb // 1024
+                except (ValueError, IndexError):
+                    pass
+                break
+
+        _log(f">>> MUTMUT_WORKER_RSS: {worker_rss_mb}MB")
+    except Exception as e:
+        _log(f">>> MUTMUT_WORKER_RSS: error={e}")
 
 
 def _get_disk_space() -> str:
@@ -106,9 +154,10 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
 
         [3]⠸ Running stats
 
-    Or if no throttling, outputs every update as-is.
+    Or if no throttling (log_interval=None), outputs every update as-is without processing.
+    If log_interval=0, outputs every line but with resource logging via throttled path.
     """
-    # No throttling: pass through everything directly
+    # No throttling specified: raw passthrough mode
     if log_interval is None:
         while True:
             try:
@@ -196,6 +245,8 @@ def _process_pty_output(master_fd: int, log_interval: int | None) -> None:
                     sys.stdout.buffer.write(prefix + current_line + b"\n")
                     sys.stdout.buffer.flush()
                     last_output_time = now
+                    # Log resource usage periodically for CI debugging
+                    _log_resources()
                     replacement_count = 0
 
     # Flush any remaining content
@@ -209,6 +260,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("domain", help="Domain to mutate")
     parser.add_argument("--log-interval", type=int, default=None, help="Throttle progress logs to every N seconds")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=1800,
+        help="Timeout in seconds for entire mutation run (default: 1800 = 30 minutes). Per-test timeout is 5 minutes.",
+    )
     args = parser.parse_args()
 
     domain = args.domain
@@ -261,7 +318,7 @@ def main() -> None:
     # (including stats collection and mutation runs) without complex setup.cfg patching.
     # Disable parallel execution (-n 0) for mutmut: parallel execution interferes with
     # mutmut's forced fail test validation, causing "Unable to force test failures" errors.
-    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0"
+    os.environ["PYTEST_ADDOPTS"] = f"--basetemp={pytest_btemp} -n 0 --timeout=300"
 
     try:
         with setup_cfg.open("w") as f:
@@ -279,9 +336,11 @@ def main() -> None:
             sys.exit(1)
 
         # Run mutmut with PTY (preserves progress bars locally, shows as lines in CI)
+        # Add timeout to prevent indefinite hangs
+        # Use --max-children=1 to disable mutmut parallelism (test for exit 143)
         master_fd, slave_fd = pty.openpty()
         p = subprocess.Popen(
-            [mutmut_bin, "run"],
+            [mutmut_bin, "run", "--max-children=1"],
             cwd=str(REPO_ROOT),
             stdout=slave_fd,
             stderr=slave_fd,
@@ -290,10 +349,47 @@ def main() -> None:
         )
         os.close(slave_fd)
 
+        # Use a threading event to coordinate between output reader and timeout checker
+        output_complete = threading.Event()
+
+        def read_output():
+            """Read PTY output in a separate thread."""
+            try:
+                _process_pty_output(master_fd, args.log_interval)
+            finally:
+                output_complete.set()
+
+        start_time = time.time()
+        reader_thread = threading.Thread(target=read_output, daemon=True)
+        reader_thread.start()
+
+        # Wait for output to complete or timeout
+        timeout_reached = False
+        while not output_complete.is_set() and p.poll() is None:
+            elapsed = time.time() - start_time
+            if elapsed >= args.timeout:
+                timeout_reached = True
+                _log(f"Mutation test timeout after {args.timeout}s, terminating...")
+                p.terminate()
+                break
+            time.sleep(0.1)  # Check every 100ms
+
+        # Wait for output thread to finish (or timeout)
+        reader_thread.join(timeout=5)
+
+        # Wait for process to complete or force termination
         try:
-            _process_pty_output(master_fd, args.log_interval)
+            if timeout_reached:
+                # Give it a moment to clean up
+                try:
+                    p.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    _log("Process did not terminate gracefully, killing...")
+                    p.kill()
+                    p.wait()
+            else:
+                p.wait()
         finally:
-            p.wait()
             os.close(master_fd)
 
         if p.returncode != 0:
