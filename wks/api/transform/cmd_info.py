@@ -19,6 +19,12 @@ def cmd_info(engine: str) -> StageResult:
         if engine not in engines:
             yield (1.0, "Failed")
             result_obj.result = f"Engine '{engine}' not found"
+            result_obj.output = TransformInfoOutput(
+                errors=[f"Engine '{engine}' not found. Available: {list(engines.keys())}"],
+                warnings=[],
+                engine=engine,
+                config={},
+            ).model_dump(mode="python")
             result_obj.success = False
             return
 
