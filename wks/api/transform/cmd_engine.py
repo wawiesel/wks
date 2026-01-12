@@ -58,10 +58,14 @@ def cmd_engine(
                 # Measure processing time
                 start_time = time.time()
                 gen = controller.transform(file_path, engine, overrides, output)
+                # max_iterations prevents infinite loops from faulty mutations
+                max_iterations = 10000
                 try:
-                    while True:
+                    for _ in range(max_iterations):
                         msg = next(gen)
                         yield (0.5, msg)
+                    # If we get here, we hit the limit - something is wrong
+                    raise RuntimeError("Transform generator exceeded max_iterations")
                 except StopIteration as e:
                     cache_key, cached = e.value
 

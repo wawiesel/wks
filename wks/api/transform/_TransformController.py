@@ -250,10 +250,13 @@ class _TransformController:
         # Engine yields progress string, returns referenced_uris (list[str])
         gen = engine.transform(file_path, cache_location, options)
         referenced_uris_str: list[str] = []
+        # max_iterations prevents infinite loops from faulty mutations
+        max_iterations = 10000
         try:
-            while True:
+            for _ in range(max_iterations):
                 msg = next(gen)
                 yield msg
+            raise RuntimeError("Transform engine exceeded max_iterations")
         except StopIteration as e:
             referenced_uris_str = e.value or []
 
@@ -526,9 +529,12 @@ class _TransformController:
         # This ensures we have the content in cache
         gen = self.transform(file_path, self.default_engine, {})
         # Consume generator to get return value
+        # max_iterations prevents infinite loops from faulty mutations
+        max_iterations = 10000
         try:
-            while True:
+            for _ in range(max_iterations):
                 next(gen)
+            raise RuntimeError("Transform generator exceeded max_iterations")
         except StopIteration as e:
             cache_key, _ = e.value
 
