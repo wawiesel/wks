@@ -32,4 +32,22 @@
 
 **Why**: Complete tutorials help new users and contributors understand the system quickly. They serve as both documentation and examples of best practices, making the system more accessible and easier to adopt.
 
-- [/] Complete `docs/tutorials/01-walkthrough/walkthrough.md` (adding Transform and Diff sections)
+- [/] Complete `docs/tutorials/01-walkthrough/walkthrough.md`
+  - [x] Added Transform section (section 4)
+  - [x] Added Diff section (section 5)
+  - [x] Updated section numbers (Link→6, Database→7, Config→8, Log→9)
+  - [x] Updated command reference table
+  - [x] Fixed bug: `cmd_info.py` missing output on error path (caused "must set result.output" error)
+  - [x] Fixed bug: `transform.py` CLI printer crashed when engine not found
+  - [x] Tested all walkthrough commands - all sections work
+
+### Known Issues Found During Testing
+
+1. **Transform dx engine** - Document conversion has issues with certain file types:
+   - Markdown files fail with "Is a directory" error when Docling creates artifact directories
+   - Need to investigate `wks/api/transform/_docling/_DoclingEngine.py`
+
+### PR #60 Status
+
+Branch: `docs/complete-walkthrough`
+Status: Ready for review - documentation complete, bugs fixed
