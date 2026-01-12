@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-      - fix/failing-tests
-      - fix/mutation-timeout
     paths:
       - 'docker/Dockerfile.ci-runner'
       - 'pyproject.toml'

@@ -115,23 +115,25 @@ jobs:
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest --cov=wks --cov-report=xml tests/ -v --tb=short
           TEST_RESULT=$?
 
-          # Start journalctl in background to capture systemd activity
-          docker exec "$CONTAINER_ID" bash -c "journalctl -f --no-pager &" &
-          JOURNAL_PID=$!
+          # Start journalctl in background to capture systemd activity (debug only)
+          if [ "${DEBUG_MEMORY:-false}" = "true" ]; then
+            docker exec "$CONTAINER_ID" bash -c "journalctl -f --no-pager &" &
+            JOURNAL_PID=$!
 
-          # Start background memory monitor inside container (detached)
-          docker exec -d "$CONTAINER_ID" bash -c '
-            while true; do
-              ts=$(date +%H:%M:%S)
-              # Get top 3 RSS consumers with numeric values
-              top3=$(ps -eo rss=,args= --sort=-rss 2>/dev/null | head -3 | while read rss args; do
-                mb=$((rss / 1024))
-                echo "${mb}MB ${args:0:40}"
-              done | tr "\n" " | ")
-              echo "$ts $top3" >> /tmp/memory.log
-              sleep 1
-            done
-          '
+            # Start background memory monitor inside container (detached)
+            docker exec -d "$CONTAINER_ID" bash -c '
+              while true; do
+                ts=$(date +%H:%M:%S)
+                # Get top 3 RSS consumers with numeric values
+                top3=$(ps -eo rss=,args= --sort=-rss 2>/dev/null | head -3 | while read rss args; do
+                  mb=$((rss / 1024))
+                  echo "${mb}MB ${args:0:40}"
+                done | tr "\n" " | ")
+                echo "$ts $top3" >> /tmp/memory.log
+                sleep 1
+              done
+            '
+          fi
 
           # Run mutation test with signal traps
           trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
@@ -148,13 +150,15 @@ jobs:
             done
           '
 
-          # Dump memory log results
-          echo ">>> MEMORY LOG (1s samples during mutation tests):"
-          docker exec "$CONTAINER_ID" cat /tmp/memory.log 2>/dev/null | tail -100 || echo "No memory log found"
+          # Dump memory log results (debug only)
+          if [ "${DEBUG_MEMORY:-false}" = "true" ]; then
+            echo ">>> MEMORY LOG (1s samples during mutation tests):"
+            docker exec "$CONTAINER_ID" cat /tmp/memory.log 2>/dev/null | tail -100 || echo "No memory log found"
 
-          # Dump final journal state
-          echo ">>> FINAL JOURNALCTL OUTPUT:"
-          docker exec "$CONTAINER_ID" journalctl --no-pager -n 100 || true
+            # Dump final journal state
+            echo ">>> FINAL JOURNALCTL OUTPUT:"
+            docker exec "$CONTAINER_ID" journalctl --no-pager -n 100 || true
+          fi
 
           # Run Linux service installation test
           docker exec -u testuser "$CONTAINER_ID" python3 -m pytest tests/integration/test_linux_service_install.py -v --tb=short || true
