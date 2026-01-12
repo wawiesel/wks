@@ -277,6 +277,127 @@ The 20 GB peak memory usage is **on the edge of available resources**:
 - Variance in available RAM per runner: possibly ±1-2 GB
 - Same code succeeds on "good" runners, OOM's on "bad" runners
 
+---
+
+### Step 12: Improved Cgroup Detection - Unexpected Findings
+
+**Action:** Rewrote cgroup detection to read `/proc/self/cgroup` for correct paths. Pushed commit `8bbf593`.
+
+**Evidence from run [20899127418](https://github.com/wawiesel/wks/actions/runs/20899127418):**
+
+Cgroup memory readings:
+```
+>>> RESOURCES: procs=5 zombies=0 cgroup_mem=78MB  ... (start)
+>>> RESOURCES: procs=5 zombies=0 cgroup_mem=132MB ...
+>>> RESOURCES: procs=6 zombies=0 cgroup_mem=469MB ... (peak during mutations)
+>>> RESOURCES: procs=5 zombies=0 cgroup_mem=232MB ... (end)
+```
+
+Peak: **469MB** (NOT 20GB!)
+
+**BUT** the run still OOM'd:
+```
+Jan 11 17:47:36 kernel: oom-kill:...task=mutmut: wks.api,pid=9957,uid=1001
+Jan 11 17:47:35 systemd[1]: init.scope: A process killed by OOM killer
+```
+
+**Critical Finding:** The cgroup measurement is of the **parent shell process**, NOT the forked mutmut worker subprocess!
+
+```
+Parent (shell → Python)      ← We measured this: 469MB
+    └── fork() → mutmut parent
+           └── fork() → mutmut: wks.api  ← This is 20GB, OOM killed
+```
+
+With `--cgroupns=host`, all processes share the same cgroup view. Our `/proc/self/cgroup` reading returns the shell's cgroup context, and `memory.current` reports its memory - not the child processes' RSS.
+
+**Conclusion:** Need different measurement approach to see mutmut worker memory:
+1. Log RSS from `/proc/<pid>/status` for mutmut worker process
+2. Or use `smem` / `pmap` to measure child process memory
+3. Or add instrumentation inside mutmut itself
+
+---
+
+### Step 13: Direct Worker RSS Monitoring Attempt
+
+**Action:** Simplified `_log_resources()` to find `mutmut: wks.api` process by name and log its RSS. Commit `4776ea5`.
+
+**Evidence from run [20901349049](https://github.com/wawiesel/wks/actions/runs/20901349049):**
+
+RSS sampling results:
+```
+Samples at 0MB: 2873
+Samples at 143MB: 1
+```
+
+**Problem:** The worker process exists briefly (runs a test, exits, respawns). External sampling misses peak memory.
+
+**BUT** the kernel OOM message provides exact data:
+```
+kernel: Out of memory: Killed process 9929 (mutmut: wks.api)
+        total-vm:21040064kB (~20 GB virtual)
+        anon-rss:15817616kB (~15 GB resident)
+        file-rss:204kB
+```
+
+**Key Finding:** Despite sampling limitations, the kernel definitively shows:
+- **20 GB virtual memory allocated**
+- **15 GB resident in RAM at OOM**
+
+This confirms the memory model: mutmut worker grows to ~20GB over many mutations.
+
+---
+
+### Step 14: Root Cause Identified and Fixed
+
+**Evidence from run [20907375142](https://github.com/wawiesel/wks/actions/runs/20907375142) memory log:**
+
+```
+03:58:08: 143MB (normal worker)
+03:58:09: 758MB  ← EXPLOSION STARTS
+03:58:10: 1578MB
+03:58:11: 2407MB
+...growing at ~800MB/second...
+03:58:27: 14999MB
+03:58:28: 15314MB ← OOM killed
+```
+
+**Root Cause:** This is **NOT gradual accumulation** over 1000+ mutations. It's **ONE SPECIFIC MUTATION** causing runaway memory growth.
+
+The mutation occurred in `wks.api.transform.cmd_engine` around mutation 1040/1166. The vulnerable pattern:
+
+```python
+while True:
+    msg = next(gen)
+    yield (0.5, msg)
+```
+
+When mutmut mutates `next(gen)` or `StopIteration`, this loop runs forever, accumulating memory at ~800MB/second.
+
+**Fix Implemented (commit `47cb456`):**
+
+Added `max_iterations = 10000` limit to all 3 `while True` generator-consuming loops:
+- `wks/api/transform/cmd_engine.py` (line 62)
+- `wks/api/transform/_TransformController.py` (lines 254, 533)
+
+The fix replaces:
+```python
+while True:
+    msg = next(gen)
+```
+
+With:
+```python
+max_iterations = 10000
+for _ in range(max_iterations):
+    msg = next(gen)
+raise RuntimeError("exceeded max_iterations")
+```
+
+This ensures any mutation that breaks loop termination will fail fast with RuntimeError instead of OOM.
+
+---
+
 ### What changes between working and failing runs:
 
 | Factor | Without systemd | With systemd |

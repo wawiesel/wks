@@ -137,7 +137,16 @@ jobs:
           trap 'echo ">>> SIGNAL RECEIVED: SIGTERM (15)" >&2' TERM
           trap 'echo ">>> SIGNAL RECEIVED: SIGINT (2)" >&2' INT
           trap 'echo ">>> SIGNAL RECEIVED: SIGHUP (1)" >&2' HUP
-          docker exec -u testuser "$CONTAINER_ID" python3 scripts/test_mutation_api.py transform --log-interval 0 || true
+
+          # Run mutation tests for each domain found in wks/api
+          docker exec -u testuser "$CONTAINER_ID" /bin/bash -c '
+            for dir in wks/api/*/; do
+              domain=$(basename "$dir")
+              if [ "$domain" != "__pycache__" ]; then
+                python3 scripts/test_mutation_api.py "$domain" --log-interval 15 || true
+              fi
+            done
+          '
 
           # Dump memory log results
           echo ">>> MEMORY LOG (1s samples during mutation tests):"
