@@ -118,7 +118,10 @@ class _DoclingEngine(_TransformEngine):
                     # Docling names images like <stem>_page_1_figure_1.png
                     # We iterate all potential image files in the temp dir
                     for img_file in temp_output.glob("*"):
+                        # Skip the main output file and any directories (like _artifacts)
                         if img_file.name == expected_output.name:
+                            continue
+                        if not img_file.is_file():
                             continue
 
                         # Start calculating checksum
