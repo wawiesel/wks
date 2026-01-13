@@ -14,15 +14,15 @@
     },
     "database": {
       "killed": 394,
-      "survived": 239
+      "survived": 238
     },
     "diff": {
       "killed": 315,
       "survived": 291
     },
     "link": {
-      "killed": 630,
-      "survived": 587
+      "killed": 641,
+      "survived": 597
     },
     "log": {
       "killed": 299,
@@ -53,7 +53,7 @@
       "survived": 560
     }
   },
-  "killed": 4828,
+  "killed": 4839,
   "score": 56.2,
-  "survived": 3763
+  "survived": 3772
 }
