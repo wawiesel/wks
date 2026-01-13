@@ -9,6 +9,8 @@ from .LinkRef import LinkRef
 class BaseParser(ABC):
     """Abstract interface for file parsers."""
 
+    name: str = "unknown"
+
     @abstractmethod
     def parse(self, text: str) -> Iterator[LinkRef]:
         """Parse text and yield found links."""

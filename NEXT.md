@@ -1,5 +1,31 @@
 # NEXT priorities for WKS: A Roadmap of Sorts
 
+## Tutorial Completion [P0]
+
+**Why**: Complete tutorials help new users and contributors understand the system quickly. They serve as both documentation and examples of best practices, making the system more accessible and easier to adopt.
+
+- [x] Complete `docs/tutorials/01-walkthrough/walkthrough.md`
+  - [x] Added Transform section (section 4)
+  - [x] Added Diff section (section 5)
+  - [x] Updated section numbers (Link→6, Database→7, Config→8, Log→9)
+  - [x] Updated command reference table
+  - [x] Fixed bug: `cmd_info.py` missing output on error path
+  - [x] Fixed bug: `transform.py` CLI printer crashed when engine not found
+  - [x] Tested all walkthrough commands - all sections work
+  - [x] Fixed bug: `link check` relative path resolution failures
+
+### Known Issues Found During Testing
+
+1. ~~**Transform dx engine** - Document conversion has issues with certain file types~~
+   - ✅ **FIXED** - Added `is_file()` check in `_DoclingEngine.py` to skip artifact directories
+2. ~~**Link Check** - Relative paths not resolving to full URIs~~
+   - ✅ **FIXED** - Updated `cmd_check.py` to resolve relative paths against source file directory
+
+### PR #60 Status
+
+Branch: `docs/complete-walkthrough`
+Status: **Ready for Merge** - documentation complete, all bugs found during walkthrough fixed.
+
 ## Fully Implement Requirements Traceability for All Domains [P1]
 
 **Why**: Requirements traceability ensures that every requirement is tested and verified, providing confidence that the system meets its specifications. It enables auditability, helps identify gaps in test coverage, and makes it clear which tests validate which requirements.
@@ -27,9 +53,3 @@
 - [ ] Verify Signal Resilience
     - Send real SIGTERM/SIGINT in tests with proper synchronization
 - [ ] Confirm `.coveragerc` has `fail_under = 100` once roadmap items are completed
-
-## Tutorial Completion [P3]
-
-**Why**: Complete tutorials help new users and contributors understand the system quickly. They serve as both documentation and examples of best practices, making the system more accessible and easier to adopt.
-
-- [ ] Complete `docs/tutorials/01-walkthrough/walkthrough.md`

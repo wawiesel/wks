@@ -47,5 +47,8 @@ def get_parser(parser_name: str | None = None, file_path: Path | None = None) ->
     # 3. Fallback to RawParser if no match
     if not parser_cls:
         parser_cls = RawParser
+        parser_name = "raw"
 
-    return parser_cls()
+    instance = parser_cls()
+    instance.name = parser_name or "unknown"
+    return instance
