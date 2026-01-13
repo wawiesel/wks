@@ -93,9 +93,9 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
                             metadata = vault.resolve_link(ref.raw_target)
                             to_uri = metadata.target_uri
                         elif "://" not in ref.raw_target:
-                            # Relative path resolution not yet implemented
-                            # But we should still cover this line
-                            pass
+                            # Relative path - resolve against source file directory
+                            resolved_path = file_path.parent / ref.raw_target
+                            to_uri = str(URI.from_path(resolved_path))
 
                         _process_link(
                             ref,

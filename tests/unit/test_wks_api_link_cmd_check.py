@@ -62,7 +62,9 @@ def test_cmd_check_success_vault(tracked_wks_config, tmp_path):
     links = {lk["to_local_uri"]: lk for lk in result.output["links"]}
     assert "vault:///target.md" in links
     assert "file:///etc/hosts" in links
-    assert "other.md" in links
+    # Relative path should be resolved to full file:// URI
+    resolved_uri = str(URI.from_path(vault_root / "other.md"))
+    assert resolved_uri in links
 
 
 def test_cmd_check_process_link_exception(tracked_wks_config, tmp_path, monkeypatch):
@@ -136,7 +138,7 @@ def test_cmd_check_non_file_uri(tracked_wks_config):
 
 
 def test_cmd_check_relative_path_link(tracked_wks_config, tmp_path):
-    """Test cmd_check handles relative path links (tests line 135-138)."""
+    """Test cmd_check resolves relative path links to full file:// URIs."""
     vault_root = Path(tracked_wks_config.vault.base_dir).expanduser()
     if not vault_root.exists():
         vault_root.mkdir(parents=True)
@@ -148,8 +150,9 @@ def test_cmd_check_relative_path_link(tracked_wks_config, tmp_path):
 
     result = run_cmd(cmd_check, uri=URI.from_path(file_path))
     assert result.success is True
-    # Relative path should be in links
-    assert any(link["to_local_uri"] == "other.md" for link in result.output["links"])
+    # Relative path should be resolved to full file:// URI
+    expected_uri = str(URI.from_path(vault_root / "other.md"))
+    assert any(link["to_local_uri"] == expected_uri for link in result.output["links"])
 
 
 def test_cmd_check_vault_exception_fallback(tracked_wks_config, tmp_path, monkeypatch):
