@@ -39,7 +39,9 @@ def cmd_check(uri: URI, parser: str | None = None) -> StageResult:
         try:
             # Get appropriate parser
             parser_instance = get_parser(parser, file_path)
-            parser_name = parser or "auto"
+            # Use the actual name resolved by get_parser (e.g. 'markdown', 'raw')
+            # Fallback to 'auto' only if .name missing (shouldn't happen with our fix)
+            parser_name = getattr(parser_instance, "name", parser or "auto")
 
             # Read file content
             try:
