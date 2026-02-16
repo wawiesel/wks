@@ -17,25 +17,32 @@ def _run_single_execution(
     display_format: str,
     result_printer: Callable[[dict], None] | None = None,
     suppress_output: bool = False,
+    quiet: bool = False,
 ) -> None:
     """Run command once and display result.
 
     Stage 1 (Announce) must happen IMMEDIATELY before any work starts.
     Commands must handle all exceptions internally and format errors
     via their domain-specific output schema.
+
+    Args:
+        quiet: If True, suppress stages 1-3 (announce/progress/result) but
+               still emit stage 4 (data output). For scripting use.
     """
+    show_chrome = not suppress_output and not quiet
+
     # Stage 1: Announce - display IMMEDIATELY before calling function
     result = func(*args, **kwargs)
 
     # Stage 1: Announce - display IMMEDIATELY (announce is required, no hedging)
-    if not suppress_output:
+    if show_chrome:
         display.status(result.announce)
 
     # Stage 2: Progress - REQUIRED for all commands
     # progress_callback is a generator that yields (progress_percent, message) tuples
     progress_gen = result.progress_callback(result)
     for progress_percent, message in progress_gen:
-        if not suppress_output:
+        if show_chrome:
             from datetime import datetime
 
             timestamp = datetime.now().strftime("%H:%M:%S")
@@ -55,7 +62,7 @@ def _run_single_execution(
         raise ValueError(f"Output structure validation failed: {e}") from e
 
     # Stage 3: Result
-    if not suppress_output:
+    if show_chrome:
         if result.success:
             display.success(result.result)
         else:

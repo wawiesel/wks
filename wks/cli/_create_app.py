@@ -12,6 +12,7 @@ from wks.cli.log import log
 from wks.cli.mcp import mcp
 from wks.cli.monitor import monitor
 from wks.cli.service import service
+from wks.cli.status import status
 from wks.cli.transform import transform
 from wks.cli.vault import vault
 
@@ -38,23 +39,26 @@ def _create_app() -> typer.Typer:
     app.add_typer(diff(), name="diff")
     app.add_typer(mcp(), name="mcp")
     app.add_typer(log(), name="log")
+    app.add_typer(status(), name="status")
     app.add_typer(transform(), name="transform")
 
     @app.callback(invoke_without_command=True)
     def main_callback(
         ctx: typer.Context,
         display: str = typer.Option("yaml", "--display", "-d", help="Output format: json or yaml"),
+        quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress progress output, emit data only"),
     ) -> None:
         # Validate display format
         if display not in ("json", "yaml"):
             typer.echo(f"Error: --display must be 'json' or 'yaml', got '{display}'", err=True)
             raise typer.Exit(1)
 
-        # Store display format in context for use by commands
+        # Store settings in context for use by commands
         ctx.ensure_object(dict)
         if ctx.obj is None:
             ctx.obj = {}
         ctx.obj["display_format"] = display
+        ctx.obj["quiet"] = quiet
 
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help())

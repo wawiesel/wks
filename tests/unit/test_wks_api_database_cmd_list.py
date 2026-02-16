@@ -117,6 +117,30 @@ class TestCmdList:
         assert "monitor" not in result.output["databases"]
 
 
+def test_cmd_list_flags_unknown_databases(tracked_wks_config):
+    """Unknown databases should trigger a warning."""
+    with patch(
+        "wks.api.database.cmd_list.Database.list_databases",
+        return_value=["wks.nodes", "wks.edges", "wks.TRANSFORM", "wks.XXtestXX"],
+    ):
+        result = run_cmd(cmd_list)
+        assert result.success is True
+        assert any("Unknown databases" in w for w in result.output["warnings"])
+        assert "TRANSFORM" in result.output["warnings"][0]
+        assert "XXtestXX" in result.output["warnings"][0]
+
+
+def test_cmd_list_no_warning_for_known_databases(tracked_wks_config):
+    """All-known databases should not trigger a warning."""
+    with patch(
+        "wks.api.database.cmd_list.Database.list_databases",
+        return_value=["wks.nodes", "wks.edges", "wks.transform"],
+    ):
+        result = run_cmd(cmd_list)
+        assert result.success is True
+        assert result.output["warnings"] == []
+
+
 def test_cmd_list_list_databases_error(tracked_wks_config):
     """Test error in cmd_list when list_databases fails."""
     with patch("wks.api.database.cmd_list.Database.list_databases", side_effect=Exception("List error")):

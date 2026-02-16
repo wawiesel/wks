@@ -64,7 +64,19 @@ def cmd_links(uri: URI, direction: Literal["to", "from", "both"] = "both") -> St
             from wks.api.config.normalize_path import normalize_path
 
             vault_base = normalize_path(config.vault.base_dir)
-            canonical_uri = URI.from_any(str(uri), vault_path=vault_base)
+
+            # Convert file:// URIs to vault:/// if path is inside the vault
+            if uri.is_vault:
+                canonical_uri = uri
+            elif uri.is_file:
+                file_path = uri.path
+                try:
+                    rel = file_path.relative_to(vault_base)
+                    canonical_uri = URI(f"vault:///{rel}")
+                except ValueError:
+                    canonical_uri = uri  # Outside vault, will fail is_vault check
+            else:
+                canonical_uri = uri
 
             if not canonical_uri.is_vault:
                 result_obj.output = VaultLinksOutput(

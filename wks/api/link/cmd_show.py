@@ -64,8 +64,8 @@ def cmd_show(uri: URI, direction: Direction = Direction.FROM) -> StageResult:
                 )
 
             result = {
-                "uri": uri,
-                "direction": direction,
+                "uri": str(uri),
+                "direction": direction.value,
                 "links": formatted_links,
             }
 

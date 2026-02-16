@@ -6,15 +6,56 @@ from typing import Any
 from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file
+from ..log.LOG_PATTERN import LOG_PATTERN
 from . import DaemonClearOutput
 
 
-def cmd_clear() -> StageResult:
-    """Clear daemon logs and status if not running."""
+def cmd_clear(errors_only: bool = False) -> StageResult:
+    """Clear daemon logs and status.
+
+    Args:
+        errors_only: If True, only remove ERROR entries from the logfile.
+                     Works even while daemon is running.
+    """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Checking daemon status...")
         home = WKSConfig.get_home_dir()
+
+        if errors_only:
+            yield (0.3, "Removing error entries from logfile...")
+            log_path = WKSConfig.get_logfile_path()
+            removed = 0
+            if log_path.exists():
+                try:
+                    lines = log_path.read_text(errors="ignore").splitlines()
+                    kept = []
+                    for line in lines:
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        match = LOG_PATTERN.match(stripped)
+                        if match and match.group(3).upper() == "ERROR":
+                            removed += 1
+                            continue
+                        kept.append(stripped)
+                    log_path.write_text("\n".join(kept) + "\n" if kept else "", encoding="utf-8")
+                except Exception as e:
+                    result_obj.success = False
+                    result_obj.result = f"Failed to clear errors: {e}"
+                    result_obj.output = DaemonClearOutput(
+                        errors=[str(e)], warnings=[], cleared=False, message="Error clear failed"
+                    ).model_dump(mode="python")
+                    yield (1.0, "Complete")
+                    return
+
+            result_obj.success = True
+            result_obj.result = f"Cleared {removed} error entries from logfile"
+            result_obj.output = DaemonClearOutput(
+                errors=[], warnings=[], cleared=True, message=f"Removed {removed} error entries"
+            ).model_dump(mode="python")
+            yield (1.0, "Complete")
+            return
 
         # No need to read status file, we operate on environment state
 
@@ -28,9 +69,9 @@ def cmd_clear() -> StageResult:
                 os.kill(pid, 0)
                 # If we get here, process is alive
                 result_obj.success = False
-                result_obj.result = "Cannot clear while daemon is running"
+                result_obj.result = "Cannot clear while daemon is running (use --errors-only to clear errors)"
                 result_obj.output = DaemonClearOutput(
-                    errors=["Cannot clear while daemon is running"],
+                    errors=["Cannot clear while daemon is running (use --errors-only to clear errors)"],
                     warnings=[],
                     cleared=False,
                     message="Daemon is running",

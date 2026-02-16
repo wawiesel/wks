@@ -114,7 +114,7 @@ def cmd_status() -> StageResult:
             "installed": False,
             "warnings": [],
             "errors": [],
-            "log_path": str(daemon_file),
+            "log_path": str(WKSConfig.get_logfile_path()),
             "pid": None,
         }
 

@@ -174,6 +174,45 @@ def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
     assert "Query failed" in result.output["errors"][0]
 
 
+def test_cmd_links_file_uri_inside_vault(monkeypatch, tmp_path, minimal_config_dict):
+    """Test cmd_links resolves file:// URIs inside the vault to vault:/// URIs."""
+    wks_home = (tmp_path / ".wks").resolve()
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    vault_dir = (tmp_path / "vault").resolve()
+    vault_dir.mkdir()
+
+    cfg = minimal_config_dict
+    cfg["vault"]["base_dir"] = str(vault_dir)
+    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    # Create a real file in vault
+    note = vault_dir / "note.md"
+    note.write_text("# Test")
+
+    from wks.api.database.Database import Database
+    from wks.api.database.DatabaseConfig import DatabaseConfig
+
+    db_config = DatabaseConfig(**minimal_config_dict["database"])
+    with Database(db_config, "edges") as db:
+        db.delete_many({})
+        db.get_database()["edges"].insert_one(
+            {
+                "from_local_uri": "vault:///note.md",
+                "to_local_uri": "vault:///other.md",
+                "line_number": 5,
+            }
+        )
+
+    # Use file:// URI pointing to a file inside the vault
+    file_uri = URI.from_path(note)
+    result = run_cmd(cmd_links, uri=file_uri, direction="from")
+
+    assert result.success is True
+    assert result.output["count"] == 1
+    assert result.output["edges"][0]["to_uri"] == "vault:///other.md"
+
+
 def test_cmd_links_non_vault_uri_error(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_links with non-vault URI (tests line 69-81)."""
     wks_home = (tmp_path / ".wks").resolve()

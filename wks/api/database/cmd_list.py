@@ -4,7 +4,10 @@ from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
 from . import DatabaseListOutput
+from .cmd_prune import DB_HANDLERS
 from .Database import Database
+
+KNOWN_DATABASES = set(DB_HANDLERS.keys())
 
 
 def cmd_list() -> StageResult:
@@ -62,11 +65,20 @@ def cmd_list() -> StageResult:
             else:
                 short_names.append(full_name)
 
+        # Flag unknown databases
+        warnings: list[str] = []
+        unknown = [name for name in short_names if name not in KNOWN_DATABASES]
+        if unknown:
+            warnings.append(
+                f"Unknown databases (may be stale/test): {', '.join(unknown)}. "
+                f"Use 'wksc database reset <name>' to remove."
+            )
+
         yield (1.0, "Complete")
         result_obj.result = f"Found {len(database_names)} database(s)"
         result_obj.output = DatabaseListOutput(
             errors=[],
-            warnings=[],
+            warnings=warnings,
             prefix=prefix,
             databases=short_names,
         ).model_dump(mode="python")

@@ -26,9 +26,7 @@ def diff() -> typer.Typer:
         ctx: typer.Context,
         target_a: Annotated[str | None, typer.Argument(help="First target path or checksum")] = None,
         target_b: Annotated[str | None, typer.Argument(help="Second target path or checksum")] = None,
-        engine: Annotated[
-            str | None, typer.Option("--engine", "-e", help="Engine: bsdiff3, myers, sexp, or auto")
-        ] = None,
+        engine: Annotated[str, typer.Option("--engine", "-e", help="Engine: bsdiff3, myers, sexp, or auto")] = "auto",
         context_lines: Annotated[int, typer.Option("--context-lines", help="Unified diff context lines")] = 3,
         ignore_whitespace: Annotated[
             bool, typer.Option("--ignore-whitespace", help="Ignore whitespace differences")
@@ -39,7 +37,7 @@ def diff() -> typer.Typer:
         max_size_mb: Annotated[int, typer.Option("--max-size-mb", help="Max size in MB")] = 100,
     ) -> None:
         """Compute a diff between two targets."""
-        if ctx.invoked_subcommand is None and (target_a is None or target_b is None or engine is None):
+        if ctx.invoked_subcommand is None and (target_a is None or target_b is None):
             typer.echo(ctx.get_help(), err=True)
             raise typer.Exit(1)
 

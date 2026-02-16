@@ -36,9 +36,11 @@ def transform() -> typer.Typer:
         """Transform a file using specified engine.
 
         Usage:
-          wksc transform <engine> <file> [options]
+          wksc transform [--raw] <engine> <file> [options]
           wksc transform <engine>           # Show engine help
           wksc transform                    # List available engines
+
+        Note: --raw and --output must come before <engine>.
         """
         # No args - show available engines
         if engine is None:
