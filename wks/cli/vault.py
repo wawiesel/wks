@@ -1,6 +1,9 @@
 """Vault Typer app factory."""
 
+from collections import Counter
+
 import typer
+from rich import print
 
 from wks.api.vault.cmd_links import cmd_links
 from wks.api.vault.cmd_status import cmd_status
@@ -55,11 +58,37 @@ def vault() -> typer.Typer:
     @app.command(name="check")
     def check_cmd(
         path: str | None = typer.Argument(None, help="File path to check (default: check entire vault)"),
+        verbose: bool = typer.Option(False, "--verbose", "-v", help="Show full issue list"),
     ) -> None:
         """Check vault link health."""
         from wks.api.vault.cmd_check import cmd_check
 
         uri = _resolve_uri_arg(path) if path else None
-        _handle_stage_result(cmd_check)(uri)
+
+        if verbose:
+            _handle_stage_result(cmd_check)(uri)
+        else:
+
+            def summary_printer(output: dict) -> None:
+                issues = output.get("issues", [])
+                if not issues:
+                    return
+                # Group broken links by source file
+                source_counts: Counter[str] = Counter()
+                for issue in issues:
+                    from_uri = issue.get("from_uri", "unknown")
+                    # Strip vault:/// prefix for readability
+                    if from_uri.startswith("vault:///"):
+                        from_uri = from_uri[len("vault:///") :]
+                    source_counts[from_uri] += 1
+                top = source_counts.most_common(10)
+                print("  [bold]Top sources of broken links:[/bold]")
+                for src, count in top:
+                    print(f"    {src}: [red]{count} broken[/red]")
+                if len(source_counts) > 10:
+                    print(f"    [dim]...and {len(source_counts) - 10} more files[/dim]")
+                print("  [dim]Run with --verbose for full list.[/dim]")
+
+            _handle_stage_result(cmd_check, result_printer=summary_printer)(uri)
 
     return app
