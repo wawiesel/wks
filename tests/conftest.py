@@ -1,5 +1,20 @@
 """Shared pytest configuration and fixtures for all tests."""
 
+# -- mutmut3 trampoline fix ------------------------------------------------
+# mutmut3 instruments module-level code with trampolines that call
+# record_trampoline_hit(), which crashes when mutmut.config is None
+# (happens in xdist workers during the stats phase before config is set).
+# Eagerly load the config so the trampoline works normally.
+try:
+    import mutmut
+    from mutmut.__main__ import load_config
+
+    if mutmut.config is None:
+        mutmut.config = load_config()
+except (ImportError, AttributeError):
+    pass
+# ---------------------------------------------------------------------------
+
 import copy
 import json
 import os
