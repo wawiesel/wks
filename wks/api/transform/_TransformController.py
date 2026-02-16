@@ -354,7 +354,13 @@ class _TransformController:
             engine_name_for_cache = engine_name
 
         # Merge base options with overrides (skip if auto mode)
-        merged_options = options or {} if engine_name == "auto" else {**engine_config.data, **(options or {})}
+        if engine_name == "auto":
+            merged_options = options or {}
+            # Auto-inject language for treesitter so callers don't need to know
+            if auto_engine_type == "treesitter" and "language" not in merged_options:
+                merged_options["language"] = "auto"
+        else:
+            merged_options = {**engine_config.data, **(options or {})}
 
         # Compute file info
         file_uri = URI.from_path(file_path)

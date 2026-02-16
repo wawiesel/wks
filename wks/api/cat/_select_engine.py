@@ -20,4 +20,6 @@ def _select_engine(file_path: Path, override: str | None, config: WKSConfig) -> 
         if base_type in cat_config.mime_engines:
             return cat_config.mime_engines[base_type]
 
-    return cat_config.default_engine or "cat"
+    # Use auto engine selection to pick the right engine for the file type
+    # (textpass for text, docling for PDFs, treesitter for code, etc.)
+    return "auto"
