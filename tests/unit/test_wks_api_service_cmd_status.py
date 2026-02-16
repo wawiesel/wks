@@ -63,7 +63,7 @@ def test_cmd_status_success(tracked_wks_config, monkeypatch, tmp_path):
     assert result.output["running"] is True
     assert result.output["installed"] is True
     assert result.output["pid"] == 12345
-    assert result.output["log_path"].endswith("daemon.json")
+    assert result.output["log_path"].endswith("logfile")
     assert "errors" in result.output and result.output["errors"] == []
     assert "warnings" in result.output and result.output["warnings"] == []
 
@@ -111,6 +111,6 @@ def test_cmd_status_not_installed(tracked_wks_config, monkeypatch, tmp_path):
     assert result.success is True
     assert result.output["running"] is False
     assert result.output["installed"] is False
-    assert result.output["log_path"].endswith("daemon.json")
+    assert result.output["log_path"].endswith("logfile")
     assert "errors" in result.output and result.output["errors"] == []
     assert "warnings" in result.output and result.output["warnings"] == []
