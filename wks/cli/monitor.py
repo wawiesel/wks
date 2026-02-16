@@ -118,9 +118,12 @@ def monitor() -> typer.Typer:
     @priority_app.command(name="add")
     def priority_add_cmd(
         path: str = typer.Argument(..., help="Path to set priority for"),
-        priority: float = typer.Argument(..., help="New priority of the path"),
+        priority: float = typer.Argument(..., help="New priority of the path (use -- before negative values)"),
     ) -> None:
-        """Set or update priority for a priority directory."""
+        """Set or update priority for a priority directory.
+
+        For negative values, use -- separator: wksc monitor priority add /path -- -50
+        """
         _handle_stage_result(cmd_priority_add)(path, priority)
 
     @priority_app.command(name="remove")
