@@ -60,6 +60,47 @@ def test_cmd_start_success(tracked_wks_config, monkeypatch):
     assert "warnings" in result.output
 
 
+def test_cmd_start_warns_when_already_running(tracked_wks_config, monkeypatch):
+    """Test cmd_start warns when service was already running."""
+    tracked_wks_config.service = ServiceConfig(
+        type="darwin",
+        data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore
+    )  # type: ignore
+    mock_impl = MagicMock()
+    mock_impl.get_service_status.return_value = ServiceStatus(
+        installed=True, unit_path="/tmp/test.plist", running=True, pid=9999
+    )
+    mock_impl.start_service.return_value = {"success": True, "label": "com.test.wks"}
+
+    mock_impl_class = MagicMock(return_value=mock_impl)
+    mock_module = MagicMock()
+    mock_module._Impl = mock_impl_class
+
+    original_import = __import__
+
+    def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if "darwin._Impl" in name:
+            return mock_module
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+    monkeypatch.setattr(
+        Service,
+        "start_via_service",
+        lambda self: ServiceStartOutput(
+            errors=[],
+            warnings=[],
+            message="Service started successfully",
+            running=True,
+        ),
+    )
+
+    result = run_cmd(cmd_start.cmd_start)
+    assert result.success is True
+    assert "already running" in result.result
+    assert any("already running" in w for w in result.output["warnings"])
+
+
 def test_cmd_start_validation_failure(tracked_wks_config, monkeypatch):
     """Test cmd_start with invalid backend."""
     # Use valid config so Pydantic passes, but mock validate_backend_type to fail
