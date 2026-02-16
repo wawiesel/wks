@@ -18,19 +18,31 @@ class TestCmdShow:
     def test_cmd_show_no_section(self, wks_home_with_priority):
         result = run_cmd(cmd_show, "")
         assert not result.success
+        assert set(result.output.keys()) == {"errors", "warnings", "section", "content", "config_path"}
+        assert result.output["warnings"] == []
         assert result.output["errors"]
         assert "Unknown section" in result.output["errors"][0]
+        assert result.output["section"] == ""
+        assert result.output["content"] == {}
 
     def test_cmd_show_with_valid_section(self, wks_home_with_priority):
         result = run_cmd(cmd_show, "monitor")
         assert result.success
+        assert set(result.output.keys()) == {"errors", "warnings", "section", "content", "config_path"}
+        assert result.output["errors"] == []
+        assert result.output["warnings"] == []
         assert result.output["section"] == "monitor"
         assert isinstance(result.output["content"], dict)
+        assert result.output["config_path"]
 
     def test_cmd_show_with_invalid_section(self, wks_home_with_priority):
         result = run_cmd(cmd_show, "invalid_section")
         assert not result.success
+        assert set(result.output.keys()) == {"errors", "warnings", "section", "content", "config_path"}
         assert result.output["errors"]
+        assert result.output["warnings"] == []
+        assert result.output["section"] == "invalid_section"
+        assert result.output["content"] == {}
 
     def test_cmd_show_invalid_config_file(self, tmp_path, monkeypatch):
         monkeypatch.setenv("WKS_HOME", str(tmp_path))
@@ -38,5 +50,7 @@ class TestCmdShow:
 
         result = run_cmd(cmd_show, "monitor")
         assert result.success is False
+        assert set(result.output.keys()) == {"errors", "warnings", "section", "content", "config_path"}
         assert result.output["section"] == "monitor"
+        assert result.output["warnings"] == []
         assert result.output["errors"]

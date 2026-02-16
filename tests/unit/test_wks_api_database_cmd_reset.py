@@ -19,7 +19,12 @@ class TestCmdReset:
         with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection):
             result = run_cmd(cmd_reset, "nodes")
             assert result.success
+            assert set(result.output.keys()) == {"errors", "warnings", "database", "deleted_count"}
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
+            assert result.output["database"] == "nodes"
             assert result.output["deleted_count"] == 5
+            assert "Deleted" in result.result
             mock_collection.delete_many.assert_called_once_with({})
 
     def test_cmd_reset_empty_collection(self, tracked_wks_config):
@@ -30,6 +35,9 @@ class TestCmdReset:
         with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection):
             result = run_cmd(cmd_reset, "vault")
             assert result.success
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
+            assert result.output["database"] == "vault"
             assert result.output["deleted_count"] == 0
 
     def test_cmd_reset_error(self, tracked_wks_config):
@@ -40,6 +48,8 @@ class TestCmdReset:
         with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection):
             result = run_cmd(cmd_reset, "nodes")
             assert not result.success
+            assert result.output["warnings"] == []
+            assert result.output["database"] == "nodes"
             assert "Database error" in result.output["errors"][0]
             assert result.output["deleted_count"] == 0
 
@@ -47,6 +57,8 @@ class TestCmdReset:
         with patch("wks.api.database.cmd_reset.Database", side_effect=Exception("Connection failed")):
             result = run_cmd(cmd_reset, "nodes")
             assert not result.success
+            assert result.output["warnings"] == []
+            assert result.output["database"] == "nodes"
             assert "Connection failed" in result.output["errors"][0]
 
     def test_cmd_reset_all(self, tracked_wks_config):
@@ -62,6 +74,9 @@ class TestCmdReset:
             mock_db.list_databases.return_value = ["nodes", "edges"]
             result = run_cmd(cmd_reset, "all")
             assert result.success
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
+            assert result.output["database"] == "all"
             assert result.output["deleted_count"] == 10  # 5 * 2 (nodes, edges)
             assert mock_collection.delete_many.call_count == 2
 

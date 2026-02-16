@@ -15,13 +15,20 @@ class TestCmdList:
         with patch("wks.api.database.cmd_list.Database.list_databases", return_value=["nodes", "vault", "transform"]):
             result = run_cmd(cmd_list)
             assert result.success
+            assert set(result.output.keys()) == {"errors", "warnings", "prefix", "databases"}
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
             assert result.output["prefix"] == tracked_wks_config.database.prefix
             assert set(result.output["databases"]) == {"nodes", "vault", "transform"}
+            assert "Found" in result.result
+            assert "database" in result.result
 
     def test_cmd_list_empty(self, tracked_wks_config):
         with patch("wks.api.database.cmd_list.Database.list_databases", return_value=[]):
             result = run_cmd(cmd_list)
             assert result.success
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
             assert result.output["prefix"] == tracked_wks_config.database.prefix
             assert result.output["databases"] == []
 
@@ -29,9 +36,11 @@ class TestCmdList:
         with patch("wks.api.database.cmd_list.Database.list_databases", side_effect=Exception("Connection failed")):
             result = run_cmd(cmd_list)
             assert not result.success
-            # Note: prefix might be missing on hard error before config load,
-            # but here config is already loaded by test fixture
+            assert set(result.output.keys()) == {"errors", "warnings", "prefix", "databases"}
+            assert result.output["warnings"] == []
+            assert result.output["databases"] == []
             assert "Connection failed" in result.output["errors"][0]
+            assert "Failed to list databases" in result.result
 
     def test_cmd_list_load_config_error(self, monkeypatch):
         from wks.api.config.WKSConfig import WKSConfig
@@ -39,7 +48,10 @@ class TestCmdList:
         monkeypatch.setattr(WKSConfig, "load", lambda: (_ for _ in ()).throw(RuntimeError("bad config")))
         result = run_cmd(cmd_list)
         assert result.success is False
-        assert result.output["prefix"] == ""  # Default empty string for failure case if needed, or check schema
+        assert set(result.output.keys()) == {"errors", "warnings", "prefix", "databases"}
+        assert result.output["prefix"] == ""
+        assert result.output["databases"] == []
+        assert result.output["warnings"] == []
         assert "bad config" in result.output["errors"][0]
 
     def test_cmd_list_names_strip_prefix(self, monkeypatch, tmp_path, minimal_config_dict):

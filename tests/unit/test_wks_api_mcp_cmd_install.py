@@ -16,9 +16,13 @@ def test_cmd_install_missing_settings_path():
 
     assert result.success is False
     assert "settings_path is required" in result.result
+    assert set(result.output.keys()) == {"errors", "warnings", "success", "name", "type", "active"}
     assert result.output["success"] is False
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["name"] == "test"
+    assert result.output["type"] == "mcpServersJson"
+    assert result.output["active"] is False
+    assert result.output["warnings"] == []
+    assert len(result.output["errors"]) > 0
 
 
 def test_cmd_install_config_not_found(tmp_path, monkeypatch):
@@ -29,9 +33,13 @@ def test_cmd_install_config_not_found(tmp_path, monkeypatch):
 
     assert result.success is False
     assert "Configuration file not found" in result.result
+    assert set(result.output.keys()) == {"errors", "warnings", "success", "name", "type", "active"}
     assert result.output["success"] is False
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["name"] == "test"
+    assert result.output["type"] == "mcpServersJson"
+    assert result.output["active"] is False
+    assert result.output["warnings"] == []
+    assert len(result.output["errors"]) > 0
 
 
 def test_cmd_install_success_new_installation(wks_home, minimal_config_dict):
@@ -48,11 +56,13 @@ def test_cmd_install_success_new_installation(wks_home, minimal_config_dict):
 
     assert result.success is True
     assert "installed successfully" in result.result
+    assert set(result.output.keys()) == {"errors", "warnings", "success", "name", "type", "active"}
     assert result.output["success"] is True
     assert result.output["name"] == "test"
+    assert result.output["type"] == "mcpServersJson"
     assert result.output["active"] is True
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
 
     # Verify config was updated
     with config_path.open() as fh:
@@ -93,8 +103,10 @@ def test_cmd_install_success_existing_installation(wks_home, minimal_config_dict
     )
 
     assert result.success is True
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["name"] == "test"
+    assert result.output["active"] is True
     # Verify config was updated
     with config_path.open() as fh:
         updated_config = json.load(fh)
@@ -120,5 +132,8 @@ def test_cmd_install_exception_handling(wks_home, minimal_config_dict, monkeypat
 
     assert result.success is False
     assert "Installation failed" in result.result
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["success"] is False
+    assert result.output["name"] == "test"
+    assert result.output["active"] is False
+    assert result.output["warnings"] == []
+    assert len(result.output["errors"]) > 0

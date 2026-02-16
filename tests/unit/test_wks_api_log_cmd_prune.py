@@ -14,7 +14,22 @@ def test_cmd_prune_no_log(tracked_wks_config, isolated_wks_home):
 
     result = run_cmd(cmd_prune)
     assert result.success is True
+    assert set(result.output.keys()) == {
+        "errors",
+        "warnings",
+        "pruned_debug",
+        "pruned_info",
+        "pruned_warnings",
+        "pruned_errors",
+        "message",
+    }
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["pruned_debug"] == 0
+    assert result.output["pruned_info"] == 0
+    assert result.output["pruned_warnings"] == 0
+    assert result.output["pruned_errors"] == 0
+    assert "No log file found" in result.output["message"]
 
 
 def test_cmd_prune_success(tracked_wks_config, isolated_wks_home):
@@ -33,9 +48,15 @@ def test_cmd_prune_success(tracked_wks_config, isolated_wks_home):
     # Prune info
     result = run_cmd(cmd_prune, prune_info=True)
     assert result.success is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["pruned_debug"] == 0
+    assert result.output["pruned_warnings"] == 0
+    assert result.output["pruned_errors"] == 0
     # Default retention for INFO is 2d, so old is gone.
     # Legacy INFO should also be gone if upper contains INFO
     assert result.output["pruned_info"] >= 1
+    assert "Pruned" in result.output["message"]
     assert "old" not in log_path.read_text()
 
 
@@ -54,10 +75,13 @@ def test_cmd_prune_all_levels(tracked_wks_config, isolated_wks_home):
         prune_errors=True,
     )
     assert result.success is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["pruned_debug"] == 1
     assert result.output["pruned_info"] == 1
     assert result.output["pruned_warnings"] == 1
     assert result.output["pruned_errors"] == 1
+    assert "Pruned" in result.output["message"]
     assert log_path.read_text() == ""
 
 
@@ -77,7 +101,12 @@ def test_cmd_prune_write_error(tracked_wks_config, isolated_wks_home, monkeypatc
 
     result = run_cmd(cmd_prune)
     assert result.success is False
+    assert result.output["warnings"] == []
     assert "write fail" in result.output["errors"][0]
+    assert result.output["pruned_debug"] == 0
+    assert result.output["pruned_info"] == 0
+    assert result.output["pruned_warnings"] == 0
+    assert result.output["pruned_errors"] == 0
 
 
 def test_cmd_prune_os_error_read(tracked_wks_config, isolated_wks_home, monkeypatch):
@@ -98,4 +127,9 @@ def test_cmd_prune_os_error_read(tracked_wks_config, isolated_wks_home, monkeypa
 
     result = run_cmd(cmd_prune)
     assert result.success is False
+    assert result.output["warnings"] == []
     assert "fail read" in result.output["errors"][0]
+    assert result.output["pruned_debug"] == 0
+    assert result.output["pruned_info"] == 0
+    assert result.output["pruned_warnings"] == 0
+    assert result.output["pruned_errors"] == 0

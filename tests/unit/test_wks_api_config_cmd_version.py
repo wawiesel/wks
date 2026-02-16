@@ -19,17 +19,9 @@ def test_cmd_version_with_git_sha(monkeypatch):
 
     result = run_cmd(cmd_version.cmd_version)
     assert result.success is True
+    assert set(result.output.keys()) == {"errors", "warnings", "version"}
     assert result.output["version"] == "0.4.0"
     assert result.output["errors"] == []
     assert result.output["warnings"] == []
-
-
-def test_cmd_version_without_git_sha(monkeypatch):
-    """Test cmd_version returns version string."""
-    monkeypatch.setattr("wks.api.config.cmd_version.get_package_version", lambda: "0.4.0")
-
-    result = run_cmd(cmd_version.cmd_version)
-    assert result.success is True
-    assert result.output["version"] == "0.4.0"
-    assert result.output["errors"] == []
-    assert result.output["warnings"] == []
+    assert "WKS version" in result.result
+    assert "0.4.0" in result.result

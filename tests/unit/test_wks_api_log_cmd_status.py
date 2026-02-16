@@ -14,7 +14,24 @@ def test_cmd_status_no_log(tracked_wks_config, isolated_wks_home):
 
     result = run_cmd(cmd_status)
     assert result.success is True
+    assert set(result.output.keys()) == {
+        "errors",
+        "warnings",
+        "log_path",
+        "size_bytes",
+        "entry_counts",
+        "oldest_entry",
+        "newest_entry",
+    }
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["size_bytes"] == 0
+    assert result.output["oldest_entry"] is None
+    assert result.output["newest_entry"] is None
     assert result.output["entry_counts"]["info"] == 0
+    assert result.output["entry_counts"]["debug"] == 0
+    assert result.output["entry_counts"]["warn"] == 0
+    assert result.output["entry_counts"]["error"] == 0
 
 
 def test_cmd_status_success(tracked_wks_config, isolated_wks_home):
@@ -39,6 +56,8 @@ def test_cmd_status_success(tracked_wks_config, isolated_wks_home):
 
     result = run_cmd(cmd_status)
     assert result.success is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     # Info: 1 kept, 1 expired
     assert result.output["entry_counts"]["info"] == 1
     # Error: 1 kept
@@ -50,6 +69,8 @@ def test_cmd_status_success(tracked_wks_config, isolated_wks_home):
 
     assert result.output["size_bytes"] > 0
     assert result.output["oldest_entry"] is not None
+    assert result.output["newest_entry"] is not None
+    assert result.output["log_path"] is not None
 
 
 def test_cmd_status_parse_error(tracked_wks_config, isolated_wks_home):
@@ -63,6 +84,8 @@ def test_cmd_status_parse_error(tracked_wks_config, isolated_wks_home):
 
     result = run_cmd(cmd_status)
     assert result.success is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["entry_counts"]["info"] == 1
 
 
@@ -84,4 +107,8 @@ def test_cmd_status_read_error(tracked_wks_config, isolated_wks_home, monkeypatc
 
     result = run_cmd(cmd_status)
     assert result.success is False
+    assert result.output["warnings"] == []
     assert "read fail" in result.output["errors"][0]
+    assert result.output["size_bytes"] == 0
+    assert result.output["oldest_entry"] is None
+    assert result.output["newest_entry"] is None

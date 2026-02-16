@@ -22,6 +22,12 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch, isolated_wks_home):
 
     result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is True
+    assert set(result.output.keys()) == {"errors", "warnings", "message", "value_removed", "not_found", "success"}
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["value_removed"] == "/tmp/x"
+    assert result.output["not_found"] is False
+    assert "Removed from" in result.output["message"]
     assert cfg.save_calls == 1
 
 
@@ -37,6 +43,9 @@ def test_cmd_filter_remove_not_found(monkeypatch, isolated_wks_home):
     result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_dirnames", value="nonexistent")
     assert result.success is False
     assert result.output["not_found"] is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["value_removed"] is None
     assert "Value not found" in result.output["message"]
     assert cfg.save_calls == 0
 
@@ -53,6 +62,10 @@ def test_cmd_filter_remove_dirname_list(monkeypatch, isolated_wks_home):
 
     result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["value_removed"] == "testdir"
+    assert result.output["not_found"] is False
     assert cfg.save_calls == 1
 
 

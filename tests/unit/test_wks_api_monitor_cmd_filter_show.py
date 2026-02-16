@@ -23,8 +23,14 @@ def test_cmd_filter_show_lists_available_when_no_arg(monkeypatch, tmp_path, mini
     (wks_home / "config.json").write_text(json.dumps(minimal_config_dict), encoding="utf-8")
 
     result = run_cmd(cmd_filter_show.cmd_filter_show)
-    assert result.output["available_lists"]
     assert result.success is True
+    assert set(result.output.keys()) == {"errors", "warnings", "list_name", "available_lists", "items", "count"}
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["available_lists"]
+    assert result.output["items"] == []
+    assert result.output["count"] == 0
+    assert result.output["list_name"] is None
 
 
 def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict):
@@ -42,6 +48,11 @@ def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_filter_show.cmd_filter_show, list_name="include_paths")
+    assert result.success is True
+    assert set(result.output.keys()) == {"errors", "warnings", "list_name", "available_lists", "items", "count"}
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["list_name"] == "include_paths"
     # minimal_config_dict has 2 paths (default + isolated cache) + 2 from extend = 4
     assert result.output["count"] == 4
     assert "Showing" in result.result

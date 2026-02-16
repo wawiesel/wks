@@ -19,6 +19,21 @@ def test_cmd_filter_add_saves_on_success(monkeypatch):
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
     assert result.output["success"] is True
+    assert set(result.output.keys()) == {
+        "errors",
+        "warnings",
+        "message",
+        "value_stored",
+        "already_exists",
+        "validation_failed",
+        "success",
+    }
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["already_exists"] is False
+    assert result.output["validation_failed"] is False
+    assert result.output["value_stored"] is not None
+    assert "Added to" in result.output["message"]
     assert cfg.save_calls == 1
 
 
@@ -46,6 +61,8 @@ def test_cmd_filter_add_empty_dirname(monkeypatch):
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="   ")
     assert result.output["success"] is False
+    assert result.output["warnings"] == []
+    assert result.output["validation_failed"] is True
     assert "cannot be empty" in result.output["message"]
     assert cfg.save_calls == 0
 
@@ -61,6 +78,8 @@ def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="test*")
     assert result.output["success"] is False
+    assert result.output["warnings"] == []
+    assert result.output["validation_failed"] is True
     assert "wildcard characters" in result.output["message"]
     assert cfg.save_calls == 0
 
@@ -91,6 +110,11 @@ def test_cmd_filter_add_dirname_no_error(monkeypatch):
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["value_stored"] == "testdir"
+    assert result.output["already_exists"] is False
+    assert result.output["validation_failed"] is False
     assert cfg.save_calls == 1
 
 
@@ -120,6 +144,11 @@ def test_cmd_filter_add_glob_validation_success(monkeypatch):
 
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.py")
     assert result.output["success"] is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["value_stored"] == "*.py"
+    assert result.output["already_exists"] is False
+    assert result.output["validation_failed"] is False
     assert cfg.save_calls == 1
 
 
@@ -146,7 +175,8 @@ def test_cmd_filter_add_validation_error(monkeypatch):
     # Try to add invalid dirname (with path separator)
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="invalid/path")
     assert result.output["success"] is False
-    assert "validation_failed" in result.output
+    assert result.output["validation_failed"] is True
+    assert result.output["warnings"] == []
     assert cfg.save_calls == 0
 
 
@@ -162,6 +192,9 @@ def test_cmd_filter_add_duplicate_dirname(monkeypatch):
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
     assert result.output["success"] is False
     assert result.output["already_exists"] is True
+    assert result.output["warnings"] == []
+    assert result.output["value_stored"] is None
+    assert "Already in" in result.output["message"]
     assert cfg.save_calls == 0
 
 
@@ -177,6 +210,8 @@ def test_cmd_filter_add_duplicate_glob(monkeypatch):
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.md")
     assert result.output["success"] is False
     assert result.output["already_exists"] is True
+    assert result.output["warnings"] == []
+    assert result.output["value_stored"] is None
     assert cfg.save_calls == 0
 
 

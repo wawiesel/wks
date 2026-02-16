@@ -40,10 +40,15 @@ class TestCmdPrune:
             pass
 
         assert result.success is True
+        assert set(result.output.keys()) == {"errors", "warnings", "database", "deleted_count", "checked_count"}
+        assert result.output["errors"] == []
+        assert result.output["warnings"] == []
+        assert result.output["database"] == "nodes"
         mock_import.assert_called_with("wks.api.monitor.prune")
         mock_module.prune.assert_called_once()
         assert result.output["deleted_count"] == 5
         assert result.output["checked_count"] == 10
+        assert "Pruned" in result.result
 
         # Verify timestamp was written
         assert (wks_home / "database.json").exists()
@@ -90,6 +95,10 @@ class TestCmdPrune:
             pass
 
         assert result.success is True
+        assert set(result.output.keys()) == {"errors", "warnings", "database", "deleted_count", "checked_count"}
+        assert result.output["errors"] == []
+        assert result.output["warnings"] == []
+        assert result.output["database"] == "all"
 
         # Should have called prune for nodes, edges, transform
         assert mock_nodes.prune.call_count == 1
@@ -122,6 +131,10 @@ class TestCmdPrune:
             pass
 
         assert result.success is True
+        assert result.output["errors"] == []
+        assert result.output["database"] == "unknown_db"
+        assert result.output["deleted_count"] == 0
+        assert result.output["checked_count"] == 0
         mock_import.assert_not_called()
         assert "No prune handler found" in result.output["warnings"][0]
 
@@ -139,6 +152,10 @@ class TestCmdPrune:
             pass
 
         assert result.success is True
+        assert result.output["errors"] == []
+        assert result.output["database"] == "nodes"
+        assert result.output["deleted_count"] == 0
+        assert result.output["checked_count"] == 0
         assert "Failed to import handler" in result.output["warnings"][0]
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
@@ -182,4 +199,8 @@ def test_cmd_prune_handler_error(tracked_wks_config):
         # We need at least one target to trigger the loop
         result = run_cmd(cmd_prune, database="nodes")
         assert result.success is True  # It reports as warning, not failure
+        assert result.output["errors"] == []
+        assert result.output["database"] == "nodes"
+        assert result.output["deleted_count"] == 0
+        assert result.output["checked_count"] == 0
         assert "Prune failed" in result.output["warnings"][0]

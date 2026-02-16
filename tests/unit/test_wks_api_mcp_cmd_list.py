@@ -19,10 +19,13 @@ def test_cmd_list_no_mcp_config(wks_home, minimal_config_dict):
     result = run_cmd(cmd_list)
 
     assert result.success is True
+    assert set(result.output.keys()) == {"errors", "warnings", "installations", "count"}
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["count"] == 0
     assert result.output["installations"] == []
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert "Found" in result.result
+    assert "installation" in result.result
 
 
 def test_cmd_list_with_installations(wks_home, minimal_config_dict):
@@ -44,12 +47,17 @@ def test_cmd_list_with_installations(wks_home, minimal_config_dict):
     result = run_cmd(cmd_list)
 
     assert result.success is True
+    assert set(result.output.keys()) == {"errors", "warnings", "installations", "count"}
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["count"] == 1
     assert len(result.output["installations"]) == 1
-    assert result.output["installations"][0]["name"] == "gemini"
-    assert result.output["installations"][0]["active"] is True
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    inst = result.output["installations"][0]
+    assert set(inst.keys()) == {"name", "type", "active", "path"}
+    assert inst["name"] == "gemini"
+    assert inst["type"] == "mcpServersJson"
+    assert inst["active"] is True
+    assert inst["path"]
 
 
 def test_cmd_list_config_not_found(tmp_path, monkeypatch):
@@ -59,9 +67,12 @@ def test_cmd_list_config_not_found(tmp_path, monkeypatch):
     result = run_cmd(cmd_list)
 
     assert result.success is False
-    assert "Configuration file not found" in result.result
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert "Configuration error" in result.result
+    assert set(result.output.keys()) == {"errors", "warnings", "installations", "count"}
+    assert result.output["warnings"] == []
+    assert result.output["installations"] == []
+    assert result.output["count"] == 0
+    assert len(result.output["errors"]) > 0
 
 
 def test_cmd_list_invalid_json(wks_home):
@@ -73,5 +84,8 @@ def test_cmd_list_invalid_json(wks_home):
 
     assert result.success is False
     assert "Configuration error" in result.result
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert set(result.output.keys()) == {"errors", "warnings", "installations", "count"}
+    assert result.output["warnings"] == []
+    assert result.output["installations"] == []
+    assert result.output["count"] == 0
+    assert len(result.output["errors"]) > 0

@@ -32,6 +32,11 @@ def test_daemon_clear_when_stopped(monkeypatch, tmp_path):
     # Run clear
     clear_result = run_cmd(cmd_clear)
     assert clear_result.success is True
+    assert set(clear_result.output.keys()) == {"errors", "warnings", "cleared", "message"}
+    assert clear_result.output["errors"] == []
+    assert clear_result.output["warnings"] == []
+    assert clear_result.output["cleared"] is True
+    assert "cleared" in clear_result.output["message"].lower()
     assert "Daemon state cleared" in clear_result.result
 
     # Verify status is reset
@@ -66,6 +71,9 @@ def test_daemon_clear_blocked_when_running(monkeypatch, tmp_path):
     # Attempt clear
     clear_result = run_cmd(cmd_clear)
     assert clear_result.success is False
+    assert clear_result.output["warnings"] == []
+    assert clear_result.output["cleared"] is False
+    assert len(clear_result.output["errors"]) > 0
     assert "Cannot clear while daemon is running" in clear_result.result
 
     # Verify status still accessible/running
@@ -92,4 +100,7 @@ def test_daemon_clear_stale_lock(monkeypatch, tmp_path):
 
     result = run_cmd(cmd_clear)
     assert result.success is True
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
+    assert result.output["cleared"] is True
     assert not lock_path.exists()

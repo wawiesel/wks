@@ -18,9 +18,12 @@ def test_cmd_uninstall_config_not_found(tmp_path, monkeypatch):
 
     assert result.success is False
     assert "Configuration file not found" in result.result
+    assert set(result.output.keys()) == {"errors", "warnings", "success", "name", "active"}
     assert result.output["success"] is False
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["name"] == "test"
+    assert result.output["active"] is False
+    assert result.output["warnings"] == []
+    assert len(result.output["errors"]) > 0
 
 
 def test_cmd_uninstall_not_found(wks_home, minimal_config_dict):
@@ -35,9 +38,12 @@ def test_cmd_uninstall_not_found(wks_home, minimal_config_dict):
 
     assert result.success is False
     assert "not found" in result.result
+    assert set(result.output.keys()) == {"errors", "warnings", "success", "name", "active"}
     assert result.output["success"] is False
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["name"] == "nonexistent"
+    assert result.output["active"] is False
+    assert result.output["warnings"] == []
+    assert len(result.output["errors"]) > 0
 
 
 def test_cmd_uninstall_success(wks_home, minimal_config_dict):
@@ -72,11 +78,12 @@ def test_cmd_uninstall_success(wks_home, minimal_config_dict):
 
     assert result.success is True
     assert "uninstalled successfully" in result.result
+    assert set(result.output.keys()) == {"errors", "warnings", "success", "name", "active"}
     assert result.output["success"] is True
     assert result.output["name"] == "test"
     assert result.output["active"] is False
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
 
     # Verify config was updated
     with config_path.open() as fh:
@@ -112,9 +119,11 @@ def test_cmd_uninstall_settings_file_not_exists(wks_home, minimal_config_dict):
 
     # Should still succeed even if settings file doesn't exist
     assert result.success is True
+    assert result.output["success"] is True
+    assert result.output["name"] == "test"
     assert result.output["active"] is False
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
 
 
 def test_cmd_uninstall_exception_handling(wks_home, minimal_config_dict, monkeypatch):
@@ -147,5 +156,8 @@ def test_cmd_uninstall_exception_handling(wks_home, minimal_config_dict, monkeyp
 
     assert result.success is False
     assert "Uninstallation failed" in result.result
-    assert "errors" in result.output
-    assert "warnings" in result.output
+    assert result.output["success"] is False
+    assert result.output["name"] == "test"
+    assert result.output["active"] is False
+    assert result.output["warnings"] == []
+    assert len(result.output["errors"]) > 0

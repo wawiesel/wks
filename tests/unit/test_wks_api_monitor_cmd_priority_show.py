@@ -45,7 +45,13 @@ def test_cmd_priority_show_returns_stage_result(tracked_wks_config, monkeypatch)
     monkeypatch.setattr("wks.api.monitor.cmd_priority_show.explain_path", lambda _cfg, _path: (True, []))
 
     result = run_cmd(cmd_priority_show.cmd_priority_show)
+    assert result.success is True
+    assert set(result.output.keys()) == {"errors", "warnings", "priority_directories", "count", "validation"}
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["count"] == 1
     assert result.output["priority_directories"] == {"/tmp/a": 1.0}
-    assert "validation" in result.output
-    assert result.success is True
+    assert "/tmp/a" in result.output["validation"]
+    assert result.output["validation"]["/tmp/a"]["priority"] == 1.0
+    assert result.output["validation"]["/tmp/a"]["valid"] is True
+    assert result.output["validation"]["/tmp/a"]["error"] is None

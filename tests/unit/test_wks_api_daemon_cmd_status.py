@@ -27,7 +27,18 @@ def test_cmd_status_reads_written_status(monkeypatch, tmp_path):
     # Status should read daemon.json
     status_result = run_cmd(cmd_status)
     assert status_result.success is True
+    assert set(status_result.output.keys()) == {
+        "errors",
+        "warnings",
+        "running",
+        "pid",
+        "restrict_dir",
+        "log_path",
+        "lock_path",
+        "last_sync",
+    }
     assert status_result.output["running"] is True
+    assert status_result.output["pid"] is not None
     assert status_result.output["restrict_dir"] == ""
     assert status_result.output["log_path"].endswith(WKSConfig.get_logfile_path().name)
 
@@ -146,7 +157,11 @@ def test_cmd_status_stale_lock(monkeypatch, tmp_path):
 
     result = run_cmd(cmd_status)
     assert result.success is True
+    assert result.output["errors"] == []
     assert result.output["running"] is False
+    assert result.output["pid"] is None
+    assert result.output["restrict_dir"] == ""
+    assert result.output["last_sync"] is None
 
 
 def test_cmd_status_running_corrupt_json(monkeypatch, tmp_path):
@@ -171,4 +186,6 @@ def test_cmd_status_running_corrupt_json(monkeypatch, tmp_path):
     result = run_cmd(cmd_status)
     assert result.success is True
     assert result.output["running"] is True
+    assert result.output["pid"] is not None
     assert result.output["restrict_dir"] == "UNKNOWN"
+    assert result.output["last_sync"] is None

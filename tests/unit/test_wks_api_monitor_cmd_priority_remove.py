@@ -20,7 +20,20 @@ def test_cmd_priority_remove_not_found(monkeypatch):
 
     result = run_cmd(cmd_priority_remove.cmd_priority_remove, path="/tmp/nonexistent")
     assert result.success is False
+    assert set(result.output.keys()) == {
+        "errors",
+        "warnings",
+        "message",
+        "path_removed",
+        "priority",
+        "not_found",
+        "success",
+    }
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["not_found"] is True
+    assert result.output["path_removed"] is None
+    assert result.output["priority"] is None
     assert "Not a priority directory" in result.output["message"]
     assert cfg.save_calls == 0
 
@@ -40,8 +53,22 @@ def test_cmd_priority_remove_success(monkeypatch):
 
     result = run_cmd(cmd_priority_remove.cmd_priority_remove, path=path)
     assert result.success is True
+    assert set(result.output.keys()) == {
+        "errors",
+        "warnings",
+        "message",
+        "path_removed",
+        "priority",
+        "not_found",
+        "success",
+    }
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["path_removed"] == resolved
     assert result.output["priority"] == 100.0
+    assert result.output["not_found"] is None
+    assert result.output["success"] is True
+    assert "Removed" in result.output["message"]
     assert cfg.save_calls == 1
     assert resolved not in cfg.monitor.priority.dirs
 
@@ -57,6 +84,10 @@ def test_cmd_priority_remove_empty_list(monkeypatch):
 
     result = run_cmd(cmd_priority_remove.cmd_priority_remove, path="/tmp/test")
     assert result.success is False
+    assert result.output["errors"] == []
+    assert result.output["warnings"] == []
     assert result.output["not_found"] is True
+    assert result.output["path_removed"] is None
+    assert result.output["priority"] is None
     assert "No priority directories configured" in result.output["message"]
     assert cfg.save_calls == 0

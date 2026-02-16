@@ -18,8 +18,16 @@ class TestCmdShow:
         with patch.object(Database, "query", return_value=mock_result) as mock_query:
             result = run_cmd(cmd_show, database="monitor", query='{"status": "active"}', limit=10)
             assert result.success
+            assert set(result.output.keys()) == {"errors", "warnings", "database", "query", "limit", "count", "results"}
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
             assert result.output["count"] == 1
             assert result.output["database"] == "monitor"
+            assert result.output["limit"] == 10
+            assert result.output["query"] == {"status": "active"}
+            assert result.output["results"] == [{"_id": "1", "path": "/test"}]
+            assert "Found" in result.result
+            assert "document" in result.result
             mock_query.assert_called_once_with(
                 tracked_wks_config.database,
                 "monitor",
@@ -31,12 +39,24 @@ class TestCmdShow:
         with patch.object(Database, "query", return_value={"results": [], "count": 0}) as mock_query:
             result = run_cmd(cmd_show, database="monitor", query=None, limit=50)
             assert result.success
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
             assert result.output["count"] == 0
+            assert result.output["query"] == {}
+            assert result.output["limit"] == 50
+            assert result.output["results"] == []
             mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", {"_id": {"$ne": "__meta__"}}, 50)
 
     def test_cmd_show_invalid_json(self, tracked_wks_config):
         result = run_cmd(cmd_show, database="nodes", query='{"invalid": json}', limit=50)
         assert not result.success
+        assert set(result.output.keys()) == {"errors", "warnings", "database", "query", "limit", "count", "results"}
+        assert result.output["warnings"] == []
+        assert result.output["database"] == "nodes"
+        assert result.output["query"] == {}
+        assert result.output["limit"] == 50
+        assert result.output["count"] == 0
+        assert result.output["results"] == []
         assert "Invalid JSON" in result.result
         assert result.output["errors"]
 
@@ -44,12 +64,18 @@ class TestCmdShow:
         with patch.object(Database, "query", return_value={"results": [], "count": 0}) as mock_query:
             result = run_cmd(cmd_show, database="monitor", query="", limit=50)
             assert result.success
+            assert result.output["errors"] == []
+            assert result.output["warnings"] == []
             mock_query.assert_called_once_with(tracked_wks_config.database, "monitor", {"_id": {"$ne": "__meta__"}}, 50)
 
     def test_cmd_show_query_fails(self, tracked_wks_config):
         with patch.object(Database, "query", side_effect=Exception("Connection failed")):
             result = run_cmd(cmd_show, database="nodes", query='{"status": "active"}', limit=50)
             assert not result.success
+            assert set(result.output.keys()) == {"errors", "warnings", "database", "query", "limit", "count", "results"}
+            assert result.output["warnings"] == []
+            assert result.output["count"] == 0
+            assert result.output["results"] == []
             assert "Connection failed" in result.output["errors"][0]
 
     def test_cmd_show_complex_filter(self, tracked_wks_config):
