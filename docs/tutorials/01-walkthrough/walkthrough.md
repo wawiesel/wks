@@ -333,7 +333,97 @@ Use `--direction from` or `--direction to` to filter.
 
 ---
 
-## 4. Link — Query the Edge Database
+## 4. Transform — Convert Documents
+
+Transform files between formats using configured engines.
+
+### Check available engines
+
+```bash
+wksc transform
+```
+
+```yaml
+Available engines:
+  dx (docling)
+    Supported: *
+
+Usage: wksc transform <engine> <file>
+```
+
+### Transform a document
+
+Transform a PDF to markdown:
+
+```bash
+wksc transform dx ~/Documents/paper.pdf -o ~/Documents/paper.md
+```
+
+```yaml
+source_uri: file://hostname/Users/ww5/Documents/paper.pdf
+destination_uri: file://hostname/Users/ww5/Documents/paper.md
+engine: dx
+status: success
+checksum: 8c265a4f5bd37e9eb94a8e3ba5ac6cd90bb5a1b09cd9f89eb0bd8b5d54a60b04
+processing_time_ms: 1250
+cached: false
+```
+
+Transformed content is cached—subsequent requests return instantly.
+
+---
+
+## 5. Diff — Compare Files
+
+Compare files using different diff algorithms.
+
+### Text diff (Myers algorithm)
+
+```bash
+echo "Hello World" > /tmp/file_a.txt
+echo "Hello WKS" > /tmp/file_b.txt
+wksc diff -e myers /tmp/file_a.txt /tmp/file_b.txt
+```
+
+```yaml
+status: success
+metadata:
+  engine_used: myers
+  is_identical: false
+  file_type_a: .txt
+  file_type_b: .txt
+diff_output:
+  unified_diff: |
+    --- /tmp/file_a.txt
+    +++ /tmp/file_b.txt
+    @@ -1 +1 @@
+    -Hello World
+    +Hello WKS
+  patch_format: unified
+message: Text diff generated.
+```
+
+### S-expression diff
+
+For `.sexp` files, use the `sexp` engine:
+
+```bash
+wksc diff -e sexp tree_v1.sexp tree_v2.sexp
+```
+
+This compares S-expression files structurally using unified diff format.
+
+### Binary diff (bsdiff3)
+
+For binary files:
+
+```bash
+wksc diff -e bsdiff3 old.bin new.bin
+```
+
+---
+
+## 6. Link — Query the Edge Database
 
 Low-level commands for querying links by URI.
 
@@ -366,7 +456,7 @@ links:
 
 ---
 
-## 5. Database — Inspect Raw Data
+## 7. Database — Inspect Raw Data
 
 Query the underlying collections when debugging.
 
@@ -383,7 +473,7 @@ results:
 
 ---
 
-## 6. Config — Inspect Configuration
+## 8. Config — Inspect Configuration
 
 View your current configuration settings.
 
@@ -409,7 +499,7 @@ Use `wksc config show` to see available sections or see the full config.
 
 ---
 
-## 7. Log — Monitor System Health
+## 9. Log — Monitor System Health
 
 Check the status of the unified system log.
 
@@ -461,6 +551,8 @@ message: Pruned 41 log entries
 | `wksc vault check` | Find broken links |
 | `wksc vault links <file>` | Query edges for a file |
 | `wksc link status` | Link collection stats |
+| `wksc transform <engine> <path>` | Transform document format |
+| `wksc diff -e <engine> <a> <b>` | Compare two files |
 | `wksc database show <db>` | Query raw data |
 | `wksc database reset all` | Clear all data |
 | `wksc config show [section]` | View configuration |

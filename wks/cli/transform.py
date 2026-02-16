@@ -59,6 +59,12 @@ def transform() -> typer.Typer:
         if path is None:
 
             def info_printer(output_data: dict) -> None:
+                # Handle error case
+                if output_data.get("errors"):
+                    for err in output_data["errors"]:
+                        print(f"[red]Error: {err}[/red]")
+                    return
+
                 engine_name = output_data["engine"]
                 config = output_data["config"]
                 print(f"[bold]Engine: {engine_name}[/bold]")

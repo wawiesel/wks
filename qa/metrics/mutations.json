@@ -21,8 +21,8 @@
       "survived": 291
     },
     "link": {
-      "killed": 630,
-      "survived": 587
+      "killed": 641,
+      "survived": 597
     },
     "log": {
       "killed": 299,
@@ -41,8 +41,8 @@
       "survived": 16
     },
     "transform": {
-      "killed": 685,
-      "survived": 481
+      "killed": 690,
+      "survived": 489
     },
     "utils": {
       "killed": 0,
@@ -53,7 +53,7 @@
       "survived": 560
     }
   },
-  "killed": 4822,
+  "killed": 4838,
   "score": 56.2,
-  "survived": 3755
+  "survived": 3773
 }
