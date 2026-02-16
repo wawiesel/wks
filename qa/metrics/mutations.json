@@ -2,7 +2,7 @@
   "domains": {
     "cat": {
       "killed": 60,
-      "survived": 40
+      "survived": 52
     },
     "config": {
       "killed": 255,
@@ -14,7 +14,7 @@
     },
     "database": {
       "killed": 410,
-      "survived": 247
+      "survived": 249
     },
     "diff": {
       "killed": 315,
@@ -33,16 +33,16 @@
       "survived": 194
     },
     "monitor": {
-      "killed": 995,
-      "survived": 707
+      "killed": 1007,
+      "survived": 710
     },
     "service": {
       "killed": 99,
       "survived": 16
     },
     "transform": {
-      "killed": 690,
-      "survived": 489
+      "killed": 705,
+      "survived": 504
     },
     "utils": {
       "killed": 0,
@@ -53,7 +53,7 @@
       "survived": 550
     }
   },
-  "killed": 4898,
+  "killed": 4925,
   "score": 56.3,
-  "survived": 3798
+  "survived": 3830
 }
