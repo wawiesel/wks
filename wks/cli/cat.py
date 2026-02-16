@@ -31,7 +31,7 @@ def cat() -> typer.Typer:
         - A file path: transforms file and prints content
         - A checksum (64 hex chars): prints cached content directly
         """
-        if target is None:
+        if target is None or not target.strip():
             typer.echo(ctx.get_help(), err=True)
             raise typer.Exit()
 
