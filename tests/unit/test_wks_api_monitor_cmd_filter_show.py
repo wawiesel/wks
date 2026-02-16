@@ -74,5 +74,6 @@ def test_cmd_filter_show_unknown_list_name(monkeypatch, tmp_path, minimal_config
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     (wks_home / "config.json").write_text(json.dumps(minimal_config_dict), encoding="utf-8")
 
-    with pytest.raises(ValueError):
-        run_cmd(cmd_filter_show.cmd_filter_show, list_name="unknown_list")
+    result = run_cmd(cmd_filter_show.cmd_filter_show, list_name="unknown_list")
+    assert result.success is False
+    assert "Unknown list_name" in result.result
