@@ -46,17 +46,19 @@ def _create_app() -> typer.Typer:
     def main_callback(
         ctx: typer.Context,
         display: str = typer.Option("yaml", "--display", "-d", help="Output format: json or yaml"),
+        quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress progress output, emit data only"),
     ) -> None:
         # Validate display format
         if display not in ("json", "yaml"):
             typer.echo(f"Error: --display must be 'json' or 'yaml', got '{display}'", err=True)
             raise typer.Exit(1)
 
-        # Store display format in context for use by commands
+        # Store settings in context for use by commands
         ctx.ensure_object(dict)
         if ctx.obj is None:
             ctx.obj = {}
         ctx.obj["display_format"] = display
+        ctx.obj["quiet"] = quiet
 
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help())

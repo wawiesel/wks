@@ -34,6 +34,22 @@ def _handle_stage_result(
         Wrapped function that handles display and exits with appropriate code
     """
 
+    def _extract_context_setting(key: str, default: object = None) -> object:
+        """Get a setting from the active Typer/Click context chain."""
+        import click
+
+        context: click.Context | None = click.get_current_context(silent=True)
+        if context is None:
+            return default
+
+        current: click.Context | None = context
+        while current is not None:
+            obj = current.obj
+            if isinstance(obj, dict) and key in obj:
+                return obj[key]
+            current = current.parent
+        return default
+
     def _extract_display_format() -> str:
         """Get the display format from the active Typer/Click context.
 
@@ -44,23 +60,12 @@ def _handle_stage_result(
             RuntimeError: If no context is available or the flag was never set.
             ValueError: If an invalid display format value is encountered.
         """
-        import click
-
-        context: click.Context | None = click.get_current_context(silent=True)
-        if context is None:
-            raise RuntimeError("Display format unavailable: Typer context is missing")
-
-        current: click.Context | None = context
-        while current is not None:
-            obj = current.obj
-            if isinstance(obj, dict) and "display_format" in obj:
-                value = obj["display_format"]
-                if value in ("json", "yaml"):
-                    return value
-                raise ValueError(f"Invalid display_format value: {value!r}")
-            current = current.parent
-
-        raise RuntimeError("Display format not set in the Typer context chain")
+        value = _extract_context_setting("display_format")
+        if value is None:
+            raise RuntimeError("Display format not set in the Typer context chain")
+        if value in ("json", "yaml"):
+            return value  # type: ignore[return-value]
+        raise ValueError(f"Invalid display_format value: {value!r}")
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -74,6 +79,8 @@ def _handle_stage_result(
             # Default to yaml if context missing or format invalid
             display_format = "yaml"
 
-        _run_single_execution(func, args, kwargs, display, display_format, result_printer, suppress_output)
+        quiet = bool(_extract_context_setting("quiet", False))
+
+        _run_single_execution(func, args, kwargs, display, display_format, result_printer, suppress_output, quiet=quiet)
 
     return wrapper  # type: ignore[return-value]
