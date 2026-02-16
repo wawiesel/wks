@@ -13,8 +13,8 @@
       "survived": 224
     },
     "database": {
-      "killed": 394,
-      "survived": 238
+      "killed": 393,
+      "survived": 239
     },
     "diff": {
       "killed": 315,
@@ -53,7 +53,7 @@
       "survived": 560
     }
   },
-  "killed": 4839,
+  "killed": 4838,
   "score": 56.2,
-  "survived": 3772
+  "survived": 3773
 }
