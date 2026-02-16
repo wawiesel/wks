@@ -9,12 +9,12 @@
       "survived": 168
     },
     "daemon": {
-      "killed": 131,
-      "survived": 224
+      "killed": 164,
+      "survived": 251
     },
     "database": {
-      "killed": 393,
-      "survived": 239
+      "killed": 410,
+      "survived": 247
     },
     "diff": {
       "killed": 315,
@@ -22,11 +22,11 @@
     },
     "link": {
       "killed": 641,
-      "survived": 597
+      "survived": 598
     },
     "log": {
-      "killed": 299,
-      "survived": 248
+      "killed": 300,
+      "survived": 247
     },
     "mcp": {
       "killed": 204,
@@ -49,11 +49,11 @@
       "survived": 0
     },
     "vault": {
-      "killed": 756,
-      "survived": 560
+      "killed": 765,
+      "survived": 550
     }
   },
-  "killed": 4838,
-  "score": 56.2,
-  "survived": 3773
+  "killed": 4898,
+  "score": 56.3,
+  "survived": 3798
 }
