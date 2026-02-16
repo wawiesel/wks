@@ -264,7 +264,7 @@ def test_cmd_check_with_broken_link(monkeypatch, tmp_path, minimal_config_dict):
     note.write_text("[[nonexistent]]", encoding="utf-8")
 
     result = run_cmd(cmd_check)
-    assert result.success is True  # scanner errors are strings, status != OK is just an issue
+    assert result.success is False  # broken links mean health check failed
     assert result.output["broken_count"] == 1
     assert result.output["is_valid"] is False
 

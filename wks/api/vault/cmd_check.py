@@ -107,7 +107,7 @@ def cmd_check(uri: URI | None = None) -> StageResult:
 
                 is_valid = broken_count == 0 and len(all_errors) == 0
 
-                result_obj.success = len(all_errors) == 0
+                result_obj.success = is_valid
                 result_obj.output = VaultCheckOutput(
                     path=str(uri) if uri else None,
                     notes_checked=stats.notes_scanned,
