@@ -12,6 +12,7 @@ from wks.cli.log import log
 from wks.cli.mcp import mcp
 from wks.cli.monitor import monitor
 from wks.cli.service import service
+from wks.cli.status import status
 from wks.cli.transform import transform
 from wks.cli.vault import vault
 
@@ -38,6 +39,7 @@ def _create_app() -> typer.Typer:
     app.add_typer(diff(), name="diff")
     app.add_typer(mcp(), name="mcp")
     app.add_typer(log(), name="log")
+    app.add_typer(status(), name="status")
     app.add_typer(transform(), name="transform")
 
     @app.callback(invoke_without_command=True)
