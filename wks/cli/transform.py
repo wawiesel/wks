@@ -49,7 +49,7 @@ def transform() -> typer.Typer:
                 engines = output_data["engines"]
                 print("[bold]Available engines:[/bold]")
                 for name, data in engines.items():
-                    print(f"  [cyan]{name}[/cyan] ({data['type']})")
+                    print(f"  [cyan]{name}[/cyan]")
                     print(f"    Supported: {', '.join(data['supported_types'])}")
                 print()
                 print("[dim]Usage: wksc transform <engine> <file>[/dim]")
