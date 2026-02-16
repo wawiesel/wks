@@ -46,7 +46,19 @@ def cmd_show(
             prefix = config.database.prefix
             short_names = [n[len(prefix) + 1 :] if n.startswith(f"{prefix}.") else n for n in known]
             if database not in short_names:
-                warnings.append(f"Database '{database}' does not exist. Known databases: {', '.join(short_names)}")
+                yield (1.0, "Complete")
+                result_obj.result = f"Database '{database}' does not exist"
+                result_obj.output = DatabaseShowOutput(
+                    errors=[f"Database '{database}' does not exist. Known databases: {', '.join(short_names)}"],
+                    warnings=[],
+                    database=database,
+                    query={},
+                    limit=limit,
+                    count=0,
+                    results=[],
+                ).model_dump(mode="python")
+                result_obj.success = False
+                return
         except Exception:
             pass  # Non-critical, proceed with query
 

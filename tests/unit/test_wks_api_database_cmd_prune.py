@@ -121,9 +121,9 @@ class TestCmdPrune:
         for _ in result.progress_callback(result):
             pass
 
-        assert result.success is True
+        assert result.success is False
         mock_import.assert_not_called()
-        assert "No prune handler found" in result.output["warnings"][0]
+        assert "No prune handler" in result.output["errors"][0]
 
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
