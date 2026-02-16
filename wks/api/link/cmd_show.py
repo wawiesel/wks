@@ -35,7 +35,7 @@ def cmd_show(uri: URI, direction: Direction = Direction.FROM) -> StageResult:
         config: Any = WKSConfig.load()
         database_name = "edges"
 
-        yield (0.3, f"Searching for links {direction} {uri}...")
+        yield (0.3, f"Searching for links {direction.value} {uri}...")
 
         query: dict[str, Any] = {}
         uri_str = str(uri)
