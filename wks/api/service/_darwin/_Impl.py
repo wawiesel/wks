@@ -86,6 +86,8 @@ class _Impl(_AbstractImpl):
   <dict>
     <key>PATH</key>
     <string>{path_str}</string>
+    <key>WKS_HOME</key>
+    <string>{working_directory}</string>
   </dict>
   <key>ProgramArguments</key>
   <array>
