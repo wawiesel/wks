@@ -403,15 +403,15 @@ diff_output:
 message: Text diff generated.
 ```
 
-### AST-aware diff
+### S-expression diff
 
-For code files, use the `ast` engine for structural diffs:
+For `.sexp` files, use the `sexp` engine:
 
 ```bash
-wksc diff -e ast --language python file_v1.py file_v2.py
+wksc diff -e sexp tree_v1.sexp tree_v2.sexp
 ```
 
-This compares the abstract syntax tree rather than raw text, ignoring formatting changes.
+This compares S-expression files structurally using unified diff format.
 
 ### Binary diff (bsdiff3)
 
