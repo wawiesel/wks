@@ -100,7 +100,15 @@ def monitor() -> typer.Typer:
         pretty_exceptions_show_locals=False,
         pretty_exceptions_enable=False,
         context_settings={"help_option_names": ["-h", "--help"]},
+        invoke_without_command=True,
     )
+
+    @priority_app.callback(invoke_without_command=True)
+    def priority_callback(ctx: typer.Context) -> None:
+        """Priority operations - shows available commands."""
+        if ctx.invoked_subcommand is None:
+            typer.echo(ctx.get_help(), err=True)
+            raise typer.Exit()
 
     @priority_app.command(name="show")
     def priority_show_cmd() -> None:
