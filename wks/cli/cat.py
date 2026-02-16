@@ -15,7 +15,7 @@ def cat() -> typer.Typer:
         help="Print content to stdout (file path or checksum)",
         pretty_exceptions_show_locals=False,
         pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
+        context_settings={"help_option_names": ["-h", "--help"], "allow_interspersed_args": True},
         invoke_without_command=True,
     )
 

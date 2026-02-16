@@ -21,6 +21,21 @@ def cmd_show(
         """
         from ..config.WKSConfig import WKSConfig
 
+        if limit < 1:
+            yield (1.0, "Complete")
+            result_obj.result = f"Invalid limit: {limit} (must be >= 1)"
+            result_obj.output = DatabaseShowOutput(
+                errors=[f"Invalid limit: {limit} (must be >= 1)"],
+                warnings=[],
+                database=database,
+                query={},
+                limit=limit,
+                count=0,
+                results=[],
+            ).model_dump(mode="python")
+            result_obj.success = False
+            return
+
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
 

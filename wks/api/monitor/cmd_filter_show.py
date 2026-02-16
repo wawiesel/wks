@@ -68,7 +68,7 @@ def cmd_filter_show(list_name: str | None = None) -> StageResult:
                 errors=[f"Unknown list_name: {list_name!r}"],
             )
             yield (1.0, "Complete")
-            raise ValueError(f"Unknown list_name: {list_name!r}")
+            return
 
         yield (0.7, f"Retrieving {list_name}...")
         items = list(getattr(monitor_cfg.filter, list_name))

@@ -24,6 +24,25 @@ def status() -> typer.Typer:
         if ctx.invoked_subcommand is not None:
             return
 
+        # Check global options from parent context
+        import click
+
+        obj: dict = {}
+        current: click.Context | None = ctx
+        while current is not None:
+            if isinstance(current.obj, dict):
+                obj = current.obj
+                break
+            current = current.parent
+
+        display_format = obj.get("display_format", "yaml")
+        quiet = obj.get("quiet", False)
+
+        # If -d json or -q is set, use standard structured output path
+        if display_format == "json" or quiet:
+            _handle_stage_result(cmd_status)()
+            return
+
         def status_printer(output: dict) -> None:
             svc = output.get("service", {})
             log = output.get("log", {})

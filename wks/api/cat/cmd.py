@@ -75,6 +75,13 @@ def cmd(
             yield (1.0, "Complete")
 
         except Exception as e:
+            result_obj.output = {
+                "content": None,
+                "target": target,
+                "checksum": None,
+                "output_path": str(output_path) if output_path else None,
+                "errors": [str(e)],
+            }
             result_obj.result = str(e)
             result_obj.success = False
             yield (1.0, "Failed")
