@@ -10,6 +10,11 @@ from wks.api.database.Database import Database
 def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
     """Prune nodes database.
 
+    Removes entries where:
+    - The file no longer exists on disk
+    - The hostname in the URI doesn't match the current hostname
+      (stale entries from before a hostname change)
+
     Args:
         config: WKS Configuration
         **kwargs: Unused arguments for interface compatibility
@@ -17,9 +22,12 @@ def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
     Returns:
         Dict with keys: deleted_count, checked_count, warnings
     """
+    import socket
+
     nodes_checked = 0
     nodes_deleted = 0
     warnings: list[str] = []
+    current_hostname = socket.gethostname()
 
     with Database(config.database, "nodes") as nodes_db:
         # Find all documents with URI
@@ -30,6 +38,14 @@ def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
             if "local_uri" in doc:
                 nodes_checked += 1
                 uri = doc["local_uri"]
+
+                # Check for hostname mismatch (stale entries from hostname change)
+                if uri.startswith("file://"):
+                    uri_hostname = uri[7:].split("/", 1)[0]
+                    if uri_hostname and uri_hostname != current_hostname:
+                        ids_to_remove.append(doc["_id"])
+                        continue
+
                 # Check filesystem
                 try:
                     if not URI(uri).path.exists():
