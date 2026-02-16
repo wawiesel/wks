@@ -24,6 +24,17 @@ def cmd_show(
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
 
+        yield (0.3, "Checking database exists...")
+        warnings: list[str] = []
+        try:
+            known = Database.list_databases(config.database)
+            prefix = config.database.prefix
+            short_names = [n[len(prefix) + 1 :] if n.startswith(f"{prefix}.") else n for n in known]
+            if database not in short_names:
+                warnings.append(f"Database '{database}' does not exist. Known databases: {', '.join(short_names)}")
+        except Exception:
+            pass  # Non-critical, proceed with query
+
         yield (0.4, "Parsing query...")
         try:
             parsed_query = json.loads(query) if query else None
@@ -52,7 +63,7 @@ def cmd_show(
             result_obj.result = f"Found {query_result['count']} document(s) in {database}"
             result_obj.output = DatabaseShowOutput(
                 errors=[],
-                warnings=[],
+                warnings=warnings,
                 database=database,
                 query=parsed_query or {},
                 limit=limit,

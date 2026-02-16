@@ -63,3 +63,13 @@ class TestCmdShow:
                 {"$and": [{"_id": {"$ne": "__meta__"}}, json.loads(complex_filter)]},
                 100,
             )
+
+    def test_cmd_show_nonexistent_database_warns(self, tracked_wks_config):
+        """Querying a nonexistent database should succeed but warn."""
+        with (
+            patch.object(Database, "list_databases", return_value=["wks.nodes", "wks.edges"]),
+            patch.object(Database, "query", return_value={"results": [], "count": 0}),
+        ):
+            result = run_cmd(cmd_show, database="nonexistent", query=None, limit=50)
+            assert result.success is True
+            assert any("does not exist" in w for w in result.output["warnings"])
