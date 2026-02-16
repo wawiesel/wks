@@ -258,3 +258,57 @@ class TestCmdDiff:
         assert result.success
         assert result.output["status"] == "success"
         assert result.output["metadata"]["engine_used"] == "bsdiff3"
+
+    def test_cmd_diff_auto_text_files(self, tmp_path):
+        """Test auto mode selects myers for two text files."""
+        file_a = tmp_path / "a.txt"
+        file_b = tmp_path / "b.txt"
+        file_a.write_text("hello\nworld\n")
+        file_b.write_text("hello\nuniverse\n")
+
+        config = {
+            "engine_config": {"engine": "auto"},
+            "timeout_seconds": 60,
+            "max_size_mb": 100,
+        }
+
+        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
+        assert result.success
+        assert result.output["status"] == "success"
+        assert result.output["metadata"]["engine_used"] == "myers"
+
+    def test_cmd_diff_auto_sexp_files(self, tmp_path):
+        """Test auto mode selects sexp for two .sexp files."""
+        file_a = tmp_path / "a.sexp"
+        file_b = tmp_path / "b.sexp"
+        file_a.write_text("(module (function (name hello)))")
+        file_b.write_text("(module (function (name world)))")
+
+        config = {
+            "engine_config": {"engine": "auto"},
+            "timeout_seconds": 60,
+            "max_size_mb": 100,
+        }
+
+        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
+        assert result.success
+        assert result.output["status"] == "success"
+        assert result.output["metadata"]["engine_used"] == "sexp"
+
+    def test_cmd_diff_auto_binary_files(self, tmp_path):
+        """Test auto mode selects bsdiff3 for binary files."""
+        file_a = tmp_path / "a.bin"
+        file_b = tmp_path / "b.bin"
+        file_a.write_bytes(b"\x00\x01\x02binary")
+        file_b.write_bytes(b"\x00\x01\x03binary")
+
+        config = {
+            "engine_config": {"engine": "auto"},
+            "timeout_seconds": 60,
+            "max_size_mb": 100,
+        }
+
+        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
+        assert result.success
+        assert result.output["status"] == "success"
+        assert result.output["metadata"]["engine_used"] == "bsdiff3"
