@@ -77,6 +77,34 @@ def test_daemon_clear_blocked_when_running(monkeypatch, tmp_path):
     run_cmd(cmd_stop)
 
 
+def test_daemon_clear_errors_only(monkeypatch, tmp_path):
+    """Test that --errors-only removes only ERROR entries from the logfile."""
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+
+    cfg = minimal_wks_config()
+    cfg.save()
+
+    log_path = WKSConfig.get_logfile_path()
+    log_path.write_text(
+        "[2026-01-01T00:00:00+00:00] [daemon] INFO: started\n"
+        "[2026-01-01T00:00:01+00:00] [link.sync] ERROR: sync failure\n"
+        "[2026-01-01T00:00:02+00:00] [daemon] WARN: slow sync\n"
+        "[2026-01-01T00:00:03+00:00] [link.sync] ERROR: another failure\n",
+        encoding="utf-8",
+    )
+
+    result = run_cmd(cmd_clear, errors_only=True)
+    assert result.success is True
+    assert "2" in result.result  # "Cleared 2 error entries"
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "INFO: started" in content
+    assert "WARN: slow sync" in content
+    assert "ERROR" not in content
+
+
 def test_daemon_clear_stale_lock(monkeypatch, tmp_path):
     """Test that clear proceeds if lock is stale."""
     wks_home = tmp_path / ".wks"

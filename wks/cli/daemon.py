@@ -50,8 +50,10 @@ def daemon() -> typer.Typer:
         _handle_stage_result(cmd_stop)()
 
     @app.command(name="clear")
-    def clear_cmd() -> None:
-        """Clear daemon logs and warnings (only if stopped)."""
-        _handle_stage_result(cmd_clear)()
+    def clear_cmd(
+        errors_only: bool = typer.Option(False, "--errors-only", help="Only remove ERROR entries from the logfile"),
+    ) -> None:
+        """Clear daemon logs and state. Use --errors-only while running."""
+        _handle_stage_result(cmd_clear)(errors_only=errors_only)
 
     return app
