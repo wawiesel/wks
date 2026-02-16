@@ -203,6 +203,34 @@ def test_prune_with_oserror_deleting_orphaned(wks_home, minimal_config_dict, tmp
             pass
 
 
+def test_prune_stale_and_orphaned_combined(wks_home, minimal_config_dict, tmp_path):
+    """Stale DB records AND orphaned files in one pass—deleted_count must accumulate."""
+    config = WKSConfig.load()
+
+    cache_dir = tmp_path / "combined_cache"
+    cache_dir.mkdir()
+    config.transform.cache.base_dir = str(cache_dir)
+    config.save()
+
+    # Create orphaned file (not in DB)
+    (cache_dir / "orphan1.md").touch()
+    (cache_dir / "orphan2.md").touch()
+
+    # DB records pointing to missing files (stale)
+    with Database(config.database, "transform") as db:
+        coll = db.get_database()["transform"]
+        coll.delete_many({})
+        coll.insert_one({"checksum": "stale1", "cache_uri": "file:///missing/stale1.md", "size_bytes": 100})
+
+    result = prune(config)
+
+    # 1 stale DB record + 2 orphaned files = 3 total deleted
+    assert result["deleted_count"] == 3
+    assert result["checked_count"] == 1
+    assert not (cache_dir / "orphan1.md").exists()
+    assert not (cache_dir / "orphan2.md").exists()
+
+
 def test_prune_with_none_cache_uri(wks_home, minimal_config_dict, tmp_path):
     """Test prune handles None cache_uri in database record."""
     config = WKSConfig.load()

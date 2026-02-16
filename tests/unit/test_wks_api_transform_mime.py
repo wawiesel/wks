@@ -54,6 +54,12 @@ class TestGuessMimeType:
         # Assuming mimetypes would guess .py, or our custom map
         assert mime.guess_mime_type(path) in ["text/x-python", "application/x-python-code"]
 
+    def test_guess_type_uses_real_path_string(self):
+        """Ensure str(path) is passed, not str(None). Kills str(path)->str(None) mutant."""
+        path = Path("example.json")
+        result = mime.guess_mime_type(path)
+        assert result == "application/json"
+
 
 class TestExtensionForMime:
     def test_extension_from_custom_mime_to_extension(self):
