@@ -1,6 +1,6 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-86.4%25-yellow)
+![Coverage](https://img.shields.io/badge/coverage-86.7%25-yellow)
 ![Mutation Score](https://img.shields.io/badge/mutation-56.2%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
 ![Tests](https://img.shields.io/badge/tests-648_passing-brightgreen)
@@ -16,7 +16,7 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   86.4% |       100% | ⚠️ Below Target |
+| **Code Coverage**    |   86.7% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
@@ -25,20 +25,20 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     202 | 13,141 |      465,953 |   73,613 |      33.7% |
-| **cli**   |      26 |  1,676 |       58,825 |   10,703 |       4.9% |
+| **api**   |     202 | 13,141 |      465,953 |   73,613 |      33.8% |
+| **cli**   |      26 |  1,605 |       55,736 |   10,233 |       4.7% |
 | **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     237 | 15,370 |      544,798 |   88,096 |      40.3% |
+| **Total** |     237 | 15,299 |      541,709 |   87,626 |      40.2% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      98 | 11,285 |      391,815 |   68,376 |      31.3% |
+| **Unit Tests**        |      98 | 11,285 |      391,815 |   68,376 |      31.4% |
 | **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.4% |
 | **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
-| **Total**             |     118 | 13,185 |      455,748 |   79,941 |      36.6% |
+| **Total**             |     118 | 13,185 |      455,748 |   79,941 |      36.7% |
 
 ### Documentation Size Summary
 
@@ -55,7 +55,7 @@
 |------------------|--------:|------:|-------------:|---------:|-----------:|
 | **CI/CD**        |       4 |   401 |       12,431 |    3,107 |       1.4% |
 | **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
-| **Scripts**      |      22 | 2,437 |       83,982 |   16,021 |       7.3% |
+| **Scripts**      |      22 | 2,437 |       83,982 |   16,021 |       7.4% |
 | **Total**        |      31 | 3,025 |      100,790 |   20,220 |       9.3% |
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
