@@ -49,6 +49,7 @@ def _create_app() -> typer.Typer:
         quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress progress output, emit data only"),
     ) -> None:
         # Validate display format
+        display = display.lower()
         if display not in ("json", "yaml"):
             typer.echo(f"Error: --display must be 'json' or 'yaml', got '{display}'", err=True)
             raise typer.Exit(1)
