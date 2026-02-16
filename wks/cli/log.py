@@ -27,12 +27,18 @@ def log() -> typer.Typer:
 
     @app.command(name="prune")
     def prune_cmd(
-        debug: bool = typer.Option(True, "--debug/--no-debug", help="Prune DEBUG entries"),
-        info: bool = typer.Option(True, "--info/--no-info", help="Prune INFO entries"),
+        debug: bool = typer.Option(False, "--debug/--no-debug", help="Prune DEBUG entries"),
+        info: bool = typer.Option(False, "--info/--no-info", help="Prune INFO entries"),
         warnings: bool = typer.Option(False, "--warnings/--no-warnings", help="Prune WARN entries"),
         errors: bool = typer.Option(False, "--errors/--no-errors", help="Prune ERROR entries"),
     ) -> None:
-        """Prune log entries by level."""
+        """Prune log entries by level.
+
+        At least one level flag must be specified (e.g. --info, --debug).
+        """
+        if not any([debug, info, warnings, errors]):
+            typer.echo("Error: specify at least one level to prune (--debug, --info, --warnings, --errors)", err=True)
+            raise typer.Exit(2)
         _handle_stage_result(cmd_prune)(
             prune_debug=debug,
             prune_info=info,
