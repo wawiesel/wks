@@ -24,7 +24,7 @@ def config() -> typer.Typer:
         """Show help when no subcommand is provided."""
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=False)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     @app.command(name="list")
     def list_cmd() -> None:

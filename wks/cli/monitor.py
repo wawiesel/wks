@@ -31,7 +31,7 @@ def monitor() -> typer.Typer:
         """Monitor operations - shows available commands."""
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     @app.command(name="status")
     def status_cmd() -> None:
@@ -68,7 +68,7 @@ def monitor() -> typer.Typer:
         """Filter operations - shows available commands."""
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     @filter_app.command(name="show")
     def filter_show_cmd(
@@ -108,7 +108,7 @@ def monitor() -> typer.Typer:
         """Priority operations - shows available commands."""
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     @priority_app.command(name="show")
     def priority_show_cmd() -> None:

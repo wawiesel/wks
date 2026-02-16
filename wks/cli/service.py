@@ -28,7 +28,7 @@ def service() -> typer.Typer:
         """Service operations - shows available commands."""
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     @app.command(name="status")
     def status_cmd() -> None:

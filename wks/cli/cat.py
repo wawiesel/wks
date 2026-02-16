@@ -33,7 +33,7 @@ def cat() -> typer.Typer:
         """
         if target is None or not target.strip():
             typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
         # result_printer allows us to print the 'content' field to stdout on success
         def result_printer(output: dict) -> None:
