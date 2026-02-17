@@ -91,6 +91,7 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
                         links_written=0,
                         links_deleted=0,
                         sync_duration_ms=0,
+                        success=False,
                     )
                     if not input_path:
                         return
