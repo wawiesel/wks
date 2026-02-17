@@ -12,7 +12,7 @@ from wks.cli.log import log
 from wks.cli.mcp import mcp
 from wks.cli.monitor import monitor
 from wks.cli.service import service
-from wks.cli.status import status
+from wks.cli.status import register_status
 from wks.cli.transform import transform
 from wks.cli.vault import vault
 
@@ -39,7 +39,7 @@ def _create_app() -> typer.Typer:
     app.add_typer(diff(), name="diff")
     app.add_typer(mcp(), name="mcp")
     app.add_typer(log(), name="log")
-    app.add_typer(status(), name="status")
+    register_status(app)
     app.add_typer(transform(), name="transform")
 
     @app.callback(invoke_without_command=True)
@@ -49,6 +49,7 @@ def _create_app() -> typer.Typer:
         quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress progress output, emit data only"),
     ) -> None:
         # Validate display format
+        display = display.lower()
         if display not in ("json", "yaml"):
             typer.echo(f"Error: --display must be 'json' or 'yaml', got '{display}'", err=True)
             raise typer.Exit(1)
@@ -62,6 +63,6 @@ def _create_app() -> typer.Typer:
 
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help())
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     return app

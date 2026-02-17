@@ -43,7 +43,19 @@ def cmd_prune(database: str, remote: bool = False) -> StageResult:
             all_dbs = Database.list_databases(config.database)
             targets = [db for db in all_dbs if db in DB_HANDLERS]
         else:
-            # Single target
+            # Single target — verify it has a prune handler
+            if database not in DB_HANDLERS:
+                yield (1.0, "Complete")
+                result_obj.output = DatabasePruneOutput(
+                    errors=[f"No prune handler for database '{database}'. Known: {', '.join(sorted(DB_HANDLERS))}"],
+                    warnings=[],
+                    database=database,
+                    deleted_count=0,
+                    checked_count=0,
+                ).model_dump(mode="python")
+                result_obj.result = f"No prune handler for database '{database}'"
+                result_obj.success = False
+                return
             targets = [database]
 
         total_deleted = 0

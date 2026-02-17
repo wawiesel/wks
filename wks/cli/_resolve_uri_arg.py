@@ -2,11 +2,15 @@
 
 from pathlib import Path
 
+import typer
+
 from wks.api.config.URI import URI
 
 
 def _resolve_uri_arg(value: str) -> URI:
     """Resolve CLI argument to strict URI."""
+    if not value.strip():
+        raise typer.BadParameter("path must not be empty")
     try:
         return URI(value)
     except ValueError:

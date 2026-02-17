@@ -1,10 +1,10 @@
 {
-  "coverage_pct": 86.0,
+  "coverage_pct": 85.7,
   "domains": {
     "cat": 94.5,
     "config": 97.8,
     "daemon": 83.2,
-    "database": 89.0,
+    "database": 88.7,
     "diff": 86.0,
     "link": 97.0,
     "log": 93.9,

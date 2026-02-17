@@ -1,4 +1,4 @@
-"""Status Typer app factory - top-level system status."""
+"""Status command - top-level system status."""
 
 import typer
 from rich import print
@@ -7,23 +7,12 @@ from wks.api.cmd_status import cmd_status
 from wks.cli._handle_stage_result import _handle_stage_result
 
 
-def status() -> typer.Typer:
-    """Create and configure the status Typer app."""
-    app = typer.Typer(
-        name="status",
-        help="Show system status summary",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
+def register_status(app: typer.Typer) -> None:
+    """Register the status command directly on the given app."""
 
-    @app.callback(invoke_without_command=True)
-    def callback(ctx: typer.Context) -> None:
+    @app.command(name="status", help="Show system status summary")
+    def status_cmd(ctx: typer.Context) -> None:
         """Show aggregated system status."""
-        if ctx.invoked_subcommand is not None:
-            return
-
         # Check global options from parent context
         import click
 
@@ -110,5 +99,3 @@ def status() -> typer.Typer:
                 print(f"[bold]Vault:[/bold]    {total_links} edges indexed")
 
         _handle_stage_result(cmd_status, result_printer=status_printer, suppress_output=True)()
-
-    return app

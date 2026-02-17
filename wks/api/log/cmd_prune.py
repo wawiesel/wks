@@ -9,15 +9,15 @@ from .LOG_PATTERN import LOG_PATTERN
 
 
 def cmd_prune(
-    prune_info: bool = True,
+    prune_info: bool = False,
     prune_warnings: bool = False,
     prune_errors: bool = False,
-    prune_debug: bool = True,
+    prune_debug: bool = False,
 ) -> StageResult:
     """Remove log entries by level.
 
     Args:
-        prune_info: Remove INFO entries (default: True)
+        prune_info: Remove INFO entries (default: False)
         prune_warnings: Remove WARN entries (default: False)
         prune_errors: Remove ERROR entries (default: False)
         prune_debug: Remove DEBUG entries (default: False)

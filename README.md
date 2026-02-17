@@ -1,7 +1,7 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-86.0%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-56.3%25-red)
+![Coverage](https://img.shields.io/badge/coverage-85.7%25-yellow)
+![Mutation Score](https://img.shields.io/badge/mutation-56.2%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
 ![Tests](https://img.shields.io/badge/tests-657_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
@@ -16,8 +16,8 @@
 
 | Metric               |   Value |     Target | Status          |
 |----------------------|--------:|-----------:|----------------:|
-| **Code Coverage**    |   86.0% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   56.3% |       ≥90% | ⚠️ Below Target |
+| **Code Coverage**    |   85.7% |       100% | ⚠️ Below Target |
+| **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
 | **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
@@ -25,29 +25,29 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     203 | 13,325 |      473,265 |   74,803 |      33.6% |
-| **cli**   |      27 |  1,768 |       62,358 |   11,434 |       5.1% |
+| **api**   |     203 | 13,349 |      474,317 |   74,960 |      33.6% |
+| **cli**   |      27 |  1,810 |       64,040 |   11,731 |       5.3% |
 | **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     239 | 15,646 |      555,643 |   90,017 |      40.5% |
+| **Total** |     239 | 15,712 |      558,377 |   90,471 |      40.6% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      99 | 11,563 |      402,150 |   70,339 |      31.6% |
-| **Integration Tests** |      13 |  1,548 |       52,085 |    9,516 |       4.3% |
+| **Unit Tests**        |      99 | 11,584 |      402,742 |   70,442 |      31.6% |
+| **Integration Tests** |      13 |  1,544 |       51,955 |    9,492 |       4.3% |
 | **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
-| **Total**             |     119 | 13,463 |      466,083 |   81,904 |      36.8% |
+| **Total**             |     119 | 13,480 |      466,545 |   81,983 |      36.8% |
 
 ### Documentation Size Summary
 
 | Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------------|--------:|------:|-------------:|---------:|-----------:|
 | **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.8% |
-| **Developer Documentation** |      43 | 2,827 |      113,651 |   28,406 |      12.8% |
+| **Developer Documentation** |      43 | 2,827 |      113,651 |   28,406 |      12.7% |
 | **Specifications**          |       0 |     0 |            0 |        0 |       0.0% |
-| **Total**                   |      50 | 3,055 |      120,716 |   30,172 |      13.6% |
+| **Total**                   |      50 | 3,055 |      120,716 |   30,172 |      13.5% |
 
 ### Infrastructure Summary
 
@@ -58,7 +58,7 @@
 | **Scripts**      |      22 | 2,437 |       83,982 |   16,021 |       7.2% |
 | **Total**        |      31 | 3,025 |      100,790 |   20,220 |       9.1% |
 
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.3% means 56.3% of introduced mutations were successfully killed by the test suite.
+**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
 
 **Test Statistics**: 657 tests across 113 test files.
 
@@ -69,7 +69,7 @@
 | cat       |        94% |          54% |         60/112 |
 | config    |        98% |          60% |        255/423 |
 | daemon    |        83% |          40% |        164/415 |
-| database  |        89% |          62% |        410/659 |
+| database  |        89% |          61% |        433/709 |
 | diff      |        86% |          52% |        315/606 |
 | link      |        97% |          52% |       641/1239 |
 | log       |        94% |          55% |        300/547 |

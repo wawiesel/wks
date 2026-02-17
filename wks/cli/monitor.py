@@ -31,7 +31,7 @@ def monitor() -> typer.Typer:
         """Monitor operations - shows available commands."""
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     @app.command(name="status")
     def status_cmd() -> None:
@@ -68,7 +68,7 @@ def monitor() -> typer.Typer:
         """Filter operations - shows available commands."""
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit()
+            raise typer.Exit(2)
 
     @filter_app.command(name="show")
     def filter_show_cmd(
@@ -100,7 +100,15 @@ def monitor() -> typer.Typer:
         pretty_exceptions_show_locals=False,
         pretty_exceptions_enable=False,
         context_settings={"help_option_names": ["-h", "--help"]},
+        invoke_without_command=True,
     )
+
+    @priority_app.callback(invoke_without_command=True)
+    def priority_callback(ctx: typer.Context) -> None:
+        """Priority operations - shows available commands."""
+        if ctx.invoked_subcommand is None:
+            typer.echo(ctx.get_help(), err=True)
+            raise typer.Exit(2)
 
     @priority_app.command(name="show")
     def priority_show_cmd() -> None:
@@ -110,9 +118,12 @@ def monitor() -> typer.Typer:
     @priority_app.command(name="add")
     def priority_add_cmd(
         path: str = typer.Argument(..., help="Path to set priority for"),
-        priority: float = typer.Argument(..., help="New priority of the path"),
+        priority: float = typer.Argument(..., help="New priority of the path (use -- before negative values)"),
     ) -> None:
-        """Set or update priority for a priority directory."""
+        """Set or update priority for a priority directory.
+
+        For negative values, use -- separator: wksc monitor priority add /path -- -50
+        """
         _handle_stage_result(cmd_priority_add)(path, priority)
 
     @priority_app.command(name="remove")

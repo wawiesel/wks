@@ -38,8 +38,11 @@ def diff() -> typer.Typer:
     ) -> None:
         """Compute a diff between two targets."""
         if ctx.invoked_subcommand is None and (target_a is None or target_b is None):
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(1)
+            if target_a is not None and target_b is None:
+                typer.echo("Error: diff requires two targets. Usage: wksc diff <target_a> <target_b>", err=True)
+            else:
+                typer.echo(ctx.get_help(), err=True)
+            raise typer.Exit(2)
 
         assert target_a is not None
         assert target_b is not None

@@ -139,7 +139,7 @@ def cmd_status() -> StageResult:
                 installed=True,
                 log_path=status_data["log_path"],
             ).model_dump(mode="python")
-            result_obj.success = len(status_data["errors"]) == 0
+            result_obj.success = True
             return
 
         # Not running as service - check for direct-run indicators
@@ -163,7 +163,7 @@ def cmd_status() -> StageResult:
             installed=status_data["installed"],
             log_path=status_data["log_path"],
         ).model_dump(mode="python")
-        result_obj.success = len(status_data["errors"]) == 0
+        result_obj.success = True
 
     return StageResult(
         announce="Checking daemon status...",
