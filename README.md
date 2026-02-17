@@ -3,7 +3,7 @@
 ![Coverage](https://img.shields.io/badge/coverage-85.7%25-yellow)
 ![Mutation Score](https://img.shields.io/badge/mutation-56.2%25-red)
 ![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
-![Tests](https://img.shields.io/badge/tests-657_passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-658_passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)
@@ -25,20 +25,20 @@
 
 | Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     203 | 13,349 |      474,317 |   74,960 |      33.6% |
-| **cli**   |      27 |  1,810 |       64,040 |   11,731 |       5.3% |
+| **api**   |     203 | 13,368 |      475,087 |   75,099 |      33.7% |
+| **cli**   |      27 |  1,813 |       64,241 |   11,773 |       5.3% |
 | **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
 | **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     239 | 15,712 |      558,377 |   90,471 |      40.6% |
+| **Total** |     239 | 15,734 |      559,348 |   90,652 |      40.6% |
 
 ### Testing Statistics
 
 | Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
 |-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      99 | 11,584 |      402,742 |   70,442 |      31.6% |
+| **Unit Tests**        |      99 | 11,595 |      403,418 |   70,550 |      31.6% |
 | **Integration Tests** |      13 |  1,544 |       51,955 |    9,492 |       4.3% |
 | **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
-| **Total**             |     119 | 13,480 |      466,545 |   81,983 |      36.8% |
+| **Total**             |     119 | 13,491 |      467,221 |   82,091 |      36.8% |
 
 ### Documentation Size Summary
 
@@ -60,7 +60,7 @@
 
 **Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
 
-**Test Statistics**: 657 tests across 113 test files.
+**Test Statistics**: 658 tests across 113 test files.
 
 ### Per-Domain Quality
 
@@ -69,16 +69,16 @@
 | cat       |        94% |          54% |         60/112 |
 | config    |        98% |          60% |        255/423 |
 | daemon    |        83% |          40% |        164/415 |
-| database  |        89% |          61% |        433/709 |
+| database  |        89% |          60% |        447/741 |
 | diff      |        86% |          52% |        315/606 |
 | link      |        97% |          52% |       641/1239 |
 | log       |        94% |          55% |        300/547 |
 | mcp       |        97% |          51% |        204/398 |
-| monitor   |        98% |          59% |      1007/1717 |
+| monitor   |        98% |          59% |      1011/1715 |
 | service   |        92% |          86% |         99/115 |
 | transform |        92% |          58% |       705/1209 |
 | utils     |         0% |            — |              — |
-| vault     |        99% |          58% |       765/1315 |
+| vault     |       100% |          58% |       765/1318 |
 
 
 ## Overview
