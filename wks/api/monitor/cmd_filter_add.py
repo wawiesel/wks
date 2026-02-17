@@ -54,7 +54,7 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
                 errors=[f"Unknown list_name: {list_name!r}"],
             )
             yield (1.0, "Complete")
-            raise ValueError(f"Unknown list_name: {list_name!r}")
+            return
 
         yield (0.4, "Validating value...")
         value_to_store, error = validate_value(list_name, value, monitor_cfg)

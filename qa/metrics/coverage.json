@@ -4,7 +4,7 @@
     "cat": 94.5,
     "config": 97.8,
     "daemon": 83.2,
-    "database": 88.7,
+    "database": 89.1,
     "diff": 86.0,
     "link": 97.0,
     "log": 93.9,
@@ -12,6 +12,6 @@
     "monitor": 98.5,
     "service": 92.3,
     "transform": 91.8,
-    "vault": 99.3
+    "vault": 99.6
   }
 }

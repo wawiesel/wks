@@ -13,8 +13,8 @@
       "survived": 251
     },
     "database": {
-      "killed": 433,
-      "survived": 276
+      "killed": 447,
+      "survived": 294
     },
     "diff": {
       "killed": 315,
@@ -33,8 +33,8 @@
       "survived": 194
     },
     "monitor": {
-      "killed": 1007,
-      "survived": 710
+      "killed": 1011,
+      "survived": 704
     },
     "service": {
       "killed": 99,
@@ -50,10 +50,10 @@
     },
     "vault": {
       "killed": 765,
-      "survived": 550
+      "survived": 553
     }
   },
-  "killed": 4948,
+  "killed": 4966,
   "score": 56.2,
-  "survived": 3857
+  "survived": 3872
 }
