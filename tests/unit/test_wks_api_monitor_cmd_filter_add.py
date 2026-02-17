@@ -31,8 +31,9 @@ def test_cmd_filter_add_unknown_list_name(monkeypatch):
     """
     create_tracked_wks_config(monkeypatch)
 
-    with pytest.raises(ValueError):
-        run_cmd(cmd_filter_add.cmd_filter_add, list_name="unknown_list", value="test")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="unknown_list", value="test")
+    assert result.success is False
+    assert "Unknown list_name" in result.output["errors"][0]
 
 
 def test_cmd_filter_add_empty_dirname(monkeypatch):

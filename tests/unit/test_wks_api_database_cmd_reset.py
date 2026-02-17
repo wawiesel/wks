@@ -16,7 +16,8 @@ class TestCmdReset:
         mock_collection.delete_many.return_value = 5
         mock_collection.__enter__ = MagicMock(return_value=mock_collection)
         mock_collection.__exit__ = MagicMock(return_value=False)
-        with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection):
+        with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection) as mock_db:
+            mock_db.list_databases.return_value = ["nodes"]
             result = run_cmd(cmd_reset, "nodes")
             assert result.success
             assert result.output["deleted_count"] == 5
@@ -27,7 +28,8 @@ class TestCmdReset:
         mock_collection.delete_many.return_value = 0
         mock_collection.__enter__ = MagicMock(return_value=mock_collection)
         mock_collection.__exit__ = MagicMock(return_value=False)
-        with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection):
+        with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection) as mock_db:
+            mock_db.list_databases.return_value = ["vault"]
             result = run_cmd(cmd_reset, "vault")
             assert result.success
             assert result.output["deleted_count"] == 0
@@ -37,17 +39,27 @@ class TestCmdReset:
         mock_collection.delete_many.side_effect = Exception("Database error")
         mock_collection.__enter__ = MagicMock(return_value=mock_collection)
         mock_collection.__exit__ = MagicMock(return_value=False)
-        with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection):
+        with patch("wks.api.database.cmd_reset.Database", return_value=mock_collection) as mock_db:
+            mock_db.list_databases.return_value = ["nodes"]
             result = run_cmd(cmd_reset, "nodes")
             assert not result.success
             assert "Database error" in result.output["errors"][0]
             assert result.output["deleted_count"] == 0
 
     def test_cmd_reset_collection_init_error(self, tracked_wks_config):
-        with patch("wks.api.database.cmd_reset.Database", side_effect=Exception("Connection failed")):
+        mock_db_cls = MagicMock(side_effect=Exception("Connection failed"))
+        mock_db_cls.list_databases.return_value = ["nodes"]
+        with patch("wks.api.database.cmd_reset.Database", mock_db_cls):
             result = run_cmd(cmd_reset, "nodes")
             assert not result.success
             assert "Connection failed" in result.output["errors"][0]
+
+    def test_cmd_reset_nonexistent_database(self, tracked_wks_config):
+        with patch("wks.api.database.cmd_reset.Database") as mock_db:
+            mock_db.list_databases.return_value = ["nodes", "edges"]
+            result = run_cmd(cmd_reset, "fakename")
+            assert not result.success
+            assert "does not exist" in result.output["errors"][0]
 
     def test_cmd_reset_all(self, tracked_wks_config):
         mock_collection = MagicMock()

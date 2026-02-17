@@ -65,8 +65,6 @@ def test_cmd_filter_remove_unknown_list(monkeypatch, isolated_wks_home):
     """
     create_tracked_wks_config(monkeypatch)
 
-    result = cmd_filter_remove.cmd_filter_remove(list_name="not_a_list", value="x")
-    with pytest.raises(ValueError):
-        list(result.progress_callback(result))
+    result = run_cmd(cmd_filter_remove.cmd_filter_remove, list_name="not_a_list", value="x")
     assert result.success is False
     assert "Unknown list_name" in result.output["errors"][0]
