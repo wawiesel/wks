@@ -43,8 +43,11 @@ def database() -> typer.Typer:
     @app.command(name="reset")
     def reset_cmd(
         name: str = typer.Argument(..., help="Database name (use 'list' for options)"),
+        yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
     ) -> None:
         """Reset (clear) a database by deleting all documents."""
+        if not yes:
+            typer.confirm(f"This will delete ALL documents from '{name}'. Continue?", abort=True)
         _handle_stage_result(cmd_reset)(name)
 
     @app.command(name="prune")
