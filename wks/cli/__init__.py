@@ -5,7 +5,7 @@ import sys
 # Global options that accept a value argument
 _GLOBAL_VALUE_OPTS = {"--display", "-d"}
 # Global options that are boolean flags
-_GLOBAL_FLAG_OPTS = {"--quiet", "-q"}
+_GLOBAL_FLAG_OPTS = {"--quiet"}
 
 
 def _hoist_global_options(argv: list[str]) -> list[str]:
