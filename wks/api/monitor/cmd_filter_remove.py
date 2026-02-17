@@ -52,7 +52,7 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
                 errors=[f"Unknown list_name: {list_name!r}"],
             )
             yield (1.0, "Complete")
-            raise ValueError(f"Unknown list_name: {list_name!r}")
+            return
 
         yield (0.4, "Resolving value...")
         resolve_path = list_name in ("include_paths", "exclude_paths")
