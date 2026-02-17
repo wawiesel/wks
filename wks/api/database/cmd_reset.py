@@ -28,7 +28,25 @@ def cmd_reset(database: str) -> StageResult:
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
 
-        targets = Database.list_databases(config.database) if database == "all" else [database]
+        if database == "all":
+            targets = Database.list_databases(config.database)
+        else:
+            known = Database.list_databases(config.database)
+            prefix = config.database.prefix
+            short_names = [n[len(prefix) + 1 :] if n.startswith(f"{prefix}.") else n for n in known]
+            if database not in short_names:
+                yield (1.0, "Complete")
+                msg = f"Database '{database}' does not exist. Known databases: {', '.join(short_names)}"
+                result_obj.output = DatabaseResetOutput(
+                    errors=[msg],
+                    warnings=[],
+                    database=database,
+                    deleted_count=0,
+                ).model_dump(mode="python")
+                result_obj.result = f"Database '{database}' does not exist"
+                result_obj.success = False
+                return
+            targets = [database]
 
         total_deleted = 0
         deleted_details = []
