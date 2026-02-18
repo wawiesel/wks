@@ -60,6 +60,12 @@ class _DoclingEngine(_TransformEngine):
             pipeline = options["pipeline"]
             cmd.extend(["--pipeline", str(pipeline)])
 
+            # Enrichment flags
+            for flag in ("formula", "code", "picture_classes", "picture_description", "chart_extraction"):
+                key = f"enrich_{flag}"
+                if options.get(key):
+                    cmd.append(f"--enrich-{flag.replace('_', '-')}")
+
             # Timeout (required)
             timeout = options["timeout_secs"]
 
