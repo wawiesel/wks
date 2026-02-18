@@ -7,10 +7,55 @@ from typing import Any
 from wks.api.config.get_package_version import get_package_version
 from wks.api.config.StageResult import StageResult
 from wks.api.config.WKSConfig import WKSConfig
-from wks.cli._get_typer_command_schema import get_typer_command_schema
 
 from .discover_commands import discover_commands
-from .get_app import get_app
+
+
+def _tool_name(domain: str, cmd_name: str) -> str:
+    """Build MCP tool name from domain/command pair."""
+    if domain == "_root":
+        return f"wksm_{cmd_name}"
+    if domain == cmd_name:
+        return f"wksm_{domain}"
+    return f"wksm_{domain}_{cmd_name}"
+
+
+def _json_type(annotation: Any) -> str:
+    """Map a Python type annotation to a JSON schema type string."""
+    if annotation == inspect.Parameter.empty:
+        return "string"
+    # Unwrap Optional / X | None
+    if hasattr(annotation, "__args__") and type(None) in annotation.__args__:
+        annotation = next(a for a in annotation.__args__ if a is not type(None))
+    if annotation is int or (hasattr(annotation, "__origin__") and annotation.__origin__ is int):
+        return "integer"
+    if annotation is bool:
+        return "boolean"
+    if annotation is float:
+        return "number"
+    if annotation is dict or (hasattr(annotation, "__origin__") and annotation.__origin__ is dict):
+        return "object"
+    return "string"
+
+
+def _schema_from_func(func: Callable) -> dict[str, Any]:
+    """Generate a JSON schema from an API function's signature."""
+    sig = inspect.signature(func)
+    schema: dict[str, Any] = {"type": "object", "properties": {}, "required": []}
+    for name, param in sig.parameters.items():
+        if name in ("self", "ctx"):
+            continue
+        schema["properties"][name] = {"type": _json_type(param.annotation), "description": ""}
+        if param.default == inspect.Parameter.empty:
+            schema["required"].append(name)
+    return schema
+
+
+def _description_from_func(func: Callable, domain: str, cmd_name: str) -> str:
+    """Extract a one-line description from a function's docstring."""
+    if func.__doc__:
+        return func.__doc__.split("\n")[0].strip()
+    return f"{domain} {cmd_name} operation"
 
 
 class MCPServer:
@@ -26,73 +71,15 @@ class MCPServer:
         ]
 
     @staticmethod
-    def _find_command_in_app(app: Any, cmd_name: str) -> tuple[Any, Any, str] | None:
-        """Find command in app's registered commands."""
-        for cmd in app.registered_commands:
-            if cmd.name == cmd_name:
-                return cmd, app, cmd_name
-        return None
-
-    @staticmethod
-    def _find_command_in_groups(app: Any, cmd_name: str) -> tuple[Any, Any, str] | None:
-        """Find command in app's registered groups."""
-        if not hasattr(app, "registered_groups"):
-            return None
-        for group in app.registered_groups:
-            prefix = f"{group.name}_"
-            if cmd_name.startswith(prefix) and hasattr(group, "typer_instance"):
-                sub_cmd = cmd_name[len(prefix) :]
-                for cmd in group.typer_instance.registered_commands:
-                    if cmd.name == sub_cmd:
-                        return cmd, group.typer_instance, sub_cmd
-        return None
-
-    @staticmethod
-    def _get_command_and_schema(cmd_name: str, app: Any) -> tuple[Any, dict[str, Any]] | None:
-        """Get command and schema for a command name in an app."""
-        command_info = MCPServer._find_command_in_app(app, cmd_name)
-        if command_info is None:
-            command_info = MCPServer._find_command_in_groups(app, cmd_name)
-        if command_info is None:
-            return None
-
-        command, schema_app, schema_cmd = command_info
-        schema = get_typer_command_schema(schema_app, schema_cmd)
-        return command, schema
-
-    @staticmethod
     def define_tools() -> dict[str, dict[str, Any]]:
-        """Build tool metadata from discovered CLI commands."""
+        """Build tool metadata from discovered API functions."""
         tools = {}
-        for (domain, cmd_name), _cmd_func in discover_commands().items():
-            app = get_app(domain)
-            if app is None:
-                continue
-
-            result = MCPServer._get_command_and_schema(cmd_name, app)
-            if result is None:
-                continue
-
-            command, schema = result
-            description = (
-                command.callback.__doc__.split("\n")[0].strip()
-                if (command and command.callback and command.callback.__doc__)
-                else f"{domain} {cmd_name} operation"
-            )
-            tools[f"wksm_{domain}_{cmd_name}"] = {"description": description, "inputSchema": schema}
-
-        tools["wksm_diff"] = {
-            "description": "Compute a diff between two targets",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "config": {"type": "object"},
-                    "target_a": {"type": "string"},
-                    "target_b": {"type": "string"},
-                },
-                "required": ["config", "target_a", "target_b"],
-            },
-        }
+        for (domain, cmd_name), cmd_func in discover_commands().items():
+            name = _tool_name(domain, cmd_name)
+            tools[name] = {
+                "description": _description_from_func(cmd_func, domain, cmd_name),
+                "inputSchema": _schema_from_func(cmd_func),
+            }
         return tools
 
     def build_registry(self) -> dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]]:
@@ -101,7 +88,7 @@ class MCPServer:
         for (domain, cmd_name), cmd_func in discover_commands().items():
             sig = inspect.signature(cmd_func)
 
-            def make_handler(func: Callable, sig: inspect.Signature, _domain: str) -> Callable:
+            def make_handler(func: Callable, sig: inspect.Signature) -> Callable:
                 def handler(_config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:
                     from wks.api.config.URI import URI
 
@@ -109,15 +96,12 @@ class MCPServer:
                     for param_name, param in sig.parameters.items():
                         if param_name == "self":
                             continue
-                        # Handle URI conversion: MCP clients pass 'path', but API now expects 'uri'
                         val = args.get(param_name)
                         if val is None and param_name == "uri":
-                            # Try 'path' as fallback for backward compatibility
                             val = args.get("path")
                         if val is not None:
                             if param_name == "query" and isinstance(val, dict):
                                 val = json.dumps(val)
-                            # Convert string path to URI for 'uri' parameters
                             elif param_name == "uri" and isinstance(val, str):
                                 val = URI.from_any(val)
                             kwargs[param_name] = val
@@ -131,31 +115,9 @@ class MCPServer:
 
                 return handler
 
-            registry[f"wksm_{domain}_{cmd_name}"] = make_handler(cmd_func, sig, domain)
+            name = _tool_name(domain, cmd_name)
+            registry[name] = make_handler(cmd_func, sig)
 
-        def diff_handler(_config: WKSConfig, args: dict[str, Any]) -> dict[str, Any]:
-            from wks.api.diff.cmd_diff import cmd_diff
-
-            config = args.get("config")
-            target_a = args.get("target_a")
-            target_b = args.get("target_b")
-            errors: list[str] = []
-            if not isinstance(config, dict):
-                errors.append(f"config must be an object (found: {type(config).__name__})")
-            if not isinstance(target_a, str) or not target_a:
-                errors.append("target_a must be a non-empty string")
-            if not isinstance(target_b, str) or not target_b:
-                errors.append("target_b must be a non-empty string")
-            if errors:
-                return {"success": False, "data": {}, "error": "; ".join(errors)}
-            assert isinstance(config, dict)
-            assert isinstance(target_a, str)
-            assert isinstance(target_b, str)
-            result = cmd_diff(config, target_a, target_b)
-            list(result.progress_callback(result))
-            return {"success": result.success, "data": result.output}
-
-        registry["wksm_diff"] = diff_handler
         return registry
 
     def read_message(self) -> dict[str, Any] | None:
@@ -165,7 +127,6 @@ class MCPServer:
                 line = self._input.readline()
                 if not line:
                     return None
-                # Skip blank lines (common after framed LSP payloads).
                 if not line.strip():
                     continue
                 if line.strip().lower().startswith("content-length"):

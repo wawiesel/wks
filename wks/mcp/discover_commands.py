@@ -1,60 +1,56 @@
-"""Discover Typer command callbacks and their underlying API functions."""
+"""Discover API functions by scanning wks/api/ directories."""
 
 import importlib
 from collections.abc import Callable
 from pathlib import Path
 
-from .extract_api_function_from_command import extract_api_function_from_command
-
 
 def discover_commands() -> dict[tuple[str, str], Callable]:
-    """Auto-discover all cmd_* functions by scanning CLI Typer apps.
+    """Auto-discover all API functions by scanning wks/api/.
 
-    Each CLI domain module exports a factory function matching its name.
-    For example: wks.cli.monitor exports monitor() -> typer.Typer
+    Scans for:
+      - wks/api/{domain}/cmd_{name}.py  ->  cmd_{name}()  ->  ("domain", "name")
+      - wks/api/{domain}/cmd.py         ->  cmd()          ->  ("domain", "domain")
+      - wks/api/cmd_{name}.py           ->  cmd_{name}()   ->  ("_root", "name")
     """
     commands: dict[tuple[str, str], Callable] = {}
-    cli_path = Path(__file__).parent.parent / "cli"
+    api_path = Path(__file__).parent.parent / "api"
 
-    for cli_file in cli_path.glob("*.py"):
-        if cli_file.name.startswith("_") or cli_file.name == "__init__.py":
+    # Domain directories (e.g. wks/api/link/, wks/api/cat/)
+    for domain_dir in api_path.iterdir():
+        if not domain_dir.is_dir() or domain_dir.name.startswith("_"):
             continue
 
-        domain = cli_file.stem
-        if domain == "display":
-            continue
+        domain = domain_dir.name
 
-        try:
-            cli_module = importlib.import_module(f"wks.cli.{domain}")
+        # cmd_{name}.py files -> ("domain", "name")
+        for cmd_file in domain_dir.glob("cmd_*.py"):
+            cmd_name = cmd_file.stem[4:]  # strip "cmd_"
+            func = _import_func(f"wks.api.{domain}.{cmd_file.stem}", f"cmd_{cmd_name}")
+            if func:
+                commands[(domain, cmd_name)] = func
 
-            # Factory function matches domain name
-            factory = getattr(cli_module, domain, None)
-            if factory is None or not callable(factory):
-                continue
+        # cmd.py (callback-style) -> ("domain", "domain")
+        if (domain_dir / "cmd.py").exists():
+            func = _import_func(f"wks.api.{domain}.cmd", "cmd")
+            if func:
+                commands[(domain, domain)] = func
 
-            app = factory()
-
-            for cmd in app.registered_commands:
-                if cmd.name is None:
-                    continue
-                api_func = extract_api_function_from_command(cmd.callback, cli_module)
-                if api_func:
-                    commands[(domain, cmd.name)] = api_func
-
-            if hasattr(app, "registered_groups"):
-                for group in app.registered_groups:
-                    if not hasattr(group, "typer_instance"):
-                        continue
-                    sub_app = group.typer_instance
-                    prefix = f"{group.name}_"
-
-                    for cmd in sub_app.registered_commands:
-                        api_func = extract_api_function_from_command(cmd.callback, cli_module)
-                        if api_func:
-                            full_cmd_name = f"{prefix}{cmd.name}"
-                            commands[(domain, full_cmd_name)] = api_func
-
-        except Exception:
-            continue
+    # Root-level cmd_{name}.py -> ("_root", "name")
+    for cmd_file in api_path.glob("cmd_*.py"):
+        cmd_name = cmd_file.stem[4:]  # strip "cmd_"
+        func = _import_func(f"wks.api.{cmd_file.stem}", f"cmd_{cmd_name}")
+        if func:
+            commands[("_root", cmd_name)] = func
 
     return commands
+
+
+def _import_func(module_path: str, func_name: str) -> Callable | None:
+    """Import a function from a module, returning None on failure."""
+    try:
+        mod = importlib.import_module(module_path)
+        func = getattr(mod, func_name, None)
+        return func if callable(func) else None
+    except Exception:
+        return None
