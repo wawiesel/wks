@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/index_output.schema.json",
+  "title": "WKS Index Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "IndexOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "index_name": { "type": "string" },
+            "uri": { "type": "string" },
+            "chunk_count": { "type": "integer" },
+            "checksum": { "type": "string" }
+          },
+          "required": ["index_name", "uri", "chunk_count", "checksum"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "IndexStatusOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "indexes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "document_count": { "type": "integer" },
+                  "chunk_count": { "type": "integer" },
+                  "uris": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["document_count", "chunk_count", "uris"]
+              }
+            }
+          },
+          "required": ["indexes"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/IndexOutput" },
+    { "$ref": "#/definitions/IndexStatusOutput" }
+  ]
+}

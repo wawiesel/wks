@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, computed_field, mod
 from ..cat.CatConfig import CatConfig
 from ..daemon.DaemonConfig import DaemonConfig
 from ..database.DatabaseConfig import DatabaseConfig
+from ..index.IndexConfig import IndexConfig
 from ..log.LogConfig import LogConfig
 from ..mcp.McpConfig import McpConfig
 from ..monitor.explain_path import explain_path
@@ -34,6 +35,7 @@ class WKSConfig(BaseModel):
     mcp: McpConfig = McpConfig()  # Optional, defaults to empty
     transform: TransformConfig
     cat: CatConfig
+    index: IndexConfig | None = None
 
     @model_validator(mode="after")
     def validate_transform_cache_monitored(self) -> "WKSConfig":
@@ -114,6 +116,7 @@ class WKSConfig(BaseModel):
             "mcp": self.mcp.model_dump(),
             "transform": self.transform.model_dump(),
             "cat": self.cat.model_dump(),
+            **({"index": self.index.model_dump()} if self.index else {}),
         }
 
     def save(self) -> None:

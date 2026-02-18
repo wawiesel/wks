@@ -27,6 +27,7 @@ dependencies = [
     "shellingham",
     "pydantic>=2.0",
     "pymongo",
+    "rank_bm25",
     "sentence-transformers",
     "docling",
     "bsdiff4",

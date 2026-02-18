@@ -7,10 +7,12 @@ from wks.cli.config import config
 from wks.cli.daemon import daemon
 from wks.cli.database import database
 from wks.cli.diff import diff
+from wks.cli.index import index
 from wks.cli.link import link
 from wks.cli.log import log
 from wks.cli.mcp import mcp
 from wks.cli.monitor import monitor
+from wks.cli.search import search
 from wks.cli.service import service
 from wks.cli.status import register_status
 from wks.cli.transform import transform
@@ -37,8 +39,10 @@ def _create_app() -> typer.Typer:
     app.add_typer(config(), name="config")
     app.add_typer(database(), name="database")
     app.add_typer(diff(), name="diff")
+    app.add_typer(index(), name="index")
     app.add_typer(mcp(), name="mcp")
     app.add_typer(log(), name="log")
+    app.add_typer(search(), name="search")
     register_status(app)
     app.add_typer(transform(), name="transform")
 

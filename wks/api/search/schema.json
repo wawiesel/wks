@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/search_output.schema.json",
+  "title": "WKS Search Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "SearchOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string" },
+            "index_name": { "type": "string" },
+            "hits": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "uri": { "type": "string" },
+                  "chunk_index": { "type": "integer" },
+                  "score": { "type": "number" },
+                  "tokens": { "type": "integer" },
+                  "text": { "type": "string" }
+                },
+                "required": ["uri", "chunk_index", "score", "tokens", "text"]
+              }
+            },
+            "total_chunks": { "type": "integer" }
+          },
+          "required": ["query", "index_name", "hits", "total_chunks"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/SearchOutput" }
+  ]
+}
