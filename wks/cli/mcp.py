@@ -10,6 +10,61 @@ from wks.mcp.client import proxy_stdio_to_socket
 from wks.mcp.paths import mcp_socket_path
 
 
+def _proxy_app() -> typer.Typer:
+    """Create the proxy sub-app (wksc mcp proxy ...)."""
+    proxy = typer.Typer(
+        name="proxy",
+        help="SSE proxy for container access",
+        pretty_exceptions_show_locals=False,
+        pretty_exceptions_enable=False,
+        context_settings={"help_option_names": ["-h", "--help"]},
+        invoke_without_command=True,
+    )
+
+    @proxy.callback(invoke_without_command=True)
+    def proxy_callback(ctx: typer.Context) -> None:
+        if ctx.invoked_subcommand is None:
+            typer.echo(ctx.get_help(), err=True)
+            raise typer.Exit(2)
+
+    @proxy.command(name="start")
+    def proxy_start(
+        port: int = typer.Option(8765, "--port", help="Port to listen on"),
+        host: str = typer.Option("localhost", "--host", help="Host to bind to"),
+        blocking: bool = typer.Option(False, "--blocking", help="Run in foreground"),
+    ) -> None:
+        """Start the SSE proxy."""
+        from wks.mcp.sse_proxy import run_server, start_background
+
+        if blocking:
+            run_server(host=host, port=port)
+        else:
+            result = start_background(host=host, port=port)
+            typer.echo(result["message"])
+            raise typer.Exit(0 if result["running"] else 1)
+
+    @proxy.command(name="stop")
+    def proxy_stop() -> None:
+        """Stop the SSE proxy."""
+        from wks.mcp.sse_proxy import stop_background
+
+        result = stop_background()
+        typer.echo(result["message"])
+
+    @proxy.command(name="status")
+    def proxy_status() -> None:
+        """Check SSE proxy status."""
+        from wks.mcp.sse_proxy import get_status
+
+        result = get_status()
+        if result["running"]:
+            typer.echo(f"Running (pid {result['pid']})")
+        else:
+            typer.echo("Not running")
+
+    return proxy
+
+
 def mcp() -> typer.Typer:
     """Create and configure the MCP Typer app."""
     app = typer.Typer(
@@ -27,6 +82,8 @@ def mcp() -> typer.Typer:
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help(), err=True)
             raise typer.Exit(2)
+
+    app.add_typer(_proxy_app(), name="proxy")
 
     @app.command(name="list")
     def list_cmd() -> None:
