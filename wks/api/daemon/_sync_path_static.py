@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from ._auto_index import _auto_index
+
 
 def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
     """Invoke monitor sync for a single path (child process safe)."""
@@ -16,10 +18,11 @@ def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
             log_fn(f"WARN: {msg}")
         for msg in errs:
             log_fn(f"ERROR: {msg}")
+
+        # Auto-index if file was synced (not deleted or skipped)
+        if result.success and out.get("files_synced", 0) > 0:
+            _auto_index(path, log_fn)
     except RuntimeError as exc:
-        # If it's the "mongod binary not found" error, log it as FATAL once and re-raise/stop?
-        # Actually, if we are in _sync_path_static, we are inside the loop.
-        # But we added a pre-flight check, so this should not happen often.
         if "mongod binary not found" in str(exc):
             log_fn(f"ERROR: Database binary missing during sync: {exc}")
         else:

@@ -61,10 +61,41 @@
           "additionalProperties": false
         }
       ]
+    },
+    "IndexAutoOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "uri": { "type": "string" },
+            "priority": { "type": "number" },
+            "indexed": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "index_name": { "type": "string" },
+                  "chunk_count": { "type": "integer" },
+                  "checksum": { "type": "string" }
+                },
+                "required": ["index_name", "chunk_count", "checksum"]
+              }
+            },
+            "skipped": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["uri", "priority", "indexed", "skipped"],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "oneOf": [
     { "$ref": "#/definitions/IndexOutput" },
-    { "$ref": "#/definitions/IndexStatusOutput" }
+    { "$ref": "#/definitions/IndexStatusOutput" },
+    { "$ref": "#/definitions/IndexAutoOutput" }
   ]
 }
