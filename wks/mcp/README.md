@@ -230,7 +230,80 @@ result = call_tool("wksm_<domain>_<name>", {"param1": "value", "param2": 42})
 - **`setup.py`**: Functions for installing MCP server configurations
 - **`bridge.py`**: MCP broker for managing multiple connections
 - **`client.py`**: MCP client utilities and stdio proxying
+- **`sse_proxy.py`**: SSE/HTTP proxy for container access (`python -m wks.mcp.sse_proxy`)
 - **`__init__.py`**: Module exports
+
+## SSE Proxy (Container Access)
+
+The MCP server normally runs over stdio, which requires the client to spawn the
+process directly. For clients that cannot do this (e.g. containers, remote
+bots), the SSE proxy wraps the stdio server behind an HTTP endpoint.
+
+### How it works
+
+```
+┌──────────────────────┐
+│  Container / Bot     │
+│  MCP client (HTTP)   │
+└────────┬─────────────┘
+         │  GET /sse  (SSE stream)
+         │  POST /messages?sessionId=<id>  (JSON-RPC)
+         ▼
+┌──────────────────────┐
+│  SSE Proxy           │  localhost:8765
+│  wks.mcp.sse_proxy   │
+└────────┬─────────────┘
+         │  stdin/stdout (JSON-RPC)
+         ▼
+┌──────────────────────┐
+│  MCP Server          │  python -m wks.mcp.main
+│  (one per session)   │
+└──────────────────────┘
+```
+
+- Each SSE connection spawns its own MCP subprocess.
+- The proxy runs as the host user, so tools execute with full host permissions.
+- CORS headers are included for cross-origin access.
+
+### Running manually
+
+```bash
+python -m wks.mcp.sse_proxy --host localhost --port 8765
+```
+
+### Running as a launchd service
+
+A plist is installed at `~/Library/LaunchAgents/com.wieselquist.wks-mcp-proxy.plist`.
+
+```bash
+# Load (starts immediately and on login)
+launchctl load ~/Library/LaunchAgents/com.wieselquist.wks-mcp-proxy.plist
+
+# Unload
+launchctl unload ~/Library/LaunchAgents/com.wieselquist.wks-mcp-proxy.plist
+```
+
+Logs go to `~/.wks/logs/mcp-proxy.log`.
+
+### Container-side MCP config
+
+Instead of a `command`-based config, use a `url`-based config pointing at the
+host proxy. `host.containers.internal` resolves to the host from inside Docker
+/ Colima containers:
+
+```json
+{
+  "url": "http://host.containers.internal:8765/sse"
+}
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/sse` | SSE stream. First event is `endpoint` with the POST URL. Subsequent events are `message` containing JSON-RPC responses. |
+| `POST` | `/messages?sessionId=<id>` | Send a JSON-RPC request. Returns `202 Accepted`. |
+| `GET`  | `/health` | Returns `{"status": "ok", "sessions": <n>}`. |
 
 ## CLI/MCP Symmetry
 
