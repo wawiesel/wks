@@ -10,6 +10,7 @@ from . import IndexOutput
 
 def cmd(name: str, uri: str) -> StageResult:
     """Transform, chunk, and store a document in a named index."""
+    uri = str(uri)
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.05, "Loading configuration...")

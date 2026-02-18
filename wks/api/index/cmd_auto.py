@@ -9,6 +9,7 @@ from . import IndexAutoOutput
 
 def cmd_auto(uri: str) -> StageResult:
     """Index a URI into all matching indexes based on file priority."""
+    uri = str(uri)
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.05, "Loading configuration...")

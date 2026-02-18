@@ -83,12 +83,15 @@ def test_status_updates_timestamp_when_running(monkeypatch, tmp_path):
 
     run_cmd(cmd_start)
 
+    # Let daemon subprocess initialize and enter its main loop
+    time.sleep(2.0)
+
     # First status check
     res1 = run_cmd(cmd_status)
     t1 = res1.output["last_sync"]
     assert t1 is not None
 
-    time.sleep(1.1)
+    time.sleep(2.0)
 
     # Second status check
     res2 = run_cmd(cmd_status)
