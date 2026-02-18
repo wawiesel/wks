@@ -48,15 +48,8 @@ class MCPServer:
         return None
 
     @staticmethod
-    def _get_command_and_schema(domain: str, cmd_name: str, app: Any) -> tuple[Any, dict[str, Any]] | None:
-        """Get command and schema for a domain/command pair."""
-        if domain == "config" and cmd_name == "show":
-            schema = get_typer_command_schema(app, None)
-            command = next((cmd for cmd in app.registered_commands if cmd.name is None), None)
-            if command is None:
-                return None
-            return command, schema
-
+    def _get_command_and_schema(cmd_name: str, app: Any) -> tuple[Any, dict[str, Any]] | None:
+        """Get command and schema for a command name in an app."""
         command_info = MCPServer._find_command_in_app(app, cmd_name)
         if command_info is None:
             command_info = MCPServer._find_command_in_groups(app, cmd_name)
@@ -76,7 +69,7 @@ class MCPServer:
             if app is None:
                 continue
 
-            result = MCPServer._get_command_and_schema(domain, cmd_name, app)
+            result = MCPServer._get_command_and_schema(cmd_name, app)
             if result is None:
                 continue
 

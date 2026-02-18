@@ -73,12 +73,7 @@ def get_typer_command_schema(app: typer.Typer, command_name: str | None) -> dict
     # Find the command
     for cmd in app.registered_commands:
         if cmd.name == command_name:
-            schema: dict[str, Any] = {
-                "type": "object",
-                "properties": {},
-                "required": [],
-            }
-            return schema
+            return build_callback_schema(cmd)
 
     # Handle callback command (command_name is None)
     if command_name is None:
