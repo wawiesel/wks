@@ -84,6 +84,20 @@
           "additionalProperties": false
         }
       ]
+    },
+    "ServiceClearOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "cleared": { "type": "boolean" },
+            "message": { "type": "string" }
+          },
+          "required": ["cleared", "message"],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "oneOf": [
@@ -91,6 +105,7 @@
     { "$ref": "#/definitions/ServiceStartOutput" },
     { "$ref": "#/definitions/ServiceStopOutput" },
     { "$ref": "#/definitions/ServiceInstallOutput" },
-    { "$ref": "#/definitions/ServiceUninstallOutput" }
+    { "$ref": "#/definitions/ServiceUninstallOutput" },
+    { "$ref": "#/definitions/ServiceClearOutput" }
   ]
 }

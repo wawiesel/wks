@@ -4,6 +4,7 @@ from pathlib import Path
 
 import typer
 
+from wks.api.service.cmd_clear import cmd_clear
 from wks.api.service.cmd_install import cmd_install
 from wks.api.service.cmd_start import cmd_start
 from wks.api.service.cmd_status import cmd_status
@@ -44,6 +45,11 @@ def service() -> typer.Typer:
     def stop_cmd() -> None:
         """Stop service."""
         _handle_stage_result(cmd_stop)()
+
+    @app.command(name="clear")
+    def clear_cmd() -> None:
+        """Clear service errors and warnings."""
+        _handle_stage_result(cmd_clear)()
 
     @app.command(name="install")
     def install_cmd(
