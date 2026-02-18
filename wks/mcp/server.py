@@ -208,7 +208,7 @@ class MCPServer:
                     "id": request_id,
                     "result": {
                         "protocolVersion": "2024-11-05",
-                        "capabilities": {},
+                        "capabilities": {"tools": {}},
                         "serverInfo": {"name": "wks-mcp-server", "version": get_package_version()},
                     },
                 }
