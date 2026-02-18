@@ -71,11 +71,27 @@
           "additionalProperties": false
         }
       ]
+    },
+    "ConfigSetOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "key": { "type": "string" },
+            "value": {},
+            "config_path": { "type": "string" }
+          },
+          "required": ["key", "value", "config_path"],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "oneOf": [
     { "$ref": "#/definitions/ConfigListOutput" },
     { "$ref": "#/definitions/ConfigShowOutput" },
-    { "$ref": "#/definitions/ConfigVersionOutput" }
+    { "$ref": "#/definitions/ConfigVersionOutput" },
+    { "$ref": "#/definitions/ConfigSetOutput" }
   ]
 }

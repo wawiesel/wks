@@ -3,6 +3,7 @@
 import typer
 
 from wks.api.config.cmd_list import cmd_list
+from wks.api.config.cmd_set import cmd_set
 from wks.api.config.cmd_show import cmd_show
 from wks.api.config.cmd_version import cmd_version
 from wks.cli._handle_stage_result import _handle_stage_result
@@ -37,6 +38,15 @@ def config() -> typer.Typer:
     ) -> None:
         """Show configuration for a specific section."""
         _handle_stage_result(cmd_show)(section)
+
+    @app.command(name="set")
+    def set_cmd(
+        key: str = typer.Argument(..., help="Dot-path key (e.g. monitor.max_documents)"),
+        value: str = typer.Argument("", help="Value (JSON-parsed, e.g. 500000, '\"hello\"', '[1,2]')"),
+        delete: bool = typer.Option(False, "--delete", help="Remove the key instead of setting it"),
+    ) -> None:
+        """Set, modify, or remove a config value."""
+        _handle_stage_result(cmd_set)(key, value, delete=delete)
 
     @app.command(name="version")
     def version_cmd() -> None:

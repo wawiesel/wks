@@ -4,7 +4,8 @@ from ..config.schema_loader import SchemaLoader
 
 _models = SchemaLoader.register_from_package(__package__)
 ConfigListOutput = _models["ConfigListOutput"]
+ConfigSetOutput = _models["ConfigSetOutput"]
 ConfigShowOutput = _models["ConfigShowOutput"]
 ConfigVersionOutput = _models["ConfigVersionOutput"]
 
-__all__ = ["ConfigListOutput", "ConfigShowOutput", "ConfigVersionOutput"]
+__all__ = ["ConfigListOutput", "ConfigSetOutput", "ConfigShowOutput", "ConfigVersionOutput"]
