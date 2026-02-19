@@ -9,6 +9,7 @@ import json
 import pytest
 
 from tests.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.index.cmd_auto import cmd_auto
 
 
@@ -167,3 +168,27 @@ def test_auto_reports_priority(tmp_path, monkeypatch):
     result = run_cmd(cmd_auto, str(doc))
     assert result.success is True
     assert result.output["priority"] == pytest.approx(42.0, rel=0.1)
+
+
+def test_auto_with_file_uri(tmp_path, monkeypatch):
+    """MCP passes file:// URI strings — cmd_auto must resolve to filesystem path."""
+    doc_dir = tmp_path / "docs"
+    doc_dir.mkdir()
+
+    _make_auto_env(
+        tmp_path,
+        monkeypatch,
+        priority_dirs={str(doc_dir): 100.0},
+        indexes={
+            "default_index": "main",
+            "indexes": {"main": {"engine": "textpass", "min_priority": 50.0}},
+        },
+    )
+
+    doc = doc_dir / "test.txt"
+    doc.write_text("Content for URI test.\n" * 5)
+
+    file_uri = str(URI.from_path(doc))
+    result = run_cmd(cmd_auto, file_uri)
+    assert result.success is True
+    assert len(result.output["indexed"]) == 1

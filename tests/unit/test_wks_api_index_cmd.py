@@ -7,6 +7,7 @@ and stores a document in a named index.
 import json
 
 from tests.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.index.cmd import cmd
 
 
@@ -89,4 +90,22 @@ def test_cmd_index_alt_index(tmp_path, monkeypatch):
     result = run_cmd(cmd, "alt", str(env["test_file"]))
     assert result.success is True
     assert result.output["index_name"] == "alt"
+    assert result.output["chunk_count"] >= 1
+
+
+def test_cmd_index_with_file_uri(tmp_path, monkeypatch):
+    """MCP passes file:// URI strings — cmd must resolve to filesystem path."""
+    env = _make_index_env(tmp_path, monkeypatch)
+    file_uri = str(URI.from_path(env["test_file"]))
+    result = run_cmd(cmd, "main", file_uri)
+    assert result.success is True
+    assert result.output["chunk_count"] >= 1
+
+
+def test_cmd_index_with_uri_object(tmp_path, monkeypatch):
+    """MCP handler may pass a URI object directly."""
+    env = _make_index_env(tmp_path, monkeypatch)
+    uri_obj = URI.from_path(env["test_file"])
+    result = run_cmd(cmd, "main", uri_obj)
+    assert result.success is True
     assert result.output["chunk_count"] >= 1

@@ -29,12 +29,12 @@ def cmd_auto(uri: str) -> StageResult:
             result_obj.success = True
             return
 
-        # Resolve to path for priority calculation
-        from ..config.normalize_path import normalize_path
+        # Resolve to path for priority calculation (handles both "file://host/path" and plain paths)
+        from ..config.URI import URI
         from ..monitor.calculate_priority import calculate_priority
 
         yield (0.1, "Calculating priority...")
-        file_path = normalize_path(uri)
+        file_path = URI.from_any(uri).path
         if not file_path.exists():
             yield (1.0, "Complete")
             result_obj.result = f"File not found: {file_path}"

@@ -46,10 +46,10 @@ def cmd(name: str, uri: str) -> StageResult:
 
         spec = config.index.indexes[name]
 
-        # Resolve URI to file path
-        from ..config.normalize_path import normalize_path
+        # Resolve URI to file path (handles both "file://host/path" and plain paths)
+        from ..config.URI import URI
 
-        file_path = normalize_path(uri)
+        file_path = URI.from_any(uri).path
         if not file_path.exists():
             yield (1.0, "Complete")
             result_obj.result = f"File not found: {file_path}"
@@ -65,7 +65,6 @@ def cmd(name: str, uri: str) -> StageResult:
             return
 
         # Transform
-        from ..config.URI import URI
         from ..transform.cmd_engine import cmd_engine
 
         file_uri = URI.from_path(file_path)
