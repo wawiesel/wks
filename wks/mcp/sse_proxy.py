@@ -30,7 +30,7 @@ from aiohttp import web
 log = logging.getLogger("wks.mcp.sse_proxy")
 
 PYTHON = os.environ.get("WKS_MCP_PYTHON", sys.executable)
-DEFAULT_HOST = "localhost"
+DEFAULT_HOST = "0.0.0.0"  # containers need to reach the proxy
 DEFAULT_PORT = 8765
 
 
@@ -95,6 +95,7 @@ async def handle_sse(request: web.Request) -> web.StreamResponse:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env=os.environ,
+        limit=16 * 1024 * 1024,  # 16 MB — default 64 KB is too small for large responses
     )
     log.info("session %s: spawned MCP pid %s", session_id, process.pid)
 
@@ -128,8 +129,8 @@ async def handle_sse(request: web.Request) -> web.StreamResponse:
                 text = data.decode()
             if text:
                 await response.write(f"event: message\ndata: {text}\n\n".encode())
-    except (ConnectionResetError, asyncio.CancelledError):
-        log.info("session %s: client disconnected", session_id)
+    except (ConnectionResetError, asyncio.CancelledError, asyncio.LimitOverrunError, ValueError):
+        log.info("session %s: client disconnected or stream error", session_id)
     finally:
         process.terminate()
         await process.wait()
@@ -188,15 +189,14 @@ async def handle_vault_check(request: web.Request) -> web.Response:
     try:
         result = await asyncio.wait_for(asyncio.to_thread(run_check), timeout=30.0)
         out = result.output or {}
-        if result.success:
-            return web.json_response(
-                {
-                    "ok": True,
-                    "broken_count": out.get("broken_count", 0),
-                    "issues": out.get("issues", []),
-                }
-            )
-        return web.json_response({"ok": False, "error": str(result.result or "check failed")})
+        return web.json_response(
+            {
+                "ok": out.get("is_valid", result.success),
+                "broken_count": out.get("broken_count", 0),
+                "issues": out.get("issues", []),
+                "errors": out.get("errors", []),
+            }
+        )
     except asyncio.TimeoutError:
         return web.json_response({"ok": False, "error": "timed out"}, status=504)
     except Exception as e:
