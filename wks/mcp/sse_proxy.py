@@ -162,6 +162,49 @@ async def handle_message(request: web.Request) -> web.Response:
 
 
 # ---------------------------------------------------------------------------
+# Vault check - simple REST endpoint for containers to call
+# ---------------------------------------------------------------------------
+
+
+async def handle_vault_check(request: web.Request) -> web.Response:
+    """POST /vault/check — run wks vault check, return JSON result."""
+    try:
+        data = await request.json() if request.can_read_body and request.content_type == "application/json" else {}
+        path = data.get("path")
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid JSON body"}, status=400)
+
+    from wks.api.config.URI import URI
+    from wks.api.vault.cmd_check import cmd_check as vault_cmd_check
+
+    uri = URI(path) if path else None
+
+    def run_check():
+        result = vault_cmd_check(uri=uri)
+        for _ in result.progress_callback(result):
+            pass
+        return result
+
+    try:
+        result = await asyncio.wait_for(asyncio.to_thread(run_check), timeout=30.0)
+        out = result.output or {}
+        if result.success:
+            return web.json_response(
+                {
+                    "ok": True,
+                    "broken_count": out.get("broken_count", 0),
+                    "issues": out.get("issues", []),
+                }
+            )
+        return web.json_response({"ok": False, "error": str(result.result or "check failed")})
+    except asyncio.TimeoutError:
+        return web.json_response({"ok": False, "error": "timed out"}, status=504)
+    except Exception as e:
+        log.exception("vault check error")
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
+# ---------------------------------------------------------------------------
 # Health / CORS
 # ---------------------------------------------------------------------------
 
@@ -220,6 +263,7 @@ def run_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
         app.router.add_get("/sse", handle_sse)
         app.router.add_post("/messages", handle_message)
         app.router.add_get("/health", handle_health)
+        app.router.add_post("/vault/check", handle_vault_check)
 
         log.info("Starting MCP SSE proxy on %s:%s", host, port)
         web.run_app(app, host=host, port=port, print=lambda msg: log.info(msg))
