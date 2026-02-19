@@ -192,3 +192,26 @@ def test_auto_with_file_uri(tmp_path, monkeypatch):
     result = run_cmd(cmd_auto, file_uri)
     assert result.success is True
     assert len(result.output["indexed"]) == 1
+
+
+def test_auto_skips_transform_cache(tmp_path, monkeypatch):
+    """Files inside the transform cache directory are never auto-indexed."""
+    _make_auto_env(
+        tmp_path,
+        monkeypatch,
+        priority_dirs={str(tmp_path): 100.0},
+        indexes={
+            "default_index": "main",
+            "indexes": {"main": {"engine": "textpass", "min_priority": 0.0}},
+        },
+    )
+
+    # Create a file inside the transform cache directory
+    cache_dir = tmp_path / "transform_cache"
+    cache_file = cache_dir / "abc123.md"
+    cache_file.write_text("Cached transform output.\n")
+
+    result = run_cmd(cmd_auto, str(cache_file))
+    assert result.success is True
+    assert result.output["indexed"] == []
+    assert "transform cache" in result.result.lower()

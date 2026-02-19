@@ -30,11 +30,29 @@ def cmd_auto(uri: str) -> StageResult:
             return
 
         # Resolve to path for priority calculation (handles both "file://host/path" and plain paths)
+        from ..config.normalize_path import normalize_path
         from ..config.URI import URI
         from ..monitor.calculate_priority import calculate_priority
 
         yield (0.1, "Calculating priority...")
         file_path = URI.from_any(uri).path
+
+        # Skip transform cache files — they are internal outputs, not user content
+        cache_dir = normalize_path(config.transform.cache.base_dir)
+        if file_path == cache_dir or cache_dir in file_path.parents:
+            yield (1.0, "Complete")
+            result_obj.result = "Skipped (transform cache)"
+            result_obj.output = IndexAutoOutput(
+                errors=[],
+                warnings=[],
+                uri=uri,
+                priority=0.0,
+                indexed=[],
+                skipped=[],
+            ).model_dump(mode="python")
+            result_obj.success = True
+            return
+
         if not file_path.exists():
             yield (1.0, "Complete")
             result_obj.result = f"File not found: {file_path}"
