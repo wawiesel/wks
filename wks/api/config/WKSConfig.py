@@ -15,6 +15,7 @@ from ..log.LogConfig import LogConfig
 from ..mcp.McpConfig import McpConfig
 from ..monitor.explain_path import explain_path
 from ..monitor.MonitorConfig import MonitorConfig
+from ..mv.MvConfig import MvConfig
 from ..service.ServiceConfig import ServiceConfig
 from ..transform.TransformConfig import TransformConfig
 from ..vault.VaultConfig import VaultConfig
@@ -35,6 +36,7 @@ class WKSConfig(BaseModel):
     mcp: McpConfig = McpConfig()  # Optional, defaults to empty
     transform: TransformConfig
     cat: CatConfig
+    mv: MvConfig = MvConfig()  # Optional, defaults to empty
     index: IndexConfig | None = None
 
     @model_validator(mode="after")
@@ -116,6 +118,7 @@ class WKSConfig(BaseModel):
             "mcp": self.mcp.model_dump(),
             "transform": self.transform.model_dump(),
             "cat": self.cat.model_dump(),
+            "mv": self.mv.model_dump(),
             **({"index": self.index.model_dump()} if self.index else {}),
         }
 

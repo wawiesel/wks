@@ -12,6 +12,7 @@ from wks.cli.link import link
 from wks.cli.log import log
 from wks.cli.mcp import mcp
 from wks.cli.monitor import monitor
+from wks.cli.mv import mv
 from wks.cli.search import search
 from wks.cli.service import service
 from wks.cli.status import register_status
@@ -45,6 +46,7 @@ def _create_app() -> typer.Typer:
     app.add_typer(search(), name="search")
     register_status(app)
     app.add_typer(transform(), name="transform")
+    app.add_typer(mv(), name="mv")
 
     @app.callback(invoke_without_command=True)
     def main_callback(

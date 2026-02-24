@@ -107,6 +107,17 @@ async def handle_sse(request: web.Request) -> web.StreamResponse:
     # Tell the client where to POST messages.
     await response.write(f"event: endpoint\ndata: /messages?sessionId={session_id}\n\n".encode())
 
+    # Send periodic SSE comments to prevent intermediary timeout (gvproxy, undici).
+    async def _heartbeat():
+        try:
+            while True:
+                await asyncio.sleep(15)
+                await response.write(b": keepalive\n\n")
+        except (ConnectionResetError, asyncio.CancelledError):
+            pass
+
+    heartbeat_task = asyncio.create_task(_heartbeat())
+
     # Forward subprocess stdout → SSE events.
     try:
         assert process.stdout is not None
@@ -132,6 +143,7 @@ async def handle_sse(request: web.Request) -> web.StreamResponse:
     except (ConnectionResetError, asyncio.CancelledError, asyncio.LimitOverrunError, ValueError):
         log.info("session %s: client disconnected or stream error", session_id)
     finally:
+        heartbeat_task.cancel()
         process.terminate()
         await process.wait()
         request.app["sessions"].pop(session_id, None)

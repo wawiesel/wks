@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wks/specifications/mv_output.schema.json",
+  "title": "WKS Mv Output Schemas",
+  "type": "object",
+  "definitions": {
+    "Base": {
+      "type": "object",
+      "properties": {
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["errors", "warnings"],
+      "additionalProperties": true
+    },
+    "MvMvOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "source": { "type": "string" },
+            "destination": { "type": "string" },
+            "database_updated": { "type": "boolean" },
+            "success": { "type": "boolean" }
+          },
+          "required": ["source", "destination", "database_updated", "success"]
+        }
+      ]
+    }
+  },
+  "oneOf": [{ "$ref": "#/definitions/MvMvOutput" }]
+}
