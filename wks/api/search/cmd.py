@@ -9,9 +9,10 @@ from . import SearchOutput
 
 
 def cmd(
-    query: str,
+    query: str = "",
     index: str = "",
     k: int = 10,
+    query_image: str = "",
 ) -> StageResult:
     """Search a named index using its configured search mode."""
 
@@ -53,13 +54,16 @@ def cmd(
             return
         spec = config.index.indexes[index_name]
         embedding_model = spec.embedding_model
+        embedding_mode = spec.embedding_mode
         search_mode = "semantic" if embedding_model is not None else "lexical"
+        query_output = query if query.strip() else query_image
 
         if embedding_model is not None:
             import numpy as np
 
-            from ..index._embedding_utils import cosine_scores, embed_texts
+            from ..index._embedding_utils import cosine_scores
             from ..index._EmbeddingStore import _EmbeddingStore
+            from ._build_query_embedding import build_query_embedding
 
             with Database(config.database, "index_embeddings") as db:
                 yield (0.3, "Loading embeddings...")
@@ -74,7 +78,7 @@ def cmd(
                         "Run: wksc index embed <index_name>"
                     ],
                     warnings=[],
-                    query=query,
+                    query=query_output,
                     index_name=index_name,
                     search_mode=search_mode,
                     embedding_model=embedding_model,
@@ -85,7 +89,29 @@ def cmd(
                 return
 
             yield (0.55, f"Embedding query with {embedding_model}...")
-            query_embedding = embed_texts(texts=[query], model_name=embedding_model, batch_size=1)[0]
+            try:
+                query_embedding = build_query_embedding(
+                    query=query,
+                    query_image=query_image,
+                    embedding_model=embedding_model,
+                    embedding_mode=embedding_mode,
+                    image_text_weight=spec.image_text_weight,
+                )
+            except Exception as exc:
+                yield (1.0, "Complete")
+                result_obj.result = str(exc)
+                result_obj.output = SearchOutput(
+                    errors=[str(exc)],
+                    warnings=[],
+                    query=query_output,
+                    index_name=index_name,
+                    search_mode=search_mode,
+                    embedding_model=embedding_model,
+                    hits=[],
+                    total_chunks=len(docs),
+                ).model_dump(mode="python")
+                result_obj.success = False
+                return
 
             yield (0.7, "Scoring chunks...")
             matrix = np.asarray([doc["embedding"] for doc in docs], dtype=np.float32)
@@ -103,11 +129,11 @@ def cmd(
             ]
 
             yield (1.0, "Complete")
-            result_obj.result = f"Found {len(hits)} results for '{query}'"
+            result_obj.result = f"Found {len(hits)} results for '{query_output}'"
             result_obj.output = SearchOutput(
                 errors=[],
                 warnings=[],
-                query=query,
+                query=query_output,
                 index_name=index_name,
                 search_mode=search_mode,
                 embedding_model=embedding_model,
@@ -118,6 +144,37 @@ def cmd(
             return
 
         from ..index._ChunkStore import _ChunkStore
+
+        if query_image.strip():
+            yield (1.0, "Complete")
+            result_obj.result = "query_image is only supported for semantic indexes"
+            result_obj.output = SearchOutput(
+                errors=["query_image requires an index configured with embedding_model"],
+                warnings=[],
+                query=query_output,
+                index_name=index_name,
+                search_mode=search_mode,
+                embedding_model=embedding_model,
+                hits=[],
+                total_chunks=0,
+            ).model_dump(mode="python")
+            result_obj.success = False
+            return
+        if not query.strip():
+            yield (1.0, "Complete")
+            result_obj.result = "query is required for lexical search"
+            result_obj.output = SearchOutput(
+                errors=["query is required for lexical search"],
+                warnings=[],
+                query=query_output,
+                index_name=index_name,
+                search_mode=search_mode,
+                embedding_model=embedding_model,
+                hits=[],
+                total_chunks=0,
+            ).model_dump(mode="python")
+            result_obj.success = False
+            return
 
         with Database(config.database, "index") as db:
             store = _ChunkStore(db)
@@ -131,7 +188,7 @@ def cmd(
                 result_obj.output = SearchOutput(
                     errors=[f"Index '{index_name}' is empty"],
                     warnings=[],
-                    query=query,
+                    query=query_output,
                     index_name=index_name,
                     search_mode=search_mode,
                     embedding_model=embedding_model,
@@ -164,11 +221,11 @@ def cmd(
             ]
 
             yield (1.0, "Complete")
-            result_obj.result = f"Found {len(hits)} results for '{query}'"
+            result_obj.result = f"Found {len(hits)} results for '{query_output}'"
             result_obj.output = SearchOutput(
                 errors=[],
                 warnings=[],
-                query=query,
+                query=query_output,
                 index_name=index_name,
                 search_mode=search_mode,
                 embedding_model=embedding_model,
@@ -178,6 +235,6 @@ def cmd(
             result_obj.success = True
 
     return StageResult(
-        announce=f"Searching for '{query}'...",
+        announce=f"Searching for '{query if query.strip() else query_image}'...",
         progress_callback=do_work,
     )

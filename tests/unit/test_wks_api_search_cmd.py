@@ -8,6 +8,7 @@ import json
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from tests.conftest import run_cmd
 from wks.api.config.WKSConfig import WKSConfig
@@ -158,6 +159,12 @@ def test_search_no_match(search_env):
     assert len(result.output["hits"]) == 0
 
 
+def test_search_lexical_rejects_query_image(search_env):
+    result = run_cmd(search_cmd, "", query_image="file:///tmp/example.png")
+    assert result.success is False
+    assert "query_image" in result.output["errors"][0]
+
+
 def test_search_empty_index(tmp_path, monkeypatch):
     from tests.conftest import minimal_config_dict
 
@@ -244,3 +251,90 @@ def test_search_semantic_requires_embeddings(search_env_semantic):
     result = run_cmd(search_cmd, "fission")
     assert result.success is False
     assert "no embeddings found" in result.output["errors"][0].lower()
+
+
+@pytest.fixture
+def search_env_semantic_image(tmp_path, monkeypatch):
+    """Build an image-text combo semantic index with two images."""
+    from tests.conftest import minimal_config_dict
+
+    config_dict = minimal_config_dict()
+    cache_dir = tmp_path / "transform_cache"
+    cache_dir.mkdir()
+    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
+    config_dict["transform"]["engines"]["img_caption"] = {
+        "type": "imagetext",
+        "data": {"model": "test-caption-model", "max_new_tokens": 16},
+    }
+    config_dict["index"] = {
+        "default_index": "main",
+        "indexes": {
+            "main": {
+                "engine": "img_caption",
+                "embedding_model": "test-clip-model",
+                "embedding_mode": "image_text_combo",
+                "image_text_weight": 0.6,
+            }
+        },
+    }
+
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(config_dict))
+
+    monkeypatch.setattr(
+        "wks.api.transform._imagetext._ImageTextEngine._ImageTextEngine._caption_image",
+        lambda self, image_path, model_name, max_new_tokens: "cat animal"
+        if "cat" in image_path.stem.lower()
+        else "mountain landscape",
+    )
+
+    def _fake_embed_clip_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
+        rows = []
+        for text in texts:
+            lower = text.lower()
+            vec = np.array([float("cat" in lower), float("mountain" in lower), 1.0], dtype=np.float32)
+            vec = vec / np.linalg.norm(vec)
+            rows.append(vec.tolist())
+        return np.asarray(rows, dtype=np.float32)
+
+    def _fake_embed_clip_images(image_paths: list, model_name: str, batch_size: int) -> np.ndarray:
+        rows = []
+        for image_path in image_paths:
+            stem = image_path.stem.lower()
+            vec = np.array([1.0, 0.0, 1.0], dtype=np.float32) if "cat" in stem else np.array([0.0, 1.0, 1.0])
+            vec = vec / np.linalg.norm(vec)
+            rows.append(vec.tolist())
+        return np.asarray(rows, dtype=np.float32)
+
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_clip_texts", _fake_embed_clip_texts)
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_clip_images", _fake_embed_clip_images)
+
+    cat_image = tmp_path / "cat.png"
+    mountain_image = tmp_path / "mountain.png"
+    Image.new("RGB", (16, 16), color=(220, 120, 40)).save(cat_image)
+    Image.new("RGB", (16, 16), color=(60, 120, 220)).save(mountain_image)
+
+    for image_path in [cat_image, mountain_image]:
+        result = run_cmd(index_cmd, "main", str(image_path))
+        assert result.success is True
+
+    return {"cat_image": cat_image, "mountain_image": mountain_image}
+
+
+def test_search_semantic_image_text_query(search_env_semantic_image):
+    result = run_cmd(search_cmd, "cat", k=2)
+    assert result.success is True
+    assert result.output["search_mode"] == "semantic"
+    assert len(result.output["hits"]) > 0
+    assert "cat.png" in result.output["hits"][0]["uri"]
+
+
+def test_search_semantic_image_query(search_env_semantic_image):
+    result = run_cmd(search_cmd, "", query_image=str(search_env_semantic_image["cat_image"]), k=2)
+    assert result.success is True
+    assert result.output["search_mode"] == "semantic"
+    assert len(result.output["hits"]) > 0
+    assert "cat.png" in result.output["hits"][0]["uri"]

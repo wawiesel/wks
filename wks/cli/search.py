@@ -23,12 +23,19 @@ def search() -> typer.Typer:
     def callback(
         ctx: typer.Context,
         query: Annotated[str | None, typer.Argument(help="Search query")] = None,
+        query_image: Annotated[
+            str,
+            typer.Option(
+                "--query-image",
+                help="Image path or URI for semantic image search (requires semantic image-text index)",
+            ),
+        ] = "",
         index: Annotated[str, typer.Option("--index", "-i", help="Index name (uses default from config)")] = "",
         k: Annotated[int, typer.Option("--top", "-k", help="Number of results")] = 10,
     ) -> None:
-        if query is None or not query.strip():
+        if (query is None or not query.strip()) and not query_image.strip():
             typer.echo(ctx.get_help(), err=True)
             raise typer.Exit(2)
-        _handle_stage_result(cmd)(query, index=index, k=k)
+        _handle_stage_result(cmd)(query or "", index=index, k=k, query_image=query_image)
 
     return app

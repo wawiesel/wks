@@ -113,26 +113,25 @@ def cmd(name: str, uri: str) -> StageResult:
         # Optional embedding storage for semantic indexes
         if spec.embedding_model is not None and len(chunks) > 0:
             yield (0.92, f"Embedding chunks with {spec.embedding_model}...")
-            from ._embedding_utils import embed_texts
+            from ._build_embedding_docs import build_embedding_docs
+            from ._build_semantic_embeddings import build_semantic_embeddings
             from ._EmbeddingStore import _EmbeddingStore
 
-            embeddings = embed_texts(
-                texts=[chunk.text for chunk in chunks],
-                model_name=spec.embedding_model,
+            embeddings = build_semantic_embeddings(
+                chunks=chunks,
+                embedding_model=spec.embedding_model,
+                embedding_mode=spec.embedding_mode,
+                image_text_weight=spec.image_text_weight,
                 batch_size=64,
+                source_image_path=file_path,
             )
-            embedding_docs = [
-                {
-                    "index_name": name,
-                    "embedding_model": spec.embedding_model,
-                    "uri": chunk.uri,
-                    "chunk_index": chunk.chunk_index,
-                    "tokens": chunk.tokens,
-                    "text": chunk.text,
-                    "embedding": embeddings[i].tolist(),
-                }
-                for i, chunk in enumerate(chunks)
-            ]
+            embedding_docs = build_embedding_docs(
+                index_name=name,
+                embedding_model=spec.embedding_model,
+                embedding_mode=spec.embedding_mode,
+                chunks=chunks,
+                embeddings=embeddings,
+            )
             with Database(config.database, "index_embeddings") as db:
                 _EmbeddingStore(db).replace_uri(
                     index_name=name,

@@ -62,6 +62,7 @@ def cmd_embed(
             return
         spec = config.index.indexes[index_name]
         embedding_model = spec.embedding_model
+        embedding_mode = spec.embedding_mode
         if embedding_model is None:
             yield (1.0, "Complete")
             result_obj.result = f"Index '{index_name}' has no embedding_model"
@@ -100,26 +101,27 @@ def cmd_embed(
             return
 
         yield (0.45, f"Embedding {len(chunks)} chunks...")
-        from ._embedding_utils import embed_texts
+        from ._build_semantic_embeddings import build_semantic_embeddings
 
-        texts = [chunk.text for chunk in chunks]
-        embeddings = embed_texts(texts=texts, model_name=embedding_model, batch_size=batch_size)
+        embeddings = build_semantic_embeddings(
+            chunks=chunks,
+            embedding_model=embedding_model,
+            embedding_mode=embedding_mode,
+            image_text_weight=spec.image_text_weight,
+            batch_size=batch_size,
+        )
 
         yield (0.8, "Storing embeddings...")
+        from ._build_embedding_docs import build_embedding_docs
         from ._EmbeddingStore import _EmbeddingStore
 
-        docs = [
-            {
-                "index_name": index_name,
-                "embedding_model": embedding_model,
-                "uri": chunk.uri,
-                "chunk_index": chunk.chunk_index,
-                "tokens": chunk.tokens,
-                "text": chunk.text,
-                "embedding": embeddings[i].tolist(),
-            }
-            for i, chunk in enumerate(chunks)
-        ]
+        docs = build_embedding_docs(
+            index_name=index_name,
+            embedding_model=embedding_model,
+            embedding_mode=embedding_mode,
+            chunks=chunks,
+            embeddings=embeddings,
+        )
 
         with Database(config.database, "index_embeddings") as db:
             _EmbeddingStore(db).replace_index_model(index_name=index_name, embedding_model=embedding_model, docs=docs)

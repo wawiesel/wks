@@ -1,5 +1,6 @@
 from ._binarypass._BinaryPassEngine import _BinaryPassEngine
 from ._docling._DoclingEngine import _DoclingEngine
+from ._imagetext._ImageTextEngine import _ImageTextEngine
 from ._textpass._TextPassEngine import _TextPassEngine
 from ._TransformEngine import _TransformEngine
 from ._treesitter._TreeSitterEngine import _TreeSitterEngine
@@ -9,7 +10,7 @@ def _get_engine_by_type(engine_type: str) -> _TransformEngine:
     """Get transform engine instance by type.
 
     Args:
-        engine_type: Engine type string (e.g., "docling", "treesitter", "textpass", "binarypass")
+        engine_type: Engine type string (e.g., "docling", "treesitter", "textpass", "imagetext", "binarypass")
 
     Returns:
         New engine instance
@@ -23,6 +24,8 @@ def _get_engine_by_type(engine_type: str) -> _TransformEngine:
         return _TreeSitterEngine()
     elif engine_type == "textpass":
         return _TextPassEngine()
+    elif engine_type == "imagetext":
+        return _ImageTextEngine()
     elif engine_type == "binarypass":
         return _BinaryPassEngine()
     else:
