@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -20,12 +19,12 @@ class SemanticDiffEngine(DiffEngine):
 
     def diff(self, file1: Path, file2: Path, options: dict) -> str:
         """Compute semantic diff and return JSON report string."""
-        modified_threshold = float(options.get("modified_threshold", 0.75))
-        unchanged_threshold = float(options.get("unchanged_threshold", 0.92))
-        text_model = str(options.get("text_model", "sentence-transformers/all-MiniLM-L6-v2"))
-        image_model = str(options.get("image_model", "openai/clip-vit-base-patch32"))
-        pixel_threshold = int(options.get("pixel_threshold", 10))
-        max_examples = int(options.get("max_examples", 8))
+        modified_threshold = float(options["modified_threshold"])
+        unchanged_threshold = float(options["unchanged_threshold"])
+        text_model = str(options["text_model"])
+        image_model = str(options["image_model"])
+        pixel_threshold = int(options["pixel_threshold"])
+        max_examples = int(options["max_examples"])
 
         if file1.suffix.lower() in self.IMAGE_SUFFIXES and file2.suffix.lower() in self.IMAGE_SUFFIXES:
             report = self._diff_image(
@@ -146,7 +145,7 @@ class SemanticDiffEngine(DiffEngine):
     ) -> dict[str, Any]:
         img_a = Image.open(file1).convert("RGB")
         img_b = Image.open(file2).convert("RGB")
-        semantic_similarity = self._semantic_similarity_image(img_a, img_b, image_model)
+        semantic_similarity = self._semantic_similarity_image(file1, file2, image_model)
         pixel_metrics = self._pixel_metrics(img_a, img_b, pixel_threshold)
 
         status = "changed"
@@ -201,19 +200,15 @@ class SemanticDiffEngine(DiffEngine):
             matches.append((i, j, score))
         return matches
 
-    def _semantic_similarity_image(self, img_a: Image.Image, img_b: Image.Image, model_name: str) -> float:
-        processor, model = _load_clip_model_and_processor(model_name)
-        try:
-            import torch
-        except Exception as exc:  # pragma: no cover - runtime dependency error
-            raise RuntimeError("torch is required for image semantic similarity") from exc
+    def _semantic_similarity_image(self, file_a: Path, file_b: Path, model_name: str) -> float:
+        from wks.api.index._embedding_utils import embed_clip_images
 
-        inputs = processor(images=[img_a, img_b], return_tensors="pt")
-        with torch.no_grad():
-            features = model.get_image_features(**inputs)
-            features = features / features.norm(dim=-1, keepdim=True)
-            similarity = float((features[0] * features[1]).sum().item())
-        return similarity
+        embeddings = embed_clip_images(
+            image_paths=[file_a, file_b],
+            model_name=model_name,
+            batch_size=2,
+        )
+        return float(embeddings[0] @ embeddings[1])
 
     def _pixel_metrics(self, img_a: Image.Image, img_b: Image.Image, pixel_threshold: int) -> dict[str, float]:
         width = max(img_a.width, img_b.width)
@@ -231,16 +226,3 @@ class SemanticDiffEngine(DiffEngine):
             "rmse": round(rmse, 6),
             "changed_pixel_ratio": round(changed_ratio, 6),
         }
-
-
-@lru_cache(maxsize=2)
-def _load_clip_model_and_processor(model_name: str):
-    try:
-        from transformers import CLIPModel, CLIPProcessor
-    except Exception as exc:  # pragma: no cover - runtime dependency error
-        raise RuntimeError("transformers with CLIP support is required for image semantic similarity") from exc
-
-    processor = CLIPProcessor.from_pretrained(model_name)
-    model = CLIPModel.from_pretrained(model_name)
-    model.eval()
-    return processor, model

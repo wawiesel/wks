@@ -268,18 +268,22 @@ class TestCmdDiff:
 
         import numpy as np
 
-        def _fake_embed(self, units, model_name):
-            if "world" in units[0]:
+        def _fake_embed(texts, model_name, batch_size):
+            if "world" in texts[0]:
                 return np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
             return np.array([[0.95, 0.1], [0.05, 0.99]], dtype=np.float32)
 
-        monkeypatch.setattr("wks.api.diff.SemanticDiffEngine.SemanticDiffEngine._embed_text_units", _fake_embed)
+        monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed)
 
         config = {
             "engine_config": {
                 "engine": "semantic",
                 "modified_threshold": 0.6,
                 "unchanged_threshold": 0.95,
+                "text_model": "test-text-model",
+                "image_model": "test-image-model",
+                "pixel_threshold": 5,
+                "max_examples": 8,
             },
             "timeout_seconds": 60,
             "max_size_mb": 100,
@@ -290,3 +294,23 @@ class TestCmdDiff:
         assert result.output["status"] == "success"
         assert result.output["metadata"]["engine_used"] == "semantic"
         assert result.output["diff_output"] is not None
+
+    def test_cmd_diff_semantic_requires_all_options(self, tmp_path):
+        """Test semantic engine fails when required options are missing."""
+        file_a = tmp_path / "a.txt"
+        file_b = tmp_path / "b.txt"
+        file_a.write_text("hello world\n")
+        file_b.write_text("hello universe\n")
+
+        config = {
+            "engine_config": {
+                "engine": "semantic",
+                "modified_threshold": 0.6,
+            },
+            "timeout_seconds": 60,
+            "max_size_mb": 100,
+        }
+
+        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
+        assert result.success is False
+        assert "missing required semantic options" in result.output["error_details"]["errors"][0]
