@@ -15,6 +15,7 @@ exclude = ["docker*", "tests*", "scripts*"]
 
 [project.scripts]
 wksc = "wks.cli:main"
+wksm = "wks.mcp.main:main"
 
 [project]
 name = "wks"
