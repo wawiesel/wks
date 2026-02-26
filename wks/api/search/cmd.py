@@ -118,7 +118,7 @@ def cmd(
             matrix = np.asarray([doc["embedding"] for doc in docs], dtype=np.float32)
             scores = cosine_scores(query_embedding, matrix)
             ranked = sorted(range(len(scores)), key=lambda i: float(scores[i]), reverse=True)
-            hits = [
+            ranked_hits = [
                 {
                     "uri": docs[i]["uri"],
                     "chunk_index": docs[i]["chunk_index"],
@@ -126,9 +126,9 @@ def cmd(
                     "tokens": docs[i]["tokens"],
                     "text": docs[i]["text"],
                 }
-                for i in ranked[:k]
+                for i in ranked
             ]
-            hits = _dedupe_hits(hits, k)
+            hits = _dedupe_hits(ranked_hits, k)
 
             yield (1.0, "Complete")
             result_obj.result = f"Found {len(hits)} results for '{query_output}'"
@@ -164,9 +164,9 @@ def cmd(
             return
         if not query.strip():
             yield (1.0, "Complete")
-            result_obj.result = "query is required for lexical search"
+            result_obj.result = "Found 0 results for ''"
             result_obj.output = SearchOutput(
-                errors=["query is required for lexical search"],
+                errors=[],
                 warnings=[],
                 query=query_output,
                 index_name=index_name,
@@ -175,7 +175,7 @@ def cmd(
                 hits=[],
                 total_chunks=0,
             ).model_dump(mode="python")
-            result_obj.success = False
+            result_obj.success = True
             return
 
         with Database(config.database, "index") as db:
@@ -207,10 +207,11 @@ def cmd(
             bm25 = BM25Okapi(corpus)
 
             yield (0.7, f"Searching for: {query}...")
-            scores = bm25.get_scores(query.lower().split())
+            query_terms = set(query.lower().split())
+            scores = bm25.get_scores(list(query_terms))
 
             ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-            hits = [
+            ranked_hits = [
                 {
                     "uri": chunks[i].uri,
                     "chunk_index": chunks[i].chunk_index,
@@ -218,10 +219,10 @@ def cmd(
                     "tokens": chunks[i].tokens,
                     "text": chunks[i].text,
                 }
-                for i in ranked[:k]
-                if scores[i] > 0
+                for i in ranked
+                if query_terms.intersection(corpus[i])
             ]
-            hits = _dedupe_hits(hits, k)
+            hits = _dedupe_hits(ranked_hits, k)
 
             yield (1.0, "Complete")
             result_obj.result = f"Found {len(hits)} results for '{query_output}'"

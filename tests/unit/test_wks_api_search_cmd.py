@@ -165,10 +165,96 @@ def test_search_no_match(search_env):
     assert len(result.output["hits"]) == 0
 
 
+def test_search_empty_query_returns_no_hits(tmp_path, monkeypatch):
+    from tests.conftest import minimal_config_dict
+
+    config_dict = minimal_config_dict()
+    cache_dir = tmp_path / "transform_cache"
+    cache_dir.mkdir()
+    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
+    config_dict["index"] = {
+        "default_index": "main",
+        "indexes": {"main": {"engine": "textpass"}},
+    }
+
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(config_dict))
+
+    result = run_cmd(search_cmd, "")
+    assert result.success is True
+    assert result.output["errors"] == []
+    assert result.output["hits"] == []
+
+
 def test_search_lexical_rejects_query_image(search_env):
     result = run_cmd(search_cmd, "", query_image="file:///tmp/example.png")
     assert result.success is False
     assert "query_image" in result.output["errors"][0]
+
+
+def test_search_lexical_dedupe_fills_k_from_ranked_candidates(tmp_path, monkeypatch):
+    from tests.conftest import minimal_config_dict
+
+    config_dict = minimal_config_dict()
+    cache_dir = tmp_path / "transform_cache"
+    cache_dir.mkdir()
+    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
+    config_dict["index"] = {
+        "default_index": "main",
+        "indexes": {"main": {"engine": "textpass"}},
+    }
+
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(config_dict))
+
+    config = WKSConfig.load()
+    with Database(config.database, "index") as db:
+        db.insert_many(
+            [
+                {
+                    "index_name": "main",
+                    "uri": str(tmp_path / "a.txt"),
+                    "chunk_index": 0,
+                    "text": "focus target value",
+                    "tokens": 3,
+                    "is_continuation": False,
+                },
+                {
+                    "index_name": "main",
+                    "uri": str(tmp_path / "a.txt"),
+                    "chunk_index": 1,
+                    "text": "focus target value extra",
+                    "tokens": 4,
+                    "is_continuation": False,
+                },
+                {
+                    "index_name": "main",
+                    "uri": str(tmp_path / "b.txt"),
+                    "chunk_index": 0,
+                    "text": "focus target value second doc",
+                    "tokens": 5,
+                    "is_continuation": False,
+                },
+                {
+                    "index_name": "main",
+                    "uri": str(tmp_path / "c.txt"),
+                    "chunk_index": 0,
+                    "text": "focus target value third doc",
+                    "tokens": 5,
+                    "is_continuation": False,
+                },
+            ]
+        )
+
+    result = run_cmd(search_cmd, "focus target value", k=3)
+    assert result.success is True
+    assert len(result.output["hits"]) == 3
 
 
 def test_search_empty_index(tmp_path, monkeypatch):
