@@ -1,4 +1,4 @@
-"""Search command - BM25 search over an index."""
+"""Search command for lexical BM25 and semantic embedding search."""
 
 from collections.abc import Iterator
 
@@ -8,8 +8,12 @@ from ..database.Database import Database
 from . import SearchOutput
 
 
-def cmd(query: str, index: str = "", k: int = 10) -> StageResult:
-    """Search a named index with BM25 ranking."""
+def cmd(
+    query: str,
+    index: str = "",
+    k: int = 10,
+) -> StageResult:
+    """Search a named index using its configured search mode."""
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
@@ -23,6 +27,8 @@ def cmd(query: str, index: str = "", k: int = 10) -> StageResult:
                 warnings=[],
                 query=query,
                 index_name="",
+                search_mode="lexical",
+                embedding_model=None,
                 hits=[],
                 total_chunks=0,
             ).model_dump(mode="python")
@@ -30,6 +36,86 @@ def cmd(query: str, index: str = "", k: int = 10) -> StageResult:
             return
 
         index_name = index if index else config.index.default_index
+        if index_name not in config.index.indexes:
+            yield (1.0, "Complete")
+            result_obj.result = f"Unknown index: {index_name}"
+            result_obj.output = SearchOutput(
+                errors=[f"Index '{index_name}' not defined in config (available: {list(config.index.indexes.keys())})"],
+                warnings=[],
+                query=query,
+                index_name=index_name,
+                search_mode="lexical",
+                embedding_model=None,
+                hits=[],
+                total_chunks=0,
+            ).model_dump(mode="python")
+            result_obj.success = False
+            return
+        spec = config.index.indexes[index_name]
+        embedding_model = spec.embedding_model
+        search_mode = "semantic" if embedding_model is not None else "lexical"
+
+        if embedding_model is not None:
+            import numpy as np
+
+            from ..index._embedding_utils import cosine_scores, embed_texts
+            from ..index._EmbeddingStore import _EmbeddingStore
+
+            with Database(config.database, "index_embeddings") as db:
+                yield (0.3, "Loading embeddings...")
+                docs = _EmbeddingStore(db).get_all(index_name=index_name, embedding_model=embedding_model)
+
+            if not docs:
+                yield (1.0, "Complete")
+                result_obj.result = f"No embeddings for index '{index_name}'"
+                result_obj.output = SearchOutput(
+                    errors=[
+                        f"No embeddings found for index '{index_name}' and model '{embedding_model}'. "
+                        "Run: wksc index embed <index_name>"
+                    ],
+                    warnings=[],
+                    query=query,
+                    index_name=index_name,
+                    search_mode=search_mode,
+                    embedding_model=embedding_model,
+                    hits=[],
+                    total_chunks=0,
+                ).model_dump(mode="python")
+                result_obj.success = False
+                return
+
+            yield (0.55, f"Embedding query with {embedding_model}...")
+            query_embedding = embed_texts(texts=[query], model_name=embedding_model, batch_size=1)[0]
+
+            yield (0.7, "Scoring chunks...")
+            matrix = np.asarray([doc["embedding"] for doc in docs], dtype=np.float32)
+            scores = cosine_scores(query_embedding, matrix)
+            ranked = sorted(range(len(scores)), key=lambda i: float(scores[i]), reverse=True)
+            hits = [
+                {
+                    "uri": docs[i]["uri"],
+                    "chunk_index": docs[i]["chunk_index"],
+                    "score": round(float(scores[i]), 4),
+                    "tokens": docs[i]["tokens"],
+                    "text": docs[i]["text"],
+                }
+                for i in ranked[:k]
+            ]
+
+            yield (1.0, "Complete")
+            result_obj.result = f"Found {len(hits)} results for '{query}'"
+            result_obj.output = SearchOutput(
+                errors=[],
+                warnings=[],
+                query=query,
+                index_name=index_name,
+                search_mode=search_mode,
+                embedding_model=embedding_model,
+                hits=hits,
+                total_chunks=len(docs),
+            ).model_dump(mode="python")
+            result_obj.success = True
+            return
 
         from ..index._ChunkStore import _ChunkStore
 
@@ -47,6 +133,8 @@ def cmd(query: str, index: str = "", k: int = 10) -> StageResult:
                     warnings=[],
                     query=query,
                     index_name=index_name,
+                    search_mode=search_mode,
+                    embedding_model=embedding_model,
                     hits=[],
                     total_chunks=0,
                 ).model_dump(mode="python")
@@ -82,6 +170,8 @@ def cmd(query: str, index: str = "", k: int = 10) -> StageResult:
                 warnings=[],
                 query=query,
                 index_name=index_name,
+                search_mode=search_mode,
+                embedding_model=embedding_model,
                 hits=hits,
                 total_chunks=len(chunks),
             ).model_dump(mode="python")

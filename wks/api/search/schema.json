@@ -27,6 +27,13 @@
           "properties": {
             "query": { "type": "string" },
             "index_name": { "type": "string" },
+            "search_mode": { "type": "string", "enum": ["lexical", "semantic"] },
+            "embedding_model": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "null" }
+              ]
+            },
             "hits": {
               "type": "array",
               "items": {
@@ -43,7 +50,7 @@
             },
             "total_chunks": { "type": "integer" }
           },
-          "required": ["query", "index_name", "hits", "total_chunks"],
+          "required": ["query", "index_name", "search_mode", "embedding_model", "hits", "total_chunks"],
           "additionalProperties": false
         }
       ]

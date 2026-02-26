@@ -110,6 +110,37 @@ def cmd(name: str, uri: str) -> StageResult:
             store = _ChunkStore(db)
             store.replace_uri(name, str(file_uri), cache_key, chunks)
 
+        # Optional embedding storage for semantic indexes
+        if spec.embedding_model is not None and len(chunks) > 0:
+            yield (0.92, f"Embedding chunks with {spec.embedding_model}...")
+            from ._embedding_utils import embed_texts
+            from ._EmbeddingStore import _EmbeddingStore
+
+            embeddings = embed_texts(
+                texts=[chunk.text for chunk in chunks],
+                model_name=spec.embedding_model,
+                batch_size=64,
+            )
+            embedding_docs = [
+                {
+                    "index_name": name,
+                    "embedding_model": spec.embedding_model,
+                    "uri": chunk.uri,
+                    "chunk_index": chunk.chunk_index,
+                    "tokens": chunk.tokens,
+                    "text": chunk.text,
+                    "embedding": embeddings[i].tolist(),
+                }
+                for i, chunk in enumerate(chunks)
+            ]
+            with Database(config.database, "index_embeddings") as db:
+                _EmbeddingStore(db).replace_uri(
+                    index_name=name,
+                    embedding_model=spec.embedding_model,
+                    uri=str(file_uri),
+                    docs=embedding_docs,
+                )
+
         yield (1.0, "Complete")
         result_obj.result = f"Indexed {file_path.name} into '{name}' ({len(chunks)} chunks)"
         result_obj.output = IndexOutput(

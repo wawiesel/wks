@@ -6,10 +6,14 @@ BM25 search over a named index.
 
 import json
 
+import numpy as np
 import pytest
 
 from tests.conftest import run_cmd
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.database.Database import Database
 from wks.api.index.cmd import cmd as index_cmd
+from wks.api.index.cmd_embed import cmd_embed
 from wks.api.search.cmd import cmd as search_cmd
 
 
@@ -54,6 +58,70 @@ def search_env(tmp_path, monkeypatch):
     )
 
     # Index all three
+    for doc in [doc1, doc2, doc3]:
+        result = run_cmd(index_cmd, "main", str(doc))
+        assert result.success is True
+
+    return {"docs": [doc1, doc2, doc3]}
+
+
+@pytest.fixture
+def search_env_semantic(tmp_path, monkeypatch):
+    """Build an index configured for semantic search with embeddings."""
+    from tests.conftest import minimal_config_dict
+
+    config_dict = minimal_config_dict()
+    cache_dir = tmp_path / "transform_cache"
+    cache_dir.mkdir()
+    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
+
+    config_dict["index"] = {
+        "default_index": "main",
+        "indexes": {
+            "main": {"engine": "textpass", "embedding_model": "test-model"},
+        },
+    }
+
+    def _fixture_embed_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
+        rows: list[list[float]] = []
+        for text in texts:
+            lower = text.lower()
+            vec = np.array(
+                [
+                    float(lower.count("fission")),
+                    float(lower.count("python")),
+                    float(lower.count("reactor")),
+                ],
+                dtype=np.float32,
+            )
+            norm = np.linalg.norm(vec)
+            rows.append((vec / norm if norm > 0 else vec).tolist())
+        return np.asarray(rows, dtype=np.float32)
+
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fixture_embed_texts)
+
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(config_dict))
+
+    doc1 = tmp_path / "fission.txt"
+    doc1.write_text(
+        "Nuclear fission products are generated during reactor operation.\n"
+        "The fission yield depends on the fissile isotope and neutron energy.\n"
+    )
+    doc2 = tmp_path / "python.txt"
+    doc2.write_text(
+        "Python programming language is used for scientific computing.\n"
+        "Libraries like numpy and scipy provide numerical methods.\n"
+    )
+    doc3 = tmp_path / "coolant.txt"
+    doc3.write_text(
+        "Reactor coolant systems maintain safe operating temperatures.\n"
+        "The primary loop transfers heat from the reactor core.\n"
+    )
+
     for doc in [doc1, doc2, doc3]:
         result = run_cmd(index_cmd, "main", str(doc))
         assert result.success is True
@@ -136,3 +204,43 @@ def test_search_no_config(tmp_path, monkeypatch):
     result = run_cmd(search_cmd, "anything")
     assert result.success is False
     assert "not configured" in result.result.lower()
+
+
+def _fake_embed_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
+    rows: list[list[float]] = []
+    for text in texts:
+        lower = text.lower()
+        vec = np.array(
+            [
+                float(lower.count("fission")),
+                float(lower.count("python")),
+                float(lower.count("reactor")),
+            ],
+            dtype=np.float32,
+        )
+        norm = np.linalg.norm(vec)
+        rows.append((vec / norm if norm > 0 else vec).tolist())
+    return np.asarray(rows, dtype=np.float32)
+
+
+def test_search_semantic_finds_relevant(search_env_semantic, monkeypatch):
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+    embed_res = run_cmd(cmd_embed, "main", batch_size=8)
+    assert embed_res.success is True
+
+    result = run_cmd(search_cmd, "fission")
+    assert result.success is True
+    assert result.output["search_mode"] == "semantic"
+    assert result.output["embedding_model"] == "test-model"
+    assert len(result.output["hits"]) > 0
+    assert "fission" in result.output["hits"][0]["text"].lower()
+
+
+def test_search_semantic_requires_embeddings(search_env_semantic):
+    config = WKSConfig.load()
+    with Database(config.database, "index_embeddings") as db:
+        db.delete_many({"index_name": "main", "embedding_model": "test-model"})
+
+    result = run_cmd(search_cmd, "fission")
+    assert result.success is False
+    assert "no embeddings found" in result.output["errors"][0].lower()

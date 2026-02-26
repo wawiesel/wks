@@ -6,8 +6,12 @@ and stores a document in a named index.
 
 import json
 
+import numpy as np
+
 from tests.conftest import run_cmd
 from wks.api.config.URI import URI
+from wks.api.config.WKSConfig import WKSConfig
+from wks.api.database.Database import Database
 from wks.api.index.cmd import cmd
 
 
@@ -109,3 +113,44 @@ def test_cmd_index_with_uri_object(tmp_path, monkeypatch):
     result = run_cmd(cmd, "main", uri_obj)
     assert result.success is True
     assert result.output["chunk_count"] >= 1
+
+
+def test_cmd_index_populates_embeddings_for_semantic_index(tmp_path, monkeypatch):
+    from tests.conftest import minimal_config_dict
+
+    config_dict = minimal_config_dict()
+    cache_dir = tmp_path / "transform_cache"
+    cache_dir.mkdir()
+    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
+    config_dict["index"] = {
+        "default_index": "main",
+        "indexes": {
+            "main": {"engine": "textpass", "embedding_model": "test-model"},
+        },
+    }
+
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(config_dict))
+
+    def _fake_embed_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
+        rows = []
+        for text in texts:
+            vec = np.array([float(len(text)), 1.0, 0.0], dtype=np.float32)
+            norm = np.linalg.norm(vec)
+            rows.append((vec / norm if norm > 0 else vec).tolist())
+        return np.asarray(rows, dtype=np.float32)
+
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+
+    test_file = tmp_path / "doc.txt"
+    test_file.write_text("Nuclear fission products are generated during reactor operation.\n")
+    result = run_cmd(cmd, "main", str(test_file))
+    assert result.success is True
+
+    config = WKSConfig.load()
+    with Database(config.database, "index_embeddings") as db:
+        count = db.count_documents({"index_name": "main", "embedding_model": "test-model"})
+    assert count >= 1

@@ -91,11 +91,28 @@
           "additionalProperties": false
         }
       ]
+    },
+    "IndexEmbedOutput": {
+      "allOf": [
+        { "$ref": "#/definitions/Base" },
+        {
+          "type": "object",
+          "properties": {
+            "index_name": { "type": "string" },
+            "embedding_model": { "type": "string" },
+            "chunk_count": { "type": "integer" },
+            "dimensions": { "type": "integer" }
+          },
+          "required": ["index_name", "embedding_model", "chunk_count", "dimensions"],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "oneOf": [
     { "$ref": "#/definitions/IndexOutput" },
     { "$ref": "#/definitions/IndexStatusOutput" },
-    { "$ref": "#/definitions/IndexAutoOutput" }
+    { "$ref": "#/definitions/IndexAutoOutput" },
+    { "$ref": "#/definitions/IndexEmbedOutput" }
   ]
 }
