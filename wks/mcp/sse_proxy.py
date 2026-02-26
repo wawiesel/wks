@@ -107,19 +107,11 @@ async def handle_sse(request: web.Request) -> web.StreamResponse:
     # Tell the client where to POST messages.
     await response.write(f"event: endpoint\ndata: /messages?sessionId={session_id}\n\n".encode())
 
-    # Send periodic SSE comments to prevent intermediary timeout (gvproxy, undici).
-    async def _heartbeat():
-        try:
-            while True:
-                await asyncio.sleep(15)
-                await response.write(b": keepalive\n\n")
-        except (ConnectionResetError, asyncio.CancelledError):
-            pass
+    # Task that reads subprocess stdout and forwards to the SSE stream.
+    # Wrapped so the heartbeat can cancel it when the client disconnects.
+    read_task: asyncio.Task | None = None
 
-    heartbeat_task = asyncio.create_task(_heartbeat())
-
-    # Forward subprocess stdout → SSE events.
-    try:
+    async def _read_stdout():
         assert process.stdout is not None
         while True:
             line = await process.stdout.readline()
@@ -140,6 +132,23 @@ async def handle_sse(request: web.Request) -> web.StreamResponse:
                 text = data.decode()
             if text:
                 await response.write(f"event: message\ndata: {text}\n\n".encode())
+
+    # Send periodic SSE comments to detect dead clients.
+    # When the write fails, cancel the read loop so cleanup runs.
+    async def _heartbeat():
+        try:
+            while True:
+                await asyncio.sleep(15)
+                await response.write(b": keepalive\n\n")
+        except (ConnectionResetError, asyncio.CancelledError):
+            if read_task and not read_task.done():
+                read_task.cancel()
+
+    heartbeat_task = asyncio.create_task(_heartbeat())
+
+    try:
+        read_task = asyncio.create_task(_read_stdout())
+        await read_task
     except (ConnectionResetError, asyncio.CancelledError, asyncio.LimitOverrunError, ValueError):
         log.info("session %s: client disconnected or stream error", session_id)
     finally:
