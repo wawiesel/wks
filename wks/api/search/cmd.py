@@ -6,6 +6,7 @@ from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ..database.Database import Database
 from . import SearchOutput
+from ._dedupe_hits import _dedupe_hits
 
 
 def cmd(
@@ -127,6 +128,7 @@ def cmd(
                 }
                 for i in ranked[:k]
             ]
+            hits = _dedupe_hits(hits, k)
 
             yield (1.0, "Complete")
             result_obj.result = f"Found {len(hits)} results for '{query_output}'"
@@ -219,6 +221,7 @@ def cmd(
                 for i in ranked[:k]
                 if scores[i] > 0
             ]
+            hits = _dedupe_hits(hits, k)
 
             yield (1.0, "Complete")
             result_obj.result = f"Found {len(hits)} results for '{query_output}'"

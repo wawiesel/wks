@@ -9,12 +9,14 @@ Requirements:
 """
 
 import json
+from hashlib import sha256
 
 import numpy as np
 import pytest
 from PIL import Image
 
 from tests.conftest import run_cmd
+from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.index.cmd import cmd as index_cmd
@@ -255,6 +257,58 @@ def test_search_semantic_requires_embeddings(search_env_semantic):
     result = run_cmd(search_cmd, "fission")
     assert result.success is False
     assert "no embeddings found" in result.output["errors"][0].lower()
+
+
+def test_search_semantic_dedupes_canonical_uri(search_env_semantic, monkeypatch):
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+    embed_res = run_cmd(cmd_embed, "main", batch_size=8)
+    assert embed_res.success is True
+
+    config = WKSConfig.load()
+    with Database(config.database, "index_embeddings") as db:
+        docs = list(
+            db.find(
+                {"index_name": "main", "embedding_model": "test-model"},
+                {"_id": 0},
+            )
+        )
+        assert len(docs) > 0
+        duplicate = dict(docs[0])
+        duplicate["uri"] = str(URI.from_any(docs[0]["uri"]).path)
+        duplicate["chunk_index"] = 999
+        duplicate["text"] = "duplicate entry via non-canonical uri form"
+        db.insert_one(duplicate)
+
+    result = run_cmd(search_cmd, "fission", k=10)
+    assert result.success is True
+    canonical_uris = [str(URI.from_any(hit["uri"])) for hit in result.output["hits"]]
+    assert len(canonical_uris) == len(set(canonical_uris))
+
+
+def test_search_semantic_dedupes_text_hash(search_env_semantic, monkeypatch):
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+    embed_res = run_cmd(cmd_embed, "main", batch_size=8)
+    assert embed_res.success is True
+
+    config = WKSConfig.load()
+    with Database(config.database, "index_embeddings") as db:
+        docs = list(
+            db.find(
+                {"index_name": "main", "embedding_model": "test-model"},
+                {"_id": 0},
+            )
+        )
+        assert len(docs) > 0
+        duplicate = dict(docs[0])
+        duplicate_path = URI.from_any(docs[0]["uri"]).path.with_name("fission-copy.txt")
+        duplicate["uri"] = str(duplicate_path)
+        duplicate["chunk_index"] = 1001
+        db.insert_one(duplicate)
+
+    result = run_cmd(search_cmd, "fission", k=10)
+    assert result.success is True
+    content_hashes = [sha256(hit["text"].encode("utf-8")).hexdigest() for hit in result.output["hits"]]
+    assert len(content_hashes) == len(set(content_hashes))
 
 
 @pytest.fixture
