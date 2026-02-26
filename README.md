@@ -98,14 +98,25 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 
 | Command Group | Description |
 |---------------|-------------|
+| `wksc status` | Aggregated system status |
 | `wksc monitor` | Filesystem monitoring operations |
 | `wksc vault` | Vault link management (Obsidian-style) |
 | `wksc link` | Resource edge/link operations |
+| `wksc index` | Document indexing operations |
+| `wksc search` | Search indexed documents |
+| `wksc mv` | Move files within monitored paths |
 | `wksc daemon` | Daemon runtime management |
 | `wksc service` | System service install/uninstall |
 | `wksc config` | Configuration operations |
 | `wksc database` | Database operations |
 | `wksc mcp` | MCP server management |
+
+<details>
+<summary><strong>wksc status</strong> - System status</summary>
+
+- Aggregated health summary across service, log, monitor, link, and vault
+
+</details>
 
 <details>
 <summary><strong>wksc monitor</strong> - Filesystem monitoring</summary>
@@ -143,6 +154,29 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 </details>
 
 <details>
+<summary><strong>wksc index</strong> - Document indexing</summary>
+
+- `add <name> <uri>` - Add document to index
+- `status [name]` - Show index statistics
+- `embed [name] [--batch-size N]` - Build semantic embeddings
+
+</details>
+
+<details>
+<summary><strong>wksc search</strong> - Search documents</summary>
+
+- `<query> [--index <name>] [--top N] [--query-image <path>]` - Search indexed documents
+
+</details>
+
+<details>
+<summary><strong>wksc mv</strong> - Move files</summary>
+
+- `<source> <dest>` - Move file within monitored paths (enforces naming conventions)
+
+</details>
+
+<details>
 <summary><strong>wksc daemon</strong> - Daemon runtime</summary>
 
 - `status` - Check daemon status
@@ -157,6 +191,7 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 
 - `status` - Check service status
 - `start` / `stop` - Start/stop service
+- `clear` - Clear service state
 - `install [--restrict]` - Install system service
 - `uninstall` - Uninstall system service
 
@@ -167,6 +202,7 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 
 - `list` - List configuration sections
 - `show <section>` - Show section configuration
+- `set <key> <value> [--delete]` - Set or remove config value
 - `version` - Show WKS version
 
 </details>

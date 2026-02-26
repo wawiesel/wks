@@ -138,4 +138,12 @@ When an engine extracts images (e.g. Docling):
 - Output: Raw content to stdout
 
 ## MCP Interface
-- `wksm_transform(engine, file)` - Transform a file
+
+| Tool | Description |
+|------|-------------|
+| `wksm_transform_engine(engine, uri, overrides, output?)` | Transform a file using the named engine |
+| `wksm_transform_list()` | List available transform engines |
+| `wksm_transform_info(engine)` | Show engine info and supported types |
+
+- Output format: JSON.
+- CLI and MCP MUST return the same data and structure for equivalent calls.

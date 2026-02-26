@@ -84,11 +84,10 @@ Link parsers are registered in `wks/api/link/parsers/`. Selection is automatic b
 | `wksm_link_sync(path, parser?, remote?)` | Sync links to database |
 | `wksm_link_status()` | Get node/edge counts |
 | `wksm_link_show(uri, direction?)` | Query edges for URI |
-| `wksm_link_clean(remote?)` | Remove stale edges |
 
 ## Formal Requirements
 
-- **LNK.1**: All link commands require the file to be monitored (except `status`, `clean`).
+- **LNK.1**: All link commands require the file to be monitored (except `status`).
 - **LNK.2**: `check` is read-only; `sync` writes to database.
 - **LNK.3**: Edges use deterministic `_id` for idempotent upserts.
 - **LNK.4**: Parsers are selected by extension or explicit `--parser` flag.

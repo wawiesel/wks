@@ -73,11 +73,17 @@ Example (darwin):
 - Behavior: Remove the system service.
 - Output schema: `ServiceUninstallOutput`.
 
+### clear
+- Command: `wksc service clear`
+- Behavior: Clear service state (e.g., reset warnings/errors recorded by the daemon).
+- Output schema: `ServiceClearOutput`.
+
 ## MCP
 - Commands mirror CLI:
   - `wksm_service_status`
   - `wksm_service_start`
   - `wksm_service_stop`
+  - `wksm_service_clear`
   - `wksm_service_install`
   - `wksm_service_uninstall`
 - Output format: JSON.
@@ -89,7 +95,7 @@ Example (darwin):
 
 ## Formal Requirements
 - SERVICE.1 — All service config fields required; no defaults in code.
-- SERVICE.2 — Commands must emit schema-validated outputs (status/start/stop/install/uninstall).
+- SERVICE.2 — Commands must emit schema-validated outputs (status/start/stop/clear/install/uninstall).
 - SERVICE.3 — CLI/MCP parity: same data and structure for equivalent commands.
 - SERVICE.4 — Errors are schema-conformant; no partial success.
 - SERVICE.5 — `wksc service start` MUST start the installed daemon via the platform service manager; if not installed, it MUST fail.
