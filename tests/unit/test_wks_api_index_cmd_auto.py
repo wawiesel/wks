@@ -215,3 +215,80 @@ def test_auto_skips_transform_cache(tmp_path, monkeypatch):
     assert result.success is True
     assert result.output["indexed"] == []
     assert "transform cache" in result.result.lower()
+
+
+def test_auto_skips_unsupported_supported_types(tmp_path, monkeypatch):
+    """Index is skipped when file extension is not in engine supported_types."""
+    doc_dir = tmp_path / "docs"
+    doc_dir.mkdir()
+
+    _make_auto_env(
+        tmp_path,
+        monkeypatch,
+        priority_dirs={str(doc_dir): 100.0},
+        indexes={
+            "default_index": "images_semantic",
+            "indexes": {"images_semantic": {"engine": "img_caption", "min_priority": 0.0}},
+        },
+    )
+
+    wks_home = tmp_path / "wks_home"
+    config_path = wks_home / "config.json"
+    config = json.loads(config_path.read_text())
+    config["transform"]["engines"]["img_caption"] = {
+        "type": "imagetext",
+        "data": {"model": "test-model", "max_new_tokens": 16},
+        "supported_types": [".png", ".jpg", ".jpeg", ".webp"],
+    }
+    config_path.write_text(json.dumps(config))
+
+    doc = doc_dir / "notes.txt"
+    doc.write_text("not an image\n")
+
+    result = run_cmd(cmd_auto, str(doc))
+    assert result.success is True
+    assert result.output["indexed"] == []
+    assert "images_semantic" in result.output["skipped"]
+
+
+def test_auto_honors_supported_types_per_engine(tmp_path, monkeypatch):
+    """Only indexes with matching supported_types process the file."""
+    doc_dir = tmp_path / "docs"
+    doc_dir.mkdir()
+
+    _make_auto_env(
+        tmp_path,
+        monkeypatch,
+        priority_dirs={str(doc_dir): 100.0},
+        indexes={
+            "default_index": "txt_idx",
+            "indexes": {
+                "txt_idx": {"engine": "txtpass", "min_priority": 0.0},
+                "md_idx": {"engine": "mdpass", "min_priority": 0.0},
+            },
+        },
+    )
+
+    wks_home = tmp_path / "wks_home"
+    config_path = wks_home / "config.json"
+    config = json.loads(config_path.read_text())
+    config["transform"]["engines"]["txtpass"] = {
+        "type": "textpass",
+        "data": {},
+        "supported_types": [".txt"],
+    }
+    config["transform"]["engines"]["mdpass"] = {
+        "type": "textpass",
+        "data": {},
+        "supported_types": [".md"],
+    }
+    config_path.write_text(json.dumps(config))
+
+    doc = doc_dir / "report.txt"
+    doc.write_text("Textpass test content.\n")
+
+    result = run_cmd(cmd_auto, str(doc))
+    assert result.success is True
+    assert len(result.output["indexed"]) == 1
+    assert result.output["indexed"][0]["index_name"] == "txt_idx"
+    assert "md_idx" in result.output["skipped"]

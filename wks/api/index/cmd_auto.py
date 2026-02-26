@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from . import IndexAutoOutput
+from ._is_supported_for_engine import _is_supported_for_engine
 
 
 def cmd_auto(uri: str) -> StageResult:
@@ -86,6 +87,12 @@ def cmd_auto(uri: str) -> StageResult:
             if priority < spec.min_priority:
                 skipped.append(index_name)
                 yield (progress, f"Skipping '{index_name}' (priority {priority:.1f} < {spec.min_priority:.1f})")
+                continue
+
+            engine_config = config.transform.engines.get(spec.engine)
+            if engine_config is not None and not _is_supported_for_engine(engine_config.supported_types, file_path):
+                skipped.append(index_name)
+                yield (progress, f"Skipping '{index_name}' (unsupported file type: {file_path.suffix or '<none>'})")
                 continue
 
             yield (progress, f"Indexing into '{index_name}'...")
