@@ -66,8 +66,10 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
             engine = engine_config.get("engine")
             if not engine:
                 errors.append("config.engine_config.engine is required")
-            elif engine not in {"auto", "bsdiff3", "myers", "sexp"}:
-                errors.append(f"config.engine_config.engine must be one of auto,bsdiff3,myers,sexp (found: {engine!r})")
+            elif engine not in {"auto", "bsdiff3", "myers", "sexp", "semantic"}:
+                errors.append(
+                    f"config.engine_config.engine must be one of auto,bsdiff3,myers,sexp,semantic (found: {engine!r})"
+                )
             else:
                 engine_used = engine
 
@@ -101,6 +103,40 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
             if not isinstance(ignore_whitespace, bool):
                 errors.append("config.engine_config.ignore_whitespace must be a bool")
             options = {"context_lines": context_lines, "ignore_whitespace": ignore_whitespace}
+        elif engine == "semantic":
+            modified_threshold = engine_config.get("modified_threshold", 0.75)
+            unchanged_threshold = engine_config.get("unchanged_threshold", 0.92)
+            text_model = engine_config.get("text_model", "sentence-transformers/all-MiniLM-L6-v2")
+            image_model = engine_config.get("image_model", "openai/clip-vit-base-patch32")
+            pixel_threshold = engine_config.get("pixel_threshold", 10)
+            max_examples = engine_config.get("max_examples", 8)
+
+            if not isinstance(modified_threshold, (int, float)) or not (0.0 <= float(modified_threshold) <= 1.0):
+                errors.append("config.engine_config.modified_threshold must be in [0,1]")
+            if not isinstance(unchanged_threshold, (int, float)) or not (0.0 <= float(unchanged_threshold) <= 1.0):
+                errors.append("config.engine_config.unchanged_threshold must be in [0,1]")
+            if (
+                isinstance(modified_threshold, (int, float))
+                and isinstance(unchanged_threshold, (int, float))
+                and float(modified_threshold) > float(unchanged_threshold)
+            ):
+                errors.append("config.engine_config.modified_threshold must be <= unchanged_threshold")
+            if not isinstance(text_model, str) or not text_model.strip():
+                errors.append("config.engine_config.text_model must be a non-empty string")
+            if not isinstance(image_model, str) or not image_model.strip():
+                errors.append("config.engine_config.image_model must be a non-empty string")
+            if not isinstance(pixel_threshold, int) or pixel_threshold < 0:
+                errors.append("config.engine_config.pixel_threshold must be a non-negative int")
+            if not isinstance(max_examples, int) or max_examples <= 0:
+                errors.append("config.engine_config.max_examples must be a positive int")
+            options = {
+                "modified_threshold": float(modified_threshold),
+                "unchanged_threshold": float(unchanged_threshold),
+                "text_model": text_model,
+                "image_model": image_model,
+                "pixel_threshold": pixel_threshold,
+                "max_examples": max_examples,
+            }
         # Note: "auto" mode will be handled after resolving targets
 
         if errors:
@@ -217,6 +253,13 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
             diff_output = BinaryDiffOutput(patch_path=diff_text, patch_size_bytes=patch_size)
             diff_extension = "bin"
             message = "Binary patch generated."
+        elif engine_used == "semantic":
+            import json
+
+            semantic_payload = json.loads(diff_text)
+            diff_output = CodeDiffOutput(structured_changes=[semantic_payload])
+            diff_extension = "json"
+            message = "Semantic diff generated."
         else:
             # Fallback
             diff_output = BinaryDiffOutput(patch_path=diff_text, patch_size_bytes=0)

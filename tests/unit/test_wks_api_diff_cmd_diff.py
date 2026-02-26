@@ -123,7 +123,7 @@ class TestCmdDiff:
             }
             result = run_cmd(cmd_diff, config, file_a, file_b)
             assert not result.success
-            assert "must be one of auto,bsdiff3,myers,sexp" in result.output["error_details"]["errors"][0]
+            assert "must be one of auto,bsdiff3,myers,sexp,semantic" in result.output["error_details"]["errors"][0]
         finally:
             Path(file_a).unlink(missing_ok=True)
             Path(file_b).unlink(missing_ok=True)
@@ -258,3 +258,35 @@ class TestCmdDiff:
         assert result.success
         assert result.output["status"] == "success"
         assert result.output["metadata"]["engine_used"] == "bsdiff3"
+
+    def test_cmd_diff_success_semantic_text(self, tmp_path, monkeypatch):
+        """Test cmd_diff succeeds with semantic engine for text files."""
+        file_a = tmp_path / "a.txt"
+        file_b = tmp_path / "b.txt"
+        file_a.write_text("hello world\nfission data\n")
+        file_b.write_text("hello universe\nfission dataset\n")
+
+        import numpy as np
+
+        def _fake_embed(self, units, model_name):
+            if "world" in units[0]:
+                return np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+            return np.array([[0.95, 0.1], [0.05, 0.99]], dtype=np.float32)
+
+        monkeypatch.setattr("wks.api.diff.SemanticDiffEngine.SemanticDiffEngine._embed_text_units", _fake_embed)
+
+        config = {
+            "engine_config": {
+                "engine": "semantic",
+                "modified_threshold": 0.6,
+                "unchanged_threshold": 0.95,
+            },
+            "timeout_seconds": 60,
+            "max_size_mb": 100,
+        }
+
+        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
+        assert result.success
+        assert result.output["status"] == "success"
+        assert result.output["metadata"]["engine_used"] == "semantic"
+        assert result.output["diff_output"] is not None
