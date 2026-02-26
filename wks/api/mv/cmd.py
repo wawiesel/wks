@@ -287,7 +287,7 @@ def cmd(source: URI | str, dest: URI | str) -> StageResult:
             if sync_result.success:
                 database_updated = True
             else:
-                sync_errors = sync_result.output.get("errors", [])
+                sync_errors = sync_result.output["errors"]
                 warnings.extend([f"Sync warning: {e}" for e in sync_errors])
         except Exception as e:
             warnings.append(f"Database update failed: {e}")

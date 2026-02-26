@@ -14,11 +14,11 @@ def _auto_index(path: Path, log_fn: Callable[[str], None]) -> None:
         list(result.progress_callback(result))
 
         if not result.success:
-            for err in result.output.get("errors", []):
+            for err in result.output["errors"]:
                 log_fn(f"WARN: auto-index: {err}")
             return
 
-        for entry in result.output.get("indexed", []):
+        for entry in result.output["indexed"]:
             log_fn(f"INFO: auto-indexed {path.name} into '{entry['index_name']}' ({entry['chunk_count']} chunks)")
     except Exception as exc:
         log_fn(f"WARN: auto-index error for {path}: {exc}")

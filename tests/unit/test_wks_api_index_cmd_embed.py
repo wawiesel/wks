@@ -1,9 +1,4 @@
-"""Index embedding command tests.
-
-Requirements:
-- WKS-INDEX-002
-- WKS-INDEX-003
-"""
+"""Index embedding command tests."""
 
 import json
 

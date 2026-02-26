@@ -40,12 +40,20 @@ def _json_type(annotation: Any) -> str:
 
 def _schema_from_func(func: Callable) -> dict[str, Any]:
     """Generate a JSON schema from an API function's signature."""
+    import typing
+
     sig = inspect.signature(func)
+    try:
+        hints = typing.get_type_hints(func)
+    except Exception:
+        hints = {}
+
     schema: dict[str, Any] = {"type": "object", "properties": {}, "required": []}
     for name, param in sig.parameters.items():
         if name in ("self", "ctx"):
             continue
-        schema["properties"][name] = {"type": _json_type(param.annotation), "description": ""}
+        annotation = hints.get(name, param.annotation)
+        schema["properties"][name] = {"type": _json_type(annotation), "description": ""}
         if param.default == inspect.Parameter.empty:
             schema["required"].append(name)
     return schema

@@ -1,8 +1,4 @@
-"""Tests for imagetext transform engine.
-
-Requirements:
-- WKS-TRANSFORM-001
-"""
+"""Tests for imagetext transform engine."""
 
 from PIL import Image
 

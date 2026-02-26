@@ -2,10 +2,6 @@
 
 Tests the public cmd(query, index, k) function which performs
 BM25 search over a named index.
-
-Requirements:
-- WKS-SEARCH-001
-- WKS-SEARCH-002
 """
 
 import json
@@ -23,10 +19,36 @@ from wks.api.index.cmd import cmd as index_cmd
 from wks.api.index.cmd_embed import cmd_embed
 from wks.api.search.cmd import cmd as search_cmd
 
+_SEARCH_DOCS = {
+    "fission.txt": (
+        "Nuclear fission products are generated during reactor operation.\n"
+        "The fission yield depends on the fissile isotope and neutron energy.\n"
+    ),
+    "python.txt": (
+        "Python programming language is used for scientific computing.\n"
+        "Libraries like numpy and scipy provide numerical methods.\n"
+    ),
+    "coolant.txt": (
+        "Reactor coolant systems maintain safe operating temperatures.\n"
+        "The primary loop transfers heat from the reactor core.\n"
+    ),
+}
 
-@pytest.fixture
-def search_env(tmp_path, monkeypatch):
-    """Build an index with several documents for search testing."""
+
+def _write_and_index_search_docs(tmp_path):
+    """Write test documents and index them; returns list of paths."""
+    docs = []
+    for name, content in _SEARCH_DOCS.items():
+        doc = tmp_path / name
+        doc.write_text(content)
+        result = run_cmd(index_cmd, "main", str(doc))
+        assert result.success is True
+        docs.append(doc)
+    return docs
+
+
+def _setup_search_config(tmp_path, monkeypatch, *, index_config):
+    """Write a WKS config with the given index section."""
     from tests.conftest import minimal_config_dict
 
     config_dict = minimal_config_dict()
@@ -34,106 +56,44 @@ def search_env(tmp_path, monkeypatch):
     cache_dir.mkdir()
     config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
     config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
-
-    config_dict["index"] = {
-        "default_index": "main",
-        "indexes": {
-            "main": {"engine": "textpass"},
-        },
-    }
+    config_dict["index"] = index_config
 
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     (wks_home / "config.json").write_text(json.dumps(config_dict))
+    return config_dict
 
-    # Create test documents
-    doc1 = tmp_path / "fission.txt"
-    doc1.write_text(
-        "Nuclear fission products are generated during reactor operation.\n"
-        "The fission yield depends on the fissile isotope and neutron energy.\n"
-    )
-    doc2 = tmp_path / "python.txt"
-    doc2.write_text(
-        "Python programming language is used for scientific computing.\n"
-        "Libraries like numpy and scipy provide numerical methods.\n"
-    )
-    doc3 = tmp_path / "coolant.txt"
-    doc3.write_text(
-        "Reactor coolant systems maintain safe operating temperatures.\n"
-        "The primary loop transfers heat from the reactor core.\n"
-    )
 
-    # Index all three
-    for doc in [doc1, doc2, doc3]:
-        result = run_cmd(index_cmd, "main", str(doc))
-        assert result.success is True
-
-    return {"docs": [doc1, doc2, doc3]}
+@pytest.fixture
+def search_env(tmp_path, monkeypatch):
+    """Build an index with several documents for search testing."""
+    _setup_search_config(
+        tmp_path,
+        monkeypatch,
+        index_config={
+            "default_index": "main",
+            "indexes": {"main": {"engine": "textpass"}},
+        },
+    )
+    docs = _write_and_index_search_docs(tmp_path)
+    return {"docs": docs}
 
 
 @pytest.fixture
 def search_env_semantic(tmp_path, monkeypatch):
     """Build an index configured for semantic search with embeddings."""
-    from tests.conftest import minimal_config_dict
-
-    config_dict = minimal_config_dict()
-    cache_dir = tmp_path / "transform_cache"
-    cache_dir.mkdir()
-    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
-    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
-
-    config_dict["index"] = {
-        "default_index": "main",
-        "indexes": {
-            "main": {"engine": "textpass", "embedding_model": "test-model"},
+    _setup_search_config(
+        tmp_path,
+        monkeypatch,
+        index_config={
+            "default_index": "main",
+            "indexes": {"main": {"engine": "textpass", "embedding_model": "test-model"}},
         },
-    }
-
-    def _fixture_embed_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
-        rows: list[list[float]] = []
-        for text in texts:
-            lower = text.lower()
-            vec = np.array(
-                [
-                    float(lower.count("fission")),
-                    float(lower.count("python")),
-                    float(lower.count("reactor")),
-                ],
-                dtype=np.float32,
-            )
-            norm = np.linalg.norm(vec)
-            rows.append((vec / norm if norm > 0 else vec).tolist())
-        return np.asarray(rows, dtype=np.float32)
-
-    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fixture_embed_texts)
-
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    (wks_home / "config.json").write_text(json.dumps(config_dict))
-
-    doc1 = tmp_path / "fission.txt"
-    doc1.write_text(
-        "Nuclear fission products are generated during reactor operation.\n"
-        "The fission yield depends on the fissile isotope and neutron energy.\n"
     )
-    doc2 = tmp_path / "python.txt"
-    doc2.write_text(
-        "Python programming language is used for scientific computing.\n"
-        "Libraries like numpy and scipy provide numerical methods.\n"
-    )
-    doc3 = tmp_path / "coolant.txt"
-    doc3.write_text(
-        "Reactor coolant systems maintain safe operating temperatures.\n"
-        "The primary loop transfers heat from the reactor core.\n"
-    )
-
-    for doc in [doc1, doc2, doc3]:
-        result = run_cmd(index_cmd, "main", str(doc))
-        assert result.success is True
-
-    return {"docs": [doc1, doc2, doc3]}
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+    docs = _write_and_index_search_docs(tmp_path)
+    return {"docs": docs}
 
 
 def test_search_finds_relevant(search_env):
@@ -166,22 +126,11 @@ def test_search_no_match(search_env):
 
 
 def test_search_empty_query_returns_no_hits(tmp_path, monkeypatch):
-    from tests.conftest import minimal_config_dict
-
-    config_dict = minimal_config_dict()
-    cache_dir = tmp_path / "transform_cache"
-    cache_dir.mkdir()
-    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
-    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
-    config_dict["index"] = {
-        "default_index": "main",
-        "indexes": {"main": {"engine": "textpass"}},
-    }
-
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    (wks_home / "config.json").write_text(json.dumps(config_dict))
+    _setup_search_config(
+        tmp_path,
+        monkeypatch,
+        index_config={"default_index": "main", "indexes": {"main": {"engine": "textpass"}}},
+    )
 
     result = run_cmd(search_cmd, "")
     assert result.success is True
@@ -196,22 +145,11 @@ def test_search_lexical_rejects_query_image(search_env):
 
 
 def test_search_lexical_dedupe_fills_k_from_ranked_candidates(tmp_path, monkeypatch):
-    from tests.conftest import minimal_config_dict
-
-    config_dict = minimal_config_dict()
-    cache_dir = tmp_path / "transform_cache"
-    cache_dir.mkdir()
-    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
-    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
-    config_dict["index"] = {
-        "default_index": "main",
-        "indexes": {"main": {"engine": "textpass"}},
-    }
-
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    (wks_home / "config.json").write_text(json.dumps(config_dict))
+    _setup_search_config(
+        tmp_path,
+        monkeypatch,
+        index_config={"default_index": "main", "indexes": {"main": {"engine": "textpass"}}},
+    )
 
     config = WKSConfig.load()
     with Database(config.database, "index") as db:
@@ -258,22 +196,11 @@ def test_search_lexical_dedupe_fills_k_from_ranked_candidates(tmp_path, monkeypa
 
 
 def test_search_empty_index(tmp_path, monkeypatch):
-    from tests.conftest import minimal_config_dict
-
-    config_dict = minimal_config_dict()
-    cache_dir = tmp_path / "transform_cache"
-    cache_dir.mkdir()
-    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
-    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
-    config_dict["index"] = {
-        "default_index": "main",
-        "indexes": {"main": {"engine": "textpass"}},
-    }
-
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    (wks_home / "config.json").write_text(json.dumps(config_dict))
+    _setup_search_config(
+        tmp_path,
+        monkeypatch,
+        index_config={"default_index": "main", "indexes": {"main": {"engine": "textpass"}}},
+    )
 
     result = run_cmd(search_cmd, "hello")
     assert result.success is False
@@ -300,6 +227,7 @@ def test_search_no_config(tmp_path, monkeypatch):
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     (wks_home / "config.json").write_text(json.dumps(config_dict))
 
+    # Intentionally omits index config to test the "not configured" path
     result = run_cmd(search_cmd, "anything")
     assert result.success is False
     assert "not configured" in result.result.lower()

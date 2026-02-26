@@ -105,8 +105,8 @@ def cmd_auto(uri: str) -> StageResult:
                 indexed.append(
                     {
                         "index_name": index_name,
-                        "chunk_count": res.output.get("chunk_count", 0),
-                        "checksum": res.output.get("checksum", ""),
+                        "chunk_count": res.output["chunk_count"],
+                        "checksum": res.output["checksum"],
                     }
                 )
             else:

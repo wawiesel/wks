@@ -11,16 +11,14 @@ def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
 
         result = cmd_sync(URI.from_path(path))
         list(result.progress_callback(result))
-        out = result.output or {}
-        errs = out["errors"]
-        warns = out["warnings"]
-        for msg in warns:
+        out = result.output
+        for msg in out["warnings"]:
             log_fn(f"WARN: {msg}")
-        for msg in errs:
+        for msg in out["errors"]:
             log_fn(f"ERROR: {msg}")
 
         # Auto-index if file was synced (not deleted or skipped)
-        if result.success and out.get("files_synced", 0) > 0:
+        if result.success and out["files_synced"] > 0:
             _auto_index(path, log_fn)
     except RuntimeError as exc:
         if "mongod binary not found" in str(exc):
