@@ -2,6 +2,10 @@
 
 Tests the public cmd(query, index, k) function which performs
 BM25 search over a named index.
+
+Requirements:
+- WKS-SEARCH-001
+- WKS-SEARCH-002
 """
 
 import json

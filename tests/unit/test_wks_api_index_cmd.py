@@ -2,6 +2,10 @@
 
 Tests the public cmd(name, uri) function which transforms, chunks,
 and stores a document in a named index.
+
+Requirements:
+- WKS-INDEX-001
+- WKS-INDEX-002
 """
 
 import json
