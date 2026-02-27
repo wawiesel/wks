@@ -84,3 +84,24 @@ class Vault(_AbstractBackend):
         if not self._backend:
             raise RuntimeError("Vault not initialized (use 'with Vault(...)')")
         return self._backend.resolve_link(target)
+
+    def update_link_for_move(self, old_path: Path, new_path: Path) -> tuple[str, str] | None:
+        if not self._backend or not hasattr(self._backend, "update_link_for_move"):
+            return None
+        return self._backend.update_link_for_move(old_path, new_path)  # type: ignore
+
+    def rewrite_wiki_links(self, old_target: str, new_target: str) -> int:
+        if not self._backend or not hasattr(self._backend, "rewrite_wiki_links"):
+            return 0
+        return self._backend.rewrite_wiki_links(old_target, new_target)  # type: ignore
+
+    def update_edges_for_move(
+        self,
+        old_path: Path,
+        new_path: Path,
+        old_vault_rel: str,
+        new_vault_rel: str,
+    ) -> int:
+        if not self._backend or not hasattr(self._backend, "update_edges_for_move"):
+            return 0
+        return self._backend.update_edges_for_move(old_path, new_path, old_vault_rel, new_vault_rel)  # type: ignore

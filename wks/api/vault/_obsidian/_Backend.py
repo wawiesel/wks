@@ -7,6 +7,7 @@ Implements _AbstractVault for Obsidian-style vaults with symlink-based external 
 from __future__ import annotations
 
 import platform
+import re
 from collections.abc import Callable, Generator
 from pathlib import Path
 
@@ -169,3 +170,113 @@ class _Backend(_AbstractBackend):
             target_uri=target_uri,
             status=target_status,
         )
+
+    # --- Move / repair helpers ---
+
+    def update_link_for_move(self, old_path: Path, new_path: Path) -> tuple[str, str] | None:
+        """Update _links/ symlink when an external file moves.
+
+        Args:
+            old_path: Previous absolute path of the file.
+            new_path: New absolute path of the file.
+
+        Returns:
+            (old_rel, new_rel) paths relative to vault root, or None if the file wasn't linked.
+        """
+        old_rel_posix = str(old_path).lstrip("/")
+        old_symlink = self._links_dir / self.machine / old_rel_posix
+
+        if not old_symlink.is_symlink():
+            return None
+
+        new_rel_posix = str(new_path).lstrip("/")
+        new_symlink = self._links_dir / self.machine / new_rel_posix
+
+        # Create new symlink
+        new_symlink.parent.mkdir(parents=True, exist_ok=True)
+        new_symlink.symlink_to(new_path)
+
+        # Remove old symlink
+        old_symlink.unlink()
+
+        # Clean up empty parent dirs up to _links/{machine}
+        machine_dir = self._links_dir / self.machine
+        parent = old_symlink.parent
+        while parent != machine_dir and parent.is_dir() and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
+
+        old_vault_rel = str(old_symlink.relative_to(self._vault_path))
+        new_vault_rel = str(new_symlink.relative_to(self._vault_path))
+        return (old_vault_rel, new_vault_rel)
+
+    def rewrite_wiki_links(self, old_target: str, new_target: str) -> int:
+        """Rewrite wiki links in all vault markdown files.
+
+        Replaces [[old_target]] and ![[old_target]] (including aliases) with new_target.
+
+        Args:
+            old_target: Old link target (e.g. '_links/machine/old/path').
+            new_target: New link target (e.g. '_links/machine/new/path').
+
+        Returns:
+            Number of files rewritten.
+        """
+        # Match [[old_target]], [[old_target|alias]], ![[old_target]], ![[old_target|alias]]
+        pattern = re.compile(r"(!?\[\[)" + re.escape(old_target) + r"(\|[^\]]*)?(\]\])")
+        replacement = rf"\g<1>{new_target}\g<2>\g<3>"
+
+        count = 0
+        for md_path in self.iter_markdown_files():
+            try:
+                text = md_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            new_text = pattern.sub(replacement, text)
+            if new_text != text:
+                md_path.write_text(new_text, encoding="utf-8")
+                count += 1
+        return count
+
+    def update_edges_for_move(
+        self,
+        old_path: Path,
+        new_path: Path,
+        old_vault_rel: str,
+        new_vault_rel: str,
+    ) -> int:
+        """Update edges database when a linked file moves.
+
+        Updates to_local_uri entries that reference the old file URI or vault URI.
+
+        Args:
+            old_path: Previous absolute filesystem path.
+            new_path: New absolute filesystem path.
+            old_vault_rel: Old vault-relative path (e.g. '_links/machine/old/path').
+            new_vault_rel: New vault-relative path (e.g. '_links/machine/new/path').
+
+        Returns:
+            Number of edge documents updated.
+        """
+        from wks.api.config.URI import URI
+        from wks.api.config.WKSConfig import WKSConfig
+        from wks.api.database.Database import Database
+
+        config = WKSConfig.load()
+
+        old_file_uri = str(URI.from_path(old_path))
+        new_file_uri = str(URI.from_path(new_path))
+        old_vault_uri = f"vault:///{old_vault_rel}"
+        new_vault_uri = f"vault:///{new_vault_rel}"
+
+        updated = 0
+        with Database(config.database, "edges") as db:
+            updated += db.update_many(
+                {"to_local_uri": old_file_uri},
+                {"$set": {"to_local_uri": new_file_uri}},
+            )
+            updated += db.update_many(
+                {"to_local_uri": old_vault_uri},
+                {"$set": {"to_local_uri": new_vault_uri}},
+            )
+        return updated

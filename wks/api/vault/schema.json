@@ -230,6 +230,99 @@
                     "additionalProperties": false
                 }
             ]
+        },
+        "VaultRepairEntry": {
+            "type": "object",
+            "properties": {
+                "old_path": {
+                    "type": "string"
+                },
+                "new_path": {
+                    "type": "string"
+                },
+                "old_link": {
+                    "type": "string"
+                },
+                "new_link": {
+                    "type": "string"
+                },
+                "files_rewritten": {
+                    "type": "integer"
+                },
+                "edges_updated": {
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "old_path",
+                "new_path",
+                "old_link",
+                "new_link",
+                "files_rewritten",
+                "edges_updated"
+            ],
+            "additionalProperties": false
+        },
+        "VaultUnresolvedEntry": {
+            "type": "object",
+            "properties": {
+                "symlink": {
+                    "type": "string"
+                },
+                "old_path": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "symlink",
+                "old_path",
+                "reason"
+            ],
+            "additionalProperties": false
+        },
+        "VaultRepairOutput": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/Base"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "fixed": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VaultRepairEntry"
+                            }
+                        },
+                        "unresolved": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VaultUnresolvedEntry"
+                            }
+                        },
+                        "fixed_count": {
+                            "type": "integer"
+                        },
+                        "unresolved_count": {
+                            "type": "integer"
+                        },
+                        "success": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "fixed",
+                        "unresolved",
+                        "fixed_count",
+                        "unresolved_count",
+                        "success"
+                    ],
+                    "additionalProperties": false
+                }
+            ]
         }
     },
     "oneOf": [
@@ -244,6 +337,9 @@
         },
         {
             "$ref": "#/definitions/VaultLinksOutput"
+        },
+        {
+            "$ref": "#/definitions/VaultRepairOutput"
         }
     ]
 }

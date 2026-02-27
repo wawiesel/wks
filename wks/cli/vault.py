@@ -91,4 +91,11 @@ def vault() -> typer.Typer:
 
             _handle_stage_result(cmd_check, result_printer=summary_printer)(uri)
 
+    @app.command(name="repair")
+    def repair_cmd() -> None:
+        """Find and repair broken _links/ symlinks."""
+        from wks.api.vault.cmd_repair import cmd_repair
+
+        _handle_stage_result(cmd_repair)()
+
     return app

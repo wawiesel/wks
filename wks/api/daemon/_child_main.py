@@ -2,6 +2,7 @@ import os
 import signal
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from watchdog.observers import Observer
@@ -200,6 +201,8 @@ def _child_main(
                 to_delete.add(src_path)
             if dest_path not in ignore_paths and (monitor_cfg is None or explain_path(monitor_cfg, dest_path)[0]):
                 to_sync.add(dest_path)
+            # Check if the moved file was a _links/ symlink target
+            _handle_link_move(src_path, dest_path, wks_config, append_log)
 
         for p_path in filtered_deleted:
             if monitor_cfg is None or explain_path(monitor_cfg, p_path)[0]:
@@ -227,3 +230,35 @@ def _child_main(
             pass
         write_status(running=False)
         append_log("INFO: Daemon child exiting")
+
+
+def _handle_link_move(
+    src_path: Path,
+    dest_path: Path,
+    wks_config: WKSConfig | None,
+    append_log: Callable[[str], None],
+) -> None:
+    """Check if a moved file was a _links/ symlink target and repair if so."""
+    if wks_config is None:
+        return
+    try:
+        from ..vault.Vault import Vault
+
+        with Vault(wks_config.vault) as vault:
+            result = vault.update_link_for_move(src_path, dest_path)
+            if result is None:
+                return
+            old_vault_rel, new_vault_rel = result
+            files_rewritten = vault.rewrite_wiki_links(old_vault_rel, new_vault_rel)
+            edges_updated = vault.update_edges_for_move(
+                src_path,
+                dest_path,
+                old_vault_rel,
+                new_vault_rel,
+            )
+            append_log(
+                f"INFO: Link move {src_path.name} -> {dest_path.name}: "
+                f"{files_rewritten} files rewritten, {edges_updated} edges updated"
+            )
+    except Exception as exc:
+        append_log(f"WARN: Link move handler failed for {src_path} -> {dest_path}: {exc}")

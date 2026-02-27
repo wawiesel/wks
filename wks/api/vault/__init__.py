@@ -9,10 +9,12 @@ VaultStatusOutput: type[BaseModel] = _models["VaultStatusOutput"]
 VaultSyncOutput: type[BaseModel] = _models["VaultSyncOutput"]
 VaultLinksOutput: type[BaseModel] = _models["VaultLinksOutput"]
 VaultCheckOutput: type[BaseModel] = _models["VaultCheckOutput"]
+VaultRepairOutput: type[BaseModel] = _models["VaultRepairOutput"]
 
 __all__ = [
     "VaultCheckOutput",
     "VaultLinksOutput",
+    "VaultRepairOutput",
     "VaultStatusOutput",
     "VaultSyncOutput",
 ]

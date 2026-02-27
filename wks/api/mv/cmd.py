@@ -292,6 +292,24 @@ def cmd(source: URI | str, dest: URI | str) -> StageResult:
         except Exception as e:
             warnings.append(f"Database update failed: {e}")
 
+        yield (0.85, "Updating vault links...")
+        try:
+            from ..vault.Vault import Vault
+
+            with Vault() as vault:
+                link_result = vault.update_link_for_move(source_path, dest_path)
+                if link_result is not None:
+                    old_vault_rel, new_vault_rel = link_result
+                    vault.rewrite_wiki_links(old_vault_rel, new_vault_rel)
+                    vault.update_edges_for_move(
+                        source_path,
+                        dest_path,
+                        old_vault_rel,
+                        new_vault_rel,
+                    )
+        except Exception as e:
+            warnings.append(f"Vault link update failed: {e}")
+
         yield (1.0, "Complete")
         _build_result(
             result_obj,
