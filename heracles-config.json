@@ -1,0 +1,97 @@
+{
+    "monitor": {
+        "filter": {
+            "include_paths": [
+                "~/2025-WKS",
+                "~/2025-AEGIS",
+                "~/2026-Nanoclaw",
+                "~/_vault"
+            ],
+            "exclude_paths": [],
+            "include_dirnames": [],
+            "exclude_dirnames": [
+                ".git",
+                "node_modules",
+                "__pycache__",
+                ".venv",
+                "venv",
+                ".tox",
+                ".mypy_cache",
+                ".pytest_cache",
+                "dist",
+                "build",
+                ".egg-info"
+            ],
+            "include_globs": [],
+            "exclude_globs": [
+                "*.pyc",
+                "*.pyo",
+                "*.so",
+                "*.dylib"
+            ]
+        },
+        "priority": {
+            "dirs": {
+                "~": 100.0
+            },
+            "weights": {
+                "depth_multiplier": 0.9,
+                "underscore_multiplier": 0.5,
+                "only_underscore_multiplier": 0.1,
+                "extension_weights": {}
+            }
+        },
+        "remote": {
+            "mappings": []
+        },
+        "max_documents": 1000000,
+        "min_priority": 0.0
+    },
+    "database": {
+        "type": "mongomock",
+        "prefix": "wks",
+        "prune_frequency_secs": 3600,
+        "data": {}
+    },
+    "service": {
+        "type": "darwin",
+        "data": {
+            "label": "com.wieselquist.wks",
+            "keep_alive": true,
+            "run_at_load": false
+        }
+    },
+    "daemon": {
+        "sync_interval_secs": 60
+    },
+    "vault": {
+        "type": "obsidian",
+        "base_dir": "~/_vault"
+    },
+    "log": {
+        "level": "INFO",
+        "debug_retention_days": 1,
+        "info_retention_days": 7,
+        "warning_retention_days": 14,
+        "error_retention_days": 30
+    },
+    "transform": {
+        "cache": {
+            "base_dir": "~/2025-WKS/transform_cache",
+            "max_size_bytes": 1073741824
+        },
+        "engines": {
+            "textpass": {
+                "type": "textpass",
+                "data": {}
+            }
+        }
+    },
+    "cat": {
+        "default_engine": "textpass"
+    },
+    "mcp": {
+        "installs": {}
+    },
+    "mv": {}
+}
