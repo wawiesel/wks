@@ -260,6 +260,25 @@ class _Impl(_AbstractImpl):
         uid = os.getuid()
         plist_path = self._get_plist_path(self._data.label)
 
+        def _running_result(action: str) -> dict[str, Any]:
+            import time
+
+            time.sleep(0.5)
+            status = self.get_service_status()
+            if status.pid:
+                return {
+                    "success": True,
+                    "type": "darwin",
+                    "label": self._data.label,
+                    "action": action,
+                    "pid": status.pid,
+                }
+            log_path = WKSConfig.get_home_dir() / "logs" / "service.log"
+            return {
+                "success": False,
+                "error": f"Service failed to start (no PID found). Check logs at: {log_path}",
+            }
+
         # First check if service is loaded
         try:
             result = subprocess.run(
@@ -281,10 +300,16 @@ class _Impl(_AbstractImpl):
                     capture_output=True,
                     text=True,
                 )
-                # Bootstrap also starts the service, verify it's running
-                import time
-
-                time.sleep(0.5)  # Give service a moment to start
+                bootstrap_result = _running_result("bootstrapped")
+                if bootstrap_result["success"]:
+                    return bootstrap_result
+                # Bootstrap loads the job, but with RunAtLoad=false it may not
+                # start immediately. Explicitly kickstart the loaded job.
+                service_loaded = True
+            except subprocess.CalledProcessError as e:
+                # launchd can report a bootstrap error even though the job is
+                # already loaded and has started successfully. Re-check status
+                # before treating the bootstrap call as a hard failure.
                 status = self.get_service_status()
                 if status.pid:
                     return {
@@ -293,53 +318,38 @@ class _Impl(_AbstractImpl):
                         "label": self._data.label,
                         "action": "bootstrapped",
                         "pid": status.pid,
+                        "note": "launchctl bootstrap reported an error, but the service is running.",
                     }
+                # If bootstrap loaded the service but did not start it, attempt
+                # a kickstart before surfacing an error.
+                if status.installed:
+                    service_loaded = True
                 else:
-                    log_path = WKSConfig.get_home_dir() / "logs" / "service.log"
                     return {
                         "success": False,
-                        "error": f"Service failed to start after bootstrap (no PID found). Check logs at: {log_path}",
+                        "error": f"Failed to bootstrap service: {e.stderr}",
                     }
-            except subprocess.CalledProcessError as e:
-                return {
-                    "success": False,
-                    "error": f"Failed to bootstrap service: {e.stderr}",
-                }
 
         # Service is loaded, use kickstart to start/restart it
         # Note: -k flag kills and restarts if already running, starts if not running
-        try:
-            subprocess.run(
-                ["launchctl", "kickstart", "-k", f"gui/{uid}/{self._data.label}"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            # Verify service actually started by checking for PID
-            import time
-
-            time.sleep(0.5)  # Give service a moment to start
-            status = self.get_service_status()
-            if status.pid:
-                return {
-                    "success": True,
-                    "type": "darwin",
-                    "label": self._data.label,
-                    "action": "kickstarted",
-                    "pid": status.pid,
-                }
-            else:
-                # Service didn't start - check logs
-                log_path = WKSConfig.get_home_dir() / "logs" / "service.log"
+        if service_loaded:
+            try:
+                subprocess.run(
+                    ["launchctl", "kickstart", "-k", f"gui/{uid}/{self._data.label}"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                return _running_result("kickstarted")
+            except subprocess.CalledProcessError as e:
                 return {
                     "success": False,
-                    "error": f"Service failed to start (no PID found). Check logs at: {log_path}",
+                    "error": e.stderr,
                 }
-        except subprocess.CalledProcessError as e:
-            return {
-                "success": False,
-                "error": e.stderr,
-            }
+        return {
+            "success": False,
+            "error": "Service is not loaded and no plist was available to bootstrap.",
+        }
 
     def stop_service(self) -> dict[str, Any]:
         """Stop daemon via macOS launchctl."""
