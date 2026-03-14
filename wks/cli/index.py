@@ -3,6 +3,7 @@
 import typer
 
 from wks.api.index.cmd import cmd
+from wks.api.index.cmd_backfill import cmd_backfill
 from wks.api.index.cmd_embed import cmd_embed
 from wks.api.index.cmd_status import cmd_status
 from wks.cli._handle_stage_result import _handle_stage_result
@@ -39,6 +40,13 @@ def index() -> typer.Typer:
     ) -> None:
         """Show index statistics."""
         _handle_stage_result(cmd_status)(name)
+
+    @app.command(name="backfill")
+    def backfill_cmd(
+        name: str = typer.Argument("", help="Index name (uses default index if omitted)"),
+    ) -> None:
+        """Index all monitored files meeting the index's min_priority threshold."""
+        _handle_stage_result(cmd_backfill)(name=name)
 
     @app.command(name="embed")
     def embed_cmd(
