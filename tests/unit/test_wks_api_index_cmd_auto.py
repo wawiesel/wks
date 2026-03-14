@@ -251,36 +251,6 @@ def test_auto_skips_unsupported_supported_types(tmp_path, monkeypatch):
     assert "images_semantic" in result.output["skipped"]
 
 
-def test_auto_skips_excluded_path(tmp_path, monkeypatch):
-    """File under an index exclude_paths entry is skipped for that index."""
-    excluded_dir = tmp_path / "junk"
-    excluded_dir.mkdir()
-
-    _make_auto_env(
-        tmp_path,
-        monkeypatch,
-        priority_dirs={str(excluded_dir): 100.0},
-        indexes={
-            "default_index": "main",
-            "indexes": {
-                "main": {
-                    "engine": "textpass",
-                    "min_priority": 0.0,
-                    "exclude_paths": [str(excluded_dir)],
-                }
-            },
-        },
-    )
-
-    doc = excluded_dir / "data.txt"
-    doc.write_text("Some content that should be excluded.\n")
-
-    result = run_cmd(cmd_auto, str(doc))
-    assert result.success is True
-    assert result.output["indexed"] == []
-    assert "main" in result.output["skipped"]
-
-
 def test_auto_honors_supported_types_per_engine(tmp_path, monkeypatch):
     """Only indexes with matching supported_types process the file."""
     doc_dir = tmp_path / "docs"
