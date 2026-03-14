@@ -1,6 +1,8 @@
 """Tests for monitor cmd_sync API."""
 
+import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -216,3 +218,49 @@ def test_monitor_cmd_sync_skips_excluded_file(wks_home, minimal_config_dict):
     assert res.success is True
     assert res.output["files_synced"] == 0
     assert res.output["files_skipped"] == 1
+
+
+@pytest.mark.monitor
+def test_monitor_cmd_sync_directory_processes_newest_first(wks_home, minimal_config_dict):
+    """Test that recursive sync processes files in mtime-descending order (newest first).
+
+    Requirements:
+    - MON-001
+    - MON-005
+    """
+    watch_dir = Path(str(wks_home) + "_watched")
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    config = WKSConfig.load()
+    config.monitor.filter.include_paths.append(str(watch_dir))
+    config.save()
+
+    # Create files and assign distinct mtimes: old < mid < new
+    old_file = watch_dir / "old.txt"
+    mid_file = watch_dir / "mid.txt"
+    new_file = watch_dir / "new.txt"
+
+    for f in (old_file, mid_file, new_file):
+        f.write_text(f.stem)
+
+    base_time = 1_700_000_000.0
+    os.utime(old_file, (base_time, base_time))
+    os.utime(mid_file, (base_time + 100, base_time + 100))
+    os.utime(new_file, (base_time + 200, base_time + 200))
+
+    processed: list[Path] = []
+
+    from wks.api.config import file_checksum as _fc_module
+
+    original = _fc_module.file_checksum
+
+    def capturing(path: Path) -> str:
+        processed.append(path)
+        return original(path)
+
+    with patch.object(_fc_module, "file_checksum", side_effect=capturing):
+        res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
+
+    assert res.success is True
+    assert res.output["files_synced"] == 3
+    assert processed == [new_file, mid_file, old_file]

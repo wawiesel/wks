@@ -109,6 +109,7 @@ def cmd_sync(
 
         yield (0.3, "Collecting files to process...")
         files_to_process: list[Path] = list(expand_paths(path_obj, recursive=recursive))
+        files_to_process.sort(key=lambda p: p.stat().st_mtime, reverse=True)
 
         files_synced = 0
         files_skipped = 0
@@ -121,6 +122,9 @@ def cmd_sync(
                 for i, file_path in enumerate(files_to_process):
                     if not explain_path(monitor_cfg, file_path)[0]:
                         files_skipped += 1
+                        # Remove stale DB entry if this path was previously indexed
+                        path_uri = str(URI.from_path(file_path))
+                        database.delete_many({"local_uri": path_uri})
                         yield (
                             0.4 + (i / max(len(files_to_process), 1)) * 0.5,
                             f"Skipping excluded file: {file_path.name}...",
