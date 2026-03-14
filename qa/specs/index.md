@@ -11,8 +11,18 @@ Maintain searchable indices of file content. Transforms documents, chunks conten
 ```json
 "index": {
     "default_index": "main",
+    "default_strategy": "hybrid",
+    "strategies": {
+        "hybrid": {
+            "indexes": ["main", "semantic"],
+            "merge": "rrf"
+        }
+    },
     "indexes": {
         "main": {
+            "engine": "textpass"
+        },
+        "semantic": {
             "engine": "textpass",
             "embedding_model": "model-name"
         }
@@ -22,6 +32,10 @@ Maintain searchable indices of file content. Transforms documents, chunks conten
 
 ### Fields
 - `default_index`: Name of the default index used when none is specified.
+- `default_strategy`: (Optional) Strategy used when neither `--index` nor `--strategy` is given. Falls back to `default_index` if absent.
+- `strategies`: (Optional) Map of strategy name to strategy configuration.
+  - `indexes`: List of index names to query.
+  - `merge`: Merge mode (`"rrf"` — Reciprocal Rank Fusion).
 - `indexes`: Map of index name to index configuration.
   - `engine`: Transform engine name for content extraction (e.g., `textpass`).
   - `embedding_model`: (Optional) Model name for semantic embeddings. Required for semantic search and `embed` command.

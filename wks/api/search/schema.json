@@ -27,7 +27,7 @@
           "properties": {
             "query": { "type": "string" },
             "index_name": { "type": "string" },
-            "search_mode": { "type": "string", "enum": ["lexical", "semantic"] },
+            "search_mode": { "type": "string", "enum": ["lexical", "semantic", "combined"] },
             "embedding_model": {
               "oneOf": [
                 { "type": "string" },

@@ -30,8 +30,9 @@ def search() -> typer.Typer:
             ),
         ] = "",
         index: Annotated[str, typer.Option("--index", "-i", help="Index name (uses default from config)")] = "",
+        strategy: Annotated[str, typer.Option("--strategy", "-s", help="Search strategy name")] = "",
         k: Annotated[int, typer.Option("--top", "-k", help="Number of results")] = 10,
     ) -> None:
-        _handle_stage_result(cmd)(query or "", index=index, k=k, query_image=query_image)
+        _handle_stage_result(cmd)(query or "", index=index, k=k, query_image=query_image, strategy=strategy)
 
     return app
