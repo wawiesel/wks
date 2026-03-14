@@ -11,6 +11,9 @@ class DaemonConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sync_interval_secs: float = Field(..., gt=0, description="Interval to poll/flush filesystem events")
+    embed_interval_secs: float | None = Field(
+        default=None, gt=0, description="Interval (secs) to rebuild embeddings for all semantic indexes"
+    )
 
     @model_validator(mode="before")
     @classmethod

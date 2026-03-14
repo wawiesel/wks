@@ -214,6 +214,9 @@ def _child_main(
         for path in to_sync:
             _sync_path_static(path, log_file, append_log)
 
+    embed_interval = wks_config.daemon.embed_interval_secs if wks_config else None
+    last_embed_time = time.monotonic()
+
     write_status(running=True)
     iteration = 0
     try:
@@ -221,6 +224,12 @@ def _child_main(
             iteration += 1
             process_events()
             write_status(running=True)
+
+            elapsed = time.monotonic() - last_embed_time
+            if embed_interval is not None and wks_config is not None and elapsed >= embed_interval:
+                _auto_embed_semantic(wks_config, append_log)
+                last_embed_time = time.monotonic()
+
             time.sleep(sync_interval)
     finally:
         try:
@@ -230,6 +239,26 @@ def _child_main(
             pass
         write_status(running=False)
         append_log("INFO: Daemon child exiting")
+
+
+def _auto_embed_semantic(wks_config: WKSConfig, append_log: Callable[[str], None]) -> None:
+    """Rebuild embeddings for all semantic (embedding_model != None) indexes."""
+    if wks_config.index is None:
+        return
+    for index_name, spec in wks_config.index.indexes.items():
+        if spec.embedding_model is None:
+            continue
+        try:
+            from ..index.cmd_embed import cmd_embed
+
+            result = cmd_embed(index_name)
+            list(result.progress_callback(result))
+            if result.success:
+                append_log(f"INFO: auto-embed '{index_name}': {result.output['chunk_count']} chunks embedded")
+            else:
+                append_log(f"WARN: auto-embed '{index_name}' failed: {result.result}")
+        except Exception as exc:
+            append_log(f"WARN: auto-embed error for '{index_name}': {exc}")
 
 
 def _handle_link_move(
