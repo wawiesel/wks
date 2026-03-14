@@ -148,15 +148,6 @@ def cmd(
                 for i in ranked
             ]
 
-            # Exclude paths: remove hits whose filesystem path starts with any spec.exclude_paths entry
-            if spec.exclude_paths:
-                exclude_dirs = [p.rstrip("/") for p in spec.exclude_paths]
-                ranked_hits = [
-                    h
-                    for h in ranked_hits
-                    if not any(str(URI.from_any(h["uri"]).path).startswith(d) for d in exclude_dirs)
-                ]
-
             hits = _dedupe_hits(ranked_hits, k)
 
             yield (1.0, "Complete")
@@ -251,17 +242,6 @@ def cmd(
                 for i in ranked
                 if query_terms.intersection(corpus[i])
             ]
-
-            # Exclude paths: remove hits whose filesystem path starts with any spec.exclude_paths entry
-            if spec.exclude_paths:
-                from ..config.URI import URI
-
-                exclude_dirs = [p.rstrip("/") for p in spec.exclude_paths]
-                ranked_hits = [
-                    h
-                    for h in ranked_hits
-                    if not any(str(URI.from_any(h["uri"]).path).startswith(d) for d in exclude_dirs)
-                ]
 
             hits = _dedupe_hits(ranked_hits, k)
 

@@ -100,27 +100,6 @@ def cmd_embed(
             result_obj.success = False
             return
 
-        # Filter out chunks whose path is under any spec.exclude_paths entry
-        if spec.exclude_paths:
-            from ..config.URI import URI
-
-            exclude_dirs = [p.rstrip("/") for p in spec.exclude_paths]
-            chunks = [c for c in chunks if not any(str(URI.from_any(c.uri).path).startswith(d) for d in exclude_dirs)]
-
-        if not chunks:
-            yield (1.0, "Complete")
-            result_obj.result = f"Index '{index_name}' is empty after applying exclude_paths filter"
-            result_obj.output = IndexEmbedOutput(
-                errors=[f"Index '{index_name}' is empty after applying exclude_paths filter"],
-                warnings=[],
-                index_name=index_name,
-                embedding_model=embedding_model,
-                chunk_count=0,
-                dimensions=0,
-            ).model_dump(mode="python")
-            result_obj.success = False
-            return
-
         yield (0.45, f"Embedding {len(chunks)} chunks...")
         from ._build_semantic_embeddings import build_semantic_embeddings
 

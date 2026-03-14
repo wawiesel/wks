@@ -89,13 +89,6 @@ def cmd_auto(uri: str) -> StageResult:
                 yield (progress, f"Skipping '{index_name}' (priority {priority:.1f} < {spec.min_priority:.1f})")
                 continue
 
-            if spec.exclude_paths:
-                exclude_dirs = [p.rstrip("/") for p in spec.exclude_paths]
-                if any(str(file_path).startswith(d) for d in exclude_dirs):
-                    skipped.append(index_name)
-                    yield (progress, f"Skipping '{index_name}' (excluded path)")
-                    continue
-
             engine_config = config.transform.engines.get(spec.engine)
             if engine_config is not None and not _is_supported_for_engine(engine_config.supported_types, file_path):
                 skipped.append(index_name)
