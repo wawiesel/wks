@@ -11,6 +11,7 @@ class _IndexSpec(BaseModel):
     max_tokens: int = 256
     overlap_tokens: int = 64
     min_priority: float = 0.0
+    exclude_paths: list[str] = []
     engine: str
     embedding_model: str | None = None
     embedding_mode: Literal["text", "image_text_combo"] = "text"

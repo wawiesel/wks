@@ -117,17 +117,46 @@ def cmd(
             yield (0.7, "Scoring chunks...")
             matrix = np.asarray([doc["embedding"] for doc in docs], dtype=np.float32)
             scores = cosine_scores(query_embedding, matrix)
-            ranked = sorted(range(len(scores)), key=lambda i: float(scores[i]), reverse=True)
+
+            # Path-segment boost: if query terms appear in directory/filename segments, boost score
+            from ..config.URI import URI
+
+            query_terms = {t.lower() for t in query.split() if t} if query.strip() else set()
+            boosted: list[float] = []
+            for i in range(len(docs)):
+                if not query_terms:
+                    boosted.append(float(scores[i]))
+                    continue
+                try:
+                    path = URI.from_any(docs[i]["uri"]).path
+                    segments = {p.lower() for p in path.parts}
+                    segments.add(path.stem.lower())
+                    matches = sum(1 for t in query_terms if t in segments)
+                    boosted.append(float(scores[i]) * (1.0 + 0.2 * matches))
+                except Exception:
+                    boosted.append(float(scores[i]))
+
+            ranked = sorted(range(len(boosted)), key=lambda i: boosted[i], reverse=True)
             ranked_hits = [
                 {
                     "uri": docs[i]["uri"],
                     "chunk_index": docs[i]["chunk_index"],
-                    "score": round(float(scores[i]), 4),
+                    "score": round(boosted[i], 4),
                     "tokens": docs[i]["tokens"],
                     "text": docs[i]["text"],
                 }
                 for i in ranked
             ]
+
+            # Exclude paths: remove hits whose filesystem path starts with any spec.exclude_paths entry
+            if spec.exclude_paths:
+                exclude_dirs = [p.rstrip("/") for p in spec.exclude_paths]
+                ranked_hits = [
+                    h
+                    for h in ranked_hits
+                    if not any(str(URI.from_any(h["uri"]).path).startswith(d) for d in exclude_dirs)
+                ]
+
             hits = _dedupe_hits(ranked_hits, k)
 
             yield (1.0, "Complete")
@@ -222,6 +251,18 @@ def cmd(
                 for i in ranked
                 if query_terms.intersection(corpus[i])
             ]
+
+            # Exclude paths: remove hits whose filesystem path starts with any spec.exclude_paths entry
+            if spec.exclude_paths:
+                from ..config.URI import URI
+
+                exclude_dirs = [p.rstrip("/") for p in spec.exclude_paths]
+                ranked_hits = [
+                    h
+                    for h in ranked_hits
+                    if not any(str(URI.from_any(h["uri"]).path).startswith(d) for d in exclude_dirs)
+                ]
+
             hits = _dedupe_hits(ranked_hits, k)
 
             yield (1.0, "Complete")

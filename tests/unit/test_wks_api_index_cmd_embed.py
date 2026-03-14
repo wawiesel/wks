@@ -96,6 +96,59 @@ def test_cmd_embed_requires_embedding_model(tmp_path, monkeypatch):
     assert "no embedding_model" in result.result.lower()
 
 
+def test_cmd_embed_exclude_paths_filters_chunks(tmp_path, monkeypatch):
+    """Chunks from excluded paths are not included in the embedding store."""
+    from tests.conftest import minimal_config_dict
+
+    excluded_dir = tmp_path / "junk"
+    excluded_dir.mkdir()
+    kept_dir = tmp_path / "good"
+    kept_dir.mkdir()
+
+    config_dict = minimal_config_dict()
+    cache_dir = tmp_path / "transform_cache"
+    cache_dir.mkdir()
+    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
+    config_dict["index"] = {
+        "default_index": "main",
+        "indexes": {
+            "main": {
+                "engine": "textpass",
+                "embedding_model": "test-model",
+                "exclude_paths": [str(excluded_dir)],
+            }
+        },
+    }
+
+    wks_home = tmp_path / "wks_home"
+    wks_home.mkdir()
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    (wks_home / "config.json").write_text(json.dumps(config_dict))
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+
+    # Index one excluded doc and one kept doc
+    junk_doc = excluded_dir / "doc.txt"
+    junk_doc.write_text("Junk content to be excluded.\n")
+    kept_doc = kept_dir / "doc.txt"
+    kept_doc.write_text("Nuclear fission products.\n")
+
+    for doc in [junk_doc, kept_doc]:
+        result = run_cmd(index_cmd, "main", str(doc))
+        assert result.success is True
+
+    result = run_cmd(cmd_embed, "main", batch_size=8)
+    assert result.success is True
+
+    config = WKSConfig.load()
+    with Database(config.database, "index_embeddings") as db:
+        docs = list(db.find({"index_name": "main", "embedding_model": "test-model"}, {"_id": 0}))
+
+    uris = [d["uri"] for d in docs]
+    assert not any(str(excluded_dir) in u for u in uris), "excluded URI found in embeddings"
+    assert any(str(kept_dir) in u for u in uris), "kept URI missing from embeddings"
+
+
 def test_cmd_embed_image_text_combo_success(tmp_path, monkeypatch):
     from tests.conftest import minimal_config_dict
 
