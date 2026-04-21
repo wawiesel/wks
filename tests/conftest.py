@@ -194,6 +194,9 @@ def minimal_config_dict_fixture(tmp_path: Path) -> dict:
     cache_dir = str(tmp_path / "transform_cache")
     config["transform"]["cache"]["base_dir"] = cache_dir
 
+    # Keep vault operations inside pytest-managed temp storage.
+    config["vault"]["base_dir"] = str(tmp_path / "vault")
+
     # NEW RULE: Cache directory must be monitored
     config["monitor"]["filter"]["include_paths"].append(cache_dir)
 
