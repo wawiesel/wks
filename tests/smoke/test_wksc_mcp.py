@@ -186,6 +186,6 @@ def test_mcp_call_monitor_check(mcp_process):
 
 
 def test_cli_mcp_list(wksc):
-    """Test 'wksc mcp list' shows MCP installation info."""
+    """Test 'wksc mcp list' shows supported MCP client targets."""
     result = wksc(["mcp", "list"])
-    assert "installations" in result.stdout
+    assert "targets" in result.stdout
