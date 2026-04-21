@@ -22,6 +22,13 @@ repos:
         types: [python]
         require_serial: true
 
+      - id: check-version-sync
+        name: Check Version Sync
+        entry: scripts/check_version_sync.py
+        language: script
+        files: ^(pyproject\.toml|wks/__init__\.py)$
+        pass_filenames: false
+
       - id: check-complexity
         name: Check Complexity (Lizard)
         entry: scripts/check_complexity.py

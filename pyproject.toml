@@ -19,7 +19,7 @@ wksm = "wks.mcp.main:main"
 
 [project]
 name = "wks"
-version = "0.10.2"
+version = "0.10.3"
 requires-python = ">=3.12,<3.15"
 dependencies = [
     "watchdog",

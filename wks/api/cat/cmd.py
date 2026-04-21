@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any
 
+from wks.api.config.normalize_path import normalize_path
+
 from ..config.StageResult import StageResult
 from ..transform.get_content import get_content
 
@@ -12,10 +14,10 @@ def cmd(
     output_path: Path | None = None,
     engine: str | None = None,
 ) -> StageResult:
-    """Retrieve content for a target (checksum or file path).
+    """Retrieve content for a target (checksum, strict URI, or file path).
 
     Args:
-        target: Checksum (64 hex chars) or file path
+        target: Checksum (64 hex chars), strict URI, or file path
         output_path: Optional output file path
         engine: Optional engine override
 
@@ -37,16 +39,19 @@ def cmd(
 
             # If not a checksum, it must be a path that needs transforming
             if not _is_checksum(target):
-                from wks.api.config.normalize_path import normalize_path
+                from ..config.URI import URI
 
-                file_path = normalize_path(target)
+                if "://" in target:
+                    file_path = URI.from_any(target, vault_path=Path(config.vault.base_dir)).to_path(
+                        Path(config.vault.base_dir)
+                    )
+                else:
+                    file_path = normalize_path(target)
                 if not file_path.exists():
                     raise FileNotFoundError(f"File not found: {file_path}")
 
                 selected_engine = _select_engine(file_path, engine, config)
                 yield (0.2, f"Transforming {file_path.name} using {selected_engine}...")
-
-                from ..config.URI import URI
 
                 # Run transform
                 res_transform = cmd_engine(selected_engine, URI.from_path(file_path), {})

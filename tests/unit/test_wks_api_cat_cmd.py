@@ -28,6 +28,20 @@ def test_cmd_by_path(wks_home, minimal_config_dict):
 
 
 @pytest.mark.cat
+def test_cmd_by_file_uri(wks_home, minimal_config_dict):
+    """Test retrieving content by file URI (search output shape)."""
+    watch_dir = Path(wks_home).parent / "watched"
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    test_file = watch_dir / "test-uri.txt"
+    test_file.write_text("Hello URI Cat", encoding="utf-8")
+
+    res = run_cmd(cmd, target=str(URI.from_path(test_file)))
+    assert res.success is True
+    assert res.output["content"] == "Hello URI Cat"
+
+
+@pytest.mark.cat
 def test_cmd_by_checksum(wks_home, minimal_config_dict):
     """Test retrieving content by checksum (direct lookup)."""
     watch_dir = Path(wks_home).parent / "watched"
