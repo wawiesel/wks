@@ -19,23 +19,23 @@
         {
           "type": "object",
           "properties": {
-            "installations": {
+            "targets": {
               "type": "array",
               "items": {
                 "type": "object",
                 "properties": {
                   "name": { "type": "string" },
-                  "type": { "type": "string" },
-                  "active": { "type": "boolean" },
-                  "path": { "type": "string" }
+                  "description": { "type": "string" },
+                  "install_command": { "type": "string" },
+                  "uninstall_command": { "type": "string" }
                 },
-                "required": ["name", "type", "active", "path"],
+                "required": ["name", "description", "install_command", "uninstall_command"],
                 "additionalProperties": false
               }
             },
             "count": { "type": "integer" }
           },
-          "required": ["installations", "count"],
+          "required": ["targets", "count"],
           "additionalProperties": false
         }
       ]
@@ -48,10 +48,9 @@
           "properties": {
             "success": { "type": "boolean" },
             "name": { "type": "string" },
-            "type": { "type": "string" },
-            "active": { "type": "boolean" }
+            "command": { "type": "string" }
           },
-          "required": ["success", "name", "type", "active"],
+          "required": ["success", "name", "command"],
           "additionalProperties": false
         }
       ]
@@ -64,9 +63,9 @@
           "properties": {
             "success": { "type": "boolean" },
             "name": { "type": "string" },
-            "active": { "type": "boolean" }
+            "command": { "type": "string" }
           },
-          "required": ["success", "name", "active"],
+          "required": ["success", "name", "command"],
           "additionalProperties": false
         }
       ]

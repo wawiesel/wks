@@ -1,60 +1,44 @@
-"""List MCP installations command."""
+"""List supported MCP client targets."""
 
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
-from ..config.WKSConfig import WKSConfig
 from . import McpListOutput
+from .targets import list_targets
 
 
 def cmd_list() -> StageResult:
-    """List MCP installations.
+    """List supported MCP client targets.
 
     Returns:
-        StageResult with list of installations and their status
+        StageResult with supported client targets and native commands
     """
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
-        yield (0.2, "Loading configuration...")
-
-        try:
-            config = WKSConfig.load()
-        except Exception as e:
-            yield (1.0, "Complete")
-            result_obj.result = f"Configuration error: {e}"
-            result_obj.output = McpListOutput(
-                installations=[],
-                count=0,
-                errors=[str(e)],
-                warnings=[],
-            ).model_dump(mode="python")
-            result_obj.success = False
-            return
-
-        yield (0.7, "Processing MCP installations...")
-        installations = []
-        for name, install in config.mcp.installs.items():
-            installations.append(
+        """Collect target guidance for the user."""
+        yield (0.4, "Collecting supported MCP targets...")
+        targets = []
+        for target in list_targets():
+            targets.append(
                 {
-                    "name": name,
-                    "type": install.type,
-                    "active": install.active,
-                    "path": install.data.settings_path,
+                    "name": target.name,
+                    "description": target.description,
+                    "install_command": target.install_command,
+                    "uninstall_command": target.uninstall_command,
                 }
             )
 
         yield (1.0, "Complete")
-        result_obj.result = f"Found {len(installations)} installation(s)"
+        result_obj.result = f"Found {len(targets)} supported MCP target(s)"
         result_obj.output = McpListOutput(
-            installations=installations,
-            count=len(installations),
+            targets=targets,
+            count=len(targets),
             errors=[],
             warnings=[],
         ).model_dump(mode="python")
         result_obj.success = True
 
     return StageResult(
-        announce="Listing MCP installations...",
+        announce="Listing supported MCP client targets...",
         progress_callback=do_work,
     )

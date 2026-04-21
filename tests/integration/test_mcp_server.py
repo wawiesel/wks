@@ -2,12 +2,14 @@
 
 import io
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
 import wks.mcp.server as server_mod
 from wks.api.config.StageResult import StageResult
+from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
 from wks.mcp import discover_commands as discover_commands_mod
 from wks.mcp.call_tool import call_tool
@@ -32,6 +34,7 @@ def test_handle_initialize_writes_response():
     response = json.loads(output.getvalue())
     assert response["id"] == 1
     assert response["result"]["serverInfo"]["name"] == "wks-mcp-server"
+    assert "resources" in response["result"]["capabilities"]
 
 
 def test_tools_and_resources_listing():
@@ -50,6 +53,76 @@ def test_tools_and_resources_listing():
     server.handle_request({"jsonrpc": "2.0", "id": 3, "method": "resources/list", "params": {}})
     resources_response = json.loads(output.getvalue())
     assert resources_response["result"]["resources"][0]["uri"] == "mcp://wks/tools"
+
+
+def test_define_tools_enriches_search_schema():
+    tools = server_mod.MCPServer.define_tools()
+    schema = tools["wksm_search"]["inputSchema"]
+
+    assert schema["additionalProperties"] is False
+    assert (
+        schema["properties"]["query"]["description"]
+        == "Text query to search for. Provide this for normal text retrieval."
+    )
+    assert schema["properties"]["query"]["minLength"] == 1
+    assert schema["properties"]["k"]["description"] == "Maximum number of ranked hits to return."
+    assert schema["properties"]["k"]["default"] == 10
+    assert schema["properties"]["k"]["minimum"] == 1
+    assert (
+        schema["properties"]["strategy"]["description"]
+        == "Optional named search strategy. Mutually exclusive with `index`."
+    )
+    assert schema["anyOf"] == [{"required": ["query"]}, {"required": ["query_image"]}]
+
+
+def test_define_tools_enriches_cat_schema():
+    tools = server_mod.MCPServer.define_tools()
+    schema = tools["wksm_cat"]["inputSchema"]
+
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == ["target"]
+    assert schema["properties"]["target"]["description"] == "Checksum, cached artifact, or filesystem path to read."
+    assert schema["properties"]["output_path"]["description"] == "Optional file path to write the rendered content to."
+    assert schema["properties"]["engine"]["description"] == "Optional transform engine to run before returning content."
+
+
+def test_resources_read_returns_tools_document():
+    server, output = _server_with_streams()
+    server.tools = {
+        "wksm_search": {"description": "Search docs", "inputSchema": {"type": "object"}},
+        "wksm_cat": {"description": "Read content", "inputSchema": {"type": "object"}},
+    }
+
+    server.handle_request(
+        {"jsonrpc": "2.0", "id": 30, "method": "resources/read", "params": {"uri": "mcp://wks/tools"}}
+    )
+    response = json.loads(output.getvalue())
+    contents = response["result"]["contents"]
+    assert contents[0]["uri"] == "mcp://wks/tools"
+    assert contents[0]["mimeType"] == "application/json"
+    document = json.loads(contents[0]["text"])
+    assert document["server"] == "wks"
+    assert document["preferred_workflow"] == {"search": "wksm_search", "read": "wksm_cat"}
+    assert [tool["name"] for tool in document["tools"]] == ["wksm_cat", "wksm_search"]
+
+
+def test_resources_read_missing_resource():
+    server, output = _server_with_streams()
+
+    server.handle_request(
+        {"jsonrpc": "2.0", "id": 31, "method": "resources/read", "params": {"uri": "mcp://wks/missing"}}
+    )
+    response = json.loads(output.getvalue())
+    assert response["error"]["code"] == -32601
+    assert "Resource not found" in response["error"]["message"]
+
+
+def test_resource_templates_list_returns_empty():
+    server, output = _server_with_streams()
+
+    server.handle_request({"jsonrpc": "2.0", "id": 32, "method": "resources/templates/list", "params": {}})
+    response = json.loads(output.getvalue())
+    assert response["result"]["resourceTemplates"] == []
 
 
 def test_tools_call_happy_path(monkeypatch):
@@ -227,6 +300,40 @@ def testbuild_registry_handles_self_param(monkeypatch):
     result = registry["wksm_dummy_echo"](None, {"value": "hi"})  # type: ignore
     assert result is not None
     assert result["data"]["echo"] == "hi"
+
+
+def testbuild_registry_coerces_path_arguments_for_wksm_cat(wks_home):
+    watch_dir = Path(wks_home).parent / "watched"
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    test_file = watch_dir / "test.txt"
+    test_file.write_text("Hello MCP Cat", encoding="utf-8")
+    output_file = watch_dir / "output.md"
+
+    server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
+    registry = server.build_registry()
+
+    result = registry["wksm_cat"](None, {"target": str(test_file), "output_path": str(output_file)})  # type: ignore
+
+    assert result["success"] is True
+    assert output_file.exists()
+    assert output_file.read_text(encoding="utf-8") == "Hello MCP Cat"
+
+
+def testbuild_registry_accepts_file_uri_target_for_wksm_cat(wks_home):
+    watch_dir = Path(wks_home).parent / "watched"
+    watch_dir.mkdir(parents=True, exist_ok=True)
+
+    test_file = watch_dir / "test-uri.txt"
+    test_file.write_text("Hello MCP URI Cat", encoding="utf-8")
+
+    server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
+    registry = server.build_registry()
+
+    result = registry["wksm_cat"](None, {"target": str(URI.from_path(test_file))})  # type: ignore
+
+    assert result["success"] is True
+    assert result["data"]["content"] == "Hello MCP URI Cat"
 
 
 def testread_message_lsp_and_eof():

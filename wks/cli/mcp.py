@@ -69,7 +69,7 @@ def mcp() -> typer.Typer:
     """Create and configure the MCP Typer app."""
     app = typer.Typer(
         name="mcp",
-        help="MCP installation management",
+        help="MCP server guidance and runtime commands",
         pretty_exceptions_show_locals=False,
         pretty_exceptions_enable=False,
         context_settings={"help_option_names": ["-h", "--help"]},
@@ -87,23 +87,27 @@ def mcp() -> typer.Typer:
 
     @app.command(name="list")
     def list_cmd() -> None:
-        """List MCP installations."""
+        """List supported MCP client targets and native commands."""
         _handle_stage_result(cmd_list)()
 
     @app.command(name="install")
     def install_cmd(
-        name: str = typer.Argument(..., help="Installation name"),
-        install_type: str = typer.Option("mcpServersJson", "--type", help="Installation type"),
-        settings_path: str | None = typer.Option(None, "--settings-path", help="Path to settings file"),
+        name: str | None = typer.Argument(None, help="Target name"),
     ) -> None:
-        """Install WKS MCP server for the named installation."""
-        _handle_stage_result(cmd_install)(name, install_type, settings_path)
+        """Show the native client command to install WKS MCP."""
+        if name is None:
+            _handle_stage_result(cmd_list)()
+            return
+        _handle_stage_result(cmd_install)(name)
 
     @app.command(name="uninstall")
     def uninstall_cmd(
-        name: str = typer.Argument(..., help="Installation name"),
+        name: str | None = typer.Argument(None, help="Target name"),
     ) -> None:
-        """Uninstall WKS MCP server for the named installation."""
+        """Show the native client command to uninstall WKS MCP."""
+        if name is None:
+            _handle_stage_result(cmd_list)()
+            return
         _handle_stage_result(cmd_uninstall)(name)
 
     @app.command(name="run")
