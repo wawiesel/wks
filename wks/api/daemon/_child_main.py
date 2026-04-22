@@ -12,6 +12,7 @@ from wks.api.config.normalize_path import normalize_path
 from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file
 from ..log.read_log_entries import read_log_entries
+from ..log.summarize_status_log_messages import summarize_status_log_messages
 from ..monitor.explain_path import explain_path
 from ._daemon_log_with_path import _daemon_log_with_path
 from ._EventHandler import _EventHandler
@@ -152,6 +153,7 @@ def _child_main(
             warning_retention_days=w_ret,
             error_retention_days=e_ret,
         )
+        warnings_log, errors_log = summarize_status_log_messages(warnings_log, errors_log)
         import datetime
 
         status = {

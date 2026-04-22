@@ -7,6 +7,7 @@ import pytest
 
 from tests.unit.conftest import minimal_wks_config
 from wks.api.config.WKSConfig import WKSConfig
+from wks.api.log.summarize_status_log_messages import STATUS_LOG_MESSAGE_LIMIT
 
 
 @pytest.mark.daemon
@@ -127,6 +128,32 @@ def test_daemon_writes_status_file(monkeypatch, tmp_path):
 
     assert status1["restrict_dir"] == str(rdir1)
     assert status2["restrict_dir"] == str(rdir2)
+
+
+@pytest.mark.daemon
+def test_daemon_status_file_summarizes_large_log_history(monkeypatch, tmp_path):
+    from wks.api.daemon.Daemon import Daemon
+
+    Daemon._global_instance = None
+
+    cfg = minimal_wks_config()
+    wks_home = tmp_path / ".wks"
+    wks_home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
+    cfg.save()
+
+    log_path = WKSConfig.get_logfile_path()
+    warning_lines = [f"WARN: warn-{idx}" for idx in range(STATUS_LOG_MESSAGE_LIMIT + 6)]
+    log_path.write_text("\n".join(warning_lines) + "\n", encoding="utf-8")
+
+    d = Daemon()
+    d.start()
+    status = json.loads((wks_home / "daemon.json").read_text())
+    d.stop()
+
+    assert len(status["warnings"]) == STATUS_LOG_MESSAGE_LIMIT + 1
+    assert "showing 20 most recent warnings out of 26 total" in status["warnings"][0]
+    assert status["warnings"][1:] == warning_lines[-STATUS_LOG_MESSAGE_LIMIT:]
 
 
 @pytest.mark.daemon

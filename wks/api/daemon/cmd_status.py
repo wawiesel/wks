@@ -6,6 +6,7 @@ from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file
 from ..log.read_log_entries import read_log_entries
+from ..log.summarize_status_log_messages import summarize_status_log_messages
 from . import DaemonStatusOutput
 
 
@@ -42,6 +43,10 @@ def cmd_status() -> StageResult:
 
                 try:
                     status_data = json.loads(status_path.read_text())
+                    status_data["warnings"], status_data["errors"] = summarize_status_log_messages(
+                        status_data.get("warnings", []),
+                        status_data.get("errors", []),
+                    )
                     # Ensure metadata is consistent with our view if needed, or just trust it.
                     # We trust it, but we might want to ensure log_path is current config's path?
                     # No, daemon uses config's path.
@@ -55,6 +60,7 @@ def cmd_status() -> StageResult:
                         warning_retention_days=log_cfg.warning_retention_days,
                         error_retention_days=log_cfg.error_retention_days,
                     )
+                    warnings, errors = summarize_status_log_messages(warnings, errors)
                     status_data = {
                         "errors": errors,
                         "warnings": warnings,
@@ -77,6 +83,7 @@ def cmd_status() -> StageResult:
                     warning_retention_days=log_cfg.warning_retention_days,
                     error_retention_days=log_cfg.error_retention_days,
                 )
+                warnings, errors = summarize_status_log_messages(warnings, errors)
 
                 status_data = {
                     "errors": errors,

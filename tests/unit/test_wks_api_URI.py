@@ -224,9 +224,9 @@ def test_uri_to_path_file_uri_with_relative_path():
     assert resolved == test_path.expanduser().absolute()
 
 
-def test_uri_from_any_path_string_with_vault():
+def test_uri_from_any_path_string_with_vault(tmp_path):
     """Test from_any with string path and vault_path."""
-    vault_path = Path("/tmp/vault")
+    vault_path = tmp_path / "vault"
     file_path_str = str(vault_path / "note.md")
 
     # Create vault directory and file
@@ -238,7 +238,7 @@ def test_uri_from_any_path_string_with_vault():
         assert uri.is_vault is True
         assert uri.value == "vault:///note.md"
     finally:
-        Path(file_path_str).unlink()
+        Path(file_path_str).unlink(missing_ok=True)
         Path(file_path_str).parent.rmdir()
 
 

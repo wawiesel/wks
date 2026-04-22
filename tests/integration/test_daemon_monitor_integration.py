@@ -67,7 +67,8 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
     assert result.running
 
     try:
-        time.sleep(0.5)
+        # Give the watcher thread time to settle before asserting delete propagation.
+        time.sleep(2.0)
 
         # Manually sync the file first to ensure it's in DB
         from tests.conftest import run_cmd

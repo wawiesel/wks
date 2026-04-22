@@ -14,6 +14,7 @@ from ..config.WKSConfig import WKSConfig
 from ..config.write_status_file import write_status_file
 from ..log.append_log import append_log
 from ..log.read_log_entries import read_log_entries
+from ..log.summarize_status_log_messages import summarize_status_log_messages
 from ._child_main import _child_main
 from .DaemonConfig import DaemonConfig
 from .FilesystemEvents import FilesystemEvents
@@ -261,6 +262,7 @@ class Daemon:
             warning_retention_days=log_cfg.warning_retention_days,
             error_retention_days=log_cfg.error_retention_days,
         )
+        warnings_log, errors_log = summarize_status_log_messages(warnings_log, errors_log)
         import datetime
 
         status = {

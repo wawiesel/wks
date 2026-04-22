@@ -3,6 +3,7 @@
 import json
 from unittest.mock import MagicMock
 
+from wks.api.log.summarize_status_log_messages import STATUS_LOG_MESSAGE_LIMIT
 from wks.api.service._read_daemon_file import _read_daemon_file
 
 
@@ -21,6 +22,25 @@ def test_read_daemon_file_valid(tmp_path):
 
     result = _read_daemon_file(f)
     assert result == data
+
+
+def test_read_daemon_file_summarizes_large_message_lists(tmp_path):
+    """Test reading valid file with oversized warning/error arrays."""
+    f = tmp_path / "daemon.json"
+    warnings = [f"warn-{idx}" for idx in range(STATUS_LOG_MESSAGE_LIMIT + 5)]
+    errors = [f"error-{idx}" for idx in range(STATUS_LOG_MESSAGE_LIMIT + 1)]
+    data = {"warnings": warnings, "errors": errors, "pid": 123}
+    f.write_text(json.dumps(data))
+
+    result = _read_daemon_file(f)
+
+    assert result["pid"] == 123
+    assert len(result["warnings"]) == STATUS_LOG_MESSAGE_LIMIT + 1
+    assert len(result["errors"]) == STATUS_LOG_MESSAGE_LIMIT + 1
+    assert "showing 20 most recent warnings out of 25 total" in result["warnings"][0]
+    assert "showing 20 most recent errors out of 21 total" in result["errors"][0]
+    assert result["warnings"][1:] == warnings[-STATUS_LOG_MESSAGE_LIMIT:]
+    assert result["errors"][1:] == errors[-STATUS_LOG_MESSAGE_LIMIT:]
 
 
 def test_read_daemon_file_corrupt_json(tmp_path):
