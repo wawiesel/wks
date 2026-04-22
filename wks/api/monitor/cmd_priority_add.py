@@ -1,7 +1,7 @@
 """Monitor priority-add API function.
 
 This function sets or updates the priority of a priority directory.
-Matches CLI: wksc monitor priority add <path> <priority>, MCP: wksm_monitor_priority_add
+Matches CLI: wksc monitor priority add <path> <priority>, MCP tool: monitor_priority_add
 """
 
 from collections.abc import Iterator

@@ -2,7 +2,7 @@
 
 This function gets the contents of a monitor configuration list or, if no list
 is specified, returns the available list names.
-Matches CLI: wksc monitor filter show [<list-name>], MCP: wksm_monitor_filter_show
+Matches CLI: wksc monitor filter show [<list-name>], MCP tool: monitor_filter_show
 """
 
 from collections.abc import Iterator

@@ -57,7 +57,7 @@ def test_tools_and_resources_listing():
 
 def test_define_tools_enriches_search_schema():
     tools = server_mod.MCPServer.define_tools()
-    schema = tools["wksm_search"]["inputSchema"]
+    schema = tools["search"]["inputSchema"]
 
     assert schema["additionalProperties"] is False
     assert (
@@ -77,7 +77,7 @@ def test_define_tools_enriches_search_schema():
 
 def test_define_tools_enriches_cat_schema():
     tools = server_mod.MCPServer.define_tools()
-    schema = tools["wksm_cat"]["inputSchema"]
+    schema = tools["cat"]["inputSchema"]
 
     assert schema["additionalProperties"] is False
     assert schema["required"] == ["target"]
@@ -89,8 +89,8 @@ def test_define_tools_enriches_cat_schema():
 def test_resources_read_returns_tools_document():
     server, output = _server_with_streams()
     server.tools = {
-        "wksm_search": {"description": "Search docs", "inputSchema": {"type": "object"}},
-        "wksm_cat": {"description": "Read content", "inputSchema": {"type": "object"}},
+        "search": {"description": "Search docs", "inputSchema": {"type": "object"}},
+        "cat": {"description": "Read content", "inputSchema": {"type": "object"}},
     }
 
     server.handle_request(
@@ -102,8 +102,8 @@ def test_resources_read_returns_tools_document():
     assert contents[0]["mimeType"] == "application/json"
     document = json.loads(contents[0]["text"])
     assert document["server"] == "wks"
-    assert document["preferred_workflow"] == {"search": "wksm_search", "read": "wksm_cat"}
-    assert [tool["name"] for tool in document["tools"]] == ["wksm_cat", "wksm_search"]
+    assert document["preferred_workflow"] == {"search": "search", "read": "cat"}
+    assert [tool["name"] for tool in document["tools"]] == ["cat", "search"]
 
 
 def test_resources_read_missing_resource():
@@ -127,14 +127,14 @@ def test_resource_templates_list_returns_empty():
 
 def test_tools_call_happy_path(monkeypatch):
     server, output = _server_with_streams()
-    server.tools = {"wksm_dummy_run": {"description": "x", "inputSchema": {}}}
+    server.tools = {"dummy_run": {"description": "x", "inputSchema": {}}}
     monkeypatch.setattr(
-        server, "build_registry", lambda: {"wksm_dummy_run": lambda cfg, args: {"success": True, "data": args}}
+        server, "build_registry", lambda: {"dummy_run": lambda cfg, args: {"success": True, "data": args}}
     )
     monkeypatch.setattr(WKSConfig, "load", classmethod(lambda cls: object()))
 
     server.handle_request(
-        {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "wksm_dummy_run", "arguments": {"a": 1}}}
+        {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "dummy_run", "arguments": {"a": 1}}}
     )
     response = json.loads(output.getvalue())
     content = json.loads(response["result"]["content"][0]["text"])
@@ -154,11 +154,11 @@ def test_tools_call_missing_tool(monkeypatch):
 
 def test_tools_call_not_implemented(monkeypatch):
     server, output = _server_with_streams()
-    server.tools = {"wksm_dummy": {"description": "x", "inputSchema": {}}}
+    server.tools = {"dummy": {"description": "x", "inputSchema": {}}}
     monkeypatch.setattr(server, "build_registry", lambda: {})
 
     server.handle_request(
-        {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "wksm_dummy", "arguments": {}}}
+        {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "dummy", "arguments": {}}}
     )
     response = json.loads(output.getvalue())
     assert "Tool not implemented" in response["error"]["message"]
@@ -166,16 +166,16 @@ def test_tools_call_not_implemented(monkeypatch):
 
 def test_tools_call_exception(monkeypatch):
     server, output = _server_with_streams()
-    server.tools = {"wksm_boom": {"description": "x", "inputSchema": {}}}
+    server.tools = {"boom": {"description": "x", "inputSchema": {}}}
 
     def boom(_cfg, _args):
         raise RuntimeError("fail")
 
-    monkeypatch.setattr(server, "build_registry", lambda: {"wksm_boom": boom})
+    monkeypatch.setattr(server, "build_registry", lambda: {"boom": boom})
     monkeypatch.setattr(WKSConfig, "load", classmethod(lambda cls: object()))
 
     server.handle_request(
-        {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "wksm_boom", "arguments": {}}}
+        {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "boom", "arguments": {}}}
     )
     response = json.loads(output.getvalue())
     assert "fail" in response["error"]["message"]
@@ -220,20 +220,20 @@ def testbuild_registry_handles_stage_and_plain_results(monkeypatch):
     registry = server.build_registry()
 
     # StageResult path with missing required param falls back to empty string for config section
-    result_stage = registry["wksm_config_show"](None, {})  # type: ignore
+    result_stage = registry["config_show"](None, {})  # type: ignore
     assert result_stage["success"] is True
     assert result_stage["data"]["section"] == ""
 
     # Query dict should be JSON encoded
-    result_query = registry["wksm_monitor_check"](None, {"query": {"a": 1}})  # type: ignore
+    result_query = registry["monitor_check"](None, {"query": {"a": 1}})  # type: ignore
     assert captured["query"] == json.dumps({"a": 1})
     assert result_query["data"]["seen"] == json.dumps({"a": 1})
 
     # Non-dict return produces empty data
-    result_text = registry["wksm_database_reset"](None, {})  # type: ignore
+    result_text = registry["database_reset"](None, {})  # type: ignore
     assert result_text == {"success": True, "data": {}}
 
-    result_self = registry["wksm_dummy_call"](None, {"value": "ok"})  # type: ignore
+    result_self = registry["dummy_call"](None, {"value": "ok"})  # type: ignore
     assert result_self["data"]["echo"] == "ok"
 
 
@@ -245,13 +245,13 @@ def test_call_tool_success_and_failure(monkeypatch):
 
     # Success path via patched registry
     def fakebuild_registry(self):
-        return {"wksm_custom": lambda cfg, args: {"success": True, "data": args}}
+        return {"custom": lambda cfg, args: {"success": True, "data": args}}
 
     with (
         patch.object(server_mod.MCPServer, "build_registry", fakebuild_registry),
         patch.object(WKSConfig, "load", return_value=None),
     ):
-        result = call_tool("wksm_custom", {"x": 1})
+        result = call_tool("custom", {"x": 1})
         assert result["success"] is True
         assert result["data"]["x"] == 1
 
@@ -287,7 +287,7 @@ def testdiscover_commands_and_define_tools_cover_branches(monkeypatch):
     monkeypatch.setattr(server_mod, "discover_commands", lambda: {("dummy", "missing"): lambda: None})
     monkeypatch.setattr(server_mod, "get_app", lambda domain: DummyApp())
     tools = server_mod.MCPServer.define_tools()
-    assert "wksm_dummy_missing" not in tools
+    assert "dummy_missing" not in tools
 
 
 def testbuild_registry_handles_self_param(monkeypatch):
@@ -297,12 +297,12 @@ def testbuild_registry_handles_self_param(monkeypatch):
     monkeypatch.setattr(server_mod, "discover_commands", lambda: {("dummy", "echo"): func_with_self})
     server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
     registry = server.build_registry()
-    result = registry["wksm_dummy_echo"](None, {"value": "hi"})  # type: ignore
+    result = registry["dummy_echo"](None, {"value": "hi"})  # type: ignore
     assert result is not None
     assert result["data"]["echo"] == "hi"
 
 
-def testbuild_registry_coerces_path_arguments_for_wksm_cat(wks_home):
+def testbuild_registry_coerces_path_arguments_for_cat(wks_home):
     watch_dir = Path(wks_home).parent / "watched"
     watch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -313,14 +313,14 @@ def testbuild_registry_coerces_path_arguments_for_wksm_cat(wks_home):
     server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
     registry = server.build_registry()
 
-    result = registry["wksm_cat"](None, {"target": str(test_file), "output_path": str(output_file)})  # type: ignore
+    result = registry["cat"](None, {"target": str(test_file), "output_path": str(output_file)})  # type: ignore
 
     assert result["success"] is True
     assert output_file.exists()
     assert output_file.read_text(encoding="utf-8") == "Hello MCP Cat"
 
 
-def testbuild_registry_accepts_file_uri_target_for_wksm_cat(wks_home):
+def testbuild_registry_accepts_file_uri_target_for_cat(wks_home):
     watch_dir = Path(wks_home).parent / "watched"
     watch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -330,7 +330,7 @@ def testbuild_registry_accepts_file_uri_target_for_wksm_cat(wks_home):
     server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
     registry = server.build_registry()
 
-    result = registry["wksm_cat"](None, {"target": str(URI.from_path(test_file))})  # type: ignore
+    result = registry["cat"](None, {"target": str(URI.from_path(test_file))})  # type: ignore
 
     assert result["success"] is True
     assert result["data"]["content"] == "Hello MCP URI Cat"

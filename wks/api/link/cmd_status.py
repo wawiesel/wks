@@ -1,7 +1,7 @@
 """Links status API command.
 
 CLI: wksc links status
-MCP: wksm_links_status
+MCP tool: link_status
 """
 
 from collections.abc import Iterator

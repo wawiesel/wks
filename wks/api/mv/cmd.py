@@ -1,7 +1,7 @@
 """Mv API function.
 
 Move a file within monitored paths and update the database.
-Matches CLI: wksc mv <source> <dest>, MCP: wksm_mv
+Matches CLI: wksc mv <source> <dest>, MCP tool: mv
 """
 
 import re

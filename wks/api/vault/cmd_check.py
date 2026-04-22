@@ -1,7 +1,7 @@
 """Vault check API command.
 
 CLI: wksc vault check [path]
-MCP: wksm_vault_check
+MCP tool: vault_check
 """
 
 from collections.abc import Iterator

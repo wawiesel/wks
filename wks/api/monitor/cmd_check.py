@@ -1,7 +1,7 @@
 """Monitor check API function.
 
 This function checks if a path would be monitored and calculates its priority.
-Matches CLI: wksc monitor check <path>, MCP: wksm_monitor_check
+Matches CLI: wksc monitor check <path>, MCP tool: monitor_check
 """
 
 from collections.abc import Iterator

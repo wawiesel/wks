@@ -1,7 +1,7 @@
 """Vault sync API command.
 
 CLI: wksc vault sync [path] [--recursive]
-MCP: wksm_vault_sync
+MCP tool: vault_sync
 
 Per spec VAU.3: vault sync delegates to link sync, then runs backend-specific ops.
 """

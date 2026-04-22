@@ -51,12 +51,12 @@ GENERIC_PARAM_DESCRIPTIONS: dict[str, str] = {
 }
 
 TOOL_PARAM_DESCRIPTION_OVERRIDES: dict[str, dict[str, str]] = {
-    "wksm_cat": {
+    "cat": {
         "engine": "Optional transform engine to run before returning content.",
         "output_path": "Optional file path to write the rendered content to.",
         "target": "Checksum, cached artifact, or filesystem path to read.",
     },
-    "wksm_search": {
+    "search": {
         "index": "Optional index name. Omit to use the configured default index or strategy.",
         "k": "Maximum number of ranked hits to return.",
         "query": "Text query to search for. Provide this for normal text retrieval.",
@@ -66,10 +66,10 @@ TOOL_PARAM_DESCRIPTION_OVERRIDES: dict[str, dict[str, str]] = {
 }
 
 TOOL_SCHEMA_OVERRIDES: dict[str, dict[str, Any]] = {
-    "wksm_cat": {
+    "cat": {
         "required": ["target"],
     },
-    "wksm_search": {
+    "search": {
         "anyOf": [{"required": ["query"]}, {"required": ["query_image"]}],
         "properties": {
             "k": {"minimum": 1},
@@ -83,10 +83,10 @@ TOOL_SCHEMA_OVERRIDES: dict[str, dict[str, Any]] = {
 def _tool_name(domain: str, cmd_name: str) -> str:
     """Build MCP tool name from domain/command pair."""
     if domain == "_root":
-        return f"wksm_{cmd_name}"
+        return cmd_name
     if domain == cmd_name:
-        return f"wksm_{domain}"
-    return f"wksm_{domain}_{cmd_name}"
+        return domain
+    return f"{domain}_{cmd_name}"
 
 
 def _unwrap_optional(annotation: Any) -> Any:
@@ -290,10 +290,10 @@ class MCPServer:
             ],
         }
         preferred_workflow: dict[str, str] = {}
-        if "wksm_search" in self.tools:
-            preferred_workflow["search"] = "wksm_search"
-        if "wksm_cat" in self.tools:
-            preferred_workflow["read"] = "wksm_cat"
+        if "search" in self.tools:
+            preferred_workflow["search"] = "search"
+        if "cat" in self.tools:
+            preferred_workflow["read"] = "cat"
         if preferred_workflow:
             document["preferred_workflow"] = preferred_workflow
         return json.dumps(document, indent=2)

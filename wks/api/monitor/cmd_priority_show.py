@@ -1,7 +1,7 @@
 """Monitor priority-show API function.
 
 This function lists all priority directories.
-Matches CLI: wksc monitor priority show, MCP: wksm_monitor_priority_show
+Matches CLI: wksc monitor priority show, MCP tool: monitor_priority_show
 """
 
 from collections.abc import Iterator

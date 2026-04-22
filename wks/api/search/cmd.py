@@ -5,11 +5,82 @@ from typing import Any
 
 from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
-from ..database.Database import Database
 from ..index._IndexSpec import _IndexSpec
 from . import SearchOutput
 from ._dedupe_hits import _dedupe_hits
 from ._rrf import rrf_merge
+from ._SearchRuntime import _SEARCH_RUNTIME, _LexicalIndexState, _SemanticIndexState
+
+
+def _rank_semantic_hits(
+    state: _SemanticIndexState,
+    spec: _IndexSpec,
+    query: str,
+    query_image: str,
+    k: int,
+) -> list[dict[str, Any]]:
+    """Rank semantic hits using the hot runtime state."""
+    from ..index._embedding_utils import cosine_scores
+    from ._build_query_embedding import build_query_embedding
+
+    if not state.docs:
+        return []
+
+    embedding_model = spec.embedding_model
+    assert embedding_model is not None
+
+    query_embedding = build_query_embedding(
+        query=query,
+        query_image=query_image,
+        embedding_model=embedding_model,
+        embedding_mode=spec.embedding_mode,
+        image_text_weight=spec.image_text_weight,
+    )
+
+    scores = cosine_scores(query_embedding, state.matrix)
+    query_terms = {term.lower() for term in query.split() if term} if query.strip() else set()
+    boosted: list[float] = []
+    for index, segments in enumerate(state.path_segments):
+        if not query_terms or not segments:
+            boosted.append(float(scores[index]))
+            continue
+        matches = sum(1 for term in query_terms if term in segments)
+        boosted.append(float(scores[index]) * (1.0 + 0.2 * matches))
+
+    ranked = sorted(range(len(boosted)), key=lambda i: boosted[i], reverse=True)
+    ranked_hits = [
+        {
+            "uri": state.docs[i]["uri"],
+            "chunk_index": state.docs[i]["chunk_index"],
+            "score": round(boosted[i], 4),
+            "tokens": state.docs[i]["tokens"],
+            "text": state.docs[i]["text"],
+        }
+        for i in ranked
+    ]
+    return _dedupe_hits(ranked_hits, k)
+
+
+def _rank_lexical_hits(state: _LexicalIndexState, query: str, k: int) -> list[dict[str, Any]]:
+    """Rank lexical hits using the hot runtime state."""
+    if state.bm25 is None:
+        return []
+
+    query_terms = set(query.lower().split())
+    scores = state.bm25.get_scores(list(query_terms))
+    ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+    ranked_hits = [
+        {
+            "uri": state.chunks[i].uri,
+            "chunk_index": state.chunks[i].chunk_index,
+            "score": round(float(scores[i]), 4),
+            "tokens": state.chunks[i].tokens,
+            "text": state.chunks[i].text,
+        }
+        for i in ranked
+        if query_terms.intersection(state.corpus[i])
+    ]
+    return _dedupe_hits(ranked_hits, k)
 
 
 def _search_semantic(
@@ -21,60 +92,11 @@ def _search_semantic(
     k: int,
 ) -> list[dict[str, Any]]:
     """Run semantic search on a single index, return ranked hits."""
-    import numpy as np
-
-    from ..index._embedding_utils import cosine_scores
-    from ..index._EmbeddingStore import _EmbeddingStore
-    from ._build_query_embedding import build_query_embedding
-
     embedding_model = spec.embedding_model
     assert embedding_model is not None
 
-    with Database(config.database, "index_embeddings") as db:
-        docs = _EmbeddingStore(db).get_all(index_name=index_name, embedding_model=embedding_model)
-
-    if not docs:
-        return []
-
-    query_embedding = build_query_embedding(
-        query=query,
-        query_image=query_image,
-        embedding_model=embedding_model,
-        embedding_mode=spec.embedding_mode,
-        image_text_weight=spec.image_text_weight,
-    )
-
-    matrix = np.asarray([doc["embedding"] for doc in docs], dtype=np.float32)
-    scores = cosine_scores(query_embedding, matrix)
-
-    from ..config.URI import URI
-
-    query_terms = {t.lower() for t in query.split() if t} if query.strip() else set()
-    boosted: list[float] = []
-    for i in range(len(docs)):
-        if not query_terms:
-            boosted.append(float(scores[i]))
-            continue
-        try:
-            path = URI.from_any(docs[i]["uri"]).path
-            segments = {p.lower() for p in path.parts}
-            segments.add(path.stem.lower())
-            matches = sum(1 for t in query_terms if t in segments)
-            boosted.append(float(scores[i]) * (1.0 + 0.2 * matches))
-        except Exception:
-            boosted.append(float(scores[i]))
-
-    ranked = sorted(range(len(boosted)), key=lambda i: boosted[i], reverse=True)
-    return [
-        {
-            "uri": docs[i]["uri"],
-            "chunk_index": docs[i]["chunk_index"],
-            "score": round(boosted[i], 4),
-            "tokens": docs[i]["tokens"],
-            "text": docs[i]["text"],
-        }
-        for i in ranked[:k]
-    ]
+    state = _SEARCH_RUNTIME.get_semantic_index_state(config, index_name, embedding_model)
+    return _rank_semantic_hits(state, spec, query, query_image, k)
 
 
 def _search_lexical(
@@ -84,35 +106,8 @@ def _search_lexical(
     k: int,
 ) -> list[dict[str, Any]]:
     """Run BM25 lexical search on a single index, return ranked hits."""
-    from ..index._ChunkStore import _ChunkStore
-
-    with Database(config.database, "index") as db:
-        store = _ChunkStore(db)
-        chunks = store.get_all(index_name)
-
-    if not chunks:
-        return []
-
-    from rank_bm25 import BM25Okapi
-
-    corpus = [chunk.text.lower().split() for chunk in chunks]
-    bm25 = BM25Okapi(corpus)
-
-    query_terms = set(query.lower().split())
-    scores = bm25.get_scores(list(query_terms))
-
-    ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-    return [
-        {
-            "uri": chunks[i].uri,
-            "chunk_index": chunks[i].chunk_index,
-            "score": round(float(scores[i]), 4),
-            "tokens": chunks[i].tokens,
-            "text": chunks[i].text,
-        }
-        for i in ranked
-        if query_terms.intersection(corpus[i])
-    ][:k]
+    state = _SEARCH_RUNTIME.get_lexical_index_state(config, index_name)
+    return _rank_lexical_hits(state, query, k)
 
 
 def cmd(
@@ -126,7 +121,7 @@ def cmd(
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
-        config = WKSConfig.load()
+        config = _SEARCH_RUNTIME.load_config()
 
         if config.index is None:
             yield (1.0, "Complete")
@@ -192,22 +187,14 @@ def cmd(
             return
         spec = config.index.indexes[index_name]
         embedding_model = spec.embedding_model
-        embedding_mode = spec.embedding_mode
         search_mode = "semantic" if embedding_model is not None else "lexical"
         query_output = query if query.strip() else query_image
 
         if embedding_model is not None:
-            import numpy as np
+            yield (0.3, "Loading semantic index...")
+            semantic_state = _SEARCH_RUNTIME.get_semantic_index_state(config, index_name, embedding_model)
 
-            from ..index._embedding_utils import cosine_scores
-            from ..index._EmbeddingStore import _EmbeddingStore
-            from ._build_query_embedding import build_query_embedding
-
-            with Database(config.database, "index_embeddings") as db:
-                yield (0.3, "Loading embeddings...")
-                docs = _EmbeddingStore(db).get_all(index_name=index_name, embedding_model=embedding_model)
-
-            if not docs:
+            if not semantic_state.docs:
                 yield (1.0, "Complete")
                 result_obj.result = f"No embeddings for index '{index_name}'"
                 result_obj.output = SearchOutput(
@@ -228,13 +215,7 @@ def cmd(
 
             yield (0.55, f"Embedding query with {embedding_model}...")
             try:
-                query_embedding = build_query_embedding(
-                    query=query,
-                    query_image=query_image,
-                    embedding_model=embedding_model,
-                    embedding_mode=embedding_mode,
-                    image_text_weight=spec.image_text_weight,
-                )
+                hits = _rank_semantic_hits(semantic_state, spec, query, query_image, k)
             except Exception as exc:
                 yield (1.0, "Complete")
                 result_obj.result = str(exc)
@@ -246,46 +227,10 @@ def cmd(
                     search_mode=search_mode,
                     embedding_model=embedding_model,
                     hits=[],
-                    total_chunks=len(docs),
+                    total_chunks=len(semantic_state.docs),
                 ).model_dump(mode="python")
                 result_obj.success = False
                 return
-
-            yield (0.7, "Scoring chunks...")
-            matrix = np.asarray([doc["embedding"] for doc in docs], dtype=np.float32)
-            scores = cosine_scores(query_embedding, matrix)
-
-            # Path-segment boost: if query terms appear in directory/filename segments, boost score
-            from ..config.URI import URI
-
-            query_terms = {t.lower() for t in query.split() if t} if query.strip() else set()
-            boosted: list[float] = []
-            for i in range(len(docs)):
-                if not query_terms:
-                    boosted.append(float(scores[i]))
-                    continue
-                try:
-                    path = URI.from_any(docs[i]["uri"]).path
-                    segments = {p.lower() for p in path.parts}
-                    segments.add(path.stem.lower())
-                    matches = sum(1 for t in query_terms if t in segments)
-                    boosted.append(float(scores[i]) * (1.0 + 0.2 * matches))
-                except Exception:
-                    boosted.append(float(scores[i]))
-
-            ranked = sorted(range(len(boosted)), key=lambda i: boosted[i], reverse=True)
-            ranked_hits = [
-                {
-                    "uri": docs[i]["uri"],
-                    "chunk_index": docs[i]["chunk_index"],
-                    "score": round(boosted[i], 4),
-                    "tokens": docs[i]["tokens"],
-                    "text": docs[i]["text"],
-                }
-                for i in ranked
-            ]
-
-            hits = _dedupe_hits(ranked_hits, k)
 
             yield (1.0, "Complete")
             result_obj.result = f"Found {len(hits)} results for '{query_output}'"
@@ -297,12 +242,10 @@ def cmd(
                 search_mode=search_mode,
                 embedding_model=embedding_model,
                 hits=hits,
-                total_chunks=len(docs),
+                total_chunks=len(semantic_state.docs),
             ).model_dump(mode="python")
             result_obj.success = True
             return
-
-        from ..index._ChunkStore import _ChunkStore
 
         if query_image.strip():
             yield (1.0, "Complete")
@@ -335,66 +278,41 @@ def cmd(
             result_obj.success = True
             return
 
-        with Database(config.database, "index") as db:
-            store = _ChunkStore(db)
+        yield (0.3, "Loading lexical index...")
+        lexical_state = _SEARCH_RUNTIME.get_lexical_index_state(config, index_name)
 
-            yield (0.3, "Loading chunks...")
-            chunks = store.get_all(index_name)
-
-            if not chunks:
-                yield (1.0, "Complete")
-                result_obj.result = f"Index '{index_name}' is empty"
-                result_obj.output = SearchOutput(
-                    errors=[f"Index '{index_name}' is empty"],
-                    warnings=[],
-                    query=query_output,
-                    index_name=index_name,
-                    search_mode=search_mode,
-                    embedding_model=embedding_model,
-                    hits=[],
-                    total_chunks=0,
-                ).model_dump(mode="python")
-                result_obj.success = False
-                return
-
-            yield (0.5, "Building search index...")
-            from rank_bm25 import BM25Okapi
-
-            corpus = [chunk.text.lower().split() for chunk in chunks]
-            bm25 = BM25Okapi(corpus)
-
-            yield (0.7, f"Searching for: {query}...")
-            query_terms = set(query.lower().split())
-            scores = bm25.get_scores(list(query_terms))
-
-            ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-            ranked_hits = [
-                {
-                    "uri": chunks[i].uri,
-                    "chunk_index": chunks[i].chunk_index,
-                    "score": round(float(scores[i]), 4),
-                    "tokens": chunks[i].tokens,
-                    "text": chunks[i].text,
-                }
-                for i in ranked
-                if query_terms.intersection(corpus[i])
-            ]
-
-            hits = _dedupe_hits(ranked_hits, k)
-
+        if not lexical_state.chunks:
             yield (1.0, "Complete")
-            result_obj.result = f"Found {len(hits)} results for '{query_output}'"
+            result_obj.result = f"Index '{index_name}' is empty"
             result_obj.output = SearchOutput(
-                errors=[],
+                errors=[f"Index '{index_name}' is empty"],
                 warnings=[],
                 query=query_output,
                 index_name=index_name,
                 search_mode=search_mode,
                 embedding_model=embedding_model,
-                hits=hits,
-                total_chunks=len(chunks),
+                hits=[],
+                total_chunks=0,
             ).model_dump(mode="python")
-            result_obj.success = True
+            result_obj.success = False
+            return
+
+        yield (0.7, f"Searching for: {query}...")
+        hits = _rank_lexical_hits(lexical_state, query, k)
+
+        yield (1.0, "Complete")
+        result_obj.result = f"Found {len(hits)} results for '{query_output}'"
+        result_obj.output = SearchOutput(
+            errors=[],
+            warnings=[],
+            query=query_output,
+            index_name=index_name,
+            search_mode=search_mode,
+            embedding_model=embedding_model,
+            hits=hits,
+            total_chunks=len(lexical_state.chunks),
+        ).model_dump(mode="python")
+        result_obj.success = True
 
     return StageResult(
         announce=f"Searching for '{query if query.strip() else query_image}'...",

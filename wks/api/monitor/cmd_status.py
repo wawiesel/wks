@@ -1,7 +1,7 @@
 """Monitor status API function.
 
 This function provides filesystem monitoring status and configuration.
-Matches CLI: wksc monitor status, MCP: wksm_monitor_status
+Matches CLI: wksc monitor status, MCP tool: monitor_status
 """
 
 from collections.abc import Iterator

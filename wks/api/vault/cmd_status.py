@@ -1,7 +1,7 @@
 """Vault status API command.
 
 CLI: wksc vault status
-MCP: wksm_vault_status
+MCP tool: vault_status
 """
 
 from collections.abc import Iterator

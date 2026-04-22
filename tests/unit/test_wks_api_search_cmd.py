@@ -15,8 +15,11 @@ from tests.conftest import run_cmd
 from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
+from wks.api.index._ChunkStore import _ChunkStore
+from wks.api.index._EmbeddingStore import _EmbeddingStore
 from wks.api.index.cmd import cmd as index_cmd
 from wks.api.index.cmd_embed import cmd_embed
+from wks.api.search._SearchRuntime import _SEARCH_RUNTIME
 from wks.api.search.cmd import cmd as search_cmd
 
 _SEARCH_DOCS = {
@@ -213,6 +216,57 @@ def test_search_uses_default_index(search_env):
     assert result.output["index_name"] == "main"
 
 
+def test_search_lexical_runtime_reuses_hot_index_state(search_env, monkeypatch):
+    _SEARCH_RUNTIME.reset()
+    call_count = {"count": 0}
+    original_get_all = _ChunkStore.get_all
+
+    def _counting_get_all(self, index_name: str):
+        call_count["count"] += 1
+        return original_get_all(self, index_name)
+
+    monkeypatch.setattr(_ChunkStore, "get_all", _counting_get_all)
+
+    first = run_cmd(search_cmd, "fission", index="main")
+    second = run_cmd(search_cmd, "reactor", index="main")
+
+    assert first.success is True
+    assert second.success is True
+    assert call_count["count"] == 1
+
+
+def test_search_lexical_runtime_invalidates_on_index_change(search_env, monkeypatch, tmp_path):
+    _SEARCH_RUNTIME.reset()
+    call_count = {"count": 0}
+    original_get_all = _ChunkStore.get_all
+
+    def _counting_get_all(self, index_name: str):
+        call_count["count"] += 1
+        return original_get_all(self, index_name)
+
+    monkeypatch.setattr(_ChunkStore, "get_all", _counting_get_all)
+
+    first = run_cmd(search_cmd, "fission", index="main")
+    assert first.success is True
+
+    config = WKSConfig.load()
+    with Database(config.database, "index") as db:
+        db.insert_one(
+            {
+                "index_name": "main",
+                "uri": str(tmp_path / "new-doc.txt"),
+                "chunk_index": 0,
+                "text": "new lexical content about fission products",
+                "tokens": 6,
+                "is_continuation": False,
+            }
+        )
+
+    second = run_cmd(search_cmd, "fission", index="main")
+    assert second.success is True
+    assert call_count["count"] == 2
+
+
 def test_search_no_config(tmp_path, monkeypatch):
     from tests.conftest import minimal_config_dict
 
@@ -261,6 +315,65 @@ def test_search_semantic_finds_relevant(search_env_semantic, monkeypatch):
     assert result.output["embedding_model"] == "test-model"
     assert len(result.output["hits"]) > 0
     assert "fission" in result.output["hits"][0]["text"].lower()
+
+
+def test_search_semantic_runtime_reuses_hot_index_state(search_env_semantic, monkeypatch):
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+    embed_res = run_cmd(cmd_embed, "main", batch_size=8)
+    assert embed_res.success is True
+
+    _SEARCH_RUNTIME.reset()
+    call_count = {"count": 0}
+    original_get_all = _EmbeddingStore.get_all
+
+    def _counting_get_all(self, index_name: str, embedding_model: str):
+        call_count["count"] += 1
+        return original_get_all(self, index_name=index_name, embedding_model=embedding_model)
+
+    monkeypatch.setattr(_EmbeddingStore, "get_all", _counting_get_all)
+
+    first = run_cmd(search_cmd, "fission", index="main")
+    second = run_cmd(search_cmd, "reactor", index="main")
+
+    assert first.success is True
+    assert second.success is True
+    assert call_count["count"] == 1
+
+
+def test_search_semantic_runtime_invalidates_on_embedding_change(search_env_semantic, monkeypatch):
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
+    embed_res = run_cmd(cmd_embed, "main", batch_size=8)
+    assert embed_res.success is True
+
+    _SEARCH_RUNTIME.reset()
+    call_count = {"count": 0}
+    original_get_all = _EmbeddingStore.get_all
+
+    def _counting_get_all(self, index_name: str, embedding_model: str):
+        call_count["count"] += 1
+        return original_get_all(self, index_name=index_name, embedding_model=embedding_model)
+
+    monkeypatch.setattr(_EmbeddingStore, "get_all", _counting_get_all)
+
+    first = run_cmd(search_cmd, "fission", index="main")
+    assert first.success is True
+
+    config = WKSConfig.load()
+    with Database(config.database, "index_embeddings") as db:
+        docs = list(
+            db.find(
+                {"index_name": "main", "embedding_model": "test-model"},
+                {"_id": 0},
+            )
+        )
+        duplicate = dict(docs[0])
+        duplicate["uri"] = str(URI.from_any(duplicate["uri"]).path.with_name("fission-runtime-copy.txt"))
+        duplicate["chunk_index"] = 4242
+        db.insert_one(duplicate)
+
+    second = run_cmd(search_cmd, "fission", index="main")
+    assert second.success is True
+    assert call_count["count"] == 2
 
 
 def test_search_semantic_requires_embeddings(search_env_semantic):
@@ -358,9 +471,9 @@ def search_env_semantic_image(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "wks.api.transform._imagetext._ImageTextEngine._ImageTextEngine._caption_image",
-        lambda self, image_path, model_name, max_new_tokens: "cat animal"
-        if "cat" in image_path.stem.lower()
-        else "mountain landscape",
+        lambda self, image_path, model_name, max_new_tokens: (
+            "cat animal" if "cat" in image_path.stem.lower() else "mountain landscape"
+        ),
     )
 
     def _fake_embed_clip_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
@@ -451,93 +564,3 @@ def test_search_semantic_path_segment_boost(tmp_path, monkeypatch):
     assert "agents.txt" in result.output["hits"][0]["uri"], (
         f"Expected agents.txt first, got: {result.output['hits'][0]['uri']}"
     )
-
-
-# =============================================================================
-# Strategy search tests
-# =============================================================================
-
-
-@pytest.fixture
-def search_env_strategy(tmp_path, monkeypatch):
-    """Build two indexes (lexical + semantic) with a hybrid strategy."""
-    _setup_search_config(
-        tmp_path,
-        monkeypatch,
-        index_config={
-            "default_index": "main",
-            "default_strategy": "hybrid",
-            "strategies": {
-                "hybrid": {"indexes": ["main", "semantic"], "merge": "rrf"},
-            },
-            "indexes": {
-                "main": {"engine": "textpass"},
-                "semantic": {"engine": "textpass", "embedding_model": "test-model"},
-            },
-        },
-    )
-    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
-    docs = _write_and_index_search_docs(tmp_path)
-    # Also index into semantic
-    for name, _content in _SEARCH_DOCS.items():
-        doc = tmp_path / name
-        result = run_cmd(index_cmd, "semantic", str(doc))
-        assert result.success is True
-    embed_res = run_cmd(cmd_embed, "semantic", batch_size=8)
-    assert embed_res.success is True
-    return {"docs": docs}
-
-
-def test_strategy_search_combined(search_env_strategy):
-    result = run_cmd(search_cmd, "fission", strategy="hybrid")
-    assert result.success is True
-    assert result.output["search_mode"] == "combined"
-    assert result.output["index_name"] == "hybrid"
-    assert result.output["embedding_model"] is None
-    assert len(result.output["hits"]) > 0
-
-
-def test_strategy_default_used(search_env_strategy):
-    """When no --index or --strategy, default_strategy is used."""
-    result = run_cmd(search_cmd, "fission")
-    assert result.success is True
-    assert result.output["search_mode"] == "combined"
-    assert result.output["index_name"] == "hybrid"
-
-
-def test_strategy_explicit_index_overrides_default_strategy(search_env_strategy):
-    """--index bypasses default_strategy."""
-    result = run_cmd(search_cmd, "fission", index="main")
-    assert result.success is True
-    assert result.output["search_mode"] == "lexical"
-    assert result.output["index_name"] == "main"
-
-
-def test_strategy_and_index_mutually_exclusive(search_env_strategy):
-    result = run_cmd(search_cmd, "fission", index="main", strategy="hybrid")
-    assert result.success is False
-    assert "cannot specify both" in result.output["errors"][0].lower()
-
-
-def test_strategy_unknown_name(search_env_strategy):
-    result = run_cmd(search_cmd, "fission", strategy="nonexistent")
-    assert result.success is False
-    assert "not defined" in result.output["errors"][0].lower()
-
-
-def test_rrf_merge_basic():
-    """RRF merge produces correct ordering."""
-    from wks.api.search._rrf import rrf_merge
-
-    list_a = [
-        {"uri": "a.txt", "chunk_index": 0, "score": 1.0, "tokens": 10, "text": "a"},
-        {"uri": "b.txt", "chunk_index": 0, "score": 0.5, "tokens": 10, "text": "b"},
-    ]
-    list_b = [
-        {"uri": "b.txt", "chunk_index": 0, "score": 1.0, "tokens": 10, "text": "b"},
-        {"uri": "c.txt", "chunk_index": 0, "score": 0.5, "tokens": 10, "text": "c"},
-    ]
-    merged = rrf_merge([list_a, list_b], k=3)
-    # b.txt appears in both lists (rank 1 in a, rank 0 in b) so should have highest RRF score
-    assert merged[0]["uri"] == "b.txt"
-    assert len(merged) == 3

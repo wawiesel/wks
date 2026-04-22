@@ -1,7 +1,7 @@
 """Monitor filter-add API function.
 
 Add a value to a monitor configuration list.
-Matches CLI: wksc monitor filter add <list-name> <value>, MCP: wksm_monitor_filter_add
+Matches CLI: wksc monitor filter add <list-name> <value>, MCP tool: monitor_filter_add
 """
 
 from collections.abc import Iterator

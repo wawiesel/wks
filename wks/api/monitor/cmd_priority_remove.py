@@ -1,7 +1,7 @@
 """Monitor priority-remove API function.
 
 This function removes a priority directory.
-Matches CLI: wksc monitor priority remove <path>, MCP: wksm_monitor_priority_remove
+Matches CLI: wksc monitor priority remove <path>, MCP tool: monitor_priority_remove
 """
 
 from collections.abc import Iterator

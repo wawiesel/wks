@@ -159,12 +159,12 @@ def test_mcp_list_tools(mcp_process):
     """Test tools/list."""
     response = send_request(mcp_process, "tools/list", req_id=2)
     tools = response["result"]["tools"]
-    assert any(t["name"] == "wksm_monitor_status" for t in tools)
+    assert any(t["name"] == "monitor_status" for t in tools)
 
 
 def test_mcp_call_monitor_status(mcp_process):
     """Test tools/call wks_monitor_status."""
-    response = send_request(mcp_process, "tools/call", {"name": "wksm_monitor_status", "arguments": {}}, req_id=3)
+    response = send_request(mcp_process, "tools/call", {"name": "monitor_status", "arguments": {}}, req_id=3)
 
     content = json.loads(response["result"]["content"][0]["text"])
     assert "data" in content
@@ -176,7 +176,7 @@ def test_mcp_call_monitor_check(mcp_process):
     response = send_request(
         mcp_process,
         "tools/call",
-        {"name": "wksm_monitor_check", "arguments": {"path": str(Path.home())}},
+        {"name": "monitor_check", "arguments": {"path": str(Path.home())}},
         req_id=4,
     )
 

@@ -1,7 +1,7 @@
 """Monitor sync API function.
 
 This function forces an update of a file or directory into the monitor database.
-Matches CLI: wksc monitor sync <path> [--recursive], MCP: wksm_monitor_sync
+Matches CLI: wksc monitor sync <path> [--recursive], MCP tool: monitor_sync
 """
 
 from collections.abc import Iterator

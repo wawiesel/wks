@@ -3,7 +3,7 @@
 Find broken _links/ symlinks and attempt to repair them by searching
 the monitor database for a matching checksum at a new path.
 
-Matches CLI: wksc vault repair, MCP: wksm_vault_repair
+Matches CLI: wksc vault repair, MCP tool: vault_repair
 """
 
 from collections.abc import Iterator

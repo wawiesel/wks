@@ -1,7 +1,7 @@
 """Monitor filter-remove API function.
 
 Remove a value from a monitor configuration list.
-Matches CLI: wksc monitor filter remove <list-name> <value>, MCP: wksm_monitor_filter_remove
+Matches CLI: wksc monitor filter remove <list-name> <value>, MCP tool: monitor_filter_remove
 """
 
 from collections.abc import Iterator

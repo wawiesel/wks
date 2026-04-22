@@ -1,7 +1,7 @@
 """Link show API command.
 
 CLI: wksc link show <uri> [--direction to|from|both]
-MCP: wksm_link_show
+MCP tool: link_show
 """
 
 from collections.abc import Iterator

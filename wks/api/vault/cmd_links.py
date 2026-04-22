@@ -1,7 +1,7 @@
 """Vault links API command.
 
 CLI: wksc vault links <path> [--direction to|from|both]
-MCP: wksm_vault_links
+MCP tool: vault_links
 """
 
 from collections.abc import Iterator

@@ -1,7 +1,7 @@
 """Database prune API command.
 
 CLI: wksc database prune <database>
-MCP: wksm_database_prune
+MCP tool: database_prune
 """
 
 from collections.abc import Iterator
