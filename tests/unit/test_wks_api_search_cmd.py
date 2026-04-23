@@ -128,7 +128,7 @@ def test_search_no_match(search_env):
     assert len(result.output["hits"]) == 0
 
 
-def test_search_empty_query_returns_no_hits(tmp_path, monkeypatch):
+def test_search_empty_query_requires_query_or_image(tmp_path, monkeypatch):
     _setup_search_config(
         tmp_path,
         monkeypatch,
@@ -136,8 +136,8 @@ def test_search_empty_query_returns_no_hits(tmp_path, monkeypatch):
     )
 
     result = run_cmd(search_cmd, "")
-    assert result.success is True
-    assert result.output["errors"] == []
+    assert result.success is False
+    assert result.output["errors"] == ["Either query or query_image is required"]
     assert result.output["hits"] == []
 
 

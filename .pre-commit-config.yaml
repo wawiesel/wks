@@ -38,7 +38,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: .venv/bin/pytest
+        entry: venv/bin/pytest
         language: script
         pass_filenames: false
         always_run: true

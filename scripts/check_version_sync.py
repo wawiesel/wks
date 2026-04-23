@@ -5,7 +5,6 @@ import re
 import sys
 from pathlib import Path
 
-import tomllib
 from rich.console import Console
 
 console = Console()
@@ -13,17 +12,26 @@ console = Console()
 PYPROJECT_PATH = Path("pyproject.toml")
 PACKAGE_INIT_PATH = Path("wks/__init__.py")
 VERSION_PATTERN = re.compile(r'^__version__\s*=\s*"([^"]+)"', re.MULTILINE)
+PYPROJECT_VERSION_PATTERN = re.compile(r'^version\s*=\s*"([^"]+)"\s*$')
 
 
 def read_pyproject_version() -> str:
     if not PYPROJECT_PATH.exists():
         raise ValueError(f"Missing version source: {PYPROJECT_PATH}")
-    with PYPROJECT_PATH.open("rb") as handle:
-        data = tomllib.load(handle)
-    version = data.get("project", {}).get("version")
-    if not isinstance(version, str) or not version.strip():
-        raise ValueError(f"Missing [project].version in {PYPROJECT_PATH}")
-    return version
+    in_project_section = False
+    for raw_line in PYPROJECT_PATH.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            in_project_section = line == "[project]"
+            continue
+        if not in_project_section:
+            continue
+        match = PYPROJECT_VERSION_PATTERN.match(line)
+        if match is not None:
+            return match.group(1)
+    raise ValueError(f"Missing [project].version in {PYPROJECT_PATH}")
 
 
 def read_package_init_version() -> str:

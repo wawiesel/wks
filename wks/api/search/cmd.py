@@ -139,6 +139,22 @@ def cmd(
             result_obj.success = False
             return
 
+        if not query.strip() and not query_image.strip():
+            yield (1.0, "Complete")
+            result_obj.result = "Either query or query_image is required"
+            result_obj.output = SearchOutput(
+                errors=["Either query or query_image is required"],
+                warnings=[],
+                query="",
+                index_name="",
+                search_mode="lexical",
+                embedding_model=None,
+                hits=[],
+                total_chunks=0,
+            ).model_dump(mode="python")
+            result_obj.success = False
+            return
+
         # Resolve: --index and --strategy are mutually exclusive
         if index and strategy:
             yield (1.0, "Complete")

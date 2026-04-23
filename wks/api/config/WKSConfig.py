@@ -17,6 +17,7 @@ from ..monitor.explain_path import explain_path
 from ..monitor.MonitorConfig import MonitorConfig
 from ..mv.MvConfig import MvConfig
 from ..service.ServiceConfig import ServiceConfig
+from ..similar.SimilarConfig import SimilarConfig
 from ..transform.TransformConfig import TransformConfig
 from ..vault.VaultConfig import VaultConfig
 from .get_wks_home import get_wks_home
@@ -38,6 +39,7 @@ class WKSConfig(BaseModel):
     cat: CatConfig
     mv: MvConfig = MvConfig()  # Optional, defaults to empty
     index: IndexConfig | None = None
+    similar: SimilarConfig = SimilarConfig()
 
     @model_validator(mode="after")
     def validate_transform_cache_monitored(self) -> "WKSConfig":
@@ -120,6 +122,7 @@ class WKSConfig(BaseModel):
             "cat": self.cat.model_dump(),
             "mv": self.mv.model_dump(),
             **({"index": self.index.model_dump()} if self.index else {}),
+            "similar": self.similar.model_dump(),
         }
 
     def save(self) -> None:

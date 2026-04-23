@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-VENV_PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
+VENV_PYTHON = REPO_ROOT / "venv" / "bin" / "python"
 
 
 def _run_cmd(cmd: list[str], description: str, check: bool = True) -> bool:
@@ -43,7 +43,7 @@ def main() -> None:
     parser.add_argument("--skip-mutations", action="store_true", help="Skip mutation testing")
     args = parser.parse_args()
 
-    # Use .venv Python if available, otherwise system Python
+    # Use venv Python if available, otherwise system Python
     python_exe = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 
     print("=" * 60)

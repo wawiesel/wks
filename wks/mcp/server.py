@@ -50,6 +50,13 @@ GENERIC_PARAM_DESCRIPTIONS: dict[str, str] = {
     "value": "Value to set or add.",
 }
 
+SEARCH_QUERY_DESCRIPTION = " ".join(
+    [
+        "Text query to search for. Provide this for normal text retrieval.",
+        "Supply either `query` or `query_image`.",
+    ]
+)
+
 TOOL_PARAM_DESCRIPTION_OVERRIDES: dict[str, dict[str, str]] = {
     "cat": {
         "engine": "Optional transform engine to run before returning content.",
@@ -59,8 +66,8 @@ TOOL_PARAM_DESCRIPTION_OVERRIDES: dict[str, dict[str, str]] = {
     "search": {
         "index": "Optional index name. Omit to use the configured default index or strategy.",
         "k": "Maximum number of ranked hits to return.",
-        "query": "Text query to search for. Provide this for normal text retrieval.",
-        "query_image": "Optional image path or URI for image-guided search.",
+        "query": SEARCH_QUERY_DESCRIPTION,
+        "query_image": "Optional image path or URI for image-guided search. Supply either `query_image` or `query`.",
         "strategy": "Optional named search strategy. Mutually exclusive with `index`.",
     },
 }
@@ -70,7 +77,6 @@ TOOL_SCHEMA_OVERRIDES: dict[str, dict[str, Any]] = {
         "required": ["target"],
     },
     "search": {
-        "anyOf": [{"required": ["query"]}, {"required": ["query_image"]}],
         "properties": {
             "k": {"minimum": 1},
             "query": {"minLength": 1},

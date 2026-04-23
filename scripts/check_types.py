@@ -10,8 +10,8 @@ console = Console()
 
 
 def run_command(command, description):
-    # Try to find the tool in the local .venv first
-    venv_dir = Path.cwd() / ".venv"
+    # Try to find the tool in the local venv first
+    venv_dir = Path.cwd() / "venv"
     venv_bin = venv_dir / "bin"
 
     tool_name = command[0]
@@ -30,7 +30,7 @@ def run_command(command, description):
         # Unset PYTHONHOME if set, as it can conflict with venv
         run_env.pop("PYTHONHOME", None)
 
-        console.print(f"[bold blue]Running {description} (using .venv)...[/bold blue]")
+        console.print(f"[bold blue]Running {description} (using venv)...[/bold blue]")
     else:
         # Fallback to resolving via PATH logic checks if needed, or just run as is
         console.print(f"[bold blue]Running {description}...[/bold blue]")

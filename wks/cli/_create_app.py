@@ -15,6 +15,7 @@ from wks.cli.monitor import monitor
 from wks.cli.mv import mv
 from wks.cli.search import search
 from wks.cli.service import service
+from wks.cli.similar import similar
 from wks.cli.status import register_status
 from wks.cli.transform import register_transform
 from wks.cli.vault import vault
@@ -44,6 +45,7 @@ def _create_app() -> typer.Typer:
     app.add_typer(mcp(), name="mcp")
     app.add_typer(log(), name="log")
     app.add_typer(search(), name="search")
+    app.add_typer(similar(), name="similar")
     register_status(app)
     register_transform(app)
     app.add_typer(mv(), name="mv")

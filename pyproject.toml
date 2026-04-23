@@ -77,7 +77,7 @@ exclude = [
     "*.yml",
     "*.yaml",
     "node_modules",
-    ".venv",
+    "venv",
     "build",
     "dist",
     ".cursor/rules",

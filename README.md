@@ -14,12 +14,12 @@
 
 ## Code Quality Metrics
 
-| Metric               |   Value |     Target | Status          |
-|----------------------|--------:|-----------:|----------------:|
+| Metric               |   Value |     Target | Status         |
+|----------------------|--------:|-----------:|---------------:|
 | **Code Coverage**    |   85.7% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
-| **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
+| **Docker Freshness** |      v1 | Up to date | ✅ Pass        |
 
 ### Source Size Statistics
 
@@ -256,8 +256,8 @@ git clone https://github.com/wawiesel/wks.git
 cd 2025-WKS
 
 # Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 
 # Install dependencies
 pip install -e '.[all]'

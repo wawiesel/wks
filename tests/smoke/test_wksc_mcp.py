@@ -23,7 +23,7 @@ def _find_wksc_command():
     """
     # Check for venv in project root
     project_root = Path(__file__).parents[2]
-    venv_wksc = project_root / ".venv" / "bin" / "wksc"
+    venv_wksc = project_root / "venv" / "bin" / "wksc"
     if venv_wksc.exists():
         return str(venv_wksc)
 

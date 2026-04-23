@@ -4,7 +4,7 @@
 source = wks
 omit =
     */tests/*
-    */.venv/*
+    */venv/*
     */setup.py
     */wks/__pycache__/*
 

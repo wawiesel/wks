@@ -62,17 +62,30 @@ def test_define_tools_enriches_search_schema():
     assert schema["additionalProperties"] is False
     assert (
         schema["properties"]["query"]["description"]
-        == "Text query to search for. Provide this for normal text retrieval."
+        == "Text query to search for. Provide this for normal text retrieval. Supply either `query` or `query_image`."
     )
     assert schema["properties"]["query"]["minLength"] == 1
     assert schema["properties"]["k"]["description"] == "Maximum number of ranked hits to return."
     assert schema["properties"]["k"]["default"] == 10
     assert schema["properties"]["k"]["minimum"] == 1
+    assert schema["properties"]["query_image"]["description"] == (
+        "Optional image path or URI for image-guided search. Supply either `query_image` or `query`."
+    )
     assert (
         schema["properties"]["strategy"]["description"]
         == "Optional named search strategy. Mutually exclusive with `index`."
     )
-    assert schema["anyOf"] == [{"required": ["query"]}, {"required": ["query_image"]}]
+    assert "anyOf" not in schema
+
+
+def test_define_tools_use_object_schemas_without_top_level_combinators():
+    tools = server_mod.MCPServer.define_tools()
+
+    for tool in tools.values():
+        schema = tool["inputSchema"]
+        assert schema["type"] == "object"
+        for keyword in ("oneOf", "anyOf", "allOf", "enum", "not"):
+            assert keyword not in schema
 
 
 def test_define_tools_enriches_cat_schema():

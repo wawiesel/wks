@@ -22,12 +22,12 @@ For details on the CI Docker environment and running tests in containers, see **
 
 1. **Virtual Environment**: Always use a virtual environment.
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
+   python3 -m venv venv
+   source venv/bin/activate
    pip install -e .
    ```
 
-2. **Dependencies**: Install whatever you need in `.venv`.
+2. **Dependencies**: Install whatever you need in `venv`.
 
 3. **Merge Driver for Auto-Generated Files**: Configure the `ours` merge driver to avoid conflicts in CI-regenerated files:
    ```bash
