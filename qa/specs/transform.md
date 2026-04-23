@@ -24,39 +24,33 @@ Key design principles:
        "default": {
          "type": "route",
          "data": {
-           "document": {
-             "type": "docling",
-             "data": {
-               "ocr": "none",
-               "timeout_secs": 30
-             }
-           },
-           "code": {
-             "type": "treesitter",
-             "data": {
-               "language": "auto",
-               "format": "sexp"
-             }
-           },
-           "text": {
-             "type": "textpass",
-             "data": {}
-           },
-           "binary": {
-             "type": "null",
-             "data": {
-               "message": "No transform available for this file type"
-             }
-           }
+           "order": ["dx", "ast"],
+           "passthrough_text": true,
+           "reject_binary": true
          }
        },
        "dx": {
          "type": "docling",
          "data": {
            "ocr": "none",
-           "timeout_secs": 30
+           "ocr_languages": ["eng"],
+           "image_export_mode": "referenced",
+           "pipeline": "standard",
+           "timeout_secs": 30,
+           "to": "md"
          },
          "supported_types": [".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"]
+       },
+       "ast": {
+         "type": "treesitter",
+         "data": {
+           "language": "auto",
+           "format": "sexp"
+         },
+         "supported_types": [
+           ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cpp", ".hpp",
+           ".cc", ".java", ".rb", ".go", ".rs", ".php", ".sh", ".bash"
+         ]
        },
        "dx-ocr": {
          "type": "docling",
@@ -83,13 +77,18 @@ Users define **Named Engines** in `config.json`.
 
 ### Route Engine
 
-`route` classifies input into one of four kinds and dispatches to a configured sub-engine:
-- `document`
-- `code`
-- `text`
-- `binary`
+`route` is the supported replacement for hidden auto-routing behavior.
 
-This is the supported replacement for hidden auto-routing behavior.
+- `route.data.order` MUST be an ordered list of configured named engines.
+- WKS MUST probe ordered engines in sequence and select the first engine that can honestly handle the file.
+- When an ordered engine defines `supported_types`, that filter MUST be authoritative.
+- When an ordered engine omits `supported_types`, the engine's own strict applicability rules MUST be used.
+- `route` MUST NOT define `supported_types`.
+- `route` MUST NOT reference another `route` engine.
+- `route` MUST NOT reference a `null` engine in `order`; binary rejection is handled by route policy.
+- If no ordered engine matches and `passthrough_text` is true, UTF-8 text MUST use built-in pass-through semantics.
+- If no ordered engine matches and `reject_binary` is true, non-text/binary files MUST fail with clear null-transform semantics.
+- A route with no ordered engines and no fallback policy is invalid.
 
 ### Docling Engine Options
 
@@ -109,11 +108,13 @@ This is the supported replacement for hidden auto-routing behavior.
 - `supported_types` is optional per named engine.
 - When present, it is authoritative.
 - Direct transform requests MUST fail fast when the file type is unsupported.
-- Index auto-routing MUST skip indexes whose configured engine does not support the file.
+- Index auto-indexing MUST skip indexes whose configured engine does not support the file.
+- `route` MUST NOT use `supported_types`.
 
 ### Null and Pass-Through Semantics
 - `null` means no transform can be produced. The caller MUST receive a clear failure.
 - `textpass` and `binarypass` are pass-through transforms. The cached artifact is effectively the input content unchanged.
+- `route` MAY use built-in text pass-through or binary rejection without requiring named `textpass` or `null` helper engines.
 
 ## Normative Schema
 - Canonical output schema: `qa/specs/transform_output.schema.json`.
@@ -175,8 +176,8 @@ When an engine extracts images (e.g. Docling):
 
 ### transform
 - Command: `wksc transform [--engine <engine>] <file> [options]`
-- No args: `wksc transform` - Lists available engines with supported types
-- Engine only: `wksc transform --engine <engine>` - Shows engine info and supported types
+- No args: `wksc transform` - Lists available engines and route policies
+- Engine only: `wksc transform --engine <engine>` - Shows engine info; route engines show order/fallback policy and leaf engines show supported types
 - Behavior: Transforms the file using the specified engine. If `--engine` is omitted, uses `transform.default_engine`. Returns hash of the transformed content.
     - **Configuration Overrides**: Any key defined in the engine's `data` configuration block can be overridden via CLI flags.
     - **Scripting**: Use `--raw` to output *only* the checksum to STDOUT.

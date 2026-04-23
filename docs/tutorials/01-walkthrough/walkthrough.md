@@ -347,9 +347,13 @@ wksc transform
 Available engines:
   default: default
   default (route)
-    Supported: *
+    Order: dx, ast
+    Passthrough text: yes
+    Reject binary: yes
   dx (docling)
     Supported: .pdf, .docx, .pptx, .xlsx, .doc, .ppt, .xls
+  ast (treesitter)
+    Supported: .py, .js, .jsx, .ts, .tsx, .c, .h, .cpp, .hpp, .cc, .java, .rb, .go, .rs, .php, .sh, .bash
 
 Usage: wksc transform [-e ENGINE] <file>
 ```

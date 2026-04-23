@@ -35,7 +35,13 @@ def _print_engine_list(output_data: dict) -> None:
     print(f"  [green]default[/green]: {default_engine}")
     for name, data in engines.items():
         print(f"  [cyan]{name}[/cyan] ({data['type']})")
-        print(f"    Supported: {', '.join(data['supported_types'])}")
+        if data["type"] == "route":
+            order = ", ".join(data["order"]) if data["order"] else "<none>"
+            print(f"    Order: {order}")
+            print(f"    Passthrough text: {'yes' if data['passthrough_text'] else 'no'}")
+            print(f"    Reject binary: {'yes' if data['reject_binary'] else 'no'}")
+        else:
+            print(f"    Supported: {', '.join(data['supported_types'])}")
     print()
     print("[dim]Usage: wksc transform [-e ENGINE] <file>[/dim]")
 
@@ -51,8 +57,14 @@ def _print_engine_info(output_data: dict) -> None:
     config = output_data["config"]
     print(f"[bold]Engine: {engine_name}[/bold]")
     print(f"  Type: {config['type']}")
-    print(f"  Supported types: {', '.join(config['supported_types'])}")
-    print(f"  Options: {config['options']}")
+    if config["type"] == "route":
+        order = ", ".join(config["order"]) if config["order"] else "<none>"
+        print(f"  Order: {order}")
+        print(f"  Passthrough text: {'yes' if config['passthrough_text'] else 'no'}")
+        print(f"  Reject binary: {'yes' if config['reject_binary'] else 'no'}")
+    else:
+        print(f"  Supported types: {', '.join(config['supported_types'])}")
+        print(f"  Options: {config['options']}")
     print()
     print(f"[dim]Usage: wksc transform -e {engine_name} <file> [options][/dim]")
 

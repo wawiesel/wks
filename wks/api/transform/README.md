@@ -59,28 +59,30 @@ Engines are declared in `config.json`, and one named engine is selected as the d
       "default": {
         "type": "route",
         "data": {
-          "document": {
-            "type": "docling",
-            "data": { "to": "md" }
-          },
-          "code": {
-            "type": "treesitter",
-            "data": { "language": "auto", "format": "sexp" }
-          },
-          "text": {
-            "type": "textpass",
-            "data": {}
-          },
-          "binary": {
-            "type": "null",
-            "data": { "message": "No transform available for this file type" }
-          }
+          "order": ["dx", "ast"],
+          "passthrough_text": true,
+          "reject_binary": true
         }
       },
       "dx": {
         "type": "docling",
-        "data": { "to": "md" },
+        "data": {
+          "ocr": "none",
+          "ocr_languages": ["eng"],
+          "image_export_mode": "referenced",
+          "pipeline": "standard",
+          "timeout_secs": 30,
+          "to": "md"
+        },
         "supported_types": [".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"]
+      },
+      "ast": {
+        "type": "treesitter",
+        "data": { "language": "auto", "format": "sexp" },
+        "supported_types": [
+          ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cpp", ".hpp",
+          ".cc", ".java", ".rb", ".go", ".rs", ".php", ".sh", ".bash"
+        ]
       }
     }
   }
@@ -92,18 +94,28 @@ and `wksc transform -e <engine> <file>` selects a different configured engine ex
 
 ### Route Engine
 
-The `route` engine type is the explicit replacement for the old hidden "auto" behavior.
+The `route` engine type is the explicit replacement for hidden transform auto-routing.
 
-It classifies the input into one of four kinds:
-- `document`
-- `code`
-- `text`
-- `binary`
+`route.data.order` is an ordered list of configured named engines. WKS probes them in order
+and picks the first engine that can honestly handle the file.
 
-and then dispatches to a configured sub-engine for that kind.
+- If an ordered engine defines `supported_types`, that filter is authoritative.
+- If it omits `supported_types`, the engine's native strict behavior decides applicability.
+  - `docling` matches document-like inputs.
+  - `treesitter` matches files whose configured or inferred language is valid.
+  - `imagetext` matches supported image files.
+  - `textpass` matches UTF-8 text.
+  - `binarypass` matches non-text/binary files.
 
-This keeps routing explicit in configuration. Hidden transform-engine magic is not allowed:
-`auto` is not a named engine and cannot be passed directly on the CLI or through config.
+If no ordered engine matches:
+- `passthrough_text: true` uses built-in text pass-through semantics for UTF-8 text.
+- `reject_binary: true` uses built-in null semantics for non-text/binary files.
+
+This keeps routing explicit in configuration without requiring fake helper engines just to
+say "leave text alone" or "reject binary clearly."
+
+Hidden transform-engine magic is not allowed: `auto` is not a named engine and cannot be
+passed directly on the CLI or through config.
 
 ### Null and Pass-Through Semantics
 
@@ -115,6 +127,9 @@ This keeps routing explicit in configuration. Hidden transform-engine magic is n
 - `supported_types` is authoritative:
   - direct transform requests fail fast when the file type is unsupported
   - auto-index skips indexes whose configured engine does not support the file
+- `route` does not define `supported_types`:
+  - route policy is `order` + `passthrough_text` + `reject_binary`
+  - ordered engines own their own type filtering
 
 ### Tree-sitter Engine Options
 
@@ -131,8 +146,9 @@ transform/
 ├── __init__.py           # Schema exports only
 ├── _TransformController.py
 ├── _CacheManager.py
-├── _TransformConfig.py
+├── TransformConfig.py
 ├── _TransformEngine.py
+├── _RouteEngineConfig.py
 ├── _get_controller.py
 ├── _get_engine_by_type.py
 ├── _docling/

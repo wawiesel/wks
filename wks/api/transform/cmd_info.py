@@ -4,6 +4,7 @@ from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
 from . import TransformInfoOutput
+from ._RouteEngineConfig import _RouteEngineConfig
 
 
 def cmd_info(engine: str) -> StageResult:
@@ -32,15 +33,24 @@ def cmd_info(engine: str) -> StageResult:
 
         yield (1.0, "Complete")
         result_obj.result = f"Engine: {engine}"
+        if isinstance(engine_config, _RouteEngineConfig):
+            config_output = {
+                "type": engine_config.type,
+                "order": engine_config.data.order,
+                "passthrough_text": engine_config.data.passthrough_text,
+                "reject_binary": engine_config.data.reject_binary,
+            }
+        else:
+            config_output = {
+                "type": engine_config.type,
+                "supported_types": engine_config.supported_types or ["*"],
+                "options": engine_config.data,
+            }
         result_obj.output = TransformInfoOutput(
             errors=[],
             warnings=[],
             engine=engine,
-            config={
-                "type": engine_config.type,
-                "supported_types": engine_config.supported_types or ["*"],
-                "options": engine_config.data,
-            },
+            config=config_output,
         ).model_dump(mode="python")
         result_obj.success = True
 

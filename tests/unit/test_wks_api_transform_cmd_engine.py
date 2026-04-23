@@ -10,6 +10,7 @@ from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.transform import TransformEngineOutput
 from wks.api.transform._EngineConfig import _EngineConfig
+from wks.api.transform._RouteEngineConfig import _RouteEngineConfig, _RouteEngineData
 from wks.api.transform.cmd_engine import cmd_engine
 from wks.api.transform.get_content import get_content
 
@@ -79,24 +80,14 @@ def test_cmd_engine_route_engine_text_success(tracked_wks_config, tmp_path):
     test_f.write_text("# hello\n", encoding="utf-8")
 
     config = WKSConfig.load()
-    config.transform.engines["default"] = _EngineConfig(
+    config.transform.engines["ast"] = _EngineConfig(
+        type="treesitter",
+        data={"language": "auto", "format": "sexp"},
+        supported_types=[".py", ".js", ".ts"],
+    )
+    config.transform.engines["default"] = _RouteEngineConfig(
         type="route",
-        data={
-            "document": {
-                "type": "docling",
-                "data": {
-                    "ocr": False,
-                    "ocr_languages": ["eng"],
-                    "image_export_mode": "embedded",
-                    "pipeline": "standard",
-                    "timeout_secs": 30,
-                    "to": "md",
-                },
-            },
-            "code": {"type": "treesitter", "data": {"language": "auto", "format": "sexp"}},
-            "text": {"type": "textpass", "data": {}},
-            "binary": {"type": "null", "data": {"message": "No transform available for binary file"}},
-        },
+        data=_RouteEngineData(order=["docling_test", "ast"], passthrough_text=True, reject_binary=True),
     )
     config.transform.default_engine = "default"
     config.save()
@@ -109,6 +100,28 @@ def test_cmd_engine_route_engine_text_success(tracked_wks_config, tmp_path):
     )
     assert result.success is True
     assert result.output["cached"] is False
+
+
+def test_cmd_engine_route_engine_rejects_binary_without_named_null(tracked_wks_config, tmp_path):
+    test_f = tmp_path / "test.bin"
+    test_f.write_bytes(b"\x00\x01\x02")
+
+    config = WKSConfig.load()
+    config.transform.engines["default"] = _RouteEngineConfig(
+        type="route",
+        data=_RouteEngineData(order=["docling_test"], passthrough_text=True, reject_binary=True),
+    )
+    config.transform.default_engine = "default"
+    config.save()
+
+    result = run_cmd(
+        cmd_engine,
+        engine="default",
+        uri=URI.from_path(test_f),
+        overrides={},
+    )
+    assert result.success is False
+    assert "no transform available for binary file" in result.result.lower()
 
 
 def test_cmd_engine_rejects_unsupported_supported_types(tracked_wks_config, tmp_path):

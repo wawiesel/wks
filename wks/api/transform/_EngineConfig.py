@@ -2,12 +2,12 @@
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class _EngineConfig(BaseModel):
-    """Single engine configuration."""
+    """Single leaf-engine configuration."""
 
     type: str
-    data: dict[str, Any] = {}
+    data: dict[str, Any] = Field(default_factory=dict)
     supported_types: list[str] | None = None
