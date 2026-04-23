@@ -345,10 +345,13 @@ wksc transform
 
 ```yaml
 Available engines:
-  dx (docling)
+  default: default
+  default (route)
     Supported: *
+  dx (docling)
+    Supported: .pdf, .docx, .pptx, .xlsx, .doc, .ppt, .xls
 
-Usage: wksc transform <engine> <file>
+Usage: wksc transform [-e ENGINE] <file>
 ```
 
 ### Transform a document
@@ -356,7 +359,7 @@ Usage: wksc transform <engine> <file>
 Transform a PDF to markdown:
 
 ```bash
-wksc transform dx ~/Documents/paper.pdf -o ~/Documents/paper.md
+wksc transform -e dx ~/Documents/paper.pdf -o ~/Documents/paper.md
 ```
 
 ```yaml
@@ -551,7 +554,7 @@ message: Pruned 41 log entries
 | `wksc vault check` | Find broken links |
 | `wksc vault links <file>` | Query edges for a file |
 | `wksc link status` | Link collection stats |
-| `wksc transform <engine> <path>` | Transform document format |
+| `wksc transform [-e <engine>] <path>` | Transform document format |
 | `wksc diff -e <engine> <a> <b>` | Compare two files |
 | `wksc database show <db>` | Query raw data |
 | `wksc database reset all` | Clear all data |

@@ -100,16 +100,17 @@ as an optional flag (`--engine -e TEXT`). Should either:
 ### B6. `transform` options fail after positional args
 
 ```
-$ wksc transform dx file.toml --raw
-Error: No such command '--raw'.
+$ wksc transform -e dx file.toml --raw
+Error: No such option: --raw
 
-$ wksc transform --raw dx file.toml     # works
+$ wksc transform --raw -e dx file.toml  # works
 ```
 
-This is a Typer limitation with `invoke_without_command=True` + positional
-args + options. User expectation is that `--raw` works in any position.
+`transform` now uses `-e/--engine` instead of the retired positional engine
+form, but option ordering still matters. User expectation is that `--raw`
+works in any position.
 
-**File**: `wks/cli/transform.py:28-34`
+**File**: `wks/cli/transform.py`
 
 ---
 

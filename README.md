@@ -19,7 +19,7 @@
 | **Code Coverage**    |   85.7% |       100% | ⚠️ Below Target |
 | **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
 | **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
-| **Docker Freshness** |      v1 | Up to date | ✅ Pass         |
+| **Docker Freshness** |      v1 | Up to date | ✅ Pass          |
 
 ### Source Size Statistics
 
@@ -102,6 +102,7 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 | `wksc monitor` | Filesystem monitoring operations |
 | `wksc vault` | Vault link management (Obsidian-style) |
 | `wksc link` | Resource edge/link operations |
+| `wksc transform` | Transform files through configured engines |
 | `wksc index` | Document indexing operations |
 | `wksc search` | Search indexed documents |
 | `wksc mv` | Move files within monitored paths |
@@ -150,6 +151,16 @@ WKS provides intelligent filesystem monitoring, vault link tracking, and documen
 - `show <uri> [--direction to|from|both]` - Show edges connected to URI
 - `check <path> [--parser]` - Check links in file
 - `sync <path> [--parser] [--recursive] [--remote]` - Sync links to database
+
+</details>
+
+<details>
+<summary><strong>wksc transform</strong> - Transform files</summary>
+
+- `<path>` - Transform using `transform.default_engine`
+- `-e <engine> <path>` - Transform using a specific configured engine
+- `-e <engine>` - Show engine info
+- no args - List available engines
 
 </details>
 

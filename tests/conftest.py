@@ -149,6 +149,7 @@ def minimal_config_dict() -> dict:
                 "base_dir": "/tmp/wks_test_transform",
                 "max_size_bytes": 1073741824,
             },
+            "default_engine": "textpass",
             "engines": {
                 "textpass": {
                     "type": "textpass",
@@ -169,9 +170,7 @@ def minimal_config_dict() -> dict:
                 },
             },
         },
-        "cat": {
-            "default_engine": "textpass",
-        },
+        "cat": {"default_engine": "textpass"},
     }
 
 

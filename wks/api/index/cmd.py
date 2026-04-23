@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
 from ..database.Database import Database
+from ..transform._resolve_engine_selection import resolve_engine_selection
 from . import IndexOutput
 
 
@@ -55,6 +56,21 @@ def cmd(name: str, uri: str) -> StageResult:
             result_obj.result = f"File not found: {file_path}"
             result_obj.output = IndexOutput(
                 errors=[f"File not found: {file_path}"],
+                warnings=[],
+                index_name=name,
+                uri=uri,
+                chunk_count=0,
+                checksum="",
+            ).model_dump(mode="python")
+            result_obj.success = False
+            return
+
+        selection = resolve_engine_selection(config.transform.engines, spec.engine, file_path, {})
+        if selection.selected_type == "null":
+            yield (1.0, "Complete")
+            result_obj.result = f"No transform available for index '{name}' and file {file_path.name}"
+            result_obj.output = IndexOutput(
+                errors=[f"No transform available for index '{name}' and file {file_path.name}"],
                 warnings=[],
                 index_name=name,
                 uri=uri,

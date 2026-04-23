@@ -21,4 +21,4 @@ def _get_controller() -> Iterator[_TransformController]:
 
     # We use the 'transform' collection/database name as per spec
     with Database(wks_config.database, "transform") as db:
-        yield _TransformController(db, transform_config, wks_config.cat.default_engine)
+        yield _TransformController(db, transform_config, transform_config.default_engine)

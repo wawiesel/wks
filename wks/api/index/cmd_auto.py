@@ -4,8 +4,8 @@ from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..transform._resolve_engine_selection import resolve_engine_selection
 from . import IndexAutoOutput
-from ._is_supported_for_engine import _is_supported_for_engine
 
 
 def cmd_auto(uri: str) -> StageResult:
@@ -89,10 +89,16 @@ def cmd_auto(uri: str) -> StageResult:
                 yield (progress, f"Skipping '{index_name}' (priority {priority:.1f} < {spec.min_priority:.1f})")
                 continue
 
-            engine_config = config.transform.engines.get(spec.engine)
-            if engine_config is not None and not _is_supported_for_engine(engine_config.supported_types, file_path):
+            try:
+                selection = resolve_engine_selection(config.transform.engines, spec.engine, file_path, {})
+            except ValueError as exc:
                 skipped.append(index_name)
-                yield (progress, f"Skipping '{index_name}' (unsupported file type: {file_path.suffix or '<none>'})")
+                yield (progress, f"Skipping '{index_name}' ({exc})")
+                continue
+
+            if selection.selected_type == "null":
+                skipped.append(index_name)
+                yield (progress, f"Skipping '{index_name}' (no transform for {file_path.suffix or '<none>'})")
                 continue
 
             yield (progress, f"Indexing into '{index_name}'...")

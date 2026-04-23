@@ -7,6 +7,37 @@ from .mime import normalize_extension
 
 # Docling supported extensions (PDF, DOCX, PPTX, etc.)
 _DOCLING_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"}
+_KIND_TO_ENGINE_TYPE = {
+    "code": "treesitter",
+    "document": "docling",
+    "text": "textpass",
+    "binary": "binarypass",
+}
+
+
+def classify_input_kind(input_path: Path) -> str:
+    """Classify input as code, document, text, or binary."""
+    extension = normalize_extension(input_path.suffix)
+
+    if extension in _EXTENSION_TO_LANGUAGE:
+        return "code"
+
+    if extension in _DOCLING_EXTENSIONS:
+        return "document"
+
+    try:
+        with input_path.open("rb") as f:
+            chunk = f.read(8192)
+            if b"\x00" not in chunk:
+                try:
+                    chunk.decode("utf-8")
+                    return "text"
+                except UnicodeDecodeError:
+                    pass
+    except Exception:
+        pass
+
+    return "binary"
 
 
 def select_auto_engine(input_path: Path) -> str:
@@ -21,33 +52,7 @@ def select_auto_engine(input_path: Path) -> str:
     Raises:
         ValueError: If file cannot be analyzed
     """
-    extension = normalize_extension(input_path.suffix)
-
-    # Check if it's a code extension (TreeSitter)
-    if extension in _EXTENSION_TO_LANGUAGE:
-        return "treesitter"
-
-    # Check if it's a docling-supported extension
-    if extension in _DOCLING_EXTENSIONS:
-        return "docling"
-
-    # Check if it's text
-    try:
-        # Try to read as text to verify it's text
-        with input_path.open("rb") as f:
-            chunk = f.read(8192)
-            if b"\x00" not in chunk:
-                # No null bytes, likely text
-                try:
-                    chunk.decode("utf-8")
-                    return "textpass"
-                except UnicodeDecodeError:
-                    pass
-    except Exception:
-        pass
-
-    # Default to binary pass-through
-    return "binarypass"
+    return _KIND_TO_ENGINE_TYPE[classify_input_kind(input_path)]
 
 
-__all__ = ["select_auto_engine"]
+__all__ = ["classify_input_kind", "select_auto_engine"]

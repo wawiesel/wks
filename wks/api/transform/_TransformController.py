@@ -12,7 +12,6 @@ from wks.api.config.now_iso import now_iso
 from ..config.URI import URI
 from . import MAX_GENERATOR_ITERATIONS
 from ._CacheManager import _CacheManager
-from ._get_engine_by_type import _get_engine_by_type
 from ._TransformRecord import _TransformRecord
 
 if TYPE_CHECKING:
@@ -30,7 +29,7 @@ class _TransformController:
         Args:
             db: Database facade
             config: Transform configuration object
-            default_engine: Default engine name (from CatConfig)
+            default_engine: Default transform engine name
         """
         self.db = db
         self.config = config
@@ -330,37 +329,12 @@ class _TransformController:
         if not file_path.exists() or not file_path.is_file():
             raise ValueError(f"File not found: {file_path}")
 
-        # Handle "auto" engine selection
-        if engine_name == "auto":
-            from ._auto_engine import select_auto_engine
+        from ._resolve_engine_selection import resolve_engine_selection
 
-            auto_engine_type = select_auto_engine(file_path)
-            # Create a temporary engine config for auto mode
-            # Auto mode doesn't need to be in config, it's a special mode
-            engine = _get_engine_by_type(auto_engine_type)
-            # Use auto_engine_type as the engine name for cache key purposes
-            engine_name_for_cache = f"auto_{auto_engine_type}"
-        else:
-            # Get engine config
-            if engine_name not in self.config.engines:
-                raise ValueError(
-                    f"Engine '{engine_name}' not found in config. Available engines: {list(self.config.engines.keys())}"
-                )
-
-            engine_config = self.config.engines[engine_name]
-
-            # Get engine instance
-            engine = _get_engine_by_type(engine_config.type)
-            engine_name_for_cache = engine_name
-
-        # Merge base options with overrides (skip if auto mode)
-        if engine_name == "auto":
-            merged_options = options or {}
-            # Auto-inject language for treesitter so callers don't need to know
-            if auto_engine_type == "treesitter" and "language" not in merged_options:
-                merged_options["language"] = "auto"
-        else:
-            merged_options = {**engine_config.data, **(options or {})}
+        selection = resolve_engine_selection(self.config.engines, engine_name, file_path, options)
+        engine = selection.engine
+        engine_name_for_cache = selection.cache_engine_name
+        merged_options = selection.options
 
         # Compute file info
         file_uri = URI.from_path(file_path)
@@ -368,7 +342,7 @@ class _TransformController:
         file_size = file_path.stat().st_size
         options_hash = engine.compute_options_hash(merged_options)
 
-        # Check cache (use engine_name_for_cache for auto mode)
+        # Check cache using the resolved engine identity for routed transforms.
         cached = self._find_cached_transform(file_checksum, engine_name_for_cache, options_hash)
 
         if cached:

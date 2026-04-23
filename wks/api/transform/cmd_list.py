@@ -28,6 +28,7 @@ def cmd_list() -> StageResult:
         result_obj.output = TransformListOutput(
             errors=[],
             warnings=[],
+            default_engine=config.transform.default_engine,
             engines=engine_data,
         ).model_dump(mode="python")
         result_obj.success = True

@@ -19,13 +19,44 @@ Key design principles:
         "base_dir": "~/_transform",
         "max_size_bytes": 1073741824
     },
+    "default_engine": "default",
     "engines": {
+       "default": {
+         "type": "route",
+         "data": {
+           "document": {
+             "type": "docling",
+             "data": {
+               "ocr": "none",
+               "timeout_secs": 30
+             }
+           },
+           "code": {
+             "type": "treesitter",
+             "data": {
+               "language": "auto",
+               "format": "sexp"
+             }
+           },
+           "text": {
+             "type": "textpass",
+             "data": {}
+           },
+           "binary": {
+             "type": "null",
+             "data": {
+               "message": "No transform available for this file type"
+             }
+           }
+         }
+       },
        "dx": {
          "type": "docling",
          "data": {
            "ocr": "none",
            "timeout_secs": 30
-         }
+         },
+         "supported_types": [".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"]
        },
        "dx-ocr": {
          "type": "docling",
@@ -46,6 +77,19 @@ WKS defines **Engine Types** (the underlying implementation, e.g., `docling`, `t
 Users define **Named Engines** in `config.json`.
 - Multiple named engines can use the same type (e.g., one for fast/no-ocr, one for high-res).
 - The CLI refers to the **Named Engine** (the key in the `engines` dict).
+- `transform.default_engine` MUST reference one configured named engine.
+- `route` is a first-class engine type for explicit dispatch.
+- `auto` is not a legal named engine and MUST NOT be used directly.
+
+### Route Engine
+
+`route` classifies input into one of four kinds and dispatches to a configured sub-engine:
+- `document`
+- `code`
+- `text`
+- `binary`
+
+This is the supported replacement for hidden auto-routing behavior.
 
 ### Docling Engine Options
 
@@ -60,6 +104,16 @@ Users define **Named Engines** in `config.json`.
 ### Cache Configuration
 - `base_dir`: (Required) Path to cache directory. Should be in a monitored directory.
 - `max_size_bytes`: (Required) LRU eviction limit in bytes.
+
+### Supported Types
+- `supported_types` is optional per named engine.
+- When present, it is authoritative.
+- Direct transform requests MUST fail fast when the file type is unsupported.
+- Index auto-routing MUST skip indexes whose configured engine does not support the file.
+
+### Null and Pass-Through Semantics
+- `null` means no transform can be produced. The caller MUST receive a clear failure.
+- `textpass` and `binarypass` are pass-through transforms. The cached artifact is effectively the input content unchanged.
 
 ## Normative Schema
 - Canonical output schema: `qa/specs/transform_output.schema.json`.
@@ -120,14 +174,16 @@ When an engine extracts images (e.g. Docling):
 ## CLI Interface
 
 ### transform
-- Command: `wksc transform <engine> <file> [options]`
+- Command: `wksc transform [--engine <engine>] <file> [options]`
 - No args: `wksc transform` - Lists available engines with supported types
-- Engine only: `wksc transform <engine>` - Shows engine info and supported types
-- Behavior: Transforms the file using the specified engine. Returns hash of the transformed content.
+- Engine only: `wksc transform --engine <engine>` - Shows engine info and supported types
+- Behavior: Transforms the file using the specified engine. If `--engine` is omitted, uses `transform.default_engine`. Returns hash of the transformed content.
     - **Configuration Overrides**: Any key defined in the engine's `data` configuration block can be overridden via CLI flags.
     - **Scripting**: Use `--raw` to output *only* the checksum to STDOUT.
-    - **Example**: `wksc transform dx document.pdf --ocr true`
+    - **Example**: `wksc transform --engine dx document.pdf --ocr true`
 - Output: `TransformResultOutput` (or raw string if `--raw`)
+
+The legacy positional form `wksc transform <engine> <file>` is retired and MUST fail clearly.
 
 ### cat (top-level)
 - Command: `wksc cat <target> [--engine <engine>]`

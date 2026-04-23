@@ -146,7 +146,13 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
                 "base_dir": str(tmp_path / "cache"),
                 "max_size_bytes": 1073741824,
             },
-            "engines": {},
+            "default_engine": "textpass",
+            "engines": {
+                "textpass": {
+                    "type": "textpass",
+                    "data": {},
+                },
+            },
         },
         "cat": {
             "default_engine": "cat",
