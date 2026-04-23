@@ -18,7 +18,10 @@ wksc cat [--engine <engine>] <file>
 ```json
 {
   "cat": {
-    "default_engine": "dx"
+    "default_engine": "dx",
+    "mime_engines": {
+      "application/pdf": "pdftext"
+    }
   }
 }
 ```

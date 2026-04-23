@@ -1,5 +1,6 @@
 """Tests for wks/api/cat/cmd.py."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from tests.unit.conftest import run_cmd
 from wks.api.cat.cmd import cmd
 from wks.api.config.URI import URI
 from wks.api.database.Database import Database
+from wks.api.transform._EngineConfig import _EngineConfig
 from wks.api.transform.cmd_engine import cmd_engine
 
 
@@ -163,3 +165,25 @@ def test_cmd_mime_engine_selection(wks_home, minimal_config_dict):
     res = run_cmd(cmd, target=str(test_file))
     assert res.success is True
     assert res.output["content"] == "Mime Match"
+
+
+@pytest.mark.cat
+def test_cmd_pdf_uses_configured_mime_engine(tracked_wks_config, tmp_path, monkeypatch):
+    """PDF cat requests should honor cat.mime_engines without changing index policy."""
+    import wks.api.transform._pdftext._PdfTextEngine as pdftext_module
+
+    config = tracked_wks_config
+    config.transform.engines["pdftext"] = _EngineConfig(type="pdftext", data={})
+    config.cat.mime_engines = {"application/pdf": "pdftext"}
+
+    test_file = tmp_path / "report.pdf"
+    test_file.write_bytes(b"%PDF-1.4\nfake\n")
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="Fast PDF text", stderr="")
+
+    monkeypatch.setattr(pdftext_module.subprocess, "run", fake_run)
+
+    res = run_cmd(cmd, target=str(test_file))
+    assert res.success is True
+    assert res.output["content"] == "Fast PDF text"

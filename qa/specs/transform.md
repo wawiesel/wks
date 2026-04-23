@@ -32,14 +32,19 @@ Key design principles:
        "dx": {
          "type": "docling",
          "data": {
-           "ocr": "none",
-           "ocr_languages": ["eng"],
+            "ocr": "none",
+            "ocr_languages": ["eng"],
            "image_export_mode": "referenced",
            "pipeline": "standard",
            "timeout_secs": 30,
            "to": "md"
          },
          "supported_types": [".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"]
+       },
+       "pdftext": {
+         "type": "pdftext",
+         "data": {},
+         "supported_types": [".pdf"]
        },
        "ast": {
          "type": "treesitter",
@@ -67,7 +72,7 @@ Key design principles:
 ```
 
 ### Engine Types vs. Named Engines
-WKS defines **Engine Types** (the underlying implementation, e.g., `docling`, `test`).
+WKS defines **Engine Types** (the underlying implementation, e.g., `docling`, `pdftext`, `test`).
 Users define **Named Engines** in `config.json`.
 - Multiple named engines can use the same type (e.g., one for fast/no-ocr, one for high-res).
 - The CLI refers to the **Named Engine** (the key in the `engines` dict).
@@ -115,6 +120,12 @@ Users define **Named Engines** in `config.json`.
 - `null` means no transform can be produced. The caller MUST receive a clear failure.
 - `textpass` and `binarypass` are pass-through transforms. The cached artifact is effectively the input content unchanged.
 - `route` MAY use built-in text pass-through or binary rejection without requiring named `textpass` or `null` helper engines.
+
+### PDFText Engine Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `timeout_secs` | int | Optional timeout in seconds for the `pdftotext` subprocess |
 
 ## Normative Schema
 - Canonical output schema: `qa/specs/transform_output.schema.json`.

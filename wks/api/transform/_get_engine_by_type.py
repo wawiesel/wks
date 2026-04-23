@@ -5,7 +5,8 @@ def _get_engine_by_type(engine_type: str) -> _TransformEngine:
     """Get transform engine instance by type.
 
     Args:
-        engine_type: Engine type string (e.g., "docling", "treesitter", "textpass", "imagetext", "binarypass", "null")
+        engine_type: Engine type string such as "docling", "pdftext",
+            "treesitter", "textpass", "imagetext", "binarypass", or "null"
 
     Returns:
         New engine instance
@@ -17,6 +18,10 @@ def _get_engine_by_type(engine_type: str) -> _TransformEngine:
         from ._docling._DoclingEngine import _DoclingEngine
 
         return _DoclingEngine()
+    if engine_type == "pdftext":
+        from ._pdftext._PdfTextEngine import _PdfTextEngine
+
+        return _PdfTextEngine()
     if engine_type == "treesitter":
         from ._treesitter._TreeSitterEngine import _TreeSitterEngine
 

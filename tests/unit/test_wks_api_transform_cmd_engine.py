@@ -1,5 +1,6 @@
 """Integration tests for transform command using public APIs."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -739,5 +740,63 @@ def test_cmd_engine_docling_engine_type(tracked_wks_config, tmp_path):
         assert "docling" in result.result.lower() or "Unknown engine type" not in result.result
     finally:
         # Restore original engines
+        config.transform.engines = original_engines
+        config.save()
+
+
+def test_cmd_engine_pdftext_engine_type(tracked_wks_config, tmp_path, monkeypatch):
+    """Test cmd_engine supports the lightweight pdftext engine."""
+    import wks.api.transform._pdftext._PdfTextEngine as pdftext_module
+
+    test_file = tmp_path / "test.pdf"
+    test_file.write_bytes(b"%PDF-1.4\nfake\n")
+
+    config = WKSConfig.load()
+    original_engines = config.transform.engines.copy()
+    try:
+        config.transform.engines = {"pdftext": _EngineConfig(type="pdftext", data={})}
+        config.save()
+
+        def fake_run(*args, **kwargs):
+            return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="Extracted PDF text", stderr="")
+
+        monkeypatch.setattr(pdftext_module.subprocess, "run", fake_run)
+
+        result = run_cmd(
+            cmd_engine,
+            engine="pdftext",
+            uri=URI.from_path(test_file),
+            overrides={},
+        )
+
+        assert result.success is True
+        assert result.output["cached"] is False
+        assert get_content(result.output["checksum"]) == "Extracted PDF text"
+    finally:
+        config.transform.engines = original_engines
+        config.save()
+
+
+def test_cmd_engine_pdftext_rejects_non_pdf(tracked_wks_config, tmp_path):
+    """pdftext should fail fast for non-PDF inputs when selected directly."""
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("not a pdf", encoding="utf-8")
+
+    config = WKSConfig.load()
+    original_engines = config.transform.engines.copy()
+    try:
+        config.transform.engines = {"pdftext": _EngineConfig(type="pdftext", data={})}
+        config.save()
+
+        result = run_cmd(
+            cmd_engine,
+            engine="pdftext",
+            uri=URI.from_path(test_file),
+            overrides={},
+        )
+
+        assert result.success is False
+        assert "unsupported file type" in result.result.lower()
+    finally:
         config.transform.engines = original_engines
         config.save()

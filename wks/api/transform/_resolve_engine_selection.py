@@ -11,6 +11,7 @@ from ._RouteEngineConfig import _RouteEngineConfig
 from ._supports_file import supports_file
 from ._TransformEngine import _TransformEngine
 from ._treesitter._language_map import resolve_language
+from .mime import normalize_extension
 
 _DEFAULT_IMAGETEXT_TYPES = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".webp"]
 _ROUTE_REJECT_BINARY_MESSAGE = "No transform available for binary file"
@@ -129,6 +130,9 @@ def _engine_supports_file(engine_config: _EngineConfig, file_path: Path, options
 
     if engine_config.type == "docling":
         return classify_input_kind(file_path) == "document"
+
+    if engine_config.type == "pdftext":
+        return normalize_extension(file_path.suffix) == ".pdf"
 
     if engine_config.type == "treesitter":
         try:
