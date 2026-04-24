@@ -1,5 +1,3 @@
-"""pdftotext-backed transform engine for fast PDF text extraction."""
-
 import subprocess
 from collections.abc import Generator
 from pathlib import Path
@@ -9,22 +7,12 @@ from .._TransformEngine import _TransformEngine
 
 
 class _PdfTextEngine(_TransformEngine):
-    """Fast PDF text extraction engine backed by pdftotext."""
-
     def transform(
         self,
         input_path: Path,
         output_path: Path,
         options: dict[str, Any],
     ) -> Generator[str, None, list[str]]:
-        """Extract PDF text to UTF-8 plain text.
-
-        Supported options:
-            - timeout_secs: optional command timeout in seconds
-
-        Raises:
-            RuntimeError: If pdftotext is unavailable or extraction fails
-        """
         timeout_secs = self._coerce_timeout_secs(options.get("timeout_secs"))
         cmd = ["pdftotext", "-enc", "UTF-8", str(input_path), "-"]
 
@@ -62,12 +50,10 @@ class _PdfTextEngine(_TransformEngine):
         return []
 
     def get_extension(self, options: dict[str, Any]) -> str:  # noqa: ARG002
-        """Return the cache extension for extracted PDF text."""
         return "txt"
 
     @staticmethod
     def _coerce_timeout_secs(value: Any) -> int | None:
-        """Return a positive timeout in seconds when configured."""
         if value is None:
             return None
         try:

@@ -1,7 +1,6 @@
 def test_cli_config_show(wksc):
     """Test 'wksc config show' - outputs JSON with config keys."""
     result = wksc(["config", "show", "monitor"])
-    # Output contains JSON with monitor key (or content of monitor section)
     assert "priority" in result.stdout
 
 

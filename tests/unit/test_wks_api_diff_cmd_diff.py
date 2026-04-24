@@ -1,11 +1,3 @@
-"""Unit tests for wks.api.diff.cmd_diff module.
-
-Requirements:
-- WKS-DIFF-001
-- WKS-DIFF-002
-- WKS-DIFF-003
-"""
-
 import tempfile
 from pathlib import Path
 
@@ -18,8 +10,6 @@ pytestmark = pytest.mark.unit
 
 
 class TestCmdDiff:
-    """Test cmd_diff function."""
-
     def test_cmd_diff_success_myers(self, tmp_path):
         """Test cmd_diff succeeds with myers engine for text files."""
         file_a = tmp_path / "a.txt"
@@ -205,7 +195,6 @@ class TestCmdDiff:
         """Test cmd_diff fails when files exceed max_size_mb."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
-        # Create files larger than 1MB
         large_content = "x" * (2 * 1024 * 1024)
         file_a.write_text(large_content)
         file_b.write_text(large_content)

@@ -28,24 +28,18 @@ def _child_main(
     status_path: str,
     lock_path: str,
 ) -> None:
-    # Load monitor config for filtering
     wks_config = None
     try:
         wks_config = WKSConfig.load()
         monitor_cfg = wks_config.monitor
         home_debug = str(WKSConfig.get_home_dir())
     except Exception as exc:
-        # Fallback if config fails load in child
-        # We must log this because it disables filtering!
         monitor_cfg = None
         home_debug = "UNKNOWN"
-        # We can't use append_log yet because log_file isn't set up until below.
-        # So we'll store the error and log it after setup.
         startup_error: str | None = f"ERROR: Failed to load monitor config in child: {exc}"
     else:
         startup_error = None
 
-    # Detach child stdio to avoid blocking or noisy output
     try:
         devnull = Path(os.devnull).open("w")  # noqa: SIM115
         sys.stdout = devnull  # type: ignore
@@ -56,11 +50,9 @@ def _child_main(
     status_file = Path(status_path)
     lock_file = Path(lock_path)
 
-    # Define log_file for status reporting and ignore paths
     log_file = Path(_log_path)
 
     def append_log(message: str) -> None:
-        # Parse level from message prefix (e.g., "INFO: ..." or "ERROR: ...")
         if message.startswith("DEBUG:"):
             _daemon_log_with_path(log_file, "DEBUG", message[6:].strip())
         elif message.startswith("INFO:"):
@@ -79,15 +71,10 @@ def _child_main(
     else:
         append_log(f"DEBUG: Daemon WKS_HOME={home_debug} (config loaded)")
 
-    # Pre-flight check: Ensure database is accessible/startable
-    # This prevents the daemon from entering a crash loop if mongod is missing.
     if not startup_error:
         try:
             from ..database.Database import Database
 
-            # Attempt a quick connection/start
-            # We use a zero-timeout or very short timeout check if possible,
-            # but Database init with local=True triggers _ensure_local_mongod which checks binary
             assert monitor_cfg is not None
             assert wks_config is not None
             database_name = f"{wks_config.database.prefix}.monitor"
@@ -95,7 +82,6 @@ def _child_main(
                 db.get_client().server_info()
         except Exception as exc:
             append_log(f"FATAL: Database initialization failed: {exc}")
-            # Write error status and exit
             status = {
                 "errors": [f"Database initialization failed: {exc}"],
                 "warnings": [],
@@ -129,7 +115,6 @@ def _child_main(
     observer.start()
     append_log("INFO: Daemon child started")
 
-    # Get logfile path for ignore_paths
     log_file = Path(_log_path)
 
     def write_status(running: bool) -> None:
@@ -140,7 +125,6 @@ def _child_main(
             w_ret = log_cfg.warning_retention_days
             e_ret = log_cfg.error_retention_days
         else:
-            # Defaults if config failed to load
             d_ret = 0.5
             i_ret = 1.0
             w_ret = 2.0
@@ -203,7 +187,6 @@ def _child_main(
                 to_delete.add(src_path)
             if dest_path not in ignore_paths and (monitor_cfg is None or explain_path(monitor_cfg, dest_path)[0]):
                 to_sync.add(dest_path)
-            # Check if the moved file was a _links/ symlink target
             _handle_link_move(src_path, dest_path, wks_config, append_log)
 
         for p_path in filtered_deleted:
@@ -241,7 +224,6 @@ def _handle_link_move(
     wks_config: WKSConfig | None,
     append_log: Callable[[str], None],
 ) -> None:
-    """Check if a moved file was a _links/ symlink target and repair if so."""
     if wks_config is None:
         return
     try:

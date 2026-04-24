@@ -1,11 +1,3 @@
-"""Unit tests for config cmd_show.
-
-Requirements Satisfied:
-
-- CONFIG.4
-- CONFIG.6
-"""
-
 import pytest
 
 from tests.unit.conftest import run_cmd

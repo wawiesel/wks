@@ -1,25 +1,17 @@
-"""HTML link parser."""
-
 import re
 from collections.abc import Iterator
 
 from ._BaseParser import BaseParser, LinkRef
 
-# Simple regex for finding href and src
-# Note: This is not a full HTML parser but sufficient for indexing
 HREF_PATTERN = re.compile(r'<a\s+(?:[^>]*?\s+)?href=["\']([^"\']*)["\']', re.IGNORECASE)
 SRC_PATTERN = re.compile(r'src=["\']([^"\']*)["\']', re.IGNORECASE)
 
 
 class HTMLParser(BaseParser):
-    """Parser for HTML files."""
-
     def parse(self, text: str) -> Iterator[LinkRef]:
         lines = text.splitlines()
         for line_num, line in enumerate(lines, start=1):
-            # <a href="...">
             for match in HREF_PATTERN.finditer(line):
-                # Validate match group exists (fail fast if mutated)
                 if match.lastindex is None or match.lastindex < 1:
                     raise IndexError(f"HREF_PATTERN match missing required group (got {match.lastindex})")
                 url = match.group(1).strip()
@@ -35,9 +27,7 @@ class HTMLParser(BaseParser):
                     is_embed=False,
                 )
 
-            # src="..."
             for match in SRC_PATTERN.finditer(line):
-                # Validate match group exists (fail fast if mutated)
                 if match.lastindex is None or match.lastindex < 1:
                     raise IndexError(f"SRC_PATTERN match missing required group (got {match.lastindex})")
                 url = match.group(1).strip()

@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.diff.DiffConfig module."""
-
 from typing import Any
 
 import pytest
@@ -12,8 +10,6 @@ pytestmark = pytest.mark.unit
 
 
 class TestDiffConfig:
-    """Test DiffConfig class."""
-
     def test_from_config_dict_valid(self):
         """Test loading valid diff config."""
         config: dict[str, Any] = {
@@ -123,21 +119,17 @@ class TestDiffConfig:
 
     def test_validation_invalid_engines_type(self):
         """Test validation fails when engines is not a dict."""
-        # Use from_config_dict to trigger validation
         config: dict[str, Any] = {
             "diff": {
                 "engines": "not a dict",  # Invalid type
             }
         }
 
-        # The error occurs when trying to call .items() on a string
         with pytest.raises((DiffConfigError, AttributeError)):
             DiffConfig.from_config_dict(config)
 
     def test_validation_invalid_engine_config_type(self):
         """Test validation fails when engine config is not a dict."""
-        # The validation happens in from_config_dict, not in __post_init__
-        # So we test via from_config_dict
         config: dict[str, Any] = {
             "diff": {
                 "engines": {

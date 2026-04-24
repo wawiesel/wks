@@ -1,5 +1,3 @@
-"""Unit tests for explain_path function."""
-
 import pytest
 
 from wks.api.monitor.explain_path import explain_path
@@ -9,8 +7,6 @@ pytestmark = pytest.mark.monitor
 
 
 def build_monitor_config(**overrides):
-    """Build a MonitorConfig for testing using public API."""
-    # Use from_config_dict to create config through public API
     config_dict = {
         "monitor": {
             "filter": {
@@ -207,7 +203,6 @@ def test_explain_path_directory_itself_excluded(tmp_path):
     excluded_dir.mkdir()
 
     cfg = build_monitor_config(include_paths=[str(include_dir)], exclude_dirnames=["target_dir"])
-    # Check the directory itself
     allowed, trace = explain_path(cfg, excluded_dir)
 
     assert allowed is False
@@ -221,7 +216,6 @@ def test_explain_path_value_error_handling(tmp_path, monkeypatch):
 
     cfg = build_monitor_config()
 
-    # Mock Path.is_relative_to to raise ValueError
     from pathlib import Path
 
     def mock_is_relative_to(self, *args, **kwargs):
@@ -230,8 +224,6 @@ def test_explain_path_value_error_handling(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "is_relative_to", mock_is_relative_to)
 
     allowed, trace = explain_path(cfg, test_file)
-    # It should fall through the try-except-pass block and continue
-    # Without include_paths, it should default to False (No include_paths defined)
     assert allowed is False
     assert any("No include_paths defined" in msg for msg in trace)
 
@@ -249,7 +241,6 @@ def test_explain_path_parent_equals_self_edge_case(tmp_path):
         include_dirnames=["test"],
     )
 
-    # Mock the path to have parent == self (edge case)
     from pathlib import Path
 
     class MockPath(Path):
@@ -257,12 +248,7 @@ def test_explain_path_parent_equals_self_edge_case(tmp_path):
         def parent(self):
             return self
 
-    # This tests the edge case where parent == self
-    # The code checks: resolved.parent.name if resolved.parent != resolved else ""
-    # We can't easily create this condition, but we can test the logic path
-    # by ensuring the override logic works correctly
     allowed, _trace = explain_path(cfg, test_file)
-    # Should be allowed due to include_dirname override
     assert allowed is True
 
 
@@ -277,7 +263,6 @@ def test_explain_path_wks_home_equals_path(tmp_path, monkeypatch):
     monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: wks_home))
 
     cfg = build_monitor_config()
-    # Test with path that equals wks_home exactly
     allowed, trace = explain_path(cfg, wks_home)
 
     assert allowed is False

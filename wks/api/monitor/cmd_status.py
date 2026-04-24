@@ -1,9 +1,3 @@
-"""Monitor status API function.
-
-This function provides filesystem monitoring status and configuration.
-Matches CLI: wksc monitor status, MCP tool: monitor_status
-"""
-
 from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,8 +10,6 @@ from . import MonitorStatusOutput
 
 
 def cmd_status() -> StageResult:
-    """Get filesystem monitoring status (not configuration - use 'wksc config monitor' for config)."""
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -30,7 +22,6 @@ def cmd_status() -> StageResult:
         wks_home: Path,
         errors: list[str] | None = None,
     ) -> None:
-        """Helper to build and assign the output result."""
         output = MonitorStatusOutput(
             errors=errors or [],
             warnings=[],
@@ -42,7 +33,6 @@ def cmd_status() -> StageResult:
             success=success,
         )
 
-        # Write status file
         write_status_file(output.model_dump(mode="python"), wks_home=wks_home, filename="monitor.json")
 
         result_obj.output = output.model_dump(mode="python")
@@ -50,17 +40,14 @@ def cmd_status() -> StageResult:
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
 
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
         wks_home = WKSConfig.get_home_dir()
 
-        # Collection name: 'nodes'
         database_name = "nodes"
 
-        # Count tracked files and time-based statistics via DB API
         yield (0.2, "Querying database...")
         total_files = 0
         time_based_counts: dict[str, int] = {}
@@ -69,15 +56,12 @@ def cmd_status() -> StageResult:
         errors: list[str] = []
         try:
             with Database(config.database, database_name) as database:
-                # Exclude meta document from file count (robustly)
                 total_files = database.count_documents({"local_uri": {"$exists": True}})
 
-                # Get last sync timestamp from meta document
                 meta = database.find_one({"_id": "__meta__"})
                 if meta:
                     last_sync = meta["last_sync"]
 
-                # Calculate time ranges (exclusive bins)
                 yield (0.4, "Calculating time-based statistics...")
                 now = datetime.now()
                 time_ranges = [
@@ -95,12 +79,10 @@ def cmd_status() -> StageResult:
                     ("6-12 months", timedelta(days=365)),
                 ]
 
-                # Count files in each exclusive time bin
                 prev_cutoff_iso = now.isoformat()  # Start from now
                 for i, (label, delta) in enumerate(time_ranges):
                     cutoff = now - delta
                     cutoff_iso = cutoff.isoformat()
-                    # Query for files in range: cutoff <= timestamp < prev_cutoff
                     count = database.count_documents({"timestamp": {"$gte": cutoff_iso, "$lt": prev_cutoff_iso}})
                     time_based_counts[label] = count
                     prev_cutoff_iso = cutoff_iso  # Move window
@@ -109,14 +91,12 @@ def cmd_status() -> StageResult:
                         f"Processing time range: {label}...",
                     )
 
-                # Count files older than 1 year
                 one_year_ago = (now - timedelta(days=365)).isoformat()
                 time_based_counts[">1 year"] = database.count_documents({"timestamp": {"$lt": one_year_ago}})
 
         except Exception as e:
             errors.append(f"Database error: {e}")
 
-        # Only include status-specific data (not config that can be retrieved elsewhere)
         yield (1.0, "Complete")
 
         issues: list[str] = []

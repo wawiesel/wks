@@ -1,5 +1,3 @@
-"""Shared move service logic."""
-
 from __future__ import annotations
 
 import re
@@ -23,8 +21,6 @@ FILENAME_PATTERN = re.compile(
 
 
 class MoveRequest(BaseModel):
-    """Inputs for a managed move."""
-
     model_config = ConfigDict(extra="forbid")
 
     source: str
@@ -32,8 +28,6 @@ class MoveRequest(BaseModel):
 
 
 class MoveResponse(ServiceResponse):
-    """Move service output."""
-
     model_config = ConfigDict(extra="forbid")
 
     errors: list[str] = Field(default_factory=list)
@@ -44,7 +38,6 @@ class MoveResponse(ServiceResponse):
 
 
 def move_document(request: MoveRequest, *, config: WKSConfig | None = None) -> MoveResponse:
-    """Move a file, then update database and vault state."""
     loaded_config = config or WKSConfig.load()
     try:
         source_uri = URI.from_any(request.source)
@@ -97,7 +90,6 @@ def _validate_source(
     source_str: str,
     dest_str: str,
 ) -> MoveResponse | None:
-    """Validate source move permissions."""
     if not source_path.exists():
         return _error_response(
             message=f"Source does not exist: {source_str}",
@@ -138,7 +130,6 @@ def _validate_destination(
     source_str: str,
     dest_str: str,
 ) -> MoveResponse | None:
-    """Validate destination path and naming policy."""
     if source_path.name != dest_path.name:
         is_valid, error_msg = _is_valid_filename(dest_path.name)
         if not is_valid:
@@ -169,7 +160,6 @@ def _validate_destination(
 
 
 def _update_move_side_effects(config: WKSConfig, source_path: Path, dest_path: Path) -> tuple[bool, list[str]]:
-    """Refresh database and vault state after a move."""
     warnings: list[str] = []
     database_updated = False
     try:
@@ -200,7 +190,6 @@ def _update_move_side_effects(config: WKSConfig, source_path: Path, dest_path: P
 
 
 def _is_valid_filename(filename: str) -> tuple[bool, str]:
-    """Validate destination filename follows the enforced naming convention."""
     if FILENAME_PATTERN.match(filename):
         return True, ""
     return False, (
@@ -211,7 +200,6 @@ def _is_valid_filename(filename: str) -> tuple[bool, str]:
 
 
 def _is_git_tracked(path: Path) -> tuple[bool, str | None]:
-    """Check whether a path is tracked by git."""
     try:
         git_root_result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -242,7 +230,6 @@ def _error_response(
     request: MoveRequest,
     errors: list[str],
 ) -> MoveResponse:
-    """Build a failed move response."""
     return MoveResponse(
         success=False,
         message=message,

@@ -1,5 +1,3 @@
-"""Service stop command - stops the service process."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -9,29 +7,19 @@ from .Service import Service
 
 
 def cmd_stop() -> StageResult:
-    """Stop service process."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result.
-
-        Yields: (progress_percent: float, message: str) tuples
-        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
-        """
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
 
-        # Validate backend type
         yield (0.2, "Validating backend type...")
         backend_type = config.service.type
         if not Service.validate_backend_type(result_obj, backend_type, ServiceStopOutput, "stopped"):
             yield (1.0, "Complete")
             return
 
-        # Import and instantiate backend implementation
         yield (0.4, "Initializing backend implementation...")
         try:
             with Service(config.service) as service:
-                # Check if service is installed
                 yield (0.5, "Checking service status...")
                 service_status = service.get_service_status()
 
@@ -47,7 +35,6 @@ def cmd_stop() -> StageResult:
                     result_obj.success = False
                     return
 
-                # Stop via service manager
                 yield (0.7, "Stopping service...")
                 result = service.stop_service()
                 yield (1.0, "Complete")

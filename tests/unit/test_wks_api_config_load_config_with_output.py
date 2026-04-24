@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.config.load_config_with_output.load_config_with_output."""
-
 import pytest
 
 from wks.api.config import ConfigShowOutput
@@ -22,6 +20,5 @@ def test_load_config_with_output_returns_error_output_when_config_missing(tmp_pa
     assert output["warnings"] == []
     assert output["content"] == {}
 
-    # Ensure config_path is present and is the actual config.json path string.
     assert output["config_path"] == str(WKSConfig.get_config_path())
     assert "None" not in output["config_path"]

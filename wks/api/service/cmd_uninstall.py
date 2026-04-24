@@ -1,5 +1,3 @@
-"""Service uninstall command - removes system service."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -9,28 +7,18 @@ from .Service import Service
 
 
 def cmd_uninstall() -> StageResult:
-    """Uninstall system service."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result.
-
-        Yields: (progress_percent: float, message: str) tuples
-        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
-        """
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
 
-        # Validate backend type
         yield (0.2, "Validating backend type...")
         backend_type = config.service.type
         if not Service.validate_backend_type(result_obj, backend_type, ServiceUninstallOutput, "uninstalled"):
             yield (1.0, "Complete")
             return
 
-        # Import and instantiate backend implementation
         yield (0.4, "Initializing backend implementation...")
         try:
-            # Uninstall via backend implementation
             yield (0.6, "Uninstalling service...")
             with Service(config.service) as service:
                 result = service.uninstall_service()

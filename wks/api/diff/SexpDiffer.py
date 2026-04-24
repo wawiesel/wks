@@ -1,5 +1,3 @@
-"""S-expression diff engine for *.sexp files."""
-
 from __future__ import annotations
 
 import difflib
@@ -9,24 +7,7 @@ from .DiffEngine import DiffEngine
 
 
 class SexpDiffer(DiffEngine):
-    """S-expression diff engine for comparing *.sexp format files."""
-
     def diff(self, file1: Path, file2: Path, options: dict) -> str:  # noqa: ARG002
-        """Compute diff between two S-expression files.
-
-        Args:
-            file1: First file path (must be *.sexp)
-            file2: Second file path (must be *.sexp)
-            options: Options (currently unused)
-
-        Returns:
-            Unified diff of S-expression files or an identical message
-
-        Raises:
-            ValueError: If files are not *.sexp or content is invalid
-            RuntimeError: If diff operation fails unexpectedly
-        """
-        # Validate file extensions
         if file1.suffix != ".sexp":
             raise ValueError(f"SexpDiffer requires *.sexp files (found: {file1.suffix})")
         if file2.suffix != ".sexp":

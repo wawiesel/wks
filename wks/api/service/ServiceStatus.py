@@ -1,12 +1,8 @@
-"""Service status DTO."""
-
 from dataclasses import dataclass
 
 
 @dataclass
 class ServiceStatus:
-    """Status of the system service daemon."""
-
     installed: bool
     """Whether the service is installed (systemd unit or launchd plist exists)."""
 

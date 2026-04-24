@@ -1,5 +1,3 @@
-"""Index API module."""
-
 from wks.api.config.output_models import output_model
 
 IndexOutput = output_model("IndexOutput", "index_name", "uri", "chunk_count", "checksum")

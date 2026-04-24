@@ -1,5 +1,3 @@
-"""Shared embedding utilities for indexing and semantic search."""
-
 from functools import lru_cache
 from pathlib import Path
 
@@ -32,7 +30,6 @@ def _load_clip_model_and_processor(model_name: str):
 
 
 def embed_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
-    """Embed text rows and return an L2-normalized float32 matrix."""
     if batch_size <= 0:
         raise ValueError(f"batch_size must be > 0 (found: {batch_size})")
     if len(texts) == 0:
@@ -54,7 +51,6 @@ def embed_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarra
 
 
 def embed_clip_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
-    """Embed text rows with CLIP text encoder and return normalized float32 matrix."""
     if batch_size <= 0:
         raise ValueError(f"batch_size must be > 0 (found: {batch_size})")
     if len(texts) == 0:
@@ -84,12 +80,10 @@ def embed_clip_texts(texts: list[str], model_name: str, batch_size: int) -> np.n
 
 
 def is_supported_image_path(path: Path) -> bool:
-    """Return True when path suffix is a supported image format."""
     return path.suffix.lower() in IMAGE_SUFFIXES
 
 
 def embed_clip_images(image_paths: list[Path], model_name: str, batch_size: int) -> np.ndarray:
-    """Embed image rows with CLIP image encoder and return normalized float32 matrix."""
     if batch_size <= 0:
         raise ValueError(f"batch_size must be > 0 (found: {batch_size})")
     if len(image_paths) == 0:
@@ -136,7 +130,6 @@ def combine_modal_embeddings(
     text_embeddings: np.ndarray,
     image_text_weight: float,
 ) -> np.ndarray:
-    """Combine normalized image and text vectors into normalized hybrid vectors."""
     if image_embeddings.ndim != 2:
         raise ValueError(f"image_embeddings must be 2D (found ndim={image_embeddings.ndim})")
     if text_embeddings.ndim != 2:
@@ -157,7 +150,6 @@ def combine_modal_embeddings(
 
 
 def cosine_scores(query_embedding: np.ndarray, matrix: np.ndarray) -> np.ndarray:
-    """Compute cosine scores for normalized vectors."""
     if query_embedding.ndim != 1:
         raise ValueError(f"query_embedding must be 1D (found ndim={query_embedding.ndim})")
     if matrix.ndim != 2:

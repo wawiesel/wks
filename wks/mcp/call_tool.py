@@ -1,12 +1,9 @@
-"""Convenience entry point for invoking MCP tools directly."""
-
 from typing import Any
 
 from .server import MCPServer
 
 
 def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    """Call a single MCP tool by name."""
     from wks.api.config.WKSConfig import WKSConfig
 
     server = MCPServer()

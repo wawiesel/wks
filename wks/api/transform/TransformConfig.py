@@ -1,5 +1,3 @@
-"""Transform configuration for WKSConfig."""
-
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
 
 from ._CacheConfig import _CacheConfig
@@ -10,8 +8,6 @@ TransformEngineConfig = _EngineConfig | _RouteEngineConfig
 
 
 class TransformConfig(BaseModel):
-    """Transform section of WKS configuration."""
-
     cache: _CacheConfig
     default_engine: str
     engines: dict[str, TransformEngineConfig]
@@ -19,7 +15,6 @@ class TransformConfig(BaseModel):
     @field_validator("engines", mode="before")
     @classmethod
     def parse_engines(cls, value: object) -> object:
-        """Parse route engines into their dedicated config shape."""
         if not isinstance(value, dict):
             return value
 
@@ -44,7 +39,6 @@ class TransformConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_engine_graph(self) -> "TransformConfig":
-        """Require a valid default engine and a valid route graph."""
         if self.default_engine not in self.engines:
             raise ValueError(
                 f"transform.default_engine '{self.default_engine}' must reference a configured engine "

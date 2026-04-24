@@ -1,9 +1,3 @@
-"""Index command tests.
-
-Tests the public cmd(name, uri) function which transforms, chunks,
-and stores a document in a named index.
-"""
-
 import json
 
 import numpy as np
@@ -17,7 +11,6 @@ from wks.api.index.cmd import cmd
 
 
 def _make_index_env(tmp_path, monkeypatch, *, with_file=True):
-    """Set up an index-ready WKS environment with transform cache and config."""
     from tests.conftest import minimal_config_dict
 
     config_dict = minimal_config_dict()
@@ -71,7 +64,6 @@ def test_cmd_index_no_config(tmp_path, monkeypatch):
     cache_dir.mkdir()
     config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
     config_dict["monitor"]["filter"]["include_paths"].append(str(cache_dir))
-    # No index config
 
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()

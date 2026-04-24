@@ -1,5 +1,3 @@
-"""Context detection and display factory for CLI vs MCP environments."""
-
 import os
 import sys
 from collections.abc import Callable, Mapping
@@ -12,8 +10,6 @@ from .DisplayMode import DisplayMode
 
 @dataclass(frozen=True)
 class DisplayContext:
-    """Centralized display factory with explicit mode resolution."""
-
     factories: Mapping[DisplayMode, Callable[[], Display]] = field(
         default_factory=lambda: MappingProxyType(DisplayContext._build_factories())
     )
@@ -30,8 +26,6 @@ class DisplayContext:
         return {"cli": CLIDisplay, "mcp": CLIDisplay}
 
     def is_mcp_context(self) -> bool:
-        """Detect if we're running in an MCP context."""
-
         if os.getenv("MCP_MODE") == "1":
             return True
 
@@ -48,8 +42,6 @@ class DisplayContext:
         return "mcp" if self.is_mcp_context() else "cli"
 
     def get_display(self, mode: DisplayMode | None = None) -> Display:
-        """Get appropriate display implementation."""
-
         resolved_mode = self._resolve_mode(mode)
         factory = self.factories.get(resolved_mode)
         if factory is None:
@@ -57,8 +49,6 @@ class DisplayContext:
         return factory()
 
     def add_display_argument(self, parser) -> None:
-        """Add --display argument to an argparse parser."""
-
         default_mode = "mcp" if self.is_mcp_context() else "cli"
 
         parser.add_argument(

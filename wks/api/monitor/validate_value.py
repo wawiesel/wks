@@ -1,5 +1,3 @@
-"""Validate filter value helper."""
-
 import fnmatch
 from pathlib import Path
 from typing import Any
@@ -8,7 +6,6 @@ from wks.api.config.normalize_path import normalize_path
 
 
 def validate_value(list_name: str, value: str, monitor_cfg: Any) -> tuple[str | None, str | None]:
-    """Validate and normalize a value for a filter list."""
     value = value.strip()
     if list_name in ("include_paths", "exclude_paths"):
         value_resolved = str(normalize_path(value))

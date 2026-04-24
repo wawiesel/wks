@@ -1,5 +1,3 @@
-"""Shared top-level status aggregation."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -13,22 +11,18 @@ StatusProvider = Callable[[], Any]
 
 
 class StatusResponse(ServiceResponse):
-    """Aggregated top-level status output."""
-
     model_config = ConfigDict(extra="forbid")
 
     sections: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 def collect_status(*, providers: dict[str, StatusProvider] | None = None) -> StatusResponse:
-    """Collect status from all configured subsystems."""
     resolved_providers = providers or _default_providers()
     sections = {name: _run_status_provider(provider) for name, provider in resolved_providers.items()}
     return StatusResponse(success=True, message="System status", sections=sections)
 
 
 def _run_status_provider(provider: StatusProvider) -> dict[str, Any]:
-    """Run one provider and normalize its output."""
     try:
         stage = provider()
         list(stage.progress_callback(stage))
@@ -38,7 +32,6 @@ def _run_status_provider(provider: StatusProvider) -> dict[str, Any]:
 
 
 def _default_providers() -> dict[str, StatusProvider]:
-    """Return the default subsystem status providers."""
     import wks.api.link.cmd_status as link_mod
     import wks.api.log.cmd_status as log_mod
     import wks.api.monitor.cmd_status as monitor_mod

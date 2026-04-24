@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.service.Service."""
-
 from unittest.mock import MagicMock
 
 import pytest

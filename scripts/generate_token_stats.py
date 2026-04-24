@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Generate Lines of Code statistics (loc.json)."""
 
 import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
 
-# Fix path to allow importing from same directory
 sys.path.append(str(Path(__file__).resolve().parent))
 
 try:
@@ -19,14 +17,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _get_python_file_stats(directory: Path) -> SectionStats:
-    """Get statistics for Python files in a directory."""
-    # Logic similar to original but focused on LOC/files per section
-    # Reuse logic from update_readme_stats.py but implementation here for independence
-    # or import from lib if moved there?
-    # I'll re-implement using stats_lib structures if possible, but stats_lib is just classes.
-    # Actually, stats_lib currently has NO collection logic, just data classes and formatting.
-    # To avoid duplication, I should move collection logic to stats_lib or keep it here.
-    # I'll keep it here for now to satisfy task: independent generation scripts.
     import contextlib
     import subprocess
     import tokenize
@@ -39,7 +29,6 @@ def _get_python_file_stats(directory: Path) -> SectionStats:
     if not files:
         return SectionStats(0, 0, 0, 0)
 
-    # Count LOC using wc
     result = subprocess.run(
         [
             "find",
@@ -68,7 +57,6 @@ def _get_python_file_stats(directory: Path) -> SectionStats:
             with contextlib.suppress(ValueError, IndexError):
                 loc = int(parts[-2])
 
-    # Count chars and tokens
     chars = 0
     tokens = 0
     for py_file in files:
@@ -83,7 +71,6 @@ def _get_python_file_stats(directory: Path) -> SectionStats:
 
 
 def _get_text_file_stats(directory: Path, extensions: list[str]) -> SectionStats:
-    """Get statistics for text files in a directory."""
     if not directory.exists():
         return SectionStats(0, 0, 0, 0)
 
@@ -114,20 +101,12 @@ def _get_file_stats(file_path: Path) -> SectionStats:
 
 
 def _collect_loc_stats() -> dict:
-    """Collect LOC stats for all sections."""
-
-    # Helpers for specific sections
     def get_py(path_parts):
         return _get_python_file_stats(REPO_ROOT.joinpath(*path_parts))
 
-    # Infrastructure Scripts
     scripts_dir = REPO_ROOT / "scripts"
     scripts_stats = SectionStats(0, 0, 0, 0)
     if scripts_dir.exists():
-        # count .py using _get_python_file_stats logic for dir?
-        # Actually _get_python_file_stats is recursive.
-        # But scripts dir has .sh too.
-        # I'll reuse the logic from original update_readme_stats.py
         import tokenize
         from io import StringIO
 
@@ -145,7 +124,6 @@ def _collect_loc_stats() -> dict:
         for sh_file in scripts_dir.glob("*.sh"):
             scripts_stats += _get_file_stats(sh_file)
 
-    # Dev Docs
     dev_docs = SectionStats(0, 0, 0, 0)
     for f in ["CONTRIBUTING.md", "AGENTS.md"]:
         if (REPO_ROOT / f).exists():
@@ -157,7 +135,6 @@ def _collect_loc_stats() -> dict:
         for readme_file in (REPO_ROOT / "wks").rglob("README.md"):
             dev_docs += _get_file_stats(readme_file)
 
-    # Build Config
     build_config = SectionStats(0, 0, 0, 0)
     for f in ["pyproject.toml", "setup.py", "setup.cfg", "pytest.ini", ".pre-commit-config.yaml"]:
         if (REPO_ROOT / f).exists():

@@ -1,12 +1,3 @@
-"""Unit tests for wks.api.config.WKSConfig module.
-
-Requirements Satisfied:
-
-- CONFIG.1
-- CONFIG.2
-- CONFIG.6
-"""
-
 import json
 from unittest.mock import patch
 
@@ -20,8 +11,6 @@ pytestmark = pytest.mark.config
 
 
 class TestWKSConfigLoad:
-    """Test WKSConfig.load() method."""
-
     def test_load_valid_config(self, wks_home_with_priority):
         """Test load() with valid config file."""
         config = WKSConfig.load()
@@ -40,7 +29,6 @@ class TestWKSConfigLoad:
     def test_load_file_not_found(self, tmp_path, monkeypatch):
         """Test load() raises ValueError when file doesn't exist."""
         monkeypatch.setenv("WKS_HOME", str(tmp_path))
-        # Don't create config.json
         with pytest.raises(ValueError) as exc_info:
             WKSConfig.load()
         assert "not found" in str(exc_info.value).lower()
@@ -64,8 +52,6 @@ class TestWKSConfigLoad:
 
 
 class TestWKSConfigPathMethods:
-    """Test WKSConfig path-related methods."""
-
     def test_get_home_dir_with_env(self, tmp_path, monkeypatch):
         """Test get_home_dir() uses WKS_HOME environment variable."""
         monkeypatch.setenv("WKS_HOME", str(tmp_path))
@@ -93,8 +79,6 @@ class TestWKSConfigPathMethods:
 
 
 class TestWKSConfigToDict:
-    """Test WKSConfig.to_dict() method."""
-
     def test_to_dict_returns_dict(self, wks_home_with_priority):
         """Test to_dict() returns a dictionary."""
         config = WKSConfig.load()
@@ -116,8 +100,6 @@ class TestWKSConfigToDict:
 
 
 class TestWKSConfigSave:
-    """Test WKSConfig.save() method."""
-
     def test_save_writes_file(self, wks_home_with_priority):
         """Test save() writes config to file."""
         config = WKSConfig.load()
@@ -128,7 +110,6 @@ class TestWKSConfigSave:
         raw_text = config_path.read_text()
         loaded = json.loads(raw_text)
         assert "monitor" in loaded
-        # Ensure we keep stable pretty-printing (indent=4) for user-facing config files.
         assert '\n    "monitor"' in raw_text
 
     def test_save_uses_default_path(self, wks_home_with_priority):
@@ -149,7 +130,6 @@ class TestWKSConfigSave:
         config_path = wks_home_with_priority / "config.json"
         config.save()
 
-        # Temp file should not exist after successful save
         temp_path = config_path.with_suffix(config_path.suffix + ".tmp")
         assert not temp_path.exists()
         assert config_path.exists()
@@ -160,19 +140,15 @@ class TestWKSConfigSave:
         config_path = wks_home_with_priority / "config.json"
         temp_path = config_path.with_suffix(config_path.suffix + ".tmp")
 
-        # Make the directory read-only to cause an error
         original_mode = config_path.parent.stat().st_mode
         config_path.parent.chmod(0o444)
         try:
             with pytest.raises(RuntimeError) as exc_info:
                 config.save()
         finally:
-            # Restore permissions before checking temp file existence
-            # This prevents permission errors when pytest-xdist tries to clean up
             config_path.parent.chmod(original_mode)
 
         assert "Failed to save config" in str(exc_info.value)
-        # Temp file should be cleaned up
         assert not temp_path.exists()
 
     def test_save_cleans_up_temp_on_error_when_temp_exists(self, wks_home_with_priority):
@@ -181,9 +157,7 @@ class TestWKSConfigSave:
         config_path = wks_home_with_priority / "config.json"
         temp_path = config_path.with_suffix(config_path.suffix + ".tmp")
 
-        # Mock json.dump to raise an exception
         with patch("json.dump", side_effect=OSError("Simulated write error")):
-            # Create temp file first to simulate it existing when error occurs
             temp_path.write_text("temp")
             assert temp_path.exists()
 
@@ -191,5 +165,4 @@ class TestWKSConfigSave:
                 config.save()
 
         assert "Failed to save config" in str(exc_info.value)
-        # Temp file should be cleaned up
         assert not temp_path.exists()

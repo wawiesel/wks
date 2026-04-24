@@ -1,11 +1,3 @@
-"""Config save behavior.
-
-Requirements Satisfied:
-
-- CONFIG.1
-- CONFIG.2
-"""
-
 import json
 
 import pytest
@@ -53,7 +45,6 @@ def test_save_cleans_up_temp_on_error(tmp_path, monkeypatch, minimal_config_dict
     config_path = home_dir / "config.json"
     temp_path = config_path.with_suffix(config_path.suffix + ".tmp")
 
-    # Make the directory read-only to cause an error during save
     config_path.parent.mkdir(parents=True, exist_ok=True)
     original_mode = config_path.parent.stat().st_mode
     config_path.parent.chmod(0o444)
@@ -61,8 +52,6 @@ def test_save_cleans_up_temp_on_error(tmp_path, monkeypatch, minimal_config_dict
         with pytest.raises(RuntimeError):
             cfg.save()
     finally:
-        # Restore permissions before checking temp file existence
-        # This prevents permission errors when pytest-xdist tries to clean up
         config_path.parent.chmod(original_mode)
 
     assert not temp_path.exists()

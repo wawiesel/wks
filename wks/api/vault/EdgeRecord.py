@@ -1,5 +1,3 @@
-"""Edge record model."""
-
 from dataclasses import dataclass
 
 from ._constants import DOC_TYPE_LINK
@@ -8,9 +6,6 @@ from ._identity import _identity
 
 @dataclass
 class EdgeRecord:
-    """Single vault edge with URI-first schema."""
-
-    # Source context
     note_path: str
     from_uri: str
     line_number: int
@@ -18,12 +13,10 @@ class EdgeRecord:
     source_heading: str
     raw_line: str
 
-    # Link content
     link_type: str
     raw_target: str
     alias_or_text: str
 
-    # Target resolution (URI-first)
     to_uri: str
     status: str
     parser: str = "vault"

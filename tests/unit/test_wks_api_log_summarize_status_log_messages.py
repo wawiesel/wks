@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.log.summarize_status_log_messages."""
-
 from wks.api.log.summarize_status_log_messages import (
     STATUS_LOG_MESSAGE_LIMIT,
     summarize_status_log_messages,

@@ -1,5 +1,3 @@
-"""Database public API."""
-
 from typing import Any, Literal
 
 from ._AbstractBackend import _AbstractBackend
@@ -7,18 +5,10 @@ from .DatabaseConfig import DatabaseConfig
 
 
 class Database(_AbstractBackend):
-    """Facade for database operations.
-
-    Delegates to a concrete implementation based on configuration.
-    Acts as a Context Manager to ensure proper resource handling.
-    """
-
     def __init__(self, database_config: DatabaseConfig, database_name: str | None = None):
         self.database_config = database_config
         self.prefix = database_config.prefix
-        # Allow overriding database name (for tests or multi-tenant scenarios)
         self.name = database_name or self.prefix
-        # Validate database_name is not empty string (fail fast)
         if self.name == "":
             raise ValueError("database_name cannot be empty string (use None for default)")
         self.type = database_config.type
@@ -27,21 +17,15 @@ class Database(_AbstractBackend):
     def __enter__(self) -> "Database":
         backend_type = self.database_config.type
 
-        # Validate backend type using DatabaseConfig registry (single source of truth)
         from .DatabaseConfig import _BACKEND_REGISTRY
 
         backend_registry = _BACKEND_REGISTRY
         if backend_type not in backend_registry:
             raise ValueError(f"Unsupported backend type: {backend_type!r} (supported: {list(backend_registry.keys())})")
 
-        # Import backend implementation class directly from backend _Backend module
-        # Pattern: wks.api.database._mongo._Backend
         module = __import__(f"wks.api.database._{backend_type}._Backend", fromlist=[""])
         backend_class = module._Backend
 
-        # Instantiate backend
-        # Note: Backends expect the *entire* config object plus the specific database name to use
-        # mongo backend expects: (config, database_name, collection_name)
         self._backend = backend_class(self.database_config, self.database_config.prefix, self.name)
         self._backend.__enter__()  # Enter the backend context
         return self
@@ -62,22 +46,15 @@ class Database(_AbstractBackend):
         self._backend.update_one(filter, update, upsert)  # type: ignore[union-attr]
 
     def insert_one(self, document: dict[str, Any]) -> Any:
-        """Insert a single document."""
         return self._backend.insert_many([document])  # type: ignore[union-attr]
 
     def delete_one(self, filter: dict[str, Any]) -> int:
-        """Delete a single document matching the filter."""
         return self._backend.delete_many(filter)  # type: ignore[union-attr]
 
     def insert_many(self, documents: list[dict[str, Any]]) -> Any:
         return self._backend.insert_many(documents)  # type: ignore[union-attr]
 
     def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
-        """Update multiple documents matching the filter.
-
-        Returns:
-            Number of documents modified
-        """
         return self._backend.update_many(filter, update)  # type: ignore[union-attr]
 
     def delete_many(self, filter: dict[str, Any]) -> int:
@@ -88,27 +65,9 @@ class Database(_AbstractBackend):
 
     @classmethod
     def list_databases(cls, database_config: DatabaseConfig) -> list[str]:
-        """List all databases (collections) in the prefix database.
-
-        Args:
-            database_config: Database configuration
-
-        Returns:
-            List of database names. All collections in the `<prefix>` database.
-
-        Example:
-            ```python
-            databases = Database.list_databases(database_config)
-            # Returns: ["monitor", "vault"] for collections in the "wks" database
-            ```
-        """
         with cls(database_config, "_") as database:
             client = database.get_client()
-            # Get the database object using the prefix
             database_obj = client[database_config.prefix]
-            # List all collections in the database
-            # Collections are named after the database name (e.g., "monitor", "vault")
-            # The prefix is the MongoDB database name, not part of the collection name
             all_collections = database_obj.list_collection_names()
             return sorted(all_collections)
 
@@ -121,44 +80,16 @@ class Database(_AbstractBackend):
         limit: int = 50,
         projection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Query database with simple pass-through interface.
-
-        Args:
-            database_config: Database configuration
-            database_name: Database name (e.g., "monitor"). Prefix from config is automatically prepended.
-                Database names must NOT include the prefix - only specify the database name itself.
-            query_filter: Query filter dict. Examples:
-                - `{"status": "active"}` - exact match
-                - `{"age": {"$gt": 18}}` - greater than
-                - `{}` or `None` - all documents
-            limit: Maximum number of documents to return (default: 50)
-            projection: Fields to include/exclude. Examples:
-                - `{"_id": 0}` - exclude _id (default)
-                - `{"name": 1, "age": 1}` - include only name and age
-
-        Returns:
-            Dict with keys:
-                - `results`: List of matching documents
-                - `count`: Number of documents returned (may be less than limit)
-
-        Example:
-            ```python
-            result = Database.query(database_config, "monitor", {"status": "active"}, limit=10)
-            # Returns: {"results": [...], "count": 5}
-            ```
-        """
         with cls(database_config, database_name) as database:
             results = list(database.find(query_filter, projection or {"_id": 0}).limit(limit))  # type: ignore[attr-defined]
             return {"results": results, "count": len(results)}
 
     def get_client(self) -> Any:
-        """Get the underlying database client (for code that needs direct access)."""
         if not self._backend:
             raise RuntimeError("Collection not initialized. Use as context manager first.")
         return self._backend._client  # type: ignore[attr-defined]
 
     def get_database(self, database_name: str | None = None) -> Any:
-        """Get the underlying database object (for code that needs direct access)."""
         if not self._backend:
             raise RuntimeError("Collection not initialized. Use as context manager first.")
         database_prefix = database_name or self.prefix

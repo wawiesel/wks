@@ -1,5 +1,3 @@
-"""Internal helper for API commands to reduce boilerplate."""
-
 from pathlib import Path
 from typing import Any
 
@@ -15,21 +13,6 @@ def _ensure_arg_uri(
     uri_field: str | None = "path",
     **default_fields: Any,
 ) -> Path | None:
-    """Helper to validate URI refers to an existing local file and resolve it to a Path.
-
-    Args:
-        uri: The URI to validate/resolve.
-        result_obj: The StageResult object to populate on failure.
-        output_cls: The Pydantic model class for the output.
-        vault_path: Optional root for resolving vault:/// URIs.
-        uri_field: Field name for the URI/Path in output (e.g. 'path' or 'source_uri').
-                   If None, it's not included in the output.
-        **default_fields: Default values for required fields in output_cls.
-
-    Returns:
-        Path object if valid and exists, None otherwise (StageResult already populated).
-    """
-
     def _populate_error(err_msg: str, current_uri_val: str):
         kwargs = {"errors": [err_msg], **default_fields}
         if uri_field:

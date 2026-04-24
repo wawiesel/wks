@@ -1,5 +1,3 @@
-"""Shared transform test helpers."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -14,7 +12,6 @@ def temporary_transform_config(
     engines: dict,
     default_engine: str | None = None,
 ) -> Iterator[WKSConfig]:
-    """Temporarily replace transform engine settings for one test."""
     config = WKSConfig.load()
     original_engines = config.transform.engines.copy()
     original_default_engine = config.transform.default_engine

@@ -2,18 +2,6 @@ from ._TransformEngine import _TransformEngine
 
 
 def _get_engine_by_type(engine_type: str) -> _TransformEngine:
-    """Get transform engine instance by type.
-
-    Args:
-        engine_type: Engine type string such as "docling", "pdftext",
-            "treesitter", "textpass", "imagetext", "binarypass", or "null"
-
-    Returns:
-        New engine instance
-
-    Raises:
-        ValueError: If engine type is unknown
-    """
     if engine_type == "docling":
         from ._docling._DoclingEngine import _DoclingEngine
 

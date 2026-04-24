@@ -1,5 +1,3 @@
-"""Index a URI into a named index."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -10,7 +8,6 @@ from . import IndexOutput
 
 
 def cmd(name: str, uri: str) -> StageResult:
-    """Transform, chunk, and store a document in a named index."""
     uri = str(uri)
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
@@ -47,7 +44,6 @@ def cmd(name: str, uri: str) -> StageResult:
 
         spec = config.index.indexes[name]
 
-        # Resolve URI to file path (handles both "file://host/path" and plain paths)
         from ..config.URI import URI
 
         file_path = URI.from_any(uri).path
@@ -80,7 +76,6 @@ def cmd(name: str, uri: str) -> StageResult:
             result_obj.success = False
             return
 
-        # Transform
         from ..transform.cmd_engine import cmd_engine
 
         file_uri = URI.from_path(file_path)
@@ -106,13 +101,11 @@ def cmd(name: str, uri: str) -> StageResult:
 
         cache_key = res.output["checksum"]
 
-        # Read content from cache
         yield (0.65, "Reading content...")
         from ..transform.get_content import get_content
 
         content = get_content(cache_key)
 
-        # Chunk
         yield (0.75, "Chunking...")
         from ._ChunkStore import _ChunkStore
         from ._SlidingWindowChunker import _SlidingWindowChunker
@@ -120,13 +113,11 @@ def cmd(name: str, uri: str) -> StageResult:
         chunker = _SlidingWindowChunker(spec.max_tokens, spec.overlap_tokens)
         chunks = chunker.chunk(content, str(file_uri))
 
-        # Store
         yield (0.85, "Storing chunks...")
         with Database(config.database, "index") as db:
             store = _ChunkStore(db)
             store.replace_uri(name, str(file_uri), cache_key, chunks)
 
-        # Optional embedding storage for semantic indexes
         if spec.embedding_model is not None and len(chunks) > 0:
             yield (0.92, f"Embedding chunks with {spec.embedding_model}...")
             from ._build_embedding_docs import build_embedding_docs

@@ -1,10 +1,7 @@
-"""Child process entry point for daemon (invoked via subprocess)."""
-
 import sys
 
 
 def main() -> None:
-    """Parse args and run the daemon child loop."""
     if len(sys.argv) != 8:
         sys.exit(1)
 

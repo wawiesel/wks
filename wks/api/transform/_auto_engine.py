@@ -1,11 +1,8 @@
-"""Auto engine selection for transform operations."""
-
 from pathlib import Path
 
 from ._treesitter._language_map import _EXTENSION_TO_LANGUAGE
 from .mime import normalize_extension
 
-# Docling supported extensions (PDF, DOCX, PPTX, etc.)
 _DOCLING_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"}
 _KIND_TO_ENGINE_TYPE = {
     "code": "treesitter",
@@ -16,7 +13,6 @@ _KIND_TO_ENGINE_TYPE = {
 
 
 def is_utf8_text(input_path: Path) -> bool:
-    """Return True when the file can be decoded as UTF-8 text."""
     try:
         with input_path.open("rb") as f:
             chunk = f.read(8192)
@@ -29,7 +25,6 @@ def is_utf8_text(input_path: Path) -> bool:
 
 
 def classify_input_kind(input_path: Path) -> str:
-    """Classify input as code, document, text, or binary."""
     extension = normalize_extension(input_path.suffix)
 
     if extension in _EXTENSION_TO_LANGUAGE:
@@ -45,17 +40,6 @@ def classify_input_kind(input_path: Path) -> str:
 
 
 def select_auto_engine(input_path: Path) -> str:
-    """Select transform engine automatically based on file extension and content.
-
-    Args:
-        input_path: Path to input file
-
-    Returns:
-        Engine type string: "treesitter", "docling", "textpass", or "binarypass"
-
-    Raises:
-        ValueError: If file cannot be analyzed
-    """
     return _KIND_TO_ENGINE_TYPE[classify_input_kind(input_path)]
 
 

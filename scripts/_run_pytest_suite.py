@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Shared runner for pytest suite wrapper scripts."""
 
 import subprocess
 import sys
@@ -11,7 +10,6 @@ console = Console()
 
 
 def run_pytest_suite(label: str, test_path: str, args: list[str]) -> int:
-    """Run one pytest suite with consistent logging and exit behavior."""
     bin_dir = Path(sys.executable).parent
     pytest_cmd = str(bin_dir / "pytest") if (bin_dir / "pytest").exists() else "pytest"
 

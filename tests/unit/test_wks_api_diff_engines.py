@@ -1,5 +1,3 @@
-"""Tests for diff engine registry."""
-
 from wks.api.diff import ENGINES
 
 

@@ -1,13 +1,9 @@
-"""Per-index specification."""
-
 from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
 
 class _IndexSpec(BaseModel):
-    """Configuration for a single named index."""
-
     max_tokens: int = 256
     overlap_tokens: int = 64
     min_priority: float = 0.0
@@ -18,7 +14,6 @@ class _IndexSpec(BaseModel):
 
     @model_validator(mode="after")
     def validate_embedding_model(self) -> "_IndexSpec":
-        """Validate semantic embedding configuration."""
         if self.embedding_model is not None and not self.embedding_model.strip():
             raise ValueError("index.embedding_model must be a non-empty string when provided")
         if self.embedding_mode == "image_text_combo":

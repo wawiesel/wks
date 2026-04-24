@@ -2,8 +2,6 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class _FilterConfig(BaseModel):
-    """Filter configuration for monitor paths."""
-
     include_paths: list[str] = Field(...)
     exclude_paths: list[str] = Field(...)
     include_dirnames: list[str] = Field(...)

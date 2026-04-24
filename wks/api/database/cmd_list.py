@@ -1,5 +1,3 @@
-"""List databases command."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -11,18 +9,7 @@ KNOWN_DATABASES = set(DB_HANDLERS.keys())
 
 
 def cmd_list() -> StageResult:
-    """List available databases.
-
-    Returns:
-        StageResult with list of databases (displayed as table)
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result.
-
-        Yields: (progress_percent: float, message: str) tuples
-        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
-        """
         from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
@@ -56,7 +43,6 @@ def cmd_list() -> StageResult:
             return
 
         yield (0.8, "Processing database names...")
-        # Strip prefix from database names
         prefix = config.database.prefix
         short_names = []
         for full_name in database_names:
@@ -65,7 +51,6 @@ def cmd_list() -> StageResult:
             else:
                 short_names.append(full_name)
 
-        # Flag unknown databases
         warnings: list[str] = []
         unknown = [name for name in short_names if name not in KNOWN_DATABASES]
         if unknown:

@@ -1,5 +1,3 @@
-"""Docling transform engine."""
-
 import hashlib
 import re
 import shutil
@@ -13,8 +11,6 @@ from .._TransformEngine import _TransformEngine
 
 
 class _DoclingEngine(_TransformEngine):
-    """Docling transform engine for PDF, DOCX, PPTX."""
-
     _LOG_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3}\s+-\s+\w+\s+-\s+")
     _WORD_RE = re.compile(r"[A-Za-z]{3,}")
     _IMAGE_REF_RE = re.compile(r"(!\[[^\]]*\]\()([^)]+)(\))")
@@ -22,7 +18,6 @@ class _DoclingEngine(_TransformEngine):
     def transform(
         self, input_path: Path, output_path: Path, options: dict[str, Any]
     ) -> Generator[str, None, list[str]]:
-        """Transform document using docling with PDF recovery fallbacks."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_output = Path(temp_dir)
             out_format = options["to"]
@@ -59,7 +54,6 @@ class _DoclingEngine(_TransformEngine):
             return referenced_images
 
     def get_extension(self, options: dict[str, Any]) -> str:
-        """Get output file extension."""
         return options["to"]
 
     def _run_docling(
@@ -69,7 +63,6 @@ class _DoclingEngine(_TransformEngine):
         temp_output: Path,
         options: dict[str, Any],
     ) -> Generator[str, None, tuple[Path, list[str]]]:
-        """Run docling and return the expected output path plus referenced URIs."""
         cmd = ["docling", str(input_path), "--to", options["to"], "--output", str(temp_output)]
 
         ocr = options["ocr"]
@@ -143,7 +136,6 @@ class _DoclingEngine(_TransformEngine):
         temp_output: Path,
         image_export_mode: str,
     ) -> list[str]:
-        """Move referenced images into cache and rewrite markdown links."""
         if image_export_mode != "referenced":
             return []
 
@@ -168,11 +160,9 @@ class _DoclingEngine(_TransformEngine):
         return referenced_images
 
     def _iter_referenced_images(self, temp_output: Path, expected_output: Path) -> list[Path]:
-        """Return all extracted image artifacts except the primary markdown output."""
         return sorted(path for path in temp_output.rglob("*") if path.is_file() and path != expected_output)
 
     def _cache_image_path(self, artifacts_dir: Path, relative_path: Path, used_names: set[str]) -> Path:
-        """Return a stable cache-owned path for one extracted image artifact."""
         candidate_name = relative_path.name
         if candidate_name in used_names:
             suffix = hashlib.sha256(relative_path.as_posix().encode()).hexdigest()[:12]
@@ -187,7 +177,6 @@ class _DoclingEngine(_TransformEngine):
         relative_path: Path,
         cache_image_path: Path,
     ) -> str:
-        """Rewrite one markdown image destination to a stable cache path."""
         replacements = {
             str(img_file),
             img_file.as_uri(),
@@ -212,7 +201,6 @@ class _DoclingEngine(_TransformEngine):
         input_path: Path,
         options: dict[str, Any],
     ) -> Generator[str, None, str | None]:
-        """Try pdftext then OCR, returning the first usable fallback text."""
         if self._coerce_bool(options.get("fallback_pdftext"), True):
             try:
                 pdftext = yield from self._run_pdftext_fallback(input_path, options)
@@ -240,7 +228,6 @@ class _DoclingEngine(_TransformEngine):
         input_path: Path,
         options: dict[str, Any],
     ) -> Generator[str, None, str]:
-        """Run the built-in pdftotext engine and return extracted text."""
         from .._pdftext._PdfTextEngine import _PdfTextEngine
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -255,7 +242,6 @@ class _DoclingEngine(_TransformEngine):
         input_path: Path,
         options: dict[str, Any],
     ) -> Generator[str, None, str]:
-        """OCR-render a PDF with pdftoppm+tesseract and return UTF-8 text."""
         timeout = self._coerce_timeout_secs(options.get("timeout_secs"))
         dpi = self._coerce_positive_int(options.get("ocr_fallback_dpi"), 300, "ocr_fallback_dpi")
         psm = self._coerce_positive_int(options.get("ocr_fallback_psm"), 6, "ocr_fallback_psm")
@@ -283,7 +269,6 @@ class _DoclingEngine(_TransformEngine):
             return "\n\n\f\n\n".join(part.strip() for part in text_parts if part.strip())
 
     def _is_low_quality_pdf_text(self, text: str, options: dict[str, Any]) -> bool:
-        """Return True when extracted PDF text is clearly low-quality."""
         visible_chars = [char for char in text if not char.isspace()]
         visible_count = len(visible_chars)
         if visible_count == 0:
@@ -322,7 +307,6 @@ class _DoclingEngine(_TransformEngine):
 
     @staticmethod
     def _should_try_pdf_recovery(input_path: Path, out_format: str) -> bool:
-        """Return True when PDF fallback logic is applicable."""
         return input_path.suffix.lower() == ".pdf" and out_format == "md"
 
     @staticmethod
@@ -333,7 +317,6 @@ class _DoclingEngine(_TransformEngine):
         *,
         capture_stdout: bool = False,
     ) -> str:
-        """Run a subprocess command and optionally return stdout."""
         try:
             completed = subprocess.run(
                 cmd,
@@ -361,7 +344,6 @@ class _DoclingEngine(_TransformEngine):
 
     @staticmethod
     def _coerce_timeout_secs(value: Any) -> int | None:
-        """Return a positive timeout in seconds when configured."""
         if value is None:
             return None
         try:
@@ -374,7 +356,6 @@ class _DoclingEngine(_TransformEngine):
 
     @staticmethod
     def _coerce_positive_int(value: Any, default: int, option_name: str) -> int:
-        """Return a positive integer option or the provided default."""
         if value is None:
             return default
         try:
@@ -387,7 +368,6 @@ class _DoclingEngine(_TransformEngine):
 
     @staticmethod
     def _coerce_ratio(value: Any, default: float, option_name: str) -> float:
-        """Return a ratio in the inclusive range [0, 1]."""
         if value is None:
             return default
         try:
@@ -400,7 +380,6 @@ class _DoclingEngine(_TransformEngine):
 
     @staticmethod
     def _coerce_bool(value: Any, default: bool) -> bool:
-        """Return a bool with a default when unset."""
         if value is None:
             return default
         if isinstance(value, bool):
@@ -415,7 +394,6 @@ class _DoclingEngine(_TransformEngine):
 
     @staticmethod
     def _tesseract_language(value: Any) -> str | None:
-        """Convert WKS OCR language config into a tesseract-compatible value."""
         if value is None or value == "":
             return None
         if isinstance(value, list):

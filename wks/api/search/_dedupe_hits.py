@@ -1,5 +1,3 @@
-"""Deduplicate ranked hits by canonical URI and text content hash."""
-
 from hashlib import sha256
 from typing import Any
 
@@ -7,7 +5,6 @@ from ..config.URI import URI
 
 
 def _dedupe_hits(hits: list[dict[str, Any]], k: int) -> list[dict[str, Any]]:
-    """Keep score order while removing duplicate document representations."""
     deduped: list[dict[str, Any]] = []
     seen_uris: set[str] = set()
     seen_hashes: set[str] = set()

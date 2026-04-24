@@ -1,5 +1,3 @@
-"""List configuration sections command."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,8 +6,6 @@ from .load_config_with_output import load_config_with_output
 
 
 def cmd_list() -> StageResult:
-    """List all configuration section names."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.3, "Loading configuration...")
         config, error_output = load_config_with_output("", ConfigListOutput)

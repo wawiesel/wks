@@ -11,13 +11,6 @@ def read_log_entries(
     warning_retention_days: float = 2.0,
     error_retention_days: float = 7.0,
 ) -> tuple[list[str], list[str]]:
-    """Read log entries, filtering expired ones and returning (warnings, errors).
-
-    This is the prune-on-access contract: expired entries are removed when reading.
-
-    Returns:
-        Tuple of (warnings, errors) lists
-    """
     warnings: list[str] = []
     errors: list[str] = []
 
@@ -60,7 +53,6 @@ def read_log_entries(
                 elif level == "WARN":
                     warnings.append(stripped)
             else:
-                # Legacy format - keep and categorize
                 kept_lines.append(stripped)
                 upper = stripped.upper()
                 if "ERROR" in upper:
@@ -68,10 +60,8 @@ def read_log_entries(
                 elif "WARN" in upper:
                     warnings.append(stripped)
 
-        # Write back non-expired entries (prune-on-access)
         log_path.write_text("\n".join(kept_lines) + "\n" if kept_lines else "", encoding="utf-8")
     except OSError as e:
-        # Report log file access errors as warnings (non-fatal for reading)
         warnings.append(f"Log file access error during prune: {e}")
 
     return warnings, errors

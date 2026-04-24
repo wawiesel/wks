@@ -1,5 +1,3 @@
-"""MIME type and extension helpers for transform engines."""
-
 from __future__ import annotations
 
 import mimetypes
@@ -61,7 +59,6 @@ _EXTENSION_TO_MIME: dict[str, str] = {
 
 
 def normalize_extension(extension: str) -> str:
-    """Normalize extension to lowercase, leading-dot form."""
     ext = extension.strip().lower()
     if not ext:
         return ""
@@ -69,7 +66,6 @@ def normalize_extension(extension: str) -> str:
 
 
 def guess_mime_type(path: Path) -> str:
-    """Guess MIME type for a path, with a stable fallback."""
     mime_type, _ = mimetypes.guess_type(str(path))
     if mime_type:
         return mime_type
@@ -80,7 +76,6 @@ def guess_mime_type(path: Path) -> str:
 
 
 def extension_for_mime(mime_type: str) -> str | None:
-    """Resolve a canonical extension for a MIME type."""
     normalized = mime_type.strip().lower()
     if normalized in _MIME_TO_EXTENSION:
         return _MIME_TO_EXTENSION[normalized]
@@ -89,7 +84,6 @@ def extension_for_mime(mime_type: str) -> str | None:
 
 
 def mime_for_extension(extension: str) -> str | None:
-    """Resolve a MIME type for a file extension."""
     normalized = normalize_extension(extension)
     if normalized in _EXTENSION_TO_MIME:
         return _EXTENSION_TO_MIME[normalized]

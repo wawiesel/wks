@@ -87,7 +87,6 @@ TOOL_SCHEMA_OVERRIDES: dict[str, dict[str, Any]] = {
 
 
 def _tool_name(domain: str, cmd_name: str) -> str:
-    """Build MCP tool name from domain/command pair."""
     if domain == "_root":
         return cmd_name
     if domain == cmd_name:
@@ -96,7 +95,6 @@ def _tool_name(domain: str, cmd_name: str) -> str:
 
 
 def _unwrap_optional(annotation: Any) -> Any:
-    """Return the non-None member of an Optional/union annotation when unambiguous."""
     args = get_args(annotation)
     if not args or type(None) not in args:
         return annotation
@@ -107,7 +105,6 @@ def _unwrap_optional(annotation: Any) -> Any:
 
 
 def _coerce_argument(annotation: Any, value: Any) -> Any:
-    """Coerce JSON-decoded MCP arguments to the types expected by API commands."""
     annotation = _unwrap_optional(annotation)
     if isinstance(value, str) and isinstance(annotation, type) and issubclass(annotation, Path):
         return Path(value).expanduser()
@@ -115,7 +112,6 @@ def _coerce_argument(annotation: Any, value: Any) -> Any:
 
 
 def _schema_for_annotation(annotation: Any) -> dict[str, Any]:
-    """Map a Python annotation to a JSON Schema fragment."""
     annotation = _unwrap_optional(annotation)
     if annotation == inspect.Parameter.empty:
         return {"type": "string"}
@@ -147,7 +143,6 @@ def _schema_for_annotation(annotation: Any) -> dict[str, Any]:
 
 
 def _parameter_description(tool_name: str, param_name: str) -> str:
-    """Return a human-readable description for a tool parameter."""
     tool_overrides = TOOL_PARAM_DESCRIPTION_OVERRIDES.get(tool_name, {})
     if param_name in tool_overrides:
         return tool_overrides[param_name]
@@ -163,7 +158,6 @@ def _merge_property_overrides(
     schema_properties: dict[str, Any],
     property_overrides: dict[str, dict[str, Any]],
 ) -> None:
-    """Apply per-property JSON Schema overrides in place."""
     for property_name, override in property_overrides.items():
         if property_name not in schema_properties:
             continue
@@ -171,7 +165,6 @@ def _merge_property_overrides(
 
 
 def _schema_from_func(tool_name: str, func: Callable) -> dict[str, Any]:
-    """Generate a JSON schema from an API function's signature."""
     import typing
 
     sig = inspect.signature(func)
@@ -206,15 +199,12 @@ def _schema_from_func(tool_name: str, func: Callable) -> dict[str, Any]:
 
 
 def _description_from_func(func: Callable, domain: str, cmd_name: str) -> str:
-    """Extract a one-line description from a function's docstring."""
     if func.__doc__:
         return func.__doc__.split("\n")[0].strip()
     return f"{domain} {cmd_name} operation"
 
 
 class MCPServer:
-    """Simple JSON-RPC server for MCP tools."""
-
     def __init__(self, *, input_stream: Any | None = None, output_stream: Any | None = None):
         self._input = input_stream or sys.stdin
         self._output = output_stream or sys.stdout
@@ -231,7 +221,6 @@ class MCPServer:
 
     @staticmethod
     def define_tools() -> dict[str, dict[str, Any]]:
-        """Build tool metadata from discovered API functions."""
         tools = {}
         for (domain, cmd_name), cmd_func in discover_commands().items():
             name = _tool_name(domain, cmd_name)
@@ -242,7 +231,6 @@ class MCPServer:
         return tools
 
     def build_registry(self) -> dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]]:
-        """Build a registry of tool handlers mapped by name."""
         registry: dict[str, Callable[[WKSConfig, dict[str, Any]], dict[str, Any]]] = {}
         for (domain, cmd_name), cmd_func in discover_commands().items():
             sig = inspect.signature(cmd_func)
@@ -287,7 +275,6 @@ class MCPServer:
         return registry
 
     def _tools_resource_document(self) -> str:
-        """Render the advertised tools resource as JSON text."""
         document: dict[str, Any] = {
             "server": "wks",
             "tools": [
@@ -305,7 +292,6 @@ class MCPServer:
         return json.dumps(document, indent=2)
 
     def read_message(self) -> dict[str, Any] | None:
-        """Read and decode a single JSON-RPC message from the input stream."""
         try:
             while True:
                 line = self._input.readline()
@@ -326,7 +312,6 @@ class MCPServer:
             return None
 
     def write_message(self, message: dict[str, Any]) -> None:
-        """Write a JSON-RPC response to the output stream."""
         payload = json.dumps(message)
         if self._lsp_mode:
             encoded = payload.encode("utf-8")
@@ -337,7 +322,6 @@ class MCPServer:
         self._output.flush()
 
     def handle_request(self, message: dict[str, Any]) -> None:
-        """Handle a single JSON-RPC request."""
         request_id, method, params = message.get("id"), message.get("method"), message.get("params", {})
         if method == "initialize":
             self.write_message(
@@ -442,7 +426,6 @@ class MCPServer:
             )
 
     def run(self) -> None:
-        """Run the request loop until EOF."""
         while True:
             message = self.read_message()
             if message is None:

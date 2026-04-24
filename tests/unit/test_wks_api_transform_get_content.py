@@ -1,5 +1,3 @@
-"""Tests for transform get_content API."""
-
 import pytest
 
 from tests.unit.conftest import run_cmd, write_watched_file
@@ -13,7 +11,6 @@ def test_get_content_file(wks_home, minimal_config_dict):
     """Test retrieving content for a file."""
     test_file = write_watched_file(wks_home, name="get_me.txt", content="Get Content")
 
-    # First transform it to ensure it's in the system
     run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
 
     content = get_content(str(test_file))

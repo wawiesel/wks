@@ -1,13 +1,9 @@
-"""Log configuration."""
-
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class LogConfig(BaseModel):
-    """Log retention configuration."""
-
     model_config = ConfigDict(extra="forbid")
 
     level: Literal["DEBUG", "INFO", "WARN", "ERROR"] = Field(..., description="Logging level")

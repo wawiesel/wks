@@ -1,9 +1,3 @@
-"""Monitor priority-remove API function.
-
-This function removes a priority directory.
-Matches CLI: wksc monitor priority remove <path>, MCP tool: monitor_priority_remove
-"""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -11,15 +5,6 @@ from . import MonitorPriorityRemoveOutput
 
 
 def cmd_priority_remove(path: str) -> StageResult:
-    """Remove a priority directory.
-
-    Args:
-        path: Directory path to remove
-
-    Returns:
-        StageResult with all 4 stages of data
-    """
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -28,7 +13,6 @@ def cmd_priority_remove(path: str) -> StageResult:
         priority: float | None = None,
         not_found: bool | None = None,
     ) -> None:
-        """Helper to build and assign the output result."""
         result_obj.output = MonitorPriorityRemoveOutput(
             errors=[],
             warnings=[],
@@ -42,7 +26,6 @@ def cmd_priority_remove(path: str) -> StageResult:
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         from wks.api.config.find_matching_path_key import find_matching_path_key
         from wks.api.config.normalize_path import normalize_path
 
@@ -61,12 +44,10 @@ def cmd_priority_remove(path: str) -> StageResult:
             yield (1.0, "Complete")
             return
 
-        # Resolve path
         yield (0.4, "Resolving path...")
         path_resolved = str(normalize_path(path))
         existing_key = find_matching_path_key(config.monitor.priority.dirs, path_resolved)
 
-        # Check if exists
         yield (0.6, "Checking if priority directory exists...")
         if existing_key is None:
             _build_result(
@@ -78,10 +59,8 @@ def cmd_priority_remove(path: str) -> StageResult:
             yield (1.0, "Complete")
             return
 
-        # Get priority before removing
         priority = config.monitor.priority.dirs[existing_key]
 
-        # Remove from priority directories
         yield (0.8, "Removing priority directory...")
         del config.monitor.priority.dirs[existing_key]
 

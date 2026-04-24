@@ -1,5 +1,3 @@
-"""Tests for wks.api.vault.resolve_vault_path."""
-
 import pytest
 
 from wks.api.vault.resolve_vault_path import VaultPathError, resolve_vault_path
@@ -7,7 +5,6 @@ from wks.api.vault.resolve_vault_path import VaultPathError, resolve_vault_path
 
 @pytest.fixture
 def vault_dir(tmp_path):
-    """Create a mock vault directory with some files."""
     vault = tmp_path / "vault"
     vault.mkdir()
     (vault / "Index.md").write_text("# Index")
@@ -17,8 +14,6 @@ def vault_dir(tmp_path):
 
 
 class TestResolveVaultPath:
-    """Test vault path resolution."""
-
     def test_vault_uri_existing_file(self, vault_dir):
         """Test vault:/// URI for existing file."""
         uri, path = resolve_vault_path("vault:///Index.md", vault_dir)
@@ -85,8 +80,6 @@ class TestResolveVaultPath:
 
     def test_tilde_path_in_vault(self, vault_dir, monkeypatch):
         """Test ~/path expansion when path is in vault."""
-        # Create a symlink or use actual home expansion
-        # For simplicity, test absolute path behavior
         abs_path = vault_dir / "Projects" / "2025-WKS.md"
         uri, _ = resolve_vault_path(str(abs_path), vault_dir)
         assert uri == "vault:///Projects/2025-WKS.md"

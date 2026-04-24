@@ -1,5 +1,3 @@
-"""Unit tests for vault cmd_sync."""
-
 import pytest
 
 from tests.unit._vault_test_helpers import setup_vault_env, vault_database_config, write_unit_config
@@ -47,7 +45,6 @@ def test_vault_sync_with_notes(monkeypatch, tmp_path, minimal_config_dict):
     """Vault sync scans notes with links."""
     _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
 
-    # Create notes with links
     (vault_dir / "note_A.md").write_text("# Note A\n[[wikilink]]\n[[note_B]]", encoding="utf-8")
     (vault_dir / "note_B.md").write_text("# Note B\n[[note_A]]", encoding="utf-8")
     (vault_dir / "nested").mkdir()
@@ -55,7 +52,6 @@ def test_vault_sync_with_notes(monkeypatch, tmp_path, minimal_config_dict):
 
     result = run_cmd(cmd_sync)
 
-    # Sync should succeed and find notes
     assert result.success is True, f"Sync failed: {result.output.get('errors')}"
     assert result.output["notes_scanned"] >= 3
 
@@ -76,7 +72,6 @@ def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_
     from wks.api.database.Database import Database
 
     wks_home, _, cfg = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-    # Explicitly use mongomock type ensures it uses the internal backend
     cfg["database"]["type"] = "mongomock"
     write_unit_config(wks_home, cfg)
 
@@ -251,12 +246,10 @@ def test_cmd_sync_load_config_fails(monkeypatch, tmp_path):
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
 
-    # Corrupt JSON
     (wks_home / "config.json").write_text("{ corrupt", encoding="utf-8")
 
     result = run_cmd(cmd_sync)
     assert result.success is False
-    # The result message only contains the exception string, the prefix is in output["errors"]
     assert any("Failed to load config" in err for err in result.output["errors"])
 
 
@@ -264,7 +257,6 @@ def test_cmd_sync_catch_all_exception(monkeypatch, tmp_path, minimal_config_dict
     """cmd_sync handles unexpected exceptions during do_work."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Force an exception by patching Vault context manager to raise
     from wks.api.vault.Vault import Vault
 
     def mock_enter(self):
@@ -284,7 +276,6 @@ def test_cmd_sync_path_outside_vault_coverage(monkeypatch, tmp_path, minimal_con
     outside_dir.mkdir()
     (outside_dir / "external.md").write_text("external", encoding="utf-8")
 
-    # Mock resolve to return a path relative to vault_dir to avoid relative_to failure
     from pathlib import Path
 
     rel_path = Path("subdir/file.md")
@@ -299,8 +290,6 @@ def test_cmd_sync_path_outside_vault_coverage(monkeypatch, tmp_path, minimal_con
 
     monkeypatch.setattr(wks.api.vault.resolve_vault_path, "resolve_vault_path", mock_resolve)
 
-    # Now run sync with a path - it will use our mock_resolve
-    # This exercises line 129: scope_prefix = f"vault:///{target_path.relative_to(vault_path)}"
     result = run_cmd(cmd_sync, uri=URI.from_path(str(target_file)))
     assert result.success is True
     assert result.output["notes_scanned"] == 1

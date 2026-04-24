@@ -1,5 +1,3 @@
-"""Tests for VaultConfig."""
-
 import pytest
 from pydantic import ValidationError
 
@@ -22,12 +20,7 @@ def test_vault_config_from_dict_missing_section():
 
 def test_vault_config_validation_error():
     """Test pydantic validation error."""
-    config = {
-        "vault": {
-            "type": "obsidian"
-            # missing base_dir
-        }
-    }
+    config = {"vault": {"type": "obsidian"}}
     with pytest.raises(ValidationError):
         VaultConfig.from_config_dict(config)
 

@@ -1,5 +1,3 @@
-"""Mock MongoDB collection implementation using mongomock."""
-
 from typing import Any
 
 import mongomock
@@ -26,10 +24,7 @@ class _Backend(_AbstractBackend):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Don't close shared client - it's reused across instances
-        # Only clear local references
         self._collection = None
-        # Keep self._client set so get_client() works, but don't close it
         return False
 
     def count_documents(self, filter: dict[str, Any] | None = None) -> int:

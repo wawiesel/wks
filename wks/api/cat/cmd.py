@@ -1,5 +1,3 @@
-"""Cat command - retrieves cached content by checksum or path."""
-
 from pathlib import Path
 
 from wks.api.cat._format_target_for_display import format_target_for_display
@@ -13,7 +11,6 @@ def cmd(
     output_path: Path | None = None,
     engine: str | None = None,
 ) -> StageResult:
-    """Retrieve content for a target (checksum, strict URI, or file path)."""
     display_target = format_target_for_display(target)
 
     def do_work(result_obj: StageResult):

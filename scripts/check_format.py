@@ -12,7 +12,6 @@ console = Console()
 def run_command(command, description):
     console.print(f"[bold blue]Running {description}...[/bold blue]")
 
-    # Resolve tool path
     tool = command[0]
     bin_dir = Path(sys.executable).parent
     tool_path = bin_dir / tool

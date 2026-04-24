@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.daemon.cmd_clear."""
-
 import json
 
 import pytest
@@ -21,27 +19,22 @@ def test_daemon_clear_when_stopped(monkeypatch, tmp_path):
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg.save()
 
-    # Create dummy daemon.json with messy state
     status_path = wks_home / "daemon.json"
     status_path.write_text('{"running": false, "errors": ["old error"]}')
 
-    # Create logs with messy content
     log_path = WKSConfig.get_logfile_path()
     log_path.write_text("Old log content\n")
 
-    # Run clear
     clear_result = run_cmd(cmd_clear)
     assert clear_result.success is True
     assert "Daemon state cleared" in clear_result.result
 
-    # Verify status is reset
     new_status = json.loads(status_path.read_text())
     assert new_status["running"] is False
     assert new_status["errors"] == []
     assert new_status["pid"] is None
     assert new_status["last_sync"] is None
 
-    # Verify logs are cleared (empty file)
     assert log_path.exists()
     assert log_path.read_text() == ""
 
@@ -56,24 +49,19 @@ def test_daemon_clear_blocked_when_running(monkeypatch, tmp_path):
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg.save()
 
-    # Start daemon
     run_cmd(cmd_start)
 
-    # Verify it started
     status_res = run_cmd(cmd_status)
     assert status_res.output["running"] is True
 
-    # Attempt clear
     clear_result = run_cmd(cmd_clear)
     assert clear_result.success is False
     assert "Cannot clear while daemon is running" in clear_result.result
 
-    # Verify status still accessible/running
     status_path = wks_home / "daemon.json"
     status_after = json.loads(status_path.read_text())
     assert status_after["running"] is True
 
-    # Cleanup
     run_cmd(cmd_stop)
 
 
@@ -115,7 +103,6 @@ def test_daemon_clear_stale_lock(monkeypatch, tmp_path):
     cfg.save()
 
     lock_path = wks_home / "daemon.lock"
-    # Use a large PID that is unlikely to exist
     lock_path.write_text("999999\n")
 
     result = run_cmd(cmd_clear)

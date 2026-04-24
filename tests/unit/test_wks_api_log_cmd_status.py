@@ -39,13 +39,9 @@ def test_cmd_status_success(tracked_wks_config, isolated_wks_home):
 
     result = run_cmd(cmd_status)
     assert result.success is True
-    # Info: 1 kept, 1 expired
     assert result.output["entry_counts"]["info"] == 1
-    # Error: 1 kept
     assert result.output["entry_counts"]["error"] == 1
-    # Warn: 1 legacy kept
     assert result.output["entry_counts"]["warn"] == 1
-    # Debug: 1 legacy kept
     assert result.output["entry_counts"]["debug"] == 1
 
     assert result.output["size_bytes"] > 0

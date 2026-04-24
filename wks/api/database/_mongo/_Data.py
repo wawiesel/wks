@@ -1,5 +1,3 @@
-"""MongoDB-specific configuration data."""
-
 from pydantic import BaseModel, Field, model_validator
 from pymongo.uri_parser import parse_uri
 

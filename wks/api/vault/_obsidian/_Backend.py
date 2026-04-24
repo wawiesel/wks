@@ -1,9 +1,3 @@
-"""
-Lean Obsidian vault integration for WKS.
-
-Implements _AbstractVault for Obsidian-style vaults with symlink-based external file linking.
-"""
-
 from __future__ import annotations
 
 import platform
@@ -22,8 +16,6 @@ from ..VaultConfig import VaultConfig
 
 
 class _Backend(_AbstractBackend):
-    """Obsidian vault implementation for link maintenance."""
-
     def __init__(self, vault_config: VaultConfig):
         from wks.api.config.normalize_path import normalize_path
 
@@ -49,7 +41,6 @@ class _Backend(_AbstractBackend):
         return self._links_dir
 
     def iter_markdown_files(self) -> Generator[Path, None, None]:
-        """Iterate all markdown files in the vault (excludes _links/)."""
         for md in self._vault_path.rglob("*.md"):
             if not md.is_file():
                 continue
@@ -67,7 +58,6 @@ class _Backend(_AbstractBackend):
                 continue
 
     def find_broken_links(self) -> list[Path]:
-        """Find all broken symlinks in the _links directory."""
         broken: list[Path] = []
         if not self._links_dir.exists():
             return broken
@@ -77,14 +67,12 @@ class _Backend(_AbstractBackend):
         return broken
 
     def resolve_link(self, target: str) -> LinkMetadata:
-        """Resolve a wiki link target to metadata."""
         target = target.strip()
         for predicate, resolver in self.resolvers:
             if predicate(target):
                 return resolver(target)
         return self._resolve_vault_note(target)
 
-    # Predicates
     def _is_symlink(self, target: str) -> bool:
         return target.startswith("_links/")
 
@@ -94,39 +82,26 @@ class _Backend(_AbstractBackend):
     def _is_external_url(self, target: str) -> bool:
         return "://" in target
 
-    # Resolvers
     def _resolve_symlink(self, target: str) -> LinkMetadata:
-        """Resolve _links/ symlink target.
-
-        Returns a file:// URI for the resolved symlink target.
-        If the symlink does not exist, the link is treated as missing
-        and resolved as a vault note with appropriate status.
-        """
         rel = target[len("_links/") :]
         symlink_path = self.links_dir / rel
 
         if not symlink_path.exists():
-            # Symlink doesn't exist - resolve as internal if it looks like one, or mark missing
             return self._resolve_vault_note(target, status=STATUS_MISSING_SYMLINK)
 
         try:
             resolved = symlink_path.resolve(strict=False)
         except (OSError, ValueError, RuntimeError):
-            # OSError: Permission denied, file system issues
-            # ValueError: Invalid path
-            # RuntimeError: Symlink loop or too many levels
             resolved = symlink_path
 
         resolved_exists = resolved.exists()
         status = STATUS_MISSING_TARGET if not resolved_exists else STATUS_OK
 
-        # Use URI.from_path for resolved filesystem path
         try:
             from wks.api.config.URI import URI
 
             target_uri = str(URI.from_path(resolved))
         except (ValueError, OSError, ImportError):
-            # Fallback to absolute file path string if URI conversion fails
             target_uri = f"file://{resolved}"
 
         return LinkMetadata(
@@ -135,9 +110,7 @@ class _Backend(_AbstractBackend):
         )
 
     def _resolve_attachment(self, target: str) -> LinkMetadata:
-        """Resolve vault attachment (files starting with _)."""
         abs_path = self.vault_path / target
-        # Vault attachments use vault:/// URI
         target_uri = f"vault:///{target}"
         return LinkMetadata(
             target_uri=target_uri,
@@ -145,15 +118,12 @@ class _Backend(_AbstractBackend):
         )
 
     def _resolve_external_url(self, target: str) -> LinkMetadata:
-        """Resolve external URL (contains ://)."""
         return LinkMetadata(
             target_uri=target,
             status=STATUS_OK,
         )
 
     def _resolve_vault_note(self, target: str, status: str = STATUS_OK) -> LinkMetadata:
-        """Resolve as vault note (default case) using vault:/// URI."""
-        # Append .md if not present and doesn't look like a file with extension
         note_target = target
         if not note_target.endswith(".md") and "." not in note_target:
             note_target += ".md"
@@ -164,25 +134,13 @@ class _Backend(_AbstractBackend):
         if target_status == STATUS_OK and not abs_path.exists():
             target_status = STATUS_MISSING_TARGET
 
-        # Use vault:/// relative URI
         target_uri = f"vault:///{note_target}"
         return LinkMetadata(
             target_uri=target_uri,
             status=target_status,
         )
 
-    # --- Move / repair helpers ---
-
     def update_link_for_move(self, old_path: Path, new_path: Path) -> tuple[str, str] | None:
-        """Update _links/ symlink when an external file moves.
-
-        Args:
-            old_path: Previous absolute path of the file.
-            new_path: New absolute path of the file.
-
-        Returns:
-            (old_rel, new_rel) paths relative to vault root, or None if the file wasn't linked.
-        """
         old_rel_posix = str(old_path).lstrip("/")
         old_symlink = self._links_dir / self.machine / old_rel_posix
 
@@ -192,14 +150,11 @@ class _Backend(_AbstractBackend):
         new_rel_posix = str(new_path).lstrip("/")
         new_symlink = self._links_dir / self.machine / new_rel_posix
 
-        # Create new symlink
         new_symlink.parent.mkdir(parents=True, exist_ok=True)
         new_symlink.symlink_to(new_path)
 
-        # Remove old symlink
         old_symlink.unlink()
 
-        # Clean up empty parent dirs up to _links/{machine}
         machine_dir = self._links_dir / self.machine
         parent = old_symlink.parent
         while parent != machine_dir and parent.is_dir() and not any(parent.iterdir()):
@@ -211,18 +166,6 @@ class _Backend(_AbstractBackend):
         return (old_vault_rel, new_vault_rel)
 
     def rewrite_wiki_links(self, old_target: str, new_target: str) -> int:
-        """Rewrite wiki links in all vault markdown files.
-
-        Replaces [[old_target]] and ![[old_target]] (including aliases) with new_target.
-
-        Args:
-            old_target: Old link target (e.g. '_links/machine/old/path').
-            new_target: New link target (e.g. '_links/machine/new/path').
-
-        Returns:
-            Number of files rewritten.
-        """
-        # Match [[old_target]], [[old_target|alias]], ![[old_target]], ![[old_target|alias]]
         pattern = re.compile(r"(!?\[\[)" + re.escape(old_target) + r"(\|[^\]]*)?(\]\])")
         replacement = rf"\g<1>{new_target}\g<2>\g<3>"
 
@@ -245,19 +188,6 @@ class _Backend(_AbstractBackend):
         old_vault_rel: str,
         new_vault_rel: str,
     ) -> int:
-        """Update edges database when a linked file moves.
-
-        Updates to_local_uri entries that reference the old file URI or vault URI.
-
-        Args:
-            old_path: Previous absolute filesystem path.
-            new_path: New absolute filesystem path.
-            old_vault_rel: Old vault-relative path (e.g. '_links/machine/old/path').
-            new_vault_rel: New vault-relative path (e.g. '_links/machine/new/path').
-
-        Returns:
-            Number of edge documents updated.
-        """
         from wks.api.config.URI import URI
         from wks.api.config.WKSConfig import WKSConfig
         from wks.api.database.Database import Database

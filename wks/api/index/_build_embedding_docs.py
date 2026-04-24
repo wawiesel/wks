@@ -1,5 +1,3 @@
-"""Build embedding documents for storage."""
-
 from typing import Any
 
 import numpy as np
@@ -14,7 +12,6 @@ def build_embedding_docs(
     chunks: list[_Chunk],
     embeddings: np.ndarray,
 ) -> list[dict[str, Any]]:
-    """Build embedding documents aligned with chunk rows."""
     if embeddings.ndim != 2:
         raise ValueError(f"embeddings must be 2D (found ndim={embeddings.ndim})")
     if embeddings.shape[0] != len(chunks):

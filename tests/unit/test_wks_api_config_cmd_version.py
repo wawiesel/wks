@@ -1,10 +1,3 @@
-"""Unit tests for wks.api.config.cmd_version module.
-
-Requirements Satisfied:
-
-- CONFIG.5
-"""
-
 import pytest
 
 from tests.unit.conftest import run_cmd

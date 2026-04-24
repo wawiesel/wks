@@ -1,5 +1,3 @@
-"""Show the native install command for an MCP client target."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,17 +6,7 @@ from .targets import get_target, target_names
 
 
 def cmd_install(name: str) -> StageResult:
-    """Show the native install command for a supported target.
-
-    Args:
-        name: Supported MCP client target name
-
-    Returns:
-        StageResult with the native client command to run
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Resolve the target and report its native install command."""
         yield (0.4, "Resolving target...")
         target = get_target(name)
         if target is None:

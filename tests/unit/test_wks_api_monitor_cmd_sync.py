@@ -1,5 +1,3 @@
-"""Tests for monitor cmd_sync API."""
-
 import os
 from pathlib import Path
 from unittest.mock import patch
@@ -27,7 +25,6 @@ def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
     test_file = watch_dir / "sync_me.txt"
     test_file.write_text("Sync Content", encoding="utf-8")
 
-    # Must include the path to allow sync
     config = WKSConfig.load()
     include_watch_dir(config, watch_dir)
 
@@ -35,7 +32,6 @@ def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
     assert res.success is True
     assert res.output["files_synced"] == 1
 
-    # Verify in DB
     with Database(config.database, "nodes") as db:
         doc = db.find_one({"local_uri": str(URI.from_path(test_file))})
         assert doc is not None
@@ -56,7 +52,6 @@ def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
     (watch_dir / "f1.txt").write_text("f1")
     (watch_dir / "sub/f2.txt").write_text("f2")
 
-    # Must include the path to allow sync
     config = WKSConfig.load()
     include_watch_dir(config, watch_dir)
 
@@ -78,20 +73,16 @@ def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_
     test_file = watch_dir / "gone.txt"
     test_file.write_text("Temporary", encoding="utf-8")
 
-    # 1. Sync it
     config = WKSConfig.load()
     include_watch_dir(config, watch_dir)
     run_cmd(cmd_sync, uri=URI.from_path(test_file))
 
-    # 2. Delete it
     test_file.unlink()
 
-    # 3. Sync missing path
     res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
     assert res.success is True
     assert "Removed" in res.result
 
-    # 4. Verify gone from DB
     with Database(config.database, "nodes") as db:
         doc = db.find_one({"local_uri": str(URI.from_path(test_file))})
         assert doc is None
@@ -105,7 +96,6 @@ def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
     - MON-001
     - MON-005
     """
-    # Set min_priority in config via WKSConfig
     config = WKSConfig.load()
     config.monitor.min_priority = 50.0
     watch_dir = create_watch_dir(wks_home)
@@ -132,7 +122,6 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
     watch_dir = create_watch_dir(wks_home)
     tracked_wks_config.monitor.filter.include_paths.append(str(watch_dir))
 
-    # Create 3 files with explicit priorities
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_one({"local_uri": "file:///low", "priority": 1.0, "checksum": "abc"})
         db.insert_one({"local_uri": "file:///mid", "priority": 2.0, "checksum": "def"})
@@ -141,15 +130,12 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
     test_file = watch_dir / "1.txt"
     test_file.write_text("1")
 
-    # Mock calculate_priority to return high value for 1.txt
     from unittest.mock import patch
 
     with patch("wks.api.monitor._sync_uri.calculate_priority", return_value=200.0):
-        # Run sync to trigger enforcement
         res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
         assert res.success is True
 
-    # Verify only 2 remain and 'low' and 'mid' are gone
     with Database(tracked_wks_config.database, "nodes") as db:
         count = db.count_documents({"doc_type": {"$ne": "meta"}})
         assert count <= 2
@@ -220,7 +206,6 @@ def test_monitor_cmd_sync_directory_processes_newest_first(wks_home, minimal_con
     config = WKSConfig.load()
     include_watch_dir(config, watch_dir)
 
-    # Create files and assign distinct mtimes: old < mid < new
     old_file = watch_dir / "old.txt"
     mid_file = watch_dir / "mid.txt"
     new_file = watch_dir / "new.txt"

@@ -1,5 +1,3 @@
-"""Image-to-text transform engine."""
-
 from collections.abc import Generator
 from functools import lru_cache
 from pathlib import Path
@@ -9,8 +7,6 @@ from .._TransformEngine import _TransformEngine
 
 
 class _ImageTextEngine(_TransformEngine):
-    """Transform image files into descriptive text."""
-
     @staticmethod
     @lru_cache(maxsize=2)
     def _load_image_caption_pipeline(model_name: str):
@@ -39,7 +35,6 @@ class _ImageTextEngine(_TransformEngine):
         output_path: Path,
         options: dict[str, Any],
     ) -> Generator[str, None, list[str]]:
-        """Generate text description from an image file."""
         if "model" not in options:
             raise RuntimeError("imagetext engine requires option 'model'")
         if "max_new_tokens" not in options:
@@ -65,5 +60,4 @@ class _ImageTextEngine(_TransformEngine):
         return []
 
     def get_extension(self, options: dict[str, Any]) -> str:  # noqa: ARG002
-        """Get output extension for image text transform."""
         return "txt"

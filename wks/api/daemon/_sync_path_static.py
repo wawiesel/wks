@@ -4,7 +4,6 @@ from ._auto_index import _auto_index
 
 
 def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
-    """Invoke monitor sync for a single path (child process safe)."""
     try:
         from ..config.URI import URI
         from ..monitor.cmd_sync import cmd_sync
@@ -17,7 +16,6 @@ def _sync_path_static(path: Path, _log_file: Path, log_fn) -> None:
         for msg in out["errors"]:
             log_fn(f"ERROR: {msg}")
 
-        # Auto-index if file was synced (not deleted or skipped)
         if result.success and out["files_synced"] > 0:
             _auto_index(path, log_fn)
     except RuntimeError as exc:

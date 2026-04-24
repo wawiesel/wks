@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.transform.cmd_list."""
-
 import pytest
 
 from tests.unit.conftest import run_cmd

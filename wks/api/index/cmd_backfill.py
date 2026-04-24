@@ -1,18 +1,9 @@
-"""Backfill an index from the monitor database.
-
-Indexes all monitored files that meet the index's min_priority threshold
-but have not yet been added to the chunk store. Safe to re-run — skips
-files whose checksum hasn't changed since last index.
-"""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
 
 
 def cmd_backfill(name: str = "") -> StageResult:
-    """Index all monitored files that meet the index's min_priority threshold."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.05, "Loading configuration...")
         from ..config.WKSConfig import WKSConfig

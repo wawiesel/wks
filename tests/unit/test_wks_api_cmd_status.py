@@ -1,5 +1,3 @@
-"""Unit tests for the top-level wks.api.cmd_status module."""
-
 from collections.abc import Iterator
 
 from tests.unit.conftest import run_cmd
@@ -110,5 +108,4 @@ def test_cmd_status_handles_subsystem_failure(monkeypatch):
     assert result.success is True
     assert "error" in result.output["service"]
     assert "connection refused" in result.output["service"]["error"]
-    # Other sections should still succeed
     assert result.output["log"]["entry_counts"]["error"] == 2

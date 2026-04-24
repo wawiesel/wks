@@ -1,5 +1,3 @@
-"""Docling reference-path regression tests."""
-
 from __future__ import annotations
 
 import re
@@ -182,7 +180,6 @@ def test_cmd_engine_rebuilds_stale_cached_docling_output_with_missing_image_refs
 
 
 def _extract_image_path(content: str) -> Path:
-    """Return the first markdown image path from transformed content."""
     match = re.search(r"!\[Image\]\(([^)]+)\)", content)
     assert match is not None
     return Path(match.group(1))

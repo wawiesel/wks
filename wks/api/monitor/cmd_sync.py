@@ -1,9 +1,3 @@
-"""Monitor sync API function.
-
-This function forces an update of a file or directory into the monitor database.
-Matches CLI: wksc monitor sync <path> [--recursive], MCP tool: monitor_sync
-"""
-
 from collections.abc import Iterator
 
 from wks.api.config.URI import URI
@@ -17,16 +11,6 @@ def cmd_sync(
     uri: URI,
     recursive: bool = False,
 ) -> StageResult:
-    """Force update of file or directory into monitor database.
-
-    Args:
-        uri: URI to sync (file://)
-        recursive: Whether to recursively process directories
-
-    Returns:
-        StageResult with sync results (files_synced, files_skipped, errors)
-    """
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -36,7 +20,6 @@ def cmd_sync(
         errors: list[str] | None = None,
         warnings: list[str] | None = None,
     ) -> None:
-        """Helper to build and assign the output result."""
         result_obj.output = MonitorSyncOutput(
             errors=errors or [],
             warnings=warnings or [],
@@ -49,7 +32,6 @@ def cmd_sync(
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
 
         yield (0.1, "Loading configuration...")

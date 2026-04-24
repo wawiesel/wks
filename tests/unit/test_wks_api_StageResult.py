@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.StageResult module."""
-
 from collections.abc import Iterator
 
 from wks.api.config.StageResult import StageResult

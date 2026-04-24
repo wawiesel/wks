@@ -1,10 +1,7 @@
-"""Get path to database status file."""
-
 from pathlib import Path
 
 
 def _get_status_path() -> Path:
-    """Get path to database status file."""
     import os
 
     if "WKS_HOME" in os.environ:  # noqa: SIM108

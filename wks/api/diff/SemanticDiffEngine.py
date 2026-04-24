@@ -1,5 +1,3 @@
-"""Semantic diff engine for text and image files."""
-
 from __future__ import annotations
 
 import json
@@ -13,12 +11,9 @@ from .DiffEngine import DiffEngine
 
 
 class SemanticDiffEngine(DiffEngine):
-    """Semantic diff engine using vector similarity for text and images."""
-
     IMAGE_SUFFIXES: ClassVar[set[str]] = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 
     def diff(self, file1: Path, file2: Path, options: dict) -> str:
-        """Compute semantic diff and return JSON report string."""
         modified_threshold = float(options["modified_threshold"])
         unchanged_threshold = float(options["unchanged_threshold"])
         text_model = str(options["text_model"])

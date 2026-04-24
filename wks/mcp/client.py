@@ -1,5 +1,3 @@
-"""Client helpers for connecting to the background MCP broker."""
-
 from __future__ import annotations
 
 import contextlib
@@ -16,7 +14,6 @@ def proxy_stdio_to_socket(
     stdin: TextIO | None = None,
     stdout: TextIO | None = None,
 ) -> bool:
-    """Proxy the current stdio streams to the MCP broker socket."""
     in_stream = stdin or sys.stdin
     out_stream = stdout or sys.stdout
 

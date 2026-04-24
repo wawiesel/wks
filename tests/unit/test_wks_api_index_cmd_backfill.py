@@ -1,5 +1,3 @@
-"""Tests for wksc index backfill command."""
-
 import json
 from pathlib import Path
 
@@ -8,7 +6,6 @@ from wks.api.index.cmd_backfill import cmd_backfill
 
 
 def _setup_backfill_env(tmp_path, monkeypatch, min_priority: float = 0.0) -> Path:
-    """Set up a minimal config + monitor DB with two files."""
     from tests.conftest import minimal_config_dict
 
     doc_dir = tmp_path / "docs"
@@ -36,7 +33,6 @@ def _setup_backfill_env(tmp_path, monkeypatch, min_priority: float = 0.0) -> Pat
 
 
 def _populate_monitor(uris_and_priorities: list[tuple[str, float]]) -> None:
-    """Insert fake monitor DB entries directly."""
     from wks.api.config.WKSConfig import WKSConfig
     from wks.api.database.Database import Database
 
@@ -85,7 +81,6 @@ def test_backfill_skips_below_min_priority(tmp_path, monkeypatch):
     from wks.api.config.URI import URI
 
     uri = str(URI.from_path(doc))
-    # Priority 10.0 < min_priority 80.0 — should not be a candidate
     _populate_monitor([(uri, 10.0)])
 
     result = run_cmd(cmd_backfill, "main")
@@ -100,7 +95,6 @@ def test_backfill_no_index_config(tmp_path, monkeypatch):
     from tests.conftest import minimal_config_dict
 
     config_dict = minimal_config_dict()
-    # No index section
 
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()

@@ -1,5 +1,3 @@
-"""Vault link scanner (private)."""
-
 from __future__ import annotations
 
 import platform
@@ -26,25 +24,20 @@ from .extract_headings import extract_headings
 
 
 class _Scanner:
-    """Parse Obsidian markdown for wiki links and URLs."""
-
     def __init__(self, vault: _AbstractBackend):
         self.vault = vault
         self._file_url_rewrites: list[tuple[Path, int, str, str]] = []
 
     def _note_to_uri(self, note_path: Path) -> URI:
-        """Convert note path to vault:/// URI."""
         from wks.api.config.URI import URI
 
         try:
             rel_path = note_path.relative_to(self.vault.vault_path)
             return URI(f"vault:///{rel_path}")
         except ValueError:
-            # Path is outside vault, fall back to file:// URI
             return URI.from_path(note_path)
 
     def scan(self, files: list[Path] | None = None) -> list[EdgeRecord]:
-        """Scan vault for links."""
         records: list[EdgeRecord] = []
         self._errors: list[str] = []
         self._notes_scanned = 0
@@ -87,7 +80,6 @@ class _Scanner:
         return records
 
     def _apply_file_url_rewrites(self) -> None:
-        """Rewrite markdown files to convert file:// URLs to [[_links/...]] wikilinks."""
         rewrites_by_note: dict[Path, list[tuple[int, str, str]]] = {}
         for note_path, line_num, old_link, new_link in self._file_url_rewrites:
             if note_path not in rewrites_by_note:
@@ -115,14 +107,12 @@ class _Scanner:
         return counter
 
     def _parse_note(self, note_path: Path, text: str) -> list[EdgeRecord]:
-        """Parse all links from a markdown note."""
         records: list[EdgeRecord] = []
         headings = extract_headings(text)
         lines = text.splitlines()
 
         parser = MarkdownParser()
         for link in parser.parse(text):
-            # Resolve heading strictly
             heading = ""
             if link.line_number in headings:
                 heading = headings[link.line_number]
@@ -137,8 +127,6 @@ class _Scanner:
                     target=link.raw_target,
                     alias=link.alias,
                     is_embed=link.is_embed,
-                    # Reconstruct approximately or use target.
-                    # EdgeRecord expects raw_target. LinkRef provides the target path.
                     raw_target=link.raw_target,
                 )
                 records.append(record)
@@ -201,7 +189,6 @@ class _Scanner:
         )
 
     def _convert_file_url_to_symlink(self, url: str, note_path: Path, line_number: int, alias: str) -> str | None:
-        """Convert file:// URL to _links/ symlink and record for rewriting."""
         if not url.startswith("file://"):
             return None
 

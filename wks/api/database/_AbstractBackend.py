@@ -1,5 +1,3 @@
-"""Abstract base class for database collection implementations."""
-
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -31,11 +29,6 @@ class _AbstractBackend(ABC):
 
     @abstractmethod
     def update_many(self, filter: dict[str, Any], update: dict[str, Any]) -> int:
-        """Update multiple documents matching the filter.
-
-        Returns:
-            Number of documents modified
-        """
         pass
 
     @abstractmethod
@@ -47,9 +40,4 @@ class _AbstractBackend(ABC):
         pass
 
     def list_collection_names(self) -> list[str]:
-        """List all database names (optional, for app.py callback).
-
-        Note: Backend implementations may use different terminology internally.
-        For MongoDB, this returns collection names.
-        """
         raise NotImplementedError

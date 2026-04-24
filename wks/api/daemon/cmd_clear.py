@@ -1,5 +1,3 @@
-"""Daemon clear command (resets state)."""
-
 from collections.abc import Iterator
 from typing import Any
 
@@ -11,13 +9,6 @@ from . import DaemonClearOutput
 
 
 def cmd_clear(errors_only: bool = False) -> StageResult:
-    """Clear daemon logs and status.
-
-    Args:
-        errors_only: If True, only remove ERROR entries from the logfile.
-                     Works even while daemon is running.
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Checking daemon status...")
         home = WKSConfig.get_home_dir()
@@ -57,9 +48,6 @@ def cmd_clear(errors_only: bool = False) -> StageResult:
             yield (1.0, "Complete")
             return
 
-        # No need to read status file, we operate on environment state
-
-        # Check lock file for authoritative running state
         lock_path = home / "daemon.lock"
         if lock_path.exists():
             try:
@@ -67,7 +55,6 @@ def cmd_clear(errors_only: bool = False) -> StageResult:
 
                 pid = int(lock_path.read_text().strip())
                 os.kill(pid, 0)
-                # If we get here, process is alive
                 result_obj.success = False
                 result_obj.result = "Cannot clear while daemon is running (use --errors-only to clear errors)"
                 result_obj.output = DaemonClearOutput(
@@ -79,14 +66,12 @@ def cmd_clear(errors_only: bool = False) -> StageResult:
                 yield (1.0, "Complete")
                 return
             except (ValueError, OSError):
-                # Lock exists but invalid or process dead -> stale
                 pass
 
         yield (0.3, "Clearing logs...")
         log_path = WKSConfig.get_logfile_path()
         if log_path.exists():
             try:
-                # Truncate file
                 log_path.write_text("", encoding="utf-8")
             except Exception as e:
                 result_obj.success = False
@@ -103,22 +88,15 @@ def cmd_clear(errors_only: bool = False) -> StageResult:
             try:
                 lock_path.unlink()
             except Exception as e:
-                # Log but continue, as it might be a permission issue or race
-                # But since we checked status.running is False, it should be fine.
                 warnings = [f"Failed to remove lock file: {e}"]
                 result_obj.output = DaemonClearOutput(
                     errors=[],
                     warnings=warnings,
                     cleared=False,  # Partially failed? Or just minimal success?
-                    # Let's consider it a non-critical failure for "cleared" if we fixed status,
-                    # but if lock implies running, maybe we shouldn't have proceeded.
-                    # But status said not running. So lock is stale.
                     message="Cleared logs but failed to remove lock file",
                 ).model_dump(mode="python")
-                # We can continue to reset status file though.
 
         yield (0.6, "Resetting status file...")
-        # Reset to clean stopped state
         clean_status: dict[str, Any] = {
             "running": False,
             "pid": None,

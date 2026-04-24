@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.monitor.cmd_priority_remove module."""
-
 import pytest
 
 from tests.unit.conftest import create_tracked_wks_config, run_cmd

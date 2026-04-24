@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Update README.md from generated statistics in qa/metrics/."""
 
 import argparse
 import json
@@ -23,7 +22,6 @@ METRICS_END = "<!-- END GENERATED METRICS -->"
 
 
 def _required_metrics_files(metrics_dir: Path) -> list[Path]:
-    """Return the required generated metrics files for README updates."""
     return [
         metrics_dir / "mutations.json",
         metrics_dir / "coverage.json",
@@ -33,7 +31,6 @@ def _required_metrics_files(metrics_dir: Path) -> list[Path]:
 
 
 def _load_stats_json() -> dict:
-    """Load generated metrics and normalize them for README output."""
     metrics_dir = REPO_ROOT / "qa" / "metrics"
     required_files = _required_metrics_files(metrics_dir)
     missing_files = [path for path in required_files if not path.exists()]
@@ -63,7 +60,6 @@ def _load_stats_json() -> dict:
 
 
 def _replace_marked_block(content: str, start_marker: str, end_marker: str, replacement: str) -> str:
-    """Replace a marker-delimited block."""
     start = content.find(start_marker)
     end = content.find(end_marker)
     if start == -1 or end == -1 or end < start:
@@ -74,7 +70,6 @@ def _replace_marked_block(content: str, start_marker: str, end_marker: str, repl
 
 
 def _update_readme_from_stats(stats: dict) -> None:
-    """Update README.md from stats dictionary."""
     if not README_PATH.exists():
         print(f"Error: {README_PATH} not found", file=sys.stderr)
         sys.exit(1)
@@ -87,7 +82,6 @@ def _update_readme_from_stats(stats: dict) -> None:
 
 
 def main() -> None:
-    """CLI entry point."""
     parser = argparse.ArgumentParser(description="Update README statistics from qa/metrics/*.json")
     parser.parse_args()
 

@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.log.LogConfig module."""
-
 import pytest
 from pydantic import ValidationError
 

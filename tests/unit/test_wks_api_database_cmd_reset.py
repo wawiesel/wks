@@ -1,5 +1,3 @@
-"""Unit tests for database cmd_reset."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -70,7 +68,6 @@ class TestCmdReset:
         with (
             patch("wks.api.database.cmd_reset.Database", return_value=mock_collection) as mock_db,
         ):
-            # Mock list_databases to return actual databases
             mock_db.list_databases.return_value = ["nodes", "edges"]
             result = run_cmd(cmd_reset, "all")
             assert result.success
@@ -82,14 +79,10 @@ class TestCmdReset:
         """Test that resetting 'transform' database also clears fs cache."""
         from pathlib import Path
 
-        # Setup cache dir with files
         cache_dir = Path(minimal_config_dict["transform"]["cache"]["base_dir"])
         cache_dir.mkdir(parents=True, exist_ok=True)
         (cache_dir / "test.md").write_text("content")
 
-        # Mock Database to avoid real connection if not needed,
-        # but here we might want to use real mongo fixture?
-        # Let's use mocks for DB interaction but verify real FS side effect
         mock_collection = MagicMock()
         mock_collection.delete_many.return_value = 1
         mock_collection.__enter__ = MagicMock(return_value=mock_collection)
@@ -101,5 +94,4 @@ class TestCmdReset:
             result = run_cmd(cmd_reset, "transform")
             assert result.success
 
-            # Verify cache file is gone
             assert not (cache_dir / "test.md").exists()

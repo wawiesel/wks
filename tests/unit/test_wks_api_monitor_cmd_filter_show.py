@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.monitor.cmd_filter_show module (real config)."""
-
 import json
 
 import pytest
@@ -42,15 +40,12 @@ def test_cmd_filter_show_returns_list(monkeypatch, tmp_path, minimal_config_dict
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_filter_show.cmd_filter_show, list_name="include_paths")
-    # minimal_config_dict has 2 paths (default + isolated cache) + 2 from extend = 4
     assert result.output["count"] == 4
     assert "Showing" in result.result
 
     from wks.api.config.normalize_path import normalize_path
 
-    # Sort to avoid ordering issues if any
     items = sorted(result.output["items"])
-    # Should include "a", "b", the isolated cache dir, AND the default "/tmp/wks_test_transform"
     expected = sorted(
         [
             str(normalize_path("a")),

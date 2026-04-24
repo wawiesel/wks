@@ -1,12 +1,9 @@
-"""Run the MCP server."""
-
 import sys
 
 from .server import MCPServer
 
 
 def main() -> None:
-    """Entry point for running the MCP server."""
     server = MCPServer()
     try:
         server.run()

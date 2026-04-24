@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.monitor.MonitorConfig module."""
-
 import pytest
 from pydantic import ValidationError
 

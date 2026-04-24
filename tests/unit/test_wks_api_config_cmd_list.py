@@ -1,12 +1,3 @@
-"""Config list command tests.
-
-Requirements Satisfied:
-
-- CONFIG.1
-- CONFIG.3
-- CONFIG.6
-"""
-
 import pytest
 
 from tests.unit.conftest import run_cmd

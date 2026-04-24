@@ -1,5 +1,3 @@
-"""Tests for uri_to_string helper."""
-
 from wks.api.config.URI import URI
 from wks.api.config.uri_to_string import uri_to_string
 

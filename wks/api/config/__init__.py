@@ -1,5 +1,3 @@
-"""Config API module."""
-
 from .output_models import output_model
 
 ConfigListOutput = output_model("ConfigListOutput", "section", "content", "config_path")

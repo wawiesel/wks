@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.transform.TransformConfig module."""
-
 import pytest
 from pydantic import ValidationError
 
@@ -31,7 +29,6 @@ def test_transform_config_cache_validation():
 
 
 def test_transform_config_engine_validation():
-    # Engine type must be str
     with pytest.raises(ValidationError):
         TransformConfig.model_validate(
             {

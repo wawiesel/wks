@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""Generate all statistics locally, matching CI workflow.
-
-This script replicates what CI does to generate statistics:
-1. Run tests with coverage
-2. Run mutation tests for all domains
-3. Generate all statistics files
-4. Update traceability audit
-5. Update README
-
-Usage:
-    ./scripts/generate_all_stats.py [--skip-tests] [--skip-mutations]
-"""
 
 import argparse
 import subprocess
@@ -22,7 +10,6 @@ VENV_PYTHON = REPO_ROOT / "venv" / "bin" / "python"
 
 
 def _run_cmd(cmd: list[str], description: str, check: bool = True) -> bool:
-    """Run command and return success status."""
     print(f"\n{'=' * 60}")
     print(f"▶ {description}")
     print(f"{'=' * 60}")
@@ -43,14 +30,12 @@ def main() -> None:
     parser.add_argument("--skip-mutations", action="store_true", help="Skip mutation testing")
     args = parser.parse_args()
 
-    # Use venv Python if available, otherwise system Python
     python_exe = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 
     print("=" * 60)
     print("Generating all statistics (matching CI workflow)")
     print("=" * 60)
 
-    # Step 1: Run tests with coverage (if not skipped)
     if not args.skip_tests and not _run_cmd(
         [python_exe, "-m", "pytest", "--cov=wks", "--cov-report=xml", "tests/", "-v", "--tb=short"],
         "Running tests with coverage",
@@ -58,7 +43,6 @@ def main() -> None:
     ):
         print("⚠️  Tests failed, but continuing with statistics generation...")
 
-    # Step 2: Run mutation tests for all domains (if not skipped)
     if not args.skip_mutations:
         print(f"\n{'=' * 60}")
         print("▶ Running mutation tests for all domains")
@@ -75,7 +59,6 @@ def main() -> None:
                 check=False,
             )
 
-    # Step 3: Generate all statistics files (matching CI)
     print(f"\n{'=' * 60}")
     print("▶ Generating all statistics files")
     print(f"{'=' * 60}")
@@ -84,10 +67,8 @@ def main() -> None:
     _run_cmd([python_exe, "scripts/generate_ci_stats.py"], "Generating CI statistics", check=False)
     _run_cmd([python_exe, "scripts/generate_token_stats.py"], "Generating token statistics", check=False)
 
-    # Step 4: Update traceability audit
     _run_cmd([python_exe, "scripts/update_traceability_audit.py"], "Updating traceability audit", check=False)
 
-    # Step 5: Update README with all statistics
     _run_cmd([python_exe, "scripts/update_readme_stats.py"], "Updating README statistics", check=False)
 
     print(f"\n{'=' * 60}")

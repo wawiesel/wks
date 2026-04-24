@@ -1,5 +1,3 @@
-"""Unit tests for the public WKSService facade."""
-
 from pathlib import Path
 
 from wks.api.config.WKSConfig import WKSConfig

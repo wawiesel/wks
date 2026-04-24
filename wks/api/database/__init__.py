@@ -1,5 +1,3 @@
-"""Database API module."""
-
 from wks.api.config.output_models import output_model
 
 DatabaseListOutput = output_model("DatabaseListOutput", "prefix", "databases")

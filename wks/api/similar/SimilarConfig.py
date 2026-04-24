@@ -1,11 +1,7 @@
-"""Configuration for document similarity."""
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _NearDuplicateConfig(BaseModel):
-    """Thresholds for near-duplicate classification."""
-
     model_config = ConfigDict(extra="forbid")
 
     min_matched_chunks: int = Field(default=2, ge=1)
@@ -16,8 +12,6 @@ class _NearDuplicateConfig(BaseModel):
 
 
 class _SameDocumentFamilyConfig(BaseModel):
-    """Thresholds for document-lineage classification."""
-
     model_config = ConfigDict(extra="forbid")
 
     min_coverage_query: float = Field(default=0.35, ge=0.0, le=1.0)
@@ -29,8 +23,6 @@ class _SameDocumentFamilyConfig(BaseModel):
 
 
 class _TopicRelatedConfig(BaseModel):
-    """Thresholds for weaker topical similarity."""
-
     model_config = ConfigDict(extra="forbid")
 
     min_matched_chunks: int = Field(default=1, ge=1)
@@ -40,8 +32,6 @@ class _TopicRelatedConfig(BaseModel):
 
 
 class _ScoreWeightsConfig(BaseModel):
-    """Ranking weights after label classification."""
-
     model_config = ConfigDict(extra="forbid")
 
     mean_similarity: float = Field(default=0.35, ge=0.0)
@@ -70,8 +60,6 @@ class _ScoreWeightsConfig(BaseModel):
 
 
 class SimilarConfig(BaseModel):
-    """Top-level defaults and thresholds for document similarity."""
-
     model_config = ConfigDict(extra="forbid")
 
     default_index: str = ""
@@ -97,7 +85,6 @@ class SimilarConfig(BaseModel):
     @field_validator("export_pairs")
     @classmethod
     def validate_export_pairs(cls, value: list[list[str]]) -> list[list[str]]:
-        """Require each export pair to contain exactly two suffix strings."""
         for pair in value:
             if len(pair) != 2:
                 raise ValueError("similar.export_pairs entries must contain exactly two suffix strings")

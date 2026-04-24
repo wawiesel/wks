@@ -6,11 +6,6 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class URI:
-    """Strongly typed URI value object.
-
-    Ensures that any instance holds a valid URI string (containing '://').
-    """
-
     value: str
 
     def __post_init__(self):
@@ -27,7 +22,6 @@ class URI:
 
     @classmethod
     def from_path(cls, path: str | Path) -> URI:
-        """Create a URI from a file path."""
         import socket
 
         from wks.api.config.normalize_path import normalize_path
@@ -38,28 +32,16 @@ class URI:
 
     @classmethod
     def from_any(cls, path_or_uri: str | Path | URI, vault_path: Path | None = None) -> URI:
-        """Convert any path or URI to a URI object.
-
-        Handles:
-        - URI objects - returns as-is
-        - Already-formatted URIs (vault:///, file:///)
-        - File paths (normalized and hostname-prefixed)
-        - Vault path awareness (converts to vault:/// if within vault_path)
-        """
         from wks.api.config.normalize_path import normalize_path
 
-        # Already a URI object - return as-is
         if isinstance(path_or_uri, URI):
             return path_or_uri
 
-        # Already a URI string?
         if isinstance(path_or_uri, str) and "://" in path_or_uri:
             return cls(path_or_uri)
 
-        # Convert to Path and normalize
         path = normalize_path(path_or_uri)
 
-        # If vault_path provided, check if path is within vault
         if vault_path is not None:
             vault_path = normalize_path(vault_path)
             try:
@@ -68,31 +50,17 @@ class URI:
             except ValueError:
                 pass
 
-        # Default to file URI
         return cls.from_path(path)
 
     @property
     def is_file(self) -> bool:
-        """Return True if this is a local filesystem URI (file://)."""
         return self.value.startswith("file://")
 
     @property
     def is_vault(self) -> bool:
-        """Return True if this is a vault-internal URI (vault:///)."""
         return self.value.startswith("vault:///")
 
     def to_path(self, vault_path: Path | None = None) -> Path:
-        """Resolve this URI to a local filesystem Path.
-
-        Args:
-            vault_path: Optional root directory for resolving vault:/// URIs.
-
-        Returns:
-            Path object.
-
-        Raises:
-            ValueError: If URI is not a supported type or vault_path is missing for vault URIs.
-        """
         from wks.api.config.normalize_path import normalize_path
 
         if self.is_file:
@@ -101,7 +69,6 @@ class URI:
         if self.is_vault:
             if vault_path is None:
                 raise ValueError(f"Cannot resolve vault URI without vault_path: {self.value}")
-            # vault:///path/to/note.md -> path/to/note.md
             rel_path = self.value[9:]
             return normalize_path(vault_path / rel_path)
 
@@ -109,13 +76,6 @@ class URI:
 
     @property
     def path(self) -> Path:
-        """Get the local filesystem path from a file:// URI.
-
-        For vault:// URIs, use .to_path(vault_path).
-
-        Raises:
-            ValueError: If URI is not a file URI.
-        """
         from urllib.parse import unquote
 
         from wks.api.config.normalize_path import normalize_path
@@ -123,10 +83,8 @@ class URI:
         if not self.is_file:
             raise ValueError(f"Cannot extract local path from non-file URI: {self.value}")
 
-        # Strip scheme
         path_part = self.value[7:]
 
-        # Find start of path after hostname
         first_slash = path_part.find("/")
         path_part = "/" if first_slash == -1 else path_part[first_slash:]
 

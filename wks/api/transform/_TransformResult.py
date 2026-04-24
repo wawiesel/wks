@@ -1,11 +1,7 @@
-"""Transform result model."""
-
 from pydantic import BaseModel
 
 
 class _TransformResult(BaseModel):
-    """Result of a transform operation."""
-
     source_uri: str
     destination_uri: str
     engine: str

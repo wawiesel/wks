@@ -1,9 +1,5 @@
-"""Transform API module."""
-
 from wks.api.config.output_models import output_model
 
-# Maximum iterations for generator consumption loops.
-# Prevents infinite loops from mutation testing or bugs.
 MAX_GENERATOR_ITERATIONS = 10000
 
 TransformEngineOutput = output_model(

@@ -7,11 +7,9 @@ from wks.api.link.prune import prune
 
 def test_prune_basic(tracked_wks_config, tmp_path):
     """Test basic link pruning (lines 14-88)."""
-    # Seed nodes DB to define 'a' and 'b' as existing
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_many([{"local_uri": "a"}, {"local_uri": "b"}])
 
-    # Seed edges DB
     with Database(tracked_wks_config.database, "edges") as db:
         db.insert_many(
             [
@@ -24,11 +22,9 @@ def test_prune_basic(tracked_wks_config, tmp_path):
         )
 
     result = prune(tracked_wks_config)
-    # e2, e3, e4, e5 should be deleted. e1 is valid.
     assert result["deleted_count"] == 4
     assert result["checked_count"] == 5
 
-    # Check what's left
     with Database(tracked_wks_config.database, "edges") as db:
         docs = list(db.find({}))
         assert len(docs) == 1
@@ -37,11 +33,9 @@ def test_prune_basic(tracked_wks_config, tmp_path):
 
 def test_prune_remote(tracked_wks_config, monkeypatch):
     """Test remote pruning and unsetting (lines 89-131)."""
-    # Seed nodes
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_many([{"local_uri": "a"}])
 
-    # Seed edges with remote URIs
     with Database(tracked_wks_config.database, "edges") as db:
         db.insert_many(
             [
@@ -55,22 +49,18 @@ def test_prune_remote(tracked_wks_config, monkeypatch):
             ]
         )
 
-    # Ensure exists.txt exists so it's not deleted due to local
     from wks.api.config.URI import URI
 
     exists_path = Path(tracked_wks_config.vault.base_dir).expanduser() / "exists.txt"
     exists_path.parent.mkdir(parents=True, exist_ok=True)
     exists_path.touch()
 
-    # Correct the edge in DB to use the actual URI of exists.txt
     with Database(tracked_wks_config.database, "edges") as db:
         db.update_one({"_id": "e1"}, {"$set": {"to_local_uri": str(URI.from_path(exists_path))}})
 
-    # Break the local target (make it missing on disk)
     if exists_path.exists():
         exists_path.unlink()
 
-    # Mock has_internet and requests.head
     monkeypatch.setattr("wks.api.link.prune.has_internet", lambda: True)
 
     mock_resp_404 = MagicMock()
@@ -78,10 +68,8 @@ def test_prune_remote(tracked_wks_config, monkeypatch):
 
     with patch("requests.head", return_value=mock_resp_404):
         result = prune(tracked_wks_config, remote=True)
-        # local is broken (missing file) AND remote is 404 -> delete (line 97, 114)
         assert result["deleted_count"] == 1
 
-    # Check deletion
     with Database(tracked_wks_config.database, "edges") as db:
         doc = db.find_one({"_id": "e1"})
         assert doc is None
@@ -183,8 +171,5 @@ def test_prune_uri_to_path_error(tracked_wks_config, monkeypatch):
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_many([{"local_uri": "a"}])
 
-    # No mock needed as URI class will raise ValueError for 'faulty://' when .path is accessed
-
     result = prune(tracked_wks_config)
-    # Target is broken -> delete
     assert result["deleted_count"] == 1

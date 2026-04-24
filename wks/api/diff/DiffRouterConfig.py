@@ -1,5 +1,3 @@
-"""Diff router configuration."""
-
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,13 +6,10 @@ from .DiffConfigError import DiffConfigError
 
 @dataclass
 class DiffRouterConfig:
-    """Diff router configuration for engine selection."""
-
     rules: list[dict[str, Any]]
     fallback: str
 
     def _validate_rules(self) -> list[str]:
-        """Validate rules is a list of dicts."""
         errors: list[str] = []
 
         if not isinstance(self.rules, list):
@@ -36,7 +31,6 @@ class DiffRouterConfig:
         return errors
 
     def _validate_fallback(self) -> list[str]:
-        """Validate fallback is a non-empty string."""
         errors: list[str] = []
 
         if not isinstance(self.fallback, str) or not self.fallback:
@@ -49,7 +43,6 @@ class DiffRouterConfig:
         return errors
 
     def __post_init__(self):
-        """Validate diff router configuration after initialization."""
         errors: list[str] = []
         errors.extend(self._validate_rules())
         errors.extend(self._validate_fallback())

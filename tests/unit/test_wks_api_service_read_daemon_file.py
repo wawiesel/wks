@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.service._read_daemon_file."""
-
 import json
 from unittest.mock import MagicMock
 
@@ -60,9 +58,6 @@ def test_read_daemon_file_os_error(tmp_path):
     f = tmp_path / "daemon.json"
     f.touch()  # Create it so exists() passes
 
-    # Mock read_text to raise OSError
-    # We need to mock Path.read_text on the specific instance or patch Path
-    # Easier to mock the path object passed in
     mock_path = MagicMock()
     mock_path.exists.return_value = True
     mock_path.read_text.side_effect = OSError("Access denied")

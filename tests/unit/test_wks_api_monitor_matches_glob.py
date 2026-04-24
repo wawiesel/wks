@@ -1,5 +1,3 @@
-"""Unit tests for glob matching behavior via public monitor API."""
-
 from pathlib import Path
 
 import pytest
@@ -50,14 +48,12 @@ def test_matches_glob_empty_pattern(tmp_path):
 def test_matches_glob_exception_propagates(monkeypatch):
     """Test that exceptions in matches_glob propagate (fail fast)."""
 
-    # Mock fnmatchcase to raise an exception
     def mock_fnmatchcase(*args, **kwargs):
         raise ValueError("Simulated glob error")
 
     monkeypatch.setattr("fnmatch.fnmatchcase", mock_fnmatchcase)
 
     path = Path("/tmp/test.txt")
-    # Exception should propagate - no silent failure (fail fast principle)
     with pytest.raises(ValueError, match="Simulated glob error"):
         matches_glob(["*.txt"], path)
 
@@ -66,9 +62,7 @@ def test_matches_glob_empty_pattern_in_list():
     """Test matches_glob with an empty string in the pattern list."""
 
     path = Path("/tmp/test.txt")
-    # Empty pattern should be skipped
     assert not matches_glob([""], path)
-    # Valid pattern should still match if present
     assert matches_glob(["", "*.txt"], path)
 
 

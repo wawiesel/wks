@@ -1,5 +1,3 @@
-"""Tests for wks/api/cat/cmd.py."""
-
 import subprocess
 from pathlib import Path
 
@@ -18,7 +16,6 @@ def test_cmd_by_path(wks_home, minimal_config_dict):
     """Test retrieving content by file path (triggers transform)."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Hello Cat")
 
-    # cmd by path
     res = run_cmd(cmd, target=str(test_file))
     assert res.success is True
     assert res.output["content"] == "Hello Cat"
@@ -60,12 +57,10 @@ def test_cmd_by_checksum(wks_home, minimal_config_dict):
     """Test retrieving content by checksum (direct lookup)."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Checksum Cat")
 
-    # 1. Transform to get checksum
     res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
     assert res_t.success is True
     checksum = res_t.output["checksum"]
 
-    # 2. cmd by checksum
     res = run_cmd(cmd, target=checksum)
     assert res.success is True
     assert res.output["content"] == "Checksum Cat"
@@ -77,7 +72,6 @@ def test_cmd_to_output_file(wks_home, minimal_config_dict):
     test_file = write_watched_file(wks_home, name="test.txt", content="Output File Content")
     out_file = test_file.parent / "output.md"
 
-    # cmd with output_path
     res = run_cmd(cmd, target=str(test_file), output_path=out_file)
     assert res.success is True
     assert out_file.exists()
@@ -106,22 +100,18 @@ def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
     """Test cmd when DB has record but file is missing from disk."""
     test_file = write_watched_file(wks_home, name="stale.txt", content="Stale Content")
 
-    # 1. Transform to populate DB and cache
     res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
     assert res_t.success is True
     checksum = res_t.output["checksum"]
 
-    # 2. Manually delete the cache file
     cache_dir = Path(minimal_config_dict["transform"]["cache"]["base_dir"])
     for f in cache_dir.glob(f"{checksum}.*"):
         f.unlink()
 
-    # 3. cmd should fail and clean up DB record
     res = run_cmd(cmd, target=checksum)
     assert res.success is False
     assert "Cache file missing" in res.result
 
-    # 4. Verify DB record is gone
     from wks.api.config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
@@ -134,9 +124,6 @@ def test_cmd_engine_override(wks_home, minimal_config_dict, monkeypatch):
     """Test retrieving content with an engine override."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Engine Override")
 
-    # Mock _select_engine to verify it's called with the override
-
-    # We can just check the results since our 'test' engine is available
     res = run_cmd(cmd, target=str(test_file), engine="textpass")
     assert res.success is True
     assert res.output["content"] == "Engine Override"

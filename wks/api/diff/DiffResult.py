@@ -1,5 +1,3 @@
-"""Diff result dataclass."""
-
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,8 +9,6 @@ from .TextDiffOutput import TextDiffOutput
 
 @dataclass(frozen=True)
 class DiffResult:
-    """Result of a diff operation."""
-
     status: str
     metadata: DiffMetadata
     diff_output: TextDiffOutput | BinaryDiffOutput | CodeDiffOutput | None = None

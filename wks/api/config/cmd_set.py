@@ -1,5 +1,3 @@
-"""Set or remove a configuration value by dot-path key."""
-
 import json
 from collections.abc import Iterator
 from typing import Any
@@ -10,7 +8,6 @@ from .WKSConfig import WKSConfig
 
 
 def _parse_value(raw: str) -> Any:
-    """Parse a value string as JSON, falling back to plain string."""
     try:
         return json.loads(raw)
     except (json.JSONDecodeError, ValueError):
@@ -18,7 +15,6 @@ def _parse_value(raw: str) -> Any:
 
 
 def _deep_set(d: dict, keys: list[str], value: Any) -> None:
-    """Set a nested dict value by key path."""
     for key in keys[:-1]:
         if key not in d or not isinstance(d[key], dict):
             d[key] = {}
@@ -27,7 +23,6 @@ def _deep_set(d: dict, keys: list[str], value: Any) -> None:
 
 
 def _deep_delete(d: dict, keys: list[str]) -> bool:
-    """Delete a nested dict value by key path. Returns True if deleted."""
     for key in keys[:-1]:
         if key not in d or not isinstance(d[key], dict):
             return False
@@ -39,8 +34,6 @@ _SENTINEL = object()
 
 
 def cmd_set(key: str, value: str = "", delete: bool = False) -> StageResult:
-    """Set, modify, or remove a configuration value by dot-path key."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
@@ -95,7 +88,6 @@ def cmd_set(key: str, value: str = "", delete: bool = False) -> StageResult:
             action = "Set"
             result_value = parsed
 
-        # Validate by loading modified dict through Pydantic
         yield (0.6, "Validating configuration...")
         try:
             new_config = WKSConfig(**config_dict)

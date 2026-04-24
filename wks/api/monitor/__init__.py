@@ -1,5 +1,3 @@
-"""Monitor API module."""
-
 from wks.api.config.output_models import output_model
 
 MonitorCheckOutput = output_model(

@@ -28,15 +28,11 @@ def test_read_log_entries_success(tmp_path):
         encoding="utf-8",
     )
 
-    # Use default retention (0.5d, 1d, 2d, 7d)
     warnings, errors = read_log_entries(log_path)
-    # Old Error (7d retention) should be KEPT if < 7 days old.
-    # 2020 is definitely > 7 days old from 2025. So it's EXPIRED.
 
     assert len(errors) == 2  # New Error, Legacy ERROR
     assert len(warnings) == 2  # New Warn, Legacy WARN
 
-    # Check if file was pruned (line 72)
     content = log_path.read_text(encoding="utf-8")
     assert "Old Error" not in content
 

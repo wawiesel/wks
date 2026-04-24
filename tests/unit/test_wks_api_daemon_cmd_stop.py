@@ -1,5 +1,3 @@
-"""Integration-ish tests for wks.api.daemon.cmd_stop without mocks."""
-
 import pytest
 
 from tests.unit.conftest import minimal_wks_config, run_cmd

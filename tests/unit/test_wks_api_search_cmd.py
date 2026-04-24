@@ -1,5 +1,3 @@
-"""Search command tests."""
-
 import json
 from hashlib import sha256
 
@@ -26,7 +24,6 @@ from wks.api.search.cmd import cmd as search_cmd
 
 @pytest.fixture
 def search_env(tmp_path, monkeypatch):
-    """Build an index with several documents for search testing."""
     setup_search_config(
         tmp_path,
         monkeypatch,
@@ -41,7 +38,6 @@ def search_env(tmp_path, monkeypatch):
 
 @pytest.fixture
 def search_env_semantic(tmp_path, monkeypatch):
-    """Build an index configured for semantic search with embeddings."""
     setup_search_config(
         tmp_path,
         monkeypatch,
@@ -59,7 +55,6 @@ def test_search_finds_relevant(search_env):
     result = run_cmd(search_cmd, "fission yield")
     assert result.success is True
     assert len(result.output["hits"]) > 0
-    # First hit should be the fission document
     assert "fission" in result.output["hits"][0]["text"].lower()
 
 
@@ -237,7 +232,6 @@ def test_search_no_config(tmp_path, monkeypatch):
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     (wks_home / "config.json").write_text(json.dumps(config_dict))
 
-    # Intentionally omits index config to test the "not configured" path
     result = run_cmd(search_cmd, "anything")
     assert result.success is False
     assert "not configured" in result.result.lower()
@@ -379,7 +373,6 @@ def test_search_semantic_dedupes_text_hash(search_env_semantic, monkeypatch):
 
 @pytest.fixture
 def search_env_semantic_image(tmp_path, monkeypatch):
-    """Build an image-text combo semantic index with two images."""
     from tests.conftest import minimal_config_dict
 
     config_dict = minimal_config_dict()
@@ -476,16 +469,13 @@ def test_search_semantic_path_segment_boost(tmp_path, monkeypatch):
     )
 
     def _uniform_embed(texts, model_name, batch_size):
-        """All docs get the same embedding so only the path boost separates them."""
         vec = np.array([1.0, 0.0, 0.0], dtype=np.float32)
         return np.tile(vec, (len(texts), 1))
 
     monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _uniform_embed)
 
-    # 'agents' doc: filename matches query term "agents"
     agents_doc = tmp_path / "agents.txt"
     agents_doc.write_text("Some generic content about topics in agents.\n")
-    # 'other' doc: filename does not match
     other_doc = tmp_path / "other.txt"
     other_doc.write_text("Some generic content about topics in other.\n")
 
@@ -496,7 +486,6 @@ def test_search_semantic_path_segment_boost(tmp_path, monkeypatch):
     embed_res = run_cmd(cmd_embed, "main", batch_size=8)
     assert embed_res.success is True
 
-    # Query contains "agents" — the agents.txt file should be boosted to #1
     result = run_cmd(search_cmd, "agents content", k=2)
     assert result.success is True
     assert len(result.output["hits"]) == 2

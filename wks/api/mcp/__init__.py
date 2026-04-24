@@ -1,5 +1,3 @@
-"""MCP installation management API."""
-
 from wks.api.config.output_models import output_model
 
 McpListOutput = output_model("McpListOutput", "targets", "count")

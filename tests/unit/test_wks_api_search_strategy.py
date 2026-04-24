@@ -1,5 +1,3 @@
-"""Strategy search tests."""
-
 import pytest
 
 from tests.conftest import run_cmd
@@ -17,7 +15,6 @@ from wks.api.search.cmd import cmd as search_cmd
 
 @pytest.fixture
 def search_env_strategy(tmp_path, monkeypatch):
-    """Build two indexes (lexical + semantic) with a hybrid strategy."""
     setup_search_config(
         tmp_path,
         monkeypatch,

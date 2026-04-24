@@ -1,10 +1,3 @@
-"""Monitor filter-show API function.
-
-This function gets the contents of a monitor configuration list or, if no list
-is specified, returns the available list names.
-Matches CLI: wksc monitor filter show [<list-name>], MCP tool: monitor_filter_show
-"""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -13,8 +6,6 @@ from .MonitorConfig import MonitorConfig
 
 
 def cmd_filter_show(list_name: str | None = None) -> StageResult:
-    """Get contents of a monitor configuration list or list available names."""
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -24,7 +15,6 @@ def cmd_filter_show(list_name: str | None = None) -> StageResult:
         list_name_out: str | None = None,
         errors: list[str] | None = None,
     ) -> None:
-        """Helper to build and assign the output result."""
         result_obj.output = MonitorFilterShowOutput(
             errors=errors or ([message] if not success and message else []),
             warnings=[],
@@ -37,7 +27,6 @@ def cmd_filter_show(list_name: str | None = None) -> StageResult:
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
 
         yield (0.3, "Loading configuration...")

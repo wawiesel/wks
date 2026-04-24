@@ -1,14 +1,7 @@
-"""Reciprocal Rank Fusion (RRF) merge for combining ranked result lists."""
-
 from typing import Any
 
 
 def rrf_merge(ranked_lists: list[list[dict[str, Any]]], k: int, rrf_k: int = 60) -> list[dict[str, Any]]:
-    """Merge multiple ranked hit lists using RRF.
-
-    score(doc) = sum(1 / (rrf_k + rank_i)) for each list where doc appears.
-    Documents are identified by URI + chunk_index.
-    """
     scores: dict[str, float] = {}
     docs: dict[str, dict[str, Any]] = {}
 

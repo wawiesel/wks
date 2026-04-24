@@ -1,9 +1,3 @@
-"""Monitor check API function.
-
-This function checks if a path would be monitored and calculates its priority.
-Matches CLI: wksc monitor check <path>, MCP tool: monitor_check
-"""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -14,8 +8,6 @@ from .explain_path import explain_path
 
 
 def cmd_check(uri: URI) -> StageResult:
-    """Check if a path would be monitored and calculate its priority."""
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -26,7 +18,6 @@ def cmd_check(uri: URI) -> StageResult:
         decisions: list[dict[str, str]],
         priority: float | None = None,
     ) -> None:
-        """Helper to build and assign the output result."""
         result_obj.output = MonitorCheckOutput(
             errors=[],
             warnings=[],
@@ -41,7 +32,6 @@ def cmd_check(uri: URI) -> StageResult:
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
@@ -68,7 +58,6 @@ def cmd_check(uri: URI) -> StageResult:
         yield (0.6, "Checking monitor rules...")
         allowed, trace = explain_path(monitor_cfg, test_path)
 
-        # Build decision list from trace messages and path existence
         yield (0.7, "Building decision trace...")
         decisions: list[dict[str, str]] = []
         decisions.append(

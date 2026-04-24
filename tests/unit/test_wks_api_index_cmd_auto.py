@@ -1,9 +1,3 @@
-"""Auto-index command tests.
-
-Tests the public cmd_auto(uri) function which auto-indexes a file
-into all indexes whose min_priority threshold is met.
-"""
-
 import json
 
 import pytest
@@ -14,7 +8,6 @@ from wks.api.index.cmd_auto import cmd_auto
 
 
 def _make_auto_env(tmp_path, monkeypatch, *, priority_dirs=None, indexes=None):
-    """Set up an environment with monitor priority dirs and index config."""
     from tests.conftest import minimal_config_dict
 
     config_dict = minimal_config_dict()
@@ -206,7 +199,6 @@ def test_auto_skips_transform_cache(tmp_path, monkeypatch):
         },
     )
 
-    # Create a file inside the transform cache directory
     cache_dir = tmp_path / "transform_cache"
     cache_file = cache_dir / "abc123.md"
     cache_file.write_text("Cached transform output.\n")

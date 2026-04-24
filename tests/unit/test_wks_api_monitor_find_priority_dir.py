@@ -1,5 +1,3 @@
-"""Unit tests for find_priority_dir function."""
-
 from pathlib import Path
 
 import pytest
@@ -105,7 +103,6 @@ def test_find_priority_dir_relative_paths(tmp_path):
     """Test that relative paths in priority_dirs are resolved."""
     priority_dirs = {".": 100.0}
 
-    # Change to tmp_path directory
     original_cwd = Path.cwd()
     try:
         import os
@@ -130,7 +127,6 @@ def test_find_priority_dir_multiple_matches_shallow(tmp_path):
         str(tmp_path / "b"): 300.0,
     }
 
-    # File in 'a' should match 'a', not root or 'b'
     test_file = tmp_path / "a" / "file.txt"
     test_file.parent.mkdir()
     test_file.write_text("test")
@@ -156,13 +152,11 @@ def test_find_priority_dir_empty_dict(tmp_path):
 
 def test_find_priority_dir_path_resolution(tmp_path):
     """Test that paths are resolved before matching."""
-    # Create a symlink scenario or use resolved paths
     priority_dirs = {str(tmp_path.resolve()): 100.0}
 
     test_file = tmp_path / "file.txt"
     test_file.write_text("test")
 
-    # Use a path that might not be resolved
     test_path = Path(str(test_file))
 
     priority_dir, base_priority = find_priority_dir(test_path, priority_dirs)

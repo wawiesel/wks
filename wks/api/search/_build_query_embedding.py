@@ -1,5 +1,3 @@
-"""Build query embeddings for semantic search modes."""
-
 import numpy as np
 
 from ..config.URI import URI
@@ -13,7 +11,6 @@ def build_query_embedding(
     embedding_mode: str,
     image_text_weight: float | None,
 ) -> np.ndarray:
-    """Build one normalized query embedding based on configured mode."""
     query_text = query.strip()
     query_image_value = query_image.strip()
 

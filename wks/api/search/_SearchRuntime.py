@@ -1,10 +1,3 @@
-"""Process-local runtime state for hot search queries.
-
-This gives long-lived processes such as WKSM a place to keep lexical and
-semantic query state resident between calls while still invalidating cleanly
-when the indexed collections change.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,16 +16,12 @@ from ..index._EmbeddingStore import _EmbeddingStore
 
 @dataclass(frozen=True, slots=True)
 class _CollectionFingerprint:
-    """Cheap signature for detecting collection changes."""
-
     count: int
     newest_id: str | None
 
 
 @dataclass(slots=True)
 class _LexicalIndexState:
-    """Hot lexical query state for a named index."""
-
     fingerprint: _CollectionFingerprint
     chunks: list[_Chunk]
     corpus: list[list[str]]
@@ -41,8 +30,6 @@ class _LexicalIndexState:
 
 @dataclass(slots=True)
 class _SemanticIndexState:
-    """Hot semantic query state for a named index/model pair."""
-
     fingerprint: _CollectionFingerprint
     docs: list[dict[str, Any]]
     matrix: np.ndarray
@@ -50,8 +37,6 @@ class _SemanticIndexState:
 
 
 class _SearchRuntime:
-    """Own process-local query state that survives across tool calls."""
-
     def __init__(self) -> None:
         self._lock = RLock()
         self._config: WKSConfig | None = None
@@ -61,7 +46,6 @@ class _SearchRuntime:
         self._semantic_states: dict[tuple[str, str], _SemanticIndexState] = {}
 
     def reset(self) -> None:
-        """Drop all cached config and query state."""
         with self._lock:
             self._config = None
             self._config_path = None
@@ -70,7 +54,6 @@ class _SearchRuntime:
             self._semantic_states.clear()
 
     def load_config(self) -> WKSConfig:
-        """Load config once and invalidate caches when the config file changes."""
         path = WKSConfig.get_config_path()
         path_value = str(path)
         if path.exists():
@@ -91,7 +74,6 @@ class _SearchRuntime:
         return config
 
     def get_lexical_index_state(self, config: WKSConfig, index_name: str) -> _LexicalIndexState:
-        """Return hot lexical state for one index, rebuilding on change."""
         with Database(config.database, "index") as db:
             fingerprint = _collection_fingerprint(db, {"index_name": index_name})
             with self._lock:
@@ -123,7 +105,6 @@ class _SearchRuntime:
         index_name: str,
         embedding_model: str,
     ) -> _SemanticIndexState:
-        """Return hot semantic state for one index/model pair, rebuilding on change."""
         key = (index_name, embedding_model)
         collection_filter = {"index_name": index_name, "embedding_model": embedding_model}
         with Database(config.database, "index_embeddings") as db:
@@ -153,7 +134,6 @@ class _SearchRuntime:
 
 
 def _collection_fingerprint(db: Database, filter_doc: dict[str, Any]) -> _CollectionFingerprint:
-    """Return a cheap collection signature for cache invalidation."""
     collection = db.get_database()[db.name]
     count = collection.count_documents(filter_doc)
     newest_doc = collection.find_one(filter_doc, {"_id": 1}, sort=[("_id", -1)])
@@ -162,7 +142,6 @@ def _collection_fingerprint(db: Database, filter_doc: dict[str, Any]) -> _Collec
 
 
 def _extract_path_segments(uri: str) -> frozenset[str]:
-    """Precompute lowercase path segments for path-match score boosts."""
     try:
         path = URI.from_any(uri).path
     except Exception:

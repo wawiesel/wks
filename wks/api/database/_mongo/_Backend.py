@@ -1,5 +1,3 @@
-"""MongoDB collection implementation."""
-
 import subprocess
 import time
 from pathlib import Path
@@ -17,14 +15,8 @@ from ._Data import _Data as _DatabaseConfigData
 
 class _Backend(_AbstractBackend):
     def __init__(self, database_config: DatabaseConfig, database_name: str, collection_name: str):
-        """Initialize MongoDB implementation.
-
-        Note: Internally MongoDB uses "collections" but the public API uses "database" terminology.
-        The collection_name parameter maps to a MongoDB collection.
-        """
         if not isinstance(database_config.data, _DatabaseConfigData):
             raise ValueError("MongoDB config data is required")
-        # Validate arguments (fail fast to prevent hangs)
         if not database_name or not isinstance(database_name, str):
             raise ValueError(
                 f"database_name must be a non-empty string, got {type(database_name).__name__}: {database_name!r}"
@@ -36,7 +28,6 @@ class _Backend(_AbstractBackend):
         self.local = database_config.data.local
         self.uri = database_config.data.uri
 
-        # Determine paths and defaults
         self.db_path = WKSConfig.get_home_dir() / "database" / "mongo"
 
         self.database_name = database_name
@@ -93,22 +84,17 @@ class _Backend(_AbstractBackend):
             raise RuntimeError("Mongo client not initialized")
         return self._client[self.database_name].list_collection_names()
 
-    # Internal helpers
     def _ensure_local_mongod(self, uri: str) -> None:
-        """Start local mongod if not reachable."""
         if self._can_connect(uri):
             return
         host, port = self._parse_host_port(uri)
 
-        # Use hardcoded db_path based on WKS_HOME
         db_path = self.db_path
         db_path.mkdir(parents=True, exist_ok=True)
-        # Resolve mongod binary path
         import shutil
 
         mongod_bin = shutil.which("mongod")
         if not mongod_bin:
-            # Try common fallback paths
             for fallback in ["/opt/homebrew/bin/mongod", "/usr/local/bin/mongod", "/usr/bin/mongod"]:
                 if Path(fallback).exists():
                     mongod_bin = fallback
@@ -125,7 +111,6 @@ class _Backend(_AbstractBackend):
             "--quiet",
         ]
         try:
-            # Capture stderr to diagnose startup issues
             import tempfile
 
             with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log") as stderr_file:
@@ -138,20 +123,16 @@ class _Backend(_AbstractBackend):
                 self._started_local = True
         except FileNotFoundError as exc:
             raise RuntimeError("mongod binary not found; install MongoDB or specify database.uri") from exc
-        # Wait for mongod to come up (increased timeout for CI - mongod can take 5-10 seconds to start)
         max_attempts = 50  # 50 * 0.2s = 10 seconds total
         for _attempt in range(max_attempts):
-            # Check if process crashed early
             if self._mongod_proc.poll() is not None:
                 error_output = stderr_path.read_text() if stderr_path.exists() else ""
                 stderr_path.unlink(missing_ok=True)
-                # Exit code 48 means "Address already in use" - port conflict
                 if self._mongod_proc.returncode == 48:
                     raise RuntimeError(
                         f"mongod port {port} is already in use (likely from parallel test execution). "
                         f"Try using a different port or ensure previous mongod processes are cleaned up."
                     )
-                # Exit code 100 means data directory issue (lock, corruption, or incompatible version)
                 if self._mongod_proc.returncode == 100:
                     raise RuntimeError(
                         f"mongod data directory issue at {db_path} (exit code 100). "
@@ -167,17 +148,14 @@ class _Backend(_AbstractBackend):
                 return
             time.sleep(0.2)  # Increased sleep interval for better responsiveness
 
-        # Check if process is still running (might have crashed)
         if self._mongod_proc and self._mongod_proc.poll() is not None:
             error_output = stderr_path.read_text() if stderr_path.exists() else ""
             stderr_path.unlink(missing_ok=True)
-            # Exit code 48 means "Address already in use" - port conflict
             if self._mongod_proc.returncode == 48:
                 raise RuntimeError(
                     f"mongod port {port} is already in use (likely from parallel test execution). "
                     f"Try using a different port or ensure previous mongod processes are cleaned up."
                 )
-            # Exit code 100 means data directory issue (lock, corruption, or incompatible version)
             if self._mongod_proc.returncode == 100:
                 raise RuntimeError(
                     f"mongod data directory issue at {db_path} (exit code 100). "

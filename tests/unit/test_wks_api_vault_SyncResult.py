@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.vault.SyncResult."""
-
 from wks.api.vault.ScanStats import ScanStats
 from wks.api.vault.SyncResult import SyncResult
 

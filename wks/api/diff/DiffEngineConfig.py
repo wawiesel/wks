@@ -1,5 +1,3 @@
-"""Diff engine configuration."""
-
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,15 +6,12 @@ from .DiffConfigError import DiffConfigError
 
 @dataclass
 class DiffEngineConfig:
-    """Diff engine-specific configuration."""
-
     name: str
     enabled: bool
     is_default: bool
     options: dict[str, Any]
 
     def _validate_name(self) -> list[str]:
-        """Validate engine name is a non-empty string."""
         errors: list[str] = []
 
         if not isinstance(self.name, str) or not self.name:
@@ -29,7 +24,6 @@ class DiffEngineConfig:
         return errors
 
     def _validate_enabled(self) -> list[str]:
-        """Validate enabled is a boolean."""
         errors: list[str] = []
 
         if not isinstance(self.enabled, bool):
@@ -42,7 +36,6 @@ class DiffEngineConfig:
         return errors
 
     def _validate_is_default(self) -> list[str]:
-        """Validate is_default is a boolean."""
         errors: list[str] = []
 
         if not isinstance(self.is_default, bool):
@@ -55,7 +48,6 @@ class DiffEngineConfig:
         return errors
 
     def _validate_options(self) -> list[str]:
-        """Validate options is a dictionary."""
         errors: list[str] = []
 
         if not isinstance(self.options, dict):
@@ -68,7 +60,6 @@ class DiffEngineConfig:
         return errors
 
     def __post_init__(self):
-        """Validate diff engine configuration after initialization."""
         errors: list[str] = []
         errors.extend(self._validate_name())
         errors.extend(self._validate_enabled())

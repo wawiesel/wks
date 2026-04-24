@@ -1,9 +1,3 @@
-"""Mv API function.
-
-Move a file within monitored paths and update the database.
-Matches CLI: wksc mv <source> <dest>, MCP tool: mv
-"""
-
 from collections.abc import Iterator
 
 from wks.services.mv import MoveRequest, move_document
@@ -14,7 +8,6 @@ from . import MvMvOutput
 
 
 def cmd(source: URI | str, dest: URI | str) -> StageResult:
-    """Move a file within monitored paths."""
     source_arg = str(source)
     dest_arg = str(dest)
 

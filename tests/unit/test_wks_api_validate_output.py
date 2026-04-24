@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.validate_output."""
-
 import pytest
 from pydantic import BaseModel
 
@@ -12,11 +10,9 @@ class MockOutput(BaseModel):
 
 
 def mock_cmd_func():
-    """Mock command function."""
     pass
 
 
-# Monkeypunch module to resemble wks.api.domain
 mock_cmd_func.__module__ = "wks.api.test_domain"
 mock_cmd_func.__name__ = "cmd_mock_command"
 
@@ -35,7 +31,6 @@ def test_validate_output_failure(monkeypatch):
     """Test validation failure."""
     monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: MockOutput)
 
-    # Missing required 'key'
     output = {"wrong": "value"}
 
     with pytest.raises(ValueError, match="Output validation failed"):
@@ -69,5 +64,4 @@ def test_validate_output_no_schema(monkeypatch):
     monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: None)
 
     output = {"key": "value"}
-    # Should simply return input
     assert validate_output(mock_cmd_func, output) == output

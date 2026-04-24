@@ -1,5 +1,3 @@
-"""CLI display implementation using Rich library."""
-
 import sys
 from collections.abc import Sequence
 from typing import Any, TypeAlias
@@ -26,11 +24,7 @@ StyledSegment: TypeAlias = tuple[str, str | None]
 
 
 class CLIDisplay(Display):
-    """Beautiful CLI display using Rich library."""
-
     class ProgressContext:
-        """Context manager for progress bars."""
-
         def __init__(self, display: "CLIDisplay", total: int, description: str = ""):
             self.display = display
             self.total = total
@@ -162,7 +156,6 @@ class CLIDisplay(Display):
         del self._progress_contexts[handle]
 
     def progress(self, total: int, description: str = "") -> "CLIDisplay.ProgressContext":
-        """Context manager for progress bars."""
         return CLIDisplay.ProgressContext(self, total, description)
 
     def spinner_start(self, description: str = "", **kwargs) -> Any:  # noqa: ARG002

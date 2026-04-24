@@ -1,5 +1,3 @@
-"""Service module - service management and installation."""
-
 from wks.api.config.output_models import output_model
 
 ServiceClearOutput = output_model("ServiceClearOutput", "cleared", "message")

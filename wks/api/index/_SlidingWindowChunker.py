@@ -1,22 +1,12 @@
-"""Sliding window chunker for text content."""
-
 from ._Chunk import _Chunk
 
 
 class _SlidingWindowChunker:
-    """Line-based sliding window chunker with token overlap."""
-
     def __init__(self, max_tokens: int, overlap_tokens: int):
         self._max_tokens = max_tokens
         self._overlap_tokens = overlap_tokens
 
     def chunk(self, text: str, uri: str) -> list[_Chunk]:
-        """Chunk text into overlapping windows of lines.
-
-        Uses word count as a token proxy. Each window accumulates lines
-        up to max_tokens, then backtracks overlap_tokens worth of lines
-        before starting the next window.
-        """
         lines = text.splitlines(keepends=True)
         if not lines:
             return []
@@ -27,7 +17,6 @@ class _SlidingWindowChunker:
         start = 0
 
         while start < len(lines):
-            # Accumulate lines up to budget
             used = 0
             end = start
             while end < len(lines):
@@ -52,7 +41,6 @@ class _SlidingWindowChunker:
             if end >= len(lines):
                 break
 
-            # Overlap backtrack
             restart = end
             if self._overlap_tokens > 0:
                 accum = 0

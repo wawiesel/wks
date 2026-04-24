@@ -1,12 +1,8 @@
-"""Diff metadata dataclass."""
-
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class DiffMetadata:
-    """Metadata describing a diff operation."""
-
     engine_used: str
     is_identical: bool
     file_type_a: str | None = None

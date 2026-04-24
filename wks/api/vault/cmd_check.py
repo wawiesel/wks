@@ -1,9 +1,3 @@
-"""Vault check API command.
-
-CLI: wksc vault check [path]
-MCP tool: vault_check
-"""
-
 from collections.abc import Iterator
 from typing import Any
 
@@ -14,22 +8,6 @@ from . import VaultCheckOutput
 
 
 def cmd_check(uri: URI | None = None) -> StageResult:
-    """Validate link targets in vault markdown files.
-
-    Performs a live scan of the vault (not database lookup) to verify
-    that all markdown link targets resolve to existing files. This detects:
-    - Broken internal links (missing target files)
-    - Malformed link syntax
-    - Links that cannot be resolved
-
-    Args:
-        uri: URI to check. If None, checks all markdown files in vault.
-
-    Returns:
-        StageResult with VaultCheckOutput containing validation results
-        including list of broken links with file, line number, and status.
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
         from ._constants import STATUS_OK
@@ -63,7 +41,6 @@ def cmd_check(uri: URI | None = None) -> StageResult:
             with Vault(config.vault) as vault:
                 scanner = _Scanner(vault)
                 yield (0.3, "Scanning vault for links...")
-                # If uri specified, scan only that file
                 files_to_scan = None
                 if uri:
                     file_path = _ensure_arg_uri(
@@ -87,8 +64,6 @@ def cmd_check(uri: URI | None = None) -> StageResult:
                 records = scanner.scan(files=files_to_scan)
                 stats = scanner.stats
 
-                # Build issues list from scanner records (live scan results)
-                # Records have status from the scanner's link resolution
                 issues = []
                 for record in records:
                     if record.status != STATUS_OK:
@@ -102,7 +77,6 @@ def cmd_check(uri: URI | None = None) -> StageResult:
                         )
                 broken_count = len(issues)
 
-                # Errors from stats are strings
                 all_errors = list(stats.errors)
 
                 is_valid = broken_count == 0 and len(all_errors) == 0

@@ -1,5 +1,3 @@
-"""Index status command tests."""
-
 import json
 
 import pytest
@@ -11,7 +9,6 @@ from wks.api.index.cmd_status import cmd_status
 
 @pytest.fixture
 def index_env(tmp_path, monkeypatch):
-    """Set up isolated WKS environment with index config."""
     from tests.conftest import minimal_config_dict
 
     config_dict = minimal_config_dict()

@@ -1,5 +1,3 @@
-"""Unit tests for the mv command wrapper."""
-
 from tests.unit.conftest import run_cmd
 from wks.api.mv.cmd import cmd
 

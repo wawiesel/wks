@@ -1,5 +1,3 @@
-"""Unit tests for code-defined output model helpers."""
-
 from wks.api.config.output_models import output_model, resolve_output_model
 
 

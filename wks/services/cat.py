@@ -1,5 +1,3 @@
-"""Shared cat service logic."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,8 +15,6 @@ from ._models import FailureKind, ServiceResponse
 
 
 class CatRequest(BaseModel):
-    """Inputs for cached content retrieval."""
-
     model_config = ConfigDict(extra="forbid")
 
     target: str
@@ -27,8 +23,6 @@ class CatRequest(BaseModel):
 
 
 class CatResponse(ServiceResponse):
-    """Cat service output."""
-
     model_config = ConfigDict(extra="forbid")
 
     errors: list[str] = Field(default_factory=list)
@@ -40,7 +34,6 @@ class CatResponse(ServiceResponse):
 
 
 def read_content(request: CatRequest, *, config: WKSConfig | None = None) -> CatResponse:
-    """Retrieve transformed or cached content for a target."""
     loaded_config = config or WKSConfig.load()
     display_target = format_target_for_display(request.target)
     try:
@@ -81,21 +74,18 @@ def read_content(request: CatRequest, *, config: WKSConfig | None = None) -> Cat
 
 
 def _is_checksum(target: str) -> bool:
-    """Return whether the target is a checksum key."""
     from wks.api.cat._is_checksum import _is_checksum as is_checksum
 
     return is_checksum(target)
 
 
 def _select_engine(file_path: Path, engine: str | None, config: WKSConfig) -> str:
-    """Select the transform engine for a file."""
     from wks.api.cat._select_engine import _select_engine as select_engine
 
     return select_engine(file_path, engine, config)
 
 
 def _transform_file(controller, file_path: Path, engine: str) -> str:
-    """Transform a file through the shared controller and return its cache key."""
     generator = controller.transform(file_path, engine, {})
     try:
         for _ in range(MAX_GENERATOR_ITERATIONS):
@@ -108,7 +98,6 @@ def _transform_file(controller, file_path: Path, engine: str) -> str:
 
 
 def _resolve_file_path(target: str, config: WKSConfig) -> Path:
-    """Resolve a target string to a real filesystem path."""
     if "://" in target:
         return URI.from_any(target, vault_path=Path(config.vault.base_dir)).to_path(Path(config.vault.base_dir))
     return normalize_path(target)
@@ -122,7 +111,6 @@ def _error_response(
     output_path: Path | None,
     errors: list[str],
 ) -> CatResponse:
-    """Build a failed cat response."""
     return CatResponse(
         success=False,
         message=message,

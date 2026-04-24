@@ -1,5 +1,3 @@
-"""macOS service implementation - installs daemon as launchd service."""
-
 import os
 import subprocess
 from contextlib import suppress
@@ -20,31 +18,18 @@ if TYPE_CHECKING:
 
 
 class _Impl(_AbstractImpl):
-    """macOS-specific service implementation."""
-
     @staticmethod
     def _get_launch_agents_dir() -> Path:
-        """Get the LaunchAgents directory for the current user."""
         return Path.home() / "Library" / "LaunchAgents"
 
     @staticmethod
     def _get_plist_path(label: str) -> Path:
-        """Get the plist file path for a given label."""
         return _Impl._get_launch_agents_dir() / f"{label}.plist"
 
     @staticmethod
     def _create_plist_content(config: _Data, wksc_path: str, restrict_dir: Path | None = None) -> str:
-        """Create launchd plist XML content that runs 'wksc daemon start'.
-
-        Args:
-            config: Service configuration data
-            wksc_path: Path to wksc CLI command
-            restrict_dir: Optional directory to restrict monitoring to
-        """
-        # Working directory is always WKS_HOME
         working_directory, log_file = prepare_service_home()
 
-        # Build program arguments - run 'wksc daemon start --blocking [--restrict-dir PATH]'
         program_args = f"""    <string>{wksc_path}</string>
     <string>daemon</string>
     <string>start</string>
@@ -57,9 +42,7 @@ class _Impl(_AbstractImpl):
     <string>--restrict</string>
     <string>{restrict_path}</string>"""
 
-        # Construct PATH to include wksc and potential mongod locations
         wksc_dir = Path(wksc_path).parent
-        # Try to find mongod to include its path
         import shutil
 
         mongod_path = shutil.which("mongod")
@@ -103,11 +86,6 @@ class _Impl(_AbstractImpl):
         return plist
 
     def __init__(self, service_config: ServiceConfig | None = None):
-        """Initialize macOS service implementation.
-
-        Args:
-            service_config: Service configuration. If None, loads from WKSConfig.
-        """
         if service_config is None:
             config = WKSConfig.load()
             service_config = config.service
@@ -118,29 +96,17 @@ class _Impl(_AbstractImpl):
         self._data: _Data = service_config.data
 
     def install_service(self, restrict_dir: Path | None = None) -> dict[str, Any]:
-        """Install daemon as macOS launchd service.
-
-        The plist runs 'wksc daemon start' which handles the actual filesystem monitoring.
-
-        Args:
-            restrict_dir: Optional directory to restrict monitoring to
-        """
-
         wksc_path = resolve_wksc_path()
 
         plist_path = self._get_plist_path(self._data.label)
         plist_dir = plist_path.parent
 
-        # Ensure LaunchAgents directory exists
         plist_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create plist content that runs 'wksc daemon start'
         plist_content = self._create_plist_content(self._data, wksc_path, restrict_dir=restrict_dir)
 
-        # Write plist file
         plist_path.write_text(plist_content, encoding="utf-8")
 
-        # Check if service is already loaded
         uid = os.getuid()
         try:
             result = subprocess.run(
@@ -156,7 +122,6 @@ class _Impl(_AbstractImpl):
         except Exception:
             pass  # If check fails, proceed with bootstrap
 
-        # Load service with launchctl
         try:
             subprocess.run(
                 ["launchctl", "bootstrap", f"gui/{uid}", str(plist_path)],
@@ -175,7 +140,6 @@ class _Impl(_AbstractImpl):
         }
 
     def uninstall_service(self) -> dict[str, Any]:
-        """Uninstall daemon macOS launchd service."""
         plist_path = self._get_plist_path(self._data.label)
 
         if not plist_path.exists():
@@ -188,7 +152,6 @@ class _Impl(_AbstractImpl):
 
         uid = os.getuid()
 
-        # Unload service
         with suppress(Exception):
             subprocess.run(
                 ["launchctl", "bootout", f"gui/{uid}", str(plist_path)],
@@ -197,7 +160,6 @@ class _Impl(_AbstractImpl):
                 text=True,
             )
 
-        # Remove plist file
         if plist_path.exists():
             plist_path.unlink()
 
@@ -210,7 +172,6 @@ class _Impl(_AbstractImpl):
         }
 
     def get_service_status(self) -> "ServiceStatus":
-        """Get daemon macOS launchd service status."""
         from ..ServiceStatus import ServiceStatus
 
         plist_path = self._get_plist_path(self._data.label)
@@ -230,7 +191,6 @@ class _Impl(_AbstractImpl):
                     check=False,
                 )
                 if result.returncode == 0:
-                    # Parse output for PID
                     for line in result.stdout.splitlines():
                         if line.strip().startswith("pid ="):
                             with suppress(ValueError, IndexError):
@@ -242,7 +202,6 @@ class _Impl(_AbstractImpl):
         return status
 
     def start_service(self) -> dict[str, Any]:
-        """Start daemon via macOS launchctl."""
         uid = os.getuid()
         plist_path = self._get_plist_path(self._data.label)
 
@@ -265,7 +224,6 @@ class _Impl(_AbstractImpl):
                 "error": f"Service failed to start (no PID found). Check logs at: {log_path}",
             }
 
-        # First check if service is loaded
         try:
             result = subprocess.run(
                 ["launchctl", "print", f"gui/{uid}/{self._data.label}"],
@@ -277,7 +235,6 @@ class _Impl(_AbstractImpl):
         except Exception:
             service_loaded = False
 
-        # If service is not loaded but plist exists, bootstrap it first
         if not service_loaded and plist_path.exists():
             try:
                 subprocess.run(
@@ -289,13 +246,8 @@ class _Impl(_AbstractImpl):
                 bootstrap_result = _running_result("bootstrapped")
                 if bootstrap_result["success"]:
                     return bootstrap_result
-                # Bootstrap loads the job, but with RunAtLoad=false it may not
-                # start immediately. Explicitly kickstart the loaded job.
                 service_loaded = True
             except subprocess.CalledProcessError as e:
-                # launchd can report a bootstrap error even though the job is
-                # already loaded and has started successfully. Re-check status
-                # before treating the bootstrap call as a hard failure.
                 status = self.get_service_status()
                 if status.pid:
                     return {
@@ -306,8 +258,6 @@ class _Impl(_AbstractImpl):
                         "pid": status.pid,
                         "note": "launchctl bootstrap reported an error, but the service is running.",
                     }
-                # If bootstrap loaded the service but did not start it, attempt
-                # a kickstart before surfacing an error.
                 if status.installed:
                     service_loaded = True
                 else:
@@ -316,8 +266,6 @@ class _Impl(_AbstractImpl):
                         "error": f"Failed to bootstrap service: {e.stderr}",
                     }
 
-        # Service is loaded, use kickstart to start/restart it
-        # Note: -k flag kills and restarts if already running, starts if not running
         if service_loaded:
             try:
                 subprocess.run(
@@ -338,7 +286,6 @@ class _Impl(_AbstractImpl):
         }
 
     def stop_service(self) -> dict[str, Any]:
-        """Stop daemon via macOS launchctl."""
         uid = os.getuid()
         try:
             subprocess.run(
@@ -354,7 +301,6 @@ class _Impl(_AbstractImpl):
             }
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.strip() if e.stderr else ""
-            # Check for common "not running" errors - treat as success (idempotent)
             if "No such process" in error_msg or e.returncode == 3:
                 return {
                     "success": True,

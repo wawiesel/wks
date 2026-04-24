@@ -1,5 +1,3 @@
-"""Show database command."""
-
 import json
 from collections.abc import Iterator
 
@@ -14,11 +12,6 @@ def cmd_show(
     limit: int = 50,
 ) -> StageResult:
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result.
-
-        Yields: (progress_percent: float, message: str) tuples
-        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
-        """
         from ..config.WKSConfig import WKSConfig
 
         if limit < 1:
@@ -82,7 +75,6 @@ def cmd_show(
 
         yield (0.7, "Querying database...")
         try:
-            # Exclude internal meta documents from results
             base_filter = {"_id": {"$ne": "__meta__"}}
             combined_filter = {"$and": [base_filter, parsed_query]} if parsed_query else base_filter
             query_result = Database.query(config.database, database, combined_filter, limit)

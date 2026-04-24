@@ -1,9 +1,3 @@
-"""Vault status API command.
-
-CLI: wksc vault status
-MCP tool: vault_status
-"""
-
 from collections.abc import Iterator
 from typing import Any
 
@@ -15,21 +9,6 @@ from . import VaultStatusOutput
 
 
 def cmd_status() -> StageResult:
-    """Get summary statistics for the vault from the edges database.
-
-    Queries the database (not live files) to provide a quick overview:
-    - Total number of links indexed
-    - Timestamp of the last sync operation
-
-    This is useful for checking if the vault index is up to date
-    without running a full sync or check operation.
-
-    Writes status to WKS_HOME/vault.json on completion.
-
-    Returns:
-        StageResult with VaultStatusOutput containing database statistics.
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
         from ._constants import META_DOCUMENT_ID
@@ -39,14 +18,11 @@ def cmd_status() -> StageResult:
             config: Any = WKSConfig.load()
             wks_home = WKSConfig.get_home_dir()
 
-            # Get vault base URI
-
             if not config.vault.base_dir:
                 raise ValueError("Vault base_dir not configured")
 
             vault_base_uri = "vault:///"
 
-            # Collection name is 'edges'
             database_name = "edges"
         except Exception as e:
             result_obj.output = VaultStatusOutput(
@@ -64,15 +40,12 @@ def cmd_status() -> StageResult:
         yield (0.3, "Querying vault links...")
         try:
             with Database(config.database, database_name) as database:
-                # Filter for vault domain: links with from_local_uri starting with vault base URI
                 import re
 
                 vault_filter = {"from_local_uri": {"$regex": f"^{re.escape(vault_base_uri)}"}}
 
-                # Count links
                 total_links = database.count_documents(vault_filter)
 
-                # Get metadata document (note: meta is still in the same collection but has fixed _id)
                 meta = database.find_one({"_id": META_DOCUMENT_ID}) or {}
 
             yield (1.0, "Complete")
@@ -85,7 +58,6 @@ def cmd_status() -> StageResult:
                 success=True,
             ).model_dump(mode="python")
 
-            # Write status file
             write_status_file(output, wks_home=wks_home, filename="vault.json")
 
             result_obj.output = output

@@ -1,5 +1,3 @@
-"""Resolve a configured transform engine name into an executable selection."""
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,8 +17,6 @@ _ROUTE_REJECT_BINARY_MESSAGE = "No transform available for binary file"
 
 @dataclass(frozen=True)
 class ResolvedEngineSelection:
-    """Concrete engine selection for a specific file."""
-
     configured_name: str
     selected_type: str
     cache_engine_name: str
@@ -35,7 +31,6 @@ def resolve_engine_selection(
     file_path: Path,
     overrides: dict[str, Any] | None = None,
 ) -> ResolvedEngineSelection:
-    """Resolve engine_name against file_path and config-defined routing."""
     if engine_name == "auto":
         raise ValueError(
             "Engine name 'auto' is not supported directly. "
@@ -76,7 +71,6 @@ def _resolve_route_engine_selection(
     file_path: Path,
     overrides: dict[str, Any],
 ) -> ResolvedEngineSelection:
-    """Resolve a route engine into a concrete transform selection."""
     for target_name in engine_config.data.order:
         target_config = engines[target_name]
         if isinstance(target_config, _RouteEngineConfig):
@@ -124,7 +118,6 @@ def _resolve_route_engine_selection(
 
 
 def _engine_supports_file(engine_config: _EngineConfig, file_path: Path, options: dict[str, Any]) -> bool:
-    """Return True when a leaf engine can transform file_path."""
     if engine_config.supported_types is not None:
         return supports_file(engine_config.supported_types, file_path)
 

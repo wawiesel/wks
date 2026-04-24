@@ -1,19 +1,14 @@
-"""Helpers for compact README statistics rendering."""
-
 from dataclasses import dataclass
 
 
 @dataclass(slots=True)
 class SectionStats:
-    """Statistics for a code section."""
-
     files: int
     loc: int
     chars: int
     tokens: int
 
     def __add__(self, other: "SectionStats") -> "SectionStats":
-        """Add two section summaries."""
         return SectionStats(
             files=self.files + other.files,
             loc=self.loc + other.loc,
@@ -23,7 +18,6 @@ class SectionStats:
 
 
 def _badge_color(value: float, *, yellow_at: float, green_at: float) -> str:
-    """Return the shields.io color for a percentage value."""
     if value >= green_at:
         return "brightgreen"
     if value >= yellow_at:
@@ -32,7 +26,6 @@ def _badge_color(value: float, *, yellow_at: float, green_at: float) -> str:
 
 
 def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int, traceability_pct: float) -> str:
-    """Generate badge markdown."""
     coverage_color = _badge_color(coverage_pct, yellow_at=80.0, green_at=100.0)
     mutation_color = _badge_color(mutation_score, yellow_at=80.0, green_at=90.0)
     traceability_color = _badge_color(traceability_pct, yellow_at=80.0, green_at=100.0)
@@ -50,7 +43,6 @@ def _generate_badges(coverage_pct: float, mutation_score: float, test_count: int
 
 
 def generate_badges_md(stats: dict) -> str:
-    """Generate badges markdown from stats."""
     return _generate_badges(
         stats.get("coverage_pct", 0.0),
         stats.get("mutation_score", 0.0),
@@ -60,13 +52,11 @@ def generate_badges_md(stats: dict) -> str:
 
 
 def _sections_from_stats(stats: dict) -> dict[str, SectionStats]:
-    """Return typed section statistics."""
     raw_sections = stats.get("sections", {})
     return {name: SectionStats(**section) for name, section in raw_sections.items() if isinstance(section, dict)}
 
 
 def _total(sections: dict[str, SectionStats], *names: str) -> SectionStats:
-    """Return the combined totals for named sections."""
     total = SectionStats(0, 0, 0, 0)
     for name in names:
         total += sections.get(name, SectionStats(0, 0, 0, 0))
@@ -74,7 +64,6 @@ def _total(sections: dict[str, SectionStats], *names: str) -> SectionStats:
 
 
 def generate_metrics_report(stats: dict) -> str:
-    """Generate a compact README metrics block."""
     sections = _sections_from_stats(stats)
     code = _total(sections, "api", "cli", "mcp", "utils", "services", "rest")
     tests = _total(sections, "unit", "integration", "smoke")

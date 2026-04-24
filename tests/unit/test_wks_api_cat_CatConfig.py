@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.cat.CatConfig module."""
-
 import pytest
 from pydantic import ValidationError
 

@@ -1,12 +1,9 @@
-"""Tree-sitter language registry."""
-
 from __future__ import annotations
 
 import importlib
 
 from tree_sitter import Language, Parser
 
-# Mapping of canonical language names to (module, attribute) pairs.
 _LANGUAGE_SOURCES: dict[str, tuple[str, str]] = {
     "python": ("tree_sitter_python", "language"),
     "javascript": ("tree_sitter_javascript", "language"),
@@ -31,7 +28,7 @@ _CACHE: dict[str, Language] = {}
 
 
 class UnsupportedTreeSitterLanguageError(ValueError):
-    """Raised when a requested tree-sitter language is unavailable."""
+    pass
 
 
 def _load_language(language: str) -> Language:
@@ -68,8 +65,6 @@ def _load_language(language: str) -> Language:
 
 
 def get_parser_for_language(language: str) -> Parser:
-    """Return a parser configured for the requested language."""
-
     language_obj = _load_language(language)
     parser = Parser()
     parser.language = language_obj
@@ -77,6 +72,4 @@ def get_parser_for_language(language: str) -> Parser:
 
 
 def supported_languages() -> tuple[str, ...]:
-    """Return all languages that can be loaded."""
-
     return tuple(_LANGUAGE_SOURCES.keys())

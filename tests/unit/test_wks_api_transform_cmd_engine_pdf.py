@@ -1,5 +1,3 @@
-"""PDF/docling engine fallback tests for transform command APIs."""
-
 import subprocess
 
 from tests.unit._transform_test_helpers import temporary_transform_config

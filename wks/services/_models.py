@@ -1,5 +1,3 @@
-"""Shared service-layer models."""
-
 from __future__ import annotations
 
 from typing import Literal
@@ -10,8 +8,6 @@ FailureKind = Literal["config", "validation", "not_found", "conflict", "runtime"
 
 
 class ServiceResponse(BaseModel):
-    """Common envelope for service-layer responses."""
-
     model_config = ConfigDict(extra="forbid")
 
     success: bool

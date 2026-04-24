@@ -1,5 +1,3 @@
-"""Direction enum for link queries."""
-
 from enum import Enum
 
 

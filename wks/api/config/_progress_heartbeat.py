@@ -1,5 +1,3 @@
-"""Utilities for relaying progress with periodic heartbeat updates."""
-
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
@@ -19,7 +17,6 @@ def call_with_heartbeat(
     message: str,
     heartbeat_secs: float,
 ) -> Generator[tuple[float, str], None, _T]:
-    """Yield heartbeat updates while waiting for one blocking function call."""
     result_queue: Queue[tuple[str, Any]] = Queue(maxsize=1)
 
     def worker() -> None:
@@ -56,7 +53,6 @@ def relay_stage_with_heartbeat(
     idle_message: str,
     prefix: str = "",
 ) -> Generator[tuple[float, str], None, None]:
-    """Relay a nested StageResult generator with periodic idle heartbeats."""
     progress_queue: Queue[tuple[str, Any]] = Queue()
 
     def worker() -> None:

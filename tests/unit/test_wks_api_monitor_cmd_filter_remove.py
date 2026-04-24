@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.monitor.cmd_filter_remove module."""
-
 import pytest
 
 from tests.unit.conftest import create_tracked_wks_config, run_cmd
@@ -15,8 +13,6 @@ def test_cmd_filter_remove_saves_on_success(monkeypatch, isolated_wks_home):
     - MON-001
     - MON-006
     """
-    # create_tracked_wks_config uses minimal_config_dict which already contains the transform cache in include_paths.
-    # We add /tmp/x to it.
     cfg = create_tracked_wks_config(monkeypatch)
     cfg.monitor.filter.include_paths.append("/tmp/x")
 

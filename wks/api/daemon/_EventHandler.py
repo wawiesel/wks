@@ -1,5 +1,3 @@
-"""Filesystem event handler for daemon."""
-
 import threading
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -8,8 +6,6 @@ from .FilesystemEvents import FilesystemEvents
 
 
 class _EventHandler(FileSystemEventHandler):
-    """Handles filesystem events and accumulates them."""
-
     def __init__(self) -> None:
         super().__init__()
         self._modified: set[str] = set()

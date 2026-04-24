@@ -1,9 +1,4 @@
-"""Diff configuration error."""
-
-
 class DiffConfigError(Exception):
-    """Raised when diff configuration is invalid."""
-
     def __init__(self, errors: list[str]):
         if isinstance(errors, str):
             errors = [errors]

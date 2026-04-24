@@ -1,5 +1,3 @@
-"""Summarize warning/error lists for status-style outputs."""
-
 STATUS_LOG_MESSAGE_LIMIT = 20
 
 
@@ -23,7 +21,6 @@ def summarize_status_log_messages(
     *,
     limit: int = STATUS_LOG_MESSAGE_LIMIT,
 ) -> tuple[list[str], list[str]]:
-    """Return bounded warning/error lists for status commands and daemon.json."""
     return (
         _summarize_status_messages(warnings, label="warnings", limit=limit),
         _summarize_status_messages(errors, label="errors", limit=limit),

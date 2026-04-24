@@ -1,5 +1,3 @@
-"""Unit tests for vault cmd_check."""
-
 import json
 import platform
 
@@ -52,7 +50,6 @@ def test_cmd_check_config_failure(monkeypatch, tmp_path):
     wks_home = (tmp_path / ".wks").resolve()
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
-    # No config file created
 
     result = run_cmd(cmd_check)
     assert result.success is False
@@ -70,7 +67,6 @@ def test_cmd_check_vault_init_failure(monkeypatch, tmp_path, minimal_config_dict
     cfg["vault"]["type"] = "obsidian"
     write_unit_config(wks_home, cfg)
 
-    # Mock Vault init failure
     def mock_enter(*args, **kwargs):
         raise RuntimeError("Vault Init Error")
 
@@ -143,7 +139,6 @@ def test_cmd_check_path_invalid_vault_path(monkeypatch, tmp_path, minimal_config
     """Test cmd_check with a path that triggers VaultPathError (line 61-75)."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Path outside vault
     result = run_cmd(cmd_check, uri=URI("vault:///../../outside.md"))
     assert result.success is False
     assert "File does not exist" in result.output["errors"] or "not found" in result.result.lower()
@@ -155,16 +150,13 @@ def test_cmd_check_missing_base_dir(monkeypatch, tmp_path, minimal_config_dict):
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
 
-    # Create a valid config first so load() succeeds if it was cached
     cfg = minimal_config_dict
     cfg["vault"]["base_dir"] = str(tmp_path / "vault")
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-    # Now muck with the loaded model or re-mock load
     from wks.api.config.WKSConfig import WKSConfig
     from wks.api.vault.VaultConfig import VaultConfig
 
-    # Reset internal cache if any
     if hasattr(WKSConfig, "_instance"):
         WKSConfig._instance = None
 
@@ -234,7 +226,6 @@ def test_cmd_check_scanner_rewrite_error(monkeypatch, tmp_path, minimal_config_d
     target.touch()
     note.write_text(f"[link]({target.as_uri()})", encoding="utf-8")
 
-    # Make note unwriteable
     note.chmod(0o444)
     try:
         result = run_cmd(cmd_check)
@@ -251,13 +242,8 @@ def test_cmd_check_scanner_preview_long_line(monkeypatch, tmp_path, minimal_conf
     note = vault_dir / "long.md"
     note.write_text(long_line, encoding="utf-8")
 
-    # We need to peek at the records, but cmd_check doesn't return them in output...
-    # Wait, it returns 'issues'. If the link is broken, we see it in issues.
     result = run_cmd(cmd_check)
-    # The link [[Target]] is broken.
     assert result.output["broken_count"] == 1
-    # Check if we can find more info? No, cmd_check output is limited.
-    # But we still hit the code path in Scanner.
 
 
 def test_cmd_check_scanner_convert_file_url_exception(monkeypatch, tmp_path, minimal_config_dict):
@@ -269,7 +255,6 @@ def test_cmd_check_scanner_convert_file_url_exception(monkeypatch, tmp_path, min
     note = vault_dir / "fail.md"
     note.write_text(f"[fail]({target.as_uri()})", encoding="utf-8")
 
-    # Force platform.node() to raise Exception
     import platform
 
     def mock_node():
@@ -278,7 +263,6 @@ def test_cmd_check_scanner_convert_file_url_exception(monkeypatch, tmp_path, min
     monkeypatch.setattr(platform, "node", mock_node)
 
     result = run_cmd(cmd_check)
-    # The error should be in errors
     assert any("Failed to convert file URL" in err for err in result.output["errors"]) or any(
         "conversion fail" in err for err in result.output["errors"]
     )

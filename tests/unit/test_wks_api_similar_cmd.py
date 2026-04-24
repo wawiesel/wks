@@ -1,5 +1,3 @@
-"""Tests for document similarity built from chunk-level semantic matches."""
-
 import json
 from pathlib import Path
 

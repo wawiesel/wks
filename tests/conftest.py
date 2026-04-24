@@ -1,5 +1,3 @@
-"""Shared pytest configuration and fixtures for all tests."""
-
 import copy
 import json
 import os
@@ -14,19 +12,9 @@ import pytest
 
 from wks.api.config.WKSConfig import WKSConfig
 
-# =============================================================================
-# Pytest tmpdir cleanup race condition fix
-# =============================================================================
-# When using --basetemp with rapid sequential runs (like mutmut), pytest's
-# cleanup_dead_symlinks can race with the next run's startup, causing
-# FileNotFoundError. We patch it to gracefully ignore missing directories.
-
 
 def _safe_cleanup_dead_symlinks(root):
-    """Patched cleanup that ignores missing directories."""
     try:
-        # Import the original implementation
-
         for left_dir in root.iterdir():
             try:
                 if left_dir.is_symlink() and not left_dir.resolve().exists():
@@ -39,7 +27,6 @@ def _safe_cleanup_dead_symlinks(root):
         pass
 
 
-# Apply the patch on module load
 try:
     from _pytest import pathlib as pytest_pathlib
     from _pytest import tmpdir as pytest_tmpdir
@@ -51,7 +38,6 @@ except ImportError:
 
 
 def pytest_collection_modifyitems(config, items):
-    """Automatically apply markers based on test file location."""
     for item in items:
         path_str = str(item.fspath)
         if "/smoke/" in path_str:
@@ -62,17 +48,7 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.integration)
 
 
-# =============================================================================
-# Configuration Helpers
-# =============================================================================
-
-
 def service_config_dict_for_platform() -> dict:
-    """Build a service config dict for the current platform.
-
-    We do NOT fallback to a test backend. Unsupported platforms should fail tests,
-    forcing explicit handling and avoiding hidden defaults.
-    """
     backend_type = platform.system().lower()
     if backend_type == "darwin":
         return {
@@ -95,10 +71,6 @@ def service_config_dict_for_platform() -> dict:
 
 
 def minimal_config_dict() -> dict:
-    """Minimal valid WKS configuration dict for testing.
-
-    Uses the current platform to populate the service backend; fails if unsupported.
-    """
     return {
         "monitor": {
             "filter": {
@@ -156,8 +128,6 @@ def minimal_config_dict() -> dict:
                     "type": "textpass",
                     "data": {},
                 },
-                # Add docling engine to satisfy strict optional rules
-                # (though usually invoked by name, if default_engine uses it)
                 "docling_test": {
                     "type": "docling",
                     "data": {
@@ -176,28 +146,18 @@ def minimal_config_dict() -> dict:
 
 
 def minimal_wks_config() -> WKSConfig:
-    """Build a WKSConfig from the minimal config dict."""
     return WKSConfig(**minimal_config_dict())
-
-
-# =============================================================================
-# Fixtures
-# =============================================================================
 
 
 @pytest.fixture(name="minimal_config_dict")
 def minimal_config_dict_fixture(tmp_path: Path) -> dict:
-    """Pytest fixture returning a copy of the minimal config dict with isolated paths."""
     config = copy.deepcopy(minimal_config_dict())
 
-    # Isolate transform cache to valid tmp path
     cache_dir = str(tmp_path / "transform_cache")
     config["transform"]["cache"]["base_dir"] = cache_dir
 
-    # Keep vault operations inside pytest-managed temp storage.
     config["vault"]["base_dir"] = str(tmp_path / "vault")
 
-    # NEW RULE: Cache directory must be monitored
     config["monitor"]["filter"]["include_paths"].append(cache_dir)
 
     return config
@@ -205,20 +165,11 @@ def minimal_config_dict_fixture(tmp_path: Path) -> dict:
 
 @pytest.fixture(name="minimal_wks_config")
 def minimal_wks_config_fixture() -> WKSConfig:
-    """Pytest fixture returning a WKSConfig built from the minimal config dict."""
     return minimal_wks_config()
 
 
 @pytest.fixture
 def isolated_wks_home(tmp_path: Path, monkeypatch) -> Path:
-    """Set up isolated WKS_HOME without config file.
-
-    Use this fixture when you need WKS_HOME isolation but are using tracked_wks_config
-    (which patches WKSConfig.load() and doesn't need a config file).
-
-    Returns:
-        Path to the isolated WKS home directory (tmp_path / "wks_home")
-    """
     home_dir = tmp_path / "wks_home"
     home_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(home_dir))
@@ -227,11 +178,6 @@ def isolated_wks_home(tmp_path: Path, monkeypatch) -> Path:
 
 @pytest.fixture
 def wks_home(tmp_path: Path, monkeypatch, minimal_config_dict: dict) -> Path:
-    """Set up WKS_HOME with a minimal config file.
-
-    Returns:
-        Path to the WKS home directory (tmp_path / "wks_home")
-    """
     home_dir = tmp_path / "wks_home"
     home_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(home_dir))
@@ -242,28 +188,18 @@ def wks_home(tmp_path: Path, monkeypatch, minimal_config_dict: dict) -> Path:
 
 @pytest.fixture
 def wks_env(tmp_path: Path, minimal_config_dict: dict) -> dict:
-    """Create a WKS environment with config for CLI testing.
-
-    Returns dict with:
-        - env: Environment dict with WKS_HOME set
-        - wks_home: Path to WKS home directory
-        - watch_dir: Path to watched directory
-    """
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
 
     watch_dir = tmp_path / "watched"
     watch_dir.mkdir(parents=True, exist_ok=True)
 
-    # Update config with watch_dir
     config = copy.deepcopy(minimal_config_dict)
     config["monitor"]["filter"]["include_paths"].append(str(watch_dir))
 
-    # Write config file
     config_file = wks_home / "config.json"
     config_file.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
-    # Return environment with WKS_HOME set
     env = os.environ.copy()
     env["WKS_HOME"] = str(wks_home)
     return {
@@ -275,7 +211,6 @@ def wks_env(tmp_path: Path, minimal_config_dict: dict) -> dict:
 
 @pytest.fixture
 def config_with_mcp(minimal_config_dict: dict) -> dict:
-    """Config dict with MCP section added."""
     config = minimal_config_dict.copy()
     config["mcp"] = {"installs": {}}
     return config
@@ -283,7 +218,6 @@ def config_with_mcp(minimal_config_dict: dict) -> dict:
 
 @pytest.fixture
 def config_with_priority_dirs(minimal_config_dict: dict) -> dict:
-    """Config dict with monitor priority directories configured."""
     config = minimal_config_dict.copy()
     config["monitor"] = minimal_config_dict["monitor"].copy()
     config["monitor"]["priority"] = minimal_config_dict["monitor"]["priority"].copy()
@@ -293,11 +227,6 @@ def config_with_priority_dirs(minimal_config_dict: dict) -> dict:
 
 @pytest.fixture
 def wks_home_with_priority(tmp_path: Path, monkeypatch, config_with_priority_dirs: dict) -> Path:
-    """Set up WKS_HOME with config that includes monitor priority directories.
-
-    Returns:
-        Path to the WKS home directory (tmp_path / "wks_home")
-    """
     home_dir = tmp_path / "wks_home"
     home_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(home_dir))
@@ -306,27 +235,19 @@ def wks_home_with_priority(tmp_path: Path, monkeypatch, config_with_priority_dir
     return home_dir
 
 
-# =============================================================================
-# Test Helpers
-# =============================================================================
-
-
 def run_cmd(cmd_func, *args, **kwargs):
-    """Execute a cmd function and return the result with progress_callback executed."""
     result = cmd_func(*args, **kwargs)
     list(result.progress_callback(result))
     return result
 
 
 def ensure_watch_dir(wks_home: Path) -> Path:
-    """Return the standard watched directory for a WKS home, creating it if needed."""
     watch_dir = Path(wks_home).parent / "watched"
     watch_dir.mkdir(parents=True, exist_ok=True)
     return watch_dir
 
 
 def write_watched_file(wks_home: Path, *, name: str, content: str) -> Path:
-    """Create a test file in the standard watched directory."""
     test_file = ensure_watch_dir(wks_home) / name
     test_file.write_text(content, encoding="utf-8")
     return test_file
@@ -340,7 +261,6 @@ def build_service_test_config(
     database_overrides: dict[str, Any] | None = None,
     log_overrides: dict[str, Any] | None = None,
 ) -> WKSConfig:
-    """Build a minimal service test config with isolated cache paths."""
     config_dict = copy.deepcopy(minimal_config_dict())
     cache_dir = tmp_path / "cache"
     config_dict["monitor"]["filter"]["include_paths"] = [str(cache_dir)]
@@ -353,18 +273,11 @@ def build_service_test_config(
     return WKSConfig.model_validate(config_dict)
 
 
-# =============================================================================
-# MongoDB Test Helpers
-# =============================================================================
-
-
 def check_mongod_available() -> bool:
-    """Check if mongod is available and can be started."""
     if os.environ.get("WKS_TEST_MONGO_URI"):
         return True
     if not shutil.which("mongod"):
         return False
-    # Try to connect to default port or check if we can start one
     try:
         result = subprocess.run(
             ["mongod", "--version"],
@@ -378,35 +291,25 @@ def check_mongod_available() -> bool:
 
 
 def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
-    """Get MongoDB connection info (uri, port, is_local).
-
-    Generates a unique but deterministic port based on tmp_path if not using external URI.
-    """
     import hashlib
     import socket
 
     external_uri = os.environ.get("WKS_TEST_MONGO_URI")
     if external_uri:
-        # Default port 27017 is a placeholder if parsing fails, but URI takes precedence
         return external_uri, 27017, False
 
-    # Get worker ID from pytest-xdist if available
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
     worker_num = 0
     if worker_id.startswith("gw"):
         with suppress(ValueError):
             worker_num = int(worker_id[2:])
 
-    # Use tmp_path to generate a unique but deterministic port per test
     path_hash = int(hashlib.md5(str(tmp_path).encode()).hexdigest()[:6], 16)
     pid = os.getpid()
     base_port = 27100
 
-    # Ensure port stays within 1024-65535 range
-    # With 12 workers, we use worker_num * 1000 roughly
     mongo_port = base_port + (worker_num * 1000) + (path_hash % 900) + (pid % 10)
 
-    # Verify port is actually available (in case of rare collision)
     max_attempts = 50
     original_port = mongo_port
     for attempt in range(max_attempts):
@@ -415,7 +318,6 @@ def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
                 s.bind(("127.0.0.1", mongo_port))
                 break  # Port is available
             except OSError:
-                # Port in use, try next one in sequence
                 mongo_port = original_port + attempt
                 if mongo_port > 27999:
                     mongo_port = base_port + (attempt % 900)
@@ -427,14 +329,6 @@ def get_mongo_connection_info(tmp_path: Path) -> tuple[str, int, bool]:
 
 @pytest.fixture
 def mongo_wks_env(tmp_path, monkeypatch):
-    """Set up WKS environment with real MongoDB.
-
-    Yields dict with:
-        - wks_home: Path to WKS home
-        - watch_dir: Path to watched directory
-        - config: WKSConfig object
-        - mongo_port: Port used for MongoDB
-    """
     if not check_mongod_available():
         pytest.fail(
             "MongoDB tests require `mongod` in PATH. "
@@ -448,7 +342,6 @@ def mongo_wks_env(tmp_path, monkeypatch):
 
     mongo_uri, mongo_port, is_local = get_mongo_connection_info(tmp_path)
 
-    # Start with minimal config and override for MongoDB
     config_dict = copy.deepcopy(minimal_config_dict())
     config_dict["database"]["type"] = "mongo"
     config_dict["database"]["prefix"] = "wks_test"
@@ -457,7 +350,6 @@ def mongo_wks_env(tmp_path, monkeypatch):
         "local": is_local,
     }
 
-    # Isolate cache and ensure it is monitored
     cache_dir = str(tmp_path / "transform_cache")
     config_dict["transform"]["cache"]["base_dir"] = cache_dir
     config_dict["monitor"]["filter"]["include_paths"] = [str(watch_dir), cache_dir]
@@ -467,11 +359,9 @@ def mongo_wks_env(tmp_path, monkeypatch):
     config = WKSConfig.model_validate(config_dict)
     config.save()
 
-    # Start mongod once for the duration of the test
     from wks.api.database.Database import Database
 
     with Database(config.database, "setup") as db:
-        # Verify connection
         db.get_client().server_info()
 
         yield {
@@ -481,25 +371,13 @@ def mongo_wks_env(tmp_path, monkeypatch):
             "mongo_port": mongo_port,
         }
 
-    # Helper cleanup
     from wks.api.daemon.Daemon import Daemon
 
     with suppress(Exception):
         Daemon().stop()
 
 
-# =============================================================================
-# Tracked Config Helpers (Moved from unit/conftest.py)
-# =============================================================================
-
-
 class TrackedConfig:
-    """Wrapper around WKSConfig that tracks save() calls.
-
-    Use this when you need to verify that a command calls save().
-    Delegates attribute access to the underlying config.
-    """
-
     def __init__(self, config: WKSConfig):
         object.__setattr__(self, "_config", config)
         object.__setattr__(self, "save_calls", 0)
@@ -522,21 +400,9 @@ class TrackedConfig:
 def create_tracked_wks_config(
     monkeypatch, monitor_config_data: dict | None = None, config_dict: dict | None = None
 ) -> TrackedConfig:
-    """Patch WKSConfig.load to return a TrackedConfig instance.
-
-    Args:
-        monkeypatch: pytest monkeypatch fixture
-        monitor_config_data: Optional dictionary to update monitor config with.
-            Can include 'filter' dict to update filter settings.
-        config_dict: Optional configuration dictionary to use. If None, uses default minimal_config_dict().
-
-    Returns:
-        TrackedConfig instance that tracks save() calls.
-    """
     base_config = copy.deepcopy(config_dict or minimal_config_dict())
 
     if monitor_config_data:
-        # Deep merge monitor config data
         if "filter" in monitor_config_data:
             base_config["monitor"]["filter"].update(monitor_config_data["filter"])
         for key, value in monitor_config_data.items():
@@ -551,5 +417,4 @@ def create_tracked_wks_config(
 
 @pytest.fixture
 def tracked_wks_config(monkeypatch, minimal_config_dict: dict) -> TrackedConfig:
-    """Fixture that patches WKSConfig with default settings and returns TrackedConfig."""
     return create_tracked_wks_config(monkeypatch, config_dict=minimal_config_dict)

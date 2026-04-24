@@ -1,11 +1,7 @@
-"""macOS (launchd) specific daemon configuration data."""
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Data(BaseModel):
-    """macOS launchd daemon configuration data."""
-
     model_config = ConfigDict(extra="forbid")
 
     label: str = Field(..., description="Launchd service identifier (reverse DNS format)")
@@ -17,7 +13,6 @@ class _Data(BaseModel):
     def validate_label(cls, v: str) -> str:
         if not v:
             raise ValueError("daemon.data.label is required when daemon.type is 'darwin'")
-        # Basic reverse DNS format validation
         parts = v.split(".")
         if len(parts) < 2:
             raise ValueError(f"daemon.data.label must be in reverse DNS format (e.g., 'com.example.app'), got: {v!r}")

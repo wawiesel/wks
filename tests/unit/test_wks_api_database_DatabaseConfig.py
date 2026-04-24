@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.database.DatabaseConfig module."""
-
 import pytest
 from pydantic import ValidationError
 
@@ -9,17 +7,13 @@ pytestmark = pytest.mark.database
 
 
 class TestDatabaseConfig:
-    """Test DatabaseConfig class."""
-
     def test_database_config_mongo(self):
         """Test DatabaseConfig with mongo backend."""
-        # Use model_validate to satisfy Mypy's strict type checking on 'data' field
         config = DatabaseConfig.model_validate(
             {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}}
         )
         assert config.type == "mongo"
         assert config.prefix == "wks"
-        # Mypy doesn't know config.data is _MongoData
         assert config.data.uri == "mongodb://localhost:27017/"  # type: ignore[attr-defined]
         assert config.data.local is False  # type: ignore[attr-defined]
 
@@ -49,7 +43,6 @@ class TestDatabaseConfig:
     def test_database_config_invalid_data_type(self):
         """Test DatabaseConfig raises error when data is not a dict."""
         with pytest.raises(ValueError, match="database config must be a dict"):
-            # Use model_validate instead of direct validator call
             DatabaseConfig.model_validate("invalid")
 
     def test_database_config_missing_type(self):
@@ -71,16 +64,13 @@ class TestDatabaseConfig:
 
     def test_database_config_mongomock_no_uri_required(self):
         """Test DatabaseConfig doesn't require uri for mongomock (in-memory database)."""
-        # mongomock doesn't require any config data (empty dict is fine)
         config = DatabaseConfig.model_validate({"type": "mongomock", "prefix": "wks", "data": {}})
         assert config.type == "mongomock"
-        # mongo requires uri, so empty dict should fail validation at backend level
         with pytest.raises(ValidationError):
             DatabaseConfig.model_validate({"type": "mongo", "prefix": "wks", "data": {}})
 
     def test_database_config_invalid_mongo_uri(self):
         """Test DatabaseConfig validates mongo URI format."""
-        # _MongoDbConfigData validates URI format
         with pytest.raises(Exception, match="must start with 'mongodb://'"):
             DatabaseConfig.model_validate({"type": "mongo", "prefix": "wks", "data": {"uri": "invalid-uri"}})
 
@@ -111,7 +101,6 @@ class TestDatabaseConfig:
         """Test model_validator intercepts and transforms data."""
         config_dict = {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}}
         config = DatabaseConfig.model_validate(config_dict)
-        # Verify data was transformed to _MongoDbConfigData instance
         assert hasattr(config.data, "uri")
         assert config.data.uri == "mongodb://localhost:27017/"  # type: ignore[attr-defined]
 
@@ -119,7 +108,6 @@ class TestDatabaseConfig:
         """Test model_validator works with mongomock backend."""
         config_dict = {"type": "mongomock", "prefix": "wks", "prune_frequency_secs": 3600, "data": {}}
         config = DatabaseConfig.model_validate(config_dict)
-        # Verify data was transformed to _MongoMockDbConfigData instance
         assert config.type == "mongomock"
 
     def test_database_config_requires_dict(self):

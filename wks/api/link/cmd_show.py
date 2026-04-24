@@ -1,9 +1,3 @@
-"""Link show API command.
-
-CLI: wksc link show <uri> [--direction to|from|both]
-MCP tool: link_show
-"""
-
 from collections.abc import Iterator
 from typing import Any
 
@@ -15,13 +9,6 @@ from ..database.Database import Database
 
 
 def cmd_show(uri: URI, direction: Direction = Direction.FROM) -> StageResult:
-    """Show edges connected to a specific URI.
-
-    Args:
-        uri: The candidate URI to search for.
-        direction: Direction.TO, Direction.FROM, or Direction.BOTH.
-    """
-    # Ensure strict type at runtime
     if not isinstance(uri, URI):
         try:
             uri = URI(uri)
@@ -49,7 +36,6 @@ def cmd_show(uri: URI, direction: Direction = Direction.FROM) -> StageResult:
         with Database(config.database, database_name) as database:
             links = list(database.find(query))
 
-            # Format results
             formatted_links = []
             for link in links:
                 formatted_links.append(

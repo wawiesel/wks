@@ -1,5 +1,3 @@
-"""Unit tests for the shared cat service layer."""
-
 import copy
 from pathlib import Path
 

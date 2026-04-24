@@ -1,5 +1,3 @@
-"""Shared helpers for platform service implementations."""
-
 from __future__ import annotations
 
 import shutil
@@ -10,7 +8,6 @@ from ..config.WKSConfig import WKSConfig
 
 
 def resolve_wksc_path() -> str:
-    """Return the installed `wksc` path or fail with a clear error."""
     wksc_path = shutil.which("wksc")
     if not wksc_path:
         raise RuntimeError("wksc command not found in PATH. Ensure WKS is installed.")
@@ -18,7 +15,6 @@ def resolve_wksc_path() -> str:
 
 
 def prepare_service_home() -> tuple[Path, Path]:
-    """Ensure the WKS home and service log directory exist."""
     working_directory = WKSConfig.get_home_dir()
     log_file = working_directory / "logs" / "service.log"
     log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -27,7 +23,6 @@ def prepare_service_home() -> tuple[Path, Path]:
 
 
 def remove_daemon_lock() -> None:
-    """Best-effort removal of the daemon lock file during uninstall flows."""
     lock_path = WKSConfig.get_home_dir() / "daemon.lock"
     if lock_path.exists():
         with suppress(Exception):

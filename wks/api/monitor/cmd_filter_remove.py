@@ -1,9 +1,3 @@
-"""Monitor filter-remove API function.
-
-Remove a value from a monitor configuration list.
-Matches CLI: wksc monitor filter remove <list-name> <value>, MCP tool: monitor_filter_remove
-"""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -12,8 +6,6 @@ from .MonitorConfig import MonitorConfig
 
 
 def cmd_filter_remove(list_name: str, value: str) -> StageResult:
-    """Remove a value from a monitor configuration list."""
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -22,7 +14,6 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
         not_found: bool | None = False,
         errors: list[str] | None = None,
     ) -> None:
-        """Helper to build and assign the output result."""
         result_obj.output = MonitorFilterRemoveOutput(
             errors=errors or ([message] if not success and message else []),
             warnings=[],
@@ -35,7 +26,6 @@ def cmd_filter_remove(list_name: str, value: str) -> StageResult:
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         from wks.api.config.normalize_path import normalize_path
 
         from ..config.WKSConfig import WKSConfig

@@ -1,5 +1,3 @@
-"""Content retrieval and cache integrity tests for transform command APIs."""
-
 from pathlib import Path
 
 import pytest

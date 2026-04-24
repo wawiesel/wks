@@ -1,11 +1,3 @@
-"""Unit tests for wks.api.diff.controller module.
-
-Requirements:
-- WKS-DIFF-001
-- WKS-DIFF-003
-- WKS-DIFF-004
-"""
-
 from unittest.mock import MagicMock
 
 import pytest
@@ -19,8 +11,6 @@ pytestmark = pytest.mark.unit
 
 
 class TestDiffController:
-    """Test DiffController class."""
-
     def test_controller_init_no_config(self):
         """Test DiffController initialization without config."""
         controller = DiffController()
@@ -96,7 +86,6 @@ class TestDiffController:
         file_a.write_text("hello\n")
         file_b.write_text("world\n")
 
-        # Need at least one default engine for DiffConfig validation
         engines = {
             "bsdiff3": DiffEngineConfig(name="bsdiff3", enabled=True, is_default=True, options={}),
             "myers": DiffEngineConfig(name="myers", enabled=False, is_default=False, options={}),
@@ -144,6 +133,5 @@ class TestDiffController:
         mock_transform_controller.cache_manager.cache_dir = cache_dir
 
         controller = DiffController(transform_controller=mock_transform_controller)
-        # Should succeed when both targets are the same checksum (identical files)
         result = controller.diff(checksum, checksum, "myers", {})
         assert isinstance(result, str)

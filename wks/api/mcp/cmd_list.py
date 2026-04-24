@@ -1,5 +1,3 @@
-"""List supported MCP client targets."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,14 +6,7 @@ from .targets import list_targets
 
 
 def cmd_list() -> StageResult:
-    """List supported MCP client targets.
-
-    Returns:
-        StageResult with supported client targets and native commands
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Collect target guidance for the user."""
         yield (0.4, "Collecting supported MCP targets...")
         targets = []
         for target in list_targets():

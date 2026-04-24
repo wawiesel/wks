@@ -1,5 +1,3 @@
-"""Cat API module."""
-
 from wks.api.config.output_models import output_model
 
 CatCmdOutput = output_model("CatCmdOutput", "content", "target", "checksum", "output_path")

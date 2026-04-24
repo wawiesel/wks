@@ -1,15 +1,4 @@
-"""Header extractor."""
-
-
 def extract_headings(text: str) -> dict[int, str]:
-    """Extract heading for each line number.
-
-    Args:
-        text: Markdown content
-
-    Returns:
-        Dictionary mapping line numbers to their nearest preceding heading
-    """
     headings: dict[int, str] = {}
     current_heading = ""
 

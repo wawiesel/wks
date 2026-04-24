@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.diff._auto_engine module."""
-
 import pytest
 
 from wks.api.diff._auto_engine import select_auto_diff_engine
@@ -8,8 +6,6 @@ pytestmark = pytest.mark.unit
 
 
 class TestAutoEngine:
-    """Test auto engine selection."""
-
     def test_select_sexp_for_sexp_files(self, tmp_path):
         """Test auto selects sexp engine for *.sexp files."""
         file1 = tmp_path / "a.sexp"
@@ -54,7 +50,6 @@ class TestAutoEngine:
         """Test auto selects bsdiff3 for non-UTF-8 text."""
         file1 = tmp_path / "a.txt"
         file2 = tmp_path / "b.txt"
-        # Write Latin-1 encoded text (not UTF-8)
         file1.write_bytes(b"hello\xe9")  # é in Latin-1
         file2.write_bytes(b"hello\xe8")  # è in Latin-1
 
@@ -87,7 +82,6 @@ class TestAutoEngine:
         file2 = tmp_path / "nonexistent.txt"
         file1.write_text("text")
 
-        # Should handle gracefully and default to binary
         engine = select_auto_diff_engine(file1, file2)
         assert engine == "bsdiff3"
 

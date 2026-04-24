@@ -1,5 +1,3 @@
-"""Vault API module."""
-
 from wks.api.config.output_models import output_model
 
 VaultStatusOutput = output_model("VaultStatusOutput", "database", "total_links", "last_sync", "success")

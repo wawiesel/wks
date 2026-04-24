@@ -1,5 +1,3 @@
-"""Unit tests for monitor cmd_status (no mocks, real mongomock via config)."""
-
 import json
 
 import pytest
@@ -43,12 +41,10 @@ def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, 
     cfg = minimal_config_dict
     (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-    # Manually insert a file node and a __meta__ document
     from wks.api.config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
     with Database(config.database, "nodes") as db:
-        # Insert a real file node
         db.update_one(
             {"local_uri": "file:///test/file.md"},
             {
@@ -62,7 +58,6 @@ def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, 
             },
             upsert=True,
         )
-        # Insert the __meta__ document
         db.update_one(
             {"_id": "__meta__"},
             {"$set": {"_id": "__meta__", "doc_type": "meta", "last_sync": "2024-01-01T00:00:00"}},
@@ -71,7 +66,6 @@ def test_cmd_status_tracked_files_excludes_meta_document(monkeypatch, tmp_path, 
 
     result = run_cmd(cmd_status)
     assert result.success is True
-    # Should count only the file node, not the __meta__ document
     assert result.output["tracked_files"] == 1
 
 

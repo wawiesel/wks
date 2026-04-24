@@ -1,5 +1,3 @@
-"""Search command for lexical BM25 and semantic embedding search."""
-
 from collections.abc import Iterator
 
 from wks.services.search import SearchRequest, search_documents
@@ -15,8 +13,6 @@ def cmd(
     query_image: str = "",
     strategy: str = "",
 ) -> StageResult:
-    """Search a named index using its configured search mode."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.2, "Preparing search request...")
         response = search_documents(

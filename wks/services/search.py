@@ -1,5 +1,3 @@
-"""Shared search service logic."""
-
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -16,8 +14,6 @@ from ._models import FailureKind, ServiceResponse
 
 
 class SearchRequest(BaseModel):
-    """Search service inputs."""
-
     model_config = ConfigDict(extra="forbid")
 
     query: str = ""
@@ -28,8 +24,6 @@ class SearchRequest(BaseModel):
 
 
 class SearchHit(BaseModel):
-    """One ranked search hit."""
-
     model_config = ConfigDict(extra="forbid")
 
     uri: str
@@ -40,8 +34,6 @@ class SearchHit(BaseModel):
 
 
 class SearchResponse(ServiceResponse):
-    """Search service output."""
-
     model_config = ConfigDict(extra="forbid")
 
     errors: list[str] = Field(default_factory=list)
@@ -55,7 +47,6 @@ class SearchResponse(ServiceResponse):
 
 
 def search_documents(request: SearchRequest, *, config: WKSConfig | None = None) -> SearchResponse:
-    """Run a search against the configured indexes."""
     loaded_config = config or _SEARCH_RUNTIME.load_config()
     if loaded_config.index is None:
         return _error_response(
@@ -92,7 +83,6 @@ def search_documents(request: SearchRequest, *, config: WKSConfig | None = None)
 
 
 def _resolve_strategy_name(config: WKSConfig, request: SearchRequest) -> str:
-    """Resolve the strategy name from explicit input or config defaults."""
     assert config.index is not None
     if request.strategy:
         return request.strategy
@@ -102,7 +92,6 @@ def _resolve_strategy_name(config: WKSConfig, request: SearchRequest) -> str:
 
 
 def _run_single_index_search(config: WKSConfig, request: SearchRequest) -> SearchResponse:
-    """Run one lexical or semantic search."""
     assert config.index is not None
     index_name = request.index if request.index else config.index.default_index
     if index_name not in config.index.indexes:
@@ -128,7 +117,6 @@ def _run_semantic_search(
     index_name: str,
     spec: _IndexSpec,
 ) -> SearchResponse:
-    """Run semantic search on one index."""
     embedding_model = spec.embedding_model
     assert embedding_model is not None
     semantic_state = _SEARCH_RUNTIME.get_semantic_index_state(config, index_name, embedding_model)
@@ -176,7 +164,6 @@ def _run_semantic_search(
 
 
 def _run_lexical_search(config: WKSConfig, request: SearchRequest, index_name: str) -> SearchResponse:
-    """Run lexical search on one index."""
     if request.query_image.strip():
         return _error_response(
             message="query_image is only supported for semantic indexes",
@@ -227,7 +214,6 @@ def _run_lexical_search(config: WKSConfig, request: SearchRequest, index_name: s
 
 
 def _run_strategy_search(config: WKSConfig, request: SearchRequest, strategy_name: str) -> SearchResponse:
-    """Run a multi-index strategy search and merge results."""
     assert config.index is not None
     if strategy_name not in config.index.strategies:
         available = list(config.index.strategies.keys())
@@ -319,7 +305,6 @@ def _rank_semantic_hits(
     query_image: str,
     k: int,
 ) -> list[dict[str, Any]]:
-    """Rank semantic hits using the hot runtime state."""
     from wks.api.index._embedding_utils import cosine_scores
     from wks.api.search._build_query_embedding import build_query_embedding
 
@@ -361,7 +346,6 @@ def _rank_semantic_hits(
 
 
 def _rank_lexical_hits(state: _LexicalIndexState, query: str, k: int) -> list[dict[str, Any]]:
-    """Rank lexical hits using the hot runtime state."""
     if state.bm25 is None:
         return []
     query_terms = set(query.lower().split())
@@ -382,7 +366,6 @@ def _rank_lexical_hits(state: _LexicalIndexState, query: str, k: int) -> list[di
 
 
 def _query_output(request: SearchRequest) -> str:
-    """Return the user-facing query string."""
     return request.query if request.query.strip() else request.query_image
 
 
@@ -397,7 +380,6 @@ def _error_response(
     embedding_model: str | None = None,
     total_chunks: int = 0,
 ) -> SearchResponse:
-    """Build a failed search response."""
     return SearchResponse(
         success=False,
         message=message,

@@ -29,8 +29,6 @@ class TestCmdList:
         with patch("wks.api.database.cmd_list.Database.list_databases", side_effect=Exception("Connection failed")):
             result = run_cmd(cmd_list)
             assert not result.success
-            # Note: prefix might be missing on hard error before config load,
-            # but here config is already loaded by test fixture
             assert "Connection failed" in result.output["errors"][0]
 
     def test_cmd_list_load_config_error(self, monkeypatch):
@@ -61,24 +59,20 @@ class TestCmdList:
 
         db_cfg = DatabaseConfig(type="mongomock", prefix=prefix, prune_frequency_secs=3600, data=cast(BaseModel, {}))
 
-        # Create collections (names should NOT include prefix here because Database facade prepends it)
         with Database(db_cfg, "nodes") as db:
             db.update_one({"id": 1}, {"$set": {"id": 1}}, upsert=True)
 
         with Database(db_cfg, "vault") as db:
             db.update_one({"id": 1}, {"$set": {"id": 1}}, upsert=True)
 
-        # Run the command
         result = run_cmd(cmd_list)
 
         assert result.success is True
         assert result.output["prefix"] == prefix
-        # Databases should be 'monitor' and 'vault'
         assert "nodes" in result.output["databases"]
         assert "vault" in result.output["databases"]
         assert f"{prefix}.monitor" not in result.output["databases"]
 
-        # Ensure they are sorted
         assert result.output["databases"] == sorted(result.output["databases"])
 
     def test_cmd_list_names_exclude_other_prefixes(self, monkeypatch, tmp_path, minimal_config_dict):
@@ -98,22 +92,18 @@ class TestCmdList:
         cfg["database"]["type"] = "mongomock"
         (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
-        # db_cfg = DatabaseConfig(type="mongomock", prefix=prefix, data=cast(BaseModel, {}))
         other_prefix = "other"
         other_cfg = DatabaseConfig(
             type="mongomock", prefix=other_prefix, prune_frequency_secs=3600, data=cast(BaseModel, {})
         )
 
-        # Create other prefixed collection (DB "other", collection "nodes")
         with Database(other_cfg, "nodes") as db:
             db.update_one({"id": 1}, {"$set": {"id": 1}}, upsert=True)
 
-        # Run the command for prefix "wks_test_2"
         result = run_cmd(cmd_list)
 
         assert result.success is True
         assert result.output["prefix"] == prefix
-        # Should NOT find 'monitor' because it's only in the 'other' database
         assert "monitor" not in result.output["databases"]
 
 

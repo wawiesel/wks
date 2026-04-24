@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.daemon.DaemonConfig module."""
-
 import pytest
 from pydantic import ValidationError
 

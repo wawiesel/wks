@@ -1,5 +1,3 @@
-"""Link API domain."""
-
 from wks.api.config.output_models import output_model
 
 LinkCheckOutput = output_model("LinkCheckOutput", "path", "is_monitored", "links")

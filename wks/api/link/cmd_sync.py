@@ -1,5 +1,3 @@
-"""Link sync API command."""
-
 from collections.abc import Iterator
 from typing import Any
 
@@ -13,7 +11,6 @@ from ..vault.Vault import Vault
 from . import LinkSyncOutput
 from ._sync_single_file import _sync_single_file
 
-# Supported extensions for link parsing
 _LINK_EXTENSIONS = {".md", ".html", ".htm", ".rst", ".txt"}
 
 
@@ -23,8 +20,6 @@ def cmd_sync(
     recursive: bool = False,
     remote: bool = False,
 ) -> StageResult:
-    """Sync file/directory links to database if monitored."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
         config: Any = WKSConfig.load()
@@ -70,10 +65,8 @@ def cmd_sync(
             return
 
         yield (0.4, "Initializing resolver...")
-        # Keep vault open for duration of sync
         try:
             with Vault(vault_cfg) as vault:
-                # We reuse the vault's resolve_link for all files
                 resolver_func = vault.resolve_link
                 vault_root = vault.vault_path
 
@@ -94,8 +87,6 @@ def cmd_sync(
                     all_errors.extend(errors)
 
         except Exception:
-            # Fallback if vault fails (e.g. no config)
-            # Sync without vault context
             yield (0.5, f"Syncing {len(files)} files (no vault)...")
             total_found = 0
             total_synced = 0

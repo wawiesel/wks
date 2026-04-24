@@ -1,5 +1,3 @@
-"""Build semantic embedding matrices from indexed chunks."""
-
 from pathlib import Path
 
 import numpy as np
@@ -17,7 +15,6 @@ def build_semantic_embeddings(
     batch_size: int,
     source_image_path: Path | None = None,
 ) -> np.ndarray:
-    """Build embeddings using the configured semantic mode."""
     if len(chunks) == 0:
         raise ValueError("chunks cannot be empty")
     if embedding_mode == "text":

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the traceability audit HTML report using the Hodor rule tooling."""
 
 from __future__ import annotations
 

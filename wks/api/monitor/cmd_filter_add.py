@@ -1,9 +1,3 @@
-"""Monitor filter-add API function.
-
-Add a value to a monitor configuration list.
-Matches CLI: wksc monitor filter add <list-name> <value>, MCP tool: monitor_filter_add
-"""
-
 from collections.abc import Iterator
 
 from wks.api.config.normalize_path import normalize_path
@@ -16,8 +10,6 @@ from .validate_value import validate_value
 
 
 def cmd_filter_add(list_name: str, value: str) -> StageResult:
-    """Add a value to a monitor configuration list."""
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -27,7 +19,6 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
         already_exists: bool = False,
         errors: list[str] | None = None,
     ) -> None:
-        """Helper to build and assign the output result."""
         result_obj.output = MonitorFilterAddOutput(
             errors=errors or ([message] if not success and message else []),
             warnings=[],
@@ -41,7 +32,6 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         yield (0.2, "Loading configuration...")
         config = WKSConfig.load()
         monitor_cfg = config.monitor
@@ -69,17 +59,13 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             yield (1.0, "Complete")
             return
 
-        # At this point, value_to_store is guaranteed to be str (not None) because error is None
         if value_to_store is None:
             raise RuntimeError("value_to_store should not be None when error is None")
 
-        # Check duplicates
         yield (0.6, "Checking for duplicates...")
         resolve_path = list_name in ("include_paths", "exclude_paths")
         items = getattr(monitor_cfg.filter, list_name)
 
-        # For paths, we compare canonicalized versions. For others, direct string comparison.
-        # value_to_store is already normalized/canonicalized by validate_value for paths.
         cmp_value = str(normalize_path(value_to_store)) if resolve_path else value_to_store
 
         existing = None
@@ -99,7 +85,6 @@ def cmd_filter_add(list_name: str, value: str) -> StageResult:
             yield (1.0, "Complete")
             return
 
-        # Add and save
         yield (0.8, "Saving configuration...")
         items.append(value_to_store)
         config.save()

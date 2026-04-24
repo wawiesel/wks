@@ -1,5 +1,3 @@
-"""Log prune command - remove log entries by level."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -14,15 +12,6 @@ def cmd_prune(
     prune_errors: bool = False,
     prune_debug: bool = False,
 ) -> StageResult:
-    """Remove log entries by level.
-
-    Args:
-        prune_info: Remove INFO entries (default: False)
-        prune_warnings: Remove WARN entries (default: False)
-        prune_errors: Remove ERROR entries (default: False)
-        prune_debug: Remove DEBUG entries (default: False)
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
         log_path = WKSConfig.get_logfile_path()
@@ -95,7 +84,6 @@ def cmd_prune(
                 if not should_prune:
                     kept_lines.append(stripped)
             else:
-                # Keep lines that don't match new format (legacy)
                 upper = stripped.upper()
                 should_prune = False
                 if "DEBUG" in upper and prune_debug:

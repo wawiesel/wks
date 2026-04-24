@@ -1,5 +1,3 @@
-"""Diff controller with business logic."""
-
 import re
 from pathlib import Path
 from typing import Any
@@ -9,28 +7,11 @@ from .get_engine import get_engine
 
 
 class DiffController:
-    """Business logic for diff operations."""
-
     def __init__(self, config: DiffConfig | None = None, transform_controller: Any | None = None):
-        """Initialize diff controller.
-
-        Args:
-            config: Optional DiffConfig with engine configuration. When provided,
-                engine names are validated against this configuration.
-            transform_controller: Optional TransformController for resolving checksums
-        """
         self.config = config
         self.transform_controller = transform_controller
 
     def _validate_engine(self, engine_name: str) -> None:
-        """Validate engine name against configuration.
-
-        Args:
-            engine_name: Engine name to validate
-
-        Raises:
-            ValueError: If engine is not found or not enabled
-        """
         if self.config is not None:
             engine_cfg = self.config.engines.get(engine_name)
             if not engine_cfg or not engine_cfg.enabled:
@@ -39,21 +20,6 @@ class DiffController:
                 raise ValueError(f"Unknown engine: {engine_name!r} (enabled engines: {enabled_list})")
 
     def diff(self, target1: str, target2: str, engine_name: str, options: dict | None = None) -> str:
-        """Compute diff between two targets (files or checksums).
-
-        Args:
-            target1: First file path or cache checksum
-            target2: Second file path or cache checksum
-            engine_name: Diff engine name (e.g., "bsdiff4", "myers")
-            options: Engine-specific options
-
-        Returns:
-            Diff output as string
-
-        Raises:
-            ValueError: If files don't exist or engine not found
-            RuntimeError: If diff operation fails
-        """
         file1 = self._resolve_target(target1)
         file2 = self._resolve_target(target2)
 
@@ -63,39 +29,24 @@ class DiffController:
         if not file2.exists():
             raise ValueError(f"File not found: {file2}")
 
-        # Validate engine name against configuration
         self._validate_engine(engine_name)
 
-        # Get engine implementation
         engine = get_engine(engine_name)
         if not engine:
             raise ValueError(f"Unknown engine: {engine_name}")
 
-        # Perform diff
         options = options or {}
         return engine.diff(file1, file2, options)
 
     def _resolve_target(self, target: str) -> Path:
-        """Resolve target to a file path.
-
-        Args:
-            target: File path or checksum
-
-        Returns:
-            Path object
-        """
-        # Convert to string if it's a Path
         target_str = str(target)
 
-        # Check if target is a checksum
         if re.match(r"^[a-f0-9]{64}$", target_str):
             if not self.transform_controller:
                 raise ValueError("TransformController required to resolve checksums")
 
-            # Use transform controller to find cache file
             cache_dir = self.transform_controller.cache_manager.cache_dir
 
-            # Try to find file with any extension
             cache_file = cache_dir / f"{target_str}.md"
             if not cache_file.exists():
                 matches = list(cache_dir.glob(f"{target_str}.*"))
@@ -107,7 +58,6 @@ class DiffController:
             return cache_file
 
         else:
-            # Assume file path
             from wks.api.config.normalize_path import normalize_path
 
             return normalize_path(target)

@@ -1,5 +1,3 @@
-"""Daemon status command (reads daemon.json)."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -11,8 +9,6 @@ from . import DaemonStatusOutput
 
 
 def cmd_status() -> StageResult:
-    """Return daemon status by reading daemon.json."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Checking daemon status...")
         try:
@@ -21,7 +17,6 @@ def cmd_status() -> StageResult:
             lock_path = home / "daemon.lock"
             status_path = home / "daemon.json"
 
-            # 1. Determine Liveness (True Source of Truth)
             is_running = False
             actual_pid = None
             if lock_path.exists():
@@ -35,10 +30,7 @@ def cmd_status() -> StageResult:
                 except (ValueError, OSError):
                     pass
 
-            # 2. Derive Status
             if is_running:
-                # If running, the daemon's output file IS the record.
-                # We read it directly.
                 import json
 
                 try:
@@ -47,11 +39,7 @@ def cmd_status() -> StageResult:
                         status_data.get("warnings", []),
                         status_data.get("errors", []),
                     )
-                    # Ensure metadata is consistent with our view if needed, or just trust it.
-                    # We trust it, but we might want to ensure log_path is current config's path?
-                    # No, daemon uses config's path.
                 except (FileNotFoundError, json.JSONDecodeError):
-                    # Running but file missing/corrupt? Fallback to synthesizing partial status
                     log_cfg = WKSConfig.load().log
                     warnings, errors = read_log_entries(
                         log_path,
@@ -71,10 +59,8 @@ def cmd_status() -> StageResult:
                         "lock_path": str(lock_path),
                         "last_sync": None,
                     }
-                    # We might want to fix the file?
                     write_status_file(status_data, wks_home=home, filename="daemon.json")
             else:
-                # Stopped. Generate fresh status.
                 log_cfg = WKSConfig.load().log
                 warnings, errors = read_log_entries(
                     log_path,
@@ -94,9 +80,7 @@ def cmd_status() -> StageResult:
                     "log_path": str(log_path),
                     "lock_path": str(lock_path),
                     "last_sync": None,
-                    # Stopped, we don't know last sync unless we parse old file, but user said "don't read stats".
                 }
-                # Update the file to reflect "Stopped"
                 write_status_file(status_data, wks_home=home, filename="daemon.json")
 
             result_obj.result = "Daemon status retrieved"

@@ -1,5 +1,3 @@
-"""Show transform engine information command."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,8 +6,6 @@ from ._RouteEngineConfig import _RouteEngineConfig
 
 
 def cmd_info(engine: str) -> StageResult:
-    """Show details for a specific transform engine."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
 

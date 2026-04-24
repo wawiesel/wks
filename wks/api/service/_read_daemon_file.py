@@ -1,5 +1,3 @@
-"""Read daemon status file contents."""
-
 import json
 from pathlib import Path
 from typing import Any
@@ -8,12 +6,6 @@ from ..log.summarize_status_log_messages import summarize_status_log_messages
 
 
 def _read_daemon_file(daemon_file: Path) -> dict[str, Any]:
-    """Read daemon.json file and extract warnings/errors/pid.
-
-    Returns:
-        Dict with 'warnings', 'errors', and optionally 'pid'.
-        If file cannot be read or parsed, adds error to 'errors' list.
-    """
     result: dict[str, Any] = {"warnings": [], "errors": []}
     if daemon_file.exists():
         try:

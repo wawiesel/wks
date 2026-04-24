@@ -1,5 +1,3 @@
-"""Prototype document-similarity command built from chunk similarity."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -35,8 +33,6 @@ def cmd(
     candidates: int | None = None,
     match_threshold: float | None = None,
 ) -> StageResult:
-    """Find similar documents for one query file using chunk aggregation."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.05, "Loading configuration...")
         config = _SEARCH_RUNTIME.load_config()

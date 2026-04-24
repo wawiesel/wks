@@ -1,5 +1,3 @@
-"""Auto-index a URI into all indexes whose min_priority threshold is met."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -9,7 +7,6 @@ from . import IndexAutoOutput
 
 
 def cmd_auto(uri: str) -> StageResult:
-    """Index a URI into all matching indexes based on file priority."""
     uri = str(uri)
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
@@ -30,7 +27,6 @@ def cmd_auto(uri: str) -> StageResult:
             result_obj.success = True
             return
 
-        # Resolve to path for priority calculation (handles both "file://host/path" and plain paths)
         from ..config.normalize_path import normalize_path
         from ..config.URI import URI
         from ..monitor.calculate_priority import calculate_priority
@@ -38,7 +34,6 @@ def cmd_auto(uri: str) -> StageResult:
         yield (0.1, "Calculating priority...")
         file_path = URI.from_any(uri).path
 
-        # Skip transform cache files — they are internal outputs, not user content
         cache_dir = normalize_path(config.transform.cache.base_dir)
         if file_path == cache_dir or cache_dir in file_path.parents:
             yield (1.0, "Complete")

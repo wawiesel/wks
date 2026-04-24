@@ -1,5 +1,3 @@
-"""Unit tests for vault cmd_links."""
-
 import pytest
 
 from tests.unit._vault_test_helpers import setup_vault_env, vault_database_config
@@ -14,7 +12,6 @@ def test_cmd_links_returns_structure(monkeypatch, tmp_path, minimal_config_dict)
     """Should return basic structure for empty results."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Create a real file in vault
     test_file = vault_dir / "note.md"
     test_file.write_text("# Test")
 
@@ -33,7 +30,6 @@ def test_cmd_links_finds_outgoing(monkeypatch, tmp_path, minimal_config_dict):
     """Should find outgoing links (from_uri match)."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Create a real file in vault
     note1 = vault_dir / "note1.md"
     note1.write_text("Link to [[note2]]")
 
@@ -60,7 +56,6 @@ def test_cmd_links_finds_incoming(monkeypatch, tmp_path, minimal_config_dict):
     """Should find incoming links (to_uri match)."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Create a real file in vault
     note2 = vault_dir / "note2.md"
     note2.write_text("# Note 2")
 
@@ -86,7 +81,6 @@ def test_cmd_links_finds_incoming(monkeypatch, tmp_path, minimal_config_dict):
 def test_cmd_links_invalid_config(monkeypatch, tmp_path):
     """Should handle config errors gracefully."""
     monkeypatch.setenv("WKS_HOME", str(tmp_path))
-    # No config file
 
     result = run_cmd(cmd_links, uri=URI("vault:///foo"))
     assert result.success is False
@@ -97,7 +91,6 @@ def test_cmd_links_path_outside_vault(monkeypatch, tmp_path, minimal_config_dict
     """Test cmd_links with path outside vault - still queries DB successfully."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Querying for links to a non-existent file is allowed - we're querying the DB
     result = run_cmd(cmd_links, uri=URI("vault:///../../outside.md"))
     assert result.success is True  # DB query succeeds
     assert result.output["count"] == 0  # Just no edges found
@@ -106,10 +99,8 @@ def test_cmd_links_path_outside_vault(monkeypatch, tmp_path, minimal_config_dict
 def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_links with database query failure (line 112-123)."""
     _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
-    # Create the file so resolve_vault_path succeeds
     (vault_dir / "test.md").touch()
 
-    # Mock Database to fail
     from wks.api.database.Database import Database
 
     def mock_enter(self):
@@ -126,7 +117,6 @@ def test_cmd_links_file_uri_inside_vault(monkeypatch, tmp_path, minimal_config_d
     """Test cmd_links resolves file:// URIs inside the vault to vault:/// URIs."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Create a real file in vault
     note = vault_dir / "note.md"
     note.write_text("# Test")
 
@@ -142,7 +132,6 @@ def test_cmd_links_file_uri_inside_vault(monkeypatch, tmp_path, minimal_config_d
             }
         )
 
-    # Use file:// URI pointing to a file inside the vault
     file_uri = URI.from_path(note)
     result = run_cmd(cmd_links, uri=file_uri, direction="from")
 
@@ -155,7 +144,6 @@ def test_cmd_links_non_vault_uri_error(monkeypatch, tmp_path, minimal_config_dic
     """Test cmd_links with non-vault URI (tests line 69-81)."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
-    # Use a file:// URI which should fail is_vault check
     outside_file = tmp_path / "outside.md"
     outside_file.touch()
     file_uri = URI.from_path(outside_file)

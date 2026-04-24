@@ -1,5 +1,3 @@
-"""Stop daemon (background watcher)."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,8 +6,6 @@ from .Daemon import Daemon
 
 
 def cmd_stop() -> StageResult:
-    """Stop the daemon watcher."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Stopping daemon...")
         try:

@@ -1,11 +1,3 @@
-"""Vault repair API function.
-
-Find broken _links/ symlinks and attempt to repair them by searching
-the monitor database for a matching checksum at a new path.
-
-Matches CLI: wksc vault repair, MCP tool: vault_repair
-"""
-
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -14,17 +6,6 @@ from . import VaultRepairOutput
 
 
 def cmd_repair() -> StageResult:
-    """Find and repair broken _links/ symlinks.
-
-    For each broken symlink, looks up the original file's checksum in the
-    monitor (nodes) database, then searches for a file with the same checksum
-    at a different path. If found, updates the symlink, rewrites wiki links
-    in vault markdown files, and updates the edges database.
-
-    Returns:
-        StageResult with repair results.
-    """
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -82,16 +63,12 @@ def cmd_repair() -> StageResult:
                 progress = 0.3 + 0.6 * (i / len(broken))
                 yield (progress, f"Repairing {i + 1}/{len(broken)}...")
 
-                # Extract the old absolute target from the symlink path convention.
-                # Symlink path: {vault}/_links/{machine}/{abs_path_stripped}
-                # The target the symlink used to point to: /{abs_path_stripped}
                 try:
                     rel_to_links = symlink_path.relative_to(vault.links_dir)
                 except ValueError:
                     errors.append(f"Symlink not under _links/: {symlink_path}")
                     continue
 
-                # First component is machine name, rest is the absolute path
                 parts = rel_to_links.parts
                 if len(parts) < 2:
                     errors.append(f"Unexpected symlink path structure: {symlink_path}")
@@ -100,7 +77,6 @@ def cmd_repair() -> StageResult:
                 old_abs_path = Path("/") / Path(*parts[1:])
                 old_uri_str = str(URI.from_path(old_abs_path))
 
-                # Look up checksum in nodes database
                 checksum = None
                 try:
                     with Database(config.database, "nodes") as db:
@@ -123,7 +99,6 @@ def cmd_repair() -> StageResult:
                     )
                     continue
 
-                # Search for a file with the same checksum at a different path
                 new_path = None
                 try:
                     with Database(config.database, "nodes") as db:
@@ -150,7 +125,6 @@ def cmd_repair() -> StageResult:
                     )
                     continue
 
-                # Repair: update symlink, rewrite wiki links, update edges
                 result = vault.update_link_for_move(old_abs_path, new_path)
                 if not result:
                     unresolved.append(

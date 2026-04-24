@@ -1,5 +1,3 @@
-"""Tests for wks/utils/has_internet.py."""
-
 from unittest.mock import patch
 
 from wks.api.config.has_internet import has_internet

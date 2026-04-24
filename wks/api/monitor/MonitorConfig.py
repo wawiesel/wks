@@ -1,5 +1,3 @@
-"""Monitor configuration Pydantic model."""
-
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -10,8 +8,6 @@ from .RemoteConfig import RemoteConfig
 
 
 class MonitorConfig(BaseModel):
-    """Monitor configuration loaded from config dict with validation."""
-
     model_config = ConfigDict(extra="forbid")
 
     filter: _FilterConfig = Field(...)
@@ -22,7 +18,6 @@ class MonitorConfig(BaseModel):
 
     @classmethod
     def from_config_dict(cls, config: dict[str, Any]) -> "MonitorConfig":
-        """Load monitor config from config dict."""
         monitor_config_data = config.get("monitor")
         if not monitor_config_data:
             raise KeyError(
@@ -37,9 +32,7 @@ class MonitorConfig(BaseModel):
 
     @classmethod
     def get_filter_list_names(cls) -> tuple[str, ...]:
-        """Return tuple of filter list field names (single source of truth)."""
         return tuple(name for name in _FilterConfig.model_fields if name.startswith(("include", "exclude")))
 
     def get_rules(self) -> dict[str, list[str]]:
-        """Return a dictionary of rule lists."""
         return {name: getattr(self.filter, name) for name in self.get_filter_list_names()}

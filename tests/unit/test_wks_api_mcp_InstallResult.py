@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.mcp.InstallResult."""
-
 from pathlib import Path
 
 from wks.api.mcp.InstallResult import InstallResult

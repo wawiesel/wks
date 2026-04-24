@@ -1,5 +1,3 @@
-"""List available transform engines command."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,8 +6,6 @@ from ._RouteEngineConfig import _RouteEngineConfig
 
 
 def cmd_list() -> StageResult:
-    """List all available transform engines."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
 

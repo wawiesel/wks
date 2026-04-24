@@ -1,5 +1,3 @@
-"""Tests for display context helpers."""
-
 import argparse
 import sys
 

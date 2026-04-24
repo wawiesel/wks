@@ -1,5 +1,3 @@
-"""Daemon module - filesystem watcher runtime."""
-
 from wks.api.config.output_models import output_model
 
 DaemonStatusOutput = output_model(

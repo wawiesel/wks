@@ -25,16 +25,12 @@ def test_cmd_prune_success(tracked_wks_config, isolated_wks_home):
     if not log_path.parent.exists():
         log_path.parent.mkdir(parents=True)
 
-    # 1. Format that matches LOG_PATTERN
     now = datetime.now(timezone.utc)
     old = (now - timedelta(days=10)).isoformat()
     log_path.write_text(f"[{old}] [test] INFO: old\nLegacy INFO entry\n", encoding="utf-8")
 
-    # Prune info
     result = run_cmd(cmd_prune, prune_info=True)
     assert result.success is True
-    # Default retention for INFO is 2d, so old is gone.
-    # Legacy INFO should also be gone if upper contains INFO
     assert result.output["pruned_info"] >= 1
     assert "old" not in log_path.read_text()
 

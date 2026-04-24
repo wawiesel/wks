@@ -1,5 +1,3 @@
-"""Load WKS config and return schema-conformant error output on failure."""
-
 from pydantic import BaseModel
 
 from .WKSConfig import WKSConfig

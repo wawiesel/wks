@@ -1,5 +1,3 @@
-"""Transform command."""
-
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -18,18 +16,6 @@ def cmd_engine(
     overrides: dict[str, Any],
     output: Path | None = None,
 ) -> StageResult:
-    """Execute transform command.
-
-    Args:
-        engine: Engine name
-        uri: Source URI
-        overrides: Configuration overrides
-        output: Optional output path
-
-    Returns:
-        StageResult with TransformResult output
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Initializing controller...")
 
@@ -55,15 +41,12 @@ def cmd_engine(
             with _get_controller() as controller:
                 yield (0.3, "Transforming...")
 
-                # Measure processing time
                 start_time = time.time()
                 gen = controller.transform(file_path, engine, overrides, output)
                 try:
                     for _ in range(MAX_GENERATOR_ITERATIONS):
                         msg = next(gen)
                         yield (0.5, msg)
-                    # Loop completed - check if generator is actually exhausted
-                    # If next() raises StopIteration, we're done; otherwise we hit the limit
                     next(gen)
                     raise RuntimeError("Transform generator exceeded MAX_GENERATOR_ITERATIONS")
                 except StopIteration as e:
@@ -71,10 +54,8 @@ def cmd_engine(
 
                 processing_time_ms = int((time.time() - start_time) * 1000)
 
-                # Get cache location for destination_uri
                 cache_location = controller.cache_manager.cache_dir / f"{cache_key}.md"
                 if not cache_location.exists():
-                    # Try to find with any extension
                     candidates = list(controller.cache_manager.cache_dir.glob(f"{cache_key}.*"))
                     cache_location = candidates[0] if candidates else cache_location
 

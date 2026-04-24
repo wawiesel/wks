@@ -1,5 +1,3 @@
-"""Linux service implementation - installs daemon as systemd user service."""
-
 import subprocess
 from contextlib import suppress
 from pathlib import Path
@@ -16,31 +14,18 @@ if TYPE_CHECKING:
 
 
 class _Impl(_AbstractImpl):
-    """Linux-specific service implementation using systemd user services."""
-
     @staticmethod
     def _get_systemd_user_dir() -> Path:
-        """Get the systemd user directory for the current user."""
         return Path.home() / ".config" / "systemd" / "user"
 
     @staticmethod
     def _get_unit_path(unit_name: str) -> Path:
-        """Get the systemd unit file path for a given unit name."""
         return _Impl._get_systemd_user_dir() / unit_name
 
     @staticmethod
     def _create_unit_content(_config: _Data, wksc_path: str, restrict_dir: Path | None = None) -> str:
-        """Create systemd unit file content that runs 'wksc daemon start'.
-
-        Args:
-            _config: Service configuration data (unused in Linux implementation, kept for API consistency)
-            wksc_path: Path to wksc CLI command
-            restrict_dir: Optional directory to restrict monitoring to
-        """
-        # Working directory is always WKS_HOME
         working_directory, log_file = prepare_service_home()
 
-        # Build ExecStart command - run 'wksc daemon start --blocking [--restrict PATH]'
         exec_start = f"{wksc_path} daemon start --blocking"
         if restrict_dir is not None:
             from ....utils.normalize_path import normalize_path
@@ -69,11 +54,6 @@ WantedBy=default.target
         return unit
 
     def __init__(self, service_config: ServiceConfig | None = None):
-        """Initialize Linux service implementation.
-
-        Args:
-            service_config: Service configuration. If None, loads from WKSConfig.
-        """
         if service_config is None:
             config = WKSConfig.load()
             service_config = config.service
@@ -84,28 +64,17 @@ WantedBy=default.target
         self._data: _Data = service_config.data
 
     def install_service(self, restrict_dir: Path | None = None) -> dict[str, Any]:
-        """Install daemon as Linux systemd user service.
-
-        The unit file runs 'wksc daemon start' which handles the actual filesystem monitoring.
-
-        Args:
-            restrict_dir: Optional directory to restrict monitoring to
-        """
         wksc_path = resolve_wksc_path()
 
         unit_path = self._get_unit_path(self._data.unit_name)
         unit_dir = unit_path.parent
 
-        # Ensure systemd user directory exists
         unit_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create unit file content that runs 'wksc daemon start'
         unit_content = self._create_unit_content(self._data, wksc_path, restrict_dir=restrict_dir)
 
-        # Write unit file
         unit_path.write_text(unit_content, encoding="utf-8")
 
-        # Reload systemd daemon to pick up new unit
         try:
             subprocess.run(
                 ["systemctl", "--user", "daemon-reload"],
@@ -116,7 +85,6 @@ WantedBy=default.target
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to reload systemd daemon: {e.stderr}") from e
 
-        # Enable service if requested
         if self._data.enabled:
             try:
                 subprocess.run(
@@ -136,7 +104,6 @@ WantedBy=default.target
         }
 
     def uninstall_service(self) -> dict[str, Any]:
-        """Uninstall daemon Linux systemd user service."""
         unit_path = self._get_unit_path(self._data.unit_name)
 
         if not unit_path.exists():
@@ -147,7 +114,6 @@ WantedBy=default.target
                 "error": "Service is not installed (unit file not found).",
             }
 
-        # Stop and disable service
         with suppress(Exception):
             subprocess.run(
                 ["systemctl", "--user", "stop", self._data.unit_name],
@@ -163,13 +129,11 @@ WantedBy=default.target
                 text=True,
             )
 
-        # Remove unit file
         if unit_path.exists():
             unit_path.unlink()
 
         remove_daemon_lock()
 
-        # Reload systemd daemon
         with suppress(Exception):
             subprocess.run(
                 ["systemctl", "--user", "daemon-reload"],
@@ -185,7 +149,6 @@ WantedBy=default.target
         }
 
     def get_service_status(self) -> "ServiceStatus":
-        """Get daemon Linux systemd user service status."""
         from ..ServiceStatus import ServiceStatus
 
         unit_path = self._get_unit_path(self._data.unit_name)
@@ -197,7 +160,6 @@ WantedBy=default.target
 
         if status.installed:
             try:
-                # Check if service is active
                 result = subprocess.run(
                     ["systemctl", "--user", "is-active", self._data.unit_name],
                     capture_output=True,
@@ -206,7 +168,6 @@ WantedBy=default.target
                 )
                 status.running = result.returncode == 0
 
-                # Get PID if running
                 if status.running:
                     pid_result = subprocess.run(
                         ["systemctl", "--user", "show", self._data.unit_name, "--property=MainPID", "--value"],
@@ -225,7 +186,6 @@ WantedBy=default.target
         return status
 
     def start_service(self) -> dict[str, Any]:
-        """Start daemon via Linux systemctl."""
         unit_path = self._get_unit_path(self._data.unit_name)
 
         if not unit_path.exists():
@@ -241,7 +201,6 @@ WantedBy=default.target
                 capture_output=True,
                 text=True,
             )
-            # Verify service actually started by checking status
             import time
 
             time.sleep(0.5)  # Give service a moment to start
@@ -267,7 +226,6 @@ WantedBy=default.target
             }
 
     def stop_service(self) -> dict[str, Any]:
-        """Stop daemon via Linux systemctl."""
         try:
             subprocess.run(
                 ["systemctl", "--user", "stop", self._data.unit_name],
@@ -282,7 +240,6 @@ WantedBy=default.target
             }
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.strip() if e.stderr else ""
-            # Check for common "not running" errors - treat as success (idempotent)
             if "not loaded" in error_msg.lower() or "not found" in error_msg.lower():
                 return {
                     "success": True,

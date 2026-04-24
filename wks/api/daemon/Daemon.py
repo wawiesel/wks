@@ -1,5 +1,3 @@
-"""Daemon public API (TDD-focused, watchdog-based)."""
-
 import json
 import os
 import signal
@@ -21,8 +19,6 @@ from .FilesystemEvents import FilesystemEvents
 
 
 class Daemon:
-    """Minimal daemon runtime API for TDD."""
-
     _global_instance: "Daemon | None" = None
     _global_lock = threading.Lock()
 
@@ -39,7 +35,6 @@ class Daemon:
         return config.daemon
 
     def _resolve_watch_paths(self, restrict_dir: Path | None) -> list[Path]:
-        # Priority: explicit restrict_dir -> monitor include_paths
         from wks.api.config.normalize_path import normalize_path
 
         paths: list[Path] = []
@@ -48,7 +43,6 @@ class Daemon:
         else:
             monitor_paths = WKSConfig.load().monitor.filter.include_paths
             paths.extend(normalize_path(p) for p in monitor_paths)
-        # Deduplicate
         unique: list[Path] = []
         seen = set()
         for p in paths:
@@ -58,7 +52,6 @@ class Daemon:
         return unique
 
     def _pid_running(self, pid: int) -> bool:
-        """Check if a process with the given PID is running."""
         try:
             os.kill(pid, 0)  # Signal 0 checks existence without killing
             return True
@@ -66,7 +59,6 @@ class Daemon:
             return False
 
     def start(self, restrict_dir: Path | None = None) -> Any:
-        """Start the daemon watcher in a background thread."""
         with self._global_lock:
             if Daemon._global_instance and Daemon._global_instance._running:
                 running = Daemon._global_instance
@@ -86,7 +78,6 @@ class Daemon:
                     self._append_log("ERROR: Daemon already running")
                     raise RuntimeError("Daemon already running")
             except Exception as exc:
-                # Do not swallow the explicit "already running" failure.
                 if isinstance(exc, RuntimeError):
                     raise
                 existing_pid = None
@@ -97,7 +88,6 @@ class Daemon:
         self._current_restrict = restrict_value
         status_path = home / "daemon.json"
 
-        # Use subprocess.Popen for true process independence
         paths_json = json.dumps([str(p) for p in watch_paths])
         proc = subprocess.Popen(
             [
@@ -137,7 +127,6 @@ class Daemon:
         )
 
     def run_foreground(self, restrict_dir: Path | None = None) -> None:
-        """Run the daemon watcher in the foreground (blocking)."""
         with self._global_lock:
             if Daemon._global_instance and Daemon._global_instance._running:
                 raise RuntimeError("Daemon already running")
@@ -163,7 +152,6 @@ class Daemon:
         self._current_restrict = restrict_value
         status_path = home / "daemon.json"
 
-        # Write lock file with current PID
         self._pid = os.getpid()
         self._lock_path.write_text(str(self._pid), encoding="utf-8")
         self._running = True
@@ -185,8 +173,6 @@ class Daemon:
                     self._lock_path.unlink()
 
     def stop(self) -> Any:
-        """Stop the daemon watcher."""
-
         home = WKSConfig.get_home_dir()
         lock_path = home / "daemon.lock"
         self._lock_path = lock_path
@@ -216,7 +202,6 @@ class Daemon:
         )
 
     def status(self) -> Any:
-        """Return current status."""
         target = self
         with self._global_lock:
             if Daemon._global_instance and Daemon._global_instance._running:
@@ -233,23 +218,12 @@ class Daemon:
         )
 
     def get_filesystem_events(self) -> FilesystemEvents:
-        """Return and clear accumulated events.
-
-        Note: Since the daemon runs in a subprocess, events are synced
-        directly to the monitor database. This method returns empty.
-        """
         return FilesystemEvents(modified=[], created=[], deleted=[], moved=[])
 
     def clear_events(self) -> None:
-        """Explicitly clear accumulated events.
-
-        Note: Since the daemon runs in a subprocess, this is a no-op.
-        """
         pass
 
     def _write_status(self, *, running: bool, restrict_dir: Path | None) -> None:
-        """Write daemon status to daemon.json."""
-
         home = WKSConfig.get_home_dir()
         restrict_value = str(restrict_dir) if restrict_dir else self._current_restrict
         self._current_restrict = restrict_value
@@ -278,10 +252,7 @@ class Daemon:
         write_status_file(status, wks_home=home, filename="daemon.json")
 
     def _append_log(self, message: str) -> None:
-        """Append a log entry for daemon domain using unified utils."""
-
         log_path = WKSConfig.get_logfile_path()
-        # Parse level from message prefix
         if message.startswith("ERROR:"):
             append_log(log_path, "daemon", "ERROR", message[6:].strip())
         elif message.startswith("INFO:"):

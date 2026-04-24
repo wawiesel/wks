@@ -1,12 +1,9 @@
-"""Smoke tests for the installed WKS REST entry point."""
-
 import shutil
 import subprocess
 from pathlib import Path
 
 
 def _find_wksr_command() -> str:
-    """Find the installed wksr command."""
     project_root = Path(__file__).parents[2]
     venv_wksr = project_root / "venv" / "bin" / "wksr"
     if venv_wksr.exists():

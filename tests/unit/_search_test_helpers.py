@@ -1,5 +1,3 @@
-"""Shared search test helpers."""
-
 from __future__ import annotations
 
 import json
@@ -27,7 +25,6 @@ SEARCH_DOCS = {
 
 
 def write_and_index_search_docs(tmp_path: Path) -> list[Path]:
-    """Write the canonical search test documents and index them into `main`."""
     docs: list[Path] = []
     for name, content in SEARCH_DOCS.items():
         doc = tmp_path / name
@@ -39,7 +36,6 @@ def write_and_index_search_docs(tmp_path: Path) -> list[Path]:
 
 
 def setup_search_config(tmp_path: Path, monkeypatch, *, index_config: dict) -> dict:
-    """Write a WKS config with the provided index section for search tests."""
     config_dict = minimal_config_dict()
     cache_dir = tmp_path / "transform_cache"
     cache_dir.mkdir()
@@ -55,7 +51,6 @@ def setup_search_config(tmp_path: Path, monkeypatch, *, index_config: dict) -> d
 
 
 def fake_embed_texts(texts: list[str], model_name: str, batch_size: int) -> np.ndarray:
-    """Return deterministic low-dimensional embeddings for search tests."""
     del model_name, batch_size
     rows: list[list[float]] = []
     for text in texts:

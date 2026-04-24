@@ -1,11 +1,7 @@
-"""Linux (systemd) specific service configuration data."""
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Data(BaseModel):
-    """Linux systemd service configuration data."""
-
     model_config = ConfigDict(extra="forbid")
 
     unit_name: str = Field(..., description="Systemd unit name (e.g., 'wks.service')")
@@ -16,10 +12,8 @@ class _Data(BaseModel):
     def validate_unit_name(cls, v: str) -> str:
         if not v:
             raise ValueError("service.data.unit_name is required when service.type is 'linux'")
-        # Basic validation: should end with .service
         if not v.endswith(".service"):
             raise ValueError(f"service.data.unit_name must end with '.service' (e.g., 'wks.service'), got: {v!r}")
-        # Basic validation: should be a valid systemd unit name
         if not v.replace(".service", "").replace("-", "").replace("_", "").isalnum():
             raise ValueError(
                 f"service.data.unit_name must be a valid systemd unit name "

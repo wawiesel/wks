@@ -1,5 +1,3 @@
-"""Language inference for tree-sitter transforms."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -63,7 +61,6 @@ _MIME_TO_LANGUAGE: dict[str, str] = {
 
 
 def resolve_language(input_path: Path, options: dict[str, Any]) -> str:
-    """Resolve a tree-sitter language from options, MIME type, or extension."""
     explicit = options.get("language")
     if explicit is not None:
         if not isinstance(explicit, str) or not explicit.strip():

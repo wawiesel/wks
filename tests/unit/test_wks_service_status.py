@@ -1,5 +1,3 @@
-"""Unit tests for the shared status aggregation service."""
-
 from collections.abc import Iterator
 
 from wks.api.config.StageResult import StageResult

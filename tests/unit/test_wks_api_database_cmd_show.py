@@ -1,5 +1,3 @@
-"""Unit tests for database cmd_show."""
-
 import json
 from unittest.mock import patch
 
@@ -13,7 +11,6 @@ pytestmark = pytest.mark.database
 
 
 def _mock_list_returning(*names):
-    """Return a mock list_databases that includes the given short names."""
     return patch.object(Database, "list_databases", return_value=[f"wks.{n}" for n in names])
 
 

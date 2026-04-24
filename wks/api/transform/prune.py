@@ -1,5 +1,3 @@
-"""Prune handler for transform database."""
-
 from typing import Any
 
 from wks.api.config.normalize_path import normalize_path
@@ -9,30 +7,18 @@ from wks.api.database.Database import Database
 
 
 def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
-    """Prune transform database.
-
-    Args:
-        config: WKS Configuration
-        **kwargs: Unused arguments for interface compatibility
-
-    Returns:
-        Dict with keys: deleted_count, checked_count, warnings
-    """
     transform_deleted = 0
     transform_checked = 0
     warnings: list[str] = []
 
     with Database(config.database, "transform") as transform_db:
-        # Get all cache files on disk
         cache_dir = normalize_path(config.transform.cache.base_dir)
         cache_files: set[str] = set()
         if cache_dir.exists():
             for file in cache_dir.iterdir():
                 if file.is_file():
-                    # Store just the checksum (filename without extension)
                     cache_files.add(file.stem)
 
-        # Get all checksums in database
         docs = list(transform_db.find({}, {"checksum": 1, "cache_uri": 1}))
         db_checksums: set[str] = set()
         stale_db_records = []
@@ -43,7 +29,6 @@ def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
             cache_uri = doc["cache_uri"]
             db_checksums.add(checksum)
 
-            # Check if cache file exists
             try:
                 cache_path = URI(cache_uri).path if cache_uri else None
                 if cache_path is None or not cache_path.exists():
@@ -52,14 +37,11 @@ def prune(config: WKSConfig, **_kwargs: Any) -> dict[str, Any]:
                 warnings.append(f"Error checking cache file for {checksum}: {e}")
                 stale_db_records.append(doc["_id"])
 
-        # Delete stale DB records (no file on disk)
         if stale_db_records:
             transform_deleted += transform_db.delete_many({"_id": {"$in": stale_db_records}})
 
-        # Delete orphaned files (not in database)
         orphaned_files = cache_files - db_checksums
         for checksum in orphaned_files:
-            # We don't know exact extension, try glob
             for file in cache_dir.glob(f"{checksum}.*"):
                 try:
                     file.unlink()

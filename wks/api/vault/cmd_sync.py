@@ -1,11 +1,3 @@
-"""Vault sync API command.
-
-CLI: wksc vault sync [path] [--recursive]
-MCP tool: vault_sync
-
-Per spec VAU.3: vault sync delegates to link sync, then runs backend-specific ops.
-"""
-
 import re
 from collections.abc import Iterator
 from datetime import datetime, timezone
@@ -19,31 +11,10 @@ from ..config.StageResult import StageResult
 from ..config.URI import URI
 from . import VaultSyncOutput
 
-# Vault only processes markdown files
 _VAULT_EXTENSIONS = {".md"}
 
 
 def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
-    """Scan vault markdown files and sync their links to the edges database.
-
-    This is the primary indexing command for the vault. It:
-    1. Resolves the sync scope (single file, directory, or entire vault)
-    2. Delegates to link sync for each markdown file found
-    3. Prunes stale database entries for deleted files
-    4. Updates the meta document with the last sync timestamp
-
-    The command writes a status file to WKS_HOME/vault.json on completion.
-
-    Args:
-        uri: URI to sync (file:// or vault:///). If None, syncs the entire vault
-            defined by vault.base_dir in config.
-        recursive: When path is a directory, whether to recurse into
-            subdirectories. Ignored when path is None (vault always recursive).
-
-    Returns:
-        StageResult with VaultSyncOutput containing sync statistics.
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         import time
 
@@ -79,7 +50,6 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
                 _started_iso = datetime.now(timezone.utc).isoformat()
 
                 yield (0.3, "Resolving vault path...")
-                # Determine sync scope using vault path resolution
                 if uri:
                     input_path = _ensure_arg_uri(
                         uri,
@@ -95,31 +65,24 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
                     )
                     if not input_path:
                         return
-                    # Use resolved path
                     files = list(expand_paths(input_path, recursive=recursive, extensions=_VAULT_EXTENSIONS))
                 else:
-                    # No path = entire vault (always recursive)
                     input_path = vault_path
                     files = list(expand_paths(vault_path, recursive=True, extensions=_VAULT_EXTENSIONS))
-
-                # if not files: block removed to allow pruning of deleted files
 
                 yield (0.4, f"Syncing {len(files)} vault files...")
                 total_found = 0
                 total_synced = 0
                 all_errors: list[str] = []
 
-                # Delegate to link sync for each file
                 for i, file_path in enumerate(files):
                     progress = 0.4 + (0.5 * (i / len(files)))
                     yield (progress, f"Syncing {file_path.name}...")
 
                     from wks.api.config.URI import URI
 
-                    # Call link sync for this file
                     link_result = link_cmd_sync(URI.from_path(file_path), parser="vault", recursive=False, remote=False)
 
-                    # Execute the link sync
                     for _ in link_result.progress_callback(link_result):
                         pass
 
@@ -131,10 +94,7 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
 
                 yield (0.9, "Pruning deleted files...")
                 deleted_count = 0
-                # Calculate what we expect to exist based on this run
                 processed_uris = set()
-
-                # Determine scope prefix using vault URIs
 
                 target_path = input_path if uri else vault_path
                 if target_path == vault_path:
@@ -145,32 +105,24 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
                 if not scope_prefix.endswith("/") and target_path.is_dir():
                     scope_prefix += "/"
 
-                # Collect confirmed URIs
                 for f in files:
                     processed_uris.add(f"vault:///{f.relative_to(vault_path)}")
 
-                # Database operations
                 from wks.api.database.Database import Database
 
                 with Database(config.database, "edges") as database:
                     if scope_prefix:
-                        # Find all matching URIs in DB (limited to .md files as this command only syncs markdown)
-                        # We MUST NOT delete non-md links (e.g. .txt, .html) that might be managed by other tools
-                        # Query from_local_uri
                         regex = f"^{re.escape(scope_prefix)}.*\\.md$"
                         cursor = database.find({"from_local_uri": {"$regex": regex}}, {"from_local_uri": 1})
 
-                        # Use from_local_uri
                         db_uris = {doc["from_local_uri"] for doc in cursor}
 
                         stale = db_uris - processed_uris
                         if stale:
-                            # Delete using from_local_uri
                             deleted_count = database.delete_many({"from_local_uri": {"$in": list(stale)}})
 
                 yield (0.95, "Running backend-specific operations...")
 
-                # Update meta document in link database with last_sync
                 sync_time = datetime.now(timezone.utc).isoformat()
                 with Database(config.database, "edges") as database:
                     database.update_one(
@@ -193,7 +145,6 @@ def cmd_sync(uri: URI | None = None, recursive: bool = False) -> StageResult:
                 result_obj.result = f"Synced {len(files)} notes, {total_synced} edges"
                 result_obj.success = len(all_errors) == 0
 
-                # Write status file
                 status = {
                     "last_sync": sync_time,
                     "links_written": total_synced,

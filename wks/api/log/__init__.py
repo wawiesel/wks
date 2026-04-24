@@ -1,5 +1,3 @@
-"""Log module - centralized logging."""
-
 from wks.api.config.output_models import output_model
 
 LogPruneOutput = output_model(

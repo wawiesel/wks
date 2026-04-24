@@ -1,11 +1,3 @@
-"""Integration test for macOS launchd service installation.
-
-This test verifies that the macOS service backend can actually install, start, stop,
-and uninstall launchd user services.
-
-Requires macOS (Darwin) platform.
-"""
-
 import os
 import platform
 import shutil
@@ -20,10 +12,6 @@ from tests.conftest import build_service_test_config, run_cmd
 
 
 def _check_launchctl_available() -> bool:
-    """Check if launchctl is available (macOS only).
-
-    This check verifies that launchctl command exists and can be used.
-    """
     if platform.system() != "Darwin":
         return False
     try:
@@ -56,24 +44,20 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
             if status.installed and status.running == running:
                 return status
             time.sleep(0.5)
-        # Final check
         status = service.get_service_status()
         assert status.installed is True
         assert status.running is running, f"Service failed to reach running={running} within {timeout_sec}s"
         return status
 
-    # Only run on macOS - test platform-specific code on the appropriate platform
     if platform.system() != "Darwin":
         pytest.skip(f"macOS service tests only run on macOS (current platform: {platform.system()})")
 
-    # On macOS, launchctl must be available
     if not _check_launchctl_available():
         pytest.fail(
             "launchctl not available - this test requires macOS with launchctl "
             "(run on macOS or in a macOS CI environment)"
         )
 
-    # Set up WKS_HOME
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -91,12 +75,10 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     )
     config.save()
 
-    # Get expected plist path
     plist_path = Path.home() / "Library" / "LaunchAgents" / "com.test.wks.integration.plist"
     uid = os.getuid()
     service_domain = f"gui/{uid}/com.test.wks.integration"
 
-    # Clean up any existing service before starting
     with suppress(Exception):
         subprocess.run(
             ["launchctl", "bootout", service_domain],
@@ -107,13 +89,10 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     if plist_path.exists():
         plist_path.unlink()
 
-    # Ensure wksc is available in PATH for the service installation
-    # The service needs to find wksc command
     venv_bin = Path(sys.executable).parent
     if str(venv_bin) not in os.environ.get("PATH", ""):
         monkeypatch.setenv("PATH", f"{venv_bin}:{os.environ.get('PATH', '')}")
 
-    # Verify wksc is available
     wksc_path = shutil.which("wksc")
     if not wksc_path:
         pytest.skip("wksc command not found in PATH - install package with 'pip install -e .'")
@@ -124,32 +103,22 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     from wks.api.service.cmd_stop import cmd_stop
     from wks.api.service.cmd_uninstall import cmd_uninstall
 
-    # 1. Install service
     result = run_cmd(cmd_install)
     assert result.success is True
-    # ServiceInstallOutput output only has: errors, warnings, message, installed
     assert result.output["installed"] is True
     assert plist_path.exists()
 
-    # 2. Check status (should be installed but may or may not be running depending on run_at_load)
     result = run_cmd(cmd_status)
     assert result.success is True
     assert result.output["installed"] is True
-    # run_at_load is False, so it should not be running initially
     assert result.output["running"] is False
 
-    # 3. Start service
-    # Note: The service might fail to actually run the daemon (due to config issues),
-    # but we're testing the service lifecycle, not the daemon functionality
     result = run_cmd(cmd_start)
 
-    # Even if start_service reports failure, check if service was loaded in launchctl
-    # The daemon might fail to run, but the service should still be loadable
     import time
 
     time.sleep(0.5)  # Give launchctl time to register the service
 
-    # Verify service is loaded in launchctl (even if daemon failed to run)
     proc_result = subprocess.run(
         ["launchctl", "print", service_domain],
         capture_output=True,
@@ -158,7 +127,6 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     )
 
     if proc_result.returncode != 0:
-        # Service not loaded - this is a real failure
         error_msg = result.result
         log_path = wks_home / "logs" / "service.log"
         log_content = ""
@@ -166,11 +134,8 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
             log_content = f"\nLog file contents:\n{log_path.read_text()[-500:]}"
         pytest.fail(f"Service not loaded in launchctl: {error_msg}{log_content}")
 
-    # Service is loaded - that's what we're testing
-    # We don't require a PID since the daemon might fail to start due to config issues
     assert result.success is True
 
-    # 4. Check status again (should be installed and running)
     def _wait_for_cmd_status(running: bool, timeout_sec: int = 10):
         start = time.time()
         while time.time() - start < timeout_sec:
@@ -178,7 +143,6 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
             if res.output["installed"] and res.output["running"] == running:
                 return res
             time.sleep(0.5)
-        # Final check
         res = run_cmd(cmd_status)
         assert res.output["installed"] is True
         assert res.output["running"] is running, f"Service failed to reach running={running} within {timeout_sec}s"
@@ -187,20 +151,16 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     result = _wait_for_cmd_status(running=True)
     assert result.output["pid"] is not None
 
-    # 5. Stop service
     result = run_cmd(cmd_stop)
     assert result.success is True
 
-    # 6. Check status (should be installed but not running)
     result = _wait_for_cmd_status(running=False)
     assert result.output["installed"] is True
     assert result.output["running"] is False
 
-    # 7. Uninstall service
     result = run_cmd(cmd_uninstall)
     assert result.success is True
 
-    # 8. Check status (should not be installed)
     result = run_cmd(cmd_status)
     assert result.output["installed"] is False
     assert not plist_path.exists()

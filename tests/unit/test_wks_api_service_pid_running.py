@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.service._pid_running."""
-
 from unittest.mock import patch
 
 from wks.api.service._pid_running import _pid_running

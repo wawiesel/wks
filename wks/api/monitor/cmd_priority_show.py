@@ -1,9 +1,3 @@
-"""Monitor priority-show API function.
-
-This function lists all priority directories.
-Matches CLI: wksc monitor priority show, MCP tool: monitor_priority_show
-"""
-
 from collections.abc import Iterator
 from typing import Any
 
@@ -15,8 +9,6 @@ from .explain_path import explain_path
 
 
 def cmd_priority_show() -> StageResult:
-    """List all priority directories with their priorities."""
-
     def _build_result(
         result_obj: StageResult,
         success: bool,
@@ -24,7 +16,6 @@ def cmd_priority_show() -> StageResult:
         priority_directories: dict[str, float],
         validation: dict[str, dict[str, Any]],
     ) -> None:
-        """Helper to build and assign the output result."""
         result_obj.output = MonitorPriorityShowOutput(
             errors=[],
             warnings=[],
@@ -36,7 +27,6 @@ def cmd_priority_show() -> StageResult:
         result_obj.success = success
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")

@@ -1,5 +1,3 @@
-"""Unit tests for the shared move service layer."""
-
 import copy
 
 from wks.api.config.URI import URI

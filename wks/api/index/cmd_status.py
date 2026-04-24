@@ -1,5 +1,3 @@
-"""Show index status."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -9,8 +7,6 @@ from . import IndexStatusOutput
 
 
 def cmd_status(name: str = "") -> StageResult:
-    """Show statistics for a named index, or all indexes."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()

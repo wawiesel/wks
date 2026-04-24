@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.mcp.cmd_uninstall module."""
-
 import pytest
 
 from tests.unit.conftest import run_cmd

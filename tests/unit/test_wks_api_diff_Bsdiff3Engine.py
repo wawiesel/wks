@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.diff.Bsdiff3Engine module."""
-
 import pytest
 
 from wks.api.diff.Bsdiff3Engine import BSDIFF4_AVAILABLE, Bsdiff3Engine
@@ -8,8 +6,6 @@ pytestmark = pytest.mark.unit
 
 
 class TestBsdiff3Engine:
-    """Test Bsdiff3Engine class."""
-
     def test_diff_identical_files(self, tmp_path):
         """Test diff with identical binary files."""
         file_a = tmp_path / "a.bin"
@@ -44,7 +40,6 @@ class TestBsdiff3Engine:
         file_a.write_bytes(b"data1")
         file_b.write_bytes(b"data2")
 
-        # Mock BSDIFF4_AVAILABLE to False
         monkeypatch.setattr("wks.api.diff.Bsdiff3Engine.BSDIFF4_AVAILABLE", False)
 
         engine = Bsdiff3Engine()
@@ -83,7 +78,6 @@ class TestBsdiff3Engine:
         """Test diff handles large binary files."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "b.bin"
-        # Create files with different sizes
         file_a.write_bytes(b"x" * 10000)
         file_b.write_bytes(b"y" * 10000)
 

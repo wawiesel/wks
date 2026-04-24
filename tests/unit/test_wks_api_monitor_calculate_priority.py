@@ -1,5 +1,3 @@
-"""Unit tests for calculate_priority function."""
-
 from pathlib import Path
 
 import pytest
@@ -58,7 +56,6 @@ def test_calculate_priority_depth_multiplier(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * depth_multiplier (0.9) for subdir
     assert priority == pytest.approx(90.0)
 
 
@@ -77,7 +74,6 @@ def test_calculate_priority_multiple_depth_levels(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * 0.9 * 0.9 for two levels
     assert priority == pytest.approx(81.0)
 
 
@@ -96,7 +92,6 @@ def test_calculate_priority_underscore_multiplier(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * depth_multiplier (0.9) * underscore_multiplier (0.5) for one underscore
     assert priority == pytest.approx(45.0)
 
 
@@ -115,7 +110,6 @@ def test_calculate_priority_multiple_underscores(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * depth_multiplier (0.9) * 0.5^2 for two underscores
     assert priority == pytest.approx(22.5)
 
 
@@ -134,7 +128,6 @@ def test_calculate_priority_only_underscore(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * depth_multiplier (0.9) * only_underscore_multiplier (0.1)
     assert priority == pytest.approx(9.0)
 
 
@@ -152,7 +145,6 @@ def test_calculate_priority_extension_weight(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * extension_weight (2.0)
     assert priority == pytest.approx(200.0)
 
 
@@ -170,7 +162,6 @@ def test_calculate_priority_extension_default_weight(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * default extension weight (1.0)
     assert priority == pytest.approx(100.0)
 
 
@@ -188,7 +179,6 @@ def test_calculate_priority_filename_underscore(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * depth_multiplier (0.9) for filename * underscore_multiplier (0.5)
     assert priority == pytest.approx(45.0)
 
 
@@ -206,7 +196,6 @@ def test_calculate_priority_filename_exactly_underscore(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * depth_multiplier (0.9) * only_underscore_multiplier (0.1)
     assert priority == pytest.approx(9.0)
 
 
@@ -228,7 +217,6 @@ def test_calculate_priority_deepest_match(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Should use deeper match (200.0) as base
     assert priority == pytest.approx(200.0)
 
 
@@ -247,8 +235,6 @@ def test_calculate_priority_complex_case(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * 0.9 (level1) * 0.9 (depth for _private) * 0.5 (underscore)
-    # * 0.9 (depth for filename) * 0.5^2 (two underscores) * 2.0 (extension)
     expected = 100.0 * 0.9 * 0.9 * 0.5 * 0.9 * 0.5 * 0.5 * 2.0
     assert priority == pytest.approx(expected)
 
@@ -267,7 +253,6 @@ def test_calculate_priority_no_extension(tmp_path):
     test_file.write_text("test")
 
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Base (100.0) * default extension weight (1.0)
     assert priority == pytest.approx(100.0)
 
 
@@ -284,7 +269,6 @@ def test_calculate_priority_valueerror_different_drives(monkeypatch, tmp_path):
     test_file = tmp_path / "file.txt"
     test_file.write_text("test")
 
-    # Mock relative_to to raise ValueError (simulating different drives)
     original_relative_to = Path.relative_to
 
     def mock_relative_to(self, other):
@@ -294,7 +278,5 @@ def test_calculate_priority_valueerror_different_drives(monkeypatch, tmp_path):
 
     monkeypatch.setattr("pathlib.Path.relative_to", mock_relative_to)
 
-    # Should fall back to path.parts
     priority = calculate_priority(test_file, priority_dirs, weights)
-    # Should still calculate priority using full path parts
     assert priority > 0.0

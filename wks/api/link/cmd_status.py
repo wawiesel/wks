@@ -1,9 +1,3 @@
-"""Links status API command.
-
-CLI: wksc links status
-MCP tool: link_status
-"""
-
 from collections.abc import Iterator
 from typing import Any
 
@@ -12,8 +6,6 @@ from ..database.Database import Database
 
 
 def cmd_status() -> StageResult:
-    """Get health and statistics for the links collection."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
 
@@ -25,7 +17,6 @@ def cmd_status() -> StageResult:
             total_links = database.count_documents({})
 
             yield (0.5, "Calculating statistics...")
-            # Fetch all edges to count unique nodes
             docs = list(database.find({}, {"from_local_uri": 1, "to_local_uri": 1, "_id": 0}))
             nodes = set()
             for doc in docs:

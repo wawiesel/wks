@@ -1,13 +1,9 @@
-"""Shared fixtures for integration tests."""
-
 from pathlib import Path
 
 import pytest
 
 
 class FakeCollection:
-    """Fake MongoDB collection for testing."""
-
     def __init__(self):
         self.docs = {}
         self.deleted = []
@@ -53,8 +49,6 @@ class FakeCollection:
 
 
 class FakeVault:
-    """Fake vault for testing."""
-
     def __init__(self, *args, **kwargs):
         self.vault_path = kwargs.get("vault_path", Path("/tmp/test_vault"))
         self.links_dir = kwargs.get("links_dir")
@@ -79,8 +73,6 @@ class FakeVault:
 
 
 class FakeIndexer:
-    """Fake vault indexer for testing."""
-
     def __init__(self, *args, **kwargs):
         pass
 
@@ -99,8 +91,6 @@ class FakeIndexer:
 
 
 class FakeObserver:
-    """Fake filesystem observer for testing."""
-
     def stop(self):
         pass
 
@@ -110,13 +100,11 @@ class FakeObserver:
 
 @pytest.fixture
 def mock_mongodb():
-    """Mock MongoDB connection for integration tests."""
     return FakeCollection()
 
 
 @pytest.fixture
 def temp_watch_directory(tmp_path):
-    """Create a temporary directory with test files."""
     watch_dir = tmp_path / "watch"
     watch_dir.mkdir()
     (watch_dir / "test.txt").write_text("test content")

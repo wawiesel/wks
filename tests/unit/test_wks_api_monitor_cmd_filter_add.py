@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.monitor.cmd_filter_add module."""
-
 import pytest
 
 from tests.unit.conftest import create_tracked_wks_config, run_cmd
@@ -131,7 +129,6 @@ def test_cmd_filter_add_else_branch(monkeypatch):
     - MON-001
     - MON-006
     """
-    # This shouldn't happen with current filter lists, but test the else branch anyway
     pass
 
 
@@ -144,7 +141,6 @@ def test_cmd_filter_add_validation_error(monkeypatch):
     """
     cfg = create_tracked_wks_config(monkeypatch)
 
-    # Try to add invalid dirname (with path separator)
     result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="invalid/path")
     assert result.output["success"] is False
     assert "validation_failed" in result.output

@@ -1,5 +1,3 @@
-"""Tests for Vault facade."""
-
 import pytest
 
 from wks.api.vault.Vault import Vault
@@ -52,7 +50,6 @@ def test_vault_find_broken_links_no_backend_support(monkeypatch):
     config = VaultConfig(base_dir="/tmp", type="obsidian")
     vault = Vault(config)
 
-    # Mock backend to NOT have find_broken_links
     class MockBackend:
         pass
 
@@ -80,13 +77,11 @@ def test_vault_backend_broken_symlinks(tmp_path):
         links_dir = tmp_path / "_links" / machine
         links_dir.mkdir(parents=True)
 
-        # 1. Valid symlink
         target = tmp_path / "target.txt"
         target.touch()
         valid = links_dir / "valid.txt"
         valid.symlink_to(target)
 
-        # 2. Broken symlink
         broken = links_dir / "broken.txt"
         broken.symlink_to(tmp_path / "nonexistent.txt")
 
@@ -99,14 +94,12 @@ def test_vault_resolve_missing_symlink(tmp_path):
     """Test resolution of missing symlink."""
     config = VaultConfig(base_dir=str(tmp_path), type="obsidian")
     with Vault(config) as vault:
-        # Resolve a symlink that doesn't exist
         metadata = vault.resolve_link("_links/missing.txt")
         assert metadata.status == "missing_symlink"
 
 
 def test_vault_backend_init_failure():
     """Test backend init failure when base_dir is missing."""
-    # Use model_construct to bypass VaultConfig validation to test Backend validation
     config = VaultConfig.model_construct(base_dir="", type="obsidian")
     with pytest.raises(ValueError, match=r"vault\.base_dir is required"), Vault(config):
         pass
@@ -143,7 +136,6 @@ def test_vault_resolve_link_links_dir_fallback(tmp_path):
     links_dir = vault_dir / "_links"
     links_dir.mkdir()
 
-    # Symlink in _links
     target = tmp_path / "external.txt"
     target.touch()
     link_path = links_dir / "test.txt"
@@ -159,7 +151,6 @@ def test_vault_iter_files_skip_non_file(tmp_path):
     """Test that directories matching *.md are skipped."""
     vault_dir = tmp_path / "vault_skip"
     vault_dir.mkdir()
-    # Create a directory ending in .md
     subdir = vault_dir / "subdir.md"
     subdir.mkdir()
     (vault_dir / "real.md").touch()
@@ -176,13 +167,6 @@ def test_vault_iter_files_yield_exception(tmp_path):
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
 
-    # Create two files. We expect the generator to yield the first,
-    # then we inject an error, and it should proceed to the second.
-    # Note: Backend.iter_markdown_files() catches OSError/PermissionError internally
-    # when iterating, but the test here is about injecting checks *into* the generator loop.
-    # Actually, the Backend code yields inside a try/except block (lines 63-66).
-    # If we throw() into the generator, we simulate an error happening *at yield*.
-
     from collections.abc import Generator
     from typing import cast
 
@@ -193,26 +177,9 @@ def test_vault_iter_files_yield_exception(tmp_path):
     with Vault(config) as vault:
         gen = cast(Generator, vault.iter_markdown_files())
 
-        # Depending on file system order, we get one.
-        # We just need to consume one, throw, and ensure we get another (or stop iteration cleanly if only 1 left).
-        # Since we have 2 files, if we consume 1 and throw permission error,
-        # the generator should catch it and continue to the next file?
-        # Looking at _Backend.py lines 63-66:
-        # try: yield md; except (OSError, PermissionError): continue
-        # So yes, it should catch and continue.
-
         _ = next(gen)
-        # Throw error to verify robustness
         try:
-            # If the backend handles it, it should return the next item (note2)
-            # OR raise StopIteration if done.
-            # But the order isn't guaranteed.
-            # If note1 and note2 are the only ones, and we processed one,
-            # throwing triggers the 'except' which 'continue's to next loop iteration.
             res = gen.throw(PermissionError("Denied"))
-            # If we get here, we got the next item
             assert res is not None
         except StopIteration:
-            # If we were at the last item, this is fine too,
-            # but we want to prove it didn't CRASH.
             pass

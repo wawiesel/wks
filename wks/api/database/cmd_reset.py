@@ -1,5 +1,3 @@
-"""Reset database command - clears all documents from a database."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,21 +6,7 @@ from .Database import Database
 
 
 def cmd_reset(database: str) -> StageResult:
-    """Reset (clear) a database by deleting all documents.
-
-    Args:
-        database: Database name (e.g., "monitor", "vault", "transform") or "all"
-
-    Returns:
-        StageResult with reset operation status
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result.
-
-        Yields: (progress_percent: float, message: str) tuples
-        Updates result_obj.result, result_obj.output, and result_obj.success before finishing.
-        """
         from ..config.WKSConfig import WKSConfig
 
         yield (0.2, "Loading configuration...")
@@ -64,8 +48,6 @@ def cmd_reset(database: str) -> StageResult:
                     total_deleted += count
                     deleted_details.append(f"{target_db}: {count}")
 
-                    # Dynamic hook: wks.api.{database}.post_reset.post_reset
-                    # This allows domains (like transform) to cleanup related artifacts
                     try:
                         from importlib import import_module
 

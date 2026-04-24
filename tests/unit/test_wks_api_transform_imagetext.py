@@ -1,5 +1,3 @@
-"""Tests for imagetext transform engine."""
-
 from PIL import Image
 
 from tests.unit.conftest import run_cmd

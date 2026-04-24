@@ -1,13 +1,7 @@
-"""Hook called after database reset for transform domain."""
-
 from typing import Any
 
 
 def post_reset(config: Any) -> None:
-    """Clear all files in transform cache directory.
-
-    Per Cache-Database Sync Invariant: reset transform must delete cache files.
-    """
     from wks.api.config.normalize_path import normalize_path
 
     cache_dir = normalize_path(config.transform.cache.base_dir)

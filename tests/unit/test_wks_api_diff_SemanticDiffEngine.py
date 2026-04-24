@@ -1,10 +1,3 @@
-"""Unit tests for SemanticDiffEngine.
-
-Requirements:
-- WKS-DIFF-001
-- WKS-DIFF-002
-"""
-
 import json
 
 import numpy as np

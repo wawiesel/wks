@@ -1,5 +1,3 @@
-"""Shared configuration read services."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -12,8 +10,6 @@ from ._models import ServiceResponse
 
 
 class ConfigSectionsResponse(ServiceResponse):
-    """Config sections listing."""
-
     model_config = ConfigDict(extra="forbid")
 
     errors: list[str] = Field(default_factory=list)
@@ -23,8 +19,6 @@ class ConfigSectionsResponse(ServiceResponse):
 
 
 class ConfigSectionResponse(ServiceResponse):
-    """One config section payload."""
-
     model_config = ConfigDict(extra="forbid")
 
     errors: list[str] = Field(default_factory=list)
@@ -35,7 +29,6 @@ class ConfigSectionResponse(ServiceResponse):
 
 
 def list_config_sections(*, config: WKSConfig | None = None) -> ConfigSectionsResponse:
-    """List available config sections."""
     loaded_config = config or WKSConfig.load()
     config_dict = loaded_config.to_dict()
     return ConfigSectionsResponse(
@@ -49,7 +42,6 @@ def list_config_sections(*, config: WKSConfig | None = None) -> ConfigSectionsRe
 
 
 def show_config_section(section: str, *, config: WKSConfig | None = None) -> ConfigSectionResponse:
-    """Return one config section."""
     loaded_config = config or WKSConfig.load()
     config_dict = loaded_config.to_dict()
     if section not in config_dict:

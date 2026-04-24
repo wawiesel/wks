@@ -1,5 +1,3 @@
-"""Scan stats model."""
-
 from dataclasses import dataclass, field
 
 

@@ -1,5 +1,3 @@
-"""Integration tests for transform command using public APIs."""
-
 from pathlib import Path
 
 from tests.unit.conftest import run_cmd
@@ -46,7 +44,6 @@ def test_cmd_engine_success_and_caching(tracked_wks_config, tmp_path):
     test_f = tmp_path / "test.txt"
     test_f.write_text("hello", encoding="utf-8")
 
-    # 1. First run: Should perform transform (cached=False)
     res1 = run_cmd(
         cmd_engine,
         engine="textpass",
@@ -58,7 +55,6 @@ def test_cmd_engine_success_and_caching(tracked_wks_config, tmp_path):
     assert res1.output["cached"] is False
     assert res1.output["checksum"] is not None
 
-    # 2. Second run: Should use cache (cached=True)
     res2 = run_cmd(
         cmd_engine,
         engine="textpass",
@@ -153,8 +149,6 @@ def test_cmd_engine_fatal_error(tracked_wks_config, tmp_path):
     test_f = tmp_path / "test.txt"
     test_f.touch()
 
-    # TextPass doesn't support fail_transform option, so test with invalid file
-    # Use a non-existent file to trigger an error
     result = run_cmd(
         cmd_engine,
         engine="textpass",
@@ -166,15 +160,10 @@ def test_cmd_engine_fatal_error(tracked_wks_config, tmp_path):
 
 def test_cache_eviction_integration(tracked_wks_config, tmp_path):
     """Test cache eviction by setting small limit and checking behavior."""
-    # 1. Update config to small cache
     config = WKSConfig.load()
-    # 200 bytes max.
-    # Note: TextPassEngine output is the original content (no transformation)
-    # File overhead + content.
     config.transform.cache.max_size_bytes = 200
     config.save()
 
-    # 2. Transform file 1 (150 bytes content -> ~163 bytes output)
     f1 = tmp_path / "f1.txt"
     f1.write_text("a" * 150)
 
@@ -182,24 +171,16 @@ def test_cache_eviction_integration(tracked_wks_config, tmp_path):
     assert res1.success is True
     assert res1.output["cached"] is False
 
-    # 3. Transform file 2 (150 bytes content -> ~163 bytes output)
     f2 = tmp_path / "f2.txt"
     f2.write_text("b" * 150)
 
     res2 = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(f2), overrides={})
     assert res2.success is True
 
-    # Total size > 200. f1 should be evicted (LRU).
-
-    # 4. Re-run f1. If evicted, it must re-transform (cached=False).
     res1_again = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(f1), overrides={})
     assert res1_again.success is True
     assert res1_again.output["cached"] is False
 
-    # 5. Verify f2 is still cached (was accessed recently)
-    # Wait: res2 might have been evicted by res1_again?
-    # f1 re-run (163) -> needs space. Current size ~163 (f2 only).
-    # 163 + 163 > 200. So f2 must be evicted to fit f1.
     res2_again = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(f2), overrides={})
     assert res2_again.success is True
     assert res2_again.output["cached"] is False
@@ -209,13 +190,11 @@ def test_cache_permission_error(tracked_wks_config, tmp_path):
     """Test handling of permission error in cache directory."""
 
     config = WKSConfig.load()
-    # Point cache to a new dir
     cache_dir = tmp_path / "readonly_cache"
     cache_dir.mkdir()
     config.transform.cache.base_dir = str(cache_dir)
     config.save()
 
-    # Make dir read-only
     try:
         cache_dir.chmod(0o500)  # Read/Execute, No Write
 
@@ -223,11 +202,8 @@ def test_cache_permission_error(tracked_wks_config, tmp_path):
         f1.write_text("content")
 
         res = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(f1), overrides={})
-        # Should fail gracefully
         assert res.success is False
-        # The error might be about creating cache.json or the cache file itself
         assert "Permission" in str(res.output) or "Access" in str(res.output) or "ReadOnly" in str(res.output)
 
     finally:
-        # Cleanup: restore permissions so pytest can clean up
         cache_dir.chmod(0o700)

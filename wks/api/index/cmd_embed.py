@@ -1,5 +1,3 @@
-"""Build embeddings for a named index."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -12,8 +10,6 @@ def cmd_embed(
     name: str = "",
     batch_size: int = 64,
 ) -> StageResult:
-    """Build embeddings for all chunks in an index."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         if batch_size <= 0:
             yield (1.0, "Complete")

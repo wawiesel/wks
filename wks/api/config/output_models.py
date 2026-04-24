@@ -1,5 +1,3 @@
-"""Helpers for code-defined command output models."""
-
 from __future__ import annotations
 
 from functools import cache
@@ -12,7 +10,6 @@ from .BaseOutputSchema import BaseOutputSchema
 
 
 def output_model(name: str, *required_fields: str) -> type[BaseModel]:
-    """Create a command output model with required fields and standard errors/warnings."""
     fields = dict.fromkeys(required_fields, (Any, ...))
     return create_model(  # type: ignore[call-overload]
         name,
@@ -24,7 +21,6 @@ def output_model(name: str, *required_fields: str) -> type[BaseModel]:
 
 @cache
 def resolve_output_model(domain: str, command_name: str) -> type[BaseModel] | None:
-    """Resolve a command output model by domain and command name."""
     try:
         module = import_module(f"wks.api.{domain}")
     except ImportError:
@@ -37,5 +33,4 @@ def resolve_output_model(domain: str, command_name: str) -> type[BaseModel] | No
 
 
 def _camelize(text: str) -> str:
-    """Convert snake_case command names to CamelCase."""
     return "".join(part.capitalize() for part in text.split("_") if part)

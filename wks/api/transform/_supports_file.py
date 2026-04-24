@@ -1,12 +1,9 @@
-"""File-type matching helpers for transform engines."""
-
 from pathlib import Path
 
 from .mime import guess_mime_type, normalize_extension
 
 
 def supports_file(supported_types: list[str] | None, file_path: Path) -> bool:
-    """Return True when file_path is allowed by supported_types."""
     if supported_types is None or len(supported_types) == 0:
         return True
 

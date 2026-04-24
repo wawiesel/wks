@@ -1,5 +1,3 @@
-"""Unit tests for macOS service backend edge cases."""
-
 import subprocess
 from unittest.mock import MagicMock
 

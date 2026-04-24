@@ -2,8 +2,6 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class RemoteMapping(BaseModel):
-    """Mapping between a local path and a remote URI."""
-
     model_config = ConfigDict(extra="forbid")
 
     local_path: str

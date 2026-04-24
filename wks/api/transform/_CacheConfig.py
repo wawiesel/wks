@@ -1,11 +1,7 @@
-"""Transform cache configuration."""
-
 from pydantic import BaseModel, Field, field_validator
 
 
 class _CacheConfig(BaseModel):
-    """Cache configuration for transform."""
-
     base_dir: str
     max_size_bytes: int = Field(..., gt=0, description="Max cache size in bytes (must be > 0)")
 

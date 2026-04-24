@@ -34,7 +34,6 @@ class TestGuessMimeType:
             assert mime.guess_mime_type(path) == "application/pdf"
 
     def test_guess_type_from_custom_extension_to_mime(self):
-        # Ensure mimetypes.guess_type doesn't return anything for .yaml to test fallback
         with patch("mimetypes.guess_type", return_value=(None, None)):
             path = Path("config.yaml")
             assert mime.guess_mime_type(path) == "text/x-yaml"
@@ -51,7 +50,6 @@ class TestGuessMimeType:
 
     def test_guess_type_for_path_object(self):
         path = Path("/path/to/script.py")
-        # Assuming mimetypes would guess .py, or our custom map
         assert mime.guess_mime_type(path) in ["text/x-python", "application/x-python-code"]
 
 
@@ -61,7 +59,6 @@ class TestExtensionForMime:
         assert mime.extension_for_mime("application/typescript") == ".ts"
 
     def test_extension_from_mimetypes_guess_extension(self):
-        # Assuming mimetypes can guess .pdf for application/pdf
         assert mime.extension_for_mime("application/pdf") == ".pdf"
 
     def test_extension_for_unknown_mime_type(self):
@@ -77,7 +74,6 @@ class TestMimeForExtension:
         assert mime.mime_for_extension("ts") == "application/typescript"  # normalized
 
     def test_mime_from_mimetypes_types_map(self):
-        # Assuming .pdf is in mimetypes.types_map but not our custom map for this test
         with patch.dict(mimetypes.types_map, {".pdf": "application/pdf"}, clear=True):
             assert mime.mime_for_extension(".pdf") == "application/pdf"
             assert mime.mime_for_extension("pdf") == "application/pdf"
@@ -90,7 +86,5 @@ class TestMimeForExtension:
         assert mime.mime_for_extension("html") == "text/html"
 
     def test_mime_for_extension_prefers_custom_map(self):
-        # If both custom and mimetypes have an entry, custom should win
-        # Example: custom map has .js as 'application/javascript', mimetypes might have 'text/javascript'
         with patch.dict(mimetypes.types_map, {".js": "text/javascript"}):
             assert mime.mime_for_extension(".js") == "application/javascript"

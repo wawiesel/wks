@@ -1,5 +1,3 @@
-"""Unit tests for wks.api.monitor.cmd_priority_add module."""
-
 import pytest
 
 from tests.unit.conftest import run_cmd
@@ -10,7 +8,6 @@ pytestmark = pytest.mark.monitor
 
 
 def _make_monitor_config(**priority_dirs_override: float) -> MonitorConfig:
-    """Helper to create MonitorConfig with optional priority dirs override."""
     return MonitorConfig.model_validate(
         {
             "filter": {

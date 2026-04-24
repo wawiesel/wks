@@ -1,16 +1,8 @@
-"""Auto-index a synced file into matching indexes."""
-
 from collections.abc import Callable
 from pathlib import Path
 
 
 def _auto_index(path: Path, log_fn: Callable[[str], None]) -> None:
-    """Index a file into all indexes whose min_priority threshold is met.
-
-    For each index, cmd_auto delegates to cmd() which handles both BM25
-    chunking and semantic embedding (when embedding_model is configured)
-    in a single pass.
-    """
     try:
         from ..config.URI import URI
         from ..index.cmd_auto import cmd_auto

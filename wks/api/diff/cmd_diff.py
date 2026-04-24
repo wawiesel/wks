@@ -1,5 +1,3 @@
-"""Diff command."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -18,8 +16,6 @@ from .TextDiffOutput import TextDiffOutput
 
 
 def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResult:
-    """Compute a diff between two targets using an explicit config."""
-
     def build_failure(message: str, errors: list[str], engine_used: str) -> DiffResult:
         metadata = DiffMetadata(
             engine_used=engine_used,
@@ -150,7 +146,6 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
                     "pixel_threshold": pixel_threshold,
                     "max_examples": max_examples,
                 }
-        # Note: "auto" mode will be handled after resolving targets
 
         if errors:
             yield (1.0, "Failed")
@@ -202,7 +197,6 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
             result_obj.success = False
             return
 
-        # Handle auto mode - select engine based on file types
         if engine_used == "auto":
             from ._auto_engine import select_auto_diff_engine
 
@@ -249,11 +243,9 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
             diff_extension = "sexp"
             message = diff_text
         elif engine_used == "bsdiff3":
-            # For bsdiff3, extract patch size from the diff_text if available
             patch_size = 0
             if "Patch size:" in diff_text:
                 try:
-                    # Extract patch size from the summary text
                     for line in diff_text.split("\n"):
                         if "Patch size:" in line:
                             parts = line.split(":")
@@ -274,12 +266,10 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
             diff_extension = "json"
             message = "Semantic diff generated."
         else:
-            # Fallback
             diff_output = BinaryDiffOutput(patch_path=diff_text, patch_size_bytes=0)
             diff_extension = "bin"
             message = "Diff generated."
 
-        # Register diff result in transform cache
         diff_checksum = None
         if diff_extension:
             yield (0.9, "Registering diff in transform cache")
@@ -293,24 +283,20 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
                 from wks.api.transform._CacheManager import _CacheManager
                 from wks.api.transform._TransformRecord import _TransformRecord
 
-                # Compute checksum of diff content
                 diff_content = diff_text.encode("utf-8") if isinstance(diff_text, str) else diff_text
                 sha256 = hashlib.sha256(diff_content)
                 diff_checksum = sha256.hexdigest()
 
-                # Get transform cache directory
                 wks_config = WKSConfig.load()
                 cache_dir = Path(wks_config.transform.cache.base_dir)
                 cache_file = cache_dir / f"{diff_checksum}.{diff_extension}"
 
-                # Write diff to cache
                 cache_dir.mkdir(parents=True, exist_ok=True)
                 if isinstance(diff_text, str):
                     cache_file.write_text(diff_text, encoding="utf-8")
                 else:
                     cache_file.write_bytes(diff_text)
 
-                # Register in database
                 with Database(wks_config.database, "transform") as db:
                     record = _TransformRecord(
                         file_uri=URI.from_path(file_a),  # Use file_a as the "source"
@@ -325,12 +311,10 @@ def cmd_diff(config: dict[str, Any], target_a: str, target_b: str) -> StageResul
                     )
                     db.insert_one(record.to_dict())
 
-                    # Update cache size
                     cache_manager = _CacheManager(cache_dir, wks_config.transform.cache.max_size_bytes, db)
                     cache_manager.add_file(cache_file.stat().st_size)
 
             except Exception as exc:
-                # Log but don't fail the diff operation
                 yield (0.95, f"Warning: Failed to register diff in cache: {exc}")
 
         result = DiffResult(

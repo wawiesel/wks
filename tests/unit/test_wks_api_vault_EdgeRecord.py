@@ -1,5 +1,3 @@
-"""Tests for EdgeRecord."""
-
 from wks.api.vault.EdgeRecord import EdgeRecord
 
 
@@ -33,7 +31,6 @@ def test_edge_record_identity_consistency():
     )
     assert edge1.identity == edge2.identity
 
-    # Change one field that affects identity
     edge3 = EdgeRecord(
         note_path="note.md",
         from_uri="vault:///note.md",

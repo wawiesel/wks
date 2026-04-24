@@ -1,9 +1,3 @@
-"""Vault links API command.
-
-CLI: wksc vault links <path> [--direction to|from|both]
-MCP tool: vault_links
-"""
-
 from collections.abc import Iterator
 from typing import Any, Literal
 
@@ -14,34 +8,12 @@ from . import VaultLinksOutput
 
 
 def cmd_links(uri: URI, direction: Literal["to", "from", "both"] = "both") -> StageResult:
-    """Query the edges database for links related to a specific file.
-
-    Unlike cmd_check (which scans live files), this queries the database
-    populated by cmd_sync to show existing link relationships. Use this to:
-    - Find what files link TO a given note (backlinks)
-    - Find what files a note links FROM (outlinks)
-    - Explore the link graph around a specific file
-
-    Results are limited to 100 edges per query.
-
-    Args:
-        path: File path to query. Resolved to vault:/// URI for database lookup.
-        direction: Which links to return:
-            - "to": Only links pointing TO this file (backlinks)
-            - "from": Only links originating FROM this file (outlinks)
-            - "both": All links involving this file (default)
-
-    Returns:
-        StageResult with VaultLinksOutput containing matching edges.
-    """
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         from ..config.WKSConfig import WKSConfig
 
         yield (0.1, "Loading configuration...")
         try:
             config: Any = WKSConfig.load()
-            # Collection name is just 'vault' - prefix is the DB name
             database_name = "vault"
         except Exception as e:
             result_obj.output = VaultLinksOutput(
@@ -57,7 +29,6 @@ def cmd_links(uri: URI, direction: Literal["to", "from", "both"] = "both") -> St
             result_obj.success = False
             return
 
-        # Collection name is 'link' - prefix is the DB name
         database_name = "edges"
         yield (0.3, "Resolving vault path...")
         try:
@@ -65,7 +36,6 @@ def cmd_links(uri: URI, direction: Literal["to", "from", "both"] = "both") -> St
 
             vault_base = normalize_path(config.vault.base_dir)
 
-            # Convert file:// URIs to vault:/// if path is inside the vault
             if uri.is_vault:
                 canonical_uri = uri
             elif uri.is_file:
@@ -94,10 +64,8 @@ def cmd_links(uri: URI, direction: Literal["to", "from", "both"] = "both") -> St
 
             yield (0.4, "Querying vault database...")
             with Database(config.database, database_name) as database:
-                # Filter for vault domain: links with from_local_uri starting with vault:///
                 vault_filter = {"from_local_uri": {"$regex": "^vault:///"}}
 
-                # Build query based on direction
                 query: dict[str, Any] = {}
                 db_uri_str = str(canonical_uri)
                 if direction == "from":

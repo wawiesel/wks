@@ -1,5 +1,3 @@
-"""Log status command - show log file status after auto-pruning by retention."""
-
 from collections.abc import Iterator
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
@@ -11,8 +9,6 @@ from .LOG_PATTERN import LOG_PATTERN
 
 
 def cmd_status() -> StageResult:
-    """Show log file status after auto-pruning expired entries by retention."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
@@ -21,7 +17,6 @@ def cmd_status() -> StageResult:
 
         yield (0.2, "Auto-pruning expired entries...")
 
-        # Calculate cutoff times for each level
         now = datetime.now(timezone.utc)
         cutoffs = {
             "DEBUG": now - timedelta(days=log_cfg.debug_retention_days),
@@ -84,26 +79,21 @@ def cmd_status() -> StageResult:
                 except ValueError:
                     entry_time = now  # Treat unparseable as current
 
-                # Check if entry is expired
                 cutoff = cutoffs[level]
                 if entry_time < cutoff:
-                    # Entry expired, don't keep it
                     continue
 
-                # Keep the entry and count it
                 kept_lines.append(stripped)
                 level_key = level.lower()
                 if level_key in counts:
                     counts[level_key] += 1
 
-                # Track oldest/newest
                 ts = entry_time.isoformat()
                 if oldest_entry is None or ts < oldest_entry:
                     oldest_entry = ts
                 if newest_entry is None or ts > newest_entry:
                     newest_entry = ts
             else:
-                # Legacy format - keep it but count by level keyword
                 kept_lines.append(stripped)
                 upper = stripped.upper()
                 if "DEBUG" in upper:
@@ -117,7 +107,6 @@ def cmd_status() -> StageResult:
 
         yield (0.8, "Writing cleaned log...")
 
-        # Write back only non-expired entries
         with suppress(Exception):
             log_path.write_text("\n".join(kept_lines) + "\n" if kept_lines else "", encoding="utf-8")
 

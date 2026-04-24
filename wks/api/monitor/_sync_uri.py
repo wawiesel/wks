@@ -1,5 +1,3 @@
-"""Shared monitor sync core."""
-
 from __future__ import annotations
 
 from collections.abc import Generator
@@ -26,7 +24,6 @@ def sync_uri_steps(
     *,
     write_status: bool = True,
 ) -> Generator[tuple[float, str], None, Any]:
-    """Sync one URI into the monitor database using an explicit config."""
     from wks.api.config.file_checksum import file_checksum
 
     monitor_cfg = config.monitor
@@ -158,7 +155,6 @@ def sync_uri(
     *,
     write_status: bool = True,
 ) -> Any:
-    """Run monitor sync without exposing progress streaming."""
     generator = sync_uri_steps(config, uri, recursive=recursive, write_status=write_status)
     while True:
         try:
@@ -168,7 +164,6 @@ def sync_uri(
 
 
 def _write_sync_status(config: WKSConfig, output: Any) -> None:
-    """Persist the latest monitor sync status."""
     write_status_file(
         {
             "database": "nodes",

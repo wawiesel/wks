@@ -1,5 +1,3 @@
-"""Shared helpers for document-similarity scoring and labeling."""
-
 from __future__ import annotations
 
 from collections import defaultdict
@@ -22,8 +20,6 @@ from .SimilarConfig import SimilarConfig
 
 @dataclass(frozen=True, slots=True)
 class _QueryDoc:
-    """Normalized query document ready for semantic comparison."""
-
     uri: str
     path: Path
     chunks: list[Any]
@@ -34,8 +30,6 @@ class _QueryDoc:
 
 @dataclass(frozen=True, slots=True)
 class _CandidateMetrics:
-    """Document-level similarity features for one candidate URI."""
-
     uri: str
     label: str
     score: float
@@ -51,12 +45,10 @@ class _CandidateMetrics:
 
 
 def _canonical_uri(value: str) -> str:
-    """Return a canonical URI string for grouping and display."""
     return str(URI.from_any(value))
 
 
 def _path_segments(uri: str) -> frozenset[str]:
-    """Return lowercase path segments and stem for simple path similarity."""
     try:
         path = URI.from_any(uri).path
     except Exception:
@@ -67,7 +59,6 @@ def _path_segments(uri: str) -> frozenset[str]:
 
 
 def _file_checksum(path: Path) -> str | None:
-    """Return SHA-256 for a real file, or None when unavailable."""
     try:
         if not path.is_file():
             return None
@@ -77,7 +68,6 @@ def _file_checksum(path: Path) -> str | None:
 
 
 def _preview(text: str, limit: int) -> str:
-    """Compress whitespace and trim long evidence snippets."""
     clean = " ".join(text.split())
     if len(clean) <= limit:
         return clean
@@ -89,7 +79,6 @@ def _resolve_semantic_index(
     similar_config: SimilarConfig,
     requested_index: str | None,
 ) -> tuple[str, _IndexSpec] | tuple[None, None]:
-    """Resolve one configured semantic text index."""
     if config.index is None:
         return None, None
 
@@ -119,7 +108,6 @@ def _resolve_semantic_index(
 
 
 def _group_candidate_rows(state: _SemanticIndexState) -> dict[str, list[int]]:
-    """Group embedding-row indices by canonical candidate URI."""
     grouped: dict[str, list[int]] = defaultdict(list)
     for idx, doc in enumerate(state.docs):
         grouped[_canonical_uri(doc["uri"])].append(idx)
@@ -133,7 +121,6 @@ def _collect_candidate_scores(
     per_chunk: int,
     rrf_k: float,
 ) -> dict[str, float]:
-    """Collect candidate URIs with a small RRF-style seed score."""
     scores: dict[str, float] = defaultdict(float)
     if len(state.docs) == 0:
         return {}
@@ -158,7 +145,6 @@ def _collect_candidate_scores(
 
 
 def _greedy_matches(similarity: np.ndarray, match_threshold: float) -> list[tuple[int, int, float]]:
-    """Greedily match query chunks to candidate chunks above threshold."""
     if similarity.ndim != 2:
         raise ValueError(f"similarity matrix must be 2D (found ndim={similarity.ndim})")
     pairs: list[tuple[float, int, int]] = []
@@ -183,7 +169,6 @@ def _greedy_matches(similarity: np.ndarray, match_threshold: float) -> list[tupl
 
 
 def _order_consistency(matches: list[tuple[int, int, float]], candidate_docs: list[dict[str, Any]]) -> float:
-    """Return a simple monotonic-order score for matched chunks."""
     if len(matches) == 0:
         return 0.0
     if len(matches) == 1:
@@ -195,14 +180,12 @@ def _order_consistency(matches: list[tuple[int, int, float]], candidate_docs: li
 
 
 def _stem_similarity(query_uri: str, candidate_uri: str) -> float:
-    """Return normalized filename-stem similarity."""
     query_stem = URI.from_any(query_uri).path.stem.lower()
     candidate_stem = URI.from_any(candidate_uri).path.stem.lower()
     return float(SequenceMatcher(a=query_stem, b=candidate_stem).ratio())
 
 
 def _path_similarity(query_segments: frozenset[str], candidate_uri: str) -> float:
-    """Return Jaccard similarity on lowercase path segments."""
     candidate_segments = _path_segments(candidate_uri)
     if not query_segments or not candidate_segments:
         return 0.0
@@ -219,7 +202,6 @@ def _probable_export_pair(
     stem_similarity: float,
     similar_config: SimilarConfig,
 ) -> bool:
-    """Return True for common source/export relationships."""
     query_suffix = URI.from_any(query_uri).path.suffix.lower()
     candidate_suffix = URI.from_any(candidate_uri).path.suffix.lower()
     export_pairs = {frozenset({left.lower(), right.lower()}) for left, right in similar_config.export_pairs}
@@ -244,7 +226,6 @@ def _label_candidate(
     matched_chunks: int,
     similar_config: SimilarConfig,
 ) -> str | None:
-    """Assign one practical document-similarity label."""
     if candidate_checksum is not None and candidate_checksum == query_doc.checksum:
         return "exact_duplicate"
 
@@ -292,7 +273,6 @@ def _final_score(
     path_similarity: float,
     similar_config: SimilarConfig,
 ) -> float:
-    """Blend semantic evidence and lightweight metadata for ranking."""
     if label == "exact_duplicate":
         return 1.0
     weights = similar_config.score_weights
@@ -319,7 +299,6 @@ def _candidate_metrics(
     match_threshold: float,
     similar_config: SimilarConfig,
 ) -> _CandidateMetrics | None:
-    """Compute document-level similarity metrics for one candidate."""
     similarity = query_doc.embeddings @ candidate_matrix.T
     matches = _greedy_matches(similarity, match_threshold=match_threshold)
     matched_chunks = len(matches)

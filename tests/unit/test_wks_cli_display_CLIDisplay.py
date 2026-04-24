@@ -1,5 +1,3 @@
-"""Tests for segmented Rich stderr rendering in CLIDisplay."""
-
 from rich.text import Text
 
 from wks.cli.display.CLIDisplay import CLIDisplay

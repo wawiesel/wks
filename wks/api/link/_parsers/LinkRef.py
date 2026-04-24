@@ -1,12 +1,8 @@
-"""Link reference dataclass."""
-
 from dataclasses import dataclass
 
 
 @dataclass
 class LinkRef:
-    """A reference to a link found in a file."""
-
     line_number: int
     column_number: int
     raw_target: str

@@ -21,5 +21,4 @@ def test_append_log_io_error(tmp_path, monkeypatch):
 
     monkeypatch.setattr(Path, "open", mock_open)
 
-    # Should not raise
     append_log(log_path, "test", "ERROR", "Fail")

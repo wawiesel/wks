@@ -1,5 +1,3 @@
-"""Tests for URI value object."""
-
 from pathlib import Path
 
 import pytest
@@ -70,7 +68,6 @@ def test_uri_from_any_path_with_vault():
     vault_path = Path("/tmp/vault")
     file_path = vault_path / "note.md"
 
-    # Create vault directory and file
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text("test")
 
@@ -88,7 +85,6 @@ def test_uri_from_any_path_outside_vault():
     vault_path = Path("/tmp/vault")
     file_path = Path("/tmp/outside/file.txt")
 
-    # Create file
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text("test")
 
@@ -108,7 +104,6 @@ def test_uri_from_any_path_no_vault():
     """Test from_any converts path to file URI when no vault specified."""
     file_path = Path("/tmp/test/file.txt")
 
-    # Create file
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text("test")
 
@@ -229,7 +224,6 @@ def test_uri_from_any_path_string_with_vault(tmp_path):
     vault_path = tmp_path / "vault"
     file_path_str = str(vault_path / "note.md")
 
-    # Create vault directory and file
     Path(file_path_str).parent.mkdir(parents=True, exist_ok=True)
     Path(file_path_str).write_text("test")
 

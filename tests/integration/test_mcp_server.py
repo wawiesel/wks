@@ -1,5 +1,3 @@
-"""Integration tests for MCPServer request handling."""
-
 import io
 import json
 from pathlib import Path
@@ -232,17 +230,14 @@ def testbuild_registry_handles_stage_and_plain_results(monkeypatch):
     server = server_mod.MCPServer(input_stream=io.StringIO(), output_stream=io.StringIO())
     registry = server.build_registry()
 
-    # StageResult path with missing required param falls back to empty string for config section
     result_stage = registry["config_show"](None, {})  # type: ignore
     assert result_stage["success"] is True
     assert result_stage["data"]["section"] == ""
 
-    # Query dict should be JSON encoded
     result_query = registry["monitor_check"](None, {"query": {"a": 1}})  # type: ignore
     assert captured["query"] == json.dumps({"a": 1})
     assert result_query["data"]["seen"] == json.dumps({"a": 1})
 
-    # Non-dict return produces empty data
     result_text = registry["database_reset"](None, {})  # type: ignore
     assert result_text == {"success": True, "data": {}}
 
@@ -251,12 +246,10 @@ def testbuild_registry_handles_stage_and_plain_results(monkeypatch):
 
 
 def test_call_tool_success_and_failure(monkeypatch):
-    # Failure path: tool not found
     missing = call_tool("nope", {})
     assert missing["success"] is False
     assert "Tool not found" in missing["error"]
 
-    # Success path via patched registry
     def fakebuild_registry(self):
         return {"custom": lambda cfg, args: {"success": True, "data": args}}
 
@@ -270,7 +263,6 @@ def test_call_tool_success_and_failure(monkeypatch):
 
 
 def test_main_handles_keyboardinterrupt_and_error(monkeypatch):
-    # KeyboardInterrupt -> exit code 0
     with (
         patch.object(server_mod.MCPServer, "run", side_effect=KeyboardInterrupt),
         patch("sys.exit") as mock_exit,
@@ -278,7 +270,6 @@ def test_main_handles_keyboardinterrupt_and_error(monkeypatch):
         mcp_main()
         mock_exit.assert_called_once_with(0)
 
-    # RuntimeError -> exit code 1
     with (
         patch.object(server_mod.MCPServer, "run", side_effect=RuntimeError("boom")),
         patch("sys.exit") as mock_exit,
@@ -296,7 +287,6 @@ def testdiscover_commands_and_define_tools_cover_branches(monkeypatch):
             self.registered_commands: list[Any] = []
             self.registered_groups: list[Any] = []
 
-    # Force define_tools to hit the "command is None" continue branch
     monkeypatch.setattr(server_mod, "discover_commands", lambda: {("dummy", "missing"): lambda: None})
     monkeypatch.setattr(server_mod, "get_app", lambda domain: DummyApp())
     tools = server_mod.MCPServer.define_tools()

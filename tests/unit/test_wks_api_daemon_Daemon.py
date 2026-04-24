@@ -1,5 +1,3 @@
-"""Daemon filesystem event integration test (TDD scaffold)."""
-
 import json
 import time
 
@@ -25,13 +23,11 @@ def test_daemon_starts_and_stops_cleanly(monkeypatch, tmp_path):
     cfg = minimal_wks_config()
     cfg.daemon.sync_interval_secs = 0.05
 
-    # Set WKS_HOME and persist config (daemon will load WKSConfig from disk)
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
     cfg.save()
 
-    # Restrict to a temp directory
     rdir = tmp_path / "xtest"
     rdir.mkdir(parents=True, exist_ok=True)
 
@@ -40,17 +36,13 @@ def test_daemon_starts_and_stops_cleanly(monkeypatch, tmp_path):
     assert start_status.running is True
     assert start_status.pid is not None
 
-    # Give daemon time to initialize
     time.sleep(0.2)
 
-    # Verify status file was written
     status_file = wks_home / "daemon.json"
     assert status_file.exists(), "daemon.json should be created"
 
-    # Stop cleanly
     d.stop()
 
-    # Verify lock file is removed
     lock_file = wks_home / "daemon.lock"
     assert not lock_file.exists(), "daemon.lock should be removed after stop"
 
@@ -168,7 +160,6 @@ def test_daemon_foreground_coverage(mongo_wks_env):
 
     daemon = Daemon()
 
-    # We'll use a thread to run the blocking foreground loop
     t = threading.Thread(target=daemon.run_foreground, kwargs={"restrict_dir": watch_dir})
     t.daemon = True
 
@@ -201,7 +192,6 @@ def test_event_handler_logic():
 
     handler = _EventHandler()
 
-    # Manually add events
     handler._modified.add("/path/modified.md")
     handler._created.add("/path/created.md")
     handler._deleted.add("/path/deleted.md")
@@ -214,7 +204,6 @@ def test_event_handler_logic():
     assert "/path/deleted.md" in events.deleted
     assert ("file:///old", "file:///new") in events.moved
 
-    # Verify cleared
     events2 = handler.get_and_clear_events()
     assert len(events2.modified) == 0
 
@@ -223,7 +212,6 @@ def test_sync_path_static_logic(monkeypatch, tmp_path, minimal_config_dict):
     """Test sync_path_static logic (private utility used by daemon)."""
     from wks.api.daemon._sync_path_static import _sync_path_static
 
-    # Setup config
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -239,4 +227,3 @@ def test_sync_path_static_logic(monkeypatch, tmp_path, minimal_config_dict):
         logs.append(msg)
 
     _sync_path_static(test_path, log_file, log_fn)
-    # Should complete without error

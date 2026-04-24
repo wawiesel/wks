@@ -19,7 +19,6 @@ def test_mcp_server_handles_content_length_and_plain_messages():
 
     server.run()
     output = output_stream.getvalue()
-    # Both responses should be present; LSP mode triggers Content-Length header
     assert "wks-mcp-server" in output
     assert "tools" in output
     assert "Content-Length" in output
@@ -31,5 +30,4 @@ def test_mcp_server_ignores_invalid_json():
     output_stream = io.StringIO()
     server = MCPServer(input_stream=input_stream, output_stream=output_stream)
     server.run()
-    # No output produced, but run should complete without error
     assert output_stream.getvalue() == ""

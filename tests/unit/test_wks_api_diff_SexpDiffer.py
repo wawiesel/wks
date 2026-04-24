@@ -1,11 +1,3 @@
-"""Unit tests for wks.api.diff.SexpDiffer module.
-
-Requirements:
-- WKS-DIFF-001
-- WKS-DIFF-003
-- WKS-DIFF-005
-"""
-
 import pytest
 
 from wks.api.diff.SexpDiffer import SexpDiffer
@@ -14,8 +6,6 @@ pytestmark = pytest.mark.unit
 
 
 class TestSexpDiffer:
-    """Test SexpDiffer class."""
-
     def test_diff_identical_sexp(self, tmp_path):
         """Test diff with identical S-expression files."""
         file_a = tmp_path / "a.sexp"
@@ -56,7 +46,6 @@ class TestSexpDiffer:
         """Test diff fails with non-UTF-8 encoding."""
         file_a = tmp_path / "a.sexp"
         file_b = tmp_path / "b.sexp"
-        # Write binary data that's not valid UTF-8
         file_a.write_bytes(b"\xff\xfe\x00\x00")  # Invalid UTF-8
         file_b.write_text("(module)")
 
@@ -81,7 +70,6 @@ class TestSexpDiffer:
         file_b = tmp_path / "b.sexp"
         file_a.write_text("(module)")
 
-        # Remove file_b to cause read error
         file_b.write_text("(module)")
         file_b.unlink()
 

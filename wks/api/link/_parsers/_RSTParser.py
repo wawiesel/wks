@@ -1,25 +1,17 @@
-"""reStructuredText link parser."""
-
 import re
 from collections.abc import Iterator
 
 from ._BaseParser import BaseParser, LinkRef
 
-# `Link text <url>`_
 RST_LINK_PATTERN = re.compile(r"`([^`<]+)\s+<([^>]+)>`_")
-# .. image:: url
 RST_IMAGE_PATTERN = re.compile(r"\.\.\s+image::\s+(.+)")
 
 
 class RSTParser(BaseParser):
-    """Parser for reStructuredText files."""
-
     def parse(self, text: str) -> Iterator[LinkRef]:
         lines = text.splitlines()
         for line_num, line in enumerate(lines, start=1):
-            # `Text <URL>`_
             for match in RST_LINK_PATTERN.finditer(line):
-                # Validate match groups exist (fail fast if mutated)
                 if match.lastindex is None or match.lastindex < 2:
                     raise IndexError(f"RST_LINK_PATTERN match missing required groups (got {match.lastindex})")
                 alias = match.group(1).strip()
@@ -34,11 +26,8 @@ class RSTParser(BaseParser):
                     is_embed=False,
                 )
 
-            # .. image:: URL
-            # .. image:: URL
             image_match = RST_IMAGE_PATTERN.match(line.strip())
             if image_match:
-                # Validate match group exists (fail fast if mutated)
                 if image_match.lastindex is None or image_match.lastindex < 1:
                     raise IndexError(f"RST_IMAGE_PATTERN match missing required group (got {image_match.lastindex})")
                 url = image_match.group(1).strip()

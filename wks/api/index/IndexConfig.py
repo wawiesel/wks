@@ -1,5 +1,3 @@
-"""Index configuration for WKSConfig."""
-
 from pydantic import BaseModel, model_validator
 
 from ._IndexSpec import _IndexSpec
@@ -7,8 +5,6 @@ from ._StrategySpec import _StrategySpec
 
 
 class IndexConfig(BaseModel):
-    """Index section of WKS configuration."""
-
     default_index: str
     default_strategy: str | None = None
     strategies: dict[str, _StrategySpec] = {}
@@ -16,7 +12,6 @@ class IndexConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_strategies(self) -> "IndexConfig":
-        """Validate that strategy index names exist and default_strategy is defined."""
         for name, strategy in self.strategies.items():
             for idx in strategy.indexes:
                 if idx not in self.indexes:

@@ -1,5 +1,3 @@
-"""Unit tests for the shared search service layer."""
-
 import pytest
 
 from tests.conftest import run_cmd
@@ -17,7 +15,6 @@ from wks.services.search import SearchRequest, search_documents
 
 @pytest.fixture
 def search_service_env(tmp_path, monkeypatch):
-    """Build a lexical index for service tests."""
     _SEARCH_RUNTIME.reset()
     setup_search_config(
         tmp_path,
@@ -33,7 +30,6 @@ def search_service_env(tmp_path, monkeypatch):
 
 @pytest.fixture
 def search_service_strategy_env(tmp_path, monkeypatch):
-    """Build lexical and semantic indexes for strategy service tests."""
     _SEARCH_RUNTIME.reset()
     setup_search_config(
         tmp_path,

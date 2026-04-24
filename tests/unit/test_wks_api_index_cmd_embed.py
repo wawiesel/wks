@@ -1,5 +1,3 @@
-"""Index embedding command tests."""
-
 import json
 
 import numpy as np

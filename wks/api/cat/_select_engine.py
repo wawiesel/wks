@@ -5,7 +5,6 @@ from ._get_mime_type import _get_mime_type
 
 
 def _select_engine(file_path: Path, override: str | None, config: WKSConfig) -> str:
-    """Select engine based on MIME type or override."""
     if override:
         return override
 

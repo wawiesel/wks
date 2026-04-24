@@ -1,5 +1,3 @@
-"""Version command - returns WKS version information."""
-
 from collections.abc import Iterator
 
 from ..config.StageResult import StageResult
@@ -8,10 +6,7 @@ from .get_package_version import get_package_version
 
 
 def cmd_version() -> StageResult:
-    """Get WKS version information."""
-
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
-        """Do the actual work - generator that yields progress and updates result."""
         yield (0.3, "Getting package version...")
         version = get_package_version()
 

@@ -1,5 +1,3 @@
-"""Diff module - File comparison operations."""
-
 from ._ENGINES import ENGINES
 from .controller import DiffController
 from .DiffConfig import DiffConfig
