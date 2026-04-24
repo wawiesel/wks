@@ -83,7 +83,7 @@
 
 ## Overview
 
-WKS provides intelligent filesystem monitoring, vault link tracking, and document transformation capabilities. Built as a layered architecture with MongoDB backend and Model Context Protocol (MCP) integration for AI assistants.
+WKS provides intelligent filesystem monitoring, vault link tracking, document transformation, indexed search, and managed moves. The shared execution path is layered as `services/core -> cmd_* -> CLI/MCP`, with an additional read-only REST surface built on the same service layer.
 
 **Important Note**: WKS is currently in **alpha development status** and is **not yet ready for external users**. Our immediate focus is on comprehensive revision and ensuring 100% test coverage across existing features.
 
@@ -290,21 +290,44 @@ wksc mcp install  # Install for all clients
 wksc mcp install --client cursor --client claude
 ```
 
-Available tools: `wksm_*` (see [qa/specs/wks.md](qa/specs/wks.md) for details)
+Available tools are exposed through the MCP server using the command-domain naming described in [wks/mcp/README.md](wks/mcp/README.md).
+
+## Python And REST
+
+Import the shared Python facade directly:
+
+```python
+from wks.services import WKSService
+
+service = WKSService.from_config()
+result = service.search(query="burnup credit", k=5)
+```
+
+Run the REST server with:
+
+```bash
+wksr --host 127.0.0.1 --port 8787
+```
 
 ## Architecture
 
-The system's architecture is designed in layers, with core functionality currently implemented and under revision up to the **Indexing Layer** as described in the specifications.
+The current execution layers are:
+
+- `wks/services/`: shared typed service/core logic
+- `wks/api/*/cmd*.py`: command-contract wrappers returning `StageResult`
+- `wks/cli/`: thin CLI adapters over command wrappers
+- `wks/mcp/`: thin MCP adapters over command wrappers
+- `wks/rest/`: thin read-only REST adapters over the shared service layer
 
 See [qa/specs/wks.md](qa/specs/wks.md) for the complete system specification.
 
-**Key Layers (Implemented & Under Revision)**:
+**Key Domains**:
 - **Monitor Layer**: Filesystem state tracking
 - **Vault Layer**: Knowledge graph links
 - **Transform Layer**: Document conversion
 - **Diff Layer**: File comparison engines
-- **Service Layer**: Background daemon
-- **Index Layer**: Building towards comprehensive search indices (conceptualized in SPEC.md)
+- **Daemon/Service Layer**: Background monitoring
+- **Index/Search Layer**: Lexical and semantic retrieval
 
 ## Documentation
 

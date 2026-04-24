@@ -5,6 +5,7 @@ import typer
 from wks.api.mcp.cmd_install import cmd_install
 from wks.api.mcp.cmd_list import cmd_list
 from wks.api.mcp.cmd_uninstall import cmd_uninstall
+from wks.cli._app_factory import build_typer_app, require_subcommand
 from wks.cli._handle_stage_result import _handle_stage_result
 from wks.mcp.client import proxy_stdio_to_socket
 from wks.mcp.paths import mcp_socket_path
@@ -12,20 +13,8 @@ from wks.mcp.paths import mcp_socket_path
 
 def _proxy_app() -> typer.Typer:
     """Create the proxy sub-app (wksc mcp proxy ...)."""
-    proxy = typer.Typer(
-        name="proxy",
-        help="SSE proxy for container access",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @proxy.callback(invoke_without_command=True)
-    def proxy_callback(ctx: typer.Context) -> None:
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    proxy = build_typer_app(name="proxy", help_text="SSE proxy for container access")
+    require_subcommand(proxy)
 
     @proxy.command(name="start")
     def proxy_start(
@@ -67,21 +56,8 @@ def _proxy_app() -> typer.Typer:
 
 def mcp() -> typer.Typer:
     """Create and configure the MCP Typer app."""
-    app = typer.Typer(
-        name="mcp",
-        help="MCP server guidance and runtime commands",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @app.callback(invoke_without_command=True)
-    def callback(ctx: typer.Context) -> None:
-        """MCP operations - shows available commands."""
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    app = build_typer_app(name="mcp", help_text="MCP server guidance and runtime commands")
+    require_subcommand(app)
 
     app.add_typer(_proxy_app(), name="proxy")
 

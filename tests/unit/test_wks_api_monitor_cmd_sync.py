@@ -152,7 +152,7 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
     # Mock calculate_priority to return high value for 1.txt
     from unittest.mock import patch
 
-    with patch("wks.api.monitor.cmd_sync.calculate_priority", return_value=200.0):
+    with patch("wks.api.monitor._sync_uri.calculate_priority", return_value=200.0):
         # Run sync to trigger enforcement
         res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
         assert res.success is True

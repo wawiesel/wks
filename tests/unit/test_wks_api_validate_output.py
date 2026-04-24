@@ -23,10 +23,7 @@ mock_cmd_func.__name__ = "cmd_mock_command"
 
 def test_validate_output_success(monkeypatch):
     """Test successful validation."""
-    from wks.api.config.schema_registry import schema_registry
-
-    # Register mock schema
-    monkeypatch.setattr(schema_registry, "get_output_schema", lambda d, c: MockOutput)
+    monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: MockOutput)
 
     output = {"key": "value"}
     validated = validate_output(mock_cmd_func, output)
@@ -36,10 +33,7 @@ def test_validate_output_success(monkeypatch):
 
 def test_validate_output_failure(monkeypatch):
     """Test validation failure."""
-    from wks.api.config.schema_registry import schema_registry
-
-    # Register mock schema
-    monkeypatch.setattr(schema_registry, "get_output_schema", lambda d, c: MockOutput)
+    monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: MockOutput)
 
     # Missing required 'key'
     output = {"wrong": "value"}
@@ -72,24 +66,8 @@ def test_validate_output_skip_non_cmd():
 
 def test_validate_output_no_schema(monkeypatch):
     """Test validation when no schema is registered."""
-    from wks.api.config.schema_registry import schema_registry
-
-    monkeypatch.setattr(schema_registry, "get_output_schema", lambda d, c: None)
+    monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: None)
 
     output = {"key": "value"}
     # Should simply return input
     assert validate_output(mock_cmd_func, output) == output
-
-
-def test_normalize_output_logic():
-    """Test the internal normalize_output logic."""
-    from wks.api.config._normalize_output import _normalize_output
-
-    output = {"error": "Something went wrong", "data": "value"}
-    result = _normalize_output(output)
-    assert result["errors"] == ["Something went wrong"]
-    assert "error" not in result
-
-    output_with_errors = {"errors": ["e1"]}
-    result2 = _normalize_output(output_with_errors)
-    assert result2["errors"] == ["e1"]

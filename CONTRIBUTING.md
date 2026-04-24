@@ -29,11 +29,10 @@ For details on the CI Docker environment and running tests in containers, see **
 
 2. **Dependencies**: Install whatever you need in `venv`.
 
-3. **Merge Driver for Auto-Generated Files**: Configure the `ours` merge driver to avoid conflicts in CI-regenerated files:
+3. **Generated Outputs**: Quality metrics and traceability reports are generated locally and in CI, but are not tracked in git. Regenerate them when needed with:
    ```bash
-   git config merge.ours.driver true
+   ./scripts/generate_all_stats.py
    ```
-   This allows `qa/metrics/*.json` (which CI regenerates after every merge) to auto-resolve conflicts by keeping the current version—CI will regenerate the correct values.
 
 ## Git Commit Standards
 
@@ -136,13 +135,12 @@ Notes:
 ## README Statistics
 
 The code quality metrics in `README.md` (mutation score, test counts, etc.) are automatically kept in sync with the codebase
-   - **Stats**: `qa/metrics/*.json` (aggregated statistics)
+   - **Stats**: `qa/metrics/*.json` (generated locally/CI, not tracked)
    - **Reports**: `mutants/` (detailed mutation results)
 
    Steps:
    1. **Generate**: Tools write raw data to `qa/metrics/`.
    2. **Aggregate**: `scripts/update_readme_stats.py` reads `qa/metrics/` and updates `README.md`.
- and stored in `qa/metrics/*.json`.
 
 **Automatic Updates**:
 - **Local**: The statistics are updated automatically via a `pre-commit` hook when `README.md` is modified.
@@ -181,14 +179,14 @@ The script collects:
   - Characters
   - Python tokens (using `tokenize` module)
 
-Metrics outputs are stored under `qa/metrics/` for CI and tooling.
+Metrics outputs are written under `qa/metrics/` for CI and local tooling, but they are not committed.
 
 **CI Workflow**:
 The `.github/workflows/update-stats.yml` workflow:
 1. Runs tests and mutation tests
 2. Updates README statistics
-3. On `main`/`master` pushes: Auto-commits updated stats (with `[skip ci]` to avoid loops)
-4. On PRs: Fails if stats are outdated, requiring the PR author to update them
+3. On `main`/`master` pushes: Auto-commits the updated `README.md` (with `[skip ci]` to avoid loops)
+4. On PRs: Fails if `README.md` statistics are outdated, requiring the PR author to update them
 
 **Visualization**:
 Generate a visual representation of codebase statistics:
@@ -251,52 +249,40 @@ The visualization automatically reads statistics from the README.md tables. The 
 
 ### Layered Architecture
 
-WKS follows a three-layer architecture with clear separation of concerns:
+WKS follows a layered architecture with explicit command contracts:
 
-1. **Python API (Core Business Logic)**
-   - Controllers, business logic, data structures
-   - Beautiful, well-tested code with 100% test coverage
-   - No UI concerns, no protocol-specific code
-   - Located in `wks/` package modules (e.g., `wks.monitor.controller`, `wks.transform.controller`)
-   - Pure Python functions/classes that can be imported and used directly
+1. **Service/Core Layer (`wks/services/`)**
+   - Shared business logic and typed request/response models
+   - No `StageResult`, no CLI/MCP/REST protocol behavior
+   - Direct Python-facing entry point via `wks.services.WKSService`
 
-2. **MCP Server Layer (Thin Protocol Wrapper)**
-   - Thin layer on top of the Python API
-   - Translates MCP protocol requests to API calls
-   - Returns structured results via `MCPResult` (with data, messages, errors)
-   - MCP is the **source of truth** for all errors, warnings, and messages
-   - Located in `wks/mcp.py` and `wks/mcp/`
-   - All MCP tools call the Python API, never duplicate business logic
+2. **Command Layer (`wks/api/*/cmd*.py`)**
+   - One file per command contract
+   - Wraps shared services into `StageResult`
+   - Preserves command-level traceability and per-command tests
 
-3. **CLI Layer (Thin User Interface Wrapper)**
-   - Thin layer that **only** calls MCP tools
-   - Formats MCP results for human-readable output
-   - Handles stdin/stdout/stderr according to CLI guidelines
-   - Located in `wks/cli/`
-   - **All** CLI commands call MCP tools via `call_tool()` - zero business logic in CLI
-   - No exceptions: every CLI command is just argument parsing + MCP call + output formatting
+3. **Transport Layers**
+   - **CLI (`wks/cli/`)**: thin adapters over command wrappers
+   - **MCP (`wks/mcp/`)**: thin adapters over command wrappers
+   - **REST (`wks/rest/`)**: thin read-only adapters over the shared service layer
 
 **Design Decisions:**
-- **MCP as Source of Truth**: CLI calls MCP tools rather than duplicating logic. This ensures consistency and makes MCP the authoritative interface.
-- **No Business Logic in CLI**: CLI is strictly argument parsing, MCP tool calls, and output formatting. All business logic is in the Python API, called by MCP.
-- **Structured Results**: MCP tools return `MCPResult` objects with structured data, messages, errors, and warnings. CLI consumes and formats these.
-- **Zero Duplication**: Business logic exists only in the Python API. MCP and CLI are thin wrappers.
-- **Testability**: The Python API can be tested independently of MCP or CLI protocols.
-- **Flow**: `CLI → MCP → API` - CLI never calls API directly, MCP never contains business logic
+- **Service Under Command**: Shared logic lives below `cmd_*`, not in CLI, MCP, or REST handlers.
+- **Command Traceability**: Command wrappers remain first-class artifacts with dedicated command tests.
+- **Thin Transports**: CLI, MCP, and REST handle parsing, schema/serialization, and output only.
+- **Zero Duplication**: Business rules exist once in the shared service/core layer.
+- **Flow**:
+  - `CLI -> cmd_* -> services/core`
+  - `MCP -> cmd_* -> services/core`
+  - `REST -> services/core`
 
 ### Error Handling & Logging (Architecture)
 
-**Single Source of Truth**: All errors, warnings, and messages originate in MCP tools (which call the Python API).
-- MCP tools return structured `MCPResult` objects with:
-  - `success`: bool
-  - `data`: dict (actual result data)
-  - `messages`: list of structured messages (error, warning, info, status)
-  - `log`: optional list of log entries for debugging
-- CLI consumes `MCPResult` and formats messages appropriately:
-  - Errors/Warnings/Info → STDERR
-  - Status messages → STDERR
-  - Result data → STDOUT (if success)
-- MCP protocol sends warnings/errors in JSON-RPC response packets
+**Single Source of Truth**: Errors and warnings originate in the shared service/core or command layer.
+- Command wrappers convert those results into `StageResult` for CLI and MCP use.
+- CLI emits progress and warnings/errors to STDERR and data to STDOUT.
+- MCP returns structured JSON packets for tool callers.
+- REST maps typed service failures to explicit HTTP status codes.
 
 ### Design Patterns
 - **Strategy Pattern**: Use for display modes and engine implementations.

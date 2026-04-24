@@ -1,14 +1,11 @@
 """Database API module."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-DatabaseListOutput: type[BaseModel] = _models["DatabaseListOutput"]
-DatabaseShowOutput: type[BaseModel] = _models["DatabaseShowOutput"]
-DatabaseResetOutput: type[BaseModel] = _models["DatabaseResetOutput"]
-DatabasePruneOutput: type[BaseModel] = _models["DatabasePruneOutput"]
+DatabaseListOutput = output_model("DatabaseListOutput", "prefix", "databases")
+DatabaseShowOutput = output_model("DatabaseShowOutput", "database", "query", "limit", "count", "results")
+DatabaseResetOutput = output_model("DatabaseResetOutput", "database", "deleted_count")
+DatabasePruneOutput = output_model("DatabasePruneOutput", "database", "deleted_count", "checked_count")
 
 
 __all__ = [

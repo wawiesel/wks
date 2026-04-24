@@ -1,15 +1,18 @@
 """Vault API module."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-VaultStatusOutput: type[BaseModel] = _models["VaultStatusOutput"]
-VaultSyncOutput: type[BaseModel] = _models["VaultSyncOutput"]
-VaultLinksOutput: type[BaseModel] = _models["VaultLinksOutput"]
-VaultCheckOutput: type[BaseModel] = _models["VaultCheckOutput"]
-VaultRepairOutput: type[BaseModel] = _models["VaultRepairOutput"]
+VaultStatusOutput = output_model("VaultStatusOutput", "database", "total_links", "last_sync", "success")
+VaultSyncOutput = output_model(
+    "VaultSyncOutput", "notes_scanned", "links_written", "links_deleted", "sync_duration_ms", "success"
+)
+VaultLinksOutput = output_model("VaultLinksOutput", "path", "direction", "edges", "count", "success")
+VaultCheckOutput = output_model(
+    "VaultCheckOutput", "path", "notes_checked", "links_checked", "broken_count", "issues", "is_valid", "success"
+)
+VaultRepairOutput = output_model(
+    "VaultRepairOutput", "fixed", "unresolved", "fixed_count", "unresolved_count", "success"
+)
 
 __all__ = [
     "VaultCheckOutput",

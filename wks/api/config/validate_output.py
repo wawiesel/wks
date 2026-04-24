@@ -7,7 +7,7 @@ All fields must always be present (even if empty/null) to ensure consistency.
 from collections.abc import Callable
 from typing import Any
 
-from .schema_registry import schema_registry
+from .output_models import resolve_output_model
 
 
 def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:
@@ -37,19 +37,19 @@ def validate_output(func: Callable, output: dict[str, Any]) -> dict[str, Any]:
 
     command_name = func_name[4:]  # Remove "cmd_" prefix
 
-    schema_class = schema_registry.get_output_schema(domain, command_name)
-    if schema_class is None:
+    output_model_class = resolve_output_model(domain, command_name)
+    if output_model_class is None:
         # No schema registered, skip validation (but warn in development?)
         return output
 
     # Validate and coerce output
     try:
-        validated = schema_class(**output)
+        validated = output_model_class(**output)
         # Use model_dump with mode='python' to get native Python types
         return validated.model_dump(mode="python")
     except Exception as e:
         raise ValueError(
             f"Output validation failed for {domain}.{command_name}: {e}\n"
-            f"Expected schema: {schema_class.model_json_schema()}\n"
+            f"Expected schema: {output_model_class.model_json_schema()}\n"
             f"Got output: {output}"
         ) from e

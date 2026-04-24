@@ -1,10 +1,7 @@
 """Cat API module."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-CatCmdOutput: type[BaseModel] = _models["CatCmdOutput"]
+CatCmdOutput = output_model("CatCmdOutput", "content", "target", "checksum", "output_path")
 
 __all__ = ["CatCmdOutput"]

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.unit.conftest import run_cmd
+from tests.unit.conftest import run_cmd, write_watched_file
 from wks.api.cat.cmd import cmd
 from wks.api.config.URI import URI
 from wks.api.database.Database import Database
@@ -16,11 +16,7 @@ from wks.api.transform.cmd_engine import cmd_engine
 @pytest.mark.cat
 def test_cmd_by_path(wks_home, minimal_config_dict):
     """Test retrieving content by file path (triggers transform)."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "test.txt"
-    test_file.write_text("Hello Cat", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="test.txt", content="Hello Cat")
 
     # cmd by path
     res = run_cmd(cmd, target=str(test_file))
@@ -30,13 +26,29 @@ def test_cmd_by_path(wks_home, minimal_config_dict):
 
 
 @pytest.mark.cat
+def test_cmd_display_messages_include_segmented_full_path(wks_home, minimal_config_dict):
+    """Human-facing cat messages should keep the raw full path and segmented styling metadata."""
+    test_file = write_watched_file(wks_home, name="COR-0017 Code of Record.pdf", content="Hello Cat")
+    expected_target = str(test_file)
+
+    stage = cmd(target=str(test_file))
+
+    assert stage.announce == f"Retrieving content for {expected_target}..."
+    assert stage.announce_segments == (
+        ("Retrieving content for ", None),
+        (expected_target, "magenta"),
+        ("...", None),
+    )
+
+    result = run_cmd(cmd, target=str(test_file))
+
+    assert result.result == "Retrieved content"
+
+
+@pytest.mark.cat
 def test_cmd_by_file_uri(wks_home, minimal_config_dict):
     """Test retrieving content by file URI (search output shape)."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "test-uri.txt"
-    test_file.write_text("Hello URI Cat", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="test-uri.txt", content="Hello URI Cat")
 
     res = run_cmd(cmd, target=str(URI.from_path(test_file)))
     assert res.success is True
@@ -46,11 +58,7 @@ def test_cmd_by_file_uri(wks_home, minimal_config_dict):
 @pytest.mark.cat
 def test_cmd_by_checksum(wks_home, minimal_config_dict):
     """Test retrieving content by checksum (direct lookup)."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "test.txt"
-    test_file.write_text("Checksum Cat", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="test.txt", content="Checksum Cat")
 
     # 1. Transform to get checksum
     res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
@@ -66,13 +74,8 @@ def test_cmd_by_checksum(wks_home, minimal_config_dict):
 @pytest.mark.cat
 def test_cmd_to_output_file(wks_home, minimal_config_dict):
     """Test retrieving content and saving to an output file."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "test.txt"
-    test_file.write_text("Output File Content", encoding="utf-8")
-
-    out_file = watch_dir / "output.md"
+    test_file = write_watched_file(wks_home, name="test.txt", content="Output File Content")
+    out_file = test_file.parent / "output.md"
 
     # cmd with output_path
     res = run_cmd(cmd, target=str(test_file), output_path=out_file)
@@ -101,11 +104,7 @@ def test_cmd_nonexistent_checksum(wks_home):
 @pytest.mark.cat
 def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
     """Test cmd when DB has record but file is missing from disk."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "stale.txt"
-    test_file.write_text("Stale Content", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="stale.txt", content="Stale Content")
 
     # 1. Transform to populate DB and cache
     res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
@@ -133,11 +132,7 @@ def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
 @pytest.mark.cat
 def test_cmd_engine_override(wks_home, minimal_config_dict, monkeypatch):
     """Test retrieving content with an engine override."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "test.txt"
-    test_file.write_text("Engine Override", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="test.txt", content="Engine Override")
 
     # Mock _select_engine to verify it's called with the override
 
@@ -156,11 +151,7 @@ def test_cmd_mime_engine_selection(wks_home, minimal_config_dict):
     config.cat.mime_engines = {"text/plain": "textpass"}
     config.save()
 
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "test.txt"
-    test_file.write_text("Mime Match", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="test.txt", content="Mime Match")
 
     res = run_cmd(cmd, target=str(test_file))
     assert res.success is True

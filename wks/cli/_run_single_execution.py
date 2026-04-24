@@ -36,7 +36,7 @@ def _run_single_execution(
 
     # Stage 1: Announce - display IMMEDIATELY (announce is required, no hedging)
     if show_chrome:
-        display.status(result.announce)
+        display.status(result.announce, segments=result.announce_segments)
 
     # Stage 2: Progress - REQUIRED for all commands
     # progress_callback is a generator that yields (progress_percent, message) tuples

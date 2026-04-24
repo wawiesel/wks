@@ -800,3 +800,174 @@ def test_cmd_engine_pdftext_rejects_non_pdf(tracked_wks_config, tmp_path):
     finally:
         config.transform.engines = original_engines
         config.save()
+
+
+def test_cmd_engine_docling_pdf_falls_back_to_pdftext_for_low_quality_output(tracked_wks_config, tmp_path, monkeypatch):
+    """Low-quality docling PDF output should be recovered by pdftext."""
+    import wks.api.transform._docling._DoclingEngine as docling_module
+
+    test_file = tmp_path / "cor.pdf"
+    test_file.write_bytes(b"%PDF-1.4\nfake\n")
+
+    config = WKSConfig.load()
+    original_engines = config.transform.engines.copy()
+    try:
+        config.transform.engines = {
+            "dx": _EngineConfig(
+                type="docling",
+                data={
+                    "ocr": False,
+                    "ocr_languages": ["eng"],
+                    "image_export_mode": "referenced",
+                    "pipeline": "standard",
+                    "timeout_secs": 30,
+                    "to": "md",
+                },
+                supported_types=[".pdf"],
+            )
+        }
+        config.save()
+
+        def fake_run_docling(self, input_path, output_path, temp_output, options):
+            expected_output = temp_output / f"{input_path.stem}.md"
+            expected_output.write_text("![Image](cor_page_1.png)\n", encoding="utf-8")
+            if False:
+                yield ""
+            return expected_output, []
+
+        def fake_run_pdftext(self, input_path, options):
+            if False:
+                yield ""
+            return "Document ID: COR-0017\nCode of Record\nSystem Physics Advanced Reactor Critical (SPARC)\n"
+
+        monkeypatch.setattr(docling_module._DoclingEngine, "_run_docling", fake_run_docling)
+        monkeypatch.setattr(docling_module._DoclingEngine, "_run_pdftext_fallback", fake_run_pdftext)
+
+        result = run_cmd(
+            cmd_engine,
+            engine="dx",
+            uri=URI.from_path(test_file),
+            overrides={},
+        )
+
+        assert result.success is True
+        assert "COR-0017" in get_content(result.output["checksum"])
+    finally:
+        config.transform.engines = original_engines
+        config.save()
+
+
+def test_cmd_engine_docling_pdf_falls_back_to_pdftext_after_docling_error(tracked_wks_config, tmp_path, monkeypatch):
+    """A docling PDF failure should fall back to pdftext when available."""
+    import wks.api.transform._docling._DoclingEngine as docling_module
+
+    test_file = tmp_path / "fallback.pdf"
+    test_file.write_bytes(b"%PDF-1.4\nfake\n")
+
+    config = WKSConfig.load()
+    original_engines = config.transform.engines.copy()
+    try:
+        config.transform.engines = {
+            "dx": _EngineConfig(
+                type="docling",
+                data={
+                    "ocr": False,
+                    "ocr_languages": ["eng"],
+                    "image_export_mode": "referenced",
+                    "pipeline": "standard",
+                    "timeout_secs": 30,
+                    "to": "md",
+                },
+                supported_types=[".pdf"],
+            )
+        }
+        config.save()
+
+        def fake_run_docling(self, input_path, output_path, temp_output, options):
+            if False:
+                yield ""
+            raise RuntimeError("Docling failed with exit code 1")
+
+        def fake_run_pdftext(self, input_path, options):
+            if False:
+                yield ""
+            return "Recovered text from pdftotext fallback.\n"
+
+        monkeypatch.setattr(docling_module._DoclingEngine, "_run_docling", fake_run_docling)
+        monkeypatch.setattr(docling_module._DoclingEngine, "_run_pdftext_fallback", fake_run_pdftext)
+
+        result = run_cmd(
+            cmd_engine,
+            engine="dx",
+            uri=URI.from_path(test_file),
+            overrides={},
+        )
+
+        assert result.success is True
+        assert "Recovered text from pdftotext fallback." in get_content(result.output["checksum"])
+    finally:
+        config.transform.engines = original_engines
+        config.save()
+
+
+def test_cmd_engine_docling_pdf_falls_back_to_ocr_after_pdftext_garble(tracked_wks_config, tmp_path, monkeypatch):
+    """OCR should recover PDFs when both docling and pdftotext are low-quality."""
+    import wks.api.transform._docling._DoclingEngine as docling_module
+
+    test_file = tmp_path / "nsda.pdf"
+    test_file.write_bytes(b"%PDF-1.4\nfake\n")
+
+    config = WKSConfig.load()
+    original_engines = config.transform.engines.copy()
+    try:
+        config.transform.engines = {
+            "dx": _EngineConfig(
+                type="docling",
+                data={
+                    "ocr": False,
+                    "ocr_languages": ["eng"],
+                    "image_export_mode": "referenced",
+                    "pipeline": "standard",
+                    "timeout_secs": 30,
+                    "to": "md",
+                },
+                supported_types=[".pdf"],
+            )
+        }
+        config.save()
+
+        def fake_run_docling(self, input_path, output_path, temp_output, options):
+            expected_output = temp_output / f"{input_path.stem}.md"
+            expected_output.write_text("012345678ÿÿ\n![Image](nsda_page_1.png)\n", encoding="utf-8")
+            if False:
+                yield ""
+            return expected_output, []
+
+        def fake_run_pdftext(self, input_path, options):
+            if False:
+                yield ""
+            return "012345678ÿÿ\na/b/c/d/e\n"
+
+        def fake_run_ocr(self, input_path, options):
+            if False:
+                yield ""
+            return "Nuclear Safety Design Agreement for the SPARC Facility\nProject No. 52501\n"
+
+        monkeypatch.setattr(docling_module._DoclingEngine, "_run_docling", fake_run_docling)
+        monkeypatch.setattr(docling_module._DoclingEngine, "_run_pdftext_fallback", fake_run_pdftext)
+        monkeypatch.setattr(docling_module._DoclingEngine, "_run_ocr_fallback", fake_run_ocr)
+
+        result = run_cmd(
+            cmd_engine,
+            engine="dx",
+            uri=URI.from_path(test_file),
+            overrides={},
+        )
+
+        assert result.success is True
+        content = get_content(result.output["checksum"])
+        assert "Nuclear Safety Design Agreement" in content
+        assert "Project No. 52501" in content
+    finally:
+        config.transform.engines = original_engines
+        config.save()

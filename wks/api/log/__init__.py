@@ -1,12 +1,18 @@
 """Log module - centralized logging."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-LogPruneOutput: type[BaseModel] = _models["LogPruneOutput"]
-LogStatusOutput: type[BaseModel] = _models["LogStatusOutput"]
+LogPruneOutput = output_model(
+    "LogPruneOutput",
+    "pruned_debug",
+    "pruned_info",
+    "pruned_warnings",
+    "pruned_errors",
+    "message",
+)
+LogStatusOutput = output_model(
+    "LogStatusOutput", "log_path", "size_bytes", "entry_counts", "oldest_entry", "newest_entry"
+)
 
 __all__ = [
     "LogPruneOutput",

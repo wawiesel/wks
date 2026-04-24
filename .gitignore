@@ -56,12 +56,16 @@ env/
 htmlcov/
 coverage.xml
 coverage.json
-!qa/metrics/coverage.json
 *.cover
 .hypothesis/
 .tox/
 .nox/
 tmp/
+
+# Generated repo metrics and traceability outputs
+qa/metrics/*.json
+qa/traceability_audit.html
+docs/traceability/traceability_audit.html
 
 # Mutation testing (mutmut)
 mutants/

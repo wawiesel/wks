@@ -5,20 +5,12 @@ Matches CLI: wksc monitor sync <path> [--recursive], MCP tool: monitor_sync
 """
 
 from collections.abc import Iterator
-from datetime import datetime, timezone
-from pathlib import Path
 
-from wks.api.config.expand_paths import expand_paths
 from wks.api.config.URI import URI
-from wks.api.config.write_status_file import write_status_file
 
 from ..config.StageResult import StageResult
-from ..database.Database import Database
 from . import MonitorSyncOutput
-from ._enforce_monitor_db_limit import _enforce_monitor_db_limit
-from .calculate_priority import calculate_priority
-from .explain_path import explain_path
-from .resolve_remote_uri import resolve_remote_uri
+from ._sync_uri import sync_uri_steps
 
 
 def cmd_sync(
@@ -58,171 +50,20 @@ def cmd_sync(
 
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
         """Do the actual work - generator that yields progress and updates result."""
-        from wks.api.config.file_checksum import file_checksum
-
         from ..config.WKSConfig import WKSConfig
 
         yield (0.1, "Loading configuration...")
         config = WKSConfig.load()
-        monitor_cfg = config.monitor
-
-        # Collection name: 'nodes'
-        database_name = "nodes"
-        wks_home = WKSConfig.get_home_dir()
-
-        yield (0.2, "Resolving path...")
-        try:
-            path_obj = uri.path
-        except ValueError:
-            yield (1.0, "Failed")
-            _build_result(
-                result_obj,
-                success=False,
-                message=f"Only file URIs are supported. Got {uri}",
-                files_synced=0,
-                files_skipped=0,
-                errors=[f"Only file URIs are supported. Got {uri}"],
-            )
-            return
-
-        if not path_obj.exists():
-            yield (0.3, "Path missing; removing from monitor DB...")
-
-            with Database(config.database, database_name) as database:
-                try:
-                    database.delete_many({"local_uri": str(URI.from_path(path_obj))})
-                finally:
-                    pass
-
-            # File deletions are silent - no warning needed
-            yield (1.0, "Complete")
-            _build_result(
-                result_obj,
-                success=True,
-                message=f"Removed {path_obj.name} from monitor DB",
-                errors=[],
-                warnings=[],
-                files_synced=0,
-                files_skipped=0,
-            )
-            return
-
-        yield (0.3, "Collecting files to process...")
-        files_to_process: list[Path] = list(expand_paths(path_obj, recursive=recursive))
-        files_to_process.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-
-        files_synced = 0
-        files_skipped = 0
-        errors: list[str] = []
-        warnings: list[str] = []
-
-        yield (0.4, f"Processing {len(files_to_process)} file(s)...")
-        with Database(config.database, database_name) as database:
-            try:
-                for i, file_path in enumerate(files_to_process):
-                    if not explain_path(monitor_cfg, file_path)[0]:
-                        files_skipped += 1
-                        # Remove stale DB entry if this path was previously indexed
-                        path_uri = str(URI.from_path(file_path))
-                        database.delete_many({"local_uri": path_uri})
-                        yield (
-                            0.4 + (i / max(len(files_to_process), 1)) * 0.5,
-                            f"Skipping excluded file: {file_path.name}...",
-                        )
-                        continue
-
-                    try:
-                        stat = file_path.stat()
-                        checksum = file_checksum(file_path)
-
-                        priority = calculate_priority(
-                            file_path,
-                            monitor_cfg.priority.dirs,
-                            monitor_cfg.priority.weights.model_dump(),
-                        )
-
-                        # Skip files below min_priority
-                        if priority < monitor_cfg.min_priority:
-                            files_skipped += 1
-                            yield (
-                                0.4 + (i / max(len(files_to_process), 1)) * 0.5,
-                                f"Skipping low priority: {file_path.name}...",
-                            )
-                            continue
-
-                        path_uri = str(URI.from_path(file_path))
-
-                        # Use file's last modified time (st_mtime)
-                        timestamp = datetime.fromtimestamp(stat.st_mtime).isoformat()
-
-                        # Resolve remote URI
-                        file_uri = URI.from_path(file_path)
-                        remote_uri_obj = resolve_remote_uri(file_uri, monitor_cfg.remote)
-                        remote_uri = str(remote_uri_obj) if remote_uri_obj else None
-
-                        doc = {
-                            "local_uri": path_uri,
-                            "remote_uri": remote_uri,
-                            "checksum": checksum,
-                            "bytes": stat.st_size,
-                            "priority": priority,
-                            "timestamp": timestamp,
-                        }
-
-                        database.update_one({"local_uri": doc["local_uri"]}, {"$set": doc}, upsert=True)
-                        files_synced += 1
-                        yield (
-                            0.4 + (i / max(len(files_to_process), 1)) * 0.5,
-                            f"Synced: {file_path.name}...",
-                        )
-                    except Exception as exc:
-                        errors.append(f"{file_path}: {exc}")
-                        files_skipped += 1
-                        yield (
-                            0.4 + (i / max(len(files_to_process), 1)) * 0.5,
-                            f"Error: {file_path.name}...",
-                        )
-            finally:
-                yield (0.9, "Enforcing database limits...")
-                _enforce_monitor_db_limit(database, monitor_cfg.max_documents, monitor_cfg.min_priority)
-
-                # Update meta document with last_sync timestamp
-                sync_time = datetime.now(timezone.utc).isoformat()
-                database.update_one(
-                    {"_id": "__meta__"},
-                    {"$set": {"_id": "__meta__", "doc_type": "meta", "last_sync": sync_time}},
-                    upsert=True,
-                )
-
-        success = len(errors) == 0
-        result_msg = (
-            f"Synced {files_synced} file(s), skipped {files_skipped}"
-            if success
-            else f"Synced {files_synced} file(s), skipped {files_skipped}, {len(errors)} error(s)"
-        )
-
-        yield (1.0, "Complete")
-
+        output = yield from sync_uri_steps(config, uri, recursive=recursive, write_status=True)
         _build_result(
             result_obj,
-            success=success,
-            message=result_msg,
-            files_synced=files_synced,
-            files_skipped=files_skipped,
-            errors=errors,
-            warnings=warnings,
+            success=output.success,
+            message=output.message,
+            files_synced=output.files_synced,
+            files_skipped=output.files_skipped,
+            errors=output.errors,
+            warnings=output.warnings,
         )
-
-        # Write status file after sync
-
-        output = {
-            "database": database_name,
-            "last_sync": datetime.now(timezone.utc).isoformat(),
-            "files_synced": files_synced,
-            "files_skipped": files_skipped,
-            "success": success,
-        }
-        write_status_file(output, wks_home=wks_home, filename="monitor.json")
 
     return StageResult(
         announce=f"Syncing {uri}...",

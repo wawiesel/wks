@@ -1,7 +1,8 @@
 """CLI display implementation using Rich library."""
 
 import sys
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, TypeAlias
 
 try:
     from rich.console import Console
@@ -13,12 +14,15 @@ try:
         TextColumn,
         TimeRemainingColumn,
     )
+    from rich.text import Text
 
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
 
 from .Display import Display
+
+StyledSegment: TypeAlias = tuple[str, str | None]
 
 
 class CLIDisplay(Display):
@@ -56,34 +60,66 @@ class CLIDisplay(Display):
         self.stderr_console = Console(file=sys.stderr)
         self._progress_contexts = {}
 
-    def status(self, message: str, **kwargs) -> None:  # noqa: ARG002
+    def _stderr_line(
+        self,
+        *,
+        icon: str,
+        icon_style: str,
+        message: str,
+        segments: Sequence[StyledSegment] = (),
+    ) -> None:
         from datetime import datetime
 
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.stderr_console.print(f"[dim]{timestamp}[/dim] [blue]i[/blue] {message}")
+        if not segments:
+            self.stderr_console.print(
+                f"[dim]{timestamp}[/dim] [{icon_style}]{icon}[/{icon_style}] {message}",
+                soft_wrap=True,
+            )
+            return
 
-    def success(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        from datetime import datetime
+        line = Text()
+        line.append(timestamp, style="dim")
+        line.append(" ")
+        line.append(icon, style=icon_style)
+        line.append(" ")
+        for text, style in segments:
+            if style:
+                line.append(text, style=style)
+            else:
+                line.append(text)
+        self.stderr_console.print(line, soft_wrap=True, highlight=False)
 
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.stderr_console.print(f"[dim]{timestamp}[/dim] [green]✓[/green] {message}")
+    def status(self, message: str, **kwargs) -> None:
+        self._stderr_line(
+            icon="i",
+            icon_style="blue",
+            message=message,
+            segments=kwargs.get("segments", ()),
+        )
+
+    def success(self, message: str, **kwargs) -> None:
+        self._stderr_line(
+            icon="✓",
+            icon_style="green",
+            message=message,
+            segments=kwargs.get("segments", ()),
+        )
 
     def error(self, message: str, **kwargs) -> None:
-        from datetime import datetime
-
-        timestamp = datetime.now().strftime("%H:%M:%S")
         details = kwargs.get("details", "")
+        segments = kwargs.get("segments", ())
         if details:
-            self.stderr_console.print(f"[dim]{timestamp}[/dim] [red]✗[/red] {message}")
-            self.stderr_console.print(f"  [dim]{details}[/dim]")
+            self._stderr_line(icon="✗", icon_style="red", message=message, segments=segments)
+            self.stderr_console.print(f"  [dim]{details}[/dim]", soft_wrap=True)
         else:
-            self.stderr_console.print(f"[dim]{timestamp}[/dim] [red]✗[/red] {message}")
+            self._stderr_line(icon="✗", icon_style="red", message=message, segments=segments)
 
     def warning(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        self.stderr_console.print(f"[yellow]⚠[/yellow] {message}")
+        self.stderr_console.print(f"[yellow]⚠[/yellow] {message}", soft_wrap=True)
 
     def info(self, message: str, **kwargs) -> None:  # noqa: ARG002
-        self.stderr_console.print(message)
+        self.stderr_console.print(message, soft_wrap=True)
 
     def progress_start(self, total: int, description: str = "", **kwargs) -> Any:  # noqa: ARG002
         progress = Progress(

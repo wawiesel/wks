@@ -23,42 +23,47 @@ The WKS project employs a layered testing strategy designed to provide thorough 
 
 ### Unit Tests (`tests/unit/`)
 
-**Purpose**: Unit tests are focused exclusively on verifying the correctness of the **API layer** (`wks/api/*`). They test individual API functions, classes, and private helpers in isolation. The primary goal is to ensure that the core business logic, data models, and domain-specific operations (e.g., monitor priority calculation, database interactions via API) function as expected according to their specifications.
+**Purpose**: Unit tests verify the correctness of the shared execution layers:
+- the **service/core layer** (`wks/services/*`) for deep business-logic coverage
+- the **command layer** (`wks/api/*/cmd*.py`) for per-command contract coverage
 
 **Principles**:
--   **PUTT PUTT Rule**: Every public function or class within `wks/api/*` must have **100% unit test coverage**. No exceptions.
+-   **PUTT PUTT Rule**: Every public function or class within `wks/services/*` and `wks/api/*` must have **100% unit test coverage**. No exceptions.
 -   **UMP Rule**: Private modules (`_*.py` files, functions, or classes) are not tested directly. Their coverage is achieved implicitly by exercising the public API functions that utilize them.
--   **Isolation**: Mocks are extensively used to isolate the API layer from external dependencies (e.g., file system, database connections, CLI/MCP layers). This ensures that API tests are fast, reliable, and pinpoint failures accurately.
--   **Naming Convention**: `test_wks_api_<domain>_<module>.py` (e.g., `test_wks_api_monitor_cmd_status.py`).
+-   **Isolation**: Mocks are used to isolate the shared service/core and command layers from external dependencies where appropriate.
+-   **Naming Convention**:
+    - `test_wks_service_<domain>.py` for shared service/core logic
+    - `test_wks_api_<domain>_<module>.py` for command wrappers
 
 ### Integration Tests (`tests/integration/`)
 
 **Purpose**: Integration tests verify the functionality and interaction of **cross-module components** and **external systems**. This includes:
 - **CLI Logic**: Testing `Typer` commands and argument resolution (`test_wks_cli_<domain>.py`).
 - **MCP Layer**: Verifying tool registration and JSON-RPC handling.
+- **REST Layer**: Verifying HTTP routing and status mapping over the shared services.
 - **System Ops**: Testing service installation and OS interactions.
 
 **Principles**:
--   **Wiring Focus**: Verify that layers connect correctly (CLI -> API, MCP -> API).
+-   **Wiring Focus**: Verify that layers connect correctly (CLI -> command, MCP -> command, REST -> service).
 -   **Execution**: Use `TyperRunner` for CLI, or direct component instantiation.
 -   **Real & Validated**: Use real configurations and validation logic.
 -   **Naming**: `test_wks_cli_<domain>.py`, `test_mcp_<domain>.py`.
 
 ### Smoke Tests (`tests/smoke/`)
 
-**Purpose**: Smoke tests verify that the **`wksc` binary** is installed and executable by a user. They provide an end-to-end "smoke check" of the deployed application.
+**Purpose**: Smoke tests verify that installed entry points are executable by a user. They provide an end-to-end "smoke check" of the deployed application.
 
 **Principles**:
--   **Binary Execution**: Invoke `wksc` via subprocesses. `wksc` must be in PATH or venv.
+-   **Binary Execution**: Invoke installed entry points such as `wksc`, `wksm`, and `wksr` via subprocesses.
 -   **User Perspective**: Test arguments, exit codes, and standard I/O as a user sees them.
 -   **End-to-End**: No internal mocking if possible; rely on the actual installed environment (or simulated home dir).
 -   **Naming Convention**: `test_wksc_<domain>.py`.
 
 ## Running Tests
 
--   To run all unit tests for the API layer: `pytest tests/unit/`
--   To run all integration tests for the MCP layer: `pytest tests/integration/`
--   To run all smoke tests for the CLI layer: `pytest tests/smoke/`
+-   To run all unit tests for the service/core and command layers: `pytest tests/unit/`
+-   To run all integration tests for the transport layers: `pytest tests/integration/`
+-   To run all smoke tests for installed entry points: `pytest tests/smoke/`
 -   To run all tests: `pytest`
 -   To check coverage for the API layer (unit tests): `pytest --cov=wks/api tests/unit/`
 -   To check coverage for the MCP layer (integration tests): `pytest --cov=wks/mcp tests/integration/`

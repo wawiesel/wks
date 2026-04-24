@@ -1,16 +1,13 @@
 """Service module - service management and installation."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-ServiceClearOutput: type[BaseModel] = _models["ServiceClearOutput"]
-ServiceStatusOutput: type[BaseModel] = _models["ServiceStatusOutput"]
-ServiceStartOutput: type[BaseModel] = _models["ServiceStartOutput"]
-ServiceStopOutput: type[BaseModel] = _models["ServiceStopOutput"]
-ServiceInstallOutput: type[BaseModel] = _models["ServiceInstallOutput"]
-ServiceUninstallOutput: type[BaseModel] = _models["ServiceUninstallOutput"]
+ServiceClearOutput = output_model("ServiceClearOutput", "cleared", "message")
+ServiceStatusOutput = output_model("ServiceStatusOutput", "running", "installed", "pid", "log_path")
+ServiceStartOutput = output_model("ServiceStartOutput", "running", "message")
+ServiceStopOutput = output_model("ServiceStopOutput", "stopped", "message")
+ServiceInstallOutput = output_model("ServiceInstallOutput", "installed", "message")
+ServiceUninstallOutput = output_model("ServiceUninstallOutput", "uninstalled", "message")
 
 __all__ = [
     "ServiceClearOutput",

@@ -72,7 +72,9 @@ Engines are declared in `config.json`, and one named engine is selected as the d
           "image_export_mode": "referenced",
           "pipeline": "standard",
           "timeout_secs": 30,
-          "to": "md"
+          "to": "md",
+          "fallback_pdftext": true,
+          "fallback_ocr": true
         },
         "supported_types": [".pdf", ".docx", ".pptx", ".xlsx", ".doc", ".ppt", ".xls"]
       },
@@ -130,6 +132,29 @@ passed directly on the CLI or through config.
 - `route` does not define `supported_types`:
   - route policy is `order` + `passthrough_text` + `reject_binary`
   - ordered engines own their own type filtering
+
+### Docling PDF Recovery
+
+For PDF inputs, the `docling` engine now supports a recovery chain when Docling fails
+or produces clearly unusable text:
+
+1. try Docling normally
+2. if the extracted markdown is low-quality, try the built-in `pdftext` fallback
+3. if `pdftext` is also unusable, try an OCR fallback using `pdftoppm` + `tesseract`
+
+This keeps the configured engine surface stable while handling the two common failure modes:
+- PDFs with a normal text layer that Docling mishandles
+- PDFs with a broken custom text layer that need OCR
+
+Relevant `docling` data options:
+- `fallback_pdftext` (default `true`)
+- `fallback_ocr` (default `true`)
+- `quality_min_visible_chars`
+- `quality_min_word_count`
+- `quality_min_alpha_ratio`
+- `quality_max_bad_char_ratio`
+- `ocr_fallback_dpi`
+- `ocr_fallback_psm`
 
 ### Tree-sitter Engine Options
 

@@ -24,23 +24,36 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 README_PATH = REPO_ROOT / "README.md"
 
 
+def _required_metrics_files(metrics_dir: Path) -> list[Path]:
+    """Return the required generated metrics files for README stats updates."""
+    return [
+        metrics_dir / "mutations.json",
+        metrics_dir / "coverage.json",
+        metrics_dir / "tokens.json",
+        metrics_dir / "ci.json",
+    ]
+
+
 def _load_stats_json() -> dict:
     """Load stats from split JSON files and aggregate."""
     metrics_dir = REPO_ROOT / "qa" / "metrics"
+    required_files = _required_metrics_files(metrics_dir)
+    missing_files = [path for path in required_files if not path.exists()]
 
-    try:
-        mutations = json.loads((metrics_dir / "mutations.json").read_text())
-        coverage = json.loads((metrics_dir / "coverage.json").read_text())
-        loc_stats = json.loads((metrics_dir / "tokens.json").read_text())
-        ci_stats = json.loads((metrics_dir / "ci.json").read_text())
+    if missing_files:
+        missing_display = ", ".join(str(path.relative_to(REPO_ROOT)) for path in missing_files)
+        print(f"Skipping README statistics update; missing generated metrics: {missing_display}")
+        return {}
 
-        traceability = {}
-        traceability_file = metrics_dir / "traceability.json"
-        if traceability_file.exists():
-            traceability = json.loads(traceability_file.read_text())
-    except FileNotFoundError as e:
-        print(f"Error: metrics files not found in {metrics_dir}: {e}", file=sys.stderr)
-        sys.exit(1)
+    mutations = json.loads((metrics_dir / "mutations.json").read_text())
+    coverage = json.loads((metrics_dir / "coverage.json").read_text())
+    loc_stats = json.loads((metrics_dir / "tokens.json").read_text())
+    ci_stats = json.loads((metrics_dir / "ci.json").read_text())
+
+    traceability = {}
+    traceability_file = metrics_dir / "traceability.json"
+    if traceability_file.exists():
+        traceability = json.loads(traceability_file.read_text())
 
     # Reconstruct domain_stats
     domain_stats = {}
@@ -129,6 +142,8 @@ def main() -> None:
     parser.parse_args()
 
     stats = _load_stats_json()
+    if not stats:
+        return
     _update_readme_from_stats(stats)
 
 

@@ -6,25 +6,14 @@ from wks.api.database.cmd_list import cmd_list
 from wks.api.database.cmd_prune import cmd_prune
 from wks.api.database.cmd_reset import cmd_reset
 from wks.api.database.cmd_show import cmd_show
+from wks.cli._app_factory import build_typer_app, require_subcommand
 from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def database() -> typer.Typer:
     """Create and configure the database Typer app."""
-    app = typer.Typer(
-        name="database",
-        help="Database operations",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @app.callback(invoke_without_command=True)
-    def callback(ctx: typer.Context) -> None:
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    app = build_typer_app(name="database", help_text="Database operations")
+    require_subcommand(app)
 
     @app.command(name="list")
     def list_cmd() -> None:

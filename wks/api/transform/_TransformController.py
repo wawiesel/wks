@@ -1,5 +1,6 @@
 """Transform controller with business logic."""
 
+import contextlib
 import hashlib
 import re
 from collections.abc import Generator
@@ -155,9 +156,67 @@ class _TransformController:
             cache_file = self.cache_manager.cache_dir / f"{cache_key}.{extension}"
 
             if cache_file.exists():
+                if self._cached_transform_has_missing_local_refs(cache_file, record):
+                    self._prune_stale_cached_transform(cache_file, record)
+                    continue
                 return record
 
         return None
+
+    def _cached_transform_has_missing_local_refs(self, cache_file: Path, record: _TransformRecord) -> bool:
+        """Return whether a cached transform points at missing local artifacts."""
+        if record.referenced_uris:
+            return any(uri.is_file and not uri.path.exists() for uri in record.referenced_uris)
+
+        if cache_file.suffix != ".md":
+            return False
+
+        content = cache_file.read_text(encoding="utf-8", errors="replace")
+        destinations = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", content)
+        for destination in destinations:
+            local_path = self._resolve_local_markdown_destination(cache_file, destination)
+            if local_path is not None and not local_path.exists():
+                return True
+        return False
+
+    def _resolve_local_markdown_destination(self, cache_file: Path, destination: str) -> Path | None:
+        """Resolve a markdown image destination to a local path when possible."""
+        cleaned = destination.strip()
+        if cleaned.startswith("<") and cleaned.endswith(">"):
+            cleaned = cleaned[1:-1].strip()
+
+        if cleaned.startswith(("http://", "https://", "data:", "vault://")):
+            return None
+
+        if "://" in cleaned:
+            uri = URI(cleaned)
+            return uri.path if uri.is_file else None
+
+        path = Path(cleaned)
+        return path if path.is_absolute() else cache_file.parent / path
+
+    def _prune_stale_cached_transform(self, cache_file: Path, record: _TransformRecord) -> None:
+        """Delete a cached transform whose local artifact references are stale."""
+        if cache_file.exists():
+            self.cache_manager.remove_file(cache_file.stat().st_size)
+            cache_file.unlink()
+
+        for uri in record.referenced_uris:
+            if not uri.is_file:
+                continue
+            artifact_path = uri.path
+            if artifact_path.exists():
+                artifact_path.unlink()
+                with contextlib.suppress(OSError):
+                    artifact_path.parent.rmdir()
+
+        self.db.delete_one(
+            {
+                "checksum": record.checksum,
+                "engine": record.engine,
+                "options_hash": record.options_hash,
+            }
+        )
 
     def _update_last_accessed(self, file_checksum: str, engine_name: str, options_hash: str) -> None:
         """Update last_accessed timestamp for cache entry.

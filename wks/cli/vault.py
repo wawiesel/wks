@@ -8,26 +8,15 @@ from rich import print
 from wks.api.vault.cmd_links import cmd_links
 from wks.api.vault.cmd_status import cmd_status
 from wks.api.vault.cmd_sync import cmd_sync
+from wks.cli._app_factory import build_typer_app, require_subcommand
 from wks.cli._handle_stage_result import _handle_stage_result
 from wks.cli._resolve_uri_arg import _resolve_uri_arg
 
 
 def vault() -> typer.Typer:
     """Create and configure the vault Typer app."""
-    app = typer.Typer(
-        name="vault",
-        help="Vault operations",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @app.callback(invoke_without_command=True)
-    def callback(ctx: typer.Context) -> None:
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    app = build_typer_app(name="vault", help_text="Vault operations")
+    require_subcommand(app)
 
     @app.command(name="status")
     def status_cmd() -> None:

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from wks.api.config.WKSConfig import WKSConfig
+from tests.conftest import build_service_test_config
 from wks.api.service.Service import Service
 
 
@@ -89,77 +89,11 @@ def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
     wks_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
 
-    # Create minimal config with Linux service backend
-    config_dict = {
-        "monitor": {
-            "filter": {
-                "include_paths": [str(tmp_path / "cache")],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-            },
-            "priority": {
-                "dirs": {},
-                "weights": {
-                    "depth_multiplier": 0.9,
-                    "underscore_multiplier": 0.5,
-                    "only_underscore_multiplier": 0.1,
-                    "extension_weights": {},
-                },
-            },
-            "max_documents": 1000000,
-            "min_priority": 0.0,
-            "remote": {
-                "mappings": [],
-            },
-        },
-        "vault": {
-            "type": "obsidian",
-            "base_dir": "~/_vault",
-        },
-        "database": {
-            "type": "mongomock",
-            "prefix": "wks",
-            "data": {},
-        },
-        "service": {
-            "type": "linux",
-            "data": {
-                "unit_name": "wks-test-integration.service",
-                "enabled": False,
-            },
-        },
-        "daemon": {
-            "sync_interval_secs": 0.1,
-        },
-        "log": {
-            "level": "INFO",
-            "debug_retention_days": 0.5,
-            "info_retention_days": 1.0,
-            "warning_retention_days": 2.0,
-            "error_retention_days": 7.0,
-        },
-        "transform": {
-            "cache": {
-                "base_dir": str(tmp_path / "cache"),
-                "max_size_bytes": 1073741824,
-            },
-            "default_engine": "textpass",
-            "engines": {
-                "textpass": {
-                    "type": "textpass",
-                    "data": {},
-                },
-            },
-        },
-        "cat": {
-            "default_engine": "cat",
-        },
-    }
-
-    config = WKSConfig.model_validate(config_dict)
+    config = build_service_test_config(
+        tmp_path,
+        service_type="linux",
+        service_data={"unit_name": "wks-test-integration.service", "enabled": False},
+    )
     config.save()
 
     # Initialize service

@@ -10,20 +10,26 @@ import pytest
 # Re-export the moved TrackedConfig helpers from root conftest to maintain compatibility
 from tests.conftest import (
     TrackedConfig,
+    build_service_test_config,
     create_tracked_wks_config,
+    ensure_watch_dir,
     minimal_config_dict,
     minimal_wks_config,
     run_cmd,
     tracked_wks_config,
+    write_watched_file,
 )
 
 __all__ = [
     "TrackedConfig",
+    "build_service_test_config",
     "create_tracked_wks_config",
+    "ensure_watch_dir",
     "minimal_config_dict",
     "minimal_wks_config",
     "run_cmd",
     "tracked_wks_config",
+    "write_watched_file",
 ]
 
 

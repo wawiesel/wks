@@ -11,27 +11,15 @@ from wks.api.monitor.cmd_priority_remove import cmd_priority_remove
 from wks.api.monitor.cmd_priority_show import cmd_priority_show
 from wks.api.monitor.cmd_status import cmd_status
 from wks.api.monitor.cmd_sync import cmd_sync
+from wks.cli._app_factory import build_typer_app, require_subcommand
 from wks.cli._handle_stage_result import _handle_stage_result
 from wks.cli._resolve_uri_arg import _resolve_uri_arg
 
 
 def monitor() -> typer.Typer:
     """Create and configure the monitor Typer app."""
-    app = typer.Typer(
-        name="monitor",
-        help="Monitor operations",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @app.callback(invoke_without_command=True)
-    def callback(ctx: typer.Context) -> None:
-        """Monitor operations - shows available commands."""
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    app = build_typer_app(name="monitor", help_text="Monitor operations")
+    require_subcommand(app)
 
     @app.command(name="status")
     def status_cmd() -> None:
@@ -54,21 +42,8 @@ def monitor() -> typer.Typer:
         _handle_stage_result(cmd_sync)(uri, recursive)
 
     # Sub-app for filter commands
-    filter_app = typer.Typer(
-        name="filter",
-        help="Manage include/exclude rules",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @filter_app.callback(invoke_without_command=True)
-    def filter_callback(ctx: typer.Context) -> None:
-        """Filter operations - shows available commands."""
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    filter_app = build_typer_app(name="filter", help_text="Manage include/exclude rules")
+    require_subcommand(filter_app)
 
     @filter_app.command(name="show")
     def filter_show_cmd(
@@ -94,21 +69,8 @@ def monitor() -> typer.Typer:
         _handle_stage_result(cmd_filter_remove)(list_name, value)
 
     # Sub-app for priority commands
-    priority_app = typer.Typer(
-        name="priority",
-        help="Manage priority directories",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @priority_app.callback(invoke_without_command=True)
-    def priority_callback(ctx: typer.Context) -> None:
-        """Priority operations - shows available commands."""
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    priority_app = build_typer_app(name="priority", help_text="Manage priority directories")
+    require_subcommand(priority_app)
 
     @priority_app.command(name="show")
     def priority_show_cmd() -> None:

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from contextlib import suppress
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -315,6 +316,41 @@ def run_cmd(cmd_func, *args, **kwargs):
     result = cmd_func(*args, **kwargs)
     list(result.progress_callback(result))
     return result
+
+
+def ensure_watch_dir(wks_home: Path) -> Path:
+    """Return the standard watched directory for a WKS home, creating it if needed."""
+    watch_dir = Path(wks_home).parent / "watched"
+    watch_dir.mkdir(parents=True, exist_ok=True)
+    return watch_dir
+
+
+def write_watched_file(wks_home: Path, *, name: str, content: str) -> Path:
+    """Create a test file in the standard watched directory."""
+    test_file = ensure_watch_dir(wks_home) / name
+    test_file.write_text(content, encoding="utf-8")
+    return test_file
+
+
+def build_service_test_config(
+    tmp_path: Path,
+    *,
+    service_type: str,
+    service_data: dict[str, Any],
+    database_overrides: dict[str, Any] | None = None,
+    log_overrides: dict[str, Any] | None = None,
+) -> WKSConfig:
+    """Build a minimal service test config with isolated cache paths."""
+    config_dict = copy.deepcopy(minimal_config_dict())
+    cache_dir = tmp_path / "cache"
+    config_dict["monitor"]["filter"]["include_paths"] = [str(cache_dir)]
+    config_dict["transform"]["cache"]["base_dir"] = str(cache_dir)
+    config_dict["service"] = {"type": service_type, "data": service_data}
+    if database_overrides:
+        config_dict["database"].update(copy.deepcopy(database_overrides))
+    if log_overrides:
+        config_dict["log"].update(copy.deepcopy(log_overrides))
+    return WKSConfig.model_validate(config_dict)
 
 
 # =============================================================================

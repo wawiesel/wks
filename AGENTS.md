@@ -42,7 +42,7 @@ If you are an AI agent doing coding, here is some help for you. For **all contri
         *   Integration tests: `./scripts/test_integration.py`
     *   For detailed testing procedures and troubleshooting, see [CONTRIBUTING.md](CONTRIBUTING.md#testing). For Docker CI info, see [docker/README.md](docker/README.md).
 *   Eliminate unnecessary features and legacy code wherever possible—remove complexity, redundant state, backward compatibility, and unused paths.
-*   Support **only CLI and MCP** interfaces; drop all other modes.
+*   Support the shared internal Python service/core API plus thin **CLI**, **MCP**, and justified read-only **REST** surfaces. Do not duplicate business logic across transports.
 *   Consolidate configuration to minimal, essential parameters.
 *   Centralize configuration access through **dataclasses** instead of dictionaries. Validate strictly on load (`__post_init__`) and fail immediately if expected data or formats are missing.
 *   Remove fallback logic (“hedging”); no silent defaults or implicit substitutions.

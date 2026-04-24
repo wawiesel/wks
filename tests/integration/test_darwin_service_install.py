@@ -10,12 +10,13 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 from contextlib import suppress
 from pathlib import Path
 
 import pytest
 
-from wks.api.config.WKSConfig import WKSConfig
+from tests.conftest import build_service_test_config, run_cmd
 
 
 def _check_launchctl_available() -> bool:
@@ -77,79 +78,17 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     wks_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("WKS_HOME", str(wks_home))
 
-    # Create minimal config with macOS service backend
-    config_dict = {
-        "monitor": {
-            "filter": {
-                "include_paths": [str(tmp_path / "cache")],
-                "exclude_paths": [],
-                "include_dirnames": [],
-                "exclude_dirnames": [],
-                "include_globs": [],
-                "exclude_globs": [],
-            },
-            "priority": {
-                "dirs": {},
-                "weights": {
-                    "depth_multiplier": 0.9,
-                    "underscore_multiplier": 0.5,
-                    "only_underscore_multiplier": 0.1,
-                    "extension_weights": {},
-                },
-            },
-            "max_documents": 1000000,
-            "min_priority": 0.0,
-            "remote": {
-                "mappings": [],
-            },
-        },
-        "vault": {
-            "type": "obsidian",
-            "base_dir": "~/_vault",
-        },
-        "database": {
-            "type": "mongomock",
-            "prefix": "wks",
-            "prune_frequency_secs": 3600,
-            "data": {},
-        },
-        "service": {
-            "type": "darwin",
-            "data": {
-                "label": "com.test.wks.integration",
-                "keep_alive": False,
-                "run_at_load": False,
-            },
-        },
-        "daemon": {
-            "sync_interval_secs": 0.1,
-        },
-        "log": {
-            "level": "INFO",
+    config = build_service_test_config(
+        tmp_path,
+        service_type="darwin",
+        service_data={"label": "com.test.wks.integration", "keep_alive": False, "run_at_load": False},
+        log_overrides={
             "debug_retention_days": 1.0,
             "info_retention_days": 1.0,
             "warning_retention_days": 1.0,
             "error_retention_days": 1.0,
         },
-        "transform": {
-            "cache": {
-                "base_dir": str(tmp_path / "cache"),
-                "max_size_bytes": 1073741824,
-            },
-            "default_engine": "textpass",
-            "engines": {
-                "textpass": {
-                    "type": "textpass",
-                    "data": {},
-                },
-            },
-        },
-        "cat": {
-            "default_engine": "cat",
-        },
-    }
-
-    config = WKSConfig.model_validate(config_dict)
+    )
     config.save()
 
     # Get expected plist path
@@ -170,8 +109,6 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
 
     # Ensure wksc is available in PATH for the service installation
     # The service needs to find wksc command
-    import sys
-
     venv_bin = Path(sys.executable).parent
     if str(venv_bin) not in os.environ.get("PATH", ""):
         monkeypatch.setenv("PATH", f"{venv_bin}:{os.environ.get('PATH', '')}")
@@ -181,7 +118,6 @@ def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
     if not wksc_path:
         pytest.skip("wksc command not found in PATH - install package with 'pip install -e .'")
 
-    from tests.conftest import run_cmd
     from wks.api.service.cmd_install import cmd_install
     from wks.api.service.cmd_start import cmd_start
     from wks.api.service.cmd_status import cmd_status

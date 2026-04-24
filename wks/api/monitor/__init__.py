@@ -1,19 +1,35 @@
 """Monitor API module."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-MonitorCheckOutput: type[BaseModel] = _models["MonitorCheckOutput"]
-MonitorSyncOutput: type[BaseModel] = _models["MonitorSyncOutput"]
-MonitorStatusOutput: type[BaseModel] = _models["MonitorStatusOutput"]
-MonitorFilterAddOutput: type[BaseModel] = _models["MonitorFilterAddOutput"]
-MonitorFilterRemoveOutput: type[BaseModel] = _models["MonitorFilterRemoveOutput"]
-MonitorFilterShowOutput: type[BaseModel] = _models["MonitorFilterShowOutput"]
-MonitorPriorityAddOutput: type[BaseModel] = _models["MonitorPriorityAddOutput"]
-MonitorPriorityRemoveOutput: type[BaseModel] = _models["MonitorPriorityRemoveOutput"]
-MonitorPriorityShowOutput: type[BaseModel] = _models["MonitorPriorityShowOutput"]
+MonitorCheckOutput = output_model(
+    "MonitorCheckOutput", "path", "is_monitored", "reason", "priority", "decisions", "success"
+)
+MonitorSyncOutput = output_model("MonitorSyncOutput", "message", "files_synced", "files_skipped", "success")
+MonitorStatusOutput = output_model(
+    "MonitorStatusOutput", "database", "tracked_files", "issues", "time_based_counts", "last_sync", "success"
+)
+MonitorFilterAddOutput = output_model(
+    "MonitorFilterAddOutput", "message", "value_stored", "already_exists", "validation_failed", "success"
+)
+MonitorFilterRemoveOutput = output_model(
+    "MonitorFilterRemoveOutput", "message", "value_removed", "not_found", "success"
+)
+MonitorFilterShowOutput = output_model("MonitorFilterShowOutput", "list_name", "available_lists", "items", "count")
+MonitorPriorityAddOutput = output_model(
+    "MonitorPriorityAddOutput",
+    "message",
+    "path_stored",
+    "new_priority",
+    "old_priority",
+    "created",
+    "already_exists",
+    "success",
+)
+MonitorPriorityRemoveOutput = output_model(
+    "MonitorPriorityRemoveOutput", "message", "path_removed", "priority", "not_found", "success"
+)
+MonitorPriorityShowOutput = output_model("MonitorPriorityShowOutput", "priority_directories", "count", "validation")
 
 __all__ = [
     "MonitorCheckOutput",

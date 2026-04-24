@@ -1,10 +1,9 @@
 """Similar API module."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-SimilarOutput: type[BaseModel] = _models["SimilarOutput"]
+SimilarOutput = output_model(
+    "SimilarOutput", "query_uri", "index_name", "embedding_model", "query_chunk_count", "candidate_count", "hits"
+)
 
 __all__ = ["SimilarOutput"]

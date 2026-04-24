@@ -1,8 +1,9 @@
 """Search API module."""
 
-from ..config.schema_loader import SchemaLoader
+from wks.api.config.output_models import output_model
 
-_models = SchemaLoader.register_from_package(__package__)
-SearchOutput = _models["SearchOutput"]
+SearchOutput = output_model(
+    "SearchOutput", "query", "index_name", "search_mode", "embedding_model", "hits", "total_chunks"
+)
 
 __all__ = ["SearchOutput"]

@@ -199,11 +199,11 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
-          if [ -n "$(git status --porcelain qa/metrics README.md qa/traceability_audit.html)" ]; then
+          if [ -n "$(git status --porcelain README.md)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "::notice::Statistics have been updated by CI"
             echo "::group::Statistics diff"
-            git diff qa/metrics README.md qa/traceability_audit.html
+            git diff README.md
             echo "::endgroup::"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -214,7 +214,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: update stats and traceability [skip ci]"
-          file_pattern: "qa/metrics/*.json README.md qa/traceability_audit.html"
+          file_pattern: "README.md"
           skip_dirty_check: true
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"

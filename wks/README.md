@@ -1,73 +1,62 @@
 # WKS Python Package
 
-Developer entry point for the core layers used by MCP and CLI. Business logic lives in controllers under each subpackage; keep the CLI and MCP thin. See qa/specs/wks.md for scope (index/search/patterns are future work).
+Developer entry point for WKS shared services, command wrappers, and thin transports.
 
 ## Directory Structure
 
-The `wks` package contains exactly 3 top-level directories:
+The main execution layers under `wks/` are:
 
-- **`api/`** - Domain-specific API modules (config, db, monitor, etc.) following the 4-stage pattern. Shared utilities used by multiple domains are in `api/config/`.
-- **`cli/`** - CLI routing layer that delegates to domain apps. Display utilities are in `cli/display/`.
-- **`mcp/`** - MCP (Model Context Protocol) server implementation
+- `services/` - shared typed service/core logic and the `WKSService` Python facade
+- `api/` - domain-specific command wrappers returning `StageResult`
+- `cli/` - CLI routing layer that delegates to command wrappers
+- `mcp/` - MCP server implementation that delegates to command wrappers
+- `rest/` - read-only REST transport over the shared service layer
 
-## Architecture: API-First Design
+## Architecture
 
-WKS follows a strict **API-First Design** principle where all business logic lives in the `api/` layer, and both CLI and MCP are thin wrappers that call the same API functions.
+WKS follows a service-under-command design:
+
+- shared logic lives in `wks/services/`
+- command contracts live in `wks/api/*/cmd*.py`
+- CLI and MCP stay thin by calling command wrappers
+- REST stays thin by calling the shared services directly
 
 ### Layer Responsibilities
 
-**API Layer (`wks/api/`)**
-- Contains **only business logic** - pure functions that return `StageResult` objects
-- Zero CLI or MCP-specific code (no printing, no protocol handling)
-- Functions are the single source of truth for execution
-- Example: `wks/api/monitor/cmd_check.py` → `cmd_check(path: str) -> StageResult`
+**Service Layer (`wks/services/`)**
+- Contains typed request/response models and shared business logic
+- No `StageResult`, no transport formatting, no protocol envelopes
+- Example: `wks/services/search.py`
+
+**Command Layer (`wks/api/`)**
+- Wraps shared services into `StageResult`
+- Preserves one-command-per-file traceability
+- Example: `wks/api/search/cmd.py`
 
 **CLI Layer (`wks/cli/`)**
-- Thin Typer apps that wrap API functions
-- Handles argument parsing, validation, and display formatting
-- Calls API functions via `handle_stage_result()` wrapper
-- Example: `wks/cli/monitor.py` → `check_command(ctx, path: str | None) -> None`
+- Thin Typer apps that wrap command functions
+- Handles argument parsing and display formatting
 
 **MCP Layer (`wks/mcp/`)**
-- JSON-RPC server that exposes API functions as MCP tools
-- Uses Typer introspection for tool schemas (ensures CLI/MCP synchronization)
-- Calls API functions directly for execution
-- Example: `wksm_monitor_check` tool → calls `cmd_check()` directly
+- JSON-RPC server that exposes command functions as tools
+- Generates tool schemas from command signatures
 
-### Why MCP Uses Typer for Schemas
-
-MCP attaches to the CLI layer (via Typer) for schema generation, not directly to the API. This ensures **CLI and MCP stay synchronized**:
-
-1. **Single Source of Truth**: Typer command definitions are the authoritative schema for user-facing interfaces (CLI and MCP)
-2. **Automatic Synchronization**: If CLI command changes, MCP automatically picks it up via Typer introspection
-3. **Rich Metadata**: Typer provides help text, argument/option distinctions, and validation rules that API function signatures don't have
-4. **Execution Still Direct**: MCP calls API functions directly for execution, ensuring business logic is shared
-
-**Trade-off**: MCP has a dependency on CLI, but this is acceptable because:
-- CLI must match API function signatures (or it breaks at runtime)
-- Typer is the source of truth for user-facing interfaces
-- The dependency ensures synchronization between CLI and MCP
+**REST Layer (`wks/rest/`)**
+- Read-only FastAPI app over shared service functions
+- Maps typed service failures to HTTP status codes
 
 ### Example Flow
 
-```
-User: wksc monitor check /path/to/file
-  ↓
-CLI: check_command(ctx, path="/path/to/file")
-  ↓
-CLI: handle_stage_result(cmd_check)("/path/to/file")
-  ↓
-API: cmd_check(path="/path/to/file") -> StageResult
-  ↓
-CLI: Display StageResult via display layer
+```text
+CLI: wksc search reactor
+  -> wks/api/search/cmd.py
+  -> wks/services/search.py
 
-MCP: wksm_monitor_check({"path": "/path/to/file"})
-  ↓
-MCP: Schema from Typer introspection (check_command signature)
-  ↓
-MCP: Calls cmd_check(path="/path/to/file") directly
-  ↓
-MCP: Returns StageResult as JSON-RPC response
-```
+MCP: search({"query": "reactor"})
+  -> wks/api/search/cmd.py
+  -> wks/services/search.py
 
-Both CLI and MCP call the same API function (`cmd_check`), ensuring identical behavior. MCP uses Typer for schemas to stay synchronized with CLI's user-facing interface.
+REST: GET /search?query=reactor
+  -> wks/rest/server.py
+  -> wks/services/search.py
+```

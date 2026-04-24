@@ -1,14 +1,13 @@
 """Daemon module - filesystem watcher runtime."""
 
-from pydantic import BaseModel
+from wks.api.config.output_models import output_model
 
-from ..config.schema_loader import SchemaLoader
-
-_models = SchemaLoader.register_from_package(__package__)
-DaemonStatusOutput: type[BaseModel] = _models["DaemonStatusOutput"]
-DaemonStartOutput: type[BaseModel] = _models["DaemonStartOutput"]
-DaemonStopOutput: type[BaseModel] = _models["DaemonStopOutput"]
-DaemonClearOutput: type[BaseModel] = _models["DaemonClearOutput"]
+DaemonStatusOutput = output_model(
+    "DaemonStatusOutput", "running", "pid", "restrict_dir", "log_path", "last_sync", "lock_path"
+)
+DaemonStartOutput = output_model("DaemonStartOutput", "message", "running")
+DaemonStopOutput = output_model("DaemonStopOutput", "message", "stopped")
+DaemonClearOutput = output_model("DaemonClearOutput", "cleared", "message")
 
 
 __all__ = [

@@ -8,26 +8,14 @@ from wks.api.daemon.cmd_clear import cmd_clear
 from wks.api.daemon.cmd_start import cmd_start
 from wks.api.daemon.cmd_status import cmd_status
 from wks.api.daemon.cmd_stop import cmd_stop
+from wks.cli._app_factory import build_typer_app, require_subcommand
 from wks.cli._handle_stage_result import _handle_stage_result
 
 
 def daemon() -> typer.Typer:
     """Create and configure the daemon Typer app."""
-    app = typer.Typer(
-        name="daemon",
-        help="Daemon runtime management",
-        pretty_exceptions_show_locals=False,
-        pretty_exceptions_enable=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-        invoke_without_command=True,
-    )
-
-    @app.callback(invoke_without_command=True)
-    def callback(ctx: typer.Context) -> None:
-        """Daemon operations - shows available commands."""
-        if ctx.invoked_subcommand is None:
-            typer.echo(ctx.get_help(), err=True)
-            raise typer.Exit(2)
+    app = build_typer_app(name="daemon", help_text="Daemon runtime management")
+    require_subcommand(app)
 
     @app.command(name="status")
     def status_cmd() -> None:

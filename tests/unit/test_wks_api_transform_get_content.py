@@ -1,10 +1,8 @@
 """Tests for transform get_content API."""
 
-from pathlib import Path
-
 import pytest
 
-from tests.unit.conftest import run_cmd
+from tests.unit.conftest import run_cmd, write_watched_file
 from wks.api.config.URI import URI
 from wks.api.transform.cmd_engine import cmd_engine
 from wks.api.transform.get_content import get_content
@@ -13,11 +11,7 @@ from wks.api.transform.get_content import get_content
 @pytest.mark.transform
 def test_get_content_file(wks_home, minimal_config_dict):
     """Test retrieving content for a file."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "get_me.txt"
-    test_file.write_text("Get Content", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="get_me.txt", content="Get Content")
 
     # First transform it to ensure it's in the system
     run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
@@ -29,11 +23,7 @@ def test_get_content_file(wks_home, minimal_config_dict):
 @pytest.mark.transform
 def test_get_content_checksum(wks_home, minimal_config_dict):
     """Test retrieving content by checksum."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "checksum_me.txt"
-    test_file.write_text("Checksum Content", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="checksum_me.txt", content="Checksum Content")
 
     res = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
     assert res.success is True
@@ -62,11 +52,7 @@ def test_get_content_missing_file(wks_home, minimal_config_dict):
 @pytest.mark.transform
 def test_get_content_to_output_file(wks_home, minimal_config_dict, tmp_path):
     """Test retrieving content and writing to output file."""
-    watch_dir = Path(wks_home).parent / "watched"
-    watch_dir.mkdir(parents=True, exist_ok=True)
-
-    test_file = watch_dir / "output_me.txt"
-    test_file.write_text("Output Content", encoding="utf-8")
+    test_file = write_watched_file(wks_home, name="output_me.txt", content="Output Content")
     run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
 
     out_file = tmp_path / "out.md"
