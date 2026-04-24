@@ -5,7 +5,6 @@ from wks.api.log.cmd_prune import cmd_prune
 
 
 def test_cmd_prune_no_log(tracked_wks_config, isolated_wks_home):
-    """Test prune when no log file exists (lines 38-51)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
@@ -18,7 +17,6 @@ def test_cmd_prune_no_log(tracked_wks_config, isolated_wks_home):
 
 
 def test_cmd_prune_success(tracked_wks_config, isolated_wks_home):
-    """Test successful pruning (lines 53-150)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
@@ -36,7 +34,6 @@ def test_cmd_prune_success(tracked_wks_config, isolated_wks_home):
 
 
 def test_cmd_prune_all_levels(tracked_wks_config, isolated_wks_home):
-    """Test pruning all levels (lines 100-112)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
@@ -58,7 +55,6 @@ def test_cmd_prune_all_levels(tracked_wks_config, isolated_wks_home):
 
 
 def test_cmd_prune_write_error(tracked_wks_config, isolated_wks_home, monkeypatch):
-    """Test error during write (lines 121-134)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
@@ -77,7 +73,6 @@ def test_cmd_prune_write_error(tracked_wks_config, isolated_wks_home, monkeypatc
 
 
 def test_cmd_prune_os_error_read(tracked_wks_config, isolated_wks_home, monkeypatch):
-    """Test OSError handling (lines 55-57)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()

@@ -55,7 +55,6 @@ def search_service_strategy_env(tmp_path, monkeypatch):
 
 
 def test_search_service_returns_ranked_hits(search_service_env):
-    """The search service should return ranked lexical hits."""
     response = search_documents(SearchRequest(query="fission yield"))
 
     assert response.success is True
@@ -66,7 +65,6 @@ def test_search_service_returns_ranked_hits(search_service_env):
 
 
 def test_search_service_rejects_empty_query(tmp_path, monkeypatch):
-    """The search service should reject blank text and image queries."""
     _SEARCH_RUNTIME.reset()
     setup_search_config(
         tmp_path,
@@ -82,7 +80,6 @@ def test_search_service_rejects_empty_query(tmp_path, monkeypatch):
 
 
 def test_search_service_runs_strategy_search(search_service_strategy_env):
-    """The search service should merge strategy results through the shared service layer."""
     response = search_documents(SearchRequest(query="fission", strategy="hybrid"))
 
     assert response.success is True

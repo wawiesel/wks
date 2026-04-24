@@ -35,12 +35,9 @@ def _make_monitor_config(**priority_dirs_override: float) -> MonitorConfig:
 
 
 def test_cmd_priority_add_existing_returns_flag(tracked_wks_config):
-    """Test cmd_priority_add when path already exists.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-007
-    """
+    - MON-007"""
     tracked_wks_config.monitor = _make_monitor_config(existing=1)
 
     result = run_cmd(cmd_priority_add.cmd_priority_add, path="existing", priority=5)
@@ -50,12 +47,9 @@ def test_cmd_priority_add_existing_returns_flag(tracked_wks_config):
 
 
 def test_cmd_priority_add_stores_and_saves(tracked_wks_config):
-    """Test cmd_priority_add creates new priority directory and saves.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-007
-    """
+    - MON-007"""
     tracked_wks_config.monitor = _make_monitor_config()
 
     result = run_cmd(cmd_priority_add.cmd_priority_add, path="/tmp/new", priority=2)
@@ -70,12 +64,9 @@ def test_cmd_priority_add_stores_and_saves(tracked_wks_config):
 
 
 def test_cmd_priority_add_not_found_creates(tracked_wks_config):
-    """Test cmd_priority_add creates when path not found.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-007
-    """
+    - MON-007"""
     tracked_wks_config.monitor = _make_monitor_config()
 
     result = run_cmd(cmd_priority_add.cmd_priority_add, path="/tmp/a", priority=5)
@@ -88,12 +79,9 @@ def test_cmd_priority_add_not_found_creates(tracked_wks_config):
 
 
 def test_cmd_priority_add_updates(tracked_wks_config):
-    """Test cmd_priority_add updates existing priority.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-007
-    """
+    - MON-007"""
     tracked_wks_config.monitor = MonitorConfig.model_validate(
         {
             "filter": {

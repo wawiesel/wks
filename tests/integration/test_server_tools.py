@@ -6,8 +6,6 @@ from wks.mcp.get_app import get_app
 
 
 def test_extract_api_function_wrapped():
-    """extract_api_function_from_command handles wrapped callbacks."""
-
     def api_func():
         return "ok"
 
@@ -19,7 +17,6 @@ def test_extract_api_function_wrapped():
 
 
 def test_extract_api_function_from_real_module():
-    """extract_api_function_from_command finds API functions via module discovery."""
     import wks.cli.monitor as cli_module
 
     def status_cmd():
@@ -31,13 +28,11 @@ def test_extract_api_function_from_real_module():
 
 
 def test_get_app_returns_none_for_unknown_domain():
-    """get_app should return None when a Typer app is missing."""
     assert get_app("nonexistent") is None
     assert get_app("monitor") is not None
 
 
 def test_discover_scans_cli_modules():
-    """discover_commands should gather commands from factory pattern."""
     commands = discover_commands()
     assert ("monitor", "status") in commands
     assert ("config", "list") in commands

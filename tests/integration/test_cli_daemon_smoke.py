@@ -22,7 +22,6 @@ def run_wksc(*args: str, env: dict | None = None) -> subprocess.CompletedProcess
 @pytest.mark.integration
 @pytest.mark.daemon
 def test_cli_daemon_smoke(wks_env: dict):
-    """Full CLI workflow: start daemon, create file, verify in DB, stop daemon."""
     env = wks_env["env"]
     watch_dir: Path = wks_env["watch_dir"]
 
@@ -64,7 +63,6 @@ def test_cli_daemon_smoke(wks_env: dict):
 @pytest.mark.integration
 @pytest.mark.daemon
 def test_cli_daemon_double_start(wks_env: dict):
-    """Verify starting daemon twice fails (single instance)."""
     env = wks_env["env"]
 
     result = run_wksc("daemon", "start", env=env)
@@ -89,7 +87,6 @@ def test_cli_daemon_double_start(wks_env: dict):
 @pytest.mark.integration
 @pytest.mark.daemon
 def test_cli_monitor_sync_manual(wks_env: dict):
-    """Test manual monitor sync via CLI."""
     env = wks_env["env"]
     watch_dir: Path = wks_env["watch_dir"]
 
@@ -104,7 +101,6 @@ def test_cli_monitor_sync_manual(wks_env: dict):
 @pytest.mark.integration
 @pytest.mark.daemon
 def test_cli_config_show(wks_env: dict):
-    """Test config show via CLI."""
     env = wks_env["env"]
 
     result = run_wksc("config", "show", "monitor", env=env)

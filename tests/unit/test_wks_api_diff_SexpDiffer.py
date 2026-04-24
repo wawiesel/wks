@@ -7,7 +7,6 @@ pytestmark = pytest.mark.unit
 
 class TestSexpDiffer:
     def test_diff_identical_sexp(self, tmp_path):
-        """Test diff with identical S-expression files."""
         file_a = tmp_path / "a.sexp"
         file_b = tmp_path / "b.sexp"
         content = "(module (function (name hello)))"
@@ -19,7 +18,6 @@ class TestSexpDiffer:
         assert "no structural changes" in result.lower()
 
     def test_diff_different_sexp(self, tmp_path):
-        """Test diff with different S-expression files."""
         file_a = tmp_path / "a.sexp"
         file_b = tmp_path / "b.sexp"
         file_a.write_text("(module (function (name hello)))")
@@ -32,7 +30,6 @@ class TestSexpDiffer:
         assert "hello" in result or "world" in result
 
     def test_diff_invalid_extension(self, tmp_path):
-        """Test diff fails with non-.sexp files."""
         file_a = tmp_path / "a.py"
         file_b = tmp_path / "b.py"
         file_a.write_text("(module)")
@@ -43,7 +40,6 @@ class TestSexpDiffer:
             engine.diff(file_a, file_b, {})
 
     def test_diff_non_utf8_encoding(self, tmp_path):
-        """Test diff fails with non-UTF-8 encoding."""
         file_a = tmp_path / "a.sexp"
         file_b = tmp_path / "b.sexp"
         file_a.write_bytes(b"\xff\xfe\x00\x00")  # Invalid UTF-8
@@ -54,7 +50,6 @@ class TestSexpDiffer:
             engine.diff(file_a, file_b, {})
 
     def test_diff_file2_invalid_extension(self, tmp_path):
-        """Test diff fails when file2 is not *.sexp."""
         file_a = tmp_path / "a.sexp"
         file_b = tmp_path / "b.txt"
         file_a.write_text("(module)")
@@ -65,7 +60,6 @@ class TestSexpDiffer:
             engine.diff(file_a, file_b, {})
 
     def test_diff_read_error_handling(self, tmp_path):
-        """Test diff handles file read errors."""
         file_a = tmp_path / "a.sexp"
         file_b = tmp_path / "b.sexp"
         file_a.write_text("(module)")

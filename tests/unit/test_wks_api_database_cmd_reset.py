@@ -76,7 +76,6 @@ class TestCmdReset:
 
     @pytest.mark.transform
     def test_cmd_reset_transform_clears_cache(self, wks_home, minimal_config_dict):
-        """Test that resetting 'transform' database also clears fs cache."""
         from pathlib import Path
 
         cache_dir = Path(minimal_config_dict["transform"]["cache"]["base_dir"])

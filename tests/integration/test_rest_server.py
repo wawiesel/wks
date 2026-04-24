@@ -10,7 +10,6 @@ from wks.services.status import StatusResponse
 
 
 def test_rest_server_read_endpoints(monkeypatch, tmp_path):
-    """The REST layer should expose thin read endpoints over the shared services."""
     _SEARCH_RUNTIME.reset()
     setup_search_config(
         tmp_path,
@@ -41,7 +40,6 @@ def test_rest_server_read_endpoints(monkeypatch, tmp_path):
 
 
 def test_rest_server_maps_service_failures(monkeypatch, tmp_path):
-    """The REST layer should map shared service failures to HTTP status codes."""
     _SEARCH_RUNTIME.reset()
     setup_search_config(
         tmp_path,
@@ -57,8 +55,6 @@ def test_rest_server_maps_service_failures(monkeypatch, tmp_path):
 
 
 def test_rest_server_validates_default_config_at_startup(monkeypatch):
-    """The standalone REST app should fail at startup when the default config is invalid."""
-
     def raise_invalid_config():
         raise ValueError("broken config")
 

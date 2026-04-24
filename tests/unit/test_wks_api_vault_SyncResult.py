@@ -3,7 +3,6 @@ from wks.api.vault.SyncResult import SyncResult
 
 
 def test_sync_result_to_meta_document():
-    """Test converting SyncResult to meta document."""
     stats = ScanStats(
         notes_scanned=10,
         edge_total=5,

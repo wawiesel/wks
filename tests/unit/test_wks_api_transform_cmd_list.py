@@ -8,7 +8,6 @@ from wks.api.transform.cmd_list import cmd_list
 
 @pytest.mark.transform
 def test_cmd_list_engines(tracked_wks_config):
-    """Test listing available transform engines."""
     result = run_cmd(cmd_list)
     assert result.success is True
     assert "Found" in result.result
@@ -19,7 +18,6 @@ def test_cmd_list_engines(tracked_wks_config):
 
 @pytest.mark.transform
 def test_cmd_list_includes_route_policy(tracked_wks_config):
-    """Route engines expose ordered policy in list output."""
     config = WKSConfig.load()
     config.transform.engines["default"] = _RouteEngineConfig(
         type="route",

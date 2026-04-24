@@ -5,7 +5,6 @@ from wks.api.log.cmd_status import cmd_status
 
 
 def test_cmd_status_no_log(tracked_wks_config, isolated_wks_home):
-    """Test status when log file does not exist (lines 35-43)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
@@ -18,7 +17,6 @@ def test_cmd_status_no_log(tracked_wks_config, isolated_wks_home):
 
 
 def test_cmd_status_success(tracked_wks_config, isolated_wks_home):
-    """Test successful status with entries (lines 45-136)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
@@ -49,7 +47,6 @@ def test_cmd_status_success(tracked_wks_config, isolated_wks_home):
 
 
 def test_cmd_status_parse_error(tracked_wks_config, isolated_wks_home):
-    """Test unparseable date (lines 84-85)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()
@@ -63,7 +60,6 @@ def test_cmd_status_parse_error(tracked_wks_config, isolated_wks_home):
 
 
 def test_cmd_status_read_error(tracked_wks_config, isolated_wks_home, monkeypatch):
-    """Test error during read (lines 61-68)."""
     from wks.api.config.WKSConfig import WKSConfig
 
     log_path = WKSConfig.get_logfile_path()

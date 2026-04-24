@@ -5,7 +5,6 @@ from wks.api.vault.VaultConfig import VaultConfig
 
 
 def test_vault_auto_load_config(monkeypatch, tmp_path, minimal_config_dict):
-    """Test Vault initialization without explicit config."""
     import json
 
     wks_home = (tmp_path / ".wks").resolve()
@@ -22,14 +21,12 @@ def test_vault_auto_load_config(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_vault_unsupported_backend():
-    """Test error for unsupported backend type."""
     config = VaultConfig(base_dir="/tmp", type="invalid")
     with pytest.raises(ValueError, match="Unsupported backend type"), Vault(config):
         pass
 
 
 def test_vault_uninitialized_access():
-    """Test error when accessing properties before initialization."""
     vault = Vault(VaultConfig(base_dir="/tmp", type="obsidian"))
 
     with pytest.raises(RuntimeError, match="Vault not initialized"):
@@ -46,7 +43,6 @@ def test_vault_uninitialized_access():
 
 
 def test_vault_find_broken_links_no_backend_support(monkeypatch):
-    """Test find_broken_links when backend doesn't support it."""
     config = VaultConfig(base_dir="/tmp", type="obsidian")
     vault = Vault(config)
 
@@ -58,7 +54,6 @@ def test_vault_find_broken_links_no_backend_support(monkeypatch):
 
 
 def test_vault_resolve_external_url(tmp_path):
-    """Test resolution of external URLs in vault (covers _Backend.py branches)."""
     config = VaultConfig(base_dir=str(tmp_path), type="obsidian")
     with Vault(config) as vault:
         url = "https://example.com"
@@ -68,7 +63,6 @@ def test_vault_resolve_external_url(tmp_path):
 
 
 def test_vault_backend_broken_symlinks(tmp_path):
-    """Test find_broken_links directly on backend (to cover more lines)."""
     config = VaultConfig(base_dir=str(tmp_path), type="obsidian")
     with Vault(config) as vault:
         import platform
@@ -91,7 +85,6 @@ def test_vault_backend_broken_symlinks(tmp_path):
 
 
 def test_vault_resolve_missing_symlink(tmp_path):
-    """Test resolution of missing symlink."""
     config = VaultConfig(base_dir=str(tmp_path), type="obsidian")
     with Vault(config) as vault:
         metadata = vault.resolve_link("_links/missing.txt")
@@ -99,14 +92,12 @@ def test_vault_resolve_missing_symlink(tmp_path):
 
 
 def test_vault_backend_init_failure():
-    """Test backend init failure when base_dir is missing."""
     config = VaultConfig.model_construct(base_dir="", type="obsidian")
     with pytest.raises(ValueError, match=r"vault\.base_dir is required"), Vault(config):
         pass
 
 
 def test_vault_resolve_link_relative(tmp_path):
-    """Test resolution of internal note."""
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
     (vault_dir / "note.md").touch()
@@ -119,7 +110,6 @@ def test_vault_resolve_link_relative(tmp_path):
 
 
 def test_vault_resolve_link_broken(tmp_path):
-    """Test resolution of missing note."""
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
 
@@ -130,7 +120,6 @@ def test_vault_resolve_link_broken(tmp_path):
 
 
 def test_vault_resolve_link_links_dir_fallback(tmp_path):
-    """Test fallback to _links directory."""
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
     links_dir = vault_dir / "_links"
@@ -148,7 +137,6 @@ def test_vault_resolve_link_links_dir_fallback(tmp_path):
 
 
 def test_vault_iter_files_skip_non_file(tmp_path):
-    """Test that directories matching *.md are skipped."""
     vault_dir = tmp_path / "vault_skip"
     vault_dir.mkdir()
     subdir = vault_dir / "subdir.md"
@@ -163,7 +151,6 @@ def test_vault_iter_files_skip_non_file(tmp_path):
 
 
 def test_vault_iter_files_yield_exception(tmp_path):
-    """Test handling exception during generator yield."""
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
 

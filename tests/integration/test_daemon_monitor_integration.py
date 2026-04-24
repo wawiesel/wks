@@ -14,7 +14,6 @@ pytestmark = [
 
 
 def test_daemon_sync_creates_db_record(mongo_wks_env):
-    """Daemon should sync created files to MongoDB."""
     watch_dir = mongo_wks_env["watch_dir"]
     config = mongo_wks_env["config"]
 
@@ -40,7 +39,6 @@ def test_daemon_sync_creates_db_record(mongo_wks_env):
 
 
 def test_daemon_sync_removes_deleted_file(mongo_wks_env):
-    """Daemon should remove deleted files from MongoDB."""
     watch_dir = mongo_wks_env["watch_dir"]
     config = mongo_wks_env["config"]
 
@@ -82,7 +80,6 @@ def test_daemon_sync_removes_deleted_file(mongo_wks_env):
 
 
 def test_daemon_sync_handles_move(mongo_wks_env):
-    """Daemon should update database when file is moved."""
     watch_dir = mongo_wks_env["watch_dir"]
     config = mongo_wks_env["config"]
 

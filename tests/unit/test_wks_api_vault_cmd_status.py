@@ -8,7 +8,6 @@ pytestmark = pytest.mark.vault
 
 
 def test_cmd_status_returns_structure(monkeypatch, tmp_path, minimal_config_dict):
-    """cmd_status returns expected output structure."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     result = run_cmd(cmd_status)
@@ -24,7 +23,6 @@ def test_cmd_status_returns_structure(monkeypatch, tmp_path, minimal_config_dict
 
 
 def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
-    """cmd_status on empty vault returns zero counts."""
     _, _, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     from wks.api.database.Database import Database
@@ -40,7 +38,6 @@ def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_cmd_status_config_failure(monkeypatch, tmp_path):
-    """cmd_status handles config load failure."""
     wks_home = (tmp_path / ".wks").resolve()
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -51,7 +48,6 @@ def test_cmd_status_config_failure(monkeypatch, tmp_path):
 
 
 def test_cmd_status_work_failure(monkeypatch, tmp_path, minimal_config_dict):
-    """cmd_status handles runtime failure in work loop."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     from unittest.mock import patch
@@ -65,7 +61,6 @@ def test_cmd_status_work_failure(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_cmd_status_missing_base_dir(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_status with missing base_dir (line 32)."""
     wks_home, _, cfg = setup_vault_env(
         monkeypatch, tmp_path, minimal_config_dict, vault_base_dir=tmp_path / "vault", create_vault_dir=False
     )

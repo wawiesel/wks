@@ -18,7 +18,6 @@ def _provider(output: dict):
 
 
 def test_collect_status_aggregates_sections():
-    """The status service should aggregate provider outputs under one response."""
     response = collect_status(
         providers={
             "service": _provider({"running": True}),
@@ -32,8 +31,6 @@ def test_collect_status_aggregates_sections():
 
 
 def test_collect_status_captures_provider_errors():
-    """The status service should preserve provider failures per section."""
-
     def failing_provider():
         raise RuntimeError("boom")
 

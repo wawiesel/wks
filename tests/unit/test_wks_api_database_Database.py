@@ -106,8 +106,6 @@ def test_database_get_database_default_and_override():
 
 
 def test_database_exit_passes_exception_info_to_impl() -> None:
-    """Ensure Database.__exit__ forwards exc_type/exc_val/exc_tb to the backend impl."""
-
     class SpyBackend:
         def __init__(self):
             self.exit_args = None
@@ -136,8 +134,6 @@ def test_database_exit_passes_exception_info_to_impl() -> None:
 
 
 def test_mongo_backend_init_error():
-    """Test error when data is missing required fields."""
-
     cfg = DatabaseConfig.model_construct(
         type="mongo",
         prefix="test",
@@ -149,7 +145,6 @@ def test_mongo_backend_init_error():
 
 
 def test_mongo_backend_ensure_local_early_connect(mongo_wks_env, monkeypatch):
-    """Test skip startup if already connected."""
     import subprocess
     from unittest.mock import MagicMock
 
@@ -165,7 +160,6 @@ def test_mongo_backend_ensure_local_early_connect(mongo_wks_env, monkeypatch):
 
 
 def test_mongo_backend_basic_ops_integration(mongo_wks_env):
-    """Test basic operations with real mongo backend."""
     config = mongo_wks_env["config"]
 
     with Database(config.database, "coll") as db:

@@ -83,7 +83,6 @@ class TestCmdShow:
             )
 
     def test_cmd_show_nonexistent_database_fails(self, tracked_wks_config):
-        """Querying a nonexistent database should fail."""
         with (
             patch.object(Database, "list_databases", return_value=["wks.nodes", "wks.edges"]),
             patch.object(Database, "query", return_value={"results": [], "count": 0}),

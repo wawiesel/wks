@@ -55,7 +55,6 @@ def _populate_monitor(uris_and_priorities: list[tuple[str, float]]) -> None:
 
 
 def test_backfill_indexes_monitored_files(tmp_path, monkeypatch):
-    """Files in monitor DB meeting min_priority are indexed by backfill."""
     doc_dir = _setup_backfill_env(tmp_path, monkeypatch, min_priority=0.0)
 
     doc = doc_dir / "note.txt"
@@ -73,7 +72,6 @@ def test_backfill_indexes_monitored_files(tmp_path, monkeypatch):
 
 
 def test_backfill_skips_below_min_priority(tmp_path, monkeypatch):
-    """Files below min_priority are not indexed."""
     doc_dir = _setup_backfill_env(tmp_path, monkeypatch, min_priority=80.0)
 
     doc = doc_dir / "low.txt"
@@ -91,7 +89,6 @@ def test_backfill_skips_below_min_priority(tmp_path, monkeypatch):
 
 
 def test_backfill_no_index_config(tmp_path, monkeypatch):
-    """Backfill fails gracefully when no index is configured."""
     from tests.conftest import minimal_config_dict
 
     config_dict = minimal_config_dict()
@@ -107,7 +104,6 @@ def test_backfill_no_index_config(tmp_path, monkeypatch):
 
 
 def test_backfill_unknown_index(tmp_path, monkeypatch):
-    """Backfill fails gracefully with unknown index name."""
     _setup_backfill_env(tmp_path, monkeypatch)
 
     result = run_cmd(cmd_backfill, "nonexistent")
@@ -116,7 +112,6 @@ def test_backfill_unknown_index(tmp_path, monkeypatch):
 
 
 def test_backfill_empty_monitor(tmp_path, monkeypatch):
-    """Backfill returns success when no monitored files exist."""
     _setup_backfill_env(tmp_path, monkeypatch, min_priority=0.0)
 
     result = run_cmd(cmd_backfill, "main")

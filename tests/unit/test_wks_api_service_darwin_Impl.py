@@ -7,7 +7,6 @@ from wks.api.service.ServiceStatus import ServiceStatus
 
 
 def test_start_service_bootstrap_error_but_service_running(monkeypatch):
-    """Treat bootstrap I/O errors as success if launchd actually started the job."""
     config = ServiceConfig(
         type="darwin",
         data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore[arg-type]
@@ -44,7 +43,6 @@ def test_start_service_bootstrap_error_but_service_running(monkeypatch):
 
 
 def test_start_service_bootstrap_then_kickstart(monkeypatch):
-    """Bootstrap should be followed by kickstart when the job is only loaded."""
     config = ServiceConfig(
         type="darwin",
         data={"label": "com.test.wks", "keep_alive": True, "run_at_load": False},  # type: ignore[arg-type]

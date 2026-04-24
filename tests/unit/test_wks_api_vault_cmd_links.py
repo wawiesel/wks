@@ -9,7 +9,6 @@ pytestmark = pytest.mark.vault
 
 
 def test_cmd_links_returns_structure(monkeypatch, tmp_path, minimal_config_dict):
-    """Should return basic structure for empty results."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     test_file = vault_dir / "note.md"
@@ -27,7 +26,6 @@ def test_cmd_links_returns_structure(monkeypatch, tmp_path, minimal_config_dict)
 
 
 def test_cmd_links_finds_outgoing(monkeypatch, tmp_path, minimal_config_dict):
-    """Should find outgoing links (from_uri match)."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     note1 = vault_dir / "note1.md"
@@ -53,7 +51,6 @@ def test_cmd_links_finds_outgoing(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_cmd_links_finds_incoming(monkeypatch, tmp_path, minimal_config_dict):
-    """Should find incoming links (to_uri match)."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     note2 = vault_dir / "note2.md"
@@ -79,7 +76,6 @@ def test_cmd_links_finds_incoming(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_cmd_links_invalid_config(monkeypatch, tmp_path):
-    """Should handle config errors gracefully."""
     monkeypatch.setenv("WKS_HOME", str(tmp_path))
 
     result = run_cmd(cmd_links, uri=URI("vault:///foo"))
@@ -88,7 +84,6 @@ def test_cmd_links_invalid_config(monkeypatch, tmp_path):
 
 
 def test_cmd_links_path_outside_vault(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_links with path outside vault - still queries DB successfully."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     result = run_cmd(cmd_links, uri=URI("vault:///../../outside.md"))
@@ -97,7 +92,6 @@ def test_cmd_links_path_outside_vault(monkeypatch, tmp_path, minimal_config_dict
 
 
 def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_links with database query failure (line 112-123)."""
     _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
     (vault_dir / "test.md").touch()
 
@@ -114,7 +108,6 @@ def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
 
 
 def test_cmd_links_file_uri_inside_vault(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_links resolves file:// URIs inside the vault to vault:/// URIs."""
     _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     note = vault_dir / "note.md"
@@ -141,7 +134,6 @@ def test_cmd_links_file_uri_inside_vault(monkeypatch, tmp_path, minimal_config_d
 
 
 def test_cmd_links_non_vault_uri_error(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_links with non-vault URI (tests line 69-81)."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     outside_file = tmp_path / "outside.md"

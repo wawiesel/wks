@@ -1,5 +1,4 @@
 def test_cli_vault_sync(wksc, smoke_env):
-    """Test 'wksc vault sync'."""
     vault_dir = smoke_env["vault"]
     if not (vault_dir / "smoke_test.md").exists():
         (vault_dir / "smoke_test.md").write_text("# Smoke Test\n[[Link]]", encoding="utf-8")

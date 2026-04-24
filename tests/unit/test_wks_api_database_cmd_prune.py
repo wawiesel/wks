@@ -16,7 +16,6 @@ class TestCmdPrune:
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
     def test_prune_dispatch_single(self, mock_import, mock_load, mock_config, tmp_path, monkeypatch):
-        """Test dispatching to a single database handler."""
         from wks.api.database.cmd_prune import cmd_prune
 
         wks_home = tmp_path / ".wks"
@@ -45,7 +44,6 @@ class TestCmdPrune:
     @patch("wks.api.database.cmd_prune.import_module")
     @patch("wks.api.database.cmd_prune.Database")
     def test_prune_dispatch_all(self, mock_db, mock_import, mock_load, mock_config, tmp_path, monkeypatch):
-        """Test dispatching to all known databases."""
         from wks.api.database.cmd_prune import cmd_prune
 
         wks_home = tmp_path / ".wks"
@@ -99,7 +97,6 @@ class TestCmdPrune:
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
     def test_prune_handler_not_found(self, mock_import, mock_load, mock_config):
-        """Test handling of missing handler for a specific target."""
         from wks.api.database.cmd_prune import cmd_prune
 
         mock_load.return_value = mock_config
@@ -115,7 +112,6 @@ class TestCmdPrune:
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
     def test_prune_import_error(self, mock_import, mock_load, mock_config):
-        """Test graceful handling of ImportError."""
         from wks.api.database.cmd_prune import cmd_prune
 
         mock_load.return_value = mock_config
@@ -131,7 +127,6 @@ class TestCmdPrune:
     @patch("wks.api.config.WKSConfig.WKSConfig.load")
     @patch("wks.api.database.cmd_prune.import_module")
     def test_cmd_prune_updates_timestamp(self, mock_import, mock_load, mock_config, tmp_path, monkeypatch):
-        """Test that cmd_prune updates the last prune timestamp on success."""
         from wks.api.database.cmd_prune import cmd_prune
 
         wks_home = tmp_path / ".wks"
@@ -158,7 +153,6 @@ class TestCmdPrune:
 
 
 def test_cmd_prune_handler_error(tracked_wks_config):
-    """Test cmd_prune handles error from a handler."""
     from wks.api.database.cmd_prune import cmd_prune
 
     mock_module = MagicMock()

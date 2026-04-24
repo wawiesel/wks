@@ -66,7 +66,6 @@ def test_cmd_status_reflects_log_warnings(monkeypatch, tmp_path):
 
 @pytest.mark.daemon
 def test_status_updates_timestamp_when_running(monkeypatch, tmp_path):
-    """Test that last_sync timestamp updates on status checks if running."""
     cfg = minimal_wks_config()
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
@@ -95,7 +94,6 @@ def test_status_updates_timestamp_when_running(monkeypatch, tmp_path):
 
 @pytest.mark.daemon
 def test_status_preserves_timestamp_when_stopped(monkeypatch, tmp_path):
-    """Test that last_sync timestamp is preserved (not updated) if stopped."""
     cfg = minimal_wks_config()
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
@@ -119,7 +117,6 @@ def test_status_preserves_timestamp_when_stopped(monkeypatch, tmp_path):
 
 
 def test_cmd_status_stale_lock(monkeypatch, tmp_path):
-    """Test cmd_status when lock exists but PID is dead."""
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -136,7 +133,6 @@ def test_cmd_status_stale_lock(monkeypatch, tmp_path):
 
 
 def test_cmd_status_running_corrupt_json(monkeypatch, tmp_path):
-    """Test cmd_status when running but daemon.json is corrupt."""
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))

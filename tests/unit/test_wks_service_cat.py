@@ -10,7 +10,6 @@ from wks.services.cat import CatRequest, read_content
 
 
 def test_read_content_by_path(wks_home, minimal_config_dict):
-    """The cat service should transform and read content for a path."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Hello Service Cat")
 
     response = read_content(CatRequest(target=str(test_file)))
@@ -21,7 +20,6 @@ def test_read_content_by_path(wks_home, minimal_config_dict):
 
 
 def test_read_content_by_checksum(wks_home, minimal_config_dict):
-    """The cat service should read cached content by checksum."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Checksum Service Cat")
 
     transform_result = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
@@ -34,7 +32,6 @@ def test_read_content_by_checksum(wks_home, minimal_config_dict):
 
 
 def test_read_content_reports_missing_file(wks_home):
-    """The cat service should return a not_found failure for a missing file."""
     response = read_content(CatRequest(target="/tmp/missing-service-cat"))
 
     assert response.success is False
@@ -43,8 +40,6 @@ def test_read_content_reports_missing_file(wks_home):
 
 
 def test_read_content_honors_explicit_config(monkeypatch, minimal_config_dict, tmp_path):
-    """The cat service should keep both transforms and cache reads on the injected config."""
-
     def build_config(prefix: str, cache_dir: Path, watch_dir: Path, vault_dir: Path) -> WKSConfig:
         raw = copy.deepcopy(minimal_config_dict)
         raw["database"]["prefix"] = prefix

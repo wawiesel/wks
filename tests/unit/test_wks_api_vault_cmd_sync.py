@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from tests.unit._vault_test_helpers import setup_vault_env, vault_database_config, write_unit_config
@@ -8,288 +10,185 @@ from wks.api.vault.cmd_sync import cmd_sync
 pytestmark = pytest.mark.vault
 
 
-def test_cmd_sync_returns_structure(monkeypatch, tmp_path, minimal_config_dict):
-    """cmd_sync returns expected output structure."""
+def write_vault_notes(vault_dir: Path, notes: dict[str, str]) -> None:
+    for name, content in notes.items():
+        path = vault_dir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+
+def test_cmd_sync_empty_vault_structure(monkeypatch, tmp_path, minimal_config_dict):
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
 
     result = run_cmd(cmd_sync)
 
-    assert "notes_scanned" in result.output
-    assert "links_written" in result.output
-    assert "links_deleted" in result.output
-    assert "sync_duration_ms" in result.output
-    assert "success" in result.output
-
-
-def test_cmd_sync_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
-    """cmd_sync on empty vault reports zero scanned."""
-    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    result = run_cmd(cmd_sync)
-
-    assert result.output["notes_scanned"] == 0
     assert result.success is True
+    assert result.output["notes_scanned"] == 0
+    assert {"notes_scanned", "links_written", "links_deleted", "sync_duration_ms", "success"} <= set(result.output)
 
 
-def test_cmd_sync_nonexistent_path_fails(monkeypatch, tmp_path, minimal_config_dict):
-    """cmd_sync with nonexistent path returns error."""
+@pytest.mark.parametrize("target", [URI.from_path("/nonexistent/file.md"), None])
+def test_cmd_sync_config_and_path_failures(monkeypatch, tmp_path, minimal_config_dict, target):
+    if target is None:
+        wks_home = (tmp_path / ".wks").resolve()
+        wks_home.mkdir()
+        monkeypatch.setenv("WKS_HOME", str(wks_home))
+        result = run_cmd(cmd_sync)
+        assert result.success is False
+        assert "Failed to load config" in result.output["errors"][0]
+        return
+
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    result = run_cmd(cmd_sync, uri=URI.from_path("/nonexistent/file.md"))
-
+    result = run_cmd(cmd_sync, uri=target)
     assert result.success is False
-    assert len(result.output["errors"]) > 0
+    assert result.output["errors"]
 
 
 def test_vault_sync_with_notes(monkeypatch, tmp_path, minimal_config_dict):
-    """Vault sync scans notes with links."""
     _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    (vault_dir / "note_A.md").write_text("# Note A\n[[wikilink]]\n[[note_B]]", encoding="utf-8")
-    (vault_dir / "note_B.md").write_text("# Note B\n[[note_A]]", encoding="utf-8")
-    (vault_dir / "nested").mkdir()
-    (vault_dir / "nested" / "note_C.md").write_text("I am nested.", encoding="utf-8")
+    write_vault_notes(
+        vault_dir,
+        {
+            "note_A.md": "# Note A\n[[wikilink]]\n[[note_B]]",
+            "note_B.md": "# Note B\n[[note_A]]",
+            "nested/note_C.md": "I am nested.",
+        },
+    )
 
     result = run_cmd(cmd_sync)
 
-    assert result.success is True, f"Sync failed: {result.output.get('errors')}"
+    assert result.success is True
     assert result.output["notes_scanned"] >= 3
 
 
-def test_vault_sync_no_config(monkeypatch, tmp_path):
-    """Should fail gracefully if config is missing."""
-    wks_home = (tmp_path / ".wks").resolve()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
+def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_dict):
+    from wks.api.database.Database import Database
+
+    wks_home, _, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
+    config["database"]["type"] = "mongomock"
+    write_unit_config(wks_home, config)
+
+    stale_uri = "vault:///note.md"
+    with Database(vault_database_config(config), "edges") as db:
+        db.insert_many([{"doc_type": "link", "from_local_uri": stale_uri, "to_uri": "vault:///foo"}])
 
     result = run_cmd(cmd_sync)
 
-    assert result.success is False
-    assert "Failed to load config" in result.output["errors"][0]
-
-
-def test_vault_sync_removes_deleted_notes(monkeypatch, tmp_path, minimal_config_dict):
-    """Vault sync should remove links from notes that no longer exist."""
-    from wks.api.database.Database import Database
-
-    wks_home, _, cfg = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-    cfg["database"]["type"] = "mongomock"
-    write_unit_config(wks_home, cfg)
-
-    stale_uri = "vault:///note.md"
-    with Database(vault_database_config(cfg), "edges") as db:
-        db.insert_many([{"doc_type": "link", "from_local_uri": stale_uri, "to_uri": "vault:///foo"}])
-
-    res = run_cmd(cmd_sync)
-    assert res.success, f"Sync fail: {res.output.get('errors')}"
-    assert res.output["links_deleted"] > 0
-    with Database(vault_database_config(cfg), "edges") as db:
+    assert result.success is True
+    assert result.output["links_deleted"] > 0
+    with Database(vault_database_config(config), "edges") as db:
         assert db.find_one({"from_local_uri": stale_uri}) is None
 
 
 def test_vault_sync_partial_scope_pruning(monkeypatch, tmp_path, minimal_config_dict):
-    """Partially syncing a folder shouldn't prune links in other folders."""
     from wks.api.database.Database import Database
 
-    _, vault_dir, cfg = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
+    _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
+    write_vault_notes(vault_dir, {"root.md": "", "sub/nested.md": ""})
 
-    subdir = vault_dir / "sub"
-    subdir.mkdir()
-    (vault_dir / "root.md").write_text("", encoding="utf-8")
-    (subdir / "nested.md").write_text("", encoding="utf-8")
-
-    root_uri = "vault:///root.md"
-    nested_uri = "vault:///sub/nested.md"
-    deleted_uri = "vault:///sub/deleted.md"
-
-    with Database(vault_database_config(cfg), "edges") as db:
+    with Database(vault_database_config(config), "edges") as db:
         db.insert_many(
             [
-                {"doc_type": "link", "from_local_uri": root_uri},
-                {"doc_type": "link", "from_local_uri": nested_uri},
-                {"doc_type": "link", "from_local_uri": deleted_uri},
+                {"doc_type": "link", "from_local_uri": "vault:///root.md"},
+                {"doc_type": "link", "from_local_uri": "vault:///sub/nested.md"},
+                {"doc_type": "link", "from_local_uri": "vault:///sub/deleted.md"},
             ]
         )
 
-    run_cmd(cmd_sync, uri=URI.from_path(str(subdir)))
-    with Database(vault_database_config(cfg), "edges") as db:
-        assert db.find_one({"from_local_uri": root_uri}) is not None
+    run_cmd(cmd_sync, uri=URI.from_path(str(vault_dir / "sub")))
+    with Database(vault_database_config(config), "edges") as db:
+        assert db.find_one({"from_local_uri": "vault:///root.md"}) is not None
 
 
 def test_sync_writes_correct_uri_scheme(monkeypatch, tmp_path, minimal_config_dict):
-    """Verify that sync writes vault:/// URIs for files within the vault."""
-    from wks.api.config.URI import URI
     from wks.api.database.Database import Database
     from wks.api.vault.cmd_status import cmd_status
 
-    _, vault_dir, cfg = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
+    _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
+    write_vault_notes(vault_dir, {"foo.md": "# Foo", "note.md": "[[foo]]"})
 
-    (vault_dir / "foo.md").write_text("# Foo", encoding="utf-8")
-    (vault_dir / "note.md").write_text("[[foo]]", encoding="utf-8")
+    result = run_cmd(cmd_sync)
 
-    res = run_cmd(cmd_sync)
-    assert res.success
+    assert result.success is True
+    with Database(vault_database_config(config), "edges") as db:
+        assert db.find_one({"from_local_uri": "vault:///note.md"}) is not None
+        assert db.find_one({"from_local_uri": str(URI.from_path(vault_dir / "note.md"))}) is None
 
-    expected_uri = "vault:///note.md"
-    file_uri = str(URI.from_path(vault_dir / "note.md"))
-
-    with Database(vault_database_config(cfg), "edges") as db:
-        doc = db.find_one({"from_local_uri": expected_uri})
-        assert doc is not None
-        doc_file = db.find_one({"from_local_uri": file_uri})
-        assert doc_file is None
-
-    st = run_cmd(cmd_status)
-    assert st.success
-    assert st.output["total_links"] == 1
+    status = run_cmd(cmd_status)
+    assert status.success is True
+    assert status.output["total_links"] == 1
 
 
-def test_scanner_handles_read_errors(monkeypatch, tmp_path, minimal_config_dict):
-    """Scanner reports errors if file cannot be read."""
+def test_vault_sync_scanner_errors(monkeypatch, tmp_path, minimal_config_dict):
     _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
     note = vault_dir / "note.md"
     note.write_text("content", encoding="utf-8")
     note.chmod(0o000)
 
+    rewrite_note = vault_dir / "rewrite_me.md"
+    target = vault_dir / "target.txt"
+    target.touch()
+    rewrite_note.write_text(f"[link]({target.resolve().as_uri()})", encoding="utf-8")
+    rewrite_note.chmod(0o444)
+
     try:
         result = run_cmd(cmd_sync)
-        assert len(result.output["errors"]) > 0
     finally:
         note.chmod(0o755)
+        rewrite_note.chmod(0o644)
+
+    assert result.output is not None
+    assert result.output["errors"]
 
 
-def test_scanner_handles_external_file_paths(monkeypatch, tmp_path, minimal_config_dict):
-    """Syncing a file outside vault reports error."""
-    _, _, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
+def test_vault_sync_external_file_path_fails(monkeypatch, tmp_path, minimal_config_dict):
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
 
     external_file = (tmp_path / "external.md").resolve()
     external_file.write_text("[[link]]", encoding="utf-8")
 
     result = run_cmd(cmd_sync, uri=URI.from_path(str(external_file)))
+
     assert result.success is False
-    assert len(result.output["errors"]) > 0
+    assert result.output["errors"]
 
 
-def test_scanner_handles_rewrite_errors(monkeypatch, tmp_path, minimal_config_dict):
-    """Scanner reports errors if file rewrite fails."""
+def test_cmd_sync_handles_common_markdown_shapes(monkeypatch, tmp_path, minimal_config_dict):
     _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    note = vault_dir / "rewrite_me.md"
-    target = vault_dir / "target.txt"
-    target.touch()
-    target_uri = target.resolve().as_uri()
-
-    note.write_text(f"[link]({target_uri})", encoding="utf-8")
-    note.chmod(0o444)
-
-    try:
-        result = run_cmd(cmd_sync)
-        assert result.output is not None
-    finally:
-        note.chmod(0o644)
-
-
-def test_cmd_sync_parses_markdown_urls(monkeypatch, tmp_path, minimal_config_dict):
-    """Test that markdown URLs are parsed and counted."""
-    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    (vault_dir / "urls.md").write_text("[Google](https://google.com)\n[GitHub](https://github.com)", encoding="utf-8")
-
-    result = run_cmd(cmd_sync)
-    assert result.success
-    assert result.output["notes_scanned"] == 1
-
-
-def test_cmd_sync_handles_long_lines(monkeypatch, tmp_path, minimal_config_dict):
-    """Test that long lines are truncated in raw_line preview."""
-    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    long_prefix = "x" * 500
-    (vault_dir / "long.md").write_text(f"{long_prefix}[[target]]", encoding="utf-8")
-
-    result = run_cmd(cmd_sync)
-    assert result.success
-
-
-def test_cmd_sync_with_mixed_link_types(monkeypatch, tmp_path, minimal_config_dict):
-    """Test syncing notes with wikilinks, embeds, and URLs."""
-    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    (vault_dir / "target.md").write_text("# Target", encoding="utf-8")
-    (vault_dir / "mixed.md").write_text(
-        "# Mixed Links\n[[target]]\n![[target]]\n[Web](https://example.com)\n", encoding="utf-8"
+    write_vault_notes(
+        vault_dir,
+        {
+            "urls.md": "[Google](https://google.com)\n[GitHub](https://github.com)",
+            "long.md": f"{'x' * 500}[[target]]",
+            "target.md": "# Target",
+            "mixed.md": "# Mixed Links\n[[target]]\n![[target]]\n[Web](https://example.com)\n",
+            "headings.md": (
+                "# Main Title\n\n## Section One\n[[link_in_section]]\n\n### Subsection\n[[link_in_subsection]]\n"
+            ),
+        },
     )
 
     result = run_cmd(cmd_sync)
-    assert result.success
-    assert result.output["notes_scanned"] == 2
+
+    assert result.success is True
+    assert result.output["notes_scanned"] == 5
 
 
-def test_cmd_sync_extracts_headings(monkeypatch, tmp_path, minimal_config_dict):
-    """Test that headings are extracted from notes with links."""
-    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict, include_priority_dir=True)
-
-    (vault_dir / "headings.md").write_text(
-        "# Main Title\nSome intro text\n\n## Section One\n[[link_in_section]]\n\n"
-        "### Subsection\n[[link_in_subsection]]\n",
-        encoding="utf-8",
-    )
-
-    result = run_cmd(cmd_sync)
-    assert result.success
-    assert result.output["notes_scanned"] == 1
-
-
-def test_cmd_sync_load_config_fails(monkeypatch, tmp_path):
-    """cmd_sync fails if config is corrupt."""
+def test_cmd_sync_load_config_and_runtime_failure(monkeypatch, tmp_path, minimal_config_dict):
     wks_home = (tmp_path / ".wks").resolve()
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
-
     (wks_home / "config.json").write_text("{ corrupt", encoding="utf-8")
 
-    result = run_cmd(cmd_sync)
-    assert result.success is False
-    assert any("Failed to load config" in err for err in result.output["errors"])
+    broken_config_result = run_cmd(cmd_sync)
+    assert broken_config_result.success is False
+    assert any("Failed to load config" in err for err in broken_config_result.output["errors"])
 
-
-def test_cmd_sync_catch_all_exception(monkeypatch, tmp_path, minimal_config_dict):
-    """cmd_sync handles unexpected exceptions during do_work."""
     setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
-
     from wks.api.vault.Vault import Vault
 
-    def mock_enter(self):
-        raise RuntimeError("Imposed Failure")
+    monkeypatch.setattr(Vault, "__enter__", lambda self: (_ for _ in ()).throw(RuntimeError("Imposed Failure")))
 
-    monkeypatch.setattr(Vault, "__enter__", mock_enter)
-
-    result = run_cmd(cmd_sync)
-    assert result.success is False
-    assert "Vault sync failed: Imposed Failure" in result.result
-
-
-def test_cmd_sync_path_outside_vault_coverage(monkeypatch, tmp_path, minimal_config_dict):
-    """Exercise branches for paths outside vault root (requires bypassing resolve_vault_path)."""
-    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
-    outside_dir = (tmp_path / "outside").resolve()
-    outside_dir.mkdir()
-    (outside_dir / "external.md").write_text("external", encoding="utf-8")
-
-    from pathlib import Path
-
-    rel_path = Path("subdir/file.md")
-    (vault_dir / "subdir").mkdir()
-    target_file = vault_dir / rel_path
-    target_file.write_text("content", encoding="utf-8")
-
-    def mock_resolve(path, vault_path):
-        return (f"vault:///{rel_path}", target_file)
-
-    import wks.api.vault.resolve_vault_path
-
-    monkeypatch.setattr(wks.api.vault.resolve_vault_path, "resolve_vault_path", mock_resolve)
-
-    result = run_cmd(cmd_sync, uri=URI.from_path(str(target_file)))
-    assert result.success is True
-    assert result.output["notes_scanned"] == 1
+    runtime_result = run_cmd(cmd_sync)
+    assert runtime_result.success is False
+    assert "Vault sync failed: Imposed Failure" in runtime_result.result

@@ -4,12 +4,10 @@ from wks.api.log.read_log_entries import read_log_entries
 
 
 def test_read_log_entries_no_log(tmp_path):
-    """Test read_log_entries when no log file exists (lines 24-25)."""
     assert read_log_entries(tmp_path / "missing.log") == ([], [])
 
 
 def test_read_log_entries_success(tmp_path):
-    """Test successful reading, filtering and categorization (lines 38-70)."""
     from datetime import datetime, timezone
 
     log_path = tmp_path / "test.log"
@@ -38,7 +36,6 @@ def test_read_log_entries_success(tmp_path):
 
 
 def test_read_log_entries_invalid_date(tmp_path):
-    """Test handling of invalid date (lines 50-51)."""
     log_path = tmp_path / "junk.log"
     log_path.write_text("[INVALID_DATE] [test] ERROR: msg\n", encoding="utf-8")
     _warnings, errors = read_log_entries(log_path)
@@ -46,7 +43,6 @@ def test_read_log_entries_invalid_date(tmp_path):
 
 
 def test_read_log_entries_dotted_domain_pruned(tmp_path):
-    """Test that dotted domains like 'link.sync' are parsed and pruned correctly."""
     from datetime import datetime, timezone
 
     log_path = tmp_path / "test.log"
@@ -67,7 +63,6 @@ def test_read_log_entries_dotted_domain_pruned(tmp_path):
 
 
 def test_read_log_entries_os_error(tmp_path, monkeypatch):
-    """Test OSError handling (lines 73-75)."""
     log_path = tmp_path / "fail.log"
     log_path.touch()
 

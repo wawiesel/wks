@@ -10,7 +10,6 @@ from wks.services.status import StatusResponse
 
 
 def test_wks_service_from_config_loads(monkeypatch, minimal_config_dict):
-    """The facade should support explicit construction from WKSConfig.load."""
     config = WKSConfig.model_validate(minimal_config_dict)
     monkeypatch.setattr(WKSConfig, "load", classmethod(lambda cls: config))
 
@@ -20,7 +19,6 @@ def test_wks_service_from_config_loads(monkeypatch, minimal_config_dict):
 
 
 def test_wks_service_methods_delegate(monkeypatch, minimal_config_dict):
-    """The facade should delegate each public method to the shared service layer."""
     captured = {}
     config = WKSConfig.model_validate(minimal_config_dict)
 

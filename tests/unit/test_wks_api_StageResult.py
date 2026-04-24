@@ -4,8 +4,6 @@ from wks.api.config.StageResult import StageResult
 
 
 def test_stage_result_initialization():
-    """Test that StageResult initializes correctly."""
-
     def progress_gen(result: StageResult) -> Iterator[tuple[float, str]]:
         yield (1.0, "Complete")
         result.result = "Done"

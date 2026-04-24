@@ -15,7 +15,6 @@ def _find_wksr_command() -> str:
 
 
 def test_wksr_help():
-    """The installed REST entry point should start and describe itself."""
     result = subprocess.run([_find_wksr_command(), "--help"], capture_output=True, text=True)
 
     assert result.returncode == 0

@@ -7,7 +7,6 @@ pytestmark = pytest.mark.unit
 
 class TestAutoEngine:
     def test_select_sexp_for_sexp_files(self, tmp_path):
-        """Test auto selects sexp engine for *.sexp files."""
         file1 = tmp_path / "a.sexp"
         file2 = tmp_path / "b.sexp"
         file1.write_text("(module)")
@@ -17,7 +16,6 @@ class TestAutoEngine:
         assert engine == "sexp"
 
     def test_select_myers_for_text_files(self, tmp_path):
-        """Test auto selects myers engine for text files."""
         file1 = tmp_path / "a.txt"
         file2 = tmp_path / "b.txt"
         file1.write_text("hello world")
@@ -27,7 +25,6 @@ class TestAutoEngine:
         assert engine == "myers"
 
     def test_select_bsdiff3_for_binary_files(self, tmp_path):
-        """Test auto selects bsdiff3 engine for binary files."""
         file1 = tmp_path / "a.bin"
         file2 = tmp_path / "b.bin"
         file1.write_bytes(b"binary\x00data")
@@ -37,7 +34,6 @@ class TestAutoEngine:
         assert engine == "bsdiff3"
 
     def test_select_myers_for_utf8_text(self, tmp_path):
-        """Test auto selects myers for UTF-8 text files."""
         file1 = tmp_path / "a.txt"
         file2 = tmp_path / "b.txt"
         file1.write_text("Hello 世界", encoding="utf-8")
@@ -47,7 +43,6 @@ class TestAutoEngine:
         assert engine == "myers"
 
     def test_select_bsdiff3_for_non_utf8_text(self, tmp_path):
-        """Test auto selects bsdiff3 for non-UTF-8 text."""
         file1 = tmp_path / "a.txt"
         file2 = tmp_path / "b.txt"
         file1.write_bytes(b"hello\xe9")  # é in Latin-1
@@ -57,7 +52,6 @@ class TestAutoEngine:
         assert engine == "bsdiff3"
 
     def test_select_bsdiff3_for_mixed_text_binary(self, tmp_path):
-        """Test auto selects bsdiff3 when one file is text and other is binary."""
         file1 = tmp_path / "a.txt"
         file2 = tmp_path / "b.bin"
         file1.write_text("text")
@@ -67,7 +61,6 @@ class TestAutoEngine:
         assert engine == "bsdiff3"
 
     def test_select_myers_for_empty_text_files(self, tmp_path):
-        """Test auto selects myers for empty text files."""
         file1 = tmp_path / "a.txt"
         file2 = tmp_path / "b.txt"
         file1.write_text("")
@@ -77,7 +70,6 @@ class TestAutoEngine:
         assert engine == "myers"
 
     def test_select_bsdiff3_for_nonexistent_file(self, tmp_path):
-        """Test auto handles nonexistent file gracefully."""
         file1 = tmp_path / "a.txt"
         file2 = tmp_path / "nonexistent.txt"
         file1.write_text("text")
@@ -86,7 +78,6 @@ class TestAutoEngine:
         assert engine == "bsdiff3"
 
     def test_select_sexp_requires_both_sexp(self, tmp_path):
-        """Test sexp engine only selected if both files are *.sexp."""
         file1 = tmp_path / "a.sexp"
         file2 = tmp_path / "b.txt"
         file1.write_text("(module)")

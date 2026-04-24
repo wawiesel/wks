@@ -7,13 +7,11 @@ from wks.api.service.ServiceConfig import ServiceConfig
 
 
 def test_detect_os():
-    """Test OS detection."""
     os_name = Service.detect_os()
     assert os_name in ["darwin", "linux", "windows"]
 
 
 def test_detect_os_unsupported(monkeypatch):
-    """Test unsupported OS raises error."""
     monkeypatch.setattr("platform.system", lambda: "unsupported")
 
     with pytest.raises(RuntimeError, match="Unsupported operating system"):
@@ -21,7 +19,6 @@ def test_detect_os_unsupported(monkeypatch):
 
 
 def test_context_manager_unsupported_backend():
-    """Test context manager raises for unsupported backend."""
     config = MagicMock(spec=ServiceConfig)
     config.type = "unsupported_backend"
 
@@ -31,7 +28,6 @@ def test_context_manager_unsupported_backend():
 
 
 def test_methods_raise_without_context():
-    """Test methods raise if not in context."""
     config = MagicMock(spec=ServiceConfig)
     service = Service(config)
 
@@ -52,7 +48,6 @@ def test_methods_raise_without_context():
 
 
 def test_validate_backend_type_invalid():
-    """Test validate_backend_type with invalid backend."""
     from pydantic import BaseModel
 
     from wks.api.config.StageResult import StageResult
@@ -73,7 +68,6 @@ def test_validate_backend_type_invalid():
 
 
 def test_start_via_service_success():
-    """Test start_via_service returns success."""
     config = MagicMock(spec=ServiceConfig)
     service = Service(config)
     service.start_service = MagicMock(return_value={"success": True, "label": "com.test.service"})  # type: ignore
@@ -86,7 +80,6 @@ def test_start_via_service_success():
 
 
 def test_start_via_service_failure():
-    """Test start_via_service handles failure."""
     config = MagicMock(spec=ServiceConfig)
     service = Service(config)
     service.start_service = MagicMock(return_value={"success": False, "error": "Launch failed"})  # type: ignore
@@ -99,7 +92,6 @@ def test_start_via_service_failure():
 
 
 def test_start_via_service_missing_success_field():
-    """Test start_via_service raises KeyError on missing success field."""
     config = MagicMock(spec=ServiceConfig)
     service = Service(config)
     service.start_service = MagicMock(return_value={})  # type: ignore
@@ -109,7 +101,6 @@ def test_start_via_service_missing_success_field():
 
 
 def test_start_via_service_missing_label_on_success():
-    """Test start_via_service raises KeyError on missing label when success=True."""
     config = MagicMock(spec=ServiceConfig)
     service = Service(config)
     service.start_service = MagicMock(return_value={"success": True})  # type: ignore

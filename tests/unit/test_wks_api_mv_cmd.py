@@ -3,7 +3,6 @@ from wks.api.mv.cmd import cmd
 
 
 def test_mv_cmd_returns_wrapped_move_output(monkeypatch, tracked_wks_config, tmp_path):
-    """The mv command should preserve the command contract over the shared move service."""
     source_dir = tmp_path / "source"
     dest_dir = tmp_path / "dest"
     source_dir.mkdir()

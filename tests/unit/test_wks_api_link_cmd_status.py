@@ -3,7 +3,6 @@ from wks.api.link.cmd_status import cmd_status
 
 
 def test_cmd_status_success(tracked_wks_config):
-    """Test successful link status (lines 14-45)."""
     from wks.api.database.Database import Database
 
     with Database(tracked_wks_config.database, "edges") as db:

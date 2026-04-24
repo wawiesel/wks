@@ -7,7 +7,6 @@ pytestmark = pytest.mark.unit
 
 class TestBsdiff3Engine:
     def test_diff_identical_files(self, tmp_path):
-        """Test diff with identical binary files."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "b.bin"
         content = b"binary data"
@@ -19,7 +18,6 @@ class TestBsdiff3Engine:
         assert "identical" in result.lower()
 
     def test_diff_different_files(self, tmp_path):
-        """Test diff with different binary files."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "b.bin"
         file_a.write_bytes(b"binary data 1")
@@ -34,7 +32,6 @@ class TestBsdiff3Engine:
         assert "bytes" in result.lower()
 
     def test_diff_missing_bsdiff4(self, tmp_path, monkeypatch):
-        """Test diff fails when bsdiff4 is not available."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "b.bin"
         file_a.write_bytes(b"data1")
@@ -47,7 +44,6 @@ class TestBsdiff3Engine:
             engine.diff(file_a, file_b, {})
 
     def test_diff_read_error(self, tmp_path):
-        """Test diff handles file read errors."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "nonexistent.bin"
         file_a.write_bytes(b"data")
@@ -60,7 +56,6 @@ class TestBsdiff3Engine:
             engine.diff(file_a, file_b, {})
 
     def test_diff_patch_generation(self, tmp_path):
-        """Test diff generates patch for different files."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "b.bin"
         file_a.write_bytes(b"old" * 100)
@@ -75,7 +70,6 @@ class TestBsdiff3Engine:
         assert "compression ratio" in result.lower()
 
     def test_diff_large_files(self, tmp_path):
-        """Test diff handles large binary files."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "b.bin"
         file_a.write_bytes(b"x" * 10000)

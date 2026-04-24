@@ -11,7 +11,6 @@ from wks.api.database.Database import Database
 
 @pytest.mark.daemon
 def test_daemon_background_watch_restrict(mongo_wks_env):
-    """Test that background daemon processes events in a restricted directory."""
     wks_home = mongo_wks_env["wks_home"]
     watch_dir = mongo_wks_env["watch_dir"]
     config = mongo_wks_env["config"]
@@ -71,7 +70,6 @@ def test_daemon_background_watch_restrict(mongo_wks_env):
 
 @pytest.mark.daemon
 def test_daemon_ignore_internal_files(mongo_wks_env):
-    """Test that daemon ignores changes to its own logs, lock, and status files."""
     wks_home = mongo_wks_env["wks_home"]
 
     res = run_cmd(cmd_start, restrict_dir=wks_home)
@@ -97,7 +95,6 @@ def test_daemon_ignore_internal_files(mongo_wks_env):
 
 @pytest.mark.daemon
 def test_cmd_start_already_running(mongo_wks_env):
-    """Test starting daemon when it is already running."""
     res1 = run_cmd(cmd_start)
     assert res1.success is True
     assert res1.output["running"] is True
@@ -113,7 +110,6 @@ def test_cmd_start_already_running(mongo_wks_env):
 
 @pytest.mark.daemon
 def test_cmd_start_blocking(mongo_wks_env):
-    """Test cmd_start with blocking=True."""
     import threading
 
     def run_blocking():

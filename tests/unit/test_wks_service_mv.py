@@ -7,7 +7,6 @@ from wks.services.mv import MoveRequest, move_document
 
 
 def test_move_document_moves_file(monkeypatch, tracked_wks_config, tmp_path):
-    """The move service should move files once policy checks pass."""
     source_dir = tmp_path / "source"
     dest_dir = tmp_path / "dest"
     source_dir.mkdir()
@@ -29,7 +28,6 @@ def test_move_document_moves_file(monkeypatch, tracked_wks_config, tmp_path):
 
 
 def test_move_document_rejects_existing_destination(monkeypatch, tracked_wks_config, tmp_path):
-    """The move service should reject destination overwrites."""
     source_dir = tmp_path / "source"
     dest_dir = tmp_path / "dest"
     source_dir.mkdir()
@@ -49,8 +47,6 @@ def test_move_document_rejects_existing_destination(monkeypatch, tracked_wks_con
 
 
 def test_move_document_honors_explicit_config(monkeypatch, minimal_config_dict, tmp_path):
-    """The move service should keep monitor and vault side effects on the injected config."""
-
     def build_config(prefix: str, cache_dir, source_dir, dest_dir, vault_dir) -> WKSConfig:
         raw = copy.deepcopy(minimal_config_dict)
         raw["database"]["prefix"] = prefix

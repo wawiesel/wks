@@ -4,7 +4,6 @@ from wks.cli.display.CLIDisplay import CLIDisplay
 
 
 def test_status_segments_render_full_spaced_path_as_one_styled_segment(monkeypatch):
-    """Segmented status lines should style the full path, including spaces, as one segment."""
     display = CLIDisplay()
     calls: list[tuple[object, dict]] = []
 

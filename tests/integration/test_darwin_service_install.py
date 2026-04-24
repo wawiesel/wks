@@ -29,12 +29,6 @@ def _check_launchctl_available() -> bool:
 @pytest.mark.integration
 @pytest.mark.darwin_service
 def test_darwin_service_install_lifecycle(tmp_path, monkeypatch):
-    """Test full lifecycle: install, start, status, stop, uninstall.
-
-    This test REQUIRES macOS (Darwin) and launchctl.
-    On non-macOS platforms, this test is skipped (we test platform-specific code on the appropriate platform).
-    """
-
     def _wait_for_status(service, running: bool, timeout_sec: int = 10):
         import time
 

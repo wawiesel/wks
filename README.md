@@ -9,7 +9,7 @@
 ## Status
 
 - WKS is alpha software.
-- The shared execution model is `services/core -> cmd_* -> CLI/MCP` plus a read-only REST layer over the same services.
+- The shared execution model is `services/core -> cmd_* -> CLI/MCP/REST`.
 - REST support is mandatory.
 
 ## Overview
@@ -34,7 +34,7 @@ venv/bin/pip install -e .
 venv/bin/wksc status
 venv/bin/wksc search "reactor"
 venv/bin/wksc cat /path/to/file.pdf
-venv/bin/wksr
+venv/bin/wksr --host 127.0.0.1 --port 8765
 ```
 
 ```python
@@ -59,31 +59,6 @@ Rules that stay fixed:
 - CLI, MCP, and REST stay thin
 - configuration loads once, validates early, and fails hard on bad input
 
-## Command Surface
-
-Primary command groups:
-
-- `status`
-- `monitor`
-- `vault`
-- `link`
-- `transform`
-- `index`
-- `search`
-- `mv`
-- `daemon`
-- `service`
-- `config`
-- `database`
-- `mcp`
-
-## Code Quality Metrics
-
-<!-- BEGIN GENERATED METRICS -->
-Run `venv/bin/python scripts/generate_all_stats.py` or `venv/bin/python scripts/update_readme_stats.py`
-to populate the latest local metrics.
-<!-- END GENERATED METRICS -->
-
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, tests, and architecture rules.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, test expectations, and architecture rules.

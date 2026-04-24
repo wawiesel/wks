@@ -1,6 +1,4 @@
-import tempfile
-from pathlib import Path
-
+import numpy as np
 import pytest
 
 from tests.unit.conftest import run_cmd
@@ -9,297 +7,156 @@ from wks.api.diff.cmd_diff import cmd_diff
 pytestmark = pytest.mark.unit
 
 
-class TestCmdDiff:
-    def test_cmd_diff_success_myers(self, tmp_path):
-        """Test cmd_diff succeeds with myers engine for text files."""
-        file_a = tmp_path / "a.txt"
-        file_b = tmp_path / "b.txt"
-        file_a.write_text("hello\nworld\n")
-        file_b.write_text("hello\nuniverse\n")
+def build_config(engine: str | None = "myers", **engine_overrides):
+    engine_config = None if engine is None else {"engine": engine, **engine_overrides}
+    config: dict[str, object] = {"timeout_seconds": 60, "max_size_mb": 100}
+    if engine_config is not None:
+        config["engine_config"] = engine_config
+    return config
 
-        config = {
-            "engine_config": {"engine": "myers"},
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
 
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert result.success
-        assert result.output["status"] == "success"
-        assert result.output["metadata"]["engine_used"] == "myers"
-        assert result.output["diff_output"] is not None
+def write_pair(tmp_path, content_a, content_b, *, suffix=".txt", binary=False):
+    file_a = tmp_path / f"a{suffix}"
+    file_b = tmp_path / f"b{suffix}"
+    if binary:
+        file_a.write_bytes(content_a)
+        file_b.write_bytes(content_b)
+    else:
+        file_a.write_text(content_a)
+        file_b.write_text(content_b)
+    return file_a, file_b
 
-    def test_cmd_diff_success_identical_files(self, tmp_path):
-        """Test cmd_diff succeeds with identical files."""
-        file_a = tmp_path / "a.txt"
-        file_b = tmp_path / "b.txt"
-        content = "identical content\n"
-        file_a.write_text(content)
-        file_b.write_text(content)
 
-        config = {
-            "engine_config": {"engine": "myers"},
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
+@pytest.mark.parametrize(
+    ("engine", "suffix", "content_a", "content_b", "binary", "metadata_key", "metadata_value"),
+    [
+        ("myers", ".txt", "hello\nworld\n", "hello\nuniverse\n", False, "engine_used", "myers"),
+        ("myers", ".txt", "identical content\n", "identical content\n", False, "is_identical", True),
+        (
+            "sexp",
+            ".sexp",
+            "(module (function (name hello)))",
+            "(module (function (name world)))",
+            False,
+            "engine_used",
+            "sexp",
+        ),
+        ("bsdiff3", ".bin", b"binary data 1", b"binary data 2", True, "engine_used", "bsdiff3"),
+    ],
+)
+def test_cmd_diff_success_cases(tmp_path, engine, suffix, content_a, content_b, binary, metadata_key, metadata_value):
+    file_a, file_b = write_pair(tmp_path, content_a, content_b, suffix=suffix, binary=binary)
+    result = run_cmd(cmd_diff, build_config(engine), str(file_a), str(file_b))
 
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert result.success
-        assert result.output["status"] == "success"
-        assert result.output["metadata"]["is_identical"] is True
-        assert result.output["metadata"]["engine_used"] == "myers"
+    assert result.success
+    assert result.output["status"] == "success"
+    assert result.output["metadata"][metadata_key] == metadata_value
 
-    def test_cmd_diff_success_sexp(self, tmp_path):
-        """Test cmd_diff succeeds with sexp engine for S-expression files."""
-        file_a = tmp_path / "a.sexp"
-        file_b = tmp_path / "b.sexp"
-        file_a.write_text("(module (function (name hello)))")
-        file_b.write_text("(module (function (name world)))")
 
-        config = {
-            "engine_config": {"engine": "sexp"},
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
+def test_cmd_diff_myers_with_options(tmp_path):
+    file_a, file_b = write_pair(tmp_path, "hello\nworld\n", "hello\nuniverse\n")
+    result = run_cmd(
+        cmd_diff,
+        build_config("myers", context_lines=5, ignore_whitespace=True),
+        str(file_a),
+        str(file_b),
+    )
+    assert result.success
+    assert result.output["status"] == "success"
 
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert result.success
-        assert result.output["status"] == "success"
-        assert result.output["metadata"]["engine_used"] == "sexp"
 
-    def test_cmd_diff_failure_missing_config(self):
-        """Test cmd_diff fails with missing config."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_a = f.name
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_b = f.name
+def test_cmd_diff_success_semantic_text(tmp_path, monkeypatch):
+    file_a, file_b = write_pair(tmp_path, "hello world\nfission data\n", "hello universe\nfission dataset\n")
 
-        try:
-            result = run_cmd(cmd_diff, None, file_a, file_b)
-            assert not result.success
-            assert "config must be a dict" in result.output["error_details"]["errors"][0]
-        finally:
-            Path(file_a).unlink(missing_ok=True)
-            Path(file_b).unlink(missing_ok=True)
+    def fake_embed(texts, model_name, batch_size):
+        del model_name, batch_size
+        if "world" in texts[0]:
+            return np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+        return np.array([[0.95, 0.1], [0.05, 0.99]], dtype=np.float32)
 
-    def test_cmd_diff_failure_missing_engine_config(self):
-        """Test cmd_diff fails with missing engine_config."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_a = f.name
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_b = f.name
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", fake_embed)
+    result = run_cmd(
+        cmd_diff,
+        build_config(
+            "semantic",
+            modified_threshold=0.6,
+            unchanged_threshold=0.95,
+            text_model="test-text-model",
+            image_model="test-image-model",
+            pixel_threshold=5,
+            max_examples=8,
+        ),
+        str(file_a),
+        str(file_b),
+    )
 
-        try:
-            config = {"timeout_seconds": 60, "max_size_mb": 100}
-            result = run_cmd(cmd_diff, config, file_a, file_b)
-            assert not result.success
-            assert "config.engine_config is required" in result.output["error_details"]["errors"][0]
-        finally:
-            Path(file_a).unlink(missing_ok=True)
-            Path(file_b).unlink(missing_ok=True)
+    assert result.success
+    assert result.output["status"] == "success"
+    assert result.output["metadata"]["engine_used"] == "semantic"
+    assert result.output["diff_output"] is not None
 
-    def test_cmd_diff_failure_invalid_engine(self):
-        """Test cmd_diff fails with invalid engine name."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_a = f.name
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_b = f.name
 
-        try:
-            config = {
-                "engine_config": {"engine": "invalid_engine"},
-                "timeout_seconds": 60,
-                "max_size_mb": 100,
-            }
-            result = run_cmd(cmd_diff, config, file_a, file_b)
-            assert not result.success
-            assert "must be one of auto,bsdiff3,myers,sexp,semantic" in result.output["error_details"]["errors"][0]
-        finally:
-            Path(file_a).unlink(missing_ok=True)
-            Path(file_b).unlink(missing_ok=True)
+@pytest.mark.parametrize(
+    ("config", "target_a", "target_b", "expected_error"),
+    [
+        (None, "a.txt", "b.txt", "config must be a dict"),
+        ({"timeout_seconds": 60, "max_size_mb": 100}, "a.txt", "b.txt", "config.engine_config is required"),
+        (build_config("invalid_engine"), "a.txt", "b.txt", "must be one of auto,bsdiff3,myers,sexp,semantic"),
+        (build_config("myers"), "", "some_file", "target_a is required"),
+        (build_config("myers"), "some_file", "", "target_b is required"),
+        (build_config("myers", **{}), "a.txt", "b.txt", "not found"),
+        (
+            {"engine_config": {"engine": "myers"}, "timeout_seconds": -1, "max_size_mb": 100},
+            "a.txt",
+            "b.txt",
+            "timeout_seconds must be a positive int",
+        ),
+        (
+            {"engine_config": {"engine": "myers"}, "timeout_seconds": 60, "max_size_mb": 0},
+            "a.txt",
+            "b.txt",
+            "max_size_mb must be a positive int",
+        ),
+    ],
+)
+def test_cmd_diff_validation_errors(tmp_path, config, target_a, target_b, expected_error):
+    if target_a and expected_error != "not found":
+        (tmp_path / target_a).write_text("A")
+    if target_b and expected_error != "not found":
+        (tmp_path / target_b).write_text("B")
+    actual_a = str(tmp_path / target_a) if target_a and target_a.endswith(".txt") else target_a
+    actual_b = str(tmp_path / target_b) if target_b and target_b.endswith(".txt") else target_b
 
-    def test_cmd_diff_failure_missing_target_a(self):
-        """Test cmd_diff fails with missing target_a."""
-        config = {
-            "engine_config": {"engine": "myers"},
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
-        result = run_cmd(cmd_diff, config, "", "some_file")
-        assert not result.success
-        assert "target_a is required" in result.output["error_details"]["errors"][0]
+    result = run_cmd(cmd_diff, config, actual_a, actual_b)
+    assert not result.success
+    assert (
+        expected_error in result.output["error_details"]["errors"][0].lower()
+        if expected_error == "not found"
+        else expected_error in result.output["error_details"]["errors"][0]
+    )
 
-    def test_cmd_diff_failure_missing_target_b(self):
-        """Test cmd_diff fails with missing target_b."""
-        config = {
-            "engine_config": {"engine": "myers"},
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
-        result = run_cmd(cmd_diff, config, "some_file", "")
-        assert not result.success
-        assert "target_b is required" in result.output["error_details"]["errors"][0]
 
-    def test_cmd_diff_failure_file_not_found(self, tmp_path):
-        """Test cmd_diff fails when files don't exist."""
-        config = {
-            "engine_config": {"engine": "myers"},
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
-        result = run_cmd(cmd_diff, config, str(tmp_path / "nonexistent_a.txt"), str(tmp_path / "nonexistent_b.txt"))
-        assert not result.success
-        assert "not found" in result.output["error_details"]["errors"][0].lower()
+def test_cmd_diff_failure_file_too_large(tmp_path):
+    file_a, file_b = write_pair(tmp_path, "x" * (2 * 1024 * 1024), "x" * (2 * 1024 * 1024))
+    result = run_cmd(
+        cmd_diff,
+        {"engine_config": {"engine": "myers"}, "timeout_seconds": 60, "max_size_mb": 1},
+        str(file_a),
+        str(file_b),
+    )
 
-    def test_cmd_diff_failure_invalid_timeout(self):
-        """Test cmd_diff fails with invalid timeout_seconds."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_a = f.name
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_b = f.name
+    assert not result.success
+    assert "exceeds max_size_mb" in result.output["error_details"]["errors"][0]
 
-        try:
-            config = {
-                "engine_config": {"engine": "myers"},
-                "timeout_seconds": -1,
-                "max_size_mb": 100,
-            }
-            result = run_cmd(cmd_diff, config, file_a, file_b)
-            assert not result.success
-            assert "timeout_seconds must be a positive int" in result.output["error_details"]["errors"][0]
-        finally:
-            Path(file_a).unlink(missing_ok=True)
-            Path(file_b).unlink(missing_ok=True)
 
-    def test_cmd_diff_failure_invalid_max_size(self):
-        """Test cmd_diff fails with invalid max_size_mb."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_a = f.name
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            file_b = f.name
+def test_cmd_diff_semantic_requires_all_options(tmp_path):
+    file_a, file_b = write_pair(tmp_path, "hello world\n", "hello universe\n")
+    result = run_cmd(
+        cmd_diff,
+        build_config("semantic", modified_threshold=0.6),
+        str(file_a),
+        str(file_b),
+    )
 
-        try:
-            config = {
-                "engine_config": {"engine": "myers"},
-                "timeout_seconds": 60,
-                "max_size_mb": 0,
-            }
-            result = run_cmd(cmd_diff, config, file_a, file_b)
-            assert not result.success
-            assert "max_size_mb must be a positive int" in result.output["error_details"]["errors"][0]
-        finally:
-            Path(file_a).unlink(missing_ok=True)
-            Path(file_b).unlink(missing_ok=True)
-
-    def test_cmd_diff_failure_file_too_large(self, tmp_path):
-        """Test cmd_diff fails when files exceed max_size_mb."""
-        file_a = tmp_path / "a.txt"
-        file_b = tmp_path / "b.txt"
-        large_content = "x" * (2 * 1024 * 1024)
-        file_a.write_text(large_content)
-        file_b.write_text(large_content)
-
-        config = {
-            "engine_config": {"engine": "myers"},
-            "timeout_seconds": 60,
-            "max_size_mb": 1,  # 1MB limit
-        }
-
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert not result.success
-        assert "exceeds max_size_mb" in result.output["error_details"]["errors"][0]
-
-    def test_cmd_diff_myers_with_options(self, tmp_path):
-        """Test cmd_diff with myers engine and custom options."""
-        file_a = tmp_path / "a.txt"
-        file_b = tmp_path / "b.txt"
-        file_a.write_text("hello\nworld\n")
-        file_b.write_text("hello\nuniverse\n")
-
-        config = {
-            "engine_config": {
-                "engine": "myers",
-                "context_lines": 5,
-                "ignore_whitespace": True,
-            },
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
-
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert result.success
-        assert result.output["status"] == "success"
-
-    def test_cmd_diff_success_bsdiff3(self, tmp_path):
-        """Test cmd_diff succeeds with bsdiff3 engine for binary files."""
-        file_a = tmp_path / "a.bin"
-        file_b = tmp_path / "b.bin"
-        file_a.write_bytes(b"binary data 1")
-        file_b.write_bytes(b"binary data 2")
-
-        config = {
-            "engine_config": {"engine": "bsdiff3"},
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
-
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert result.success
-        assert result.output["status"] == "success"
-        assert result.output["metadata"]["engine_used"] == "bsdiff3"
-
-    def test_cmd_diff_success_semantic_text(self, tmp_path, monkeypatch):
-        """Test cmd_diff succeeds with semantic engine for text files."""
-        file_a = tmp_path / "a.txt"
-        file_b = tmp_path / "b.txt"
-        file_a.write_text("hello world\nfission data\n")
-        file_b.write_text("hello universe\nfission dataset\n")
-
-        import numpy as np
-
-        def _fake_embed(texts, model_name, batch_size):
-            if "world" in texts[0]:
-                return np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
-            return np.array([[0.95, 0.1], [0.05, 0.99]], dtype=np.float32)
-
-        monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed)
-
-        config = {
-            "engine_config": {
-                "engine": "semantic",
-                "modified_threshold": 0.6,
-                "unchanged_threshold": 0.95,
-                "text_model": "test-text-model",
-                "image_model": "test-image-model",
-                "pixel_threshold": 5,
-                "max_examples": 8,
-            },
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
-
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert result.success
-        assert result.output["status"] == "success"
-        assert result.output["metadata"]["engine_used"] == "semantic"
-        assert result.output["diff_output"] is not None
-
-    def test_cmd_diff_semantic_requires_all_options(self, tmp_path):
-        """Test semantic engine fails when required options are missing."""
-        file_a = tmp_path / "a.txt"
-        file_b = tmp_path / "b.txt"
-        file_a.write_text("hello world\n")
-        file_b.write_text("hello universe\n")
-
-        config = {
-            "engine_config": {
-                "engine": "semantic",
-                "modified_threshold": 0.6,
-            },
-            "timeout_seconds": 60,
-            "max_size_mb": 100,
-        }
-
-        result = run_cmd(cmd_diff, config, str(file_a), str(file_b))
-        assert result.success is False
-        assert "missing required semantic options" in result.output["error_details"]["errors"][0]
+    assert result.success is False
+    assert "missing required semantic options" in result.output["error_details"]["errors"][0]

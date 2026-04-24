@@ -6,7 +6,6 @@ from wks.api.link.prune import prune
 
 
 def test_prune_basic(tracked_wks_config, tmp_path):
-    """Test basic link pruning (lines 14-88)."""
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_many([{"local_uri": "a"}, {"local_uri": "b"}])
 
@@ -32,7 +31,6 @@ def test_prune_basic(tracked_wks_config, tmp_path):
 
 
 def test_prune_remote(tracked_wks_config, monkeypatch):
-    """Test remote pruning and unsetting (lines 89-131)."""
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_many([{"local_uri": "a"}])
 
@@ -76,7 +74,6 @@ def test_prune_remote(tracked_wks_config, monkeypatch):
 
 
 def test_prune_unset_from_remote(tracked_wks_config, monkeypatch):
-    """Test unsetting from_remote_uri without deletion (lines 104-131)."""
     with Database(tracked_wks_config.database, "nodes") as db:
         db.insert_many([{"local_uri": "a"}])
     with Database(tracked_wks_config.database, "edges") as db:
@@ -106,7 +103,6 @@ def test_prune_unset_from_remote(tracked_wks_config, monkeypatch):
 
 
 def test_prune_remote_error(tracked_wks_config, monkeypatch):
-    """Test transient remote error doesn't delete/unset (lines 99-101, 109-110)."""
     with Database(tracked_wks_config.database, "edges") as db:
         db.insert_many(
             [
@@ -136,7 +132,6 @@ def test_prune_remote_error(tracked_wks_config, monkeypatch):
 
 
 def test_prune_from_remote_error(tracked_wks_config, monkeypatch):
-    """Test RequestException in from_remote HEAD (lines 109-110)."""
     with Database(tracked_wks_config.database, "edges") as db:
         db.insert_many(
             [
@@ -165,7 +160,6 @@ def test_prune_from_remote_error(tracked_wks_config, monkeypatch):
 
 
 def test_prune_uri_to_path_error(tracked_wks_config, monkeypatch):
-    """Test ValueError in uri_to_path (lines 86-87)."""
     with Database(tracked_wks_config.database, "edges") as db:
         db.insert_many([{"_id": "e-uri-err", "from_local_uri": "a", "to_local_uri": "faulty://"}])
     with Database(tracked_wks_config.database, "nodes") as db:

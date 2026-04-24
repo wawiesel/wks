@@ -7,7 +7,6 @@ pytestmark = pytest.mark.mcp
 
 
 def test_cmd_list_returns_supported_targets():
-    """cmd_list should return native-command guidance for supported targets."""
     result = run_cmd(cmd_list)
 
     assert result.success is True

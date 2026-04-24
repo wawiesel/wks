@@ -7,7 +7,6 @@ pytestmark = pytest.mark.unit
 
 class TestMyersEngine:
     def test_diff_identical_files(self, tmp_path):
-        """Test diff with identical files."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         content = "identical content\n"
@@ -19,7 +18,6 @@ class TestMyersEngine:
         assert "identical" in result.lower()
 
     def test_diff_different_files(self, tmp_path):
-        """Test diff with different files."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         file_a.write_text("hello\nworld\n")
@@ -31,7 +29,6 @@ class TestMyersEngine:
         assert isinstance(result, str)
 
     def test_diff_with_context_lines(self, tmp_path):
-        """Test diff with custom context_lines option."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         file_a.write_text("line1\nline2\nline3\nline4\nline5\n")
@@ -44,7 +41,6 @@ class TestMyersEngine:
         assert isinstance(result_custom, str)
 
     def test_diff_binary_file_fails(self, tmp_path):
-        """Test diff fails with binary file."""
         file_a = tmp_path / "a.bin"
         file_b = tmp_path / "b.bin"
         file_a.write_bytes(b"binary\x00data")
@@ -55,7 +51,6 @@ class TestMyersEngine:
             engine.diff(file_a, file_b, {})
 
     def test_diff_utf8_text(self, tmp_path):
-        """Test diff handles UTF-8 text files."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         file_a.write_text("Hello 世界\n", encoding="utf-8")
@@ -66,7 +61,6 @@ class TestMyersEngine:
         assert isinstance(result, str)
 
     def test_diff_empty_files(self, tmp_path):
-        """Test diff handles empty text files."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         file_a.write_text("")
@@ -77,7 +71,6 @@ class TestMyersEngine:
         assert "identical" in result.lower()
 
     def test_diff_file2_not_text(self, tmp_path):
-        """Test diff fails when file2 is not text."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.bin"
         file_a.write_text("text")
@@ -88,7 +81,6 @@ class TestMyersEngine:
             engine.diff(file_a, file_b, {})
 
     def test_diff_command_error_handling(self, tmp_path, monkeypatch):
-        """Test diff handles diff command errors."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         file_a.write_text("text1")
@@ -109,7 +101,6 @@ class TestMyersEngine:
             engine.diff(file_a, file_b, {})
 
     def test_diff_exception_handling(self, tmp_path, monkeypatch):
-        """Test diff handles unexpected exceptions."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         file_a.write_text("text1")
@@ -125,7 +116,6 @@ class TestMyersEngine:
             engine.diff(file_a, file_b, {})
 
     def test_is_text_file_ascii_fallback(self, tmp_path):
-        """Test _is_text_file handles ASCII-only text."""
         file_a = tmp_path / "a.txt"
         file_a.write_text("ASCII only text", encoding="ascii")
 
@@ -134,7 +124,6 @@ class TestMyersEngine:
         assert "identical" in result.lower()
 
     def test_is_text_file_exception_handling(self, tmp_path):
-        """Test _is_text_file handles file read exceptions."""
         file_a = tmp_path / "a.txt"
         file_b = tmp_path / "b.txt"
         file_a.write_text("text")

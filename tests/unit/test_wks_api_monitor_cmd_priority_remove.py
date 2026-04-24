@@ -7,12 +7,9 @@ pytestmark = pytest.mark.monitor
 
 
 def test_cmd_priority_remove_not_found(monkeypatch):
-    """Test cmd_priority_remove with non-existent path.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-007
-    """
+    - MON-007"""
     cfg = create_tracked_wks_config(monkeypatch)
     cfg.monitor.priority.dirs = {"/tmp/existing": 10.0}
 
@@ -24,12 +21,9 @@ def test_cmd_priority_remove_not_found(monkeypatch):
 
 
 def test_cmd_priority_remove_success(monkeypatch):
-    """Test cmd_priority_remove success.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-007
-    """
+    - MON-007"""
     path = "/tmp/test"
     resolved = path  # canonicalize_path returns same path on unix if no ~
 
@@ -45,12 +39,9 @@ def test_cmd_priority_remove_success(monkeypatch):
 
 
 def test_cmd_priority_remove_empty_list(monkeypatch):
-    """Test cmd_priority_remove with empty priority list.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-007
-    """
+    - MON-007"""
     cfg = create_tracked_wks_config(monkeypatch)
 
     result = run_cmd(cmd_priority_remove.cmd_priority_remove, path="/tmp/test")

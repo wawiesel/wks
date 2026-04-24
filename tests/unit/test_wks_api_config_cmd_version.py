@@ -7,7 +7,6 @@ pytestmark = pytest.mark.config
 
 
 def test_cmd_version_with_git_sha(monkeypatch):
-    """Test cmd_version returns version string."""
     monkeypatch.setattr("wks.api.config.cmd_version.get_package_version", lambda: "0.4.0")
 
     result = run_cmd(cmd_version.cmd_version)
@@ -18,7 +17,6 @@ def test_cmd_version_with_git_sha(monkeypatch):
 
 
 def test_cmd_version_without_git_sha(monkeypatch):
-    """Test cmd_version returns version string."""
     monkeypatch.setattr("wks.api.config.cmd_version.get_package_version", lambda: "0.4.0")
 
     result = run_cmd(cmd_version.cmd_version)

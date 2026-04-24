@@ -18,7 +18,6 @@ mock_cmd_func.__name__ = "cmd_mock_command"
 
 
 def test_validate_output_success(monkeypatch):
-    """Test successful validation."""
     monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: MockOutput)
 
     output = {"key": "value"}
@@ -28,7 +27,6 @@ def test_validate_output_success(monkeypatch):
 
 
 def test_validate_output_failure(monkeypatch):
-    """Test validation failure."""
     monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: MockOutput)
 
     output = {"wrong": "value"}
@@ -38,8 +36,6 @@ def test_validate_output_failure(monkeypatch):
 
 
 def test_validate_output_skip_non_api():
-    """Test skipping validation for non-API modules."""
-
     def non_api_func():
         pass
 
@@ -49,8 +45,6 @@ def test_validate_output_skip_non_api():
 
 
 def test_validate_output_skip_non_cmd():
-    """Test skipping validation for non-cmd functions."""
-
     def mock_helper():
         pass
 
@@ -60,7 +54,6 @@ def test_validate_output_skip_non_cmd():
 
 
 def test_validate_output_no_schema(monkeypatch):
-    """Test validation when no schema is registered."""
     monkeypatch.setattr("wks.api.config.validate_output.resolve_output_model", lambda d, c: None)
 
     output = {"key": "value"}

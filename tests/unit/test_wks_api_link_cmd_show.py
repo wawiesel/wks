@@ -5,7 +5,6 @@ from wks.api.link.cmd_show import Direction, cmd_show
 
 
 def test_cmd_show_directions(tracked_wks_config):
-    """Test cmd_show with different directions (lines 31-38)."""
     host = "localhost"
     uri_a = f"file://{host}/a"
     uri_b = f"file://{host}/b"

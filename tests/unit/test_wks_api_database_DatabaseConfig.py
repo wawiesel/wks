@@ -8,7 +8,6 @@ pytestmark = pytest.mark.database
 
 class TestDatabaseConfig:
     def test_database_config_mongo(self):
-        """Test DatabaseConfig with mongo backend."""
         config = DatabaseConfig.model_validate(
             {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}}
         )
@@ -18,18 +17,15 @@ class TestDatabaseConfig:
         assert config.data.local is False  # type: ignore[attr-defined]
 
     def test_database_config_mongomock(self):
-        """Test DatabaseConfig with mongomock backend."""
         config = DatabaseConfig.model_validate({"type": "mongomock", "prefix": "wks", "data": {}})
         assert config.type == "mongomock"
         assert config.prefix == "wks"
 
     def test_database_config_missing_prefix(self):
-        """Test DatabaseConfig raises error when prefix is missing (config-first principle)."""
         with pytest.raises(ValidationError):
             DatabaseConfig.model_validate({"type": "mongo", "data": {"uri": "mongodb://localhost/"}})
 
     def test_database_config_custom_prefix(self):
-        """Test DatabaseConfig with custom prefix."""
         config = DatabaseConfig.model_validate(
             {
                 "type": "mongo",
@@ -41,41 +37,34 @@ class TestDatabaseConfig:
         assert config.prefix == "custom"
 
     def test_database_config_invalid_data_type(self):
-        """Test DatabaseConfig raises error when data is not a dict."""
         with pytest.raises(ValueError, match="database config must be a dict"):
             DatabaseConfig.model_validate("invalid")
 
     def test_database_config_missing_type(self):
-        """Test DatabaseConfig raises error when type is missing."""
         with pytest.raises(ValueError, match=r"database\.type is required"):
             DatabaseConfig.model_validate({"data": {}, "prefix": "wks"})
 
     def test_database_config_unknown_type(self):
-        """Test DatabaseConfig raises error for unknown backend type."""
         with pytest.raises(ValueError, match="Unknown backend type"):
             DatabaseConfig.model_validate(
                 {"type": "invalid", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}}
             )
 
     def test_database_config_missing_data(self):
-        """Test DatabaseConfig raises error when data is missing."""
         with pytest.raises(ValueError, match=r"database\.data is required"):
             DatabaseConfig.model_validate({"type": "mongo", "prefix": "wks"})
 
     def test_database_config_mongomock_no_uri_required(self):
-        """Test DatabaseConfig doesn't require uri for mongomock (in-memory database)."""
         config = DatabaseConfig.model_validate({"type": "mongomock", "prefix": "wks", "data": {}})
         assert config.type == "mongomock"
         with pytest.raises(ValidationError):
             DatabaseConfig.model_validate({"type": "mongo", "prefix": "wks", "data": {}})
 
     def test_database_config_invalid_mongo_uri(self):
-        """Test DatabaseConfig validates mongo URI format."""
         with pytest.raises(Exception, match="must start with 'mongodb://'"):
             DatabaseConfig.model_validate({"type": "mongo", "prefix": "wks", "data": {"uri": "invalid-uri"}})
 
     def test_database_config_mongo_local_requires_port(self):
-        """Local mongo requires explicit host:port in uri."""
         cfg = DatabaseConfig.model_validate(
             {
                 "type": "mongo",
@@ -90,7 +79,6 @@ class TestDatabaseConfig:
         assert cfg.data.local is True  # type: ignore[attr-defined]
 
     def test_database_config_from_dict(self):
-        """Test DatabaseConfig can be created from dict."""
         config_dict = {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}}
         config = DatabaseConfig.model_validate(config_dict)
         assert config.type == "mongo"
@@ -98,14 +86,12 @@ class TestDatabaseConfig:
         assert config.data.uri == "mongodb://localhost:27017/"  # type: ignore[attr-defined]
 
     def test_database_config_model_validator_before(self):
-        """Test model_validator intercepts and transforms data."""
         config_dict = {"type": "mongo", "prefix": "wks", "data": {"uri": "mongodb://localhost:27017/"}}
         config = DatabaseConfig.model_validate(config_dict)
         assert hasattr(config.data, "uri")
         assert config.data.uri == "mongodb://localhost:27017/"  # type: ignore[attr-defined]
 
     def test_database_config_model_validator_with_mongomock(self):
-        """Test model_validator works with mongomock backend."""
         config_dict = {"type": "mongomock", "prefix": "wks", "prune_frequency_secs": 3600, "data": {}}
         config = DatabaseConfig.model_validate(config_dict)
         assert config.type == "mongomock"

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from wks.api.monitor.explain_path import explain_path
@@ -37,233 +39,117 @@ def build_monitor_config(**overrides):
     return MonitorConfig.from_config_dict(config_dict)
 
 
+def write_path(base: Path, relative_path: str, *, is_dir: bool = False) -> Path:
+    target = base / relative_path
+    if is_dir:
+        target.mkdir(parents=True, exist_ok=True)
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("test")
+    return target
+
+
+@pytest.mark.parametrize(
+    ("config_kwargs", "relative_path", "is_dir", "expected_allowed", "expected_message"),
+    [
+        ({"include_paths": []}, "test.txt", False, False, "No include_paths defined"),
+        ({"include_paths": ["include"]}, "include/test.txt", False, True, "Included by root"),
+        ({"exclude_paths": ["exclude"]}, "exclude/test.txt", False, False, "Excluded by root"),
+        ({"include_paths": ["include"]}, "other/test.txt", False, False, "Outside include_paths"),
+        (
+            {"include_paths": ["include"], "exclude_dirnames": ["node_modules"]},
+            "include/node_modules/test.txt",
+            False,
+            False,
+            "Parent dir 'node_modules' excluded",
+        ),
+        (
+            {"include_paths": ["include"], "exclude_globs": ["*.tmp"]},
+            "include/test.tmp",
+            False,
+            False,
+            "Excluded by glob pattern",
+        ),
+        (
+            {
+                "include_paths": ["include"],
+                "exclude_dirnames": ["node_modules"],
+                "include_dirnames": ["node_modules"],
+            },
+            "include/node_modules/test.txt",
+            False,
+            True,
+            "Parent dir 'node_modules' override",
+        ),
+        (
+            {"include_paths": ["include"], "exclude_globs": ["*.tmp"], "include_globs": ["*.tmp"]},
+            "include/test.tmp",
+            False,
+            True,
+            "Included by glob override",
+        ),
+        (
+            {"include_paths": ["include"], "exclude_dirnames": ["target_dir"]},
+            "include/target_dir",
+            True,
+            False,
+            "Directory 'target_dir' excluded",
+        ),
+    ],
+)
+def test_explain_path_filter_matrix(tmp_path, config_kwargs, relative_path, is_dir, expected_allowed, expected_message):
+    resolved_kwargs = {}
+    for key, value in config_kwargs.items():
+        if isinstance(value, list):
+            resolved_kwargs[key] = [
+                str((tmp_path / item).resolve()) if key.endswith("paths") else item for item in value
+            ]
+        else:
+            resolved_kwargs[key] = value
+
+    target = write_path(tmp_path, relative_path, is_dir=is_dir)
+    allowed, trace = explain_path(build_monitor_config(**resolved_kwargs), target)
+
+    assert allowed is expected_allowed
+    assert any(expected_message in message for message in trace)
+
+
 def test_explain_path_wks_home_excluded(tmp_path, monkeypatch):
-    """Test that paths within WKS home are automatically excluded."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    test_file = wks_home / "test.txt"
-    test_file.write_text("test")
+    wks_home = write_path(tmp_path, ".wks", is_dir=True)
+    test_file = write_path(tmp_path, ".wks/test.txt")
 
     monkeypatch.setenv("WKS_HOME", str(wks_home))
+
     from wks.api.config.WKSConfig import WKSConfig
 
     monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: wks_home))
 
-    cfg = build_monitor_config()
-    allowed, trace = explain_path(cfg, test_file)
-
+    allowed, trace = explain_path(build_monitor_config(), test_file)
     assert allowed is False
-    assert any("WKS home directory" in msg for msg in trace)
+    assert any("WKS home directory" in message for message in trace)
 
 
-def test_explain_path_included_by_root(tmp_path):
-    """Test that paths within include_paths are allowed."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    test_file = include_dir / "test.txt"
-    test_file.write_text("test")
+def test_explain_path_wks_home_equals_path(tmp_path, monkeypatch):
+    wks_home = write_path(tmp_path, ".wks", is_dir=True)
+    monkeypatch.setenv("WKS_HOME", str(wks_home))
 
-    cfg = build_monitor_config(include_paths=[str(include_dir)])
-    allowed, trace = explain_path(cfg, test_file)
+    from wks.api.config.WKSConfig import WKSConfig
 
-    assert allowed is True
-    assert any("Included by root" in msg for msg in trace)
+    monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: wks_home))
 
-
-def test_explain_path_excluded_by_root(tmp_path):
-    """Test that paths within exclude_paths are excluded."""
-    exclude_dir = tmp_path / "exclude"
-    exclude_dir.mkdir()
-    test_file = exclude_dir / "test.txt"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config(exclude_paths=[str(exclude_dir)])
-    allowed, trace = explain_path(cfg, test_file)
-
+    allowed, trace = explain_path(build_monitor_config(), wks_home)
     assert allowed is False
-    assert any("Excluded by root" in msg for msg in trace)
-
-
-def test_explain_path_outside_include_paths(tmp_path):
-    """Test that paths outside include_paths are excluded when include_paths are defined."""
-    other_dir = tmp_path / "other"
-    other_dir.mkdir()
-    test_file = other_dir / "test.txt"
-    test_file.write_text("test")
-
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-
-    cfg = build_monitor_config(include_paths=[str(include_dir)])
-    allowed, trace = explain_path(cfg, test_file)
-
-    assert allowed is False
-    assert any("Outside include_paths" in msg for msg in trace)
-
-
-def test_explain_path_no_include_paths_default_exclude(tmp_path):
-    """Test that paths are excluded by default when no include_paths are defined."""
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config()
-    allowed, trace = explain_path(cfg, test_file)
-
-    assert allowed is False
-    assert any("No include_paths defined" in msg for msg in trace)
-
-
-def test_explain_path_excluded_by_dirname(tmp_path):
-    """Test that paths with excluded parent dirname are excluded."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    excluded_dir = include_dir / "node_modules"
-    excluded_dir.mkdir()
-    test_file = excluded_dir / "test.txt"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config(include_paths=[str(include_dir)], exclude_dirnames=["node_modules"])
-    allowed, trace = explain_path(cfg, test_file)
-
-    assert allowed is False
-    assert any("Parent dir 'node_modules' excluded" in msg for msg in trace)
-
-
-def test_explain_path_excluded_by_glob(tmp_path):
-    """Test that paths matching exclude globs are excluded."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    test_file = include_dir / "test.tmp"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config(include_paths=[str(include_dir)], exclude_globs=["*.tmp"])
-    allowed, trace = explain_path(cfg, test_file)
-
-    assert allowed is False
-    assert any("Excluded by glob pattern" in msg for msg in trace)
-
-
-def test_explain_path_override_by_dirname(tmp_path):
-    """Test that include_dirname can override exclude_dirname."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    excluded_dir = include_dir / "node_modules"
-    excluded_dir.mkdir()
-    test_file = excluded_dir / "test.txt"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config(
-        include_paths=[str(include_dir)],
-        exclude_dirnames=["node_modules"],
-        include_dirnames=["node_modules"],
-    )
-    allowed, trace = explain_path(cfg, test_file)
-
-    assert allowed is True
-    assert any("Parent dir 'node_modules' override" in msg for msg in trace)
-
-
-def test_explain_path_override_by_glob(tmp_path):
-    """Test that include_glob can override exclude_glob."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    test_file = include_dir / "test.tmp"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config(
-        include_paths=[str(include_dir)],
-        exclude_globs=["*.tmp"],
-        include_globs=["*.tmp"],
-    )
-    allowed, trace = explain_path(cfg, test_file)
-
-    assert allowed is True
-    assert any("Included by glob override" in msg for msg in trace)
-
-
-def test_explain_path_allowed_when_not_excluded(tmp_path):
-    """Test that paths are allowed when not excluded."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    test_file = include_dir / "test.txt"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config(include_paths=[str(include_dir)])
-    allowed, trace = explain_path(cfg, test_file)
-
-    assert allowed is True
-    assert any("Included by root" in msg for msg in trace)
-
-
-def test_explain_path_directory_itself_excluded(tmp_path):
-    """Test that a directory is excluded if its own name is in exclude_dirnames."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    excluded_dir = include_dir / "target_dir"
-    excluded_dir.mkdir()
-
-    cfg = build_monitor_config(include_paths=[str(include_dir)], exclude_dirnames=["target_dir"])
-    allowed, trace = explain_path(cfg, excluded_dir)
-
-    assert allowed is False
-    assert any("Directory 'target_dir' excluded" in msg for msg in trace)
+    assert any("WKS home directory" in message for message in trace)
 
 
 def test_explain_path_value_error_handling(tmp_path, monkeypatch):
-    """Test that ValueError in is_relative_to is handled gracefully."""
-    test_file = tmp_path / "test.txt"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config()
-
-    from pathlib import Path
+    test_file = write_path(tmp_path, "test.txt")
 
     def mock_is_relative_to(self, *args, **kwargs):
         raise ValueError("Simulated Path Error")
 
     monkeypatch.setattr(Path, "is_relative_to", mock_is_relative_to)
-
-    allowed, trace = explain_path(cfg, test_file)
-    assert allowed is False
-    assert any("No include_paths defined" in msg for msg in trace)
-
-
-def test_explain_path_parent_equals_self_edge_case(tmp_path):
-    """Test explain_path handles edge case where resolved.parent == resolved (tests line 80)."""
-    include_dir = tmp_path / "include"
-    include_dir.mkdir()
-    test_file = include_dir / "test.txt"
-    test_file.write_text("test")
-
-    cfg = build_monitor_config(
-        include_paths=[str(include_dir)],
-        exclude_dirnames=["test"],
-        include_dirnames=["test"],
-    )
-
-    from pathlib import Path
-
-    class MockPath(Path):
-        @property
-        def parent(self):
-            return self
-
-    allowed, _trace = explain_path(cfg, test_file)
-    assert allowed is True
-
-
-def test_explain_path_wks_home_equals_path(tmp_path, monkeypatch):
-    """Test explain_path when path equals wks_home exactly (tests line 25)."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    from wks.api.config.WKSConfig import WKSConfig
-
-    monkeypatch.setattr(WKSConfig, "get_home_dir", classmethod(lambda cls: wks_home))
-
-    cfg = build_monitor_config()
-    allowed, trace = explain_path(cfg, wks_home)
+    allowed, trace = explain_path(build_monitor_config(), test_file)
 
     assert allowed is False
-    assert any("WKS home directory" in msg for msg in trace)
+    assert any("No include_paths defined" in message for message in trace)

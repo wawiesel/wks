@@ -21,14 +21,6 @@ venv/bin/pip install -e .
 
 Install any extra local tooling into `venv`.
 
-## Daily Workflow
-
-1. Check which `.cursor/rules/*` apply.
-2. Read existing wrappers, handlers, and facades before adding new logic.
-3. Make the change.
-4. Run the required checks from `venv`.
-5. Commit with a Conventional Commit message.
-
 ## Required Checks
 
 Run these before pushing:
@@ -48,65 +40,13 @@ venv/bin/python scripts/test_unit.py
 venv/bin/python scripts/test_integration.py
 ```
 
-## Commits
-
-Use Conventional Commits:
-
-- `feat: ...`
-- `fix: ...`
-- `refactor: ...`
-- `test: ...`
-- `docs: ...`
-- `chore: ...`
+Use Conventional Commits such as `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, or `chore:`.
 
 ## Architecture
 
-### Service Layer
-
-- Lives in `wks/services/`
-- Contains shared typed logic
-- No `StageResult`
-- No CLI, MCP, or REST protocol code
-
-### Command Layer
-
-- Lives in `wks/api/*/cmd*.py`
-- Preserves the command contract
-- Wraps shared behavior into `StageResult`
-- Remains the traceable per-command boundary
-
-### Transports
-
-- CLI in `wks/cli/`
-- MCP in `wks/mcp/`
-- REST in `wks/rest/`
-
-Transport responsibilities are limited to parsing, wiring, serialization, and display.
-
-## Testing Strategy
-
-- Deep tests belong in the shared service/core layer.
-- Per-command tests stay mapped to individual command wrappers.
-- CLI, MCP, and REST use smoke or wiring-focused tests.
-- Prefer real workflows over paper-thin tests.
-
-Naming:
-
-- `test_wks_service_<domain>.py`
-- `test_wks_api_<domain>_<command>.py`
-- `test_wks_cli_<domain>.py`
-- `test_mcp_<domain>.py`
-- `test_rest_<domain>.py`
-
-## Generated Outputs
-
-Generated metrics and traceability reports are not tracked in git. Regenerate them when needed:
-
-```bash
-venv/bin/python scripts/generate_all_stats.py
-```
-
-`README.md` contains a compact generated metrics block maintained by `scripts/update_readme_stats.py`.
+- `wks/services/`: shared typed logic, no transport protocol code
+- `wks/api/*/cmd*.py`: per-command contract wrappers returning `StageResult`
+- `wks/cli/`, `wks/mcp/`, `wks/rest/`: thin parsing, wiring, serialization, and display layers
 
 ## Quality Limits
 
@@ -114,7 +54,3 @@ venv/bin/python scripts/generate_all_stats.py
 - Function NLOC must stay at or below `100`.
 - Files over `900` lines must be split.
 - Prefer explicit errors with concrete paths, expected values, and found values.
-
-## CI
-
-GitHub Actions enforces the same format, type, complexity, and test expectations. Local results should match CI results when run from `venv`.

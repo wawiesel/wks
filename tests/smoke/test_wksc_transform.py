@@ -1,5 +1,4 @@
 def test_cli_transform_raw(wksc, smoke_env):
-    """Test 'wksc transform --raw' outputs checksum only."""
     home_dir = smoke_env["home"]
     test_file = home_dir / "test_raw.txt"
     test_file.write_text("Hello Raw", encoding="utf-8")
@@ -13,7 +12,6 @@ def test_cli_transform_raw(wksc, smoke_env):
 
 
 def test_cli_transform_uses_default_engine(wksc, smoke_env):
-    """Test 'wksc transform <file>' uses transform.default_engine."""
     home_dir = smoke_env["home"]
     test_file = home_dir / "test_default.txt"
     test_file.write_text("Hello Default", encoding="utf-8")
@@ -27,7 +25,6 @@ def test_cli_transform_uses_default_engine(wksc, smoke_env):
 
 
 def test_cli_transform_rejects_legacy_positional_engine_form(wksc, smoke_env):
-    """Test the retired positional engine form fails with a clear message."""
     home_dir = smoke_env["home"]
     test_file = home_dir / "test_positional.txt"
     test_file.write_text("Hello Legacy", encoding="utf-8")

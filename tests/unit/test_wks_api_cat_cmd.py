@@ -13,7 +13,6 @@ from wks.api.transform.cmd_engine import cmd_engine
 
 @pytest.mark.cat
 def test_cmd_by_path(wks_home, minimal_config_dict):
-    """Test retrieving content by file path (triggers transform)."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Hello Cat")
 
     res = run_cmd(cmd, target=str(test_file))
@@ -24,7 +23,6 @@ def test_cmd_by_path(wks_home, minimal_config_dict):
 
 @pytest.mark.cat
 def test_cmd_display_messages_include_segmented_full_path(wks_home, minimal_config_dict):
-    """Human-facing cat messages should keep the raw full path and segmented styling metadata."""
     test_file = write_watched_file(wks_home, name="COR-0017 Code of Record.pdf", content="Hello Cat")
     expected_target = str(test_file)
 
@@ -44,7 +42,6 @@ def test_cmd_display_messages_include_segmented_full_path(wks_home, minimal_conf
 
 @pytest.mark.cat
 def test_cmd_by_file_uri(wks_home, minimal_config_dict):
-    """Test retrieving content by file URI (search output shape)."""
     test_file = write_watched_file(wks_home, name="test-uri.txt", content="Hello URI Cat")
 
     res = run_cmd(cmd, target=str(URI.from_path(test_file)))
@@ -54,7 +51,6 @@ def test_cmd_by_file_uri(wks_home, minimal_config_dict):
 
 @pytest.mark.cat
 def test_cmd_by_checksum(wks_home, minimal_config_dict):
-    """Test retrieving content by checksum (direct lookup)."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Checksum Cat")
 
     res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
@@ -68,7 +64,6 @@ def test_cmd_by_checksum(wks_home, minimal_config_dict):
 
 @pytest.mark.cat
 def test_cmd_to_output_file(wks_home, minimal_config_dict):
-    """Test retrieving content and saving to an output file."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Output File Content")
     out_file = test_file.parent / "output.md"
 
@@ -80,7 +75,6 @@ def test_cmd_to_output_file(wks_home, minimal_config_dict):
 
 @pytest.mark.cat
 def test_cmd_nonexistent_file(wks_home):
-    """Test cmd with a missing file."""
     res = run_cmd(cmd, target="/tmp/nonexistent_file_12345")
     assert res.success is False
     assert "File not found" in res.result
@@ -88,7 +82,6 @@ def test_cmd_nonexistent_file(wks_home):
 
 @pytest.mark.cat
 def test_cmd_nonexistent_checksum(wks_home):
-    """Test cmd with a missing checksum."""
     missing_checksum = "a" * 64
     res = run_cmd(cmd, target=missing_checksum)
     assert res.success is False
@@ -97,7 +90,6 @@ def test_cmd_nonexistent_checksum(wks_home):
 
 @pytest.mark.cat
 def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
-    """Test cmd when DB has record but file is missing from disk."""
     test_file = write_watched_file(wks_home, name="stale.txt", content="Stale Content")
 
     res_t = run_cmd(cmd_engine, engine="textpass", uri=URI.from_path(test_file), overrides={})
@@ -121,7 +113,6 @@ def test_cmd_stale_cache_record(wks_home, minimal_config_dict):
 
 @pytest.mark.cat
 def test_cmd_engine_override(wks_home, minimal_config_dict, monkeypatch):
-    """Test retrieving content with an engine override."""
     test_file = write_watched_file(wks_home, name="test.txt", content="Engine Override")
 
     res = run_cmd(cmd, target=str(test_file), engine="textpass")
@@ -131,7 +122,6 @@ def test_cmd_engine_override(wks_home, minimal_config_dict, monkeypatch):
 
 @pytest.mark.cat
 def test_cmd_mime_engine_selection(wks_home, minimal_config_dict):
-    """Test engine selection based on mime type in config."""
     from wks.api.config.WKSConfig import WKSConfig
 
     config = WKSConfig.load()
@@ -147,7 +137,6 @@ def test_cmd_mime_engine_selection(wks_home, minimal_config_dict):
 
 @pytest.mark.cat
 def test_cmd_pdf_uses_configured_mime_engine(tracked_wks_config, tmp_path, monkeypatch):
-    """PDF cat requests should honor cat.mime_engines without changing index policy."""
     import wks.api.transform._pdftext._PdfTextEngine as pdftext_module
 
     config = tracked_wks_config

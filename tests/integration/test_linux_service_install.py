@@ -49,11 +49,6 @@ def _check_systemd_available() -> bool:
 @pytest.mark.integration
 @pytest.mark.linux_service
 def test_linux_service_install_lifecycle(tmp_path, monkeypatch):
-    """Test full lifecycle: install, start, status, stop, uninstall.
-
-    This test REQUIRES systemd and must run on Linux (or in a Docker container with systemd enabled).
-    On non-Linux platforms, this test is skipped (we test platform-specific code on the appropriate platform).
-    """
     if platform.system() != "Linux":
         pytest.skip(f"Linux service tests only run on Linux (current platform: {platform.system()})")
 

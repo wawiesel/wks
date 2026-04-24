@@ -7,7 +7,6 @@ pytestmark = pytest.mark.mcp
 
 
 def test_cmd_uninstall_returns_native_command_for_supported_target():
-    """Supported targets should return the native client uninstall command."""
     result = run_cmd(cmd_uninstall.cmd_uninstall, name="claude")
 
     assert result.success is True
@@ -19,7 +18,6 @@ def test_cmd_uninstall_returns_native_command_for_supported_target():
 
 
 def test_cmd_uninstall_rejects_unsupported_target():
-    """Unsupported targets should fail with a clear supported-target list."""
     result = run_cmd(cmd_uninstall.cmd_uninstall, name="test")
 
     assert result.success is False

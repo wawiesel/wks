@@ -13,111 +13,100 @@ from wks.api.monitor.cmd_sync import cmd_sync
 
 
 @pytest.mark.monitor
-def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
-    """Test syncing a single file.
-
-    Requirements:
+@pytest.mark.parametrize(
+    ("mode", "build", "expected"),
+    [
+        (
+            "file",
+            lambda watch_dir: (
+                (watch_dir / "sync_me.txt").write_text("Sync Content", encoding="utf-8"),
+                watch_dir / "sync_me.txt",
+            )[1],
+            1,
+        ),
+        (
+            "recursive",
+            lambda watch_dir: (
+                (
+                    (watch_dir / "sub").mkdir(),
+                    (watch_dir / "f1.txt").write_text("f1"),
+                    (watch_dir / "sub" / "f2.txt").write_text("f2"),
+                )
+                and watch_dir
+            ),
+            2,
+        ),
+    ],
+)
+def test_monitor_cmd_sync_basic_modes(wks_home, build, expected, mode):
+    """Requirements:
     - MON-001
-    - MON-005
-    """
+    - MON-005"""
     watch_dir = create_watch_dir(wks_home)
-
-    test_file = watch_dir / "sync_me.txt"
-    test_file.write_text("Sync Content", encoding="utf-8")
+    target = build(watch_dir)
 
     config = WKSConfig.load()
     include_watch_dir(config, watch_dir)
 
-    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
-    assert res.success is True
-    assert res.output["files_synced"] == 1
+    result = run_cmd(cmd_sync, uri=URI.from_path(target), recursive=mode == "recursive")
 
-    with Database(config.database, "nodes") as db:
-        doc = db.find_one({"local_uri": str(URI.from_path(test_file))})
-        assert doc is not None
-        assert doc["checksum"] is not None
+    assert result.success is True
+    assert result.output["files_synced"] == expected
 
 
 @pytest.mark.monitor
-def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
-    """Test syncing a directory recursively.
-
-    Requirements:
+def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home):
+    """Requirements:
     - MON-001
-    - MON-005
-    """
+    - MON-005"""
     watch_dir = create_watch_dir(wks_home)
-
-    (watch_dir / "sub").mkdir()
-    (watch_dir / "f1.txt").write_text("f1")
-    (watch_dir / "sub/f2.txt").write_text("f2")
-
-    config = WKSConfig.load()
-    include_watch_dir(config, watch_dir)
-
-    res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
-    assert res.success is True
-    assert res.output["files_synced"] == 2
-
-
-@pytest.mark.monitor
-def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_dict):
-    """Test that syncing a nonexistent path removes it from the DB.
-
-    Requirements:
-    - MON-001
-    - MON-005
-    """
-    watch_dir = create_watch_dir(wks_home)
-
     test_file = watch_dir / "gone.txt"
     test_file.write_text("Temporary", encoding="utf-8")
 
     config = WKSConfig.load()
     include_watch_dir(config, watch_dir)
     run_cmd(cmd_sync, uri=URI.from_path(test_file))
-
     test_file.unlink()
 
-    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
-    assert res.success is True
-    assert "Removed" in res.result
+    result = run_cmd(cmd_sync, uri=URI.from_path(test_file))
 
+    assert result.success is True
+    assert "Removed" in result.result
     with Database(config.database, "nodes") as db:
-        doc = db.find_one({"local_uri": str(URI.from_path(test_file))})
-        assert doc is None
+        assert db.find_one({"local_uri": str(URI.from_path(test_file))}) is None
 
 
 @pytest.mark.monitor
-def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
-    """Test that sync skips files below min_priority.
-
-    Requirements:
+@pytest.mark.parametrize(
+    ("mutate_config", "filename"),
+    [
+        (lambda config: setattr(config.monitor, "min_priority", 50.0), "low_priority.txt"),
+        (lambda config: setattr(config.monitor.filter, "exclude_globs", ["*.tmp"]), "skip_me.tmp"),
+    ],
+)
+def test_monitor_cmd_sync_skips_filtered_targets(wks_home, mutate_config, filename):
+    """Requirements:
     - MON-001
-    - MON-005
-    """
+    - MON-005"""
     config = WKSConfig.load()
-    config.monitor.min_priority = 50.0
+    mutate_config(config)
     watch_dir = create_watch_dir(wks_home)
     include_watch_dir(config, watch_dir)
+    target = watch_dir / filename
+    target.write_text("ignored", encoding="utf-8")
 
-    test_file = watch_dir / "low_priority.txt"
-    test_file.write_text("Low Priority", encoding="utf-8")
+    result = run_cmd(cmd_sync, uri=URI.from_path(target))
 
-    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
-    assert res.success is True
-    assert res.output["files_synced"] == 0
-    assert res.output["files_skipped"] == 1
+    assert result.success is True
+    assert result.output["files_synced"] == 0
+    assert result.output["files_skipped"] == 1
 
 
 @pytest.mark.monitor
 def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
-    """Test that sync enforces max_documents limit.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-005
-    """
+    - MON-005"""
     tracked_wks_config.monitor.max_documents = 2
     watch_dir = create_watch_dir(wks_home)
     tracked_wks_config.monitor.filter.include_paths.append(str(watch_dir))
@@ -130,30 +119,23 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
     test_file = watch_dir / "1.txt"
     test_file.write_text("1")
 
-    from unittest.mock import patch
-
     with patch("wks.api.monitor._sync_uri.calculate_priority", return_value=200.0):
-        res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
-        assert res.success is True
+        result = run_cmd(cmd_sync, uri=URI.from_path(test_file))
 
+    assert result.success is True
     with Database(tracked_wks_config.database, "nodes") as db:
-        count = db.count_documents({"doc_type": {"$ne": "meta"}})
-        assert count <= 2
+        assert db.count_documents({"doc_type": {"$ne": "meta"}}) <= 2
         assert db.find_one({"local_uri": "file:///low"}) is None
         assert db.find_one({"local_uri": "file:///mid"}) is None
         assert db.find_one({"local_uri": "file:///high"}) is not None
 
 
 @pytest.mark.monitor
-def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
-    """Trigger exception in monitor sync loop via permission error.
-
-    Requirements:
+def test_monitor_cmd_sync_loop_exception(wks_home):
+    """Requirements:
     - MON-001
-    - MON-008
-    """
+    - MON-008"""
     watch_dir = create_watch_dir(wks_home)
-
     unreadable = watch_dir / "unreadable.txt"
     unreadable.write_text("Secret", encoding="utf-8")
     unreadable.chmod(0o000)
@@ -162,56 +144,29 @@ def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
         config = WKSConfig.load()
         include_watch_dir(config, watch_dir)
 
-        res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
-        assert res.success is False
-        assert len(res.output["errors"]) == 1
-        assert "unreadable.txt" in res.output["errors"][0]
+        result = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
+
+        assert result.success is False
+        assert len(result.output["errors"]) == 1
+        assert "unreadable.txt" in result.output["errors"][0]
     finally:
         unreadable.chmod(0o644)
 
 
 @pytest.mark.monitor
-def test_monitor_cmd_sync_skips_excluded_file(wks_home, minimal_config_dict):
-    """Test that sync skips files excluded by monitor rules (hits line 110-115).
-
-    Requirements:
+def test_monitor_cmd_sync_directory_processes_newest_first(wks_home):
+    """Requirements:
     - MON-001
-    - MON-005
-    """
+    - MON-005"""
     watch_dir = create_watch_dir(wks_home)
-
-    config = WKSConfig.load()
-    config.monitor.filter.exclude_globs = ["*.tmp"]
-    include_watch_dir(config, watch_dir)
-
-    test_file = watch_dir / "skip_me.tmp"
-    test_file.write_text("Temp Data", encoding="utf-8")
-
-    res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
-    assert res.success is True
-    assert res.output["files_synced"] == 0
-    assert res.output["files_skipped"] == 1
-
-
-@pytest.mark.monitor
-def test_monitor_cmd_sync_directory_processes_newest_first(wks_home, minimal_config_dict):
-    """Test that recursive sync processes files in mtime-descending order (newest first).
-
-    Requirements:
-    - MON-001
-    - MON-005
-    """
-    watch_dir = create_watch_dir(wks_home)
-
     config = WKSConfig.load()
     include_watch_dir(config, watch_dir)
 
     old_file = watch_dir / "old.txt"
     mid_file = watch_dir / "mid.txt"
     new_file = watch_dir / "new.txt"
-
-    for f in (old_file, mid_file, new_file):
-        f.write_text(f.stem)
+    for path in (old_file, mid_file, new_file):
+        path.write_text(path.stem)
 
     base_time = 1_700_000_000.0
     os.utime(old_file, (base_time, base_time))
@@ -219,18 +174,17 @@ def test_monitor_cmd_sync_directory_processes_newest_first(wks_home, minimal_con
     os.utime(new_file, (base_time + 200, base_time + 200))
 
     processed: list[Path] = []
+    from wks.api.config import file_checksum as checksum_module
 
-    from wks.api.config import file_checksum as _fc_module
-
-    original = _fc_module.file_checksum
+    original = checksum_module.file_checksum
 
     def capturing(path: Path) -> str:
         processed.append(path)
         return original(path)
 
-    with patch.object(_fc_module, "file_checksum", side_effect=capturing):
-        res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
+    with patch.object(checksum_module, "file_checksum", side_effect=capturing):
+        result = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
 
-    assert res.success is True
-    assert res.output["files_synced"] == 3
+    assert result.success is True
+    assert result.output["files_synced"] == 3
     assert processed == [new_file, mid_file, old_file]

@@ -48,7 +48,6 @@ def test_cmd_stop_idempotent(monkeypatch, tmp_path):
 
 @pytest.mark.daemon
 def test_cmd_stop_failure(monkeypatch, tmp_path):
-    """Test cmd_stop behavior on Exception."""
     from unittest.mock import patch
 
     wks_home = tmp_path / ".wks"

@@ -7,276 +7,69 @@ from wks.api.monitor.calculate_priority import calculate_priority
 pytestmark = pytest.mark.monitor
 
 
-def test_calculate_priority_no_priority_dir(tmp_path):
-    """Test that files outside priority directories return 0.0."""
-    priority_dirs = {str(tmp_path / "other"): 100.0}
-    weights = {
+def build_weights(*, extension_weights: dict[str, float] | None = None) -> dict[str, float | dict[str, float]]:
+    return {
         "depth_multiplier": 0.9,
         "underscore_multiplier": 0.5,
         "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
+        "extension_weights": extension_weights or {},
     }
 
-    test_file = tmp_path / "file.txt"
+
+def build_priority_dirs(tmp_path: Path, relative_dirs: dict[str, float]) -> dict[str, float]:
+    return {str((tmp_path / relative_dir).resolve()): value for relative_dir, value in relative_dirs.items()}
+
+
+@pytest.mark.parametrize(
+    ("relative_dirs", "relative_file", "weights", "expected"),
+    [
+        ({"other": 100.0}, "file.txt", build_weights(), 0.0),
+        ({".": 100.0}, "file.txt", build_weights(), 100.0),
+        ({".": 100.0}, "subdir/file.txt", build_weights(), 90.0),
+        ({".": 100.0}, "level1/level2/file.txt", build_weights(), 81.0),
+        ({".": 100.0}, "_private/file.txt", build_weights(), 45.0),
+        ({".": 100.0}, "__private/file.txt", build_weights(), 22.5),
+        ({".": 100.0}, "_/file.txt", build_weights(), 9.0),
+        ({".": 100.0}, "file.py", build_weights(extension_weights={".py": 2.0, ".txt": 0.5}), 200.0),
+        ({".": 100.0}, "file.txt", build_weights(extension_weights={".py": 2.0}), 100.0),
+        ({".": 100.0}, "_file.txt", build_weights(), 45.0),
+        ({".": 100.0}, "_.txt", build_weights(), 9.0),
+        ({".": 100.0, "subdir": 200.0}, "subdir/file.txt", build_weights(), 200.0),
+        (
+            {".": 100.0},
+            "level1/_private/__file.py",
+            build_weights(extension_weights={".py": 2.0}),
+            100.0 * 0.9 * 0.9 * 0.5 * 0.9 * 0.5 * 0.5 * 2.0,
+        ),
+        ({".": 100.0}, "file", build_weights(), 100.0),
+    ],
+)
+def test_calculate_priority_cases(
+    tmp_path: Path,
+    relative_dirs: dict[str, float],
+    relative_file: str,
+    weights: dict[str, float | dict[str, float]],
+    expected: float,
+):
+    test_file = tmp_path / relative_file
+    test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text("test")
 
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == 0.0
-
-
-def test_calculate_priority_base_priority(tmp_path):
-    """Test that files in priority directory use base priority."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "file.txt"
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == 100.0
-
-
-def test_calculate_priority_depth_multiplier(tmp_path):
-    """Test that depth multiplier is applied for nested directories."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "subdir" / "file.txt"
-    test_file.parent.mkdir()
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(90.0)
-
-
-def test_calculate_priority_multiple_depth_levels(tmp_path):
-    """Test that depth multiplier is applied for each directory level."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "level1" / "level2" / "file.txt"
-    test_file.parent.mkdir(parents=True)
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(81.0)
-
-
-def test_calculate_priority_underscore_multiplier(tmp_path):
-    """Test that underscore multiplier is applied for leading underscores."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "_private" / "file.txt"
-    test_file.parent.mkdir()
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(45.0)
-
-
-def test_calculate_priority_multiple_underscores(tmp_path):
-    """Test that underscore multiplier is applied per underscore."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "__private" / "file.txt"
-    test_file.parent.mkdir()
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(22.5)
-
-
-def test_calculate_priority_only_underscore(tmp_path):
-    """Test that only_underscore_multiplier is used for component that is exactly '_'."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "_" / "file.txt"
-    test_file.parent.mkdir()
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(9.0)
-
-
-def test_calculate_priority_extension_weight(tmp_path):
-    """Test that extension weights are applied."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {".py": 2.0, ".txt": 0.5},
-    }
-
-    test_file = tmp_path / "file.py"
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(200.0)
-
-
-def test_calculate_priority_extension_default_weight(tmp_path):
-    """Test that unspecified extensions use default weight of 1.0."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {".py": 2.0},
-    }
-
-    test_file = tmp_path / "file.txt"
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(100.0)
-
-
-def test_calculate_priority_filename_underscore(tmp_path):
-    """Test that filename stems starting with underscore get penalty."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "_file.txt"
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(45.0)
-
-
-def test_calculate_priority_filename_exactly_underscore(tmp_path):
-    """Test that filename stem that is exactly '_' uses only_underscore_multiplier."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "_.txt"
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(9.0)
-
-
-def test_calculate_priority_deepest_match(tmp_path):
-    """Test that deepest matching priority directory is used."""
-    priority_dirs = {
-        str(tmp_path): 100.0,
-        str(tmp_path / "subdir"): 200.0,
-    }
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "subdir" / "file.txt"
-    test_file.parent.mkdir()
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(200.0)
-
-
-def test_calculate_priority_complex_case(tmp_path):
-    """Test a complex case with all multipliers."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {".py": 2.0},
-    }
-
-    test_file = tmp_path / "level1" / "_private" / "__file.py"
-    test_file.parent.mkdir(parents=True)
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    expected = 100.0 * 0.9 * 0.9 * 0.5 * 0.9 * 0.5 * 0.5 * 2.0
+    priority = calculate_priority(test_file, build_priority_dirs(tmp_path, relative_dirs), weights)
     assert priority == pytest.approx(expected)
 
 
-def test_calculate_priority_no_extension(tmp_path):
-    """Test that files without extensions work correctly."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
-    test_file = tmp_path / "file"
-    test_file.write_text("test")
-
-    priority = calculate_priority(test_file, priority_dirs, weights)
-    assert priority == pytest.approx(100.0)
-
-
-def test_calculate_priority_valueerror_different_drives(monkeypatch, tmp_path):
-    """Test calculate_priority when paths are on different drives (Windows case)."""
-    priority_dirs = {str(tmp_path): 100.0}
-    weights = {
-        "depth_multiplier": 0.9,
-        "underscore_multiplier": 0.5,
-        "only_underscore_multiplier": 0.1,
-        "extension_weights": {},
-    }
-
+def test_calculate_priority_valueerror_different_drives(monkeypatch, tmp_path: Path):
     test_file = tmp_path / "file.txt"
     test_file.write_text("test")
-
     original_relative_to = Path.relative_to
 
-    def mock_relative_to(self, other):
+    def mock_relative_to(self: Path, other: Path):
         if other == tmp_path.resolve():
             raise ValueError("Paths are on different drives")
         return original_relative_to(self, other)
 
     monkeypatch.setattr("pathlib.Path.relative_to", mock_relative_to)
 
-    priority = calculate_priority(test_file, priority_dirs, weights)
+    priority = calculate_priority(test_file, build_priority_dirs(tmp_path, {".": 100.0}), build_weights())
     assert priority > 0.0

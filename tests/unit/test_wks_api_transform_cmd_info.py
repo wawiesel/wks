@@ -8,7 +8,6 @@ from wks.api.transform.cmd_info import cmd_info
 
 @pytest.mark.transform
 def test_cmd_info_engine(tracked_wks_config):
-    """Test showing info for a specific engine."""
     result = run_cmd(cmd_info, engine="textpass")
     assert result.success is True
     assert result.output["engine"] == "textpass"
@@ -21,7 +20,6 @@ def test_cmd_info_engine(tracked_wks_config):
 
 @pytest.mark.transform
 def test_cmd_info_route_engine(tracked_wks_config):
-    """Route engine info includes order and fallback policy."""
     config = WKSConfig.load()
     config.transform.engines["default"] = _RouteEngineConfig(
         type="route",

@@ -1,8 +1,5 @@
-There are 4 types of documents currently managed here while we are in ALPHA development.
+Docs are intentionally compact.
 
-The campaign documents (see campaigns/README.md)
-The specification documents (see ../qa/specs/wks.md)
-The traceability audit report (generated at ../qa/traceability_audit.html when needed)
-Other documents (see other/).
-
-Implementation notes live alongside the code in `wks/*/README.md`.
+- Product and contributor guidance lives in the repo root docs.
+- The live architectural spec is [../qa/specs/wks.md](../qa/specs/wks.md).
+- Generated traceability output is produced on demand, not tracked.

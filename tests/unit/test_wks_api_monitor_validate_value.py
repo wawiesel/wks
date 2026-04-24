@@ -17,7 +17,6 @@ class _DummyConfig:
 
 
 def test_validate_value_path_resolution(tmp_path, monkeypatch):
-    """Test path resolution logic."""
     monkeypatch.setenv("HOME", str(tmp_path))
     home_path = tmp_path / "docs"
     home_path.mkdir()
@@ -42,7 +41,6 @@ def test_validate_value_path_resolution(tmp_path, monkeypatch):
 
 
 def test_validate_value_dirnames():
-    """Test dirname validation logic."""
     cfg = _DummyConfig()
 
     val, err = validate_value("include_dirnames", "  ", cfg)
@@ -72,7 +70,6 @@ def test_validate_value_dirnames():
 
 
 def test_validate_value_globs(monkeypatch):
-    """Test glob validation logic."""
     val, err = validate_value("include_globs", "  ", None)
     assert err == "Glob pattern cannot be empty"
 
@@ -90,7 +87,6 @@ def test_validate_value_globs(monkeypatch):
 
 
 def test_validate_value_passthrough_for_unknown_list():
-    """Values for unknown lists are passed through unchanged."""
     cfg = _DummyConfig()
     val, err = validate_value("custom_list", "  data  ", cfg)
     assert val == "data"
@@ -98,7 +94,6 @@ def test_validate_value_passthrough_for_unknown_list():
 
 
 def test_validate_value_path_home_edge_cases(tmp_path, monkeypatch):
-    """Test validate_value path handling for edge cases."""
     monkeypatch.setenv("HOME", str(tmp_path))
     home_path = tmp_path / "docs"
     home_path.mkdir()
@@ -114,7 +109,6 @@ def test_validate_value_path_home_edge_cases(tmp_path, monkeypatch):
 
 
 def test_validate_value_dirname_edge_cases():
-    """Test validate_value dirname validation edge cases."""
     cfg = _DummyConfig()
 
     _val, err = validate_value("include_dirnames", "\t\n\r", cfg)
@@ -128,7 +122,6 @@ def test_validate_value_dirname_edge_cases():
 
 
 def test_validate_value_glob_edge_cases():
-    """Test validate_value glob validation edge cases."""
     val, err = validate_value("include_globs", "**/*.py", None)
     assert val == "**/*.py"
     assert err is None

@@ -4,7 +4,6 @@ from wks.api.mcp.InstallResult import InstallResult
 
 
 def test_install_result_creation():
-    """Test InstallResult instantiation."""
     result = InstallResult(
         client="vscode",
         path=Path("/tmp/foo"),

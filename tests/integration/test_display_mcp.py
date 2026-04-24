@@ -5,7 +5,6 @@ from wks.mcp.server import MCPServer
 
 
 def test_mcp_server_handles_content_length_and_plain_messages():
-    """Server run loop should parse both framed and plain JSON requests."""
     payload1 = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
     raw1 = json.dumps(payload1)
     framed = f"Content-Length: {len(raw1)}\r\n\r\n{raw1}"
@@ -25,7 +24,6 @@ def test_mcp_server_handles_content_length_and_plain_messages():
 
 
 def test_mcp_server_ignores_invalid_json():
-    """Invalid input should stop processing without raising."""
     input_stream = io.StringIO("not json\n")
     output_stream = io.StringIO()
     server = MCPServer(input_stream=input_stream, output_stream=output_stream)

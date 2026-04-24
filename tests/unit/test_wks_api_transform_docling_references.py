@@ -19,7 +19,6 @@ from wks.api.transform.get_content import get_content
 def test_cmd_engine_docling_rewrites_nested_referenced_images_to_cache_artifacts(
     tracked_wks_config, tmp_path, monkeypatch
 ):
-    """Docling referenced images should be rewritten out of temp space into cache-owned paths."""
     import wks.api.transform._docling._DoclingEngine as docling_module
 
     test_file = tmp_path / "COR-0017 Code of Record.pdf"
@@ -88,7 +87,6 @@ def test_cmd_engine_docling_rewrites_nested_referenced_images_to_cache_artifacts
 def test_cmd_engine_rebuilds_stale_cached_docling_output_with_missing_image_refs(
     tracked_wks_config, tmp_path, monkeypatch
 ):
-    """A cached docling markdown file with missing local image refs should be re-transformed."""
     import wks.api.transform._docling._DoclingEngine as docling_module
 
     test_file = tmp_path / "stale.pdf"

@@ -41,7 +41,6 @@ class TestCmdList:
         assert "bad config" in result.output["errors"][0]
 
     def test_cmd_list_names_strip_prefix(self, monkeypatch, tmp_path, minimal_config_dict):
-        """Verify that listed databases (collections) have prefix stripped and prefix is returned separately."""
         import json
 
         from wks.api.database.Database import Database
@@ -76,7 +75,6 @@ class TestCmdList:
         assert result.output["databases"] == sorted(result.output["databases"])
 
     def test_cmd_list_names_exclude_other_prefixes(self, monkeypatch, tmp_path, minimal_config_dict):
-        """Verify that only collections with the correct prefix are listed by the command."""
         import json
 
         from wks.api.database.Database import Database
@@ -108,7 +106,6 @@ class TestCmdList:
 
 
 def test_cmd_list_flags_unknown_databases(tracked_wks_config):
-    """Unknown databases should trigger a warning."""
     with patch(
         "wks.api.database.cmd_list.Database.list_databases",
         return_value=["wks.nodes", "wks.edges", "wks.TRANSFORM", "wks.XXtestXX"],
@@ -121,7 +118,6 @@ def test_cmd_list_flags_unknown_databases(tracked_wks_config):
 
 
 def test_cmd_list_no_warning_for_known_databases(tracked_wks_config):
-    """All-known databases should not trigger a warning."""
     with patch(
         "wks.api.database.cmd_list.Database.list_databases",
         return_value=["wks.nodes", "wks.edges", "wks.transform"],
@@ -132,7 +128,6 @@ def test_cmd_list_no_warning_for_known_databases(tracked_wks_config):
 
 
 def test_cmd_list_list_databases_error(tracked_wks_config):
-    """Test error in cmd_list when list_databases fails."""
     with patch("wks.api.database.cmd_list.Database.list_databases", side_effect=Exception("List error")):
         result = run_cmd(cmd_list)
         assert not result.success

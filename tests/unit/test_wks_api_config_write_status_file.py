@@ -4,7 +4,6 @@ from wks.api.config.write_status_file import write_status_file
 
 
 def test_write_status_file(tmp_path):
-    """Test that write_status_file writes the correct JSON file."""
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
 
@@ -25,7 +24,6 @@ def test_write_status_file(tmp_path):
 
 
 def test_write_status_file_creates_parent_dir(tmp_path):
-    """Test that write_status_file creates the parent directory if it doesn't exist."""
     wks_home = tmp_path / ".wks_new"
 
     status_data = {"running": False}

@@ -12,7 +12,6 @@ from wks.api.daemon.cmd_stop import cmd_stop
 
 @pytest.mark.daemon
 def test_daemon_clear_when_stopped(monkeypatch, tmp_path):
-    """Test that clear resets logs and status when daemon is stopped."""
     cfg = minimal_wks_config()
     wks_home = tmp_path / ".wks"
     wks_home.mkdir(parents=True, exist_ok=True)
@@ -41,7 +40,6 @@ def test_daemon_clear_when_stopped(monkeypatch, tmp_path):
 
 @pytest.mark.daemon
 def test_daemon_clear_blocked_when_running(monkeypatch, tmp_path):
-    """Test that clear refuses to run if daemon is running (lock file exists and alive)."""
     cfg = minimal_wks_config()
     cfg.daemon.sync_interval_secs = 2.0  # Slow sync to ensure it stays alive
     wks_home = tmp_path / ".wks"
@@ -66,7 +64,6 @@ def test_daemon_clear_blocked_when_running(monkeypatch, tmp_path):
 
 
 def test_daemon_clear_errors_only(monkeypatch, tmp_path):
-    """Test that --errors-only removes only ERROR entries from the logfile."""
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
@@ -94,7 +91,6 @@ def test_daemon_clear_errors_only(monkeypatch, tmp_path):
 
 
 def test_daemon_clear_stale_lock(monkeypatch, tmp_path):
-    """Test that clear proceeds if lock is stale."""
     wks_home = tmp_path / ".wks"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))

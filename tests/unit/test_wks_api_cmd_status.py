@@ -56,7 +56,6 @@ def _fake_vault_status() -> StageResult:
 
 
 def test_cmd_status_aggregates_all_sections(monkeypatch):
-    """cmd_status returns output with all five subsystem sections."""
     import wks.api.link.cmd_status as link_mod
     import wks.api.log.cmd_status as log_mod
     import wks.api.monitor.cmd_status as mon_mod
@@ -87,7 +86,6 @@ def test_cmd_status_aggregates_all_sections(monkeypatch):
 
 
 def test_cmd_status_handles_subsystem_failure(monkeypatch):
-    """cmd_status captures errors from failing subsystems."""
     import wks.api.link.cmd_status as link_mod
     import wks.api.log.cmd_status as log_mod
     import wks.api.monitor.cmd_status as mon_mod

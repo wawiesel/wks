@@ -9,7 +9,6 @@ from wks.api.transform.cmd_engine import cmd_engine
 
 
 def test_cmd_engine_path_not_found(tracked_wks_config):
-    """Test error when path does not exist."""
     result = run_cmd(
         cmd_engine,
         engine="textpass",
@@ -21,7 +20,6 @@ def test_cmd_engine_path_not_found(tracked_wks_config):
 
 
 def test_cmd_engine_no_engines(tracked_wks_config, tmp_path):
-    """Test error when no engines configured."""
     test_f = tmp_path / "test.txt"
     test_f.touch()
 
@@ -40,7 +38,6 @@ def test_cmd_engine_no_engines(tracked_wks_config, tmp_path):
 
 
 def test_cmd_engine_success_and_caching(tracked_wks_config, tmp_path):
-    """Test successful transform and caching behavior."""
     test_f = tmp_path / "test.txt"
     test_f.write_text("hello", encoding="utf-8")
 
@@ -145,7 +142,6 @@ def test_cmd_engine_rejects_unsupported_supported_types(tracked_wks_config, tmp_
 
 
 def test_cmd_engine_fatal_error(tracked_wks_config, tmp_path):
-    """Test fatal error during transform."""
     test_f = tmp_path / "test.txt"
     test_f.touch()
 
@@ -159,7 +155,6 @@ def test_cmd_engine_fatal_error(tracked_wks_config, tmp_path):
 
 
 def test_cache_eviction_integration(tracked_wks_config, tmp_path):
-    """Test cache eviction by setting small limit and checking behavior."""
     config = WKSConfig.load()
     config.transform.cache.max_size_bytes = 200
     config.save()
@@ -187,8 +182,6 @@ def test_cache_eviction_integration(tracked_wks_config, tmp_path):
 
 
 def test_cache_permission_error(tracked_wks_config, tmp_path):
-    """Test handling of permission error in cache directory."""
-
     config = WKSConfig.load()
     cache_dir = tmp_path / "readonly_cache"
     cache_dir.mkdir()

@@ -10,7 +10,6 @@ pytestmark = pytest.mark.monitor
 
 
 def test_matches_glob_empty_pattern(tmp_path):
-    """Test that empty patterns are skipped (integration test via explain_path)."""
     cfg = MonitorConfig.from_config_dict(
         {
             "monitor": {
@@ -46,8 +45,6 @@ def test_matches_glob_empty_pattern(tmp_path):
 
 
 def test_matches_glob_exception_propagates(monkeypatch):
-    """Test that exceptions in matches_glob propagate (fail fast)."""
-
     def mock_fnmatchcase(*args, **kwargs):
         raise ValueError("Simulated glob error")
 
@@ -59,20 +56,16 @@ def test_matches_glob_exception_propagates(monkeypatch):
 
 
 def test_matches_glob_empty_pattern_in_list():
-    """Test matches_glob with an empty string in the pattern list."""
-
     path = Path("/tmp/test.txt")
     assert not matches_glob([""], path)
     assert matches_glob(["", "*.txt"], path)
 
 
 def test_matches_glob_matches_by_filename_only():
-    """Pattern can match the filename even if it doesn't match the full path."""
     path = Path("dir/test.txt")
     assert matches_glob(["test.txt"], path) is True
 
 
 def test_matches_glob_matches_by_path_only():
-    """Pattern can match the full path even if it doesn't match the filename."""
     path = Path("dir/test.txt")
     assert matches_glob(["dir/*.txt"], path) is True

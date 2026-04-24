@@ -4,7 +4,6 @@ from wks.api.monitor.prune import prune
 
 
 def test_monitor_prune_removes_missing_files(monkeypatch):
-    """Test that missing files are removed from DB."""
     mock_config = MagicMock()
 
     mock_db = MagicMock()
@@ -48,7 +47,6 @@ def test_monitor_prune_removes_missing_files(monkeypatch):
 
 
 def test_monitor_prune_handles_os_error(monkeypatch):
-    """Test graceful handling of FS errors."""
     mock_config = MagicMock()
     mock_db = MagicMock()
     mock_collection = MagicMock()

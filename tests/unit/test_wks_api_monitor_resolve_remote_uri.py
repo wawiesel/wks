@@ -8,14 +8,12 @@ from wks.api.monitor.resolve_remote_uri import resolve_remote_uri
 
 
 def test_resolve_remote_uri_no_mappings():
-    """Test resolution with empty mappings."""
     config = RemoteConfig(mappings=[])
     uri = URI.from_path(Path("/tmp/any"))
     assert resolve_remote_uri(uri, config) is None
 
 
 def test_resolve_remote_uri_success():
-    """Test successful path resolution."""
     mapping = RemoteMapping(
         local_path="/tmp/wks_test",
         remote_uri="s3://my-bucket/prefix",
@@ -29,7 +27,6 @@ def test_resolve_remote_uri_success():
 
 
 def test_resolve_remote_uri_multiple_mappings():
-    """Test resolution with multiple mappings (first match wins)."""
     mappings = [
         RemoteMapping(local_path="/tmp/a", remote_uri="v1://a"),
         RemoteMapping(local_path="/tmp/a/b", remote_uri="v2://b"),
@@ -43,7 +40,6 @@ def test_resolve_remote_uri_multiple_mappings():
 
 
 def test_resolve_remote_uri_no_match():
-    """Test resolution with non-matching path."""
     mapping = RemoteMapping(local_path="/tmp/a", remote_uri="v://a")
     config = RemoteConfig(mappings=[mapping])
 
@@ -53,7 +49,6 @@ def test_resolve_remote_uri_no_match():
 
 
 def test_resolve_remote_uri_invalid_path():
-    """Test resolution with invalid path (triggering Exception in normalize_path)."""
     config = RemoteConfig(mappings=[])
     try:
         uri = URI.from_any("/tmp/\x00invalid")
@@ -64,7 +59,6 @@ def test_resolve_remote_uri_invalid_path():
 
 
 def test_resolve_remote_uri_value_error_in_loop(monkeypatch):
-    """Test handling of ValueError during mapping iteration."""
     mapping = RemoteMapping(local_path="/tmp/a", remote_uri="v://a")
     config = RemoteConfig(mappings=[mapping])
 
@@ -85,14 +79,12 @@ def test_resolve_remote_uri_value_error_in_loop(monkeypatch):
 
 
 def test_resolve_remote_uri_normalize_failure():
-    """Test resolution when invalid type is passed (fail fast)."""
     config = RemoteConfig(mappings=[])
     with pytest.raises(TypeError, match="uri must be URI"):
         resolve_remote_uri(123, config)  # type: ignore
 
 
 def test_resolve_remote_uri_with_uri_object():
-    """Test resolution with URI object input."""
     mapping = RemoteMapping(
         local_path="/tmp/wks_test",
         remote_uri="s3://my-bucket/prefix",
@@ -105,7 +97,6 @@ def test_resolve_remote_uri_with_uri_object():
 
 
 def test_resolve_remote_uri_with_non_file_uri():
-    """Test resolution with non-file URI (should return None)."""
     config = RemoteConfig(mappings=[])
     uri = URI("s3://bucket/file.txt")
     assert resolve_remote_uri(uri, config) is None

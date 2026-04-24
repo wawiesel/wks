@@ -51,7 +51,6 @@ def test_strategy_search_combined(search_env_strategy):
 
 
 def test_strategy_default_used(search_env_strategy):
-    """When no --index or --strategy, default_strategy is used."""
     result = run_cmd(search_cmd, "fission")
     assert result.success is True
     assert result.output["search_mode"] == "combined"
@@ -59,7 +58,6 @@ def test_strategy_default_used(search_env_strategy):
 
 
 def test_strategy_explicit_index_overrides_default_strategy(search_env_strategy):
-    """--index bypasses default_strategy."""
     result = run_cmd(search_cmd, "fission", index="main")
     assert result.success is True
     assert result.output["search_mode"] == "lexical"
@@ -79,7 +77,6 @@ def test_strategy_unknown_name(search_env_strategy):
 
 
 def test_rrf_merge_basic():
-    """RRF merge produces correct ordering."""
     list_a = [
         {"uri": "a.txt", "chunk_index": 0, "score": 1.0, "tokens": 10, "text": "a"},
         {"uri": "b.txt", "chunk_index": 0, "score": 0.5, "tokens": 10, "text": "b"},

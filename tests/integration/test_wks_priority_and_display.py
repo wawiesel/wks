@@ -6,14 +6,12 @@ from wks.cli.display.display_context import display_context
 
 
 def test_get_display_returns_cli_for_all_modes():
-    """get_display always returns CLI display (MCP bypasses display layer)."""
     assert isinstance(display_context.get_display("cli"), CLIDisplay)  # type: ignore[arg-type]
     assert isinstance(display_context.get_display("mcp"), CLIDisplay)  # type: ignore[arg-type]
     assert isinstance(display_context.get_display(), CLIDisplay)  # type: ignore[arg-type]
 
 
 def test_is_mcp_context_env_var_detection(monkeypatch):
-    """MCP_MODE or MCP_SERVER force MCP detection."""
     monkeypatch.setenv("MCP_MODE", "1")
     assert display_context.is_mcp_context() is True
 
@@ -23,7 +21,6 @@ def test_is_mcp_context_env_var_detection(monkeypatch):
 
 
 def test_is_mcp_context_piped_stdout(monkeypatch):
-    """When TERM is missing and stdout is not a TTY, MCP is assumed."""
     monkeypatch.delenv("MCP_MODE", raising=False)
     monkeypatch.delenv("MCP_SERVER", raising=False)
     monkeypatch.delenv("TERM", raising=False)
@@ -37,7 +34,6 @@ def test_is_mcp_context_piped_stdout(monkeypatch):
 
 
 def test_is_mcp_context_false_with_terminal(monkeypatch):
-    """With a TTY and no MCP markers, we stay in CLI mode."""
     monkeypatch.delenv("MCP_MODE", raising=False)
     monkeypatch.delenv("MCP_SERVER", raising=False)
     monkeypatch.setenv("TERM", "xterm")
@@ -46,7 +42,6 @@ def test_is_mcp_context_false_with_terminal(monkeypatch):
 
 
 def test_add_display_argument(monkeypatch):
-    """add_display_argument wires up the flag with auto-detected default."""
     monkeypatch.setenv("TERM", "xterm")
     parser = argparse.ArgumentParser()
     display_context.add_display_argument(parser)

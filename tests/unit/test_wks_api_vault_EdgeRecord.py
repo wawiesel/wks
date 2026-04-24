@@ -2,7 +2,6 @@ from wks.api.vault.EdgeRecord import EdgeRecord
 
 
 def test_edge_record_identity_consistency():
-    """Test that EdgeRecord identity is deterministic and correct."""
     edge1 = EdgeRecord(
         note_path="note.md",
         from_uri="vault:///note.md",
@@ -48,7 +47,6 @@ def test_edge_record_identity_consistency():
 
 
 def test_edge_record_to_document():
-    """Test conversion to database document."""
     edge = EdgeRecord(
         note_path="Note 📝.md",
         from_uri="vault:///note.md",

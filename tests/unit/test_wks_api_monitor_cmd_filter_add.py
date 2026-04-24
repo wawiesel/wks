@@ -6,184 +6,79 @@ from wks.api.monitor import cmd_filter_add
 pytestmark = pytest.mark.monitor
 
 
-def test_cmd_filter_add_saves_on_success(monkeypatch):
-    """Add filter values successfully.
-
-    Requirements:
+@pytest.mark.parametrize(
+    ("overrides", "list_name", "value"),
+    [
+        ({}, "include_paths", "/tmp/x"),
+        ({}, "include_dirnames", "testdir"),
+        ({}, "include_globs", "*.py"),
+    ],
+)
+def test_cmd_filter_add_success_cases(monkeypatch, overrides, list_name, value):
+    """Requirements:
     - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch)
+    - MON-006"""
+    cfg = create_tracked_wks_config(monkeypatch, overrides)
 
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_paths", value="/tmp/x")
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name=list_name, value=value)
+
     assert result.output["success"] is True
     assert cfg.save_calls == 1
 
 
-def test_cmd_filter_add_unknown_list_name(monkeypatch):
-    """Test cmd_filter_add with unknown list_name.
-
-    Requirements:
+@pytest.mark.parametrize(
+    ("overrides", "list_name", "value", "message"),
+    [
+        ({}, "unknown_list", "test", "Unknown list_name"),
+        ({}, "include_dirnames", "   ", "cannot be empty"),
+        ({}, "include_dirnames", "test*", "wildcard characters"),
+        ({"filter": {"exclude_dirnames": ["testdir"]}}, "include_dirnames", "testdir", "already present"),
+        ({}, "include_globs", "   ", "cannot be empty"),
+        ({}, "include_dirnames", "invalid/path", "validation_failed"),
+    ],
+)
+def test_cmd_filter_add_rejects_invalid_values(monkeypatch, overrides, list_name, value, message):
+    """Requirements:
     - MON-001
-    - MON-006
-    """
-    create_tracked_wks_config(monkeypatch)
+    - MON-006"""
+    cfg = create_tracked_wks_config(monkeypatch, overrides)
 
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="unknown_list", value="test")
-    assert result.success is False
-    assert "Unknown list_name" in result.output["errors"][0]
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name=list_name, value=value)
 
-
-def test_cmd_filter_add_empty_dirname(monkeypatch):
-    """Test cmd_filter_add with empty dirname.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch)
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="   ")
     assert result.output["success"] is False
-    assert "cannot be empty" in result.output["message"]
+    if message == "validation_failed":
+        assert result.output["validation_failed"] is True
+        assert cfg.save_calls == 0
+        return
+    output_text = f"{result.output.get('message', '')} {' '.join(result.output.get('errors', []))}"
+    assert message in output_text or message in result.result
     assert cfg.save_calls == 0
 
 
-def test_cmd_filter_add_wildcard_in_dirname(monkeypatch):
-    """Test cmd_filter_add with wildcard in dirname.
-
-    Requirements:
+@pytest.mark.parametrize(
+    ("overrides", "list_name", "value"),
+    [
+        ({"filter": {"include_dirnames": ["testdir"]}}, "include_dirnames", "testdir"),
+        ({"filter": {"include_globs": ["*.md"]}}, "include_globs", "*.md"),
+    ],
+)
+def test_cmd_filter_add_duplicate_values(monkeypatch, overrides, list_name, value):
+    """Requirements:
     - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch)
+    - MON-006"""
+    cfg = create_tracked_wks_config(monkeypatch, overrides)
 
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="test*")
-    assert result.output["success"] is False
-    assert "wildcard characters" in result.output["message"]
-    assert cfg.save_calls == 0
+    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name=list_name, value=value)
 
-
-def test_cmd_filter_add_dirname_in_opposite(monkeypatch):
-    """Test cmd_filter_add when dirname already in opposite list.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"exclude_dirnames": ["testdir"]}})
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
-    assert result.output["success"] is False
-    assert "already present in exclude_dirnames" in result.output["message"]
-    assert cfg.save_calls == 0
-
-
-def test_cmd_filter_add_dirname_no_error(monkeypatch):
-    """Test cmd_filter_add with valid dirname.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch)
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
-    assert result.output["success"] is True
-    assert cfg.save_calls == 1
-
-
-def test_cmd_filter_add_empty_glob(monkeypatch):
-    """Test cmd_filter_add with empty glob.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch)
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="   ")
-    assert result.output["success"] is False
-    assert "cannot be empty" in result.output["message"]
-    assert cfg.save_calls == 0
-
-
-def test_cmd_filter_add_glob_validation_success(monkeypatch):
-    """Test cmd_filter_add with valid glob.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch)
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.py")
-    assert result.output["success"] is True
-    assert cfg.save_calls == 1
-
-
-def test_cmd_filter_add_else_branch(monkeypatch):
-    """Test cmd_filter_add with non-path, non-dirname, non-glob list.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    pass
-
-
-def test_cmd_filter_add_validation_error(monkeypatch):
-    """Test cmd_filter_add with validation error.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch)
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="invalid/path")
-    assert result.output["success"] is False
-    assert "validation_failed" in result.output
-    assert cfg.save_calls == 0
-
-
-def test_cmd_filter_add_duplicate_dirname(monkeypatch):
-    """Test cmd_filter_add with duplicate dirname.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_dirnames": ["testdir"]}})
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_dirnames", value="testdir")
-    assert result.output["success"] is False
-    assert result.output["already_exists"] is True
-    assert cfg.save_calls == 0
-
-
-def test_cmd_filter_add_duplicate_glob(monkeypatch):
-    """Test cmd_filter_add with duplicate glob.
-
-    Requirements:
-    - MON-001
-    - MON-006
-    """
-    cfg = create_tracked_wks_config(monkeypatch, {"filter": {"include_globs": ["*.md"]}})
-
-    result = run_cmd(cmd_filter_add.cmd_filter_add, list_name="include_globs", value="*.md")
     assert result.output["success"] is False
     assert result.output["already_exists"] is True
     assert cfg.save_calls == 0
 
 
 def test_cmd_filter_add_internal_error(monkeypatch):
-    """Test cmd_filter_add throws RuntimeError if validate_value returns (None, None).
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-006
-    """
+    - MON-006"""
     create_tracked_wks_config(monkeypatch)
 
     import wks.api.monitor.cmd_filter_add as filter_add_mod

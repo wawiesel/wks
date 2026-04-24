@@ -1,3 +1,4 @@
+import copy
 import json
 
 import pytest
@@ -9,125 +10,85 @@ from wks.api.monitor.cmd_check import cmd_check
 pytestmark = pytest.mark.monitor
 
 
-def test_cmd_check_reports_monitored(monkeypatch, tmp_path, minimal_config_dict):
-    """Path under include_paths is monitored with computed priority.
-
-    Requirements:
-    - MON-001
-    - MON-004
-    """
+def setup_monitor_check_env(monkeypatch, tmp_path, minimal_config_dict, *, include_watch=True, **filter_updates):
     wks_home = tmp_path / "wks_home"
     wks_home.mkdir()
     monkeypatch.setenv("WKS_HOME", str(wks_home))
-    cfg = minimal_config_dict
+
+    config = copy.deepcopy(minimal_config_dict)
     watch_dir = tmp_path / "watch"
     watch_dir.mkdir()
-    cfg["monitor"]["filter"]["include_paths"].append(str(watch_dir))
+    if include_watch:
+        config["monitor"]["filter"]["include_paths"].append(str(watch_dir))
+    config["monitor"]["filter"].update(filter_updates)
+    (wks_home / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    return watch_dir
+
+
+def test_cmd_check_reports_monitored(monkeypatch, tmp_path, minimal_config_dict):
+    """Requirements:
+    - MON-001
+    - MON-004"""
+    watch_dir = setup_monitor_check_env(monkeypatch, tmp_path, minimal_config_dict)
     target = watch_dir / "demo.txt"
     target.write_text("hi", encoding="utf-8")
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     result = run_cmd(cmd_check, uri=URI.from_path(target))
 
-    assert result.output["is_monitored"] is True
     assert result.success is True
+    assert result.output["is_monitored"] is True
     assert result.output["priority"] is not None
 
 
-def test_cmd_check_path_not_exists(monkeypatch, tmp_path, minimal_config_dict):
-    """Nonexistent path outside include_paths is not monitored and fails.
-
-    Requirements:
+@pytest.mark.parametrize(
+    "uri_factory", [lambda root: root / "missing.txt", lambda root: URI("vault:///nonexistent.md")]
+)
+def test_cmd_check_reports_unmonitored_target(monkeypatch, tmp_path, minimal_config_dict, uri_factory):
+    """Requirements:
     - MON-001
-    - MON-008
-    """
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    cfg = minimal_config_dict
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-    missing = tmp_path / "missing.txt"
+    - MON-008"""
+    watch_dir = setup_monitor_check_env(monkeypatch, tmp_path, minimal_config_dict, include_watch=False)
+    uri = uri_factory(watch_dir)
+    target = URI.from_path(uri) if not isinstance(uri, URI) else uri
 
-    result = run_cmd(cmd_check, uri=URI.from_path(missing))
+    result = run_cmd(cmd_check, uri=target)
 
+    assert result.success is False
     assert result.output["is_monitored"] is False
     assert result.output["priority"] is None
-    assert result.success is False
+    assert result.output["reason"] is not None
 
 
 def test_cmd_check_glob_exclusion(monkeypatch, tmp_path, minimal_config_dict):
-    """Path matching exclude_globs reports '✗' symbol.
-
-    Requirements:
+    """Requirements:
     - MON-001
-    - MON-004
-    """
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    cfg = minimal_config_dict
-    watch_dir = tmp_path / "watch"
-    watch_dir.mkdir()
-    cfg["monitor"]["filter"]["include_paths"].append(str(watch_dir))
-    cfg["monitor"]["filter"]["exclude_globs"] = ["*.tmp"]
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-
+    - MON-004"""
+    watch_dir = setup_monitor_check_env(
+        monkeypatch,
+        tmp_path,
+        minimal_config_dict,
+        exclude_globs=["*.tmp"],
+    )
     target = watch_dir / "test.tmp"
     target.write_text("temp", encoding="utf-8")
 
     result = run_cmd(cmd_check, uri=URI.from_path(target))
 
     assert result.output["is_monitored"] is False
-    decision_symbols = [d["symbol"] for d in result.output["decisions"]]
-    assert "✗" in decision_symbols
+    assert "✗" in [decision["symbol"] for decision in result.output["decisions"]]
 
 
-def test_cmd_check_empty_trace_fallback(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_check handles empty trace gracefully (tests line 100)."""
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    cfg = minimal_config_dict
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-    missing = tmp_path / "missing.txt"
-
-    result = run_cmd(cmd_check, uri=URI.from_path(missing))
-
-    assert result.output["is_monitored"] is False
-    assert result.output["reason"] is not None
-    assert result.success is False
-
-
-def test_cmd_check_vault_uri_error(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_check handles ValueError from vault URI path extraction."""
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    cfg = minimal_config_dict
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-
-    vault_uri = URI("vault:///nonexistent.md")
-    result = run_cmd(cmd_check, uri=vault_uri)
-
-    assert result.output["is_monitored"] is False
-    assert result.output["priority"] is None
-    assert result.success is False
-    assert len(result.output["decisions"]) == 0
-
-
-def test_cmd_check_decision_symbols_various_trace_messages(monkeypatch, tmp_path, minimal_config_dict):
-    """Test cmd_check assigns correct symbols for various trace message types."""
-    wks_home = tmp_path / "wks_home"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    cfg = minimal_config_dict
-    watch_dir = tmp_path / "watch"
-    watch_dir.mkdir()
-    cfg["monitor"]["filter"]["include_paths"].append(str(watch_dir))
-    cfg["monitor"]["filter"]["include_dirnames"] = ["special"]
-    cfg["monitor"]["filter"]["include_globs"] = ["*.special"]
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-
+def test_cmd_check_decision_symbols(monkeypatch, tmp_path, minimal_config_dict):
+    """Requirements:
+    - MON-001
+    - MON-004"""
+    watch_dir = setup_monitor_check_env(
+        monkeypatch,
+        tmp_path,
+        minimal_config_dict,
+        include_dirnames=["special"],
+        include_globs=["*.special"],
+    )
     special_dir = watch_dir / "special"
     special_dir.mkdir()
     target = special_dir / "test.special"
@@ -135,5 +96,4 @@ def test_cmd_check_decision_symbols_various_trace_messages(monkeypatch, tmp_path
 
     result = run_cmd(cmd_check, uri=URI.from_path(target))
 
-    decision_symbols = [d["symbol"] for d in result.output["decisions"]]
-    assert "✓" in decision_symbols or "•" in decision_symbols
+    assert {"✓", "•"} & {decision["symbol"] for decision in result.output["decisions"]}

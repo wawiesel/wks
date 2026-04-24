@@ -6,14 +6,12 @@ from wks.api.service._read_daemon_file import _read_daemon_file
 
 
 def test_read_daemon_file_file_not_exists(tmp_path):
-    """Test reading non-existent file."""
     f = tmp_path / "daemon.json"
     result = _read_daemon_file(f)
     assert result == {"warnings": [], "errors": []}
 
 
 def test_read_daemon_file_valid(tmp_path):
-    """Test reading valid file."""
     f = tmp_path / "daemon.json"
     data = {"warnings": ["w1"], "errors": ["e1"], "pid": 123}
     f.write_text(json.dumps(data))
@@ -23,7 +21,6 @@ def test_read_daemon_file_valid(tmp_path):
 
 
 def test_read_daemon_file_summarizes_large_message_lists(tmp_path):
-    """Test reading valid file with oversized warning/error arrays."""
     f = tmp_path / "daemon.json"
     warnings = [f"warn-{idx}" for idx in range(STATUS_LOG_MESSAGE_LIMIT + 5)]
     errors = [f"error-{idx}" for idx in range(STATUS_LOG_MESSAGE_LIMIT + 1)]
@@ -42,7 +39,6 @@ def test_read_daemon_file_summarizes_large_message_lists(tmp_path):
 
 
 def test_read_daemon_file_corrupt_json(tmp_path):
-    """Test reading corrupt JSON file."""
     f = tmp_path / "daemon.json"
     f.write_text("{invalid")
 
@@ -54,7 +50,6 @@ def test_read_daemon_file_corrupt_json(tmp_path):
 
 
 def test_read_daemon_file_os_error(tmp_path):
-    """Test reading file with OS error (mocked)."""
     f = tmp_path / "daemon.json"
     f.touch()  # Create it so exists() passes
 

@@ -4,7 +4,6 @@ from wks.api.log.append_log import append_log
 
 
 def test_append_log_success(tmp_path):
-    """Test successful log append (lines 17-20)."""
     log_path = tmp_path / "test.log"
     append_log(log_path, "test", "INFO", "Hello")
 
@@ -13,7 +12,6 @@ def test_append_log_success(tmp_path):
 
 
 def test_append_log_io_error(tmp_path, monkeypatch):
-    """Test silent ignore of OSError (lines 21-23)."""
     log_path = tmp_path / "error.log"
 
     def mock_open(*args, **kwargs):

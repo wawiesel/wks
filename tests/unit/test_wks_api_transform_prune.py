@@ -4,7 +4,6 @@ from wks.api.transform.prune import prune
 
 
 def test_prune_empty(wks_home, minimal_config_dict, tmp_path):
-    """Test prune with empty directory and database."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "empty_cache"
@@ -23,7 +22,6 @@ def test_prune_empty(wks_home, minimal_config_dict, tmp_path):
 
 
 def test_prune_stale_db_records(wks_home, minimal_config_dict, tmp_path):
-    """Test pruning DB records that point to missing files."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "stale_cache"
@@ -51,7 +49,6 @@ def test_prune_stale_db_records(wks_home, minimal_config_dict, tmp_path):
 
 
 def test_prune_orphaned_files(wks_home, minimal_config_dict, tmp_path):
-    """Test pruning files that are not in DB."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "cache"
@@ -72,7 +69,6 @@ def test_prune_orphaned_files(wks_home, minimal_config_dict, tmp_path):
 
 
 def test_prune_valid_files(wks_home, minimal_config_dict, tmp_path):
-    """Test valid files are kept."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "cache"
@@ -100,7 +96,6 @@ def test_prune_valid_files(wks_home, minimal_config_dict, tmp_path):
 
 
 def test_prune_invalid_uri_warning(wks_home, minimal_config_dict, tmp_path):
-    """Test handling of invalid URI (treated as missing file)."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "invalid_cache"
@@ -122,7 +117,6 @@ def test_prune_invalid_uri_warning(wks_home, minimal_config_dict, tmp_path):
 
 
 def test_prune_with_valueerror_in_uri_check(wks_home, minimal_config_dict, tmp_path):
-    """Test prune handles ValueError when checking cache URI."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "cache"
@@ -145,7 +139,6 @@ def test_prune_with_valueerror_in_uri_check(wks_home, minimal_config_dict, tmp_p
 
 
 def test_prune_with_oserror_deleting_orphaned(wks_home, minimal_config_dict, tmp_path):
-    """Test prune handles OSError when deleting orphaned files."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "cache"
@@ -179,7 +172,6 @@ def test_prune_with_oserror_deleting_orphaned(wks_home, minimal_config_dict, tmp
 
 
 def test_prune_with_none_cache_uri(wks_home, minimal_config_dict, tmp_path):
-    """Test prune handles None cache_uri in database record."""
     config = WKSConfig.load()
 
     cache_dir = tmp_path / "cache"
