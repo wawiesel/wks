@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests.unit._transform_test_helpers import temporary_transform_config
 from tests.unit.conftest import run_cmd
 from wks.api.config.now_iso import now_iso
 from wks.api.config.URI import URI
-from wks.api.config.WKSConfig import WKSConfig
 from wks.api.database.Database import Database
 from wks.api.transform._EngineConfig import _EngineConfig
 from wks.api.transform._get_controller import _get_controller
@@ -27,11 +27,9 @@ def test_cmd_engine_docling_rewrites_nested_referenced_images_to_cache_artifacts
     test_file = tmp_path / "COR-0017 Code of Record.pdf"
     test_file.write_bytes(b"%PDF-1.4\nfake\n")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
     temp_roots: dict[str, Path] = {}
-    try:
-        config.transform.engines = {
+    with temporary_transform_config(
+        engines={
             "dx": _EngineConfig(
                 type="docling",
                 data={
@@ -45,7 +43,7 @@ def test_cmd_engine_docling_rewrites_nested_referenced_images_to_cache_artifacts
                 supported_types=[".pdf"],
             )
         }
-        config.save()
+    ) as config:
 
         def fake_run_docling(self, input_path, output_path, temp_output, options):
             temp_roots["path"] = temp_output
@@ -87,9 +85,6 @@ def test_cmd_engine_docling_rewrites_nested_referenced_images_to_cache_artifacts
         assert image_path.parent.name == f"{result.output['checksum']}_artifacts"
         assert image_path.parent.parent == Path(config.transform.cache.base_dir)
         assert " " not in str(image_path)
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def test_cmd_engine_rebuilds_stale_cached_docling_output_with_missing_image_refs(
@@ -101,10 +96,8 @@ def test_cmd_engine_rebuilds_stale_cached_docling_output_with_missing_image_refs
     test_file = tmp_path / "stale.pdf"
     test_file.write_bytes(b"%PDF-1.4\nfake\n")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {
+    with temporary_transform_config(
+        engines={
             "dx": _EngineConfig(
                 type="docling",
                 data={
@@ -118,8 +111,7 @@ def test_cmd_engine_rebuilds_stale_cached_docling_output_with_missing_image_refs
                 supported_types=[".pdf"],
             )
         }
-        config.save()
-
+    ) as config:
         with _get_controller(config) as controller:
             selection = resolve_engine_selection(config.transform.engines, "dx", test_file, {})
             file_checksum = controller._compute_file_checksum(test_file)
@@ -187,9 +179,6 @@ def test_cmd_engine_rebuilds_stale_cached_docling_output_with_missing_image_refs
 
         with Database(config.database, "transform") as database:
             assert database.get_database()["transform"].count_documents({}) == 1
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def _extract_image_path(content: str) -> Path:

@@ -1,9 +1,8 @@
 """Unit tests for vault cmd_links."""
 
-import json
-
 import pytest
 
+from tests.unit._vault_test_helpers import setup_vault_env, vault_database_config
 from tests.unit.conftest import run_cmd
 from wks.api.config.URI import URI
 from wks.api.vault.cmd_links import cmd_links
@@ -13,27 +12,15 @@ pytestmark = pytest.mark.vault
 
 def test_cmd_links_returns_structure(monkeypatch, tmp_path, minimal_config_dict):
     """Should return basic structure for empty results."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = tmp_path / "vault"
-    vault_dir.mkdir()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg))
+    _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Create a real file in vault
     test_file = vault_dir / "note.md"
     test_file.write_text("# Test")
 
     from wks.api.database.Database import Database
-    from wks.api.database.DatabaseConfig import DatabaseConfig
 
-    db_config = DatabaseConfig(**minimal_config_dict["database"])
-    with Database(db_config, "edges") as db:
+    with Database(vault_database_config(config), "edges") as db:
         db.delete_many({})
 
     result = run_cmd(cmd_links, uri=URI("vault:///note.md"), direction="both")
@@ -44,27 +31,15 @@ def test_cmd_links_returns_structure(monkeypatch, tmp_path, minimal_config_dict)
 
 def test_cmd_links_finds_outgoing(monkeypatch, tmp_path, minimal_config_dict):
     """Should find outgoing links (from_uri match)."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = tmp_path / "vault"
-    vault_dir.mkdir()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg))
+    _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Create a real file in vault
     note1 = vault_dir / "note1.md"
     note1.write_text("Link to [[note2]]")
 
     from wks.api.database.Database import Database
-    from wks.api.database.DatabaseConfig import DatabaseConfig
 
-    db_config = DatabaseConfig(**minimal_config_dict["database"])
-    with Database(db_config, "edges") as db:
+    with Database(vault_database_config(config), "edges") as db:
         db.delete_many({})
         db.get_database()["edges"].insert_one(
             {
@@ -83,27 +58,15 @@ def test_cmd_links_finds_outgoing(monkeypatch, tmp_path, minimal_config_dict):
 
 def test_cmd_links_finds_incoming(monkeypatch, tmp_path, minimal_config_dict):
     """Should find incoming links (to_uri match)."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = tmp_path / "vault"
-    vault_dir.mkdir()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg))
+    _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Create a real file in vault
     note2 = vault_dir / "note2.md"
     note2.write_text("# Note 2")
 
     from wks.api.database.Database import Database
-    from wks.api.database.DatabaseConfig import DatabaseConfig
 
-    db_config = DatabaseConfig(**minimal_config_dict["database"])
-    with Database(db_config, "edges") as db:
+    with Database(vault_database_config(config), "edges") as db:
         db.delete_many({})
         db.get_database()["edges"].insert_one(
             {
@@ -132,14 +95,7 @@ def test_cmd_links_invalid_config(monkeypatch, tmp_path):
 
 def test_cmd_links_path_outside_vault(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_links with path outside vault - still queries DB successfully."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Querying for links to a non-existent file is allowed - we're querying the DB
     result = run_cmd(cmd_links, uri=URI("vault:///../../outside.md"))
@@ -149,17 +105,9 @@ def test_cmd_links_path_outside_vault(monkeypatch, tmp_path, minimal_config_dict
 
 def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_links with database query failure (line 112-123)."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
     # Create the file so resolve_vault_path succeeds
     (vault_dir / "test.md").touch()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     # Mock Database to fail
     from wks.api.database.Database import Database
@@ -176,25 +124,15 @@ def test_cmd_links_query_failure(monkeypatch, tmp_path, minimal_config_dict):
 
 def test_cmd_links_file_uri_inside_vault(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_links resolves file:// URIs inside the vault to vault:/// URIs."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, vault_dir, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Create a real file in vault
     note = vault_dir / "note.md"
     note.write_text("# Test")
 
     from wks.api.database.Database import Database
-    from wks.api.database.DatabaseConfig import DatabaseConfig
 
-    db_config = DatabaseConfig(**minimal_config_dict["database"])
-    with Database(db_config, "edges") as db:
+    with Database(vault_database_config(config), "edges") as db:
         db.delete_many({})
         db.get_database()["edges"].insert_one(
             {
@@ -215,15 +153,7 @@ def test_cmd_links_file_uri_inside_vault(monkeypatch, tmp_path, minimal_config_d
 
 def test_cmd_links_non_vault_uri_error(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_links with non-vault URI (tests line 69-81)."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Use a file:// URI which should fail is_vault check
     outside_file = tmp_path / "outside.md"

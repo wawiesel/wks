@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.unit.test_wks_api_search_cmd import _setup_search_config, _write_and_index_search_docs
+from tests.unit._search_test_helpers import setup_search_config, write_and_index_search_docs
 from wks.api.config.WKSConfig import WKSConfig
 from wks.api.search._SearchRuntime import _SEARCH_RUNTIME
 from wks.rest.server import create_app
@@ -14,12 +14,12 @@ from wks.services.status import StatusResponse
 def test_rest_server_read_endpoints(monkeypatch, tmp_path):
     """The REST layer should expose thin read endpoints over the shared services."""
     _SEARCH_RUNTIME.reset()
-    _setup_search_config(
+    setup_search_config(
         tmp_path,
         monkeypatch,
         index_config={"default_index": "main", "indexes": {"main": {"engine": "textpass"}}},
     )
-    docs = _write_and_index_search_docs(tmp_path)
+    docs = write_and_index_search_docs(tmp_path)
     monkeypatch.setattr(
         "wks.services.collect_status",
         lambda: StatusResponse(success=True, message="status", sections={"service": {"running": True}}),
@@ -45,7 +45,7 @@ def test_rest_server_read_endpoints(monkeypatch, tmp_path):
 def test_rest_server_maps_service_failures(monkeypatch, tmp_path):
     """The REST layer should map shared service failures to HTTP status codes."""
     _SEARCH_RUNTIME.reset()
-    _setup_search_config(
+    setup_search_config(
         tmp_path,
         monkeypatch,
         index_config={"default_index": "main", "indexes": {"main": {"engine": "textpass"}}},

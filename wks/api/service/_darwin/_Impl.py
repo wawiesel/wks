@@ -1,7 +1,6 @@
 """macOS service implementation - installs daemon as launchd service."""
 
 import os
-import shutil
 import subprocess
 from contextlib import suppress
 from pathlib import Path
@@ -12,6 +11,7 @@ if TYPE_CHECKING:
 
 from ...config.WKSConfig import WKSConfig
 from .._AbstractImpl import _AbstractImpl
+from .._shared import prepare_service_home, remove_daemon_lock, resolve_wksc_path
 from ..ServiceConfig import ServiceConfig
 from ._Data import _Data
 
@@ -42,14 +42,7 @@ class _Impl(_AbstractImpl):
             restrict_dir: Optional directory to restrict monitoring to
         """
         # Working directory is always WKS_HOME
-        working_directory = WKSConfig.get_home_dir()
-
-        # Single standardized log file under WKS_HOME
-        log_file = working_directory / "logs" / "service.log"
-
-        # Ensure directories exist
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        working_directory.mkdir(parents=True, exist_ok=True)
+        working_directory, log_file = prepare_service_home()
 
         # Build program arguments - run 'wksc daemon start --blocking [--restrict-dir PATH]'
         program_args = f"""    <string>{wksc_path}</string>
@@ -67,6 +60,8 @@ class _Impl(_AbstractImpl):
         # Construct PATH to include wksc and potential mongod locations
         wksc_dir = Path(wksc_path).parent
         # Try to find mongod to include its path
+        import shutil
+
         mongod_path = shutil.which("mongod")
         mongod_dir = Path(mongod_path).parent if mongod_path else None
 
@@ -131,10 +126,7 @@ class _Impl(_AbstractImpl):
             restrict_dir: Optional directory to restrict monitoring to
         """
 
-        # Find wksc command
-        wksc_path = shutil.which("wksc")
-        if not wksc_path:
-            raise RuntimeError("wksc command not found in PATH. Ensure WKS is installed.")
+        wksc_path = resolve_wksc_path()
 
         plist_path = self._get_plist_path(self._data.label)
         plist_dir = plist_path.parent
@@ -209,13 +201,7 @@ class _Impl(_AbstractImpl):
         if plist_path.exists():
             plist_path.unlink()
 
-        # Remove lock file if it exists (robustness)
-        from ...config.WKSConfig import WKSConfig
-
-        lock_path = WKSConfig.get_home_dir() / "daemon.lock"
-        if lock_path.exists():
-            with suppress(Exception):
-                lock_path.unlink()
+        remove_daemon_lock()
 
         return {
             "success": True,

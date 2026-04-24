@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.unit._monitor_test_helpers import create_watch_dir, include_watch_dir
 from tests.unit.conftest import run_cmd
 from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
@@ -21,16 +22,14 @@ def test_monitor_cmd_sync_file(wks_home, minimal_config_dict):
     - MON-001
     - MON-005
     """
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
+    watch_dir = create_watch_dir(wks_home)
 
     test_file = watch_dir / "sync_me.txt"
     test_file.write_text("Sync Content", encoding="utf-8")
 
     # Must include the path to allow sync
     config = WKSConfig.load()
-    config.monitor.filter.include_paths.append(str(watch_dir))
-    config.save()
+    include_watch_dir(config, watch_dir)
 
     res = run_cmd(cmd_sync, uri=URI.from_path(test_file))
     assert res.success is True
@@ -51,8 +50,7 @@ def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
     - MON-001
     - MON-005
     """
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
+    watch_dir = create_watch_dir(wks_home)
 
     (watch_dir / "sub").mkdir()
     (watch_dir / "f1.txt").write_text("f1")
@@ -60,8 +58,7 @@ def test_monitor_cmd_sync_directory_recursive(wks_home, minimal_config_dict):
 
     # Must include the path to allow sync
     config = WKSConfig.load()
-    config.monitor.filter.include_paths.append(str(watch_dir))
-    config.save()
+    include_watch_dir(config, watch_dir)
 
     res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
     assert res.success is True
@@ -76,16 +73,14 @@ def test_monitor_cmd_sync_missing_path_removes_from_db(wks_home, minimal_config_
     - MON-001
     - MON-005
     """
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
+    watch_dir = create_watch_dir(wks_home)
 
     test_file = watch_dir / "gone.txt"
     test_file.write_text("Temporary", encoding="utf-8")
 
     # 1. Sync it
     config = WKSConfig.load()
-    config.monitor.filter.include_paths.append(str(watch_dir))
-    config.save()
+    include_watch_dir(config, watch_dir)
     run_cmd(cmd_sync, uri=URI.from_path(test_file))
 
     # 2. Delete it
@@ -113,10 +108,8 @@ def test_monitor_cmd_sync_skips_low_priority(wks_home, minimal_config_dict):
     # Set min_priority in config via WKSConfig
     config = WKSConfig.load()
     config.monitor.min_priority = 50.0
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
-    config.monitor.filter.include_paths.append(str(watch_dir))
-    config.save()
+    watch_dir = create_watch_dir(wks_home)
+    include_watch_dir(config, watch_dir)
 
     test_file = watch_dir / "low_priority.txt"
     test_file.write_text("Low Priority", encoding="utf-8")
@@ -136,8 +129,7 @@ def test_monitor_cmd_sync_enforces_limit(tracked_wks_config, wks_home):
     - MON-005
     """
     tracked_wks_config.monitor.max_documents = 2
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
+    watch_dir = create_watch_dir(wks_home)
     tracked_wks_config.monitor.filter.include_paths.append(str(watch_dir))
 
     # Create 3 files with explicit priorities
@@ -174,8 +166,7 @@ def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
     - MON-001
     - MON-008
     """
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
+    watch_dir = create_watch_dir(wks_home)
 
     unreadable = watch_dir / "unreadable.txt"
     unreadable.write_text("Secret", encoding="utf-8")
@@ -183,8 +174,7 @@ def test_monitor_cmd_sync_loop_exception(wks_home, minimal_config_dict):
 
     try:
         config = WKSConfig.load()
-        config.monitor.filter.include_paths.append(str(watch_dir))
-        config.save()
+        include_watch_dir(config, watch_dir)
 
         res = run_cmd(cmd_sync, uri=URI.from_path(watch_dir), recursive=True)
         assert res.success is False
@@ -202,14 +192,11 @@ def test_monitor_cmd_sync_skips_excluded_file(wks_home, minimal_config_dict):
     - MON-001
     - MON-005
     """
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
+    watch_dir = create_watch_dir(wks_home)
 
     config = WKSConfig.load()
-    config.monitor.filter.include_paths.append(str(watch_dir))
-    # Exclude .tmp files
     config.monitor.filter.exclude_globs = ["*.tmp"]
-    config.save()
+    include_watch_dir(config, watch_dir)
 
     test_file = watch_dir / "skip_me.tmp"
     test_file.write_text("Temp Data", encoding="utf-8")
@@ -228,12 +215,10 @@ def test_monitor_cmd_sync_directory_processes_newest_first(wks_home, minimal_con
     - MON-001
     - MON-005
     """
-    watch_dir = Path(str(wks_home) + "_watched")
-    watch_dir.mkdir(parents=True, exist_ok=True)
+    watch_dir = create_watch_dir(wks_home)
 
     config = WKSConfig.load()
-    config.monitor.filter.include_paths.append(str(watch_dir))
-    config.save()
+    include_watch_dir(config, watch_dir)
 
     # Create files and assign distinct mtimes: old < mid < new
     old_file = watch_dir / "old.txt"

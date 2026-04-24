@@ -1,9 +1,8 @@
 """Unit tests for vault cmd_status."""
 
-import json
-
 import pytest
 
+from tests.unit._vault_test_helpers import setup_vault_env, vault_database_config, write_unit_config
 from tests.unit.conftest import run_cmd
 from wks.api.vault.cmd_status import cmd_status
 
@@ -12,17 +11,7 @@ pytestmark = pytest.mark.vault
 
 def test_cmd_status_returns_structure(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_status returns expected output structure."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    # Create vault directory
-    vault_dir = tmp_path / "vault"
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     result = run_cmd(cmd_status)
 
@@ -40,23 +29,12 @@ def test_cmd_status_returns_structure(monkeypatch, tmp_path, minimal_config_dict
 
 def test_cmd_status_empty_vault(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_status on empty vault returns zero counts."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = tmp_path / "vault"
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, _, config = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Clear DB state
     from wks.api.database.Database import Database
-    from wks.api.database.DatabaseConfig import DatabaseConfig
 
-    db_config = DatabaseConfig(**cfg["database"])
-    with Database(db_config, "edges") as db:
+    with Database(vault_database_config(config), "edges") as db:
         db.delete_many({})
 
     result = run_cmd(cmd_status)
@@ -80,15 +58,7 @@ def test_cmd_status_config_failure(monkeypatch, tmp_path):
 
 def test_cmd_status_work_failure(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_status handles runtime failure in work loop."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     from unittest.mock import patch
 
@@ -102,14 +72,10 @@ def test_cmd_status_work_failure(monkeypatch, tmp_path, minimal_config_dict):
 
 def test_cmd_status_missing_base_dir(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_status with missing base_dir (line 32)."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    # Create a valid config first so load() succeeds
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(tmp_path / "vault")
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    wks_home, _, cfg = setup_vault_env(
+        monkeypatch, tmp_path, minimal_config_dict, vault_base_dir=tmp_path / "vault", create_vault_dir=False
+    )
+    write_unit_config(wks_home, cfg)
 
     # Now muck with the loaded model or re-mock load
     from wks.api.config.WKSConfig import WKSConfig

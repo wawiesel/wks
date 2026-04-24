@@ -2,9 +2,9 @@
 
 import subprocess
 
+from tests.unit._transform_test_helpers import temporary_transform_config
 from tests.unit.conftest import run_cmd
 from wks.api.config.URI import URI
-from wks.api.config.WKSConfig import WKSConfig
 from wks.api.transform._EngineConfig import _EngineConfig
 from wks.api.transform.cmd_engine import cmd_engine
 from wks.api.transform.get_content import get_content
@@ -15,12 +15,7 @@ def test_cmd_engine_docling_engine_type(tracked_wks_config, tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test", encoding="utf-8")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {"docling": _EngineConfig(type="docling", data={})}
-        config.save()
-
+    with temporary_transform_config(engines={"docling": _EngineConfig(type="docling", data={})}):
         result = run_cmd(
             cmd_engine,
             engine="docling",
@@ -29,9 +24,6 @@ def test_cmd_engine_docling_engine_type(tracked_wks_config, tmp_path):
         )
         assert result.success is False
         assert "docling" in result.result.lower() or "Unknown engine type" not in result.result
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def test_cmd_engine_pdftext_engine_type(tracked_wks_config, tmp_path, monkeypatch):
@@ -41,11 +33,7 @@ def test_cmd_engine_pdftext_engine_type(tracked_wks_config, tmp_path, monkeypatc
     test_file = tmp_path / "test.pdf"
     test_file.write_bytes(b"%PDF-1.4\nfake\n")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {"pdftext": _EngineConfig(type="pdftext", data={})}
-        config.save()
+    with temporary_transform_config(engines={"pdftext": _EngineConfig(type="pdftext", data={})}):
 
         def fake_run(*args, **kwargs):
             return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="Extracted PDF text", stderr="")
@@ -62,9 +50,6 @@ def test_cmd_engine_pdftext_engine_type(tracked_wks_config, tmp_path, monkeypatc
         assert result.success is True
         assert result.output["cached"] is False
         assert get_content(result.output["checksum"]) == "Extracted PDF text"
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def test_cmd_engine_pdftext_rejects_non_pdf(tracked_wks_config, tmp_path):
@@ -72,12 +57,7 @@ def test_cmd_engine_pdftext_rejects_non_pdf(tracked_wks_config, tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("not a pdf", encoding="utf-8")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {"pdftext": _EngineConfig(type="pdftext", data={})}
-        config.save()
-
+    with temporary_transform_config(engines={"pdftext": _EngineConfig(type="pdftext", data={})}):
         result = run_cmd(
             cmd_engine,
             engine="pdftext",
@@ -87,9 +67,6 @@ def test_cmd_engine_pdftext_rejects_non_pdf(tracked_wks_config, tmp_path):
 
         assert result.success is False
         assert "unsupported file type" in result.result.lower()
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def test_cmd_engine_docling_pdf_falls_back_to_pdftext_for_low_quality_output(tracked_wks_config, tmp_path, monkeypatch):
@@ -99,10 +76,8 @@ def test_cmd_engine_docling_pdf_falls_back_to_pdftext_for_low_quality_output(tra
     test_file = tmp_path / "cor.pdf"
     test_file.write_bytes(b"%PDF-1.4\nfake\n")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {
+    with temporary_transform_config(
+        engines={
             "dx": _EngineConfig(
                 type="docling",
                 data={
@@ -116,7 +91,7 @@ def test_cmd_engine_docling_pdf_falls_back_to_pdftext_for_low_quality_output(tra
                 supported_types=[".pdf"],
             )
         }
-        config.save()
+    ):
 
         def fake_run_docling(self, input_path, output_path, temp_output, options):
             expected_output = temp_output / f"{input_path.stem}.md"
@@ -142,9 +117,6 @@ def test_cmd_engine_docling_pdf_falls_back_to_pdftext_for_low_quality_output(tra
 
         assert result.success is True
         assert "COR-0017" in get_content(result.output["checksum"])
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def test_cmd_engine_docling_pdf_falls_back_to_pdftext_after_docling_error(tracked_wks_config, tmp_path, monkeypatch):
@@ -154,10 +126,8 @@ def test_cmd_engine_docling_pdf_falls_back_to_pdftext_after_docling_error(tracke
     test_file = tmp_path / "fallback.pdf"
     test_file.write_bytes(b"%PDF-1.4\nfake\n")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {
+    with temporary_transform_config(
+        engines={
             "dx": _EngineConfig(
                 type="docling",
                 data={
@@ -171,7 +141,7 @@ def test_cmd_engine_docling_pdf_falls_back_to_pdftext_after_docling_error(tracke
                 supported_types=[".pdf"],
             )
         }
-        config.save()
+    ):
 
         def fake_run_docling(self, input_path, output_path, temp_output, options):
             if False:
@@ -195,9 +165,6 @@ def test_cmd_engine_docling_pdf_falls_back_to_pdftext_after_docling_error(tracke
 
         assert result.success is True
         assert "Recovered text from pdftotext fallback." in get_content(result.output["checksum"])
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def test_cmd_engine_docling_pdf_falls_back_to_ocr_after_pdftext_garble(tracked_wks_config, tmp_path, monkeypatch):
@@ -207,10 +174,8 @@ def test_cmd_engine_docling_pdf_falls_back_to_ocr_after_pdftext_garble(tracked_w
     test_file = tmp_path / "nsda.pdf"
     test_file.write_bytes(b"%PDF-1.4\nfake\n")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {
+    with temporary_transform_config(
+        engines={
             "dx": _EngineConfig(
                 type="docling",
                 data={
@@ -224,7 +189,7 @@ def test_cmd_engine_docling_pdf_falls_back_to_ocr_after_pdftext_garble(tracked_w
                 supported_types=[".pdf"],
             )
         }
-        config.save()
+    ):
 
         def fake_run_docling(self, input_path, output_path, temp_output, options):
             expected_output = temp_output / f"{input_path.stem}.md"
@@ -258,6 +223,3 @@ def test_cmd_engine_docling_pdf_falls_back_to_ocr_after_pdftext_garble(tracked_w
         content = get_content(result.output["checksum"])
         assert "Nuclear Safety Design Agreement" in content
         assert "Project No. 52501" in content
-    finally:
-        config.transform.engines = original_engines
-        config.save()

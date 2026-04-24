@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.unit._transform_test_helpers import temporary_transform_config
 from tests.unit.conftest import run_cmd
 from wks.api.config.URI import URI
 from wks.api.config.WKSConfig import WKSConfig
@@ -209,12 +210,7 @@ def test_cmd_engine_unknown_engine_type(tracked_wks_config, tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("test", encoding="utf-8")
 
-    config = WKSConfig.load()
-    original_engines = config.transform.engines.copy()
-    try:
-        config.transform.engines = {"bad": _EngineConfig(type="unknown_type", data={})}
-        config.save()
-
+    with temporary_transform_config(engines={"bad": _EngineConfig(type="unknown_type", data={})}):
         result = run_cmd(
             cmd_engine,
             engine="bad",
@@ -224,9 +220,6 @@ def test_cmd_engine_unknown_engine_type(tracked_wks_config, tmp_path):
 
         assert result.success is False
         assert "Unknown engine type" in result.result
-    finally:
-        config.transform.engines = original_engines
-        config.save()
 
 
 def test_cmd_engine_glob_fallback_for_cache_location(tracked_wks_config, tmp_path):

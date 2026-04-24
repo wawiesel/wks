@@ -1,499 +1,120 @@
 # Contributing to WKS
 
-Follow `.cursor/rules/*`.
+Follow `.cursor/rules/*` and [AGENTS.md](AGENTS.md) first.
 
-## Development Workflow
+## Core Rules
 
-### Working on Tasks from NEXT.md
+- Use the shared internal Python service/core API plus thin CLI, MCP, and read-only REST surfaces.
+- REST support is mandatory.
+- Keep one command contract per `cmd_*` file.
+- Do not duplicate business logic across transports.
+- Use dataclasses and strict validation at the boundary.
+- Remove fallback behavior and dead code.
+- Keep CLI stdout content-only. Status, progress, warnings, and failures go to stderr.
 
-When starting work on a task from `NEXT.md`:
-
-1. **Mark task as in-progress**: Change the priority from `P1` to `P0` in `NEXT.md` to indicate the task is actively being worked on.
-2. **Create branch**: Create a branch named after the task (e.g., `refactor/utils`, `feat/diff-algorithms`).
-3. **Create PR**: Open a pull request with a descriptive title and detailed description of the work.
-4. **Update NEXT.md**: Add a status line in the task section pointing to the PR: `**Status**: In progress (PR #XX). See PR description for detailed progress and remaining work.`
-5. **When complete**: Change priority back to `P1` or remove the task if fully completed, and merge the PR.
-
-This convention helps track which tasks are actively being worked on and prevents duplicate work.
-
-### Development Setup
-
-For details on the CI Docker environment and running tests in containers, see **[docker/README.md](docker/README.md)**.
-
-1. **Virtual Environment**: Always use a virtual environment.
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -e .
-   ```
-
-2. **Dependencies**: Install whatever you need in `venv`.
-
-3. **Generated Outputs**: Quality metrics and traceability reports are generated locally and in CI, but are not tracked in git. Regenerate them when needed with:
-   ```bash
-   ./scripts/generate_all_stats.py
-   ```
-
-## Git Commit Standards
-
-We follow the **Conventional Commits** specification for clear and machine-readable commit history.
-
-**Format**:
-```text
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-**Types**:
-- `feat`: A new feature
-- `fix`: A bug fix
-- `docs`: Documentation only changes
-- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc.)
-- `refactor`: A code change that neither fixes a bug nor adds a feature
-- `perf`: A code change that improves performance
-- `test`: Adding missing tests or correcting existing tests
-- `chore`: Changes to the build process or auxiliary tools and libraries
-
-**Examples**:
-- `feat(auth): implement jwt token validation`
-- `fix(cli): resolve crash on missing config file`
-- `docs: update contributing guidelines`
-
-## Quality Checks & Hooks
-
-To ensure code quality and consistency, we use a combination of local Git hooks and GitHub Actions.
-
-### Local Pre-commit Hooks
-
-We use `pre-commit` to manage Git hooks, which run automatically before you commit or push your changes. These hooks help catch common issues early in the development cycle.
-
-**Setup**:
-1. Install `pre-commit` (it's listed in `setup.py` and installed with `pip install -e .`).
-2. Activate the hooks in your local Git repository:
-   ```bash
-   pre-commit install --hook-type pre-commit --hook-type pre-push
-   ```
-   This command installs scripts into your `.git/hooks` directory that will run the configured checks.
-
-**Checks Performed**:
-*   **`pre-commit` hooks**:
-    *   `trailing-whitespace`: Removes extraneous whitespace at the end of lines.
-    *   `end-of-file-fixer`: Ensures files end with a single newline.
-    *   `check-yaml`: Checks YAML file syntax.
-    *   `check-added-large-files`: Prevents committing very large files.
-    *   `check-format.py`: Runs `ruff format --check` and `ruff check` (linting).
-    *   `check-types.py`: Runs `mypy` for static type checking.
-*   **`pre-push` hooks**:
-    *   `pytest`: Runs the full test suite.
-    *   `check-complexity.py`: Runs `lizard` for code complexity analysis.
-
-To manually run all checks: `./scripts/check_quality.py [--fix]`
-To manually run a specific check: `./scripts/check_format.py [--fix]`
-
-### Continuous Integration (CI) Checks
-
-Our GitHub Actions workflow (`.github/workflows/quality.yml`) enforces these same quality checks on every pull request. This ensures that all code merged into `main` adheres to our standards.
-
-**Note on CI**: All tests in CI run inside our `ci-runner` Docker container. The container is the source of truth for dependencies. See [docker/README.md](docker/README.md) for details.
-
-## Test Suites
-
-We have three levels of tests, each runnable independently via scripts:
-
-*   **Smoke Tests**: Quick, high-level tests to ensure basic functionality.
-    ```bash
-    ./scripts/test_smoke.py
-    ```
-*   **Unit Tests**: Isolated tests for individual functions and components.
-    ```bash
-    ./scripts/test_unit.py
-    ```
-*   **Integration Tests**: Tests that verify interactions between different components and external systems.
-    ```bash
-    ./scripts/test_integration.py
-    ```
-
-For comprehensive testing documentation, including writing tests and troubleshooting, see the [Writing Tests](#writing-tests) and [Troubleshooting Tests](#troubleshooting-tests) sections below. For Docker infrastructure, see [docker/README.md](docker/README.md).
-
-## Mutation Testing (API)
-
-We use `mutmut` for mutation testing of the Python API layer (`wks/api`).
+## Setup
 
 ```bash
-./scripts/test_mutation_api.py
+python3 -m venv venv
+venv/bin/pip install -e .
 ```
 
-Notes:
-- This is intentionally **not** part of the default pre-push hook (it can be slow).
-- Configuration lives in `setup.cfg` under `[mutmut]` (notably `paths_to_mutate` and `tests_dir`).
-- The script prints a summary by default. Use `--verbose` to print the full mutant listing.
-- You can enforce a target mutation score via `setup.cfg` `[wks.mutation] min_kill_rate = 0.90` (or override with `--min-kill-rate 0.90`).
+Install any extra local tooling into `venv`.
 
-## README Statistics
+## Daily Workflow
 
-The code quality metrics in `README.md` (mutation score, test counts, etc.) are automatically kept in sync with the codebase
-   - **Stats**: `qa/metrics/*.json` (generated locally/CI, not tracked)
-   - **Reports**: `mutants/` (detailed mutation results)
+1. Check which `.cursor/rules/*` apply.
+2. Read existing wrappers, handlers, and facades before adding new logic.
+3. Make the change.
+4. Run the required checks from `venv`.
+5. Commit with a Conventional Commit message.
 
-   Steps:
-   1. **Generate**: Tools write raw data to `qa/metrics/`.
-   2. **Aggregate**: `scripts/update_readme_stats.py` reads `qa/metrics/` and updates `README.md`.
+## Required Checks
 
-**Automatic Updates**:
-- **Local**: The statistics are updated automatically via a `pre-commit` hook when `README.md` is modified.
-- **CI**: On pushes to `main`/`master`, GitHub Actions automatically runs mutation tests and updates the README statistics, then commits the changes back.
-- **PRs**: Pull requests will fail CI if the README statistics are out of date, ensuring stats stay current.
-
-**Manual Update**:
-To generate all statistics locally (matching CI workflow):
-```bash
-./scripts/generate_all_stats.py
-```
-
-This script replicates what CI does:
-1. Runs tests with coverage
-2. Runs mutation tests for all domains
-3. Generates all statistics files (coverage.json, ci.json, tokens.json, mutations.json)
-4. Updates traceability audit
-5. Updates README
-
-Options:
-- `--skip-tests`: Skip running tests (use if you've already run them)
-- `--skip-mutations`: Skip mutation testing (faster, but mutations.json won't be updated)
-
-To update just the README from existing statistics:
-```bash
-./scripts/update_readme_stats.py
-```
-
-The script collects:
-- Mutation score (from `mutmut results`)
-- Test count (from `pytest`)
-- Test file count
-- Code statistics broken down by section (`wks/api`, `wks/cli`, `wks/mcp`, `wks/utils`):
-  - File count
-  - Lines of code (LOC)
-  - Characters
-  - Python tokens (using `tokenize` module)
-
-Metrics outputs are written under `qa/metrics/` for CI and local tooling, but they are not committed.
-
-**CI Workflow**:
-The `.github/workflows/update-stats.yml` workflow:
-1. Runs tests and mutation tests
-2. Updates README statistics
-3. On `main`/`master` pushes: Auto-commits the updated `README.md` (with `[skip ci]` to avoid loops)
-4. On PRs: Fails if `README.md` statistics are outdated, requiring the PR author to update them
-
-**Visualization**:
-Generate a visual representation of codebase statistics:
-### Generating Codebase Visualization
-
-To generate a visual representation of codebase statistics:
+Run these before pushing:
 
 ```bash
-pip install matplotlib  # Required for visualization
-./scripts/generate_codebase_visualization.py
-   - `scripts/generate_token_stats.py` -> `qa/metrics/tokens.json`
-   - `scripts/test_mutation_api.py` -> `qa/metrics/mutations.json` (updates incrementally per domain)
+venv/bin/python scripts/check_format.py --fix
+venv/bin/python scripts/check_types.py
+venv/bin/python scripts/check_complexity.py
+venv/bin/pytest
 ```
 
-This creates `docs/codebase_stats.png` with a multi-panel visualization showing:
-- **Distribution by category** (pie chart): Shows the proportion of code, infrastructure, docs, and tests
-- **All sections comparison** (horizontal bar chart): Breakdown of all sections with percentages
-- **Totals by category** (stacked bar chart): Totals grouped by category
+Focused suites are still available:
 
-The visualization automatically reads statistics from the README.md tables. The generated PNG file is excluded from git (via `.gitignore`) to avoid committing large binary files.
-
-## Coding Standards
-
-### General Principles
-- **DRY (Don't Repeat Yourself)**: Zero code duplication between CLI and MCP.
-- **KISS (Keep It Simple, Stupid)**: Eliminate unnecessary features and complexity.
-- **No Hedging**: Remove fallback logic. No silent defaults or implicit substitutions. Fail fast and visibly.
-- **No Internal Backwards Compatibility Shims**: Do not add compatibility wrappers or legacy code paths inside this repository to support older call sites (e.g., "compat" helpers that quietly reshape configs or emulate old behavior). Instead, update all callers to the new interfaces and raise clear, actionable errors when inputs are invalid or incomplete.
-
-### Code Metrics
-- **Complexity**: Use `lizard` to measure metrics.
-  - **CCN (Cyclomatic Complexity Number)**: Must be ≤ 10 per function.
-  - **NLOC (Non-Comment Lines of Code)**: Must be ≤ 100 per function.
-- **File Size**: If a file exceeds 900 lines, break it up (includes tests).
-
-### Import Conventions
-- **Public Imports**: Use full absolute paths for all public (non-underscore) symbols.
-  - ✅ Correct: `from wks.api.config.normalize_path import normalize_path`
-  - ❌ Wrong: `from .normalize_path import normalize_path` (if `normalize_path` is public)
-- **Private Imports**: Use relative paths for all private (underscore-prefixed) symbols.
-  - ✅ Correct: `from ._CacheManager import _CacheManager`
-  - ✅ Correct: `from ..config import _PrivateHelper`
-  - ❌ Wrong: `from wks.api.transform._CacheManager import _CacheManager` (if importing from same package)
-- **Scope**: This applies to imports across the codebase. Public symbols must be importable via full paths; private symbols should only be imported relatively within their package hierarchy.
-
-### Type Safety & Data Structures
-- **Strong Typing**: Favor strong typing over dynamic typing.
-- **Dataclasses over Dicts**: Use `dataclasses` for all structured data (configuration, DTOs, API responses). Pass dataclasses between layers, not dictionaries. Use `to_dict()` only at serialization boundaries (JSON output, MCP responses).
-- **Validation**: Validate strictly on load (`__post_init__`). Fail immediately if data is invalid.
-
-### Error Handling
-- **Structured Aggregation**: Replace ad-hoc error handling with structured aggregation. Collect all errors and raise them together.
-- **Deterministic Behavior**: Fail fast and visibly. Avoid optional or hidden recovery logic.
-- **Logging**:
-  - Use a logger for all info/debug/warning/error conditions.
-  - **MCP**: Send warning/errors in the JSON packet.
-  - **CLI**: Emit warnings/errors to STDERR. Info/debug goes to logs only.
-
-## Architecture & Design Principles
-
-### Layered Architecture
-
-WKS follows a layered architecture with explicit command contracts:
-
-1. **Service/Core Layer (`wks/services/`)**
-   - Shared business logic and typed request/response models
-   - No `StageResult`, no CLI/MCP/REST protocol behavior
-   - Direct Python-facing entry point via `wks.services.WKSService`
-
-2. **Command Layer (`wks/api/*/cmd*.py`)**
-   - One file per command contract
-   - Wraps shared services into `StageResult`
-   - Preserves command-level traceability and per-command tests
-
-3. **Transport Layers**
-   - **CLI (`wks/cli/`)**: thin adapters over command wrappers
-   - **MCP (`wks/mcp/`)**: thin adapters over command wrappers
-   - **REST (`wks/rest/`)**: thin read-only adapters over the shared service layer
-
-**Design Decisions:**
-- **Service Under Command**: Shared logic lives below `cmd_*`, not in CLI, MCP, or REST handlers.
-- **Command Traceability**: Command wrappers remain first-class artifacts with dedicated command tests.
-- **Thin Transports**: CLI, MCP, and REST handle parsing, schema/serialization, and output only.
-- **Zero Duplication**: Business rules exist once in the shared service/core layer.
-- **Flow**:
-  - `CLI -> cmd_* -> services/core`
-  - `MCP -> cmd_* -> services/core`
-  - `REST -> services/core`
-
-### Error Handling & Logging (Architecture)
-
-**Single Source of Truth**: Errors and warnings originate in the shared service/core or command layer.
-- Command wrappers convert those results into `StageResult` for CLI and MCP use.
-- CLI emits progress and warnings/errors to STDERR and data to STDOUT.
-- MCP returns structured JSON packets for tool callers.
-- REST maps typed service failures to explicit HTTP status codes.
-
-### Design Patterns
-- **Strategy Pattern**: Use for display modes and engine implementations.
-- **Controller Pattern**: Centralize business logic in controllers shared by CLI and MCP.
-
-## Command Execution Pattern (CLI & MCP)
-
-Every command (CLI or MCP) must follow this 4-step behavior:
-1. **Announce**: Immediately say what you are doing (CLI: STDERR, MCP: status message).
-2. **Progress**: Start a progress indicator with time estimate (CLI: progress bar on STDERR, MCP: progress notifications).
-3. **Result**: Say what you did and report problems (CLI: STDERR, MCP: result notification messages).
-4. **Output**: Display the final output (CLI: STDOUT, MCP: result notification data).
-   - Use colorized output (red for failures).
-   - Show OK/FAIL status before the last error.
-   - If failed, output should be empty (CLI: STDOUT empty, MCP: data empty).
-
-### Implementing the 4-Step Pattern with Typer
-
-For Typer-based commands, use the `Display` object to follow the pattern. The same pattern works for both CLI and MCP:
-
-```python
-from typer import Typer
-from ..display.context import get_display
-from ..mcp.result import MCPResult, Message, MessageType
-
-@monitor_app.command(name="status")
-def monitor_status(display=None):
-    """Get monitor status."""
-    # Step 1: Announce (STDERR)
-    if display is None:
-        display = get_display("cli")
-    display.status("Checking monitor status...")
-
-    # Step 2: Progress (STDERR) - using context manager
-    try:
-        with display.progress(total=1, description="Querying monitor..."):
-            # Business logic here
-            from ..monitor.controller import MonitorController
-            from ..config import WKSConfig
-
-            config = WKSConfig.load()
-            status = MonitorController.get_status(config.monitor)
-
-        # Step 3: Result (STDERR)
-        display.success("Monitor status retrieved successfully")
-
-        # Step 4: Output (STDOUT) - return data for decorator to handle
-        return MCPResult(success=True, data=status.model_dump(), messages=[])
-    except Exception as e:
-        display.error(f"Failed to get monitor status: {e}")
-        return MCPResult(
-            success=False,
-            data={},
-            messages=[Message(type=MessageType.ERROR, text=str(e))]
-        )
-```
-
-**Progress Bar Patterns:**
-- **Simple operation**: Use `with display.progress(total=1, description="..."):` for instant operations
-- **Iterative operation**: Use `display.progress_start()`, `display.progress_update()`, `display.progress_finish()` for multi-step operations
-- **Context manager**: The `display.progress()` context manager automatically handles start/finish
-
-**Display Object:**
-- `display.status()`, `display.success()`, `display.error()`, `display.warning()` → STDERR
-- `display.json_output()` → STDOUT
-- Progress bars automatically go to STDERR
-
-## Testing
-
-- **Validation**: Ensure remaining tests pass after refactoring.
-
-## Writing Tests
-
-### Test Structure
-
-```python
-"""Test module docstring explaining what's being tested."""
-
-import pytest
-from wks.monitor.controller import MonitorController
-
-def test_monitor_status_success():
-    """Test that status returns correctly under normal conditions."""
-    # Arrange
-    controller = MonitorController(config)
-
-    # Act
-    status = controller.get_status()
-
-    # Assert
-    assert status.running is True
-    assert status.file_count > 0
-
-def test_monitor_status_not_running():
-    """Test status when monitor is not running."""
-    # Arrange
-    controller = MonitorController(config)
-    controller.stop()
-
-    # Act
-    status = controller.get_status()
-
-    # Assert
-    assert status.running is False
-```
-
-### Fixtures
-
-**Shared fixtures** in `tests/conftest.py`:
-- `tmp_path`: Temporary directory (pytest builtin)
-- `minimal_config_dict()`: Minimal WKS config
-- `run_cmd()`: Helper for testing CLI commands
-
-**Custom fixtures**:
-```python
-@pytest.fixture
-def mongo_wks_env(tmp_path, monkeypatch):
-    """Set up temporary WKS environment with MongoDB."""
-    wks_home = tmp_path / ".wks"
-    wks_home.mkdir()
-
-    config = WKSConfig.model_validate(minimal_config_dict())
-    config.save()
-
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    yield {"wks_home": wks_home, "config": config}
-```
-
-### Test Markers
-
-Mark tests with pytest markers for selective execution:
-
-```python
-@pytest.mark.integration
-def test_real_mongodb():
-    """This test requires real MongoDB."""
-    pass
-
-@pytest.mark.mongo
-def test_with_mongodb():
-    """This test uses MongoDB."""
-    pass
-
-@pytest.mark.slow
-def test_long_running():
-    """This test takes > 1 second."""
-    pass
-```
-
-Run only marked tests:
 ```bash
-pytest -m integration  # Integration tests only
-pytest -m "not slow"   # Skip slow tests
+venv/bin/python scripts/test_smoke.py
+venv/bin/python scripts/test_unit.py
+venv/bin/python scripts/test_integration.py
 ```
 
-## Troubleshooting Tests
+## Commits
 
-### Tests Fail with "mongod not found"
+Use Conventional Commits:
 
-Integration tests require MongoDB.
+- `feat: ...`
+- `fix: ...`
+- `refactor: ...`
+- `test: ...`
+- `docs: ...`
+- `chore: ...`
 
-**Solution**:
-1. Install MongoDB: `brew install mongodb-community` (macOS)
-2. Or skip integration tests: `pytest -m "not mongo"`
+## Architecture
 
-### Tests Hang or Timeout
+### Service Layer
 
-Some integration tests can be slow.
+- Lives in `wks/services/`
+- Contains shared typed logic
+- No `StageResult`
+- No CLI, MCP, or REST protocol code
 
-**Solution**:
-- Increase timeout: `pytest --timeout=60`
-- Or skip integration tests: `pytest tests/unit tests/smoke`
+### Command Layer
 
-### Coverage Report Missing Lines
+- Lives in `wks/api/*/cmd*.py`
+- Preserves the command contract
+- Wraps shared behavior into `StageResult`
+- Remains the traceable per-command boundary
 
-Coverage might not track all execution paths.
+### Transports
 
-**Solution**:
-- Check `.coveragerc` for excluded patterns
-- Ensure tests actually exercise the code paths
-- Use `--cov-report=html` to visualize coverage gaps
+- CLI in `wks/cli/`
+- MCP in `wks/mcp/`
+- REST in `wks/rest/`
 
-### Pre-commit Hooks Failing
+Transport responsibilities are limited to parsing, wiring, serialization, and display.
 
-Hooks might fail on first run due to missing dependencies.
+## Testing Strategy
 
-**Solution**:
+- Deep tests belong in the shared service/core layer.
+- Per-command tests stay mapped to individual command wrappers.
+- CLI, MCP, and REST use smoke or wiring-focused tests.
+- Prefer real workflows over paper-thin tests.
+
+Naming:
+
+- `test_wks_service_<domain>.py`
+- `test_wks_api_<domain>_<command>.py`
+- `test_wks_cli_<domain>.py`
+- `test_mcp_<domain>.py`
+- `test_rest_<domain>.py`
+
+## Generated Outputs
+
+Generated metrics and traceability reports are not tracked in git. Regenerate them when needed:
+
 ```bash
-pre-commit clean
-pre-commit install --install-hooks
-pre-commit run --all-files
+venv/bin/python scripts/generate_all_stats.py
 ```
 
-### Port Conflicts in Integration Tests
+`README.md` contains a compact generated metrics block maintained by `scripts/update_readme_stats.py`.
 
-Multiple test runs might conflict on MongoDB ports.
+## Quality Limits
 
-**Solution**:
-- Tests use unique ports per worker (pytest-xdist)
-- If conflicts persist, reduce parallelism: `pytest -n 2`
+- Function CCN must stay at or below `10`.
+- Function NLOC must stay at or below `100`.
+- Files over `900` lines must be split.
+- Prefer explicit errors with concrete paths, expected values, and found values.
 
-## Coverage Goals
+## CI
 
-- **Target**: 100% line coverage for `wks/api`
-- **Current**: 49.8% overall (actively improving)
-- **Priority**: Core business logic in API layer
-- **Excluded**: Auto-generated code, external interfaces
-
-Track progress in README.md badges and CI dashboard.
-
-## Docker Testing Infrastructure
-
-For details on the Docker CI image management, versioning, and running tests in Docker, see [docker/README.md](docker/README.md).
+GitHub Actions enforces the same format, type, complexity, and test expectations. Local results should match CI results when run from `venv`.

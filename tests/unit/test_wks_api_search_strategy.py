@@ -3,11 +3,11 @@
 import pytest
 
 from tests.conftest import run_cmd
-from tests.unit.test_wks_api_search_cmd import (
-    _SEARCH_DOCS,
-    _fake_embed_texts,
-    _setup_search_config,
-    _write_and_index_search_docs,
+from tests.unit._search_test_helpers import (
+    SEARCH_DOCS,
+    fake_embed_texts,
+    setup_search_config,
+    write_and_index_search_docs,
 )
 from wks.api.index.cmd import cmd as index_cmd
 from wks.api.index.cmd_embed import cmd_embed
@@ -18,7 +18,7 @@ from wks.api.search.cmd import cmd as search_cmd
 @pytest.fixture
 def search_env_strategy(tmp_path, monkeypatch):
     """Build two indexes (lexical + semantic) with a hybrid strategy."""
-    _setup_search_config(
+    setup_search_config(
         tmp_path,
         monkeypatch,
         index_config={
@@ -33,9 +33,9 @@ def search_env_strategy(tmp_path, monkeypatch):
             },
         },
     )
-    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
-    docs = _write_and_index_search_docs(tmp_path)
-    for name, _content in _SEARCH_DOCS.items():
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", fake_embed_texts)
+    docs = write_and_index_search_docs(tmp_path)
+    for name, _content in SEARCH_DOCS.items():
         doc = tmp_path / name
         result = run_cmd(index_cmd, "semantic", str(doc))
         assert result.success is True

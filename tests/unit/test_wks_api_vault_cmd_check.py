@@ -5,6 +5,7 @@ import platform
 
 import pytest
 
+from tests.unit._vault_test_helpers import setup_vault_env, write_unit_config
 from tests.unit.conftest import run_cmd
 from wks.api.config.URI import URI
 from wks.api.vault.cmd_check import cmd_check
@@ -14,16 +15,7 @@ pytestmark = pytest.mark.vault
 
 def test_cmd_check_returns_structure(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_check returns expected output structure."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     result = run_cmd(cmd_check)
 
@@ -36,16 +28,7 @@ def test_cmd_check_returns_structure(monkeypatch, tmp_path, minimal_config_dict)
 
 def test_cmd_check_empty_vault_is_valid(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_check on empty vault reports as valid."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     result = run_cmd(cmd_check)
 
@@ -56,16 +39,7 @@ def test_cmd_check_empty_vault_is_valid(monkeypatch, tmp_path, minimal_config_di
 
 def test_cmd_check_nonexistent_path_fails(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_check with nonexistent path returns error."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     result = run_cmd(cmd_check, uri=URI.from_path("/nonexistent/file.md"))
 
@@ -94,7 +68,7 @@ def test_cmd_check_vault_init_failure(monkeypatch, tmp_path, minimal_config_dict
     cfg = minimal_config_dict
     cfg["vault"]["base_dir"] = "/tmp"
     cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    write_unit_config(wks_home, cfg)
 
     # Mock Vault init failure
     def mock_enter(*args, **kwargs):
@@ -109,21 +83,11 @@ def test_cmd_check_vault_init_failure(monkeypatch, tmp_path, minimal_config_dict
 
 def test_scanner_rewrites_file_urls_via_check(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_check should trigger file:// URL rewriting and symlink creation."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     ext_file = (tmp_path / "external.txt").resolve()
     ext_file.write_text("external content", encoding="utf-8")
     ext_uri = ext_file.as_uri()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
 
     note = vault_dir / "note.md"
     note.write_text(f"Check this: [external]({ext_uri})", encoding="utf-8")
@@ -140,16 +104,7 @@ def test_scanner_rewrites_file_urls_via_check(monkeypatch, tmp_path, minimal_con
 
 def test_scanner_handles_missing_file_url_via_check(monkeypatch, tmp_path, minimal_config_dict):
     """cmd_check handles missing file URLs in scanner."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     bad_uri = "file:///non/existent/path/file.txt"
     note = vault_dir / "note.md"
@@ -162,16 +117,7 @@ def test_scanner_handles_missing_file_url_via_check(monkeypatch, tmp_path, minim
 
 def test_resolve_attachment_via_check(monkeypatch, tmp_path, minimal_config_dict):
     """Test resolution of vault attachments via cmd_check."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     (vault_dir / "_img.png").write_text("data", encoding="utf-8")
     (vault_dir / "note.md").write_text("[[_img.png]]", encoding="utf-8")
@@ -183,15 +129,7 @@ def test_resolve_attachment_via_check(monkeypatch, tmp_path, minimal_config_dict
 
 def test_cmd_check_path_valid(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_check with a specific valid path."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     note = vault_dir / "valid.md"
     note.write_text("# Valid", encoding="utf-8")
@@ -203,15 +141,7 @@ def test_cmd_check_path_valid(monkeypatch, tmp_path, minimal_config_dict):
 
 def test_cmd_check_path_invalid_vault_path(monkeypatch, tmp_path, minimal_config_dict):
     """Test cmd_check with a path that triggers VaultPathError (line 61-75)."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     # Path outside vault
     result = run_cmd(cmd_check, uri=URI("vault:///../../outside.md"))
@@ -297,16 +227,7 @@ def test_cmd_check_scanner_read_error(monkeypatch, tmp_path, minimal_config_dict
 
 def test_cmd_check_scanner_rewrite_error(monkeypatch, tmp_path, minimal_config_dict):
     """Test handling of rewrite errors (Scanner coverage)."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     note = vault_dir / "rewrite_fail.md"
     target = (tmp_path / "target.txt").resolve()
@@ -324,16 +245,7 @@ def test_cmd_check_scanner_rewrite_error(monkeypatch, tmp_path, minimal_config_d
 
 def test_cmd_check_scanner_preview_long_line(monkeypatch, tmp_path, minimal_config_dict):
     """Test preview truncation for long lines (Scanner coverage)."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     long_line = "A" * 500 + " [[Target]]"
     note = vault_dir / "long.md"
@@ -350,16 +262,7 @@ def test_cmd_check_scanner_preview_long_line(monkeypatch, tmp_path, minimal_conf
 
 def test_cmd_check_scanner_convert_file_url_exception(monkeypatch, tmp_path, minimal_config_dict):
     """Test exception handling in file URL conversion (Scanner coverage)."""
-    wks_home = (tmp_path / ".wks").resolve()
-    wks_home.mkdir()
-    monkeypatch.setenv("WKS_HOME", str(wks_home))
-
-    vault_dir = (tmp_path / "vault").resolve()
-    vault_dir.mkdir()
-    cfg = minimal_config_dict
-    cfg["vault"]["base_dir"] = str(vault_dir)
-    cfg["vault"]["type"] = "obsidian"
-    (wks_home / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    _, vault_dir, _ = setup_vault_env(monkeypatch, tmp_path, minimal_config_dict)
 
     target = (tmp_path / "x").resolve()
     target.touch()

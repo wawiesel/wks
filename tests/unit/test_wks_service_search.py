@@ -3,11 +3,11 @@
 import pytest
 
 from tests.conftest import run_cmd
-from tests.unit.test_wks_api_search_cmd import (
-    _SEARCH_DOCS,
-    _fake_embed_texts,
-    _setup_search_config,
-    _write_and_index_search_docs,
+from tests.unit._search_test_helpers import (
+    SEARCH_DOCS,
+    fake_embed_texts,
+    setup_search_config,
+    write_and_index_search_docs,
 )
 from wks.api.index.cmd import cmd as index_cmd
 from wks.api.index.cmd_embed import cmd_embed
@@ -19,7 +19,7 @@ from wks.services.search import SearchRequest, search_documents
 def search_service_env(tmp_path, monkeypatch):
     """Build a lexical index for service tests."""
     _SEARCH_RUNTIME.reset()
-    _setup_search_config(
+    setup_search_config(
         tmp_path,
         monkeypatch,
         index_config={
@@ -27,7 +27,7 @@ def search_service_env(tmp_path, monkeypatch):
             "indexes": {"main": {"engine": "textpass"}},
         },
     )
-    docs = _write_and_index_search_docs(tmp_path)
+    docs = write_and_index_search_docs(tmp_path)
     return {"docs": docs}
 
 
@@ -35,7 +35,7 @@ def search_service_env(tmp_path, monkeypatch):
 def search_service_strategy_env(tmp_path, monkeypatch):
     """Build lexical and semantic indexes for strategy service tests."""
     _SEARCH_RUNTIME.reset()
-    _setup_search_config(
+    setup_search_config(
         tmp_path,
         monkeypatch,
         index_config={
@@ -48,9 +48,9 @@ def search_service_strategy_env(tmp_path, monkeypatch):
             },
         },
     )
-    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", _fake_embed_texts)
-    docs = _write_and_index_search_docs(tmp_path)
-    for name in _SEARCH_DOCS:
+    monkeypatch.setattr("wks.api.index._embedding_utils.embed_texts", fake_embed_texts)
+    docs = write_and_index_search_docs(tmp_path)
+    for name in SEARCH_DOCS:
         result = run_cmd(index_cmd, "semantic", str(tmp_path / name))
         assert result.success is True
     embed_result = run_cmd(cmd_embed, "semantic", batch_size=8)
@@ -72,7 +72,7 @@ def test_search_service_returns_ranked_hits(search_service_env):
 def test_search_service_rejects_empty_query(tmp_path, monkeypatch):
     """The search service should reject blank text and image queries."""
     _SEARCH_RUNTIME.reset()
-    _setup_search_config(
+    setup_search_config(
         tmp_path,
         monkeypatch,
         index_config={"default_index": "main", "indexes": {"main": {"engine": "textpass"}}},

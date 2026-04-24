@@ -1,339 +1,89 @@
 # WKS
 
-![Coverage](https://img.shields.io/badge/coverage-85.7%25-yellow)
-![Mutation Score](https://img.shields.io/badge/mutation-56.2%25-red)
-![Traceability](https://img.shields.io/badge/traceability-61.5%25-red)
-![Tests](https://img.shields.io/badge/tests-658_passing-brightgreen)
+<!-- BEGIN BADGES -->
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![Docker Freshness](https://github.com/wawiesel/wks/actions/workflows/check-image-freshness.yml/badge.svg)
+<!-- END BADGES -->
 
 ## Status
-- Alpha: monitor, vault, transform, diff layers are under active development; CLI and MCP may change without notice.
-- Upcoming priorities and ideas: [NEXT.md](NEXT.md).
 
-## Code Quality Metrics
-
-| Metric               |   Value |     Target | Status         |
-|----------------------|--------:|-----------:|---------------:|
-| **Code Coverage**    |   85.7% |       100% | ⚠️ Below Target |
-| **Mutation Kill %**  |   56.2% |       ≥90% | ⚠️ Below Target |
-| **Traceability**     |   61.5% |       100% | ⚠️ Below Target |
-| **Docker Freshness** |      v1 | Up to date | ✅ Pass        |
-
-### Source Size Statistics
-
-| Section   |   Files |    LOC |   Characters |   Tokens |   % Tokens |
-|-----------|--------:|-------:|-------------:|---------:|-----------:|
-| **api**   |     203 | 13,368 |      475,087 |   75,099 |      33.7% |
-| **cli**   |      27 |  1,813 |       64,241 |   11,773 |       5.3% |
-| **mcp**   |       9 |    553 |       20,020 |    3,780 |       1.7% |
-| **utils** |       0 |      0 |            0 |        0 |       0.0% |
-| **Total** |     239 | 15,734 |      559,348 |   90,652 |      40.6% |
-
-### Testing Statistics
-
-| Type                  |   Files |    LOC |   Characters |   Tokens |   % Tokens |
-|-----------------------|--------:|-------:|-------------:|---------:|-----------:|
-| **Unit Tests**        |      99 | 11,595 |      403,418 |   70,550 |      31.6% |
-| **Integration Tests** |      13 |  1,544 |       51,955 |    9,492 |       4.3% |
-| **Smoke Tests**       |       7 |    352 |       11,848 |    2,049 |       0.9% |
-| **Total**             |     119 | 13,491 |      467,221 |   82,091 |      36.8% |
-
-### Documentation Size Summary
-
-| Category                    |   Files |   LOC |   Characters |   Tokens |   % Tokens |
-|-----------------------------|--------:|------:|-------------:|---------:|-----------:|
-| **User Documentation**      |       7 |   228 |        7,065 |    1,766 |       0.8% |
-| **Developer Documentation** |      43 | 2,827 |      113,651 |   28,406 |      12.7% |
-| **Specifications**          |       0 |     0 |            0 |        0 |       0.0% |
-| **Total**                   |      50 | 3,055 |      120,716 |   30,172 |      13.5% |
-
-### Infrastructure Summary
-
-| Type             |   Files |   LOC |   Characters |   Tokens |   % Tokens |
-|------------------|--------:|------:|-------------:|---------:|-----------:|
-| **CI/CD**        |       4 |   401 |       12,431 |    3,107 |       1.4% |
-| **Build/Config** |       5 |   187 |        4,377 |    1,092 |       0.5% |
-| **Scripts**      |      22 | 2,437 |       83,982 |   16,021 |       7.2% |
-| **Total**        |      31 | 3,025 |      100,790 |   20,220 |       9.1% |
-
-**Mutation Testing**: Tests the quality of our test suite by introducing small changes (mutations) to the code and verifying that existing tests catch them. A score of 56.2% means 56.2% of introduced mutations were successfully killed by the test suite.
-
-**Test Statistics**: 658 tests across 113 test files.
-
-### Per-Domain Quality
-
-| Domain    |   Coverage |   Mutation % |   Killed/Total |
-|-----------|------------|--------------|----------------|
-| cat       |        94% |          54% |         60/112 |
-| config    |        98% |          60% |        255/423 |
-| daemon    |        83% |          40% |        164/415 |
-| database  |        89% |          60% |        447/741 |
-| diff      |        86% |          52% |        315/606 |
-| link      |        97% |          52% |       641/1239 |
-| log       |        94% |          55% |        300/547 |
-| mcp       |        97% |          51% |        204/398 |
-| monitor   |        98% |          59% |      1011/1715 |
-| service   |        92% |          86% |         99/115 |
-| transform |        92% |          58% |       705/1209 |
-| utils     |         0% |            — |              — |
-| vault     |       100% |          58% |       765/1318 |
-
+- WKS is alpha software.
+- The shared execution model is `services/core -> cmd_* -> CLI/MCP` plus a read-only REST layer over the same services.
+- REST support is mandatory.
 
 ## Overview
 
-WKS provides intelligent filesystem monitoring, vault link tracking, document transformation, indexed search, and managed moves. The shared execution path is layered as `services/core -> cmd_* -> CLI/MCP`, with an additional read-only REST surface built on the same service layer.
+WKS monitors configured paths, transforms files into cached text, tracks vault links, builds searchable indexes, and exposes the same behavior through:
 
-**Important Note**: WKS is currently in **alpha development status** and is **not yet ready for external users**. Our immediate focus is on comprehensive revision and ensuring 100% test coverage across existing features.
-
-**Core Capabilities**:
-- **Filesystem Monitoring**: Priority-based file tracking with automatic indexing
-- **Vault Link Management**: Bidirectional link tracking for Obsidian vaults
-- **Transform Layer**: Document conversion (PDF → Markdown) with intelligent caching
-- **MCP Server**: AI assistant integration via Model Context Protocol
-- **Service Daemon**: Background monitoring with automatic sync
-
-## CLI Reference
-
-| Command Group | Description |
-|---------------|-------------|
-| `wksc status` | Aggregated system status |
-| `wksc monitor` | Filesystem monitoring operations |
-| `wksc vault` | Vault link management (Obsidian-style) |
-| `wksc link` | Resource edge/link operations |
-| `wksc transform` | Transform files through configured engines |
-| `wksc index` | Document indexing operations |
-| `wksc search` | Search indexed documents |
-| `wksc mv` | Move files within monitored paths |
-| `wksc daemon` | Daemon runtime management |
-| `wksc service` | System service install/uninstall |
-| `wksc config` | Configuration operations |
-| `wksc database` | Database operations |
-| `wksc mcp` | MCP server management |
-
-<details>
-<summary><strong>wksc status</strong> - System status</summary>
-
-- Aggregated health summary across service, log, monitor, link, and vault
-
-</details>
-
-<details>
-<summary><strong>wksc monitor</strong> - Filesystem monitoring</summary>
-
-- `status` - Get filesystem monitoring status
-- `check <path>` - Check if path would be monitored and its priority
-- `sync <path> [--recursive]` - Force update file/directory into database
-- `filter show [list_name]` - Show filter list contents
-- `filter add <list_name> <value>` - Add value to filter list
-- `filter remove <list_name> <value>` - Remove value from filter list
-- `priority show` - List all priority directories
-- `priority add <path> <priority>` - Set priority for directory
-- `priority remove <path>` - Remove priority directory
-
-</details>
-
-<details>
-<summary><strong>wksc vault</strong> - Vault link management</summary>
-
-- `status` - Get vault link health status
-- `sync [path] [--recursive]` - Sync vault links to database
-- `check [path]` - Check vault link health
-- `links <path> [--direction to|from|both]` - Show edges to/from a file
-
-</details>
-
-<details>
-<summary><strong>wksc link</strong> - Resource edge operations</summary>
-
-- `status` - Get health and statistics for links collection
-- `show <uri> [--direction to|from|both]` - Show edges connected to URI
-- `check <path> [--parser]` - Check links in file
-- `sync <path> [--parser] [--recursive] [--remote]` - Sync links to database
-
-</details>
-
-<details>
-<summary><strong>wksc transform</strong> - Transform files</summary>
-
-- `<path>` - Transform using `transform.default_engine`
-- `-e <engine> <path>` - Transform using a specific configured engine
-- `-e <engine>` - Show engine info
-- no args - List available engines
-
-</details>
-
-<details>
-<summary><strong>wksc index</strong> - Document indexing</summary>
-
-- `add <name> <uri>` - Add document to index
-- `status [name]` - Show index statistics
-- `embed [name] [--batch-size N]` - Build semantic embeddings
-
-</details>
-
-<details>
-<summary><strong>wksc search</strong> - Search documents</summary>
-
-- `<query> [--index <name>] [--top N] [--query-image <path>]` - Search indexed documents
-
-</details>
-
-<details>
-<summary><strong>wksc mv</strong> - Move files</summary>
-
-- `<source> <dest>` - Move file within monitored paths (enforces naming conventions)
-
-</details>
-
-<details>
-<summary><strong>wksc daemon</strong> - Daemon runtime</summary>
-
-- `status` - Check daemon status
-- `start [--restrict] [--blocking]` - Start daemon
-- `stop` - Stop daemon
-- `clear` - Clear daemon logs (only if stopped)
-
-</details>
-
-<details>
-<summary><strong>wksc service</strong> - System service</summary>
-
-- `status` - Check service status
-- `start` / `stop` - Start/stop service
-- `clear` - Clear service state
-- `install [--restrict]` - Install system service
-- `uninstall` - Uninstall system service
-
-</details>
-
-<details>
-<summary><strong>wksc config</strong> - Configuration</summary>
-
-- `list` - List configuration sections
-- `show <section>` - Show section configuration
-- `set <key> <value> [--delete]` - Set or remove config value
-- `version` - Show WKS version
-
-</details>
-
-<details>
-<summary><strong>wksc database</strong> - Database operations</summary>
-
-- `list` - List all databases
-- `show <database> [--query] [--limit]` - Show database contents
-- `reset <database>` - Reset (clear) database
-- `prune <database> [--remote]` - Prune stale entries
-
-</details>
-
-<details>
-<summary><strong>wksc mcp</strong> - MCP server</summary>
-
-- `list` - List MCP installations
-- `install <name> [--type] [--settings-path]` - Install MCP server
-- `uninstall <name>` - Uninstall MCP server
-- `run [--direct]` - Run MCP server
-
-</details>
-
-**Global Options**: `--version` / `-v`, `--display json|yaml` (default: yaml), `--help` / `-h`
+- CLI: `wksc`
+- MCP: `wksm`
+- REST: `wksr`
+- Python: `wks.services.WKSService`
 
 ## Install
 
-### Requirements
-
-- Python 3.12, 3.13, or 3.14
-- MongoDB 4.0+
-- macOS/Linux
-
-### From Source
-
 ```bash
-# Clone and setup
-git clone https://github.com/wawiesel/wks.git
-cd 2025-WKS
-
-# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -e '.[all]'
-
-# Optional: Install docling for PDF/Office transformation
-pipx runpip wksc install docling
+venv/bin/pip install -e .
 ```
 
-# Initialize configuration
-wksc config
+## Quick Start
 
-# Start background service
-wksc service start
-
-# Check status
-wksc service status
-
-# Sync vault links
-wksc vault sync
-
-# View vault links
-wksc vault links ~/vault/Note.md
-```
-
-## MCP Integration
-
-Install for AI assistants:
 ```bash
-wksc mcp install  # Install for all clients
-wksc mcp install --client cursor --client claude
+venv/bin/wksc status
+venv/bin/wksc search "reactor"
+venv/bin/wksc cat /path/to/file.pdf
+venv/bin/wksr
 ```
-
-Available tools are exposed through the MCP server using the command-domain naming described in [wks/mcp/README.md](wks/mcp/README.md).
-
-## Python And REST
-
-Import the shared Python facade directly:
 
 ```python
 from wks.services import WKSService
 
 service = WKSService.from_config()
-result = service.search(query="burnup credit", k=5)
-```
-
-Run the REST server with:
-
-```bash
-wksr --host 127.0.0.1 --port 8787
+result = service.search(query="reactor", k=5)
 ```
 
 ## Architecture
 
-The current execution layers are:
+- `wks/services/`: typed shared business logic
+- `wks/api/`: one command wrapper per command contract
+- `wks/cli/`: Typer transport over command wrappers
+- `wks/mcp/`: MCP transport over command wrappers
+- `wks/rest/`: read-only FastAPI transport over shared services
 
-- `wks/services/`: shared typed service/core logic
-- `wks/api/*/cmd*.py`: command-contract wrappers returning `StageResult`
-- `wks/cli/`: thin CLI adapters over command wrappers
-- `wks/mcp/`: thin MCP adapters over command wrappers
-- `wks/rest/`: thin read-only REST adapters over the shared service layer
+Rules that stay fixed:
 
-See [qa/specs/wks.md](qa/specs/wks.md) for the complete system specification.
+- shared behavior belongs in services or command wrappers, not transports
+- command-level traceability remains 1:1 with `cmd_*` files
+- CLI, MCP, and REST stay thin
+- configuration loads once, validates early, and fails hard on bad input
 
-**Key Domains**:
-- **Monitor Layer**: Filesystem state tracking
-- **Vault Layer**: Knowledge graph links
-- **Transform Layer**: Document conversion
-- **Diff Layer**: File comparison engines
-- **Daemon/Service Layer**: Background monitoring
-- **Index/Search Layer**: Lexical and semantic retrieval
+## Command Surface
 
-## Documentation
+Primary command groups:
 
--   **[CONTRIBUTING.md](CONTRIBUTING.md)**: Development & Testing Guide
--   **[docker/README.md](docker/README.md)**: CI Docker Image Guide
--   **[qa/specs/wks.md](qa/specs/wks.md)**: The complete system specification and architectural overview.
--   **[NEXT.md](NEXT.md)**: Current development priorities and high-level roadmap.
--   **[AGENTS.md](AGENTS.md)**: Specific directives and guidelines for AI agents working on this project.
--   **[LICENSE.txt](LICENSE.txt)**: Project license details.
+- `status`
+- `monitor`
+- `vault`
+- `link`
+- `transform`
+- `index`
+- `search`
+- `mv`
+- `daemon`
+- `service`
+- `config`
+- `database`
+- `mcp`
+
+## Code Quality Metrics
+
+<!-- BEGIN GENERATED METRICS -->
+Run `venv/bin/python scripts/generate_all_stats.py` or `venv/bin/python scripts/update_readme_stats.py`
+to populate the latest local metrics.
+<!-- END GENERATED METRICS -->
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, tests, and architecture rules.
