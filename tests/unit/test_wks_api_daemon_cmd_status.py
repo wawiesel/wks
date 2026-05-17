@@ -150,5 +150,4 @@ def test_cmd_status_running_corrupt_json(monkeypatch, tmp_path):
 
     result = run_cmd(cmd_status)
     assert result.success is True
-    assert result.output["running"] is True
-    assert result.output["restrict_dir"] == "UNKNOWN"
+    assert result.output["running"] is False

@@ -3,6 +3,7 @@ from typing import Any
 
 from ..config.StageResult import StageResult
 from ..config.WKSConfig import WKSConfig
+from ..daemon.process_identity import active_wks_daemon_lock
 from . import ServiceStatusOutput
 from ._pid_running import _pid_running
 from ._read_daemon_file import _read_daemon_file
@@ -47,27 +48,12 @@ def cmd_status() -> StageResult:
         daemon_file = WKSConfig.get_home_dir() / "daemon.json"
 
         lock_file = WKSConfig.get_home_dir() / "daemon.lock"
-        if lock_file.exists():
-            try:
-                lock_content = lock_file.read_text().strip()
-                if lock_content:
-                    try:
-                        lock_pid = int(lock_content.splitlines()[0])
-                        if _pid_running(lock_pid):
-                            terminal_pid = lock_pid
-                    except (ValueError, IndexError) as exc:
-                        status_data["warnings"].append(f"Invalid lock file content: {exc}")
-            except Exception as exc:
-                status_data["warnings"].append(f"Unable to read lock file: {exc}")
+        terminal_pid = active_wks_daemon_lock(lock_file, status_path=daemon_file)
 
         try:
             daemon_file_data = _read_daemon_file(daemon_file)
             status_data["warnings"] = daemon_file_data["warnings"]
             status_data["errors"] = daemon_file_data["errors"]
-            if "pid" in daemon_file_data:
-                daemon_pid = daemon_file_data["pid"]
-                if _pid_running(daemon_pid):
-                    terminal_pid = daemon_pid
         except Exception as exc:
             status_data["errors"].append(f"daemon status read error: {exc}")
 

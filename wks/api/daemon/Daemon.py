@@ -16,6 +16,7 @@ from ..log.summarize_status_log_messages import summarize_status_log_messages
 from ._child_main import _child_main
 from .DaemonConfig import DaemonConfig
 from .FilesystemEvents import FilesystemEvents
+from .process_identity import active_wks_daemon_lock
 
 
 class Daemon:
@@ -51,13 +52,6 @@ class Daemon:
                 seen.add(p)
         return unique
 
-    def _pid_running(self, pid: int) -> bool:
-        try:
-            os.kill(pid, 0)  # Signal 0 checks existence without killing
-            return True
-        except OSError:
-            return False
-
     def start(self, restrict_dir: Path | None = None) -> Any:
         with self._global_lock:
             if Daemon._global_instance and Daemon._global_instance._running:
@@ -70,24 +64,22 @@ class Daemon:
         home = WKSConfig.get_home_dir()
         self._log_path = WKSConfig.get_logfile_path()
         self._lock_path = home / "daemon.lock"
-        existing_pid = None
+        status_path = home / "daemon.json"
+        existing_pid = active_wks_daemon_lock(
+            self._lock_path,
+            status_path=status_path,
+            max_status_age_seconds=max(300.0, self._config.sync_interval_secs * 3.0),
+        )
+        if existing_pid is not None:
+            self._append_log("ERROR: Daemon already running")
+            raise RuntimeError("Daemon already running")
         if self._lock_path.exists():
-            try:
-                existing_pid = int(self._lock_path.read_text().strip())
-                if existing_pid > 0 and self._pid_running(existing_pid):
-                    self._append_log("ERROR: Daemon already running")
-                    raise RuntimeError("Daemon already running")
-            except Exception as exc:
-                if isinstance(exc, RuntimeError):
-                    raise
-                existing_pid = None
+            with suppress(Exception):
+                self._lock_path.unlink()
 
         watch_paths = self._resolve_watch_paths(restrict_dir)
         restrict_value = str(restrict_dir) if restrict_dir else ""
-
         self._current_restrict = restrict_value
-        status_path = home / "daemon.json"
-
         paths_json = json.dumps([str(p) for p in watch_paths])
         proc = subprocess.Popen(
             [
@@ -136,22 +128,21 @@ class Daemon:
         home = WKSConfig.get_home_dir()
         self._log_path = WKSConfig.get_logfile_path()
         self._lock_path = home / "daemon.lock"
-        existing_pid = None
+        status_path = home / "daemon.json"
+        existing_pid = active_wks_daemon_lock(
+            self._lock_path,
+            status_path=status_path,
+            max_status_age_seconds=max(300.0, self._config.sync_interval_secs * 3.0),
+        )
+        if existing_pid is not None:
+            raise RuntimeError("Daemon already running")
         if self._lock_path.exists():
-            try:
-                existing_pid = int(self._lock_path.read_text().strip())
-                if existing_pid > 0 and self._pid_running(existing_pid):
-                    raise RuntimeError("Daemon already running")
-            except Exception as exc:
-                if isinstance(exc, RuntimeError):
-                    raise
-                existing_pid = None
+            with suppress(Exception):
+                self._lock_path.unlink()
 
         watch_paths = self._resolve_watch_paths(restrict_dir)
         restrict_value = str(restrict_dir) if restrict_dir else ""
         self._current_restrict = restrict_value
-        status_path = home / "daemon.json"
-
         self._pid = os.getpid()
         self._lock_path.write_text(str(self._pid), encoding="utf-8")
         self._running = True

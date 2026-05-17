@@ -1,3 +1,4 @@
+import os
 import time
 
 import pytest
@@ -106,6 +107,29 @@ def test_cmd_start_already_running(mongo_wks_env):
         assert res2.output["running"] is True
     finally:
         run_cmd(cmd_stop)
+
+
+@pytest.mark.daemon
+def test_cmd_start_ignores_stale_reused_pid_lock(mongo_wks_env):
+    wks_home = mongo_wks_env["wks_home"]
+    lock_path = wks_home / "daemon.lock"
+    status_path = wks_home / "daemon.json"
+    lock_path.write_text(f"{os.getpid()}\n", encoding="utf-8")
+    status_path.write_text(
+        (
+            '{"errors":[],"warnings":[],"running":true,'
+            f'"pid":{os.getpid()},"restrict_dir":"","log_path":"{wks_home / "logfile"}",'
+            '"lock_path":"stale","last_sync":"2000-01-01T00:00:00+00:00"}'
+        ),
+        encoding="utf-8",
+    )
+
+    res = run_cmd(cmd_start)
+    assert res.success is True
+    assert res.output["running"] is True
+    assert int(lock_path.read_text(encoding="utf-8").strip()) != os.getpid()
+
+    run_cmd(cmd_stop)
 
 
 @pytest.mark.daemon

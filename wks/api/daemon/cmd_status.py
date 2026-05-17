@@ -6,6 +6,7 @@ from ..config.write_status_file import write_status_file
 from ..log.read_log_entries import read_log_entries
 from ..log.summarize_status_log_messages import summarize_status_log_messages
 from . import DaemonStatusOutput
+from .process_identity import active_wks_daemon_lock
 
 
 def cmd_status() -> StageResult:
@@ -18,17 +19,9 @@ def cmd_status() -> StageResult:
             status_path = home / "daemon.json"
 
             is_running = False
-            actual_pid = None
-            if lock_path.exists():
-                try:
-                    import os
-
-                    pid_val = int(lock_path.read_text().strip())
-                    os.kill(pid_val, 0)
-                    is_running = True
-                    actual_pid = pid_val
-                except (ValueError, OSError):
-                    pass
+            actual_pid = active_wks_daemon_lock(lock_path, status_path=status_path)
+            if actual_pid is not None:
+                is_running = True
 
             if is_running:
                 import json
