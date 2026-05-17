@@ -39,5 +39,11 @@ class _AbstractBackend(ABC):
     def find(self, filter: dict[str, Any] | None = None, projection: dict[str, Any] | None = None) -> Any:
         pass
 
+    def create_index(self, keys: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+    def distinct(self, key: str, filter: dict[str, Any] | None = None) -> list[Any]:
+        raise NotImplementedError
+
     def list_collection_names(self) -> list[str]:
         raise NotImplementedError

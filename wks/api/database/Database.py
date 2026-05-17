@@ -63,6 +63,12 @@ class Database(_AbstractBackend):
     def find(self, filter: dict[str, Any] | None = None, projection: dict[str, Any] | None = None) -> Any:
         return self._backend.find(filter, projection)  # type: ignore[union-attr]
 
+    def create_index(self, keys: Any, **kwargs: Any) -> Any:
+        return self._backend.create_index(keys, **kwargs)  # type: ignore[union-attr]
+
+    def distinct(self, key: str, filter: dict[str, Any] | None = None) -> list[Any]:
+        return self._backend.distinct(key, filter)  # type: ignore[union-attr]
+
     @classmethod
     def list_databases(cls, database_config: DatabaseConfig) -> list[str]:
         with cls(database_config, "_") as database:

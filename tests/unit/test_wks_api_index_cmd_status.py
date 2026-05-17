@@ -4,6 +4,7 @@ import pytest
 
 from tests.conftest import run_cmd
 from wks.api.index.cmd import cmd as index_cmd
+from wks.api.index.cmd_optimize import cmd_optimize
 from wks.api.index.cmd_status import cmd_status
 
 
@@ -49,6 +50,13 @@ def test_status_after_indexing(index_env):
     assert result.success is True
     assert result.output["indexes"]["main"]["document_count"] == 1
     assert result.output["indexes"]["main"]["chunk_count"] >= 1
+
+
+def test_optimize_creates_search_index(index_env):
+    result = run_cmd(cmd_optimize)
+
+    assert result.success is True
+    assert result.output["search_index"] == "wks_chunk_text_search"
 
 
 def test_status_specific_index(index_env):

@@ -5,6 +5,8 @@ from ..config.WKSConfig import WKSConfig
 from ..database.Database import Database
 from . import IndexStatusOutput
 
+URI_SAMPLE_LIMIT = 20
+
 
 def cmd_status(name: str = "") -> StageResult:
     def do_work(result_obj: StageResult) -> Iterator[tuple[float, str]]:
@@ -33,11 +35,14 @@ def cmd_status(name: str = "") -> StageResult:
 
             for idx_name in indexes_to_check:
                 chunk_count = store.count(idx_name)
-                uris = store.uris(idx_name)
+                document_count = store.document_count(idx_name)
+                sample_uris = store.uris(idx_name, limit=URI_SAMPLE_LIMIT)
                 index_stats[idx_name] = {
-                    "document_count": len(uris),
+                    "document_count": document_count,
                     "chunk_count": chunk_count,
-                    "uris": uris,
+                    "sample_uris": sample_uris,
+                    "sample_limit": URI_SAMPLE_LIMIT,
+                    "sample_truncated": document_count > len(sample_uris),
                 }
 
             yield (1.0, "Complete")

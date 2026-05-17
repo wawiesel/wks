@@ -5,6 +5,7 @@ import typer
 from wks.api.index.cmd import cmd
 from wks.api.index.cmd_backfill import cmd_backfill
 from wks.api.index.cmd_embed import cmd_embed
+from wks.api.index.cmd_optimize import cmd_optimize
 from wks.api.index.cmd_status import cmd_status
 from wks.cli._app_factory import build_typer_app, require_subcommand
 from wks.cli._handle_stage_result import _handle_stage_result
@@ -44,5 +45,10 @@ def index() -> typer.Typer:
     ) -> None:
         """Build embeddings for a named index."""
         _handle_stage_result(cmd_embed)(name=name, batch_size=batch_size)
+
+    @app.command(name="optimize")
+    def optimize_cmd() -> None:
+        """Create database indexes used by search."""
+        _handle_stage_result(cmd_optimize)()
 
     return app

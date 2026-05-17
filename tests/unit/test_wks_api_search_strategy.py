@@ -57,6 +57,26 @@ def test_strategy_default_used(search_env_strategy):
     assert result.output["index_name"] == "hybrid"
 
 
+def test_implicit_strategy_skips_oversized_semantic_index(search_env_strategy, monkeypatch):
+    monkeypatch.setattr("wks.services.search.MAX_IMPLICIT_SEMANTIC_EMBEDDINGS", 1)
+
+    result = run_cmd(search_cmd, "fission")
+
+    assert result.success is True
+    assert result.output["hits"]
+    assert "Skipping semantic index 'semantic'" in result.output["warnings"][0]
+
+
+def test_explicit_strategy_keeps_oversized_semantic_index(search_env_strategy, monkeypatch):
+    monkeypatch.setattr("wks.services.search.MAX_IMPLICIT_SEMANTIC_EMBEDDINGS", 1)
+
+    result = run_cmd(search_cmd, "fission", strategy="hybrid")
+
+    assert result.success is True
+    assert result.output["hits"]
+    assert result.output["warnings"] == []
+
+
 def test_strategy_explicit_index_overrides_default_strategy(search_env_strategy):
     result = run_cmd(search_cmd, "fission", index="main")
     assert result.success is True

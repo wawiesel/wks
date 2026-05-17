@@ -79,6 +79,12 @@ class _Backend(_AbstractBackend):
     def find(self, filter: dict[str, Any] | None = None, projection: dict[str, Any] | None = None) -> Any:
         return self._collection.find(filter or {}, projection)  # type: ignore[union-attr]
 
+    def create_index(self, keys: Any, **kwargs: Any) -> Any:
+        return self._collection.create_index(keys, **kwargs)  # type: ignore[union-attr]
+
+    def distinct(self, key: str, filter: dict[str, Any] | None = None) -> list[Any]:
+        return self._collection.distinct(key, filter or {})  # type: ignore[union-attr]
+
     def list_collection_names(self) -> list[str]:
         if self._client is None:
             raise RuntimeError("Mongo client not initialized")

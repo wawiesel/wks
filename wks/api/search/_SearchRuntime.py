@@ -99,6 +99,20 @@ class _SearchRuntime:
             self._lexical_states[index_name] = state
         return state
 
+    def search_lexical_chunks(
+        self,
+        config: WKSConfig,
+        index_name: str,
+        query: str,
+        limit: int,
+    ) -> tuple[int, list[_Chunk]]:
+        with Database(config.database, "index") as db:
+            store = _ChunkStore(db)
+            total_chunks = store.count(index_name)
+            if total_chunks == 0:
+                return total_chunks, []
+            return total_chunks, store.search_text(index_name, query, limit)
+
     def get_semantic_index_state(
         self,
         config: WKSConfig,
@@ -131,6 +145,10 @@ class _SearchRuntime:
         with self._lock:
             self._semantic_states[key] = state
         return state
+
+    def count_semantic_embeddings(self, config: WKSConfig, index_name: str, embedding_model: str) -> int:
+        with Database(config.database, "index_embeddings") as db:
+            return db.count_documents({"index_name": index_name, "embedding_model": embedding_model})
 
 
 def _collection_fingerprint(db: Database, filter_doc: dict[str, Any]) -> _CollectionFingerprint:

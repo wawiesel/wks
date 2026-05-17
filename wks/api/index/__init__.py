@@ -4,5 +4,6 @@ IndexOutput = output_model("IndexOutput", "index_name", "uri", "chunk_count", "c
 IndexStatusOutput = output_model("IndexStatusOutput", "indexes")
 IndexAutoOutput = output_model("IndexAutoOutput", "uri", "priority", "indexed", "skipped")
 IndexEmbedOutput = output_model("IndexEmbedOutput", "index_name", "embedding_model", "chunk_count", "dimensions")
+IndexOptimizeOutput = output_model("IndexOptimizeOutput", "search_index")
 
-__all__ = ["IndexAutoOutput", "IndexEmbedOutput", "IndexOutput", "IndexStatusOutput"]
+__all__ = ["IndexAutoOutput", "IndexEmbedOutput", "IndexOptimizeOutput", "IndexOutput", "IndexStatusOutput"]

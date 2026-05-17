@@ -12,6 +12,8 @@ from wks.api.search._SearchRuntime import _SEARCH_RUNTIME, _LexicalIndexState, _
 
 from ._models import FailureKind, ServiceResponse
 
+MAX_IMPLICIT_SEMANTIC_EMBEDDINGS = 100_000
+
 
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -78,7 +80,7 @@ def search_documents(request: SearchRequest, *, config: WKSConfig | None = None)
 
     strategy_name = _resolve_strategy_name(loaded_config, request)
     if strategy_name:
-        return _run_strategy_search(loaded_config, request, strategy_name)
+        return _run_strategy_search(loaded_config, request, strategy_name, explicit_strategy=bool(request.strategy))
     return _run_single_index_search(loaded_config, request)
 
 
@@ -187,8 +189,23 @@ def _run_lexical_search(config: WKSConfig, request: SearchRequest, index_name: s
             total_chunks=0,
         )
 
-    lexical_state = _SEARCH_RUNTIME.get_lexical_index_state(config, index_name)
-    if not lexical_state.chunks:
+    try:
+        total_chunks, candidate_chunks = _SEARCH_RUNTIME.search_lexical_chunks(
+            config,
+            index_name,
+            request.query,
+            _lexical_candidate_limit(request.k),
+        )
+    except RuntimeError as exc:
+        return _error_response(
+            message=str(exc),
+            failure_kind="runtime",
+            errors=[str(exc)],
+            query=request.query,
+            index_name=index_name,
+            search_mode="lexical",
+        )
+    if total_chunks == 0:
         return _error_response(
             message=f"Index '{index_name}' is empty",
             failure_kind="not_found",
@@ -198,7 +215,7 @@ def _run_lexical_search(config: WKSConfig, request: SearchRequest, index_name: s
             search_mode="lexical",
         )
 
-    hits = _rank_lexical_hits(lexical_state, request.query, request.k)
+    hits = _rank_lexical_chunks(candidate_chunks, request.query, request.k)
     return SearchResponse(
         success=True,
         message=f"Found {len(hits)} results for '{request.query}'",
@@ -209,11 +226,17 @@ def _run_lexical_search(config: WKSConfig, request: SearchRequest, index_name: s
         search_mode="lexical",
         embedding_model=None,
         hits=[SearchHit(**hit) for hit in hits],
-        total_chunks=len(lexical_state.chunks),
+        total_chunks=total_chunks,
     )
 
 
-def _run_strategy_search(config: WKSConfig, request: SearchRequest, strategy_name: str) -> SearchResponse:
+def _run_strategy_search(
+    config: WKSConfig,
+    request: SearchRequest,
+    strategy_name: str,
+    *,
+    explicit_strategy: bool,
+) -> SearchResponse:
     assert config.index is not None
     if strategy_name not in config.index.strategies:
         available = list(config.index.strategies.keys())
@@ -238,6 +261,15 @@ def _run_strategy_search(config: WKSConfig, request: SearchRequest, strategy_nam
             continue
         spec = config.index.indexes[index_name]
         if spec.embedding_model is not None:
+            if not explicit_strategy and not request.query_image.strip():
+                embedding_count = _SEARCH_RUNTIME.count_semantic_embeddings(config, index_name, spec.embedding_model)
+                if embedding_count > MAX_IMPLICIT_SEMANTIC_EMBEDDINGS:
+                    warnings.append(
+                        f"Skipping semantic index '{index_name}' in implicit strategy '{strategy_name}' "
+                        f"({embedding_count} embeddings exceeds {MAX_IMPLICIT_SEMANTIC_EMBEDDINGS}); "
+                        f"use --strategy {strategy_name} to include it explicitly"
+                    )
+                    continue
             semantic_response = _run_semantic_search(
                 config,
                 SearchRequest(
@@ -363,6 +395,47 @@ def _rank_lexical_hits(state: _LexicalIndexState, query: str, k: int) -> list[di
         if query_terms.intersection(state.corpus[item])
     ]
     return _dedupe_hits(ranked_hits, k)
+
+
+def _rank_lexical_chunks(chunks: list[Any], query: str, k: int) -> list[dict[str, Any]]:
+    if not chunks:
+        return []
+    corpus = [chunk.text.lower().split() for chunk in chunks]
+    if not corpus:
+        return []
+    from rank_bm25 import BM25Okapi
+
+    bm25 = BM25Okapi(corpus)
+    query_terms = set(query.lower().split())
+    scores = bm25.get_scores(list(query_terms))
+    ranked = sorted(range(len(scores)), key=lambda item: scores[item], reverse=True)
+    ranked_hits = []
+    for item in ranked:
+        if not query_terms.intersection(corpus[item]):
+            continue
+        score = float(scores[item])
+        if score <= 0.0:
+            score = _term_frequency_score(query_terms, corpus[item])
+        ranked_hits.append(
+            {
+                "uri": chunks[item].uri,
+                "chunk_index": chunks[item].chunk_index,
+                "score": round(score, 4),
+                "tokens": chunks[item].tokens,
+                "text": chunks[item].text,
+            }
+        )
+    return _dedupe_hits(ranked_hits, k)
+
+
+def _lexical_candidate_limit(k: int) -> int:
+    return min(max(k * 200, 1000), 10000)
+
+
+def _term_frequency_score(query_terms: set[str], terms: list[str]) -> float:
+    if not terms:
+        return 0.0
+    return sum(1 for term in terms if term in query_terms) / len(terms)
 
 
 def _query_output(request: SearchRequest) -> str:

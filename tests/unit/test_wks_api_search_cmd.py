@@ -176,17 +176,21 @@ def test_search_uses_default_index(search_env):
     assert result.output["index_name"] == "main"
 
 
-@pytest.mark.parametrize("mutate_index, expected_calls", [(False, 1), (True, 2)])
-def test_search_lexical_runtime_cache_behavior(search_env, monkeypatch, tmp_path, mutate_index, expected_calls):
+@pytest.mark.parametrize("mutate_index", [False, True])
+def test_search_lexical_uses_candidate_loading(search_env, monkeypatch, tmp_path, mutate_index):
     _SEARCH_RUNTIME.reset()
     call_count = {"count": 0}
-    original_get_all = _ChunkStore.get_all
+    original_search_text = _ChunkStore.search_text
 
-    def counting_get_all(self, index_name: str):
+    def fail_get_all(self, index_name: str):
+        raise AssertionError("_ChunkStore.get_all should not be used for lexical search")
+
+    def counting_search_text(self, index_name: str, query: str, limit: int):
         call_count["count"] += 1
-        return original_get_all(self, index_name)
+        return original_search_text(self, index_name, query, limit)
 
-    monkeypatch.setattr(_ChunkStore, "get_all", counting_get_all)
+    monkeypatch.setattr(_ChunkStore, "get_all", fail_get_all)
+    monkeypatch.setattr(_ChunkStore, "search_text", counting_search_text)
 
     first = run_cmd(search_cmd, "fission", index="main")
     assert first.success is True
@@ -207,7 +211,18 @@ def test_search_lexical_runtime_cache_behavior(search_env, monkeypatch, tmp_path
     second = run_cmd(search_cmd, "reactor" if not mutate_index else "fission", index="main")
 
     assert second.success is True
-    assert call_count["count"] == expected_calls
+    assert call_count["count"] == 2
+
+
+def test_search_lexical_refuses_large_unindexed_fallback(search_env, monkeypatch):
+    import wks.api.index._ChunkStore as chunk_store_mod
+
+    monkeypatch.setattr(chunk_store_mod, "_FALLBACK_TEXT_SCAN_LIMIT", 1)
+
+    result = run_cmd(search_cmd, "fission", index="main")
+
+    assert result.success is False
+    assert "Run: wksc index optimize" in result.output["errors"][0]
 
 
 def test_search_no_config(tmp_path, monkeypatch):
